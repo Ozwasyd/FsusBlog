@@ -1,0 +1,106 @@
+{
+  "source": "f27a1c5eb0191134b48780e58b60dfd1473000eb",
+  "qualification": false,
+  "entries": [
+    {
+      "path": "README.md",
+      "bytes": 2467,
+      "sha256": "298d6a7a87f0b5116e99e95ad75e259cd5e55d76153079225be15a3b8193a957"
+    },
+    {
+      "path": "equivalence-command.json",
+      "bytes": 325,
+      "sha256": "92113176d8b6374fecd297497b6648ab2bb01f140577ab5286a201f1051181b3"
+    },
+    {
+      "path": "equivalence.json",
+      "bytes": 1316,
+      "sha256": "ccd37967bf61d0b9d45c3e9dc5fad6c7103b06e02c31e756c2c287b2e3808a08"
+    },
+    {
+      "path": "equivalence.log.gz",
+      "bytes": 754,
+      "sha256": "980a3a781b963bf53192e1c8d7b59ddc9153888774f3ea0e0c66e2f099cb893d"
+    },
+    {
+      "path": "lint-after.json",
+      "bytes": 379,
+      "sha256": "0660d7cc1f2017622a9219b19a0d92a02d1492b19236c50a4eceb4a8c71b1652"
+    },
+    {
+      "path": "lint-after.log.gz",
+      "bytes": 79,
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8"
+    },
+    {
+      "path": "lint-before-correct.json",
+      "bytes": 379,
+      "sha256": "dd6867447519c8f4faca135d56d25ea2dffe9208375ec03987bb75c201c35f0a"
+    },
+    {
+      "path": "lint-before-correct.log.gz",
+      "bytes": 148,
+      "sha256": "f657a8d8937fcceac4c60719b1e97965f1cd5824b8c08a0d8ab2a9971e604fd2"
+    },
+    {
+      "path": "lint-before.json",
+      "bytes": 379,
+      "sha256": "9be580389bc38b6af312abac466873a2c2b1e9f02f391b8c962489e5bccc05c4"
+    },
+    {
+      "path": "lint-before.log.gz",
+      "bytes": 82,
+      "sha256": "301493e03e1feb0c492a7d297102846942dd903590bef137b4d41ddf495f9631"
+    },
+    {
+      "path": "post-binaryApi.ts.gz",
+      "bytes": 5459,
+      "sha256": "382e120fabc02576f52b935ae6ce6ca73e0f956541577bf7469d6bee4c5089bb"
+    },
+    {
+      "path": "post-emit.js.gz",
+      "bytes": 322,
+      "sha256": "a8531c733a7284f38aa4e74505fa7ec3551c04e966f6dc0702397577a5afaa27"
+    },
+    {
+      "path": "pre-binaryApi.ts.gz",
+      "bytes": 5454,
+      "sha256": "d44334ffa9efefab736642c35952dca9916c6b5dbce134a920586c9dfc03452b"
+    },
+    {
+      "path": "pre-emit.js.gz",
+      "bytes": 322,
+      "sha256": "a8531c733a7284f38aa4e74505fa7ec3551c04e966f6dc0702397577a5afaa27"
+    },
+    {
+      "path": "rail-apply.json",
+      "bytes": 277,
+      "sha256": "0e0332226e37b0442e6192ff9b7ec9c12a0dfe45e6d3c1ae551fe350a36b0c63"
+    },
+    {
+      "path": "rail-minimal.patch.gz",
+      "bytes": 373,
+      "sha256": "2db43d66830650edb102bca63b42426028f230ddabd73d33de61cf2205746cfd"
+    },
+    {
+      "path": "setup.json",
+      "bytes": 1308,
+      "sha256": "b78a6448d2f5baf6df8055e6adc8de261e5dc96067ab18905ed941028e0bea3f"
+    },
+    {
+      "path": "source-binding.json",
+      "bytes": 1301,
+      "sha256": "fd5d5bf5cf225ced93233dad5bfdf160deedbe336c1f74b07bf104cd622d66c1"
+    },
+    {
+      "path": "style-directory-setup.json",
+      "bytes": 50383,
+      "sha256": "0fea14e5069a6d2075af88cc629cf9b71f5508d890b0f6a8555eb2d481338703"
+    },
+    {
+      "path": "verify-equivalence.mjs.gz",
+      "bytes": 2392,
+      "sha256": "7011ca8b297cfef34d62f337026e49ee5dae44283f79f3122f3fd65b6cc8ab56"
+    }
+  ]
+}

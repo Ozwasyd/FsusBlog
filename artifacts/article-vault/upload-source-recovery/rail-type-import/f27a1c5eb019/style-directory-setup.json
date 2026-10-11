@@ -1,0 +1,807 @@
+{
+  "firstFailure": "root node_modules symlink was an untracked Git path, source-state digest tried to read a directory; EISDIR before lint",
+  "correction": "real task-owned ignored node_modules directory with existing locked-cache entries linked underneath",
+  "links": [
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fast-uri",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fast-uri"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/locate-path",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/locate-path"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/hashery",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/hashery"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/ansi-regex",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/ansi-regex"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/write-file-atomic",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/write-file-atomic"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/eslint-plugin-import-x",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/eslint-plugin-import-x"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fast-levenshtein",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fast-levenshtein"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/globals",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/globals"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@typescript-eslint",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@typescript-eslint"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/parse-imports-exports",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/parse-imports-exports"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/shebang-regex",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/shebang-regex"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/import-fresh",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/import-fresh"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/strip-ansi",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/strip-ansi"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/signal-exit",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/signal-exit"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/balanced-match",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/balanced-match"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fast-deep-equal",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fast-deep-equal"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/unicorn-magic",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/unicorn-magic"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/is-fullwidth-code-point",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/is-fullwidth-code-point"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/path-exists",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/path-exists"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/which",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/which"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/word-wrap",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/word-wrap"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/slash",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/slash"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/minimatch",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/minimatch"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/glob-parent",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/glob-parent"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/hookified",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/hookified"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/style-search",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/style-search"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/object-deep-merge",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/object-deep-merge"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/reserved-identifiers",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/reserved-identifiers"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/eslint",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/eslint"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/stylelint-config-recommended-scss",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/stylelint-config-recommended-scss"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fastq",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fastq"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/is-glob",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/is-glob"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/global-modules",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/global-modules"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/entities",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/entities"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/stable-hash-x",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/stable-hash-x"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@sindresorhus",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@sindresorhus"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@types",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@types"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/mdn-data",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/mdn-data"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@eslint-community",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@eslint-community"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/cross-spawn",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/cross-spawn"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/run-parallel",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/run-parallel"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/file-entry-cache",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/file-entry-cache"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/json-buffer",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/json-buffer"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/get-east-asian-width",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/get-east-asian-width"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/known-css-properties",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/known-css-properties"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/find-up",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/find-up"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/supports-color",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/supports-color"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@es-joy",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@es-joy"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/js-tokens",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/js-tokens"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/prelude-ls",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/prelude-ls"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/stylelint",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/stylelint"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/brace-expansion",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/brace-expansion"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/.bin",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/.bin"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/import-meta-resolve",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/import-meta-resolve"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/semver",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/semver"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/are-docs-informative",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/are-docs-informative"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/css-functions-list",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/css-functions-list"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@eslint",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@eslint"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/parent-module",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/parent-module"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss-selector-parser",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss-selector-parser"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/debug",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/debug"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/.package-lock.json",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/.package-lock.json"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/resolve-from",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/resolve-from"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/html-tags",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/html-tags"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/parse-statements",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/parse-statements"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/comment-parser",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/comment-parser"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/esquery",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/esquery"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/colord",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/colord"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@humanfs",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@humanfs"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/is-path-inside",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/is-path-inside"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/require-from-string",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/require-from-string"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/spdx-expression-parse",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/spdx-expression-parse"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/yocto-queue",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/yocto-queue"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/globjoin",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/globjoin"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/nanoid",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/nanoid"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/lines-and-columns",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/lines-and-columns"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/ansi-styles",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/ansi-styles"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/table",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/table"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@csstools",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@csstools"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/tinyglobby",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/tinyglobby"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/eslint-plugin-vue",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/eslint-plugin-vue"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss-safe-parser",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss-safe-parser"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/eslint-plugin-jsdoc",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/eslint-plugin-jsdoc"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss-html",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss-html"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/imurmurhash",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/imurmurhash"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/has-flag",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/has-flag"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/error-ex",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/error-ex"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/deep-is",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/deep-is"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/type-check",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/type-check"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/color-convert",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/color-convert"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/eslint-visitor-keys",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/eslint-visitor-keys"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/stylelint-config-recommended",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/stylelint-config-recommended"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/meow",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/meow"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/emoji-regex",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/emoji-regex"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fast-glob",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fast-glob"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/js-yaml",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/js-yaml"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/merge2",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/merge2"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/nth-check",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/nth-check"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@nodelib",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@nodelib"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/get-tsconfig",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/get-tsconfig"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/micromatch",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/micromatch"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/to-regex-range",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/to-regex-range"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/keyv",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/keyv"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/qified",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/qified"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fastest-levenshtein",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fastest-levenshtein"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/queue-microtask",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/queue-microtask"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/natural-compare",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/natural-compare"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/eslint-scope",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/eslint-scope"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/svg-tags",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/svg-tags"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@stylistic",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@stylistic"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/ms",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/ms"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/path-key",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/path-key"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/mathml-tag-names",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/mathml-tag-names"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/is-arrayish",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/is-arrayish"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/kind-of",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/kind-of"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/source-map-js",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/source-map-js"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/to-valid-identifier",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/to-valid-identifier"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/jsdoc-type-pratt-parser",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/jsdoc-type-pratt-parser"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/util-deprecate",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/util-deprecate"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/cssesc",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/cssesc"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/boolbase",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/boolbase"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@cacheable",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@cacheable"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/json-parse-even-better-errors",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/json-parse-even-better-errors"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss-resolve-nested-selector",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss-resolve-nested-selector"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/espree",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/espree"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/color-name",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/color-name"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/levn",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/levn"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/global-prefix",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/global-prefix"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fast-json-stable-stringify",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fast-json-stable-stringify"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/ignore",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/ignore"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/xml-name-validator",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/xml-name-validator"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/picocolors",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/picocolors"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/supports-hyperlinks",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/supports-hyperlinks"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss-scss",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss-scss"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@babel",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@babel"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/flatted",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/flatted"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/braces",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/braces"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/normalize-path",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/normalize-path"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/vue-eslint-parser",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/vue-eslint-parser"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/lodash.truncate",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/lodash.truncate"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/globby",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/globby"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/astral-regex",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/astral-regex"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/spdx-license-ids",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/spdx-license-ids"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/picomatch",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/picomatch"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/napi-postinstall",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/napi-postinstall"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/callsites",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/callsites"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/unrs-resolver",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/unrs-resolver"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/is-number",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/is-number"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/domhandler",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/domhandler"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/spdx-exceptions",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/spdx-exceptions"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/reusify",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/reusify"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/estraverse",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/estraverse"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss-media-query-parser",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss-media-query-parser"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/eslint-import-context",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/eslint-import-context"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/p-locate",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/p-locate"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/typescript-eslint",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/typescript-eslint"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@keyv",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@keyv"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/domelementtype",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/domelementtype"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/acorn",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/acorn"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/domutils",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/domutils"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/string-width",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/string-width"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@humanwhocodes",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@humanwhocodes"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/slice-ansi",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/slice-ansi"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/postcss-value-parser",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/postcss-value-parser"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/p-limit",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/p-limit"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/ajv",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/ajv"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/stylelint-config-standard",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/stylelint-config-standard"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/env-paths",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/env-paths"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/isexe",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/isexe"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/html-entities",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/html-entities"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/is-extglob",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/is-extglob"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/ini",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/ini"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/parse-json",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/parse-json"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/css-tree",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/css-tree"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/cosmiconfig",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/cosmiconfig"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/typescript",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/typescript"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/stylelint-config-standard-scss",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/stylelint-config-standard-scss"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/esutils",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/esutils"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/json-schema-traverse",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/json-schema-traverse"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/resolve-pkg-maps",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/resolve-pkg-maps"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/acorn-jsx",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/acorn-jsx"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fdir",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fdir"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/escape-string-regexp",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/escape-string-regexp"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/@unrs",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/@unrs"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/argparse",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/argparse"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/htmlparser2",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/htmlparser2"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/dom-serializer",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/dom-serializer"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/flat-cache",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/flat-cache"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/is-plain-object",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/is-plain-object"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/fill-range",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/fill-range"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/punycode",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/punycode"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/esrecurse",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/esrecurse"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/ts-api-utils",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/ts-api-utils"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/uri-js",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/uri-js"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/stylelint-scss",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/stylelint-scss"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/optionator",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/optionator"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/shebang-command",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/shebang-command"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/cacheable",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/cacheable"
+    },
+    {
+      "path": "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules/json-stable-stringify-without-jsonify",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/tools/frontend/style-toolchain/node_modules/json-stable-stringify-without-jsonify"
+    }
+  ],
+  "checkerRulesAndConfigUnchanged": true
+}

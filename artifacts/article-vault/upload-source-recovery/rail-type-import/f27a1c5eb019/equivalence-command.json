@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "/workspace/chain-1975-evidence/rail-type-import-20261011/verify-equivalence.mjs"
+  ],
+  "source": "f27a1c5eb0191134b48780e58b60dfd1473000eb",
+  "cwd": "/workspace/chain2258-upload-source-recovery",
+  "exitCode": 0,
+  "timeUtc": "2026-10-11T23:45:33.682057+00:00",
+  "qualification": false
+}
