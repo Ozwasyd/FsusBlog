@@ -1,0 +1,11 @@
+{
+  "generators": "NOT RUN",
+  "frozenAuthorityRefresh": "NOT RUN",
+  "testsDiscoveryTypesLint": "NOT RUN",
+  "nativeSecurityReceiptBackendTests": "HELD/NOT RUN",
+  "original1975AssetMigrationBackup": "HELD",
+  "callerAndUi": "read-only/no execution/no incorporation",
+  "offers": "UNAPPLIED, including inactive source protocol proposal",
+  "allIssueAndProductAcceptance": "OPEN",
+  "qualification": false
+}

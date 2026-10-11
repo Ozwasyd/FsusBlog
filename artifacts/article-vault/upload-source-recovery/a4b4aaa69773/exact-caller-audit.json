@@ -1,0 +1,131 @@
+{
+  "caller": "a4b4aaa69773e0039ce1acdb525bb7aef3d8b330",
+  "uiIdentity": "cb115a prefix supplied by parent; not expanded or requalified here",
+  "sourceFacts": [
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "blob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+      "sha256": "343481a69ff4112a5d78fa2b97592b5809722e580e66f00b73d7e8d804b138f9",
+      "bytes": 7014,
+      "readOnly": true
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "sha256": "bf3d61d97578206e0fa9273dcbc5cd72010c3713f5e708e51df04a8a4837a080",
+      "bytes": 6887,
+      "readOnly": true
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "blob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "sha256": "71fa46399352fb4854ee5db21b5ffaec46a489f70fa439c19cc432fb111ad76b",
+      "bytes": 1673,
+      "readOnly": true
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "blob": "e780acfb55a79b41e9321b73bacef8425044dfde",
+      "sha256": "68bd8c4f603190206c2db7deb76117cb921a484a971eaf8198cca01d7d04f665",
+      "bytes": 23256,
+      "readOnly": true
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "blob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+      "sha256": "353b9e5c833c5f8584e005253ee32d108d03da00d2321d681f5dbeb8fe70aeef",
+      "bytes": 26478,
+      "readOnly": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "blob": "983a35bd57ff8da6a0718bc2282ea9b764432402",
+      "sha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+      "bytes": 44274,
+      "readOnly": true
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "blob": "f4d3d037304b66acc0a9f4aaaf431646125d15b5",
+      "sha256": "5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19",
+      "bytes": 8178,
+      "readOnly": true
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "blob": "511f8d1e0c16859ac7bccd01033d8ce9e6760943",
+      "sha256": "c49608b7bfc74466e157017e1d22bb9ef202e006964174fe1d4f9fd957171cd4",
+      "bytes": 174617,
+      "readOnly": true
+    }
+  ],
+  "nineDiagnosticsFromParentNotRerun": [
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "line": 4,
+      "missingSymbol": "UploadAssetPreviewViewModel",
+      "producer": "original VM",
+      "state": "real original declaration restored in sourcec08 and one-file offer"
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "line": 5,
+      "missingSymbol": "UploadAssetFactsViewModel",
+      "producer": "original VM",
+      "state": "real original declaration restored in sourcec08 and one-file offer"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 7,
+      "missingSymbol": "UploadAssetPreviewViewModel",
+      "producer": "original VM",
+      "state": "real original declaration restored in sourcec08 and one-file offer"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 22,
+      "missingSymbol": "UploadAssetPreviewViewModel",
+      "producer": "original VM",
+      "state": "real original declaration restored in sourcec08 and one-file offer"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 186,
+      "missingSymbol": "binary_post_upload_uploadId_preview",
+      "producer": "generated route producer",
+      "state": "BLOCKED canonical producer output, no shim"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 187,
+      "missingSymbol": "UploadAssetPreview",
+      "producer": "canonical frame producer",
+      "state": "BLOCKED canonical producer output, no shim"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "line": 2,
+      "missingSymbol": "UploadAssetFactsViewModel",
+      "producer": "original VM",
+      "state": "real original declaration restored in sourcec08 and one-file offer"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "line": 20,
+      "missingSymbol": "binary_post_upload_uploadId_facts",
+      "producer": "generated route producer",
+      "state": "BLOCKED canonical producer output, no shim"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "line": 21,
+      "missingSymbol": "UploadAssetFacts",
+      "producer": "canonical frame producer",
+      "state": "BLOCKED canonical producer output, no shim"
+    }
+  ],
+  "additionalJoin": "binaryDecoderRegistry lacks two existing mapper imports, supported-frame entries and actual decoder registrations; minimal original registration hunk offered, unapplied",
+  "sourceScope": "consumer files only read; no caller/UI branch incorporation",
+  "testsTypesLint": "NOT RUN",
+  "qualification": false
+}
