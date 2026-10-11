@@ -317,3 +317,47 @@ loan's signal/currentness and `finally release`; it adds no cancellation owner,
 secondary task registry or compensating native write. Upstream source remains
 unaccepted, and every runtime/qualification hold remains in force. Await the
 coordinator's exact upstream correction for another source-only interface check.
+
+## 2026-10-11 original-record custody correction
+
+Independent review of exact b30c8094 reports one conditional consumer P2:
+changing the supplied original request's contextLineCount from 3 to 7 and the
+presentation's expected optionsDigest to the digest of 7 could pass a new real
+read matching that altered expected digest, while keeping the original proposal
+unchanged. The original proposal did not include the expected plan receipt, so
+a trusted-input assertion was not an enforced association.
+
+The existing `createRevisionFragmentProposal` producer now seals the complete
+owned original `planReceipt` using its existing
+`calculateOpenArticleDocumentDigest` producer. The required
+`comparePlanReceiptDigest` is part of the canonical unsigned proposal and thus
+its existing contentDigest and deep-frozen output. The same receipt supplies the
+selection's original planDigest, checked by the producer. This binds original
+options/budget/permission/schema/cancellation/package/read coordinates to that
+proposal record; it does not authenticate a server record or grant permission.
+No alternate digest algorithm, custody registry or authorization owner was added.
+
+The consumer now requires that sealed original receipt and its original
+planDigest before any native capture or new API call. Its subsequent canonical
+proposal regeneration still compares the complete proposal. Replacing both
+request options and the expected receipt digest therefore fails
+`compare_record_stale` before a new read, even if that new read would match the
+substitution. The producer emits schema v2 for this required original-record
+binding. Legacy v1 or unbound proposals are refused, never backfilled from a
+caller-supplied presentation. The local source-stage schema has no persistence
+or public wire migration; old evidence remains at its old source identities.
+
+Five new authored source controls cover compensated expected options, budgets,
+permission scope and metadata schema substitutions with an unchanged proposal,
+and legacy/unbound proposal refusal. They assert no API call/capture, an unchanged
+original proposal/plan/record digest, and finally release. The options control
+uses the precise 3-to-7 input substitution from review. The existing positive
+source control now checks the producer's receipt binding and v2 schema. Original
+47 plus new 5 controls (52 statically authored cases) remain UNRUN and unlisted.
+The output remains unexecuted; the actual API read, separate read observation,
+loan release and all authority/native/runtime/acceptance holds are preserved.
+The original Writer owner still owns the upstream loan P2 repair, and no new
+upstream correction was consumed. The d21c source review does not cover this
+new producer/consumer correction; return its exact increment for independent
+source review. Original evidence.json and matrix/TypeScript failure identities
+are not rebound or replaced by these new source checks.

@@ -28,9 +28,11 @@ export interface RevisionFragmentSelection {
 
 /** Source-stage proposal only. No permission, execution receipt or transaction authority. */
 export interface RevisionFragmentProposal {
-    readonly schema: 'fsusblog.revision-fragment-proposal.v1';
+    readonly schema: 'fsusblog.revision-fragment-proposal.v2';
     readonly status: 'unexecuted';
     readonly selection: RevisionFragmentSelection;
+    /** Original complete server plan receipt, sealed by the existing proposal digest producer. */
+    readonly comparePlanReceiptDigest: string;
     readonly historicalRevisionId: string;
     readonly baseSourceIdentity: string;
     readonly compareSourceIdentity: string;
@@ -194,9 +196,10 @@ export async function createRevisionFragmentProposal(
         fail('source_stale');
     }
     const unsigned = {
-        schema: 'fsusblog.revision-fragment-proposal.v1' as const,
+        schema: 'fsusblog.revision-fragment-proposal.v2' as const,
         status: 'unexecuted' as const,
         selection: selected,
+        comparePlanReceiptDigest: calculateOpenArticleDocumentDigest(plan),
         historicalRevisionId: reference.revisionId,
         baseSourceIdentity: plan.basePackageReference.sourceIdentity,
         compareSourceIdentity: plan.comparePackageReference.sourceIdentity,

@@ -57,6 +57,12 @@ export async function recheckRevisionFragmentProposal(
         const original = structuredClone(presentation);
         const request = structuredClone(originalRequest);
         const plan = original.response.planReceipt;
+        // Reject substituted expected records before any capture or new read. Never backfill a legacy proposal.
+        if (selected.schema !== 'fsusblog.revision-fragment-proposal.v2'
+            || plan.planDigest !== selected.selection.planDigest || selected.comparePlanReceiptDigest !== digest(plan))
+        {
+            fail('compare_record_stale');
+        }
         if (request.cancellationIdentity !== plan.cancellationIdentity
             || ![plan.permissionScopeDigest, plan.optionsDigest, plan.budgetDigest, plan.metadataSchemaDigest]
                 .every(value => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value)))

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { compareArticleRevisionSources } from '@/api/articleRevisionCompare';
 import type { ArticleRevisionCompareRequest, ArticleRevisionCompareResponse } from '@/api/articleRevisionCompare';
 import { ArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
+import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { createRevisionFragmentProposal } from '@/services/revisionFragmentProposal';
 import { recheckRevisionFragmentProposal } from '@/services/revisionFragmentPreflight';
 import { materializeRevisionSourcePresentation, revisionSourceDigest } from '@/services/revisionComparePresentation';
@@ -71,6 +72,8 @@ describe('canonical loan fragment preflight source controls', () => {
         const f = await fixture();
         const result = await recheckRevisionFragmentProposal(f.proposal, f.presentation, f.request, f.caller);
         expect(result.status).toBe('unexecuted');
+        expect(result.proposal.schema).toBe('fsusblog.revision-fragment-proposal.v2');
+        expect(result.proposal.comparePlanReceiptDigest).toBe(calculateOpenArticleDocumentDigest(f.presentation.response.planReceipt));
         expect(result.proposal).toEqual(f.proposal);
         expect(result.proposal.selection.planDigest).toBe(hash('a'));
         expect(result.readObservation.planDigest).toBe(hash('5'));
@@ -81,6 +84,34 @@ describe('canonical loan fragment preflight source controls', () => {
         expect(api).toHaveBeenCalledWith(42, { ...f.request, cancellationIdentity: f.caller.task.envelope.requestId },
             { signal: f.caller.task.signal });
         expect(f.request.cancellationIdentity).toBe('original:compare');
+        expect(f.caller.release).toHaveBeenCalledTimes(1);
+    });
+    it.each(['optionsDigest', 'budgetDigest', 'permissionScopeDigest', 'metadataSchemaDigest'] as const)(
+        'rejects a substituted expected %s even when a new read would match it', async field => {
+            const f = await fixture();
+            const originalProposalDigest = f.proposal.contentDigest;
+            const originalPlanDigest = f.proposal.selection.planDigest;
+            const originalRecordDigest = f.proposal.comparePlanReceiptDigest;
+            if (field === 'optionsDigest') f.request.options.contextLineCount = 7;
+            if (field === 'budgetDigest') f.request.budgets.maxChunks = 7;
+            f.presentation.response.planReceipt[field] = hash('7');
+            f.fresh.planReceipt[field] = hash('7');
+            await expect(recheckRevisionFragmentProposal(f.proposal, f.presentation, f.request, f.caller))
+                .rejects.toThrow('compare_record_stale');
+            expect(f.proposal.contentDigest).toBe(originalProposalDigest);
+            expect(f.proposal.selection.planDigest).toBe(originalPlanDigest);
+            expect(f.proposal.comparePlanReceiptDigest).toBe(originalRecordDigest);
+            expect(api).not.toHaveBeenCalled();
+            expect(f.caller.captureCurrent).not.toHaveBeenCalled();
+            expect(f.caller.release).toHaveBeenCalledTimes(1);
+        });
+    it('rejects an unbound legacy proposal without backfilling from the supplied record', async () => {
+        const f = await fixture();
+        const legacy = { ...f.proposal, schema: 'fsusblog.revision-fragment-proposal.v1', comparePlanReceiptDigest: undefined };
+        await expect(recheckRevisionFragmentProposal(legacy as unknown as typeof f.proposal, f.presentation, f.request, f.caller))
+            .rejects.toThrow('compare_record_stale');
+        expect(api).not.toHaveBeenCalled();
+        expect(f.caller.captureCurrent).not.toHaveBeenCalled();
         expect(f.caller.release).toHaveBeenCalledTimes(1);
     });
     it('preserves a real API rejection without substituting a cached permission grant and releases', async () => {
