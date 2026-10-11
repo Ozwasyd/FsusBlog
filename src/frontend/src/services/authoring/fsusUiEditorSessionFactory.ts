@@ -13,6 +13,7 @@ import {
 import type {
     MarkdownEditorSession,
     MarkdownEditorSessionExpose,
+    MarkdownEditorSessionLastValidRender,
     MarkdownEditorSessionSnapshot
 } from '@ozwasyd/element-plus';
 
@@ -30,6 +31,7 @@ export type ArticleWorkspaceMountedEditorResolver = (
 
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
+    captureLastValidRender(entry: OpenArticleDocumentEntry): MarkdownEditorSessionLastValidRender | null;
 }
 
 function assertBinding(
@@ -106,6 +108,24 @@ export function createFsusUiEditorSessionFactory(
     }
 
     return {
+        captureLastValidRender(entry)
+        {
+            const { binding, session } = resolveSession(entry);
+            const capture = session.captureLastValidRender();
+            const current = resolveSession(entry);
+            if (current.session !== session
+                || current.binding.editorRevision !== binding.editorRevision)
+            {
+                throw new Error('public-editor-last-valid-render-owner-stale');
+            }
+            if (capture && (capture.documentIdentity.id !== binding.identity.documentId
+                || capture.documentIdentity.epoch !== binding.documentContext.documentEpoch
+                || capture.revision !== binding.editorRevision))
+            {
+                throw new Error('public-editor-last-valid-render-context-mismatch');
+            }
+            return capture;
+        },
         captureRetainedSnapshot(entry)
         {
             const { binding, session } = resolveSession(entry);
@@ -131,10 +151,11 @@ export function createFsusUiEditorSessionFactory(
                 captureSnapshot(context)
                 {
                     assertCurrent(entry, session, context);
-                    // Upstream retains actual transaction/view state, but has
-                    // no renderer checkpoint or application draft/journal refs.
+                    // Upstream exposes an actual nullable full-document render
+                    // ref, but complete panel state, renderer restoration and
+                    // application draft/journal checkpoint owners remain absent.
                     // Refuse before capture so an existing snapshot is preserved.
-                    throw new Error('public-editor-full-snapshot-owner-unavailable:renderer,draft,crash-journal');
+                    throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,crash-journal');
                 },
                 inspectResources: () => session.inspectResources(),
                 pauseResources: () => session.pauseResources(),
@@ -148,7 +169,7 @@ export function createFsusUiEditorSessionFactory(
                         snapshotDigest: snapshot.snapshotDigest,
                         identityValidated: false,
                         refsValidated: false,
-                        reason: 'public-editor-full-snapshot-owner-unavailable:renderer,draft,crash-journal'
+                        reason: 'public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,crash-journal'
                     };
                 },
                 disposeAfterSnapshot: snapshotRef => session.disposeAfterSnapshot(snapshotRef)

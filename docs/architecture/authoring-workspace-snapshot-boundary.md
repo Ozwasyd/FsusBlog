@@ -228,3 +228,23 @@ execution, issue closure or merge is included. Security/privacy/receipt/native/
 race/backuprestore/IME holds continue to apply. Current source and draft revision
 refs must come from the original document owner, not from copying the requested
 registry entry into the resolver's answer.
+
+
+### Actual renderer proof receiver increment
+
+The same public session now reads the existing mounted full-document renderer's
+opaque authorized last-valid result ref. A missing renderer, fragment/embed view,
+unrendered revision, old document/epoch or missing projection returns null. The
+retained public snapshot includes that real proof when present; no hidden renderer
+is created to qualify a source-only editor. The Blog factory forwards
+`captureLastValidRender(entry)` and re-resolves the mounted original owner with
+exact document/epoch/editor revision checks after capture. It caches no renderer,
+body, history or session index.
+
+This is neither validated renderer restoration nor a complete host snapshot. The
+full factory still lacks active-node/scroll/outline/search/attachment checkpoint
+contracts, renderer restoration and original draft/journal custody. Full snapshots
+refuse before replacing the retained checkpoint. Production composition remains
+UNWIRED, immediate receipt behavior is unchanged, and all qualification holds
+remain in force. The controller-only language/search and partial renderer source
+increments do not qualify total lifecycle usage or recoverable eviction.
