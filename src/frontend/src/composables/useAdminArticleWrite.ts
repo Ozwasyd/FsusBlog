@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch } from 'vue';
+import { computed, effectScope, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -76,7 +76,9 @@ import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, t
 import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
 import {
     articleDocumentContextAuthority,
-    type ArticleDocumentContextAdapter
+    type ArticleDocumentContextAdapter,
+    type ArticleDocumentRetainedBinding,
+    type ArticleDocumentRetainedInspection
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
@@ -88,7 +90,7 @@ import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articleP
 import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
 import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
 import { createArticleWriterMountedEditorSource } from '@/services/authoring/articleWriterMountedEditorSource';
-import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
+import { calculateOpenArticleDocumentDigest, type RetainedArticleDocumentHandle } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
@@ -492,6 +494,26 @@ const slugifyTitle = (title: string): string =>
 
 export function useAdminArticleWrite()
 {
+    // This is the original Writer's effect scope, not another document/form owner.
+    const writerScope = effectScope(true);
+    try
+    {
+        const writer = writerScope.run(() => createAdminArticleWriteOwner(writerScope));
+        if (!writer)
+        {
+            throw new Error('article-writer-effect-scope-unavailable');
+        }
+        return writer;
+    }
+    catch (error)
+    {
+        writerScope.stop();
+        throw error;
+    }
+}
+
+function createAdminArticleWriteOwner(writerScope: EffectScope)
+{
     const route = useRoute();
     const router = useRouter();
     const powProvider = usePow();
@@ -500,8 +522,15 @@ export function useAdminArticleWrite()
         validate: (callback?: FormValidateCallback) => FormValidationResult;
         scrollToField: (prop: FormItemProp) => void;
     }>('formRef');
+    const retainedPrimaryBinding = shallowRef<ArticleDocumentRetainedBinding | null>(null);
+    let retainingPrimary = false;
+    let componentAttached = true;
     const articleId = computed(() =>
     {
+        if (retainedPrimaryBinding.value)
+        {
+            return retainedPrimaryBinding.value.adapter.context.articleId;
+        }
         const raw = route.params.id ?? route.query.id;
         const parsed = Number(raw);
         return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
@@ -982,6 +1011,8 @@ export function useAdminArticleWrite()
     });
     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
     let releaseEditorRuntime: (() => void) | null = null;
+    let originalMountedEditor: ArticleEditorContinuityPort | null = null;
+    let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
     const authoringEditorRuntime = Object.freeze({
         bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
             readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
@@ -1027,6 +1058,8 @@ export function useAdminArticleWrite()
                 recoveryCheckpoint?.release();
                 editorRuntimeBinding = null;
                 releaseEditorRuntime = null;
+                originalMountedEditor = null;
+                originalMountedRuntime = null;
                 if (previewOwners.value?.binding === binding)
                 {
                     previewOwners.value = null;
@@ -1244,8 +1277,11 @@ export function useAdminArticleWrite()
                     recoveryCheckpointCreating = false;
                 }
             };
-            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
+            const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
                 search: searchRuntime, mountedSource });
+            originalMountedEditor = editor;
+            originalMountedRuntime = mountedRuntime;
+            return mountedRuntime;
         }
     });
     const initTask = useAbortableTask({
@@ -3607,10 +3643,148 @@ export function useAdminArticleWrite()
         void initData();
     });
 
-    onUnmounted(() =>
+    let unsubscribeRetainedContext: (() => void) | null = null;
+    let unsubscribeRetainedLifetime: (() => void) | null = null;
+    const inspectPrimary = (retained: ArticleDocumentRetainedBinding, requirePublication = false): ArticleDocumentRetainedInspection =>
     {
+        const observation = retained.inspect();
+        if (!active || !writerScope.active || retainedPrimaryBinding.value !== retained
+            || retained.adapter !== articleDocumentContextAdapter || observation.registry.state !== 'live'
+            || observation.invalidationFailed || !articleDocumentContextAdapter.isCurrentContext(observation.context)
+            || (requirePublication && !observation.registryRevisionMatchesDocument))
+        {
+            throw new Error('article-writer-retained-primary-unavailable');
+        }
+        return observation;
+    };
+    const requirePrimaryRuntime = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        const observation = inspectPrimary(retained);
+        const runtime = originalMountedRuntime;
+        const editor = originalMountedEditor;
+        const entry = observation.registry.entry;
+        if (!componentAttached || !runtime || !editor || !entry || runtime.binding !== editorRuntimeBinding
+            || runtime.mountedSource?.readMountedEditor(entry.editorSessionRef) !== editor)
+        {
+            throw new Error('article-writer-retained-primary-mount-unavailable');
+        }
+        inspectPrimary(retained);
+        return runtime;
+    };
+    // The original producer retains this same stable factory and its actual resources.
+    const createPrimaryConsumer = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        try
+        {
+            unsubscribeRetainedContext = retained.adapter.subscribeContext(syncAuthoringDocumentContext);
+            unsubscribeRetainedLifetime = retained.subscribeLifetime(() => syncAuthoringDocumentContext());
+        }
+        catch (error)
+        {
+            unsubscribeRetainedContext?.();
+            unsubscribeRetainedContext = null;
+            throw error;
+        }
+        return Object.freeze({
+            documentBinding: retained,
+            readView: () =>
+            {
+                const observation = inspectPrimary(retained);
+                return Object.freeze({ documentContext: observation.context, content: articleForm.content,
+                    loading: pageLoading.value, saving: submitting.value, inspection: observation,
+                    componentAttached, effectsActive: writerScope.active });
+            },
+            setContent: (content: string) =>
+            {
+                requirePrimaryRuntime(retained);
+                articleForm.content = content;
+            },
+            bindMountedEditor: (editor: ArticleEditorContinuityPort) =>
+            {
+                const runtime = requirePrimaryRuntime(retained);
+                if (originalMountedEditor !== editor)
+                {
+                    throw new Error('article-writer-retained-primary-editor-replaced');
+                }
+                return runtime;
+            },
+            consumeTransaction: (...args: Parameters<ArticleEditorRuntimeBinding['consumeTransaction']>) =>
+                requirePrimaryRuntime(retained).binding.consumeTransaction(...args),
+            consumeSelection: (...args: Parameters<ArticleEditorRuntimeBinding['consumeSelection']>) =>
+                requirePrimaryRuntime(retained).binding.consumeSelection(...args),
+            consumeFocus: (...args: Parameters<ArticleEditorRuntimeBinding['consumeFocus']>) =>
+                requirePrimaryRuntime(retained).binding.consumeFocus(...args),
+            admitAcceptedCapture: (input: Parameters<ArticleAttachmentContextAdapter['admitAcceptedCapture']>[0]) =>
+            {
+                requirePrimaryRuntime(retained);
+                return authoringAttachmentRuntime.admitAcceptedCapture(input);
+            },
+            saveDraft: () =>
+            {
+                requirePrimaryRuntime(retained);
+                inspectPrimary(retained, true);
+                saveDraftNow();
+            },
+            submit: () =>
+            {
+                requirePrimaryRuntime(retained);
+                inspectPrimary(retained, true);
+                return submitForm();
+            },
+            invalidateDocument: () =>
+            {
+                // Only the original handle's actual terminal observation authorizes final cleanup.
+                if (retained.inspect().registry.state !== 'revoked')
+                {
+                    throw new Error('article-writer-retained-primary-invalidation-unavailable');
+                }
+                disposeOriginalWriter();
+            }
+        });
+    };
+    const authoringRetainedPrimaryRuntime = Object.freeze({
+        adoptPrimaryRetainedDocument: (handle: RetainedArticleDocumentHandle) =>
+        {
+            if (!active || !componentAttached || retainingPrimary || !originalMountedRuntime)
+            {
+                throw new Error('article-writer-retained-primary-adoption-unavailable');
+            }
+            retainingPrimary = true;
+            try
+            {
+                const existing = retainedPrimaryBinding.value;
+                if (existing && existing.handle !== handle)
+                {
+                    throw new Error('article-writer-retained-primary-already-adopted');
+                }
+                const retained = existing ?? articleDocumentContextAuthority.adoptPrimaryRetainedDocument(
+                    articleWorkspaceTabRouter.getRegistry(), handle, articleDocumentContextBinding, {
+                        readPrincipalIdentityId: () => adminStore.adminPrincipal?.id?.trim() ?? null,
+                        readSiteScope: () => documentSiteScope
+                    });
+                // Preserve actual issued custody if consumer attachment subsequently refuses.
+                retainedPrimaryBinding.value = retained;
+                requirePrimaryRuntime(retained);
+                return retained.attachConsumer(createPrimaryConsumer);
+            }
+            finally
+            {
+                retainingPrimary = false;
+            }
+        }
+    });
+    const disposeOriginalWriter = (): void =>
+    {
+        if (!active)
+        {
+            return;
+        }
         active = false;
         suppressDraftSave = true;
+        unsubscribeRetainedContext?.();
+        unsubscribeRetainedContext = null;
+        unsubscribeRetainedLifetime?.();
+        unsubscribeRetainedLifetime = null;
         unsubscribeArticleRecoveryCoordination?.();
         unsubscribeArticleRecoveryCoordination = null;
         disposeArticleRecoveryLifecycle?.();
@@ -3638,6 +3812,15 @@ export function useAdminArticleWrite()
         articleForm.content = '';
         articleForm.summary = '';
         articleForm.rights = createDefaultArticleRightsForm();
+        writerScope.stop();
+    };
+    onUnmounted(() =>
+    {
+        componentAttached = false;
+        if (!retainedPrimaryBinding.value)
+        {
+            disposeOriginalWriter();
+        }
     });
 
     return {
@@ -3700,6 +3883,7 @@ export function useAdminArticleWrite()
         authoringDocumentContextAdapter: articleDocumentContextAdapter,
         authoringAttachmentRuntime,
         authoringEditorRuntime,
+        authoringRetainedPrimaryRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,
