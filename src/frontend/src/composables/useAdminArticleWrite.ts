@@ -1017,6 +1017,7 @@ export function useAdminArticleWrite()
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
             let recoveryCheckpoint: ArticleRecoveryJournalCheckpointBinding | null = null;
+            let recoveryCheckpointCreating = false;
             const release = (): void =>
             {
                 if (editorRuntimeBinding !== binding)
@@ -1090,7 +1091,7 @@ export function useAdminArticleWrite()
             const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointBinding =>
             {
                 const identityId = recoveryIdentityId();
-                if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || !identityId
+                if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || recoveryCheckpointCreating || !identityId
                     || identityId !== documentPrincipalIdentityId)
                 {
                     throw new Error('article-recovery-checkpoint-mounted-owner-unavailable');
@@ -1137,34 +1138,75 @@ export function useAdminArticleWrite()
                         baseRevisionId: isEdit.value ? currentRevisionId.value : null,
                         serverRevision: serverDraftRevision.value, clientRevision, content: articleForm.content });
                 };
-                // Resolve actual custody before allocating an original journal binding.
-                if (!readSource())
+                // Reserve before the first caller-held mounted read can reenter this method.
+                recoveryCheckpointCreating = true;
+                let journal: ArticleRecoveryJournalCheckpointBinding | null = null;
+                let unsubscribe: (() => void) | null = null;
+                let stopIdentityWatch: (() => void) | null = null;
+                let checkpoint: ArticleRecoveryJournalCheckpointBinding | null = null;
+                let released = false;
+                const releaseCheckpoint = (): void =>
                 {
-                    throw new Error('article-recovery-checkpoint-context-unavailable');
-                }
-                const journal = articleRecoveryJournal.bindCheckpointSource(readSource);
-                const unsubscribe = articleDocumentContextAdapter.subscribeContext(() => journal.invalidate());
-                const stopIdentityWatch = watch(() => adminStore.adminPrincipal?.id, () => journal.invalidate(), { flush: 'sync' });
-                const checkpoint = Object.freeze<ArticleRecoveryJournalCheckpointBinding>({
-                    prepare: signal => journal.prepare(signal),
-                    inspect: token => journal.inspect(token),
-                    validate: token => journal.validate(token),
-                    restore: token => journal.restore(token),
-                    invalidate: () => journal.invalidate(),
-                    release: () =>
+                    if (released)
                     {
-                        if (recoveryCheckpoint !== checkpoint)
-                        {
-                            return;
-                        }
-                        recoveryCheckpoint = null;
-                        unsubscribe();
-                        stopIdentityWatch();
-                        journal.release();
+                        return;
                     }
-                });
-                recoveryCheckpoint = checkpoint;
-                return checkpoint;
+                    released = true;
+                    if (recoveryCheckpoint === checkpoint)
+                    {
+                        recoveryCheckpoint = null;
+                    }
+                    try
+                    {
+                        unsubscribe?.();
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            stopIdentityWatch?.();
+                        }
+                        finally
+                        {
+                            journal?.release();
+                        }
+                    }
+                };
+                try
+                {
+                    if (!readSource())
+                    {
+                        throw new Error('article-recovery-checkpoint-context-unavailable');
+                    }
+                    const issued = articleRecoveryJournal.bindCheckpointSource(readSource);
+                    journal = issued;
+                    unsubscribe = articleDocumentContextAdapter.subscribeContext(() => issued.invalidate());
+                    stopIdentityWatch = watch(() => adminStore.adminPrincipal?.id, () => issued.invalidate(), { flush: 'sync' });
+                    checkpoint = Object.freeze<ArticleRecoveryJournalCheckpointBinding>({
+                        prepare: signal => issued.prepare(signal),
+                        inspect: token => issued.inspect(token),
+                        validate: token => issued.validate(token),
+                        restore: token => issued.restore(token),
+                        invalidate: () => issued.invalidate(),
+                        release: releaseCheckpoint
+                    });
+                    // Allocation/subscription may have synchronously released the original owner.
+                    if (!readSource())
+                    {
+                        throw new Error('article-recovery-checkpoint-context-unavailable');
+                    }
+                    recoveryCheckpoint = checkpoint;
+                    return checkpoint;
+                }
+                catch (error)
+                {
+                    releaseCheckpoint();
+                    throw error;
+                }
+                finally
+                {
+                    recoveryCheckpointCreating = false;
+                }
             };
             return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
                 search: searchRuntime, mountedSource });
