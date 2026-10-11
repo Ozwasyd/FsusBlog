@@ -83,9 +83,12 @@ interface RetainedArticleDocumentCell {
     readonly notify: () => void;
     readonly listeners: Set<() => void>;
     reason: RetainedArticleDocumentRevocation | null;
+    membershipClosed: boolean;
     notificationFailed: boolean;
     notifiedRevision: number;
     notifiedReason: RetainedArticleDocumentRevocation | null;
+    notifiedState: RetainedArticleDocumentInspection['state'];
+    notifiedFailure: boolean;
 }
 
 // Provenance is keyed by the opaque object, never article identity or a public ref.
@@ -151,12 +154,15 @@ export function revokeRetainedArticleDocumentScopeSet(handles: readonly Retained
 function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): void
 {
     const observation = cell.read();
-    if (cell.notifiedRevision === observation.registryRevision && cell.notifiedReason === observation.reason)
+    if (cell.notifiedRevision === observation.registryRevision && cell.notifiedReason === observation.reason
+        && cell.notifiedState === observation.state && cell.notifiedFailure === observation.notificationFailed)
     {
         return;
     }
     cell.notifiedRevision = observation.registryRevision;
     cell.notifiedReason = observation.reason;
+    cell.notifiedState = observation.state;
+    cell.notifiedFailure = observation.notificationFailed;
     for (const listener of [...cell.listeners])
     {
         try
@@ -167,7 +173,11 @@ function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): v
         {
             // The original command already committed. Keep custody and report failed
             // notification rather than return a rejection for a successful command.
-            cell.notificationFailed = true;
+            if (!cell.notificationFailed)
+            {
+                cell.notificationFailed = true;
+                cell.notify();
+            }
         }
     }
 }
@@ -757,17 +767,18 @@ export class OpenArticleDocumentRegistry
     private revision = 0;
     #ownershipTransactionPending = false;
     #groupOwnershipCell: ArticleGroupOwnershipCell | null = null;
-    private readonly retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
-    private retainedNotificationPending = false;
+    #retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
+    #retainedNotificationPending = false;
+    #retainedNotificationRequested = false;
 
     public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
     {
         const entry = this.entriesByTabId.get(tabId);
-        if (!entry || this.#ownershipTransactionPending || this.retainedNotificationPending)
+        if (!entry || this.#ownershipTransactionPending || this.#retainedNotificationPending)
         {
             throw new Error('retained-article-document-member-unavailable');
         }
-        const existing = [...this.retainedDocumentCells].find(cell => cell.tabId === tabId && cell.reason === null);
+        const existing = [...this.#retainedDocumentCells].find(cell => cell.tabId === tabId && cell.reason === null && !cell.membershipClosed);
         if (existing)
         {
             const observation = existing.read();
@@ -777,8 +788,8 @@ export class OpenArticleDocumentRegistry
             }
         }
         // A scope-retired member cannot mint a replacement handle before final close.
-        if ([...this.retainedDocumentCells].some(cell => cell.tabId === tabId
-            && cell.reason === 'scope-revoked' && cell.initial.editorSessionRef === entry.editorSessionRef
+        if ([...this.#retainedDocumentCells].some(cell => cell.tabId === tabId
+            && !cell.membershipClosed && cell.reason === 'scope-revoked' && cell.initial.editorSessionRef === entry.editorSessionRef
             && cell.initial.identity.documentId === entry.identity.documentId))
         {
             throw new Error('retained-article-document-scope-revoked');
@@ -790,17 +801,24 @@ export class OpenArticleDocumentRegistry
             tabId,
             initial: cloneValue(entry),
             reason: null,
+            membershipClosed: false,
             notificationFailed: false,
             notifiedRevision: this.revision,
             notifiedReason: null,
+            notifiedState: entry.status.permission === 'allowed' && entry.status.lifecycle === 'current' ? 'live' : 'blocked',
+            notifiedFailure: false,
             listeners: new Set(),
-            notify: () => this.notifyRetainedDocuments(),
+            notify: () => this.#notifyRetainedDocuments(),
             read: () =>
             {
                 const current = this.entriesByTabId.get(tabId);
+                if (!current)
+                {
+                    cell.membershipClosed = true;
+                }
                 if (!cell.reason)
                 {
-                    if (!current)
+                    if (cell.membershipClosed || !current)
                     {
                         cell.reason = 'final-close';
                     }
@@ -818,42 +836,47 @@ export class OpenArticleDocumentRegistry
                         && current.status.lifecycle === 'current' && !cell.notificationFailed ? 'live' : 'blocked',
                     reason: cell.reason,
                     registryRevision: this.revision,
-                    entry: !current || cell.reason === 'final-close' || cell.reason === 'identity-replaced' ? null : cloneValue(current),
+                    entry: cell.membershipClosed || !current || cell.reason === 'final-close' || cell.reason === 'identity-replaced' ? null : cloneValue(current),
                     notificationFailed: cell.notificationFailed
                 });
             }
         };
-        this.retainedDocumentCells.add(cell);
+        this.#retainedDocumentCells.add(cell);
         retainedArticleDocumentCells.set(handle, cell);
         return handle;
     }
 
-    private notifyRetainedDocuments(): void
+    #notifyRetainedDocuments(): void
     {
-        if (this.retainedNotificationPending || this.#ownershipTransactionPending)
+        this.#retainedNotificationRequested = true;
+        if (this.#retainedNotificationPending || this.#ownershipTransactionPending)
         {
             return;
         }
-        this.retainedNotificationPending = true;
+        this.#retainedNotificationPending = true;
         try
         {
-            for (const cell of this.retainedDocumentCells)
+            do
             {
-                try
+                this.#retainedNotificationRequested = false;
+                for (const cell of this.#retainedDocumentCells)
                 {
-                    notifyRetainedArticleDocumentCell(cell);
-                }
-                catch
-                {
-                    // Inspection/clone failure is also post-publication failure;
-                    // never rewrite the original committed result or history.
-                    cell.notificationFailed = true;
+                    try
+                    {
+                        notifyRetainedArticleDocumentCell(cell);
+                    }
+                    catch
+                    {
+                        // Inspection/clone failure remains post-publication failure.
+                        cell.notificationFailed = true;
+                    }
                 }
             }
+            while (this.#retainedNotificationRequested);
         }
         finally
         {
-            this.retainedNotificationPending = false;
+            this.#retainedNotificationPending = false;
         }
     }
 
@@ -892,7 +915,7 @@ export class OpenArticleDocumentRegistry
         ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
     {
         const result = this.executeCore(command, { expected, next, ratioChange });
-        this.notifyRetainedDocuments();
+        this.#notifyRetainedDocuments();
         return result;
     }
 
@@ -934,14 +957,14 @@ export class OpenArticleDocumentRegistry
     public execute(command: unknown): OpenArticleDocumentCommandResult
     {
         const result = this.executeCore(command);
-        this.notifyRetainedDocuments();
+        this.#notifyRetainedDocuments();
         return result;
     }
 
     private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
         next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
     {
-        if (this.#ownershipTransactionPending || this.retainedNotificationPending)
+        if (this.#ownershipTransactionPending || this.#retainedNotificationPending)
         {
             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
         }
@@ -1627,11 +1650,12 @@ export class OpenArticleDocumentRegistry
 
     private removeEntry(entry: OpenArticleDocumentEntry): void
     {
-        for (const cell of this.retainedDocumentCells)
+        for (const cell of this.#retainedDocumentCells)
         {
-            if (cell.tabId === entry.tabId && !cell.reason)
+            if (cell.tabId === entry.tabId)
             {
-                cell.reason = 'final-close';
+                cell.membershipClosed = true;
+                cell.reason ??= 'final-close';
             }
         }
         this.entriesByTabId.delete(entry.tabId);
