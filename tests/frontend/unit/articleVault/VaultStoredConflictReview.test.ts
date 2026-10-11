@@ -125,11 +125,12 @@ describe('stored conflict review consumer', () => {
         const before = JSON.stringify(response);
         const read = wrapper.findAll('button').find(button => button.text() === '读取指定提案与检查点')!;
         await read.trigger('click');
-        expect(wrapper.emitted('request-read')).toEqual([[context, reference]]);
+        expect(wrapper.emitted('request-read')).toEqual([[context, reference, 'read-one']]);
         await wrapper.findAll('button').find(button => button.text() === '返回当前工作区')!.trigger('click');
-        expect(wrapper.emitted('request-return')).toEqual([[context, reference]]);
+        expect(wrapper.emitted('request-return')).toEqual([[context, reference, 'read-one']]);
         await wrapper.findAll('button').find(button => button.text() === '请求元数据候选')!.trigger('click');
         expect(wrapper.emitted('request-action')?.[0]?.[0]).toMatchObject({ evidenceSha256: '7'.repeat(64), action: 'prepare-metadata-candidate' });
+        expect(wrapper.emitted('request-action')?.[0]?.[1]).toBe('read-one');
         expect(JSON.stringify(response)).toBe(before);
         for (const text of ['取消解决操作', '恢复本地状态']) {
             const button = wrapper.findAll('button').find(node => node.text() === text)!;
@@ -141,6 +142,37 @@ describe('stored conflict review consumer', () => {
         await wrapper.setProps({ loading: false, readFailureReason: 'article_vault_conflict_review_permission_denied' });
         expect(wrapper.find('[data-vault-resolution-status]').exists()).toBe(false);
         expect(wrapper.text()).not.toContain('server-result');
+    });
+
+    it('forwards current request identity with unchanged read return and action values', async () => {
+        const { wrapper, context, reference, response } = render();
+        const before = JSON.stringify(response);
+        await wrapper.findAll('button').find(button => button.text() === '读取指定提案与检查点')!.trigger('click');
+        await wrapper.findAll('button').find(button => button.text() === '返回当前工作区')!.trigger('click');
+        await wrapper.findAll('button').find(button => button.text() === '请求元数据候选')!.trigger('click');
+        expect(wrapper.emitted('request-read')).toEqual([[context, reference, 'read-one']]);
+        expect(wrapper.emitted('request-return')).toEqual([[context, reference, 'read-one']]);
+        expect(wrapper.emitted('request-action')).toEqual([[{
+            evidenceSha256: '7'.repeat(64), operationIdentity: 'item-one', portableArticleIdentity: 'article-one',
+            type: 'metadata-disjoint', action: 'prepare-metadata-candidate'
+        }, 'read-one']]);
+        expect(JSON.stringify(response)).toBe(before);
+    });
+
+    it('forwards the existing request identity after a same-reference refresh', async () => {
+        const { wrapper, context, reference, response } = render();
+        await wrapper.findAll('button').find(button => button.text() === '读取指定提案与检查点')!.trigger('click');
+        await wrapper.setProps({ requestIdentity: 'read-two' });
+        await wrapper.findAll('button').find(button => button.text() === '读取指定提案与检查点')!.trigger('click');
+        await wrapper.findAll('button').find(button => button.text() === '返回当前工作区')!.trigger('click');
+        expect(wrapper.emitted('request-read')).toEqual([[context, reference, 'read-one'], [context, reference, 'read-two']]);
+        expect(wrapper.emitted('request-return')).toEqual([[context, reference, 'read-two']]);
+        await wrapper.setProps({ response: { ...response, requestIdentity: 'read-two' } });
+        await wrapper.findAll('button').find(button => button.text() === '请求元数据候选')!.trigger('click');
+        expect(wrapper.emitted('request-action')).toEqual([[{
+            evidenceSha256: '7'.repeat(64), operationIdentity: 'item-one', portableArticleIdentity: 'article-one',
+            type: 'metadata-disjoint', action: 'prepare-metadata-candidate'
+        }, 'read-two']]);
     });
 
     it('uses real local fragment targets for comparison/review navigation without inventing routes', () => {

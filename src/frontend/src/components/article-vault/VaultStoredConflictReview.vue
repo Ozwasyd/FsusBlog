@@ -92,7 +92,7 @@
             :disabled="loading"
             @click="requestRead"
         >读取指定提案与检查点</FsusUiButton>
-        <FsusUiButton @click="emit('request-return', context, reference)">返回当前工作区</FsusUiButton>
+        <FsusUiButton @click="emit('request-return', context, reference, requestIdentity)">返回当前工作区</FsusUiButton>
     </section>
 </template>
 
@@ -120,9 +120,9 @@ const props = defineProps<{
     readFailureReason: string | null;
 }>();
 const emit = defineEmits<{
-    'request-read': [context: VaultReviewDisplayContext, reference: VaultStoredReviewReference];
-    'request-return': [context: VaultReviewDisplayContext, reference: VaultStoredReviewReference];
-    'request-action': [intent: ConflictActionIntent];
+    'request-read': [context: VaultReviewDisplayContext, reference: VaultStoredReviewReference, requestIdentity: string];
+    'request-return': [context: VaultReviewDisplayContext, reference: VaultStoredReviewReference, requestIdentity: string];
+    'request-action': [intent: ConflictActionIntent, requestIdentity: string];
 }>();
 const sectionId = useId();
 const conflictId = useId();
@@ -137,7 +137,7 @@ function requestRead(): void
 {
     if (!props.loading)
     {
-        emit('request-read', props.context, props.reference);
+        emit('request-read', props.context, props.reference, props.requestIdentity);
     }
 }
 function requestAction(intent: ConflictActionIntent): void
@@ -148,7 +148,7 @@ function requestAction(intent: ConflictActionIntent): void
     if (bound?.evidenceSha256 === intent.evidenceSha256 && bound.operationIdentity === intent.operationIdentity
         && bound.portableArticleIdentity === intent.portableArticleIdentity)
     {
-        emit('request-action', bound);
+        emit('request-action', bound, props.requestIdentity);
     }
 }
 </script>
