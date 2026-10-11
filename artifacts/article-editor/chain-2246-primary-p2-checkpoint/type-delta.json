@@ -1,0 +1,11 @@
+{
+  "beforeErrors": 225,
+  "afterErrors": 221,
+  "added": [],
+  "removed": [
+    "src/api/authoringWorkspaceSnapshot.ts(line,column): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/api/authoringWorkspaceSnapshot.ts(line,column): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/api/authoringWorkspaceSnapshot.ts(line,column): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/api/authoringWorkspaceSnapshot.ts(line,column): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled."
+  ]
+}

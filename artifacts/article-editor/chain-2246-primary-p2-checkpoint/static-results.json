@@ -1,0 +1,15 @@
+{
+  "testedSource": "37663e96017ea7def60221ffbd7d4be7dfd97116",
+  "branch": "codex/chain2246-primary-p2-checkpoint",
+  "fullDraftExcluded": true,
+  "node": "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+  "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+  "typeCommand": "FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-static-6a73-2246 node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+  "typeExit": 2,
+  "diagnostics": 221,
+  "styleCommand": "FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-static-6a73-2246 node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/composables/useAdminArticleWrite.ts --file src/frontend/src/composables/useAbortableTask.ts",
+  "styleExit": 0,
+  "violations": 0,
+  "runtimeQualification": false,
+  "tests": "UNRUN/HOLD, including the two actual lease source controls"
+}

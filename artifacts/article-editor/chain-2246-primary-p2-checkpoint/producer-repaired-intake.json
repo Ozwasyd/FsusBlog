@@ -1,0 +1,36 @@
+{
+  "donor": "9e7b9de1cee9925f78ade7e6a24b2cc01882fe8e",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "3ead3f53b80ad54ff903f64d24317361e623e00f"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "blob": "d0fba443d5d0522fdefa1b24249fae858564ca34"
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "blob": "eb3b306aec99545a639e149eb62dc7cbd25bfe5d"
+    },
+    {
+      "path": "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
+      "blob": "d5b46ac426f374c5419bac646d46d3c0d434bba0"
+    },
+    {
+      "path": "artifacts/article-editor/retained-document-authority/preflight.md",
+      "blob": "96967d7fbd166d1db19e4e3e2cf25ccadd05c127"
+    },
+    {
+      "path": "docs/architecture/authoring-workspace-snapshot-boundary.md",
+      "blob": "6571951f1f663b7c84daab9712b8c4614823cbc9"
+    }
+  ],
+  "applyCheck": 0,
+  "apply": 0,
+  "reverseCheck": 0,
+  "snapshotOwner1dfPreserved": true,
+  "intermediate691dNotConsumed": true,
+  "sourceReview": "pending independent restarted review",
+  "runtimeTests": "UNRUN/HOLD"
+}

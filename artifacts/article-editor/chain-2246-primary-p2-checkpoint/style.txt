@@ -1,0 +1,1 @@
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:3847:25 eslint/preserve-caught-error: There is no `cause` attached to the symptom error being thrown.
