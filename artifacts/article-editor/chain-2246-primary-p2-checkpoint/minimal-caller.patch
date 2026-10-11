@@ -11,7 +11,7 @@ index c63c3f0a5..44b1bb37f 100644
 +            lease?.settle();
          }
      };
- 
+
 diff --git a/src/frontend/src/composables/useAdminArticleWrite.ts b/src/frontend/src/composables/useAdminArticleWrite.ts
 index 253c0df18..00a5aad21 100644
 --- a/src/frontend/src/composables/useAdminArticleWrite.ts
@@ -31,7 +31,7 @@ index 253c0df18..00a5aad21 100644
 +            task.settle();
          }
      };
- 
+
 @@ -2054,6 +2056,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
          {
              parentSignal?.removeEventListener('abort', abortParent);
@@ -39,7 +39,7 @@ index 253c0df18..00a5aad21 100644
 +            task.settle();
          }
      };
- 
+
 @@ -2165,6 +2168,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
          finally
          {
@@ -47,7 +47,7 @@ index 253c0df18..00a5aad21 100644
 +            task.settle();
          }
      };
- 
+
 @@ -2455,6 +2459,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
              signal?.removeEventListener('abort', abortParent);
              task.complete();
@@ -55,7 +55,7 @@ index 253c0df18..00a5aad21 100644
 +            task.settle();
          }
      };
- 
+
 @@ -2643,6 +2648,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
              task.complete();
              suppressDraftSave = false;
@@ -63,7 +63,7 @@ index 253c0df18..00a5aad21 100644
 +            task.settle();
          }
      };
- 
+
 @@ -3660,7 +3666,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
          }
          return observation;
@@ -327,7 +327,7 @@ index 34f7a7972..25f54ba32 100644
 +import { defineComponent, effectScope } from 'vue'
  import { useAbortableTask } from '@/composables/useAbortableTask'
 +import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext'
- 
+
  // Helper to mount composable in a component context
  function useComposable() {
 @@ -93,3 +94,44 @@ describe('useAbortableTask', () => {
