@@ -64,7 +64,7 @@ import {
     type ArticleRecoveryDivergence,
     type ArticleRecoveryFlushResult,
     type ArticleRecoveryJournalRecord,
-    type ArticleRecoveryJournalCheckpointBinding,
+    type ArticleRecoveryJournalCheckpointReferenceBinding,
     type ArticleRecoveryJournalCheckpointSource,
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
@@ -1016,7 +1016,7 @@ export function useAdminArticleWrite()
             }
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
-            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointBinding | null = null;
+            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
             let recoveryCheckpointCreating = false;
             const release = (): void =>
             {
@@ -1088,7 +1088,7 @@ export function useAdminArticleWrite()
                 ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
                     editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
                 : null;
-            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointBinding =>
+            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding =>
             {
                 const identityId = recoveryIdentityId();
                 if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || recoveryCheckpointCreating || !identityId
@@ -1140,10 +1140,10 @@ export function useAdminArticleWrite()
                 };
                 // Reserve before the first caller-held mounted read can reenter this method.
                 recoveryCheckpointCreating = true;
-                let journal: ArticleRecoveryJournalCheckpointBinding | null = null;
+                let journal: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
                 let unsubscribe: (() => void) | null = null;
                 let stopIdentityWatch: (() => void) | null = null;
-                let checkpoint: ArticleRecoveryJournalCheckpointBinding | null = null;
+                let checkpoint: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
                 let released = false;
                 const releaseCheckpoint = (): void =>
                 {
@@ -1182,10 +1182,14 @@ export function useAdminArticleWrite()
                     journal = issued;
                     unsubscribe = articleDocumentContextAdapter.subscribeContext(() => issued.invalidate());
                     stopIdentityWatch = watch(() => adminStore.adminPrincipal?.id, () => issued.invalidate(), { flush: 'sync' });
-                    checkpoint = Object.freeze<ArticleRecoveryJournalCheckpointBinding>({
+                    checkpoint = Object.freeze<ArticleRecoveryJournalCheckpointReferenceBinding>({
                         prepare: signal => issued.prepare(signal),
                         inspect: token => issued.inspect(token),
                         validate: token => issued.validate(token),
+                        validateContent: (token, content) => issued.validateContent(token, content),
+                        inspectReference: reference => issued.inspectReference(reference),
+                        validateReference: (reference, content) => issued.validateReference(reference, content),
+                        restoreReference: reference => issued.restoreReference(reference),
                         restore: token => issued.restore(token),
                         invalidate: () => issued.invalidate(),
                         release: releaseCheckpoint
