@@ -1338,6 +1338,9 @@ interface ArticleRecoveryFlushOperation {
 
 export class ArticleRecoveryFlushOwner
 {
+    private readonly writer: (
+        input: ArticleRecoveryJournalWriteInput
+    ) => Promise<ArticleRecoveryJournalWriteResult>;
     private latest: ArticleRecoveryJournalWriteInput | null = null;
     private latestSequence = 0;
     private lastStoredSequence = 0;
@@ -1346,11 +1349,13 @@ export class ArticleRecoveryFlushOwner
     private pending: ArticleRecoveryFlushOperation | null = null;
 
     constructor(
-        private readonly writer: (
+        writer: (
             input: ArticleRecoveryJournalWriteInput
         ) => Promise<ArticleRecoveryJournalWriteResult>
     )
-    {}
+    {
+        this.writer = writer;
+    }
 
     stage(input: ArticleRecoveryJournalWriteInput): void
     {
