@@ -622,6 +622,57 @@ describe('server-only immutable restore planning and permission reconciliation',
             authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
         }
     });
+    it.each(['dispose', 'replace'] as const)('shell callback cannot %s the live ratio identity and return restored', async (action) => {
+        // An untrusted shell digest is refusal input, never a qualified shell/runtime receipt.
+        const { api, server } = setup();
+        server.current = null;
+        const observed = await api.read();
+        const port = { resolveBatch: vi.fn() };
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(router.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const adapter = groupOwner.createSnapshotAdapter(() => ({ commandId: 'restore:empty', idempotencyKey: 'restore:empty' }));
+        let disposed = false;
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), groupOwner, ...adapter,
+            applyShell: vi.fn(async () => {
+                if (action === 'dispose')
+                {
+                    authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+                    disposed = true;
+                }
+                else
+                {
+                    const projection = groupOwner.exportProjection();
+                    const change = authoringWorkspaceRatioOwner.prepare(ratioScope, projection.splitRatioRef, plan.layout.splitRatioPermille);
+                    const result = groupOwner.execute({ schema: 'fsusblog.authoring-tab-group-command.v1',
+                        kind: 'set-split-ratio-ref', commandId: 'shell:ratio', idempotencyKey: 'shell:ratio',
+                        expectedRevision: projection.state.revision, expectedArticleRegistryRevision: router.getRevision(),
+                        expectedRatioRevision: projection.state.splitRatio.revision, splitRatioPermille: plan.layout.splitRatioPermille }, change);
+                    expect(result.status).toBe('applied');
+                }
+                return 'a'.repeat(64);
+            }), isCurrent: () => true };
+        try
+        {
+            await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal))
+                .rejects.toThrow(action === 'dispose' ? 'invalid-scope' : 'restore_ratio_binding_changed');
+            expect(commands.applyShell).toHaveBeenCalledOnce();
+            expect(router.getRegistry().listEntries()).toHaveLength(0);
+            // Refusal does not fabricate rollback of the genuine already-committed group transition.
+            expect(router.getRegistry().getRevision()).toBe(action === 'dispose' ? 1 : 2);
+        }
+        finally
+        {
+            if (!disposed)
+            {
+                authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+            }
+        }
+    });
     it('late readiness after reset and operation epoch changes cannot reach group/shell restoration', async () => {
         // Synthetic command interleavings exercise consumer refusal, never actual FsusUI qualification or acceptance.
         const { api } = setup();

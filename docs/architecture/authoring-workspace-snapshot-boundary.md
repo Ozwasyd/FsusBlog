@@ -274,10 +274,11 @@ exact dependency; behavioral qualification remains UNRUN. Independent review
 of snapshot `2d6c15d5` closed the old +1 guard P1 and found two consumer P2s:
 callback request mutation (addressed by the frozen copy above) and Registry
 instance binding (addressed in source by the original `418611fa` capability).
-Both consumer corrections still require independent re-review. `instanceof`, identical snapshots and a genuine
+Independent review of `fefa4f618` statically closed those consumer paths;
+runtime remains UNRUN. `instanceof`, identical snapshots and a genuine
 foreign owner's cached receipt do not prove that the owner belongs to the
 router's Registry instance. Restore captures the actual router and Registry
-after the runtime capability gate and uses that instance for all entry/state
+before caller callbacks and uses that instance for all entry/state
 reads. The authority guard rejects router/Registry replacement and invokes
 the actual owner's `verifyBinding` against that captured instance before any
 restore mutation and after callbacks, including the typed group transition.
@@ -293,3 +294,34 @@ controls, the added digest-only/foreign-owner refusal source controls and all he
 restore, DB, race, security/privacy and native execution remain UNRUN. The old
 57-case results and earlier 256-diagnostic comparison apply only to their old
 candidates and are not inherited by this composition.
+
+### Ratio lifetime at every restore boundary
+
+The subsequent consumer correction distinguishes instance binding from ratio
+lifetime. It pins the original owner's live scope/ref and Registry predecessor
+before `assertRuntimeCapability`. Every ordinary boundary resolves the same
+real owner projection and checks the same expected opaque ref; missing/disposed
+scopes or a separately published ref fail closed, even if the numeric ratio is
+unchanged. There is no current-ref fallback or silently adopted replacement.
+The final shell boundary and the final return guard repeat this check.
+
+| Caller boundary | Check after return / before further restore work |
+| --- | --- |
+| `assertRuntimeCapability` | Server/epoch/abort, fixed Registry binding, pinned live ratio/ref and Registry predecessor |
+| `isCurrent` in each guard | Recheck server provenance/abort, binding and real owner ratio resolution after the callback; exact expected ref at ordinary boundaries |
+| Refreshed `resolveBatch` await | Same ordinary guard before session creation |
+| Each `openOrActivate` await | Same live ref, verified session result, exact expected Registry +1 |
+| `applyGroupsWithReceipt` await | Real live scope, unchanged Registry instance, committed cache/original command/request and before/after +1 proof; only this proven transition may advance the expected ratio ref |
+| `activateTab` await | Same newly bound live ref and exact expected Registry +1 |
+| `applyShell` await | Same live ref and Registry revision, regardless of the returned digest |
+| Final return | Same ordinary guard after building the immutable result |
+
+The typed group transition's live projection is validated against its actual
+committed receipt state before the ref is rebound. Reading a newer projection
+does not by itself authorize adopting its ref. The two shell refusal source
+controls use genuine empty-workspace group commits, then revoke the actual
+scope or publish another genuine same-value ref. Their shell digest is
+untrusted refusal input, not a qualified runtime receipt. They explicitly do
+not fabricate rollback of already committed state. Both controls and all 21
+ratio controls remain UNRUN; the lifetime correction requires independent
+static review and actual admitted qualification.

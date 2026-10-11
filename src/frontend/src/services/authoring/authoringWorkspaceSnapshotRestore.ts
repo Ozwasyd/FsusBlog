@@ -1,7 +1,7 @@
 import { AuthoringWorkspaceSnapshotError, defaultWorkspaceSnapshotLayout, freezeWorkspaceSnapshot, requireWorkspaceServerObservation, validateWorkspaceSnapshotLayout, workspaceSnapshotBytes, workspaceSnapshotDigest, workspaceSnapshotExact, workspaceSnapshotId, workspaceSnapshotInteger, type AuthoringWorkspaceServerObservation, type AuthoringWorkspaceSnapshotGroup, type AuthoringWorkspaceSnapshotLayout, type AuthoringWorkspaceSnapshotScope, type AuthoringWorkspaceSnapshotTab } from '@/api/authoringWorkspaceSnapshot';
 
 import { type ArticleWorkspaceTabRouter, verifyArticleWorkspaceRouterReceipt } from './articleWorkspaceTabRouter';
-import { AuthoringTabGroupRegistry, verifyAuthoringTabGroupResult, type AuthoringSnapshotGroupAdapter } from './authoringTabGroupRegistry';
+import { AuthoringTabGroupRegistry, verifyAuthoringTabGroupResult, type AuthoringSnapshotGroupAdapter, type AuthoringTabGroupProjection } from './authoringTabGroupRegistry';
 
 import type { ArticleDocumentContextRef, ArticleDocumentIdentity } from './openArticleDocumentRegistry';
 export const workspaceSnapshotRestorePolicy = Object.freeze({
@@ -260,14 +260,21 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
     {
         throw new AuthoringWorkspaceSnapshotError('restore_runtime_capability_required');
     }
-    commands.assertRuntimeCapability();
     const router = commands.router;
     const articleRegistry = router.getRegistry();
     const groupOwner = commands.groupOwner;
+    if (groupOwner instanceof AuthoringTabGroupRegistry && !groupOwner.verifyBinding(articleRegistry))
+    {
+        throw new AuthoringWorkspaceSnapshotError('restore_registry_binding_changed');
+    }
+    // Pin live opaque identity before any caller callback; ordinary boundaries cannot adopt a new ref.
+    const ratioBinding = groupOwner instanceof AuthoringTabGroupRegistry ? groupOwner.exportProjection() : undefined;
+    let expectedRatioRef = ratioBinding?.splitRatioRef;
+    let registryRevision = router.getRevision();
+    commands.assertRuntimeCapability();
     const guard: AuthoringWorkspaceSnapshotRestoreGuard = { scopeDigest: plan.scopeDigest, sourceDigest: plan.sourceDigest,
         serverRevision: plan.serverRevision, operationEpoch: plan.operationEpoch };
-    let registryRevision = router.getRevision();
-    const currentAuthority = (): void =>
+    const currentAuthority = (): AuthoringTabGroupProjection | undefined =>
     {
         requireWorkspaceServerObservation(planObservations.get(plan)!);
         signal.throwIfAborted();
@@ -275,16 +282,34 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
         {
             throw new AuthoringWorkspaceSnapshotError('restore_superseded');
         }
+        // The caller's guard can itself revoke authority or abort this operation.
+        requireWorkspaceServerObservation(planObservations.get(plan)!);
+        signal.throwIfAborted();
         // Pin the actual instance; foreign owners and callback Registry replacement fail closed.
         if (commands.router !== router || router.getRegistry() !== articleRegistry
             || groupOwner instanceof AuthoringTabGroupRegistry && !groupOwner.verifyBinding(articleRegistry))
         {
             throw new AuthoringWorkspaceSnapshotError('restore_registry_binding_changed');
         }
+        if (groupOwner instanceof AuthoringTabGroupRegistry)
+        {
+            // The original owner resolves its actual ratio ref, rejecting a disposed scope.
+            const projection = groupOwner.exportProjection();
+            if (projection.ratioScope !== ratioBinding?.ratioScope)
+            {
+                throw new AuthoringWorkspaceSnapshotError('restore_ratio_binding_changed');
+            }
+            return projection;
+        }
+        return undefined;
     };
     const current = (): void =>
     {
-        currentAuthority();
+        const projection = currentAuthority();
+        if (projection?.splitRatioRef !== expectedRatioRef)
+        {
+            throw new AuthoringWorkspaceSnapshotError('restore_ratio_binding_changed');
+        }
         if (router.getRevision() !== registryRevision || articleRegistry.getRevision() !== registryRevision)
         {
             throw new AuthoringWorkspaceSnapshotError('restore_superseded');
@@ -355,7 +380,7 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
     // Receipt coordinates contain no opaque handles; copy once before inspecting caller-owned data.
     const transition = structuredClone(await applyGroupsWithReceipt(groupRequest.groups, groupRequest.activeGroupId, groupRequest.splitRatioPermille, signal));
     // The old guard must not accept +1 until the real committed transition proves it.
-    currentAuthority();
+    const groupAfter = currentAuthority();
     const articleAfter = articleRegistry.exportState();
     if (!groupOwner.verifyCommittedTransition(transition)
         || !verifyAuthoringTabGroupResult(transition.receipt, articleBefore, articleAfter, transition.command)
@@ -367,10 +392,13 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
         || workspaceSnapshotDigest(transition.command.groups.map(group => ({ groupId: group.groupId,
             tabIds: group.tabs.map(tab => tab.tabId), activeTabId: group.activeTabId }))) !== requestedGroupsDigest
         || articleAfter.revision !== expectedRegistryRevision
-        || groupOwner.exportState().contentDigest !== transition.receipt.after.contentDigest)
+        || !groupAfter || groupAfter.state.contentDigest !== transition.receipt.after.contentDigest
+        || groupAfter.splitRatioRef === expectedRatioRef)
     {
         throw new AuthoringWorkspaceSnapshotError('restore_group_transition_required');
     }
+    // Only this exact committed transition authorizes replacing the pinned ratio ref.
+    expectedRatioRef = groupAfter.splitRatioRef;
     registryRevision = expectedRegistryRevision;
     current();
     const groupReceiptDigest = transition.receipt.contentDigest;
@@ -383,6 +411,7 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
             throw new AuthoringWorkspaceSnapshotError('active_permission_or_lifecycle_changed');
         }
         const expectedRegistryRevision = registryRevision + 1;
+        current();
         const receipt = await router.activateTab(active);
         registryRevision = expectedRegistryRevision;
         current();
@@ -391,6 +420,7 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
             throw new AuthoringWorkspaceSnapshotError('active_restore_blocked');
         }
     }
+    current();
     const shellReceiptDigest = await commands.applyShell(plan.layout.shell, signal);
     current();
     if (!/^[a-f0-9]{64}$/u.test(groupReceiptDigest) || !/^[a-f0-9]{64}$/u.test(shellReceiptDigest))
@@ -399,5 +429,7 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
     }
     const unsigned = { status: 'restored' as const, planDigest: plan.contentDigest,
         registryDigest: articleRegistry.exportState().contentDigest, groupReceiptDigest, shellReceiptDigest };
-    return freezeWorkspaceSnapshot({ ...unsigned, contentDigest: workspaceSnapshotDigest(unsigned) });
+    const result = freezeWorkspaceSnapshot({ ...unsigned, contentDigest: workspaceSnapshotDigest(unsigned) });
+    current();
+    return result;
 }
