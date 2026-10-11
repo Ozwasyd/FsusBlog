@@ -3669,6 +3669,16 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             throw new Error('article-writer-retained-primary-mount-unavailable');
         }
+        const nativeBinding = runtime.mountedSource.readDocumentBinding(entry.editorSessionRef);
+        if (nativeBinding?.identity.articleId !== observation.context.articleId
+            || nativeBinding.identity.draftId !== observation.context.draftId
+            || nativeBinding.identity.documentId !== observation.context.documentId
+            || nativeBinding.documentContext.documentEpoch !== observation.context.documentEpoch
+            || nativeBinding.documentContext.sourceRevision !== `source-revision:${observation.context.sourceRevision}`
+            || nativeBinding.documentContext.draftRevision !== observation.context.draftRevision)
+        {
+            throw new Error('article-writer-retained-primary-native-context-unavailable');
+        }
         inspectPrimary(retained);
         return runtime;
     };
