@@ -16,7 +16,8 @@ const ts = requireFrontend('typescript');
 const ownerPath = 'src/frontend/src/services/authoring/authoringWorkspaceRatioOwner.ts';
 const geometryPath = 'src/frontend/src/services/authoring/authoringWorkspaceGeometryPolicy.ts';
 const separatorPath = 'src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts';
-const sources = new Map([ownerPath, geometryPath, separatorPath].map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
+const groupPortsPath = 'src/frontend/src/services/authoring/authoringWorkspaceGroupLayoutPorts.ts';
+const sources = new Map([ownerPath, geometryPath, separatorPath, groupPortsPath].map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
 const trees = new Map([...sources].map(([file, source]) => [file, ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)]));
 const failures = [];
 const forbiddenIdentifiers = new Set([
@@ -50,7 +51,9 @@ for (const [file, tree] of trees)
         const ownedImport = ts.isImportDeclaration(node) && (file === geometryPath
             && node.moduleSpecifier.text === './authoringWorkspaceRatioOwner'
             || file === separatorPath && (['./authoringWorkspaceRatioOwner', './authoringWorkspaceGeometryPolicy'].includes(node.moduleSpecifier.text)
-                || node.moduleSpecifier.text === '@ozwasyd/element-plus' && node.importClause?.isTypeOnly));
+                || node.moduleSpecifier.text === '@ozwasyd/element-plus' && node.importClause?.isTypeOnly)
+            || file === groupPortsPath && (['./authoringTabGroupRegistry', './openArticleDocumentRegistry', './authoringWorkspaceRatioOwner'].includes(node.moduleSpecifier.text)
+                || ['./authoringWorkspaceGeometryPolicy', './authoringWorkspaceSeparatorAdapter'].includes(node.moduleSpecifier.text) && node.importClause?.isTypeOnly));
         if (ts.isImportDeclaration(node) && !ownedImport)
         {
             failures.push(`${file}: unowned-import`);
@@ -202,6 +205,35 @@ if (checkedBarriers !== 2)
     failures.push('separator-adapter: missing-before-after-callback-epoch-barriers');
 }
 
+const groupPortsTree = trees.get(groupPortsPath);
+visit(groupPortsTree, node =>
+{
+    if (ts.isNewExpression(node) && ['AuthoringTabGroupRegistry', 'OpenArticleDocumentRegistry', 'AuthoringSessionHost'].includes(node.expression.getText(groupPortsTree)))
+    {
+        failures.push('group-layout-ports: duplicate-original-authority');
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        && ['commit', 'openWorkspace', 'releaseWorkspace'].includes(node.expression.name.text))
+    {
+        failures.push('group-layout-ports: standalone-ratio-authority');
+    }
+    if (node.kind === ts.SyntaxKind.AwaitExpression || node.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.AsyncKeyword))
+    {
+        failures.push('group-layout-ports: asynchronous-publication');
+    }
+    if (ts.isPropertyAssignment(node) && node.name.getText(groupPortsTree) === 'publishPreparedRatio')
+    {
+        visit(node.initializer, child =>
+        {
+            if (ts.isCallExpression(child) && ts.isPropertyAccessExpression(child.expression)
+                && child.expression.expression.getText(groupPortsTree) === 'source')
+            {
+                failures.push('group-layout-ports: configurable-callback-inside-publication');
+            }
+        });
+    }
+});
+
 const ratioValues = {};
 visit(ownerTree, node =>
 {
@@ -247,7 +279,7 @@ if (!wireRatio || ratioValues.minimumPermille !== wireRatio.min || ratioValues.m
 const uniqueFailures = [...new Set(failures)];
 console.log(JSON.stringify({
     schema: 'fsusblog.authoring-workspace-layout-source-scan.v1',
-    scope: 'ratio-pure-geometry-and-public-separator-adapter-source-only',
+    scope: 'ratio-geometry-separator-and-original-group-ports-source-only',
     status: uniqueFailures.length === 0 ? 'source-check-pass' : 'source-check-fail',
     sources: [...sources].map(([file, source]) => ({ path: file, sha256: createHash('sha256').update(source).digest('hex') })),
     failures: uniqueFailures,

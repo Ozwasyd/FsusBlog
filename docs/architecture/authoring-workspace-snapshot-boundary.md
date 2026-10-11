@@ -270,7 +270,7 @@ preserving the owner's requested ratio/ref for later expansion.
 The exported required matrix includes 375/768/1024/1366/1440 viewports,
 100/150/200% browser zoom, Rail/inspector combinations, soft keyboard and
 appearance/input states. It records coverage requirements, not observations.
-`tools/frontend/check-authoring-workspace-layout-source.mjs` parses the three
+`tools/frontend/check-authoring-workspace-layout-source.mjs` parses the four
 delivered product modules without importing them. Its AST guard checks their
 closed layout vocabulary, absence of DOM/storage/editor/group-model dependencies,
 sole private ratio owner and exact-ref CAS source, and canonical snapshot bounds.
@@ -299,7 +299,7 @@ receipt tamper/race/security/privacy/IME/native qualification remains UNRUN.
 
 `src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts`
 consumes the documented root-exported UI921 payload/coordinate types. Its public
-source is pinned to FsusUI `baf1334f19f938011ad0dd8c86905c91fef83979`, based on
+source is pinned to FsusUI `a775a075785b8fec580b6c44eb19a72116773ae4`, based on
 `8db0ac8f49749e3e5f28be5051bb3d3ed71ada71`. It does not import a private Slider,
 Scrollbar, Carousel, hook, DOM node or listener. Capture and keyboard/ARIA stay
 inside ElResizeSeparator/FsusResizeSeparator. Only the public instance `cancel()`
@@ -307,10 +307,12 @@ is called through the required host port. Before changing any consumer identity,
 accepted source state or measurement configuration, the host must call adapter
 `invalidate()` in the same synchronous stack, which clears its interaction before
 calling the public handle's `cancel()`. No UI921 author execution result is
-admitted as qualification. At the inspected UI head, independent source review
-has reported Escape propagation and fractional half-step quantization P2 fixes
-pending with that owner; this adapter does not fix either in Blog. It uses
-integer permille step 1 and awaits the upstream corrected source head.
+admitted as qualification. Root reports the Escape propagation and fractional-step source fixes independently
+closed at the pinned UI head, with no remaining bounded source P1/P2. Its number
+contract converts Number.toString decimal coordinates to rational arithmetic and
+returns Number, with finite span/scale and step/2 >= ULP admission guards; it is
+not arbitrary-number infinite precision. This consumer uses integer permille
+step 1. Source closure does not qualify native capture, geometry or receipts.
 
 The factory is generic over the original group's `AuthoringTabGroupProjection`,
 not a second local group shape. Required ports read that genuine projection,
@@ -388,3 +390,73 @@ it is neither a second production group model nor a real joint receipt/host
 qualification. The original 21 controls remain UNRUN. All 30 declared cases,
 including original locale/setup import effects, still require root's exact CLI
 approval before any execution or listing.
+
+
+### Original group ports and production-host boundary
+
+`authoringWorkspaceGroupLayoutPorts.ts` is the concrete #2298 consumer for
+`createAuthoringWorkspaceSeparatorAdapter`. It imports the original group
+projection/class/command schema and article digest producer, not reconstructed
+interfaces. The inspected owning source is Group68e4
+`68e4cdd4cdaa5c97f05d5323e88998397bf3dac7`. The caller supplies its actual existing
+group instance, original operation identity allocator, measurements and public
+separator cancel. The factory creates no registry, scope, editor, session or
+additional group model.
+
+Each guarded read returns the original `exportProjection()` with genuine live
+scope/ref, and reserves a command identity in a private WeakMap keyed by that
+exact exported projection. Allocation is inside the adapter's guarded read,
+so reentry/invalidation is rejected by the reviewed adapter. Current checks
+compare original group/article revisions and digest, live ratio identity and
+coordinates, and physical/effective two-group state. The producer digest is
+checked against the supplied serial state; authority is still the live ref.
+Measurements derive requested layout from the original projection.
+
+The publication callback calls no configured allocator/measurement/host callback
+and uses no await. It validates the exact current projection and prepared ratio,
+then invokes the original `execute(set-split-ratio-ref, preparedChange)` once.
+That owning source performs the synchronous callback-free ratio/group/article
+joint commit. Only an applied result with the actual exported next scope/ref and
+expected revisions/value is returned to the adapter. This is concrete source
+consumption, not a new atomic implementation or an acceptance receipt.
+
+Static checking uses the exact original source/import graph extracted without
+changes, with this task's modules added. No original group interface is virtualized.
+The source graph currently has five diagnostics also observed when checking only
+the exact original group entry: snapshot constructor parameter properties at
+75:24 and 263:24/129/167 (TS1294 under repository erasableSyntaxOnly), and original
+article registry 1759:31 (TS2345 unknown spread passed to entry sealing). The new
+ports file has no additional diagnostics in that check, and repository-config
+ESLint passes on the exact-source graph. The whole graph remains FAIL; exact
+public UI alias declarations still do not establish installed/full local readiness.
+
+Actual production layout ownership chain is AdminWorkspaceFrame.vue ->
+AccountRouteFrame.vue -> views/admin/article/Write.vue. The before-content slot
+currently mounts only tabs. The current Write.vue editor is a single
+ArticleWriteEditor at the write-editor-panel; MarkdownEditorAdapter exposes
+insert/palette/reveal operations but no production snapshot/resource lifecycle
+bridge. The #2294 `FsusUiPublicEditorSessionFactory`/capture/pause/resume/restore
+interfaces exist in `authoringSessionHost.ts`, but no production createSession
+implementation or exact retained-DOM admission was found. Its current budgets
+permit one active renderer; visibility and retained/suspended behavior for two
+groups require that owner's actual contract, not two cloned Write editors.
+AccountRouteFrame keys its routed outlet by route/article ID, so a stable
+session-host placement also needs coordination with the original host/router
+owner. This task does not alter that lifecycle or remount policy.
+
+The layout owner will own an independent AuthoringWorkspaceLayout component and
+its geometry/separator consumer. Planned mounting touches Write.vue's editor
+panel; any AccountRouteFrame/AdminWorkspaceFrame persistent-host/rail placement
+must be coordinated separately before editing those files. Drawer, outline and
+inspector retain their existing authorities and compact policies. Rail's readonly
+currentArticleId comes from useArticleWorkspaceTabs().activeTab.articleId;
+missing real query response never becomes ready state.
+
+At Group68e4, focus-group changes focusedGroupId independently of activeGroupId,
+but set-effective-single derives effectiveFocusedGroupId from activeGroupId.
+When those identities differ, this cannot satisfy this layout task's focused
+collapse contract. The gap is reported to root/original #2298 owner; no activation,
+focus command or local overlay is used to conceal it. Host retain/suspend
+admission and the corrected focus projection are required before production
+mounting/collapse. All 30 existing source cases and all host/layout/browser/native/
+receipt/race/security/privacy/IME qualification remain UNRUN.
