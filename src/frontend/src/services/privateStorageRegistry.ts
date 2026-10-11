@@ -20,12 +20,11 @@ export type PrivateStorageCleanupStatus = 'retained' | 'not-present' | 'removed'
 
 type WebStorageEntry = Readonly<{
     id: string;
-    medium: 'local-storage' | 'session-storage';
     dataScope: PrivateStorageDataScope;
     dataClass: string;
     clearOn: readonly PrivateStateCleanupTrigger[];
     matcher: Readonly<{ type: 'exact' | 'prefix'; value: string; }>;
-}>;
+}> & Readonly<{ medium: 'local-storage'; } | { medium: 'session-storage'; }>;
 
 type CacheStorageEntry = Readonly<{
     id: string;
@@ -118,6 +117,7 @@ export const PRIVATE_STORAGE_REGISTRY: readonly PrivateStorageRegistryEntry[] = 
     { id: 'admin-request-cache', medium: 'cache-storage', dataScope: 'admin', dataClass: 'request-cache', clearOn: ADMIN_CLEAR_TRIGGERS, matcher: { type: 'request-path-prefix', cachePrefix: 'fsus-', values: ['/api/', '/admin/', '/manage/', '/author/', '/private/', '/login'] } },
     { id: 'account-pinia', medium: 'runtime', dataScope: 'account', dataClass: 'pinia-state', clearOn: ACCOUNT_CLEAR_TRIGGERS },
     { id: 'admin-pinia', medium: 'runtime', dataScope: 'admin', dataClass: 'pinia-state', clearOn: ADMIN_CLEAR_TRIGGERS },
+    { id: 'author-query-projection-runtime', medium: 'runtime', dataScope: 'admin', dataClass: 'bounded-verified-author-projection', clearOn: [...AUTH_TRANSITION_TRIGGERS, 'credential-revoked', 'issuer-key-rotation', 'root-retired', 'epoch-changed', 'feature-disabled'] },
     { id: 'notification-runtime', medium: 'runtime', dataScope: 'session', dataClass: 'private-cursor', clearOn: ACCOUNT_CLEAR_TRIGGERS },
     { id: 'challenge-proof-runtime', medium: 'runtime', dataScope: 'temporary', dataClass: 'challenge-proof', clearOn: AUTH_TRANSITION_TRIGGERS }
 ]);

@@ -1,15 +1,27 @@
 using System.Security.Claims;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using NSubstitute;
 
 using SqlSugar;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Integration;
 
@@ -146,6 +158,104 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
                 .OrderByDescending(RecentArticleHistoryOrdering.LatestFactAtUtc)
                 .ThenByDescending(static entry => entry.ArticleId)
                 .Select(static entry => entry.ArticleId));
+    }
+
+    [Fact]
+    public async Task Store_RetentionEvictsOldestFactsWithoutLosingReceiptsOrCrossingSiteScope()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO article(id, status, isdeleted, current_revision_id)
+            SELECT id, 0, FALSE, id + 700
+            FROM generate_series(3, 1001) AS id;
+            """);
+        var store = new AuthorRecentArticleHistoryStore(
+            db,
+            new FixedTimeProvider(
+                new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)),
+            new LocalMutationAuthorizer());
+        var otherSite = new AuthorRecentArticleHistoryOwner(s_owner.AdminPrincipalId, "other-site");
+        AuthorRecentArticleHistoryReceipt otherSiteReceipt = await store.RecordOpenedAsync(
+            otherSite,
+            1,
+            701,
+            0,
+            Guid.CreateVersion7());
+
+        Guid firstRequestId = Guid.CreateVersion7();
+        AuthorRecentArticleHistoryReceipt first = await store.RecordOpenedAsync(
+            s_owner,
+            1,
+            701,
+            0,
+            firstRequestId);
+        long revision = first.Revision;
+        for (int articleId = 2; articleId <= 1001; articleId++)
+        {
+            AuthorRecentArticleHistoryReceipt receipt = await store.RecordOpenedAsync(
+                s_owner,
+                articleId,
+                articleId + 700,
+                revision,
+                Guid.CreateVersion7());
+            revision = receipt.Revision;
+        }
+
+        AuthorRecentArticleHistoryCollectionSnapshot retained = await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(1001, retained.Revision);
+        Assert.Equal(1000, retained.ItemCount);
+        Assert.Equal(
+            Enumerable.Range(2, 1000).Reverse(),
+            retained.Entries
+                .OrderByDescending(RecentArticleHistoryOrdering.LatestFactAtUtc)
+                .ThenByDescending(static entry => entry.ArticleId)
+                .Select(static entry => entry.ArticleId));
+
+        AuthorRecentArticleHistoryReceipt replay = await store.RecordOpenedAsync(
+            s_owner,
+            1,
+            701,
+            0,
+            firstRequestId);
+        Assert.True(replay.IdempotentReplay);
+        Assert.Equal(first.ReceiptId, replay.ReceiptId);
+        AuthorRecentArticleHistoryCollectionSnapshot afterReplay = await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(retained.Revision, afterReplay.Revision);
+        Assert.Equal(retained.ContentDigest, afterReplay.ContentDigest);
+        Assert.DoesNotContain(afterReplay.Entries, static entry => entry.ArticleId == 1);
+
+        AuthorRecentArticleHistoryReceipt reactivated = await store.RecordActivatedAsync(
+            s_owner,
+            1,
+            701,
+            retained.Revision,
+            Guid.CreateVersion7());
+        AuthorRecentArticleHistoryCollectionSnapshot afterReactivation =
+            await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(1002, reactivated.Revision);
+        Assert.Equal(1000, afterReactivation.ItemCount);
+        Assert.Contains(afterReactivation.Entries, static entry => entry.ArticleId == 1);
+        Assert.DoesNotContain(afterReactivation.Entries, static entry => entry.ArticleId == 2);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+
+        foreach (string table in new[]
+        {
+            "author_recent_history_receipt",
+            "author_recent_history_idempotency",
+            "author_recent_history_outbox",
+            "author_recent_history_audit"
+        })
+        {
+            Assert.Equal(1002, await db.Ado.GetIntAsync(
+                $"SELECT COUNT(*) FROM {table} WHERE owner_admin_principal_id = 1 AND site_scope = 'primary-site';"));
+        }
+        AuthorRecentArticleHistoryCollectionSnapshot otherSiteSnapshot =
+            await store.GetAuthoritySnapshotAsync(otherSite);
+        Assert.Equal(otherSiteReceipt.Revision, otherSiteSnapshot.Revision);
+        Assert.Equal(otherSiteReceipt.ContentDigest, otherSiteSnapshot.ContentDigest);
+        Assert.Equal(1, Assert.Single(otherSiteSnapshot.Entries).ArticleId);
+        Assert.True((await store.VerifyAsync(otherSite)).Valid);
     }
 
     [Fact]
@@ -592,6 +702,188 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
         Assert.Empty(result.ContentDigest);
         Assert.Empty(result.AuthorityContentDigest);
         Assert.Empty(result.PermissionContentDigest);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(1000)]
+    [InlineData(1001)]
+    public async Task QuerySource_LivePostgresArrayBindingsProduceOnlyBoundedRealFieldsAndMissingSlug(int count)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await SeedQueryFieldsAsync(db, count);
+        var reader = CreateCanonicalQueryReader(db);
+        var inspection = new AuthorArticleQuerySourceInspection(CreatePermissionAuthority(db), reader);
+        AuthorArticleQuerySourceInspectionResult result = await inspection.InspectAsync(QueryRequest());
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.SlugUnavailable, result.UnavailableReason);
+        Assert.Equal(Math.Min(count, 1000), result.ObservedFields.Count);
+        Assert.Equal(count > 1000, result.HasMore);
+        foreach (AuthorArticleQuerySourceFields field in result.ObservedFields)
+        {
+            Assert.Equal($"Article {field.Coordinate.ArticleId}", field.Title);
+            Assert.Equal("Category source", field.Category);
+            Assert.Equal(new[] { "Tag source" }, field.Tags);
+            Assert.Equal(700 + field.Coordinate.ArticleId, field.Coordinate.ServerRevision);
+            Assert.Equal(AuthorArticleQueryStatus.Draft, field.Coordinate.Status);
+            Assert.False(string.IsNullOrWhiteSpace(field.Coordinate.RowVersion));
+        }
+    }
+
+    [Fact]
+    public async Task QuerySource_WrongSiteAndPersistedSessionRevocationReadNoMetadata()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await SeedQueryFieldsAsync(db, 1);
+        var source = new QuerySourceInterruptionProbe(CreateCanonicalQueryReader(db));
+        var inspection = new AuthorArticleQuerySourceInspection(CreatePermissionAuthority(db), source);
+        AuthorArticleQuerySourceInspectionResult otherSite = await inspection.InspectAsync(
+            QueryRequest() with
+            {
+                Owner = new(1, "other-site")
+            });
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.PermissionUnavailable, otherSite.UnavailableReason);
+        Assert.Empty(otherSite.ObservedFields);
+        await db.Ado.ExecuteCommandAsync("UPDATE admin_session SET revokedatutc = CURRENT_TIMESTAMP;");
+        AuthorArticleQuerySourceInspectionResult revoked = await inspection.InspectAsync(QueryRequest());
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.PermissionUnavailable, revoked.UnavailableReason);
+        Assert.Empty(revoked.ObservedFields);
+        Assert.Equal(0, source.CoordinateReads);
+        Assert.Equal(0, source.FieldReads);
+    }
+
+    [Fact]
+    public async Task QuerySource_LiveRevisionChangeCannotEscapePermissionAdmittedMetadata()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await SeedQueryFieldsAsync(db, 1);
+        var source = new QuerySourceInterruptionProbe(CreateCanonicalQueryReader(db))
+        {
+            AfterCoordinates = async () =>
+            {
+                await db.Ado.ExecuteCommandAsync("UPDATE article SET current_revision_id = current_revision_id + 1;");
+            }
+        };
+        var inspection = new AuthorArticleQuerySourceInspection(CreatePermissionAuthority(db), source);
+        AuthorArticleQuerySourceInspectionResult result = await inspection.InspectAsync(QueryRequest());
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.SourceChanged, result.UnavailableReason);
+        Assert.Empty(result.ObservedFields);
+        Assert.Equal(1, source.FieldReads);
+    }
+
+    [Fact]
+    public async Task QuerySource_LiveSessionRevocationAfterMetadataDiscardsEveryObservedField()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await SeedQueryFieldsAsync(db, 1);
+        var source = new QuerySourceInterruptionProbe(CreateCanonicalQueryReader(db))
+        {
+            AfterFields = async () =>
+            {
+                await db.Ado.ExecuteCommandAsync("UPDATE admin_session SET revokedatutc = CURRENT_TIMESTAMP;");
+            }
+        };
+        var inspection = new AuthorArticleQuerySourceInspection(CreatePermissionAuthority(db), source);
+        AuthorArticleQuerySourceInspectionResult result = await inspection.InspectAsync(QueryRequest());
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.PermissionChanged, result.UnavailableReason);
+        Assert.Empty(result.ObservedFields);
+        Assert.Equal(1, source.FieldReads);
+    }
+
+    private static AuthorArticleQueryRequest QueryRequest()
+        => new(1, new(s_owner.AdminPrincipalId, s_owner.SiteScope), Guid.CreateVersion7(), 1, "Article",
+            [AuthorArticleQueryStatus.Draft], [AuthorArticleQueryBucket.Draft], "zh-CN",
+            AuthorArticleQueryContract.Collation, 50, null);
+
+    private static async Task SeedQueryFieldsAsync(SqlSugarClient db, int count)
+    {
+        await db.Ado.ExecuteCommandAsync(
+            """
+            ALTER TABLE article ADD COLUMN title text NOT NULL DEFAULT '';
+            ALTER TABLE article ADD COLUMN categoryid integer NOT NULL DEFAULT 1;
+            CREATE TABLE category(id integer PRIMARY KEY, name text NOT NULL);
+            CREATE TABLE tag(id integer PRIMARY KEY, name text NOT NULL);
+            CREATE TABLE article_tag(articleid integer NOT NULL, tagid integer NOT NULL,
+                                     PRIMARY KEY(articleid, tagid));
+            INSERT INTO category VALUES(1, 'Category source');
+            INSERT INTO tag VALUES(1, 'Tag source');
+            DELETE FROM article;
+            INSERT INTO article(id, status, isdeleted, current_revision_id, title, categoryid)
+            SELECT id, 0, FALSE, 700 + id, 'Article ' || id::text, 1
+            FROM generate_series(1, @Count) AS id;
+            INSERT INTO article_tag(articleid, tagid) SELECT id, 1 FROM article;
+            """,
+            new SugarParameter("@Count", count));
+    }
+
+    private static IAuthorArticleQuerySourceReader CreateCanonicalQueryReader(SqlSugarClient db)
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
+        return new ArticleService(
+            _db: db,
+            _searchIndex: Substitute.For<ISearchIndexService>(),
+            _redisOperations: RedisOperationExecutor.ForTestConnection(redis),
+            _cacheReader: Substitute.For<ICacheTypedReader>(),
+            _cacheWriter: Substitute.For<ICacheRawWriter>(),
+            _stringReader: Substitute.For<ICacheStringReader>(),
+            _stringWriter: Substitute.For<ICacheStringWriter>(),
+            _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
+            _dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+            _runtimeKeyScope: Substitute.For<IRuntimeKeyScope>(),
+            _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
+            _logger: NullLogger<ArticleService>.Instance,
+            _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
+            _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
+            _mutationFence: Substitute.For<IArticlePublicMutationFence>(),
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
+            _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing(),
+            _articleBodyRepairQueue: new ArticleBodyRepairQueue());
+    }
+
+    private sealed class QuerySourceInterruptionProbe(IAuthorArticleQuerySourceReader source) : IAuthorArticleQuerySourceReader
+    {
+        public Func<Task>? AfterCoordinates
+        {
+            get; init;
+        }
+        public Func<Task>? AfterFields
+        {
+            get; init;
+        }
+        public int CoordinateReads
+        {
+            get; private set;
+        }
+        public int FieldReads
+        {
+            get; private set;
+        }
+
+        public async Task<AuthorArticleQuerySourceBatch> ReadCoordinatesAsync(
+            IReadOnlyList<AuthorArticleQueryStatus> statuses, CancellationToken cancellationToken)
+        {
+            CoordinateReads++;
+            AuthorArticleQuerySourceBatch result = await source.ReadCoordinatesAsync(statuses, cancellationToken);
+            if (AfterCoordinates is not null)
+            {
+                await AfterCoordinates();
+            }
+            return result;
+        }
+
+        public async Task<IReadOnlyList<AuthorArticleQuerySourceFields>> ReadFieldsAsync(
+            IReadOnlyList<int> admittedArticleIds, CancellationToken cancellationToken)
+        {
+            FieldReads++;
+            IReadOnlyList<AuthorArticleQuerySourceFields> result = await source.ReadFieldsAsync(admittedArticleIds, cancellationToken);
+            if (AfterFields is not null)
+            {
+                await AfterFields();
+            }
+            return result;
+        }
     }
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()

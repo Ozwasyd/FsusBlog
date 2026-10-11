@@ -2362,6 +2362,94 @@ caller-facing verifier 只有在当前权限快照有效且所有 history entry 
 terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
 但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
 
+### Author article entity query core (#2231)
+
+`FsusBlog.Contracts.Articles.AuthorArticleQueryContract` 定义独立于全文文档搜索和 command mode 的
+closed v1 输入。owner 必须由服务端 authenticated admin principal 与配置 site 派生；request ID、正数
+sequence、status/bucket scopes、locale、固定 collation、limit 和 cursor 均属于 query identity。未知或重复
+scope、超过 50 的 limit、超过 128 Unicode scalar 的 query、超过 8192 字符的 cursor 均拒绝。Inbox bucket
+在 #1908 实际 lifecycle admission 前返回 `author_article_query_inbox_unavailable`，不得构造替代 rows/counts。
+
+唯一 entity ranking core 是 `AuthorArticleQueryRanking`。比较文本采用 NFKC、trim 和 invariant uppercase，
+保留 diacritics 并统一 canonical combining 等价；CJK/RTL/emoji 以 Unicode scalar 计算 bounded edit distance。
+少于 4 scalar 不做 fuzzy，4–7 最多一次编辑，8–128 最多两次。排名 tuple 按 title exact/prefix/fuzzy 和
+distance、slug exact/prefix/fuzzy 和 distance、category/tag exact/prefix、verified server history ordinal、
+Draft/Published/Scheduled/Archived priority、stable article ID 升序比较；exact title 不受 recent rank 覆盖。
+比较不消费 updatedAt、views、local history、AI 或 embedding。重复 title/slug 仍保留各自 article ID。
+
+当前交付包含 input/ranking core 和独立的内部 permission-first source measurement；candidate construction
+不证明 permission/history admission。完整 query source adapter、sealed response/receipt、
+authenticated cursor、selection revalidation 和 AEDS route/compiled observation 尚未接入。此 core 不能作为
+可用 query API、完整 scale/cancel/privacy 验收，
+或 #2232 cache 可写入的 verified response。前端不得据此开启本地全量查询或 authority fallback。
+
+内部 `AuthorArticleQuerySourceInspection` 在只含 ID/revision/status 的读取前复用现有 live principal/site/session
+authority，并在管理元数据读取前只允许当前可 project 且可 write 的 ID。权限 digest 或 source coordinates
+变化时丢弃全部观察字段。规范 `ArticleService` projection 每批上限 1000；该内部测量不建立 ranked pagination、
+authorized query response、verified history projection 或 receipt，也不暴露 route。当前模型缺少 slug authority，
+空 corpus 同样明确为 `SlugUnavailable`；Archived read grant 和完整 query cursor 保持 unavailable。
+Recent 仅在原 verified history reader 已接入且身份稳定时进行内部观察；缺失 reader 或不可用 projection
+仍返回 `VerifiedRecentSourceUnavailable`。内部观察不能作为成功响应写入 verified query cache 或 UI。
+
+`IAuthorArticleQuerySourceReader` 的原 `ArticleService` 数据投影接受既有 Draft、Scheduled、Published、Archived
+四种状态。Archived 使用真实 lifecycle `status=3`，与 Deleted/逻辑删除区分；coordinates 和 admitted-ID fields
+均保留原 article ID、current revision、row version，fields 复用原 title/category/tags，不创建归档索引或替代身份。
+两段 SQL 继续排除 `isdeleted=true`；fields 的 status allowlist 使用既有枚举参数，包含 Archived、排除 Deleted
+及未知状态。该 reader 是内部原始投影，不提供 Archived read grant：`AuthorArticleQuerySourceInspection` 的
+`ArchivedReadGrantUnavailable`、slug/cursor 限制及权限检查保持不变。ArticleLibraryRail 仍须消费后续
+实际 permission-safe query response；不得直接把 reader fields 当作已授权响应或可写 verified cache。
+
+`AuthorArticleQueryHistoryIdentityReader` 独立消费原规范 history projection，最多 1000 entries、每页 100。
+全部页面必须绑定同一 user/site、collection revision、permission/site/session identity、projection/cache references
+和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；
+成功仅交付 server history identity/ordinal，不签发 query receipt，也不把 history server revision 冒充当前文章 revision。
+
+原 `AuthorArticleQuerySourceInspection` 消费该 reader 的实际 identity，先与 live preflight 的 user/site、
+permission/site/session revisions 一致，再由原 ArticleService 的 `ReadCoordinatesForIdsAsync` 按 history
+ArticleId 定向读取现有文章的 current revision/row version/status。此 ID lookup 每批最多 1000，SQL 仍排除
+逻辑删除和不符合 request status 的文章；不依赖全 corpus 的前 1000 个 ID。历史 revision 不与当前文章
+revision 混用，`RecentBindings` 只为经原 permission authority 允许 project 且 write、并通过字段坐标一致性检查
+的 current metadata 记录附带原 ordinal。完成字段读取后再次消费原 verified history，owner/revision/digests、
+permission/site/session 或 ordinals 变化即丢弃全部 fields/bindings。原 history ProjectionService、
+DirectProjectionCache、facade/DI 继续是同一规范 owner，query 层不保存第二份 history 或 index。
+
+缺失 ID lookup 的旧 reader adapter 明确拒绝该 capability，不以全 corpus 前缀替代。Recent 与其他 buckets
+的 current ID union 超过原 1000-ID admission window 时返回 `SourceWindowUnavailable`；普通 corpus batch 的
+`HasMore` 仍只是内部观察，不表示完整 10000 文章的 ranked pagination。原 `ReadCoordinatesAsync` 与
+`ReadCoordinatesAfterAsync(statuses, afterArticleId, cancellationToken)` 共用同一 ArticleService 实现；后者
+以 `id > @AfterArticleId`、`ORDER BY id`、最多 1000+1 行执行 keyset 读取，正常页最多保留 1000 坐标，
+仅有下一页时给出最后保留 ID 的 `NextAfterArticleId`。越界负值及非法状态在 ADO 前拒绝；ID 空洞不依赖
+offset，lookahead 行留给下一次按 ID 读取，不跳过、不产生持久化位置或第二 index。
+
+原 `AuthorArticleQuerySourceInspection.InspectPageAsync(request, afterArticleId, cancellationToken)` 对每个
+非 Recent corpus 页重新执行 live principal/site/session preflight、逐 ID project/write admission、字段坐标
+一致性及读后 permission digest 检查。坐标不严格前进、有重复或缺失版本、声称 HasMore 却未填满原窗口
+时丢弃全部观察；permission/source 拒绝不返回 continuation。旧 adapter 缺失 continuation capability 时
+明确 unavailable，不重放首页。原 `InspectAsync` 仍是 position=0 的入口，原 Archived/slug/query cursor
+拒绝不变。正 position 不能继续 Recent 或 mixed Recent union，保持 `SourceWindowUnavailable`，因为 corpus
+位置未绑定完整 history union。普通位置是内部 source 测量参数，不能作为公开/认证 query cursor、permission
+token、source digest 或 receipt；每页 current 坐标不证明跨页一致的完整 database snapshot。
+
+此 composition 不生成 candidate slug、
+ranked response、cursor binding、query receipt 或 verified query cache。真实 slug authority、Archived read grant、
+完整 corpus snapshot/fingerprint 及其 source/history/permission-bound cursor、sealed query response/AEDS route 和
+verified query-cache consumer 仍是 ArticleLibraryRail/Quick Switcher 的后续门禁；公开 `/article/{id}` 和
+Rights.CanonicalUrl 不能作为 entity slug authority。
+
+独立 `AuthorArticleQueryCursorCodec` 使用专属 Data Protection purpose，绑定原 request ID/sequence、user/site、
+normalized query/status/bucket/locale/collation/limit identity、source/history/permission digests、permission/site/session
+revisions 和完整 rank tuple。scope 或当前 authority 改变时返回 stale，篡改或其他 cursor purpose 返回 invalid。
+codec 不证明输入 binding 的来源；完整 source adapter 尚不能提供必需 slug，因此当前没有 query route 发行该 cursor。
+
+### Author query request sequencing core (#2232)
+
+`AuthorQueryRequestCoordinator` 仅管理一个 in-flight slot，复用原 `privateRequestRuntime.open('admin')`
+的 generation 与 AbortSignal。每次 begin 取消旧 slot，生成独立 request ID/递增 sequence，并绑定非文本
+scope digest。异步 response、verification 与 cache write 每阶段都必须 `assertCurrent()`；旧 release
+不能清除新 slot。caller abort、admin generation drift 和 registered private cleanup 均阻止旧 response。
+`release()`/`dispose()` 重复调用安全。此底层组件不读取 index、不执行 query、不验证 source receipt，也不
+签发成功 response；缺失的 query transport、完整 receipt、verified cache 和 selection revalidation 不由它替代。
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
