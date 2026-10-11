@@ -2411,12 +2411,15 @@ false/null decision，不带 title/category/tag、count 或替代 slug。取消�
 
 原 `IAuthorArticleQuerySourceReader.ReadInSnapshotAsync` 为内部 callback 提供独立的数据读事务。
 ArticleService 在原 AdminHeavyRead gate 内用 `CopyNew()` 创建独立 client，拒绝非 PostgreSQL、ambient
-或共享 connection，验证实际 RepeatableRead transaction/connection，并在任何 source SELECT 前执行
+或共享 connection；CopyNew 前与 core 入口还拒绝真实 `System.Transactions.Transaction.Current`，
+避免 provider 自动 enlist。验证实际 RepeatableRead transaction/connection，并在任何 source SELECT 前执行
 `SET TRANSACTION READ ONLY`。callback 的 coordinates、exact-ID 与 admitted-ID fields 全部复用原
 ArticleService SQL；单次读取仍受原 1000+1／1000-ID 边界限制，多页在同一事务内观察，不创建第二 index。
 live permission authority 留在原 client 上，不受这个历史数据快照冻结；其检查在数据 callback 外进行，
 避免持有数据 connection 时再占用第二个 main-pool connection。事务本身不是权限过滤或 read grant。
 scope 与逐次读取取消必须共同生效；并行读取、事务漂移、未 await 的读取与 scope 退出后复用均拒绝。
+lease 保留首个读取 fault/cancel，即使该 Task 已完成、被 callback 丢弃或捕获后继续读取，scope 也不得
+返回成功值；观察原 Task 异常，不保留全部成功读取结果。pending 读取仍先取消并 drain 后再拒绝。
 退出等待 reader cleanup，取消不得跳过 owned rollback，且不 commit、写数据库或保留 snapshot lease。
 缺失该 capability 的 adapter 明确 unsupported。该数据读能力不计算或签发 v1 SourceDigest：真实 Slug、
 完整 permission/history binding、Archived query grant 和 successful query response/cache/receipt 仍未就绪。

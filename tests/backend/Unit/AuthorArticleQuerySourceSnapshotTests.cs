@@ -389,6 +389,105 @@ public sealed class AuthorArticleQuerySourceSnapshotTests
         await fixture.AssertCleanAsync();
     }
 
+    [Theory]
+    [InlineData("status")]
+    [InlineData("cancel")]
+    [InlineData("drift")]
+    public async Task Snapshot_CompletedReadFailureCannotReturnCallbackSuccess(string fault)
+    {
+        var fixture = new Fixture();
+        if (fault == "drift")
+            fixture.BeforeReader = () => fixture.ActiveTransaction = null;
+        Task<AuthorArticleQuerySourceBatch>? discarded = null;
+        Exception error = await Assert.ThrowsAnyAsync<Exception>(() => fixture.ReadAsync((source, token) =>
+        {
+            discarded = source.ReadCoordinatesAsync(
+                [fault == "status" ? (AuthorArticleQueryStatus)4 : AuthorArticleQueryStatus.Draft],
+                fault == "cancel" ? new CancellationToken(true) : token);
+            Assert.True(discarded.IsCompleted);
+            Assert.Equal(fault == "cancel", discarded.IsCanceled);
+            Assert.Equal(fault != "cancel", discarded.IsFaulted);
+            return Task.FromResult(1);
+        }));
+        if (fault == "status")
+            Assert.IsType<ArgumentException>(error);
+        else if (fault == "cancel")
+            Assert.IsAssignableFrom<OperationCanceledException>(error);
+        else
+            Assert.Equal("author_article_query_source_snapshot_transaction_changed", error.Message);
+        Assert.NotNull(discarded);
+        await fixture.AssertCleanAsync();
+    }
+
+    [Fact]
+    public async Task Snapshot_EarlierCompletedFailureCannotBeHiddenByLaterSuccessfulRead()
+    {
+        var fixture = new Fixture();
+        ArgumentException? first = null;
+        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(() => fixture.ReadAsync(async (source, token) =>
+        {
+            first = await Assert.ThrowsAsync<ArgumentException>(() => source.ReadCoordinatesAsync(
+                [(AuthorArticleQueryStatus)4], token));
+            Assert.Single((await source.ReadCoordinatesAsync([AuthorArticleQueryStatus.Draft], token)).Coordinates);
+            return 1;
+        }));
+        Assert.Same(first, error);
+        Assert.Equal(1, fixture.Events.Count(static entry => entry == "read"));
+        await fixture.AssertCleanAsync();
+    }
+
+    [Theory]
+    [InlineData("primary")]
+    [InlineData("core")]
+    public async Task Snapshot_RealAmbientTransactionRefusesBeforeClientOrAdo(string entry)
+    {
+        var fixture = new Fixture();
+        System.Transactions.Transaction? previous = System.Transactions.Transaction.Current;
+        using (var ambient = new System.Transactions.TransactionScope(
+            System.Transactions.TransactionScopeOption.Required, System.Transactions.TransactionScopeAsyncFlowOption.Enabled))
+        {
+            await Task.Yield();
+            Assert.NotNull(System.Transactions.Transaction.Current);
+            Assert.Null(fixture.OriginalAdo.Transaction);
+            Assert.Null(fixture.SnapshotAdo.Transaction);
+            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => entry == "primary"
+                ? ((IAuthorArticleQuerySourceReader)fixture.Owner).ReadInSnapshotAsync((_, _) => Task.FromResult(1), default)
+                : fixture.ReadAsync((_, _) => Task.FromResult(1)));
+            Assert.Equal("author_article_query_source_snapshot_ambient_transaction_unavailable", error.Message);
+            _ = fixture.OriginalDb.DidNotReceive().CopyNew();
+            await fixture.OriginalAdo.DidNotReceive().BeginTranAsync(Arg.Any<IsolationLevel>());
+            await fixture.SnapshotAdo.DidNotReceive().BeginTranAsync(Arg.Any<IsolationLevel>());
+            Assert.Empty(fixture.Events);
+            Assert.Equal(fixture.PreviousCancellation, fixture.SnapshotAdo.CancellationToken);
+        }
+        Assert.Same(previous, System.Transactions.Transaction.Current);
+    }
+
+    [Fact]
+    public async Task Snapshot_SuppressedManagedAmbientCanReadWithoutEnlisting()
+    {
+        var fixture = new Fixture();
+        System.Transactions.Transaction? previous = System.Transactions.Transaction.Current;
+        using (var ambient = new System.Transactions.TransactionScope(
+            System.Transactions.TransactionScopeOption.Required, System.Transactions.TransactionScopeAsyncFlowOption.Enabled))
+        {
+            await Task.Yield();
+            System.Transactions.Transaction outer = Assert.IsAssignableFrom<System.Transactions.Transaction>(
+                System.Transactions.Transaction.Current);
+            using (var suppressed = new System.Transactions.TransactionScope(
+                System.Transactions.TransactionScopeOption.Suppress, System.Transactions.TransactionScopeAsyncFlowOption.Enabled))
+            {
+                await Task.Yield();
+                Assert.Null(System.Transactions.Transaction.Current);
+                Assert.Single((await fixture.ReadAsync((source, token) => source.ReadCoordinatesAsync(
+                    [AuthorArticleQueryStatus.Draft], token))).Coordinates);
+                await fixture.AssertCleanAsync();
+            }
+            Assert.Same(outer, System.Transactions.Transaction.Current);
+        }
+        Assert.Same(previous, System.Transactions.Transaction.Current);
+    }
+
     [Fact]
     public async Task Snapshot_ConcurrentReadCannotShareOneDataTransaction()
     {

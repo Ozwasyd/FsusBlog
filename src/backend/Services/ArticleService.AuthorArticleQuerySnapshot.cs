@@ -1,4 +1,5 @@
 using System.Data;
+using System.Runtime.ExceptionServices;
 
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -88,6 +89,7 @@ public partial class ArticleService
             {
                 throw new InvalidOperationException("author_article_query_source_snapshot_read_not_awaited");
             }
+            lease.ThrowIfReadFailed();
             return result;
         }
         finally
@@ -128,6 +130,10 @@ public partial class ArticleService
 
     private static void RequireSnapshotClient(ISqlSugarClient db)
     {
+        if (System.Transactions.Transaction.Current is not null)
+        {
+            throw new InvalidOperationException("author_article_query_source_snapshot_ambient_transaction_unavailable");
+        }
         if (db.CurrentConnectionConfig.DbType != SqlSugar.DbType.PostgreSQL)
         {
             throw new NotSupportedException("author_article_query_source_snapshot_provider_unavailable");
@@ -155,6 +161,7 @@ public partial class ArticleService
         private readonly object _sync = new();
         private bool _closed;
         private TaskCompletionSource? _readFinished;
+        private ExceptionDispatchInfo? _readFailure;
 
         public Task<AuthorArticleQuerySourceBatch> ReadCoordinatesAsync(
             IReadOnlyList<AuthorArticleQueryStatus> statuses,
@@ -189,7 +196,32 @@ public partial class ArticleService
                 }
                 _readFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
             }
-            return ReadCoreAsync(read, readToken);
+            Task<TResult> result = ReadCoreAsync(read, readToken);
+            _ = ObserveReadFailureAsync(result);
+            return result;
+        }
+
+        private static async Task ObserveReadFailureAsync(Task read)
+        {
+            try
+            {
+                await read.ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Observe even a discarded, already-completed Task. ReadCore retains
+                // its first failure separately so callback success cannot hide it.
+            }
+        }
+
+        internal void ThrowIfReadFailed()
+        {
+            ExceptionDispatchInfo? failure;
+            lock (_sync)
+            {
+                failure = _readFailure;
+            }
+            failure?.Throw();
         }
 
         private async Task<TResult> ReadCoreAsync<TResult>(
@@ -216,6 +248,14 @@ public partial class ArticleService
                 {
                     snapshotAdo.CancellationToken = previousCancellation;
                 }
+            }
+            catch (Exception error)
+            {
+                lock (_sync)
+                {
+                    _readFailure ??= ExceptionDispatchInfo.Capture(error);
+                }
+                throw;
             }
             finally
             {
