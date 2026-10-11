@@ -66,6 +66,7 @@
         </p>
 
         <input
+            v-if="!nativeAttachmentInput"
             ref="imageInputRef"
             type="file"
             accept="image/*"
@@ -84,7 +85,6 @@ import {
     type MarkdownEditorCommand as FsusUiMarkdownEditorCommand,
     type MarkdownEditorCommandContext as FsusUiMarkdownEditorCommandContext,
     type MarkdownEditorMode as FsusUiMarkdownEditorMode,
-    type MarkdownEditorSessionExpose,
     type MarkdownEditorOutlineRange,
     type MarkdownEditorRevealOptions,
     type MarkdownEditorRevealResult,
@@ -109,6 +109,8 @@ import {
     markdownEditorCommands
 } from '@/components/ui/markdown-editor/commands';
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
+import type { MarkdownEditorSessionExpose } from '@/fsusui/articlePositionMaps';
 import {
     mergeFsusUiAuthoringCommands,
     type FsusUiAuthoringCommand,
@@ -116,6 +118,7 @@ import {
     type FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import { createMarkdownSourceCoordinateMap } from '@/fsusui/markdownOutline';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -125,8 +128,11 @@ import type {
 } from '@/ui-contracts/markdownEditor';
 
 type FsusUiMarkdownEditorExpose = MarkdownEditorSessionExpose & Readonly<{
+    dispatchTransaction: ArticleEditorContinuityPort['dispatchTransaction'];
+    withAttachmentFile: NonNullable<ArticleEditorContinuityPort['withAttachmentFile']>;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
+    closeCommandPalette?: () => void;
     revealHeading?: (
         nodeId: string,
         options?: MarkdownEditorRevealOptions
@@ -161,6 +167,7 @@ const props = withDefaults(defineProps<{
     chrome?: MarkdownEditorChrome;
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
+    nativeAttachmentInput?: boolean;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     toolbarsExclude?: string[];
     saving?: boolean;
@@ -176,6 +183,7 @@ const props = withDefaults(defineProps<{
     chrome: 'framed',
     statusDensity: 'minimal',
     showModeSwitcher: true,
+    nativeAttachmentInput: false,
     toolbarDensity: 'standard',
     toolbarsExclude: () => [],
     saving: false,
@@ -191,6 +199,7 @@ const emit = defineEmits<{
     (e: 'on-draft-save'): void;
     (e: 'on-submit'): void;
     (e: 'on-upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
+    (e: 'upload-image', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'transaction', event: FsusUiMarkdownEditorTransactionEvent): void;
     (e: 'viewport-change', event: {
@@ -418,6 +427,11 @@ function openCommandPalette(): void
     editorRef.value?.openCommandPalette?.();
 }
 
+function closeCommandPalette(): void
+{
+    editorRef.value?.closeCommandPalette?.();
+}
+
 function revealHeading(
     nodeId: string,
     options?: MarkdownEditorRevealOptions
@@ -470,13 +484,24 @@ function cancelProgrammaticViewportSuppression(): void
 
 onBeforeUnmount(cancelProgrammaticViewportSuppression);
 
-function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
+function trackAuthoringSelection(event: ArticleAuthoringSelectionEvent): void
 {
-    const identity = props.documentIdentity;
-    emit('selection-change', identity ? { ...event, documentIdentity: identity } : event);
+    const identity = event.documentIdentity;
+    emit('selection-change', event);
     if (identity === undefined)
     {
         currentAuthoringBinding.value = null;
+        return;
+    }
+    const expected = props.documentIdentity;
+    if (identity.id !== expected?.id || identity.epoch !== expected?.epoch)
+    {
+        return;
+    }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === identity.id &&
+        current.documentEpoch === identity.epoch && event.revision < current.revision)
+    {
         return;
     }
     currentAuthoringBinding.value = Object.freeze({
@@ -493,6 +518,18 @@ function trackAuthoringTransaction(event: FsusUiMarkdownEditorTransactionEvent):
 {
     emit('transaction', event);
     if (!event.accepted)
+    {
+        return;
+    }
+    const identity = props.documentIdentity;
+    if (identity && (identity.id !== event.documentIdentity.id ||
+        identity.epoch !== event.documentIdentity.epoch))
+    {
+        return;
+    }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === event.documentIdentity.id &&
+        current.documentEpoch === event.documentIdentity.epoch && event.revision < current.revision)
     {
         return;
     }
@@ -535,7 +572,7 @@ function trackAuthoringViewport(event: Event): void
     const firstLine = Math.max(1, Math.floor(textarea.scrollTop / lineHeight) + 1);
     const visibleLines = Math.max(1, Math.ceil(textarea.clientHeight / lineHeight) + 1);
     const lastLine = firstLine + visibleLines;
-    let start = 0;
+    let start: number;
     try
     {
         start = coordinateMap.toRawOffsetFromLineColumn({ line: firstLine, column: 0 });
@@ -573,8 +610,13 @@ function emitSubmit(): void
     emit('on-submit');
 }
 
-function requestImageUpload(): void
+function requestImageUpload(batch: MarkdownAttachmentBatchIntent, capture?: MarkdownAttachmentCaptureObservation): void
 {
+    if (props.nativeAttachmentInput)
+    {
+        emit('upload-image', batch, capture);
+        return;
+    }
     imageInputRef.value?.click();
 }
 
@@ -604,6 +646,10 @@ async function handleImagePick(event: Event): Promise<void>
 
 function handlePaste(event: ClipboardEvent): void
 {
+    if (props.nativeAttachmentInput)
+    {
+        return;
+    }
     const textarea = textareaFromEvent(event);
     if (!textarea)
     {
@@ -744,19 +790,25 @@ watch(() => props.documentIdentity, () =>
     currentAuthoringBinding.value = null;
 });
 
-function getSession(editorSessionRef: string)
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
 {
-    if (!editorRef.value)
-    {
-        throw new Error('public-editor-mounted-owner-unavailable');
-    }
-    return editorRef.value.getSession(editorSessionRef);
+    const editor = editorRef.value;
+    return editor && typeof editor.dispatchTransaction === 'function' ? editor : null;
+}
+
+function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
+{
+    const editor = editorRef.value;
+    return editor && typeof editor.dispatchTransaction === 'function' && typeof editor.getSession === 'function'
+        ? editor : null;
 }
 
 defineExpose({
-    getSession,
+    getAuthoringEditorPort,
+    getAuthoringSessionPort,
     insertMarkdownAtCursor,
     openCommandPalette,
+    closeCommandPalette,
     revealHeading,
     revealSourceRange
 });
