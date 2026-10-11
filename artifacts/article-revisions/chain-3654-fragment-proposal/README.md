@@ -361,3 +361,45 @@ upstream correction was consumed. The d21c source review does not cover this
 new producer/consumer correction; return its exact increment for independent
 source review. Original evidence.json and matrix/TypeScript failure identities
 are not rebound or replaced by these new source checks.
+
+## 2026-10-11 exact upstream cancellation fix selection
+
+The coordinator supplied the original Writer owner's correction
+`e6995b3bf8baf2722fe307ffa52edc7febd3dff4`, contained in PR4153 head
+`c8087a02ca1ffa8d809382122aa69530d4bc51ef`. Both source identities were fetched;
+Git ancestry confirms the head contains that correction. PR4153 remains draft/
+open. Select **e6995b3b** as the pending source dependency correction for the loan,
+not the entire c808 head or broad PR4153 history. Neither was merged, cherry-picked
+or otherwise incorporated into this fragment branch. Independent source review
+of the correction and a977 proposal association remains pending; selection is
+not acceptance.
+
+The exact correction changes three original-owner paths: document context task
+cancellation, runtime binding imports, and original authoring lifecycle control
+source. It adds cancellation-depth admission in the original document owner:
+`beginTask` refuses registration during synchronous cancellation, superseding
+cancellation checks that the original context still exists, and `cancelAll`
+holds the admission barrier until its snapshot is canceled. It consolidates the
+duplicate continuity import. No fragment-owned cancellation registry, dispatcher
+or compensating write is required or added.
+
+Read-only TypeScript source inspection confirms `ArticleEditorCallerBinding`,
+`borrowCompareTask` and `ArticleDocumentTaskLease` have identical declaration/
+method text in 4d3ee437, e6995b3b and c8087a02. The production consumer's structural
+view therefore needs no source adaptation. The fixed runtime file's Git blob is
+`30a37cf0b430e577b0f3edc8cca168a167cb2c75`; the fixed document owner's blob is
+`04d25daab8bfba75181bcfddee6602e44bfcc49f`. Source parse diagnostics are zero for
+those two files. This inspection neither invokes the loan nor proves cancellation
+behavior or native acceptance.
+
+Public dependency sources:
+[original owner cancellation correction](https://github.com/Ozwasyd/FsusBlog/blob/e6995b3bf8baf2722fe307ffa52edc7febd3dff4/src/frontend/src/services/authoring/articleDocumentContext.ts),
+[unchanged loan interface with import correction](https://github.com/Ozwasyd/FsusBlog/blob/e6995b3bf8baf2722fe307ffa52edc7febd3dff4/src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts),
+and [unrun upstream regression source](https://github.com/Ozwasyd/FsusBlog/blob/e6995b3bf8baf2722fe307ffa52edc7febd3dff4/tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts).
+The exact a977 producer/consumer/regression source remains unchanged for its
+independent reviewer; this is a documentation-only dependency selection. Our
+52 controls remain UNRUN/unlisted, and all original source/authority/host/native/
+runtime/acceptance holds remain. The upstream owner's reported 233 type failures
+are not a fragment test result or a successful prerequisite; our original 30
+dependency diagnostics and original matrix identity failure stay at their own
+source identities.
