@@ -79,6 +79,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } fro
 
 import type { AuthoringTabGroupProjection } from '@/services/authoring/authoringTabGroupRegistry';
 import type { AuthoringWorkspaceGeometryPlan } from '@/services/authoring/authoringWorkspaceGeometryPolicy';
+import type { AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import { createAuthoringWorkspaceLayoutController, unavailableAuthoringWorkspaceLayout } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceLayoutObservation, AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceSeparatorProps } from '@/services/authoring/authoringWorkspaceSeparatorAdapter';
@@ -359,7 +360,7 @@ const separatorStyle = computed(() => geometry.value?.status === 'planned'
 defineExpose({ refresh, invalidate,
                readFrameRect: () => frameElement.value?.getBoundingClientRect() ?? null,
                readSeparatorRect: () => separatorRegion.value?.getBoundingClientRect() ?? null
-});
+} satisfies AuthoringWorkspaceLayoutPort);
 </script>
 
 <style scoped lang="scss">

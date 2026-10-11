@@ -16,8 +16,11 @@ const sfc = requireFrontend('@vue/compiler-sfc');
 const dom = requireFrontend('@vue/compiler-dom');
 const componentPath = 'src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue';
 const controllerPath = 'src/frontend/src/services/authoring/authoringWorkspaceLayoutController.ts';
+const writerPath = 'src/frontend/src/views/admin/article/Write.vue';
+const contextPath = 'src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts';
 const component = readFileSync(path.join(root, componentPath), 'utf8');
 const controller = readFileSync(path.join(root, controllerPath), 'utf8');
+const writer = readFileSync(path.join(root, writerPath), 'utf8');
 const { descriptor, errors } = sfc.parse(component, { filename: componentPath });
 const failures = errors.map(error => String(error));
 const script = ts.createSourceFile(componentPath, descriptor.scriptSetup?.content ?? '', ts.ScriptTarget.Latest, true);
@@ -101,6 +104,12 @@ if (groups !== 2 || separator !== 1)
 {
     failures.push('missing-exact-two-stable-regions-or-public-separator');
 }
+if (!component.includes('satisfies AuthoringWorkspaceLayoutPort')
+    || !writer.includes('ref="workspaceLayoutRef"')
+    || !writer.includes('getAuthoringWorkspaceLayoutPort: () => workspaceLayoutRef.value'))
+{
+    failures.push('missing-actual-layout-public-port-forwarding');
+}
 const styles = descriptor.styles.map(style => style.content).join('\n');
 if (/font-size|font-stretch|scale\s*\(|(?:transition|animation)\s*:|(?:^|[\s,])(?:body|html)\s*[{,]/mu.test(styles))
 {
@@ -129,7 +138,7 @@ catch (error)
 }
 console.log(JSON.stringify({ schema: 'fsusblog.authoring-workspace-layout-component-source.v1',
     status: failures.length ? 'source-check-fail' : 'source-check-pass',
-    source: [componentPath, controllerPath].map(file => ({ path: file,
+    source: [componentPath, controllerPath, writerPath, contextPath].map(file => ({ path: file,
         sha256: createHash('sha256').update(readFileSync(path.join(root, file))).digest('hex') })),
     stableGroupRegions: groups, publicSeparators: separator, failures,
     notCovered: ['actual-host-mounting', 'retention-restore-provenance', 'repository-wide-second-layout-owner',

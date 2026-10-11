@@ -636,3 +636,23 @@ accessible names are supplied through all ten real locale catalogs. All 30
 existing cases, tests/list, browser geometry, receipts/verifier/tamper, races,
 security/privacy, IME and native qualifications remain UNRUN. Source observations
 use planned/blocked, never a fabricated ready flag or accepted product receipt.
+
+The Write view now exposes getAuthoringWorkspaceLayoutPort(), returning its
+actual AuthoringWorkspaceLayout component ref or null. The component's existing
+refresh/invalidate/readFrameRect/readSeparatorRect implementations satisfy the
+explicit AuthoringWorkspaceLayoutPort interface. The original root can read its
+own current frame/separator observations and revoke synchronously through this
+public ref, without child DOM discovery or a substitute measurement callback.
+The port neither stores a geometry result nor certifies readiness/retention.
+
+The second retained group outlet remains blocked by actual source capabilities.
+ArticleWorkspaceMountedEditorSource reads an already mounted native editor and
+document binding; createArticleWriterMountedEditorSource borrows one existing
+Writer mount. AuthoringSessionHost getSession/listSessions/exportState returns
+record snapshots, not Vue mounts or renderable outlets. Its factory resolves
+an already mounted editor and refuses absence. The original Write composable
+acquires one document binding and allows only one runtime bind; another Write or
+ArticleWriteEditor would acquire/bind another owner rather than render the same
+retained session. No new mount map, editor state copy, factory or synthetic outlet
+contract is introduced. The original mounted-owner must supply its genuine
+persistent host/outlet source before the trailing slot can be connected.

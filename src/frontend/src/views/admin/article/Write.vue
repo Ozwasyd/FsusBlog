@@ -158,6 +158,7 @@
                         data-editor-panel="true"
                     >
                         <AuthoringWorkspaceLayout
+                            ref="workspaceLayoutRef"
                             :source="workspaceLayoutSource"
                             primary-region-id="article-write-leading-group"
                             secondary-region-id="article-write-trailing-group"
@@ -809,7 +810,7 @@ import {
     type ArticleWorkspaceStatusSummary
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
-import { authoringWorkspaceLayoutSourceKey } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import {
     calculateOpenArticleDocumentDigest,
     type ArticleDocumentContextRef,
@@ -966,7 +967,9 @@ const workspaceDocument = computed(() => projectArticleWriterWorkspaceDocument(a
 const workspaceIdentity = computed<ArticleDocumentIdentity>(() => workspaceDocument.value.identity);
 const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => workspaceDocument.value.documentContext);
 const workspaceMountedSource = shallowRef<ArticleWorkspaceMountedEditorSource | null>(null);
-defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value });
+const workspaceLayoutRef = shallowRef<AuthoringWorkspaceLayoutPort | null>(null);
+defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value,
+               getAuthoringWorkspaceLayoutPort: () => workspaceLayoutRef.value });
 const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
     dirty: requiresLeaveConfirm.value && !pageLoading.value,
     saving: submitting.value,
