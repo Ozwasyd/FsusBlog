@@ -3,7 +3,6 @@
         class="article-library-content"
         aria-label="文章库"
         @keydown.esc.stop.prevent="emit('close')"
-        @focusout="pendingActionFocus = null"
     >
         <ul
             class="article-library-content__groups"
@@ -100,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { FsusUiButton as ElButton } from '@/fsusui/button';
 import { TimeUtils } from '@/utils/time';
@@ -139,7 +138,16 @@ const nextButton = ref<ArticleLibraryButtonHandle>();
 const revealButton = ref<ArticleLibraryButtonHandle>();
 const focusedId = ref<number | null>(null);
 type ArticleLibraryAction = 'previous' | 'next' | 'reveal-current';
-let pendingActionFocus: { action: ArticleLibraryAction; anchor: HTMLButtonElement; group: ArticleLibraryGroup; } | null = null;
+interface ArticleLibraryFocusIntent {
+    origin: HTMLButtonElement;
+    originGroup: ArticleLibraryGroup;
+    group: ArticleLibraryGroup;
+    action: ArticleLibraryAction | null;
+    anchor: HTMLButtonElement | null;
+}
+let focusIntent: ArticleLibraryFocusIntent | null = null;
+let applyingFocusIntent = false;
+let focusDocument: Document | null = null;
 let mountedActive = true;
 const page = computed(() => props.presentation.group === props.group
     && isArticleLibraryPageValid(props.presentation) && props.presentation.state === 'ready'
@@ -243,6 +251,104 @@ function actionButton(action: ArticleLibraryAction): ArticleLibraryButtonHandle 
     }
 }
 
+function ownsIntentFocus(intent: ArticleLibraryFocusIntent): boolean
+{
+    const activeElement = document.activeElement;
+    return activeElement === intent.origin || activeElement === intent.anchor
+        || (intent.anchor === null && activeElement === document.body);
+}
+
+function handleFocusChange(event: FocusEvent): void
+{
+    // DOM removal may leave focus on body without a focusin. A real new focus target cancels ownership.
+    if (!applyingFocusIntent && focusIntent && event.target !== focusIntent.origin && event.target !== focusIntent.anchor)
+    {
+        focusIntent = null;
+    }
+}
+
+function captureFocusIntent(group: ArticleLibraryGroup, originGroup: ArticleLibraryGroup): void
+{
+    if (focusIntent && !ownsIntentFocus(focusIntent))
+    {
+        focusIntent = null;
+    }
+    if (focusIntent && focusIntent.group !== group)
+    {
+        const unfinished = focusIntent.anchor === null ? focusIntent : null;
+        focusIntent = null;
+        // Cancel the old group's restoration; only an unfinished fallback can transfer to the new group.
+        if (unfinished)
+        {
+            focusIntent = { ...unfinished, group, action: null };
+        }
+    }
+    const activeElement = document.activeElement;
+    const rowOrigin = rowButtons.value.find((item) => item.ref === activeElement)?.ref;
+    const action = previousButton.value?.ref === activeElement ? 'previous'
+        : nextButton.value?.ref === activeElement ? 'next'
+            : revealButton.value?.ref === activeElement ? 'reveal-current' : null;
+    const losesActionFocus = action !== null && (originGroup !== group || !actionButton(action));
+    const origin = rowOrigin ?? (losesActionFocus
+        ? [previousButton.value, nextButton.value, revealButton.value].find((item) => item?.ref === activeElement)?.ref
+        : undefined);
+    if (origin)
+    {
+        // Persist before rendering/await: a later same-group watcher inherits this unfinished handoff.
+        focusIntent = { origin, originGroup, group, action: originGroup === group ? action : null, anchor: null };
+    }
+}
+
+function settleFocusIntent(group: ArticleLibraryGroup): boolean
+{
+    const intent = focusIntent;
+    if (!intent)
+    {
+        return false;
+    }
+    if (intent.group !== group || !ownsIntentFocus(intent))
+    {
+        focusIntent = null;
+        return false;
+    }
+    if (page.value)
+    {
+        focusIntent = null;
+        const button = intent.action ? actionButton(intent.action)?.ref : undefined;
+        if (button)
+        {
+            button.focus();
+        }
+        else
+        {
+            focusInitial();
+        }
+    }
+    else if (intent.anchor === null)
+    {
+        applyingFocusIntent = true;
+        try
+        {
+            focusInitial();
+        }
+        finally
+        {
+            applyingFocusIntent = false;
+        }
+        const anchor = groupButtons.value.find((item) => item.ref?.dataset.libraryGroup === group)?.ref;
+        if (intent.originGroup === group && anchor && document.activeElement === anchor)
+        {
+            intent.anchor = anchor;
+        }
+        else
+        {
+            // Cross-group focus uses fallback only; it cannot become an action restoration record.
+            focusIntent = null;
+        }
+    }
+    return true;
+}
+
 watch([page, () => props.currentArticleId, () => props.active, () => props.group], async (values, oldValues, onCleanup) =>
 {
     const group = values[3];
@@ -253,63 +359,23 @@ watch([page, () => props.currentArticleId, () => props.active, () => props.group
     {
         focusWorkCurrent = false;
     });
-    if (!props.active)
+    if (!props.active || typeof document === 'undefined')
     {
-        pendingActionFocus = null;
+        focusIntent = null;
         return;
     }
-    if (pendingActionFocus?.group !== props.group)
-    {
-        pendingActionFocus = null;
-    }
-    const activeElement = typeof document === 'undefined' ? null : document.activeElement;
-    const hadRowFocus = rowButtons.value.some((item) => item.ref === activeElement);
-    // Capture exposed refs before rendering removes or disables a focused page/reveal action.
-    const actionOrigin = previousButton.value?.ref === activeElement ? 'previous'
-        : nextButton.value?.ref === activeElement ? 'next'
-            : revealButton.value?.ref === activeElement ? 'reveal-current' : null;
-    const losesActionFocus = actionOrigin !== null && (originGroup !== group || !actionButton(actionOrigin));
+    captureFocusIntent(group, originGroup);
     focusedId.value = currentOnPage.value ? props.currentArticleId : entries.value[0]?.id ?? null;
     await nextTick();
     if (!focusWorkCurrent || !mountedActive || !props.active || props.group !== group)
     {
         return;
     }
-    if (pendingActionFocus && page.value)
+    if (settleFocusIntent(group))
     {
-        const pending = pendingActionFocus;
-        pendingActionFocus = null;
-        if (document.activeElement === pending.anchor && pending.group === props.group)
-        {
-            const button = actionButton(pending.action)?.ref;
-            if (button)
-            {
-                button.focus();
-            }
-            else
-            {
-                focusInitial();
-            }
-            return;
-        }
+        return;
     }
-    const shouldRestoreFocus = (hadRowFocus || losesActionFocus)
-        && typeof document !== 'undefined'
-        && (document.activeElement === activeElement || document.activeElement === document.body);
-    if (shouldRestoreFocus && focusedId.value !== null)
-    {
-        focusArticle(focusedId.value);
-    }
-    else if (shouldRestoreFocus)
-    {
-        focusInitial();
-        const anchor = groupButtons.value.find((item) => item.ref?.dataset.libraryGroup === props.group)?.ref;
-        if (!page.value && actionOrigin && originGroup === group && anchor && document.activeElement === anchor)
-        {
-            pendingActionFocus = { action: actionOrigin, anchor, group: originGroup };
-        }
-    }
-    else if (currentOnPage.value)
+    if (currentOnPage.value)
     {
         rowButtons.value.find((item) => item.ref?.dataset.articleId === String(props.currentArticleId))
             ?.ref?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
@@ -333,10 +399,18 @@ function focusInitial(): void
     }
 }
 
+onMounted(() =>
+{
+    focusDocument = typeof document === 'undefined' ? null : document;
+    focusDocument?.addEventListener('focusin', handleFocusChange, true);
+});
+
 onBeforeUnmount(() =>
 {
     mountedActive = false;
-    pendingActionFocus = null;
+    focusIntent = null;
+    focusDocument?.removeEventListener('focusin', handleFocusChange, true);
+    focusDocument = null;
 });
 
 defineExpose({ focusInitial } satisfies ArticleLibraryContentHandle);

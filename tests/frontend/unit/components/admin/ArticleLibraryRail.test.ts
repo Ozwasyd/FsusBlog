@@ -1,13 +1,13 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils';
-import { nextTick } from 'vue';
+import { defineComponent, h, nextTick, onUpdated, ref, watch } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ArticleLibraryRail from '@/components/admin/article/ArticleLibraryRail.vue';
 import { ArticlePublishStatus } from '@/contracts/binaryApi';
 
-import type { ArticleLibraryPresentation } from '@/components/admin/article/articleLibraryPresentation';
+import type { ArticleLibraryGroup, ArticleLibraryPresentation } from '@/components/admin/article/articleLibraryPresentation';
 
 const mounted: Array<{ unmount(): void; }> = [];
 const actions = ['previous', 'next', 'reveal-current'] as const;
@@ -55,6 +55,60 @@ async function openRail(withDisplayPage = true)
     mounted.push(wrapper);
     await wrapper.get('button[aria-label="文章库"]').trigger('click');
     await nextTick();
+    return wrapper;
+}
+
+// A real Vue host re-enters the same flush after the loading DOM patch; no scheduler or UI stub.
+async function openInterleavedRail(
+    mode: 'post-watch' | 'updated',
+    onReplacement: () => void,
+    readyGroup: ArticleLibraryGroup = 'recent'
+)
+{
+    const presentation = ref<ArticleLibraryPresentation>(displayPage());
+    const group = ref<ArticleLibraryGroup>('recent');
+    let armed = false;
+    const load = () =>
+    {
+        if (armed)
+        {
+            presentation.value = { state: 'loading', group: 'recent' };
+        }
+    };
+    const host = defineComponent({
+        setup()
+        {
+            const replaceLoading = () =>
+            {
+                if (presentation.value.state === 'loading')
+                {
+                    onReplacement();
+                    group.value = readyGroup;
+                    presentation.value = { ...displayPage(), group: readyGroup };
+                }
+            };
+            if (mode === 'post-watch')
+            {
+                watch(presentation, replaceLoading, { flush: 'post' });
+            }
+            else
+            {
+                onUpdated(replaceLoading);
+            }
+            return () => h(ArticleLibraryRail, {
+                presentation: presentation.value,
+                activeGroup: group.value,
+                currentArticleId: 72,
+                onPage: load,
+                onRevealCurrent: load
+            });
+        }
+    });
+    const wrapper = mount(host, { attachTo: document.body });
+    mounted.push(wrapper);
+    await wrapper.get('button[aria-label="文章库"]').trigger('click');
+    await nextTick();
+    armed = true;
     return wrapper;
 }
 
@@ -172,6 +226,69 @@ describe('ArticleLibraryRail focus regressions (#1853)', () =>
             await wrapper.setProps({ activeGroup: 'recent', presentation: displayPage() });
             await nextTick();
             expect(document.activeElement).toBe(anchor.element);
+            expect(document.activeElement).not.toBe(wrapper.get(`[data-library-action="${action}"]`).element);
+        });
+
+        it.each(['post-watch', 'updated'] as const)('restores a removed action when same-group ready arrives from %s in the loading flush', async (mode) =>
+        {
+            let observedRemovedAction = false;
+            const wrapper = await openInterleavedRail(mode, () =>
+            {
+                observedRemovedAction = document.querySelector(`[data-library-action="${action}"]`) === null;
+            });
+            const origin = wrapper.get<HTMLButtonElement>(`[data-library-action="${action}"]`);
+            origin.element.focus();
+            await origin.trigger('click');
+            await nextTick();
+            await nextTick();
+
+            expect(observedRemovedAction).toBe(true);
+            expect(origin.element.isConnected).toBe(false);
+            expect(document.activeElement).toBe(wrapper.get(`[data-library-action="${action}"]`).element);
+        });
+
+        it('preserves user focus chosen during the same-group post-flush ready replacement', async () =>
+        {
+            const external = document.createElement('button');
+            document.body.append(external);
+            const wrapper = await openInterleavedRail('post-watch', () => external.focus());
+            const origin = wrapper.get<HTMLButtonElement>(`[data-library-action="${action}"]`);
+            origin.element.focus();
+            await origin.trigger('click');
+            await nextTick();
+            await nextTick();
+
+            expect(document.activeElement).toBe(external);
+        });
+
+        it('cancels the unfinished intent after a user focus choice even if focus returns to body', async () =>
+        {
+            const external = document.createElement('button');
+            document.body.append(external);
+            const wrapper = await openInterleavedRail('post-watch', () =>
+            {
+                external.focus();
+                external.blur();
+            });
+            const origin = wrapper.get<HTMLButtonElement>(`[data-library-action="${action}"]`);
+            origin.element.focus();
+            await origin.trigger('click');
+            await nextTick();
+            await nextTick();
+
+            expect(document.activeElement).toBe(document.body);
+        });
+
+        it('uses fallback instead of an old action when post-flush ready changes group', async () =>
+        {
+            const wrapper = await openInterleavedRail('post-watch', () => {}, 'draft');
+            const origin = wrapper.get<HTMLButtonElement>(`[data-library-action="${action}"]`);
+            origin.element.focus();
+            await origin.trigger('click');
+            await nextTick();
+            await nextTick();
+
+            expect(document.activeElement).toBe(wrapper.get('[data-article-id="71"]').element);
             expect(document.activeElement).not.toBe(wrapper.get(`[data-library-action="${action}"]`).element);
         });
     });
