@@ -13,6 +13,7 @@ public sealed class ArticleStatusProjectionTests
     [InlineData(2, ArticleStatus.Published, true)]
     [InlineData(3, ArticleStatus.Archived, true)]
     [InlineData(4, ArticleStatus.Deleted, true)]
+    [InlineData(5, ArticleStatus.Inbox, true)]
     public void NormalizeAndIsDefined_RecognizeOnlyDeclaredArticleStatuses(
         int raw,
         ArticleStatus expected,
@@ -25,7 +26,7 @@ public sealed class ArticleStatusProjectionTests
     [Theory]
     [InlineData(int.MinValue)]
     [InlineData(-1)]
-    [InlineData(5)]
+    [InlineData(6)]
     [InlineData(int.MaxValue)]
     public void Normalize_UndefinedStatus_FailsClosed(int raw)
     {

@@ -19,6 +19,11 @@ public static class ArticlePublicationTransitionKinds
     public const string Rollback = "rollback";
     public const string SaveDraft = "save-draft";
     public const string Schedule = "schedule";
+    public const string CreateInbox = "create-inbox";
+    public const string MoveToInbox = "move-to-inbox";
+    public const string TriageInbox = "triage-inbox";
+    public const string ArchiveInbox = "archive-inbox";
+    public const string RestoreArchived = "restore-archived";
 }
 
 public readonly record struct ArticleVersionCoordinates(
@@ -66,17 +71,27 @@ public static class ArticlePublicationTransitionWriter
     {
         ArgumentNullException.ThrowIfNull(db);
         Validate(request);
+        if ((request.TargetStatus == ArticleStatus.Inbox
+                || request.Operation is ArticleStatusTransitionOperation.TriageInbox
+                    or ArticleStatusTransitionOperation.ArchiveInbox or ArticleStatusTransitionOperation.RestoreArchived)
+            && db.Ado.Transaction is null)
+        {
+            throw new ArticleWriteValidationException("article_lifecycle_transaction_required",
+                "Inbox lifecycle writes require an ambient canonical transaction.");
+        }
 
         long? currentPublicationId = null;
         int? currentPublicationNo = null;
         ArticleStatus sourceStatus;
+        int? previousEditableStatus;
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 SELECT
                     a.current_publication_id,
                     publication.publication_no,
                     a.status,
-                    a.isdeleted
+                    a.isdeleted,
+                    a.previous_editable_status
                 FROM article a
                 LEFT JOIN article_publication publication ON publication.id = a.current_publication_id
                 WHERE a.id = @ArticleId
@@ -94,6 +109,8 @@ public static class ArticlePublicationTransitionWriter
             sourceStatus = reader.ReadBoolean("isdeleted")
                 ? ArticleStatus.Deleted
                 : (ArticleStatus)reader.ReadInt32("status");
+            previousEditableStatus = reader.IsNull("previous_editable_status")
+                ? null : reader.ReadInt32("previous_editable_status");
         }
 
         ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition(
@@ -101,7 +118,8 @@ public static class ArticlePublicationTransitionWriter
             (int)request.TargetStatus,
             request.ScheduledPublishAt,
             request.TransitionedAt,
-            request.Operation));
+            request.Operation,
+            previousEditableStatus));
 
         ArticlePublicationTransitionPlan plan = CreatePlan(
             currentPublicationId.HasValue,
@@ -297,6 +315,12 @@ public static class ArticlePublicationTransitionWriter
             UPDATE article
             SET current_revision_id = @CurrentRevisionId,
                 current_publication_id = CAST(@CurrentPublicationId AS bigint),
+                previous_editable_status = CASE
+                    WHEN @Status = @Archived AND status IN (@Draft, @Inbox) THEN status
+                    WHEN @Status = @Archived AND status = @Archived THEN previous_editable_status
+                    WHEN @Status = @Archived THEN NULL
+                    ELSE NULL
+                END,
                 status = @Status,
                 scheduled_publish_at = CAST(@ScheduledPublishAt AS timestamp),
                 pending_publication_at = CAST(@PendingPublicationAt AS timestamp),
@@ -317,6 +341,9 @@ public static class ArticlePublicationTransitionWriter
             new SugarParameter("@CurrentRevisionId", request.Version.RevisionId),
             new SugarParameter("@CurrentPublicationId", (object?)publicationId ?? DBNull.Value),
             new SugarParameter("@Status", (int)storedStatus),
+            new SugarParameter("@Archived", (int)ArticleStatus.Archived),
+            new SugarParameter("@Draft", (int)ArticleStatus.Draft),
+            new SugarParameter("@Inbox", (int)ArticleStatus.Inbox),
             new SugarParameter("@ScheduledPublishAt", (object?)scheduledPublishAt ?? DBNull.Value),
             new SugarParameter("@PendingPublicationAt", (object?)pendingPublicationAt ?? DBNull.Value),
             new SugarParameter("@PublishedAt", (object?)publishedAt ?? DBNull.Value),

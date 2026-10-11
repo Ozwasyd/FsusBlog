@@ -163,7 +163,7 @@
         "dependencySha256": { "$ref": "#/$defs/nullableSha256" },
         "lifecycle": {
           "oneOf": [
-            { "enum": ["draft", "scheduled", "published", "archived", "deleted"] },
+            { "enum": ["draft", "scheduled", "published", "archived", "deleted", "inbox"] },
             { "type": "null" }
           ]
         },

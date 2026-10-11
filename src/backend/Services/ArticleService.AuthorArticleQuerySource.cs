@@ -18,7 +18,8 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
             return new([], false);
         }
         if (statuses.Any(static status => status is not (AuthorArticleQueryStatus.Draft
-                or AuthorArticleQueryStatus.Scheduled or AuthorArticleQueryStatus.Published)))
+                or AuthorArticleQueryStatus.Scheduled or AuthorArticleQueryStatus.Published
+                or AuthorArticleQueryStatus.Inbox)))
         {
             throw new ArgumentException("author_article_query_source_status_invalid", nameof(statuses));
         }
@@ -82,10 +83,18 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
                         WHERE at.articleid = a.id
                     ) tags ON TRUE
                     WHERE a.id = ANY(@ArticleIds) AND a.isdeleted = false
-                      AND a.status IN (0, 1, 2)
+                      AND a.status = ANY(@Statuses)
                     ORDER BY a.id;
                     """,
-                    new SugarParameter("@ArticleIds", admittedArticleIds.ToArray()) { IsArray = true }).ConfigureAwait(false);
+                    new SugarParameter("@ArticleIds", admittedArticleIds.ToArray()) { IsArray = true },
+                    new SugarParameter("@Statuses", new[]
+                    {
+                        (int)AuthorArticleQueryStatus.Draft, (int)AuthorArticleQueryStatus.Scheduled,
+                        (int)AuthorArticleQueryStatus.Published, (int)AuthorArticleQueryStatus.Inbox
+                    })
+                    {
+                        IsArray = true
+                    }).ConfigureAwait(false);
                 while (await reader.ReadAsync(gateCt).ConfigureAwait(false))
                 {
                     fields.Add(new(

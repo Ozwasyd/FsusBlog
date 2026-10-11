@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -168,7 +169,7 @@ public static class AuthorSavedViewContract
     private static readonly ReadOnlyDictionary<string, string> s_lifecycleStatuses =
         new(Enum.GetValues<ArticleStatus>().ToDictionary(
             static status => status.ToString(),
-            static status => status.ToString().ToLowerInvariant(),
+            static status => ArticleStatusValues.Token((int)status),
             StringComparer.OrdinalIgnoreCase));
 
     public static AuthorSavedViewSchemaVersionPolicy SchemaPolicy

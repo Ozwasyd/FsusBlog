@@ -5,10 +5,11 @@ namespace FsusBlog.Contracts.Articles;
 /// <summary>Closed lifecycle filters for author article entity queries.</summary>
 public enum AuthorArticleQueryStatus
 {
-    Draft = 0,
-    Scheduled = 1,
-    Published = 2,
-    Archived = 3
+    Draft = ArticleStatusValues.Draft,
+    Scheduled = ArticleStatusValues.Scheduled,
+    Published = ArticleStatusValues.Published,
+    Archived = ArticleStatusValues.Archived,
+    Inbox = ArticleStatusValues.Inbox
 }
 
 /// <summary>Closed source buckets; Inbox requires its separate lifecycle admission.</summary>
@@ -100,7 +101,7 @@ public static class AuthorArticleQueryContract
             || request.Collation != Collation
             || request.QueryText.EnumerateRunes().Count() > MaxQueryRunes
             || request.Cursor?.Length > 8192
-            || request.Statuses.Count is < 1 or > 4
+            || request.Statuses.Count is < 1 or > 5
             || request.Buckets.Count is < 1 or > 6
             || request.Statuses.Any(static status => !Enum.IsDefined(status))
             || request.Buckets.Any(static bucket => !Enum.IsDefined(bucket))
@@ -109,7 +110,8 @@ public static class AuthorArticleQueryContract
         {
             throw new ArgumentException("author_article_query_request_invalid", nameof(request));
         }
-        if (request.Buckets.Contains(AuthorArticleQueryBucket.Inbox))
+        if (request.Buckets.Contains(AuthorArticleQueryBucket.Inbox)
+            || request.Statuses.Contains(AuthorArticleQueryStatus.Inbox))
         {
             throw new NotSupportedException("author_article_query_inbox_unavailable");
         }

@@ -59,6 +59,7 @@ public partial class ArticleService
                     UPDATE article
                     SET isdeleted = true,
                         status = @Status,
+                        previous_editable_status = CASE WHEN status = @Inbox THEN status ELSE previous_editable_status END,
                         deleted_at = CAST(@DeletedAt AS timestamp)
                     WHERE id = @ArticleId
                       AND isdeleted = false
@@ -66,6 +67,7 @@ public partial class ArticleService
                     """,
                     new SugarParameter("@ArticleId", id),
                     new SugarParameter("@Status", (int)ArticleStatus.Deleted),
+                    new SugarParameter("@Inbox", (int)ArticleStatus.Inbox),
                     new SugarParameter("@DeletedAt", now),
                     new SugarParameter("@RowVersion", state.RowVersion));
                 if (updated > 0)

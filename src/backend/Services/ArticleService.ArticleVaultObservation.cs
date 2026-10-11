@@ -231,13 +231,7 @@ public partial class ArticleService : IArticleVaultCurrentObservationAuthority
         });
 
     private static string Lifecycle(ArticleStatus status)
-        => status switch
-        {
-            ArticleStatus.Draft => "draft",
-            ArticleStatus.Scheduled => "scheduled",
-            ArticleStatus.Published => "published",
-            ArticleStatus.Archived => "archived",
-            ArticleStatus.Deleted => "deleted",
-            _ => throw new ArticleVaultExecutionRejectedException("article_vault_lifecycle_invalid")
-        };
+        => FsusBlog.Contracts.Articles.ArticleStatusTransitionPolicy.IsDefined((int)status)
+            ? FsusBlog.Contracts.Articles.ArticleStatusValues.Token((int)status)
+            : throw new ArticleVaultExecutionRejectedException("article_vault_lifecycle_invalid");
 }

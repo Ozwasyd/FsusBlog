@@ -13,6 +13,20 @@ public static class ArticleStatusValues
     public const int Archived = 3;
     /// <summary>Deleted state, entered through the existing deletion flow.</summary>
     public const int Deleted = 4;
+    /// <summary>Explicitly captured, unpublished content awaiting triage.</summary>
+    public const int Inbox = 5;
+
+    /// <summary>The sole stable lifecycle token projection; unknown values fail closed.</summary>
+    public static string Token(int status) => status switch
+    {
+        Draft => "draft",
+        Scheduled => "scheduled",
+        Published => "published",
+        Archived => "archived",
+        Deleted => "deleted",
+        Inbox => "inbox",
+        _ => throw new ArgumentOutOfRangeException(nameof(status))
+    };
 }
 
 /// <summary>Stable current article target/transition validation error codes.</summary>
@@ -44,7 +58,17 @@ public enum ArticleStatusTransitionOperation
     /// <summary>Restore a Deleted source to Published.</summary>
     Restore = 3,
     /// <summary>Publish from Scheduled or Published.</summary>
-    ScheduledPublish = 4
+    ScheduledPublish = 4,
+    /// <summary>Explicit capture into Inbox, separate from ordinary creation.</summary>
+    CreateInbox = 5,
+    /// <summary>Explicitly move Draft to Inbox.</summary>
+    MoveToInbox = 6,
+    /// <summary>Explicitly triage Inbox into Draft.</summary>
+    TriageInbox = 7,
+    /// <summary>Explicitly archive Inbox.</summary>
+    ArchiveInbox = 8,
+    /// <summary>Restore Archived to its persisted previous editable source.</summary>
+    RestoreArchived = 9
 }
 
 /// <summary>A rejected current target or transition, with its stable code and display message.</summary>
@@ -128,13 +152,15 @@ public static class ArticleStatusTransitionPolicy
     /// <param name="scheduledPublishAt">The requested schedule passed to target validation.</param>
     /// <param name="utcNow">The caller's authoritative current UTC time.</param>
     /// <param name="operation">The existing operation selecting the allowed transition edges.</param>
+    /// <param name="previousEditableStatus">Persisted archive provenance; absent values never authorize editable restore.</param>
     /// <returns>The first target or transition rejection, or null; this is not a write grant.</returns>
     public static ArticleStatusTransitionValidation? ValidateTransition(
         int sourceStatus,
         int targetStatus,
         DateTime? scheduledPublishAt,
         DateTime utcNow,
-        ArticleStatusTransitionOperation operation)
+        ArticleStatusTransitionOperation operation,
+        int? previousEditableStatus = null)
     {
         if (!IsDefined(sourceStatus))
         {
@@ -152,16 +178,40 @@ public static class ArticleStatusTransitionPolicy
             return targetValidation;
         }
 
+        // Recorded editable provenance cannot be bypassed by a generic update or rollback.
+        if (sourceStatus == ArticleStatusValues.Archived
+            && previousEditableStatus is ArticleStatusValues.Draft or ArticleStatusValues.Inbox
+            && targetStatus != ArticleStatusValues.Archived
+            && operation != ArticleStatusTransitionOperation.RestoreArchived)
+        {
+            return new(ArticleStatusTransitionErrorCodes.InvalidTransition,
+                "Archived 必须显式恢复到记录的来源状态");
+        }
+
         bool allowed = operation switch
         {
-            ArticleStatusTransitionOperation.Create => sourceStatus == targetStatus,
-            ArticleStatusTransitionOperation.Update => IsEditable(sourceStatus) && IsEditable(targetStatus),
+            ArticleStatusTransitionOperation.Create => sourceStatus == targetStatus
+                && targetStatus != ArticleStatusValues.Inbox,
+            ArticleStatusTransitionOperation.CreateInbox => sourceStatus == ArticleStatusValues.Inbox
+                && targetStatus == ArticleStatusValues.Inbox,
+            ArticleStatusTransitionOperation.Update => (IsEditable(sourceStatus) && IsEditable(targetStatus))
+                || (sourceStatus == ArticleStatusValues.Inbox && targetStatus == ArticleStatusValues.Inbox),
+            ArticleStatusTransitionOperation.MoveToInbox => sourceStatus == ArticleStatusValues.Draft
+                && targetStatus == ArticleStatusValues.Inbox,
+            ArticleStatusTransitionOperation.TriageInbox => sourceStatus == ArticleStatusValues.Inbox
+                && targetStatus == ArticleStatusValues.Draft,
+            ArticleStatusTransitionOperation.ArchiveInbox => sourceStatus == ArticleStatusValues.Inbox
+                && targetStatus == ArticleStatusValues.Archived,
+            ArticleStatusTransitionOperation.RestoreArchived => sourceStatus == ArticleStatusValues.Archived
+                && targetStatus is ArticleStatusValues.Inbox or ArticleStatusValues.Draft
+                && targetStatus == previousEditableStatus,
             ArticleStatusTransitionOperation.Rollback => IsEditable(sourceStatus)
                 && targetStatus is ArticleStatusValues.Draft
                     or ArticleStatusValues.Published
                     or ArticleStatusValues.Archived,
             ArticleStatusTransitionOperation.Restore => sourceStatus == ArticleStatusValues.Deleted
-                && targetStatus == ArticleStatusValues.Published,
+                && targetStatus == ArticleStatusValues.Published
+                && previousEditableStatus != ArticleStatusValues.Inbox,
             ArticleStatusTransitionOperation.ScheduledPublish => sourceStatus is ArticleStatusValues.Scheduled
                     or ArticleStatusValues.Published
                 && targetStatus == ArticleStatusValues.Published,
@@ -177,7 +227,7 @@ public static class ArticleStatusTransitionPolicy
 
     /// <summary>Checks only membership in the current status set, not write or transition eligibility.</summary>
     public static bool IsDefined(int status)
-        => status is >= ArticleStatusValues.Draft and <= ArticleStatusValues.Deleted;
+        => status is >= ArticleStatusValues.Draft and <= ArticleStatusValues.Inbox;
 
     private static bool IsEditable(int status)
         => status is ArticleStatusValues.Draft

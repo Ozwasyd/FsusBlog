@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Contracts.Articles;
+
 namespace FsusBlog.Shared.Contracts.ArticleVault;
 
 /// <summary>Serializes, deserializes, and content-addresses canonical Article Vault contracts.</summary>
@@ -249,14 +251,9 @@ public static class ArticleVaultManifestCodec
 public static class ArticleVaultManifestValidator
 {
     private static readonly char[] s_forbiddenIdentityCharacters = ['\0', '\r', '\n', '/', '\\'];
-    private static readonly HashSet<string> s_lifecycleValues = new(StringComparer.Ordinal)
-    {
-        "draft",
-        "scheduled",
-        "published",
-        "archived",
-        "deleted"
-    };
+    private static readonly HashSet<string> s_lifecycleValues = new(
+        Enumerable.Range(ArticleStatusValues.Draft, ArticleStatusValues.Inbox + 1)
+            .Select(ArticleStatusValues.Token), StringComparer.Ordinal);
 
     public static ArticleVaultValidationResult Validate(ArticleVaultRootManifest? manifest)
     {

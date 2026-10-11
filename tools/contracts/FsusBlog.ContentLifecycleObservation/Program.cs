@@ -81,9 +81,9 @@ internal static class ContentLifecycleObservationHost
             .OrderBy(static value => value)
             .ToArray();
 
-        if (articleStatusValues is not [0, 1, 2, 3, 4])
+        if (articleStatusValues is not [0, 1, 2, 3, 4, 5])
         {
-            failures.Add("article status numeric values must remain Draft=0..Deleted=4");
+            failures.Add("article status numeric values must remain Draft=0..Deleted=4 with Inbox=5 appended");
         }
 
         foreach (int value in new[]
@@ -92,7 +92,8 @@ internal static class ContentLifecycleObservationHost
             ArticleStatusValues.Scheduled,
             ArticleStatusValues.Published,
             ArticleStatusValues.Archived,
-            ArticleStatusValues.Deleted
+            ArticleStatusValues.Deleted,
+            ArticleStatusValues.Inbox
         })
         {
             if (!ArticleStatusTransitionPolicy.IsDefined(value)

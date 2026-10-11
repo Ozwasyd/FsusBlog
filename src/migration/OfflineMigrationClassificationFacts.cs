@@ -1754,6 +1754,25 @@ public static class OfflineMigrationClassificationFacts
                 ]));
 
         result.Add(
+            "20261011-post-article-inbox-editable-source",
+            new OfflineMigrationClassificationFact(
+                "20261011-post-article-inbox-editable-source",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261011-article-inbox"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators: ["descriptor_policy", "n_minus_one_read_write",
+                    "article_inbox_stable_status_values", "article_inbox_previous_editable_source",
+                    "article_inbox_public_visibility_denied"]));
+
+        result.Add(
             "20261006-post-article-canvas-link-history",
             new OfflineMigrationClassificationFact(
                 "20261006-post-article-canvas-link-history",

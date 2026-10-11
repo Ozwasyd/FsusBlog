@@ -33,6 +33,14 @@ public static class ArticleLifecycleTransitionWriter
 {
     public const string WriterContract = "fsusblog.canonical-article-lifecycle-writer.v1";
 
+    /// <summary>Explicit status-only command; content and snapshots come from the locked current revision.</summary>
+    public sealed record EditableTransitionRequest(
+        int ArticleId,
+        long ExpectedRevisionId,
+        DateTime TransitionedAt,
+        long AdminPrincipalId,
+        string SemanticRole);
+
     public sealed record CreateRequest(
         string Title,
         string Content,
@@ -125,7 +133,8 @@ public static class ArticleLifecycleTransitionWriter
         DateTime? DeletedAt,
         string ContentDigest,
         int? CategoryId,
-        IReadOnlyList<int> TagIds);
+        IReadOnlyList<int> TagIds,
+        ArticleStatus? PreviousEditableStatus = null);
 
     public sealed record Result(
         string TransitionId,
@@ -140,10 +149,96 @@ public static class ArticleLifecycleTransitionWriter
         long? RollbackSourceRevisionId = null,
         DateTime? TransitionedAtUtc = null);
 
-    public static async Task<Result> CreateAsync(
+    public static Task<Result> CreateAsync(
         ISqlSugarClient db,
         IConfiguration configuration,
         CreateRequest request,
+        CancellationToken cancellationToken = default)
+        => CreateCoreAsync(db, configuration, request, ArticleStatusTransitionOperation.Create, cancellationToken);
+
+    public static Task<Result> CreateInboxAsync(
+        ISqlSugarClient db,
+        IConfiguration configuration,
+        CreateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        RequireTransaction(db);
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.TargetStatus != ArticleStatus.Inbox)
+        {
+            throw new ArticleWriteValidationException("article_create_inbox_target_required", "CreateInbox requires Inbox.");
+        }
+        return CreateCoreAsync(db, configuration, request with
+        {
+            TransitionKind = ArticlePublicationTransitionKinds.CreateInbox
+        }, ArticleStatusTransitionOperation.CreateInbox, cancellationToken);
+    }
+
+    public static Task<Result> MoveToInboxAsync(ISqlSugarClient db, IConfiguration configuration,
+        EditableTransitionRequest request, CancellationToken cancellationToken = default)
+        => TransitionEditableAsync(db, configuration, request, ArticleStatusTransitionOperation.MoveToInbox,
+            ArticleStatus.Inbox, ArticlePublicationTransitionKinds.MoveToInbox, cancellationToken);
+
+    public static Task<Result> TriageInboxAsync(ISqlSugarClient db, IConfiguration configuration,
+        EditableTransitionRequest request, CancellationToken cancellationToken = default)
+        => TransitionEditableAsync(db, configuration, request, ArticleStatusTransitionOperation.TriageInbox,
+            ArticleStatus.Draft, ArticlePublicationTransitionKinds.TriageInbox, cancellationToken);
+
+    public static Task<Result> ArchiveInboxAsync(ISqlSugarClient db, IConfiguration configuration,
+        EditableTransitionRequest request, CancellationToken cancellationToken = default)
+        => TransitionEditableAsync(db, configuration, request, ArticleStatusTransitionOperation.ArchiveInbox,
+            ArticleStatus.Archived, ArticlePublicationTransitionKinds.ArchiveInbox, cancellationToken);
+
+    public static Task<Result> RestoreArchivedAsync(ISqlSugarClient db, IConfiguration configuration,
+        EditableTransitionRequest request, CancellationToken cancellationToken = default)
+        => TransitionEditableAsync(db, configuration, request, ArticleStatusTransitionOperation.RestoreArchived,
+            targetStatus: null, ArticlePublicationTransitionKinds.RestoreArchived, cancellationToken);
+
+    private static async Task<Result> TransitionEditableAsync(ISqlSugarClient db, IConfiguration configuration,
+        EditableTransitionRequest request, ArticleStatusTransitionOperation operation, ArticleStatus? targetStatus,
+        string transitionKind, CancellationToken cancellationToken)
+    {
+        RequireTransaction(db);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(request);
+        await RequireActiveAdminAsync(db, request.AdminPrincipalId, cancellationToken).ConfigureAwait(false);
+        ArticleLifecycleCoordinates before = await LoadCoordinatesAsync(db, request.ArticleId,
+            request.ExpectedRevisionId, cancellationToken, lockArticle: true).ConfigureAwait(false);
+        EnsureExpectedRevision(before, request.ExpectedRevisionId);
+        ArticleStatus target = targetStatus ?? before.PreviousEditableStatus
+            ?? throw new ArticleWriteValidationException("article_archive_source_unavailable",
+                "Archived restore requires a recorded editable source; legacy provenance is never guessed.");
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition((int)before.Status, (int)target,
+            null, EnsureUtc(request.TransitionedAt), operation, (int?)before.PreviousEditableStatus));
+        if (before.IsDeleted || before.RevisionId is null)
+        {
+            throw new ArticleWriteValidationException("article_editable_transition_requires_active",
+                "An editable transition requires an active article revision.");
+        }
+        ArticleRevisionSource source = await LoadRevisionSourceAsync(db, request.ArticleId,
+            before.RevisionId.Value, cancellationToken).ConfigureAwait(false);
+        return await UpdateAsync(db, configuration, new RevisionRequest(
+            request.ArticleId, request.ExpectedRevisionId, source.Title, source.Content,
+            source.Summary, source.CoverImageUrl, source.CategoryId, ParseTagIds(source.TagIds),
+            target, null, request.TransitionedAt, request.AdminPrincipalId, Rights: null, Responsibility: null,
+            transitionKind, request.SemanticRole, operation), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void RequireTransaction(ISqlSugarClient db)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        if (db.Ado.Transaction is null)
+        {
+            throw new ArticleWriteValidationException("article_lifecycle_transaction_required",
+                "The canonical command must participate in the caller's transaction; it never commits per item.");
+        }
+    }
+
+    private static async Task<Result> CreateCoreAsync(
+        ISqlSugarClient db,
+        IConfiguration configuration,
+        CreateRequest request,
+        ArticleStatusTransitionOperation operation,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -151,6 +246,8 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(request);
         await RequireActiveAdminAsync(db, request.CreatedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
         ValidateCreateRequest(request);
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition((int)request.TargetStatus,
+            (int)request.TargetStatus, request.ScheduledPublishAt, EnsureUtc(request.TransitionedAt), operation));
 
         DateTime now = EnsureUtc(request.TransitionedAt);
         ArticleStatus target = request.TargetStatus;
@@ -178,7 +275,9 @@ public static class ArticleLifecycleTransitionWriter
                 Rights: rights,
                 CreatedByAdminPrincipalId: request.CreatedByAdminPrincipalId,
                 DiffSummary: ArticleSummaryProjection.AttachGenerationVersion(
-                    $"fixture {request.SemanticRole} initial transition",
+                    operation == ArticleStatusTransitionOperation.CreateInbox
+                        ? $"inbox {request.SemanticRole} initial transition"
+                        : $"fixture {request.SemanticRole} initial transition",
                     summaryProjection),
                 OutboxEventType: request.OutboxEventType ?? ArticleMutationEventTypes.Created,
                 TransitionKind: request.TransitionKind ?? TransitionKindFor(target),
@@ -206,7 +305,7 @@ public static class ArticleLifecycleTransitionWriter
                     }
 
                     return new ArticleCreateMutationAuthority.ResponsibilityAttachResult(snapshotId, 1);
-                }),
+                }, Operation: operation),
             cancellationToken).ConfigureAwait(false);
 
         ArticleLifecycleCoordinates before = EmptyCoordinates();
@@ -225,7 +324,7 @@ public static class ArticleLifecycleTransitionWriter
             created.ArticleId,
             request.CreatedByAdminPrincipalId,
             request.SemanticRole,
-            "create",
+            operation == ArticleStatusTransitionOperation.CreateInbox ? ArticlePublicationTransitionKinds.CreateInbox : "create",
             now,
             created.Version,
             created.Outbox.EventId,
@@ -266,12 +365,19 @@ public static class ArticleLifecycleTransitionWriter
             cancellationToken,
             lockArticle: true).ConfigureAwait(false);
         EnsureExpectedRevision(before, request.ExpectedRevisionId);
+        if (before.Status == ArticleStatus.Inbox || request.TargetStatus == ArticleStatus.Inbox
+            || request.Operation is ArticleStatusTransitionOperation.TriageInbox
+                or ArticleStatusTransitionOperation.ArchiveInbox or ArticleStatusTransitionOperation.RestoreArchived)
+        {
+            RequireTransaction(db);
+        }
         ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition(
             (int)before.Status,
             (int)request.TargetStatus,
             request.ScheduledPublishAt,
             now,
-            request.Operation));
+            request.Operation,
+            (int?)before.PreviousEditableStatus));
 
         ArticleRightsNormalizedModel rights = request.Rights is not null
             ? ArticleProductionNormalizers.NormalizeArticleRights(request.Rights)
@@ -303,7 +409,11 @@ public static class ArticleLifecycleTransitionWriter
             ArticleSummaryProjection.AttachGenerationVersion(
                 request.Operation == ArticleStatusTransitionOperation.Rollback
                     ? "fixture rollback"
-                    : $"fixture {request.SemanticRole} transition",
+                    : request.Operation is ArticleStatusTransitionOperation.MoveToInbox
+                        or ArticleStatusTransitionOperation.TriageInbox or ArticleStatusTransitionOperation.ArchiveInbox
+                        or ArticleStatusTransitionOperation.RestoreArchived
+                            ? $"article lifecycle {request.TransitionKind}"
+                            : $"fixture {request.SemanticRole} transition",
                 summaryProjection),
             now,
             request.CreatedByAdminPrincipalId,
@@ -439,7 +549,10 @@ public static class ArticleLifecycleTransitionWriter
             request.ArticleId,
             request.CreatedByAdminPrincipalId,
             request.SemanticRole,
-            request.Operation == ArticleStatusTransitionOperation.Rollback ? "rollback" : "update",
+            request.Operation == ArticleStatusTransitionOperation.Rollback ? "rollback"
+                : request.Operation is ArticleStatusTransitionOperation.MoveToInbox
+                    or ArticleStatusTransitionOperation.TriageInbox or ArticleStatusTransitionOperation.ArchiveInbox
+                    or ArticleStatusTransitionOperation.RestoreArchived ? request.TransitionKind : "update",
             now,
             version,
             outbox.EventId,
@@ -494,6 +607,7 @@ public static class ArticleLifecycleTransitionWriter
             UPDATE article
             SET isdeleted = true,
                 status = @Status,
+                previous_editable_status = CASE WHEN status = @Inbox THEN status ELSE previous_editable_status END,
                 deleted_at = CAST(@DeletedAt AS timestamp)
             WHERE id = @ArticleId
               AND isdeleted = false
@@ -501,6 +615,7 @@ public static class ArticleLifecycleTransitionWriter
             """,
             new SugarParameter("@ArticleId", request.ArticleId),
             new SugarParameter("@Status", (int)ArticleStatus.Deleted),
+            new SugarParameter("@Inbox", (int)ArticleStatus.Inbox),
             new SugarParameter("@DeletedAt", now),
             new SugarParameter("@ExpectedRevisionId", request.ExpectedRevisionId)).ConfigureAwait(false);
         if (updated != 1)
@@ -581,6 +696,9 @@ public static class ArticleLifecycleTransitionWriter
                 "article_restore_requires_deleted",
                 "Restore requires a deleted article and never revives its old revision in place.");
         }
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition((int)before.Status,
+            (int)ArticleStatus.Published, null, now, ArticleStatusTransitionOperation.Restore,
+            (int?)before.PreviousEditableStatus));
 
         ArticleRevisionSource source = await LoadRevisionSourceAsync(
             db,
@@ -790,6 +908,9 @@ public static class ArticleLifecycleTransitionWriter
             target.Id,
             cancellationToken).ConfigureAwait(false);
         ArticleStatus targetStatus = ArticleStatus.Published;
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition((int)before.Status,
+            (int)targetStatus, null, now, ArticleStatusTransitionOperation.Rollback,
+            (int?)before.PreviousEditableStatus));
         List<int> tagIds = ParseTagIds(target.TagIds);
         ArticleRevisionWriteResult revision = await ArticleRevisionPersistence.SaveAsync(
             db,
@@ -943,6 +1064,9 @@ public static class ArticleLifecycleTransitionWriter
             ?? throw new ArticleWriteValidationException(
                 "article_schedule_missing",
                 "Scheduled publish requires a stored business-clock due time.");
+        ThrowIfInvalid(ArticleStatusTransitionPolicy.ValidateTransition((int)before.Status,
+            (int)ArticleStatus.Published, null, now, ArticleStatusTransitionOperation.ScheduledPublish,
+            (int?)before.PreviousEditableStatus));
         if (now < dueAt)
         {
             throw new ArticleStatusTransitionValidationException(new ArticleStatusTransitionValidation(
@@ -1107,8 +1231,11 @@ public static class ArticleLifecycleTransitionWriter
                    article.scheduled_publish_at,
                    article.pending_publication_at,
                    article.deleted_at,
-                   COALESCE(publication.rights_snapshot_id, rights.id) AS rights_snapshot_id,
-                   COALESCE(publication.responsibility_snapshot_id, responsibility.id) AS responsibility_snapshot_id,
+                   article.previous_editable_status,
+                   COALESCE(CASE WHEN article.status <> @Inbox THEN publication.rights_snapshot_id END,
+                       rights.id) AS rights_snapshot_id,
+                   COALESCE(CASE WHEN article.status <> @Inbox THEN publication.responsibility_snapshot_id END,
+                       responsibility.id) AS responsibility_snapshot_id,
                    responsibility.responsibility_version
             FROM article
             LEFT JOIN article_revision revision
@@ -1129,7 +1256,8 @@ public static class ArticleLifecycleTransitionWriter
                 WHERE snapshot.article_id = article.id
                   AND snapshot.article_revision_id = revision.id
                   AND (
-                      publication.responsibility_snapshot_id IS NULL
+                      article.status = @Inbox
+                      OR publication.responsibility_snapshot_id IS NULL
                       OR snapshot.id = publication.responsibility_snapshot_id
                   )
                 ORDER BY snapshot.responsibility_version DESC, snapshot.id DESC
@@ -1138,7 +1266,8 @@ public static class ArticleLifecycleTransitionWriter
             WHERE article.id = @ArticleId
             {lockClause};
             """,
-            new SugarParameter("@ArticleId", articleId)).ConfigureAwait(false))
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@Inbox", (int)ArticleStatus.Inbox)).ConfigureAwait(false))
         {
             if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -1172,7 +1301,8 @@ public static class ArticleLifecycleTransitionWriter
                 ReadUtcNullable(reader, "deleted_at"),
                 string.Empty,
                 reader.IsNull("categoryid") ? null : reader.ReadInt32("categoryid"),
-                ParseTagIds(reader.IsNull("tag_ids") ? string.Empty : reader.ReadString("tag_ids")));
+                ParseTagIds(reader.IsNull("tag_ids") ? string.Empty : reader.ReadString("tag_ids")),
+                reader.IsNull("previous_editable_status") ? null : (ArticleStatus)reader.ReadInt32("previous_editable_status"));
         }
 
         ArticleLifecycleCoordinates resolved = coordinates!;
@@ -1574,6 +1704,7 @@ public static class ArticleLifecycleTransitionWriter
         => status switch
         {
             ArticleStatus.Draft => ArticlePublicationTransitionKinds.SaveDraft,
+            ArticleStatus.Inbox => ArticlePublicationTransitionKinds.CreateInbox,
             ArticleStatus.Scheduled => ArticlePublicationTransitionKinds.Schedule,
             ArticleStatus.Published => ArticlePublicationTransitionKinds.ImmediatePublish,
             ArticleStatus.Archived => ArticlePublicationTransitionKinds.Archive,

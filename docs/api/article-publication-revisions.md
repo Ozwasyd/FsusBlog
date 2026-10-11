@@ -15,6 +15,54 @@ A publication is an immutable snapshot bound to `article_revision_id`, `revision
 
 All writes go through `ArticlePublicationTransitionWriter`. The [API contracts](contracts.md) own the generated allowed/forbidden transition tables; this document and adjacent current authorities own the scheduled, rollback, restore, and delete coordinate relationships through their generated sections and controlled prose claims.
 
+## Explicit Inbox source commands
+
+The shared `ArticleStatusValues` authority appends `Inbox=5` and the stable token
+`inbox`; persisted Draft/Scheduled/Published/Archived/Deleted values remain 0–4.
+The canonical lifecycle writer exposes `CreateInboxAsync`, `MoveToInboxAsync`
+(Draft → Inbox), `TriageInboxAsync` (Inbox → Draft), `ArchiveInboxAsync`
+(Inbox → Archived), and `RestoreArchivedAsync`. These commands require an ambient
+caller transaction and current revision CAS, retain active-admin/article-write
+admission, and reuse the existing revision, rights/responsibility, asset, outbox
+and signed-audit owners. They do not commit a bulk item independently. Ordinary
+Blank/Template article creation remains Draft. Generic updates may edit Inbox
+content without changing its state; they cannot triage, archive, publish, schedule,
+delete or move Draft into Inbox.
+
+`previous_editable_status` records the exact Draft/Inbox source on archive and
+survives same-state archive edits. Explicit restore must match that recorded
+source. Legacy null provenance never grants this restore; Published/Scheduled
+archive semantics retain their existing path and are not inferred as Inbox.
+Inbox deletion uses the existing delete command and keeps Inbox provenance so
+the old Deleted → Published restore cannot bypass triage. Deleted Inbox recovery
+has no new command in this slice and remains refused until its product contract
+is specified.
+
+Inbox transitions create no publication. Existing public reads, public search,
+AOT, RSS, sitemap and public counts select Published, so historical publication
+timestamps/pointers do not make Inbox visible. Outbox visibility and Saved View
+tokens use the shared lifecycle token authority. The internal author query source
+reader can read Inbox coordinates/fields using the existing permission pipeline;
+the public Inbox request/bucket gate stays unavailable pending current available
+query/projection and downstream executor evidence. This source change does not
+qualify or activate that surface, supply missing slugs, or issue bulk receipts.
+
+The additive `20261011-post-article-inbox-editable-source` migration only defines
+the nullable provenance column. It performs no experiment-row backfill: no
+mechanically proven source-marker inventory exists in this source candidate.
+No Draft is inferred from title, time, tags or content. N-1 management readers
+reject unknown numeric state 5; public N-1 queries exclude it. Rollback after
+Inbox rows exist therefore requires retaining a reader that understands Inbox,
+or disabling affected authoring access; never rewrite those rows to Draft to
+make an old reader pass. The added column must precede compatible writer rollout.
+Migration execution and provider/backup-restore qualification remain separate.
+
+The existing lifecycle create path supplies article/revision/snapshot identity;
+the independent `PostgresArticleCreatePersistence` currently supplies the formal
+Blank/Template draft/document identity. Its convergence with CreateInbox is still
+required before claiming the complete product create contract. A lifecycle result
+alone is not a draft/document creation receipt or permission/site qualification.
+
 ## Historical packages and rollback
 
 A single-revision detail is a readable historical package containing the body revision, immutable Rights V3 snapshot, optional responsibility snapshot, and associated release coordinates. If a required rights snapshot is missing, return `packageComplete=false`; never synthesize a complete- looking package from the current or default policy.

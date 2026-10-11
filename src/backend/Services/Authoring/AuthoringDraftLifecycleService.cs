@@ -784,6 +784,7 @@ public sealed class AuthoringDraftLifecycleService(
             or (int)ArticleStatus.Published
             or (int)ArticleStatus.Archived
             or (int)ArticleStatus.Deleted
+            or (int)ArticleStatus.Inbox
             ? (ArticleStatus)raw.Value
             : ArticleStatus.Published;
     }

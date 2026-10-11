@@ -19,5 +19,5 @@ public static class ArticleStatusProjection
     }
 
     public static bool IsDefined(int status)
-        => status is >= (int)ArticleStatus.Draft and <= (int)ArticleStatus.Deleted;
+        => ArticleStatusTransitionPolicy.IsDefined(status);
 }

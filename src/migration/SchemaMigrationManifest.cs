@@ -43,7 +43,8 @@ internal sealed class SchemaMigrationManifest
             Create20260915Catalog(),
             SchemaMigrationCatalog20261002ArticlePropertyDefinitionCommandHistory.Create(),
             SchemaMigrationCatalog20261006ArticleCanvasLinks.Create(),
-            Create20261008Catalog()
+            Create20261008Catalog(),
+            SchemaMigrationCatalog20261011ArticleInbox.Create()
         ],
         [
             new SchemaMigrationVersionGap(
@@ -87,7 +88,10 @@ internal sealed class SchemaMigrationManifest
                 new DateOnly(2026, 10, 5)),
             new SchemaMigrationVersionGap(
                 new DateOnly(2026, 10, 7),
-                new DateOnly(2026, 10, 7))
+                new DateOnly(2026, 10, 7)),
+            new SchemaMigrationVersionGap(
+                new DateOnly(2026, 10, 9),
+                new DateOnly(2026, 10, 10))
         ]);
 
     private static SchemaMigrationCatalog Create20260904Catalog()

@@ -147,7 +147,7 @@ public sealed class ArticlePublicationTransitionTests
 
     [Theory]
     [InlineData(-1)]
-    [InlineData(5)]
+    [InlineData(6)]
     [InlineData(int.MaxValue)]
     [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-validate-target-undefined-status-is-rejected-with-stable-code")]
     public void ValidateTarget_UndefinedStatus_IsRejectedWithStableCode(int status)

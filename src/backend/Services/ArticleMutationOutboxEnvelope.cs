@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 
 using SqlSugar;
@@ -22,13 +23,7 @@ public static class ArticleMutationVisibility
     public static string From(ArticleStatus status, bool isDeleted = false)
         => isDeleted || status == ArticleStatus.Deleted
             ? "deleted"
-            : status switch
-            {
-                ArticleStatus.Published => "published",
-                ArticleStatus.Scheduled => "scheduled",
-                ArticleStatus.Archived => "archived",
-                _ => "draft"
-            };
+            : ArticleStatusValues.Token((int)status);
 }
 
 public sealed record ArticleMutationScopeChange(

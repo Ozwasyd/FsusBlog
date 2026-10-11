@@ -148,6 +148,13 @@ public class Article
         get; set;
     }
 
+    /// <summary>Exact editable source recorded on archive; legacy unknown sources remain null.</summary>
+    [SugarColumn(ColumnName = "previous_editable_status", IsNullable = true)]
+    public ArticleStatus? PreviousEditableStatus
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "deleted_at", IsNullable = true)]
     public DateTime? DeletedAt
     {
@@ -170,11 +177,12 @@ public class Article
 
 public enum ArticleStatus
 {
-    Draft = 0,
-    Scheduled = 1,
-    Published = 2,
-    Archived = 3,
-    Deleted = 4
+    Draft = ArticleStatusValues.Draft,
+    Scheduled = ArticleStatusValues.Scheduled,
+    Published = ArticleStatusValues.Published,
+    Archived = ArticleStatusValues.Archived,
+    Deleted = ArticleStatusValues.Deleted,
+    Inbox = ArticleStatusValues.Inbox
 }
 
 public static class ArticlePublication
