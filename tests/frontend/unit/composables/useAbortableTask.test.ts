@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, effectScope } from 'vue'
 import { useAbortableTask } from '@/composables/useAbortableTask'
+import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext'
 
 // Helper to mount composable in a component context
 function useComposable() {
@@ -91,5 +92,46 @@ describe('useAbortableTask', () => {
 
     await wrapper.unmount()
     expect(signal.aborted).toBe(true)
+  })
+})
+
+// Source controls only: UNRUN under current runtime/test/list holds.
+// Actual original lease/adapter and actual executor future; no settlement receipt is fabricated.
+describe('original request future settlement custody', () => {
+  const createOwner = () => createArticleDocumentContextAdapter({
+    articleId: null, draftId: 'draft:request-settlement', editorSessionId: 'session:request-settlement',
+    siteScope: 'primary-site', userScope: 'user:request-settlement', content: ''
+  })
+
+  it('retains a canceled original lease until its actual executor future finishes', async () => {
+    const owner = createOwner()
+    const task = useAbortableTask({ registry: owner, kind: 'refresh', producerRef: 'source:request-settlement' })
+    let finish!: (value: string) => void
+    const future = new Promise<string>(resolve => { finish = resolve })
+    const run = task.run(() => future)
+    const pending = owner.pendingTaskRefs
+    expect(pending).toHaveLength(1)
+    task.cancel()
+    expect(owner.pendingTaskRefs).toEqual(pending)
+    await task.run(() => Promise.resolve('newer'))
+    expect(owner.pendingTaskRefs).toEqual(pending)
+    finish('older')
+    await run
+    expect(owner.pendingTaskRefs).toEqual([])
+  })
+
+  it('does not treat scope stop as settlement while the actual rejected future is pending', async () => {
+    const owner = createOwner()
+    const scope = effectScope()
+    const task = scope.run(() => useAbortableTask({ registry: owner, kind: 'refresh' }))!
+    let fail!: (error: Error) => void
+    const future = new Promise<never>((_resolve, reject) => { fail = reject })
+    const run = task.run(() => future)
+    const rejection = expect(run).rejects.toThrow('real-executor-failure')
+    scope.stop()
+    expect(owner.pendingTaskRefs).toHaveLength(1)
+    fail(new Error('real-executor-failure'))
+    await rejection
+    expect(owner.pendingTaskRefs).toEqual([])
   })
 })
