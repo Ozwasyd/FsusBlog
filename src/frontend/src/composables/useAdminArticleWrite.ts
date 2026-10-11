@@ -842,7 +842,8 @@ export function useAdminArticleWrite()
     });
     // Canonical author endpoints resolve the primary site; a browser host is not its authority.
     const documentSiteScope = 'primary-site';
-    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() ?? 'unknown'}`
+    const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
+    const documentUserScope = `user:${documentPrincipalIdentityId ?? 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
     const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
         articleId: articleId.value,
@@ -1089,7 +1090,8 @@ export function useAdminArticleWrite()
             const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointBinding =>
             {
                 const identityId = recoveryIdentityId();
-                if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || !identityId)
+                if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || !identityId
+                    || identityId !== documentPrincipalIdentityId)
                 {
                     throw new Error('article-recovery-checkpoint-mounted-owner-unavailable');
                 }
@@ -1101,6 +1103,7 @@ export function useAdminArticleWrite()
                     const entry = registry.getEntryByIdentity({ articleId: document.articleId,
                         draftId: document.draftId, documentId: document.documentId });
                     if (!active || editorRuntimeBinding !== binding || recoveryIdentityId() !== identityId
+                        || articleId.value !== document.articleId
                         || document.userScope !== documentUserScope || document.siteScope !== documentSiteScope
                         || suppressDraftSave || !clientRevision || entry?.editorSessionRef !== editorSessionRef
                         || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current')
