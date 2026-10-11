@@ -56,7 +56,7 @@ export function authorTypographySettingsBlock(view: AuthorTypographySettingsView
         return 'unavailable';
     }
     // The actual aliased public contract must support all dimensions; display flags cannot invent that capability.
-    if (readAuthorTypographyMappingAvailability().status === 'blocked')
+    if (readAuthorTypographyMappingAvailability(view.profile).status === 'blocked')
     {
         return 'mapping';
     }

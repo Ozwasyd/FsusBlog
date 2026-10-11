@@ -12,6 +12,7 @@ import { validateArticleEditorContinuityContext } from '@/services/authoring/art
 import { bindArticleEditorRuntime } from '@/services/authoring/articleEditorRuntimeBinding';
 import { captureAuthorTypographyContinuity, readAuthorTypographyMappingAvailability } from '@/services/authoring/authorTypographyMapping';
 import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
+import { AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS } from '@/view-contracts/authorTypographyProfile';
 
 import type { MarkdownEditorDispatchResult, MarkdownEditorTransaction } from '@ozwasyd/element-plus';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
@@ -102,6 +103,56 @@ describe('author typography public mapping boundary', () =>
         ]);
         expect(readAuthorTypographyMappingAvailability()).not.toHaveProperty('apply');
         expect(readAuthorTypographyMappingAvailability()).not.toHaveProperty('profile');
+    });
+
+    it('keeps all 243 closed profiles blocked without inventing an upstream mapping', () =>
+    {
+        let count = 0;
+        for (const fontFamily of AUTHOR_TYPOGRAPHY_CHOICES.fontFamily)
+        for (const fontSize of AUTHOR_TYPOGRAPHY_CHOICES.fontSize)
+        for (const lineHeight of AUTHOR_TYPOGRAPHY_CHOICES.lineHeight)
+        for (const canvasWidth of AUTHOR_TYPOGRAPHY_CHOICES.canvasWidth)
+        for (const paragraphSpacing of AUTHOR_TYPOGRAPHY_CHOICES.paragraphSpacing)
+        {
+            const availability = readAuthorTypographyMappingAvailability({
+                schemaVersion: 1, fontFamily, fontSize, lineHeight, canvasWidth, paragraphSpacing
+            });
+            expect(availability).toEqual(readAuthorTypographyMappingAvailability());
+            expect(availability.status).toBe('blocked');
+            expect(Object.isFrozen(availability)).toBe(true);
+            count += 1;
+        }
+        expect(count).toBe(243);
+    });
+
+    it('refuses missing, extra, future, numeric, CSS and font URL profile inputs before capability inspection', () =>
+    {
+        // A test input only, never a production default or verified preference.
+        const profile = {
+            schemaVersion: 1, fontFamily: 'system-sans', fontSize: 'standard',
+            lineHeight: 'standard', canvasWidth: 'standard', paragraphSpacing: 'standard'
+        };
+        const invalid: unknown[] = [undefined, null, [], '', {}, { ...profile, schemaVersion: 2 }];
+        for (const dimension of AUTHOR_TYPOGRAPHY_FIELDS)
+        {
+            for (const value of ['18px', 'var(--custom)', 'https://fonts.example/font.woff2', 18, null, '', 'STANDARD'])
+            {
+                invalid.push({ ...profile, [dimension]: value });
+            }
+            const missing: Record<string, unknown> = { ...profile };
+            delete missing[dimension];
+            invalid.push(missing);
+        }
+        for (const extra of [{ mode: 'source' }, { articleId: 1 }, { css: 'body{}' }, { [Symbol('extra')]: true }])
+        {
+            invalid.push({ ...profile, ...extra });
+        }
+        for (const input of invalid)
+        {
+            const availability = readAuthorTypographyMappingAvailability(input);
+            expect(availability).toEqual({ status: 'blocked', reason: 'invalid-profile', publicEditorDefaultProfile: null });
+            expect(Object.isFrozen(availability)).toBe(true);
+        }
     });
 
     it.each(['live', 'source'] as const)('captures %s through the real runtime binding without transactions or remount', surface =>

@@ -1,5 +1,5 @@
 import { FsusUiMarkdownEditor as ElMarkdownEditor } from '@/fsusui/markdownEditor';
-import { AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS } from '@/view-contracts/authorTypographyProfile';
+import { AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS, isAuthorTypographyProfileView } from '@/view-contracts/authorTypographyProfile';
 import type { AuthorTypographyDimension } from '@/view-contracts/authorTypographyProfile';
 
 import type { ArticleEditorRuntimeBinding } from './articleEditorRuntimeBinding';
@@ -41,7 +41,7 @@ export function readAuthorTypographyDimensionMappings(): readonly AuthorTypograp
 /** A refusal observation, never a preference, default profile, or runtime adapter. */
 export type AuthorTypographyMappingAvailability = Readonly<{
     status: 'blocked';
-    reason: 'public-typography-contract-unavailable';
+    reason: 'invalid-profile' | 'public-typography-contract-unavailable';
     publicEditorDefaultProfile: string | null;
 }>;
 
@@ -51,8 +51,18 @@ export type AuthorTypographyMappingAvailability = Readonly<{
  * the UI owner supplies its actual public catalog, font identities and reflow contract.
  * In particular, prop-name discovery alone must never promote a future API to supported.
  */
-export function readAuthorTypographyMappingAvailability(): AuthorTypographyMappingAvailability
+export function readAuthorTypographyMappingAvailability(
+    ...profiles: [] | [profile: unknown]
+): AuthorTypographyMappingAvailability
 {
+    // Keep the original argument-free capability probe. Supplied profiles must pass
+    // the existing closed preflight before inspecting any upstream capability/default.
+    if (profiles.length === 1 && !isAuthorTypographyProfileView(profiles[0]))
+    {
+        return Object.freeze({
+            status: 'blocked', reason: 'invalid-profile', publicEditorDefaultProfile: null
+        });
+    }
     // The public package and local source are checked independently. Inspect the exported
     // public prop defensively; a missing package declaration must not manufacture a default.
     const editor: unknown = ElMarkdownEditor;
