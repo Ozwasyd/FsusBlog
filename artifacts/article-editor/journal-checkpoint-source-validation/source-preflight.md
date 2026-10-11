@@ -199,3 +199,22 @@ cover positive same-binding lookup/restore, foreign locators, fake copied tokens
 changed native/Writer body, canonical Unicode, retired refs despite repeated UUID,
 issuance failure and released owner. All these cases and P2 interleavings remain
 UNRUN; no original runner/list/product/native/storage execution was performed.
+
+
+## Actual cleanup versus pending issuance audit completion
+
+The asynchronous-path audit additionally fences an original authoritative cleanup
+that deletes a row while a prepare awaits its earlier completed valid read.
+Actual conditional deletion now revokes in-flight preparation generations before
+mutation, while already issued custody remains targeted to the deleted row.
+A stale invalid read that finds a valid replacement performs no deletion and does
+not invoke this mutation invalidation, so replacement B remains preserved.
+
+The added original-source control holds B's actual integrity-read result, corrupts
+and deletes the actual row through the original cleanup path, then releases the
+old valid result. Pending B must return null rather than mint from a deleted row.
+This control is UNRUN. Latest standalone owner compiler PASS; strict-full original
+two-service style PASS (`cleanup-style.txt`). Whole original unit-source/private-
+storage compiler remains RED with the same three complete master diagnostics
+(`cleanup-compiler.txt`). No testcase, listing, candidate import, storage or
+runtime execution is performed by this source audit.

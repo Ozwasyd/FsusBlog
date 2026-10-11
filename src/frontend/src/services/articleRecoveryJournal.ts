@@ -1133,6 +1133,11 @@ export class ArticleRecoveryJournal
             const removedInvalidRecords = await deleteRecordIds(database, invalidRecords, this.now(), (id) =>
             {
                 // This is an actual conditional storage deletion, not a stale read's observation.
+                // A prepare awaiting an earlier valid read must not issue custody after deletion.
+                if (this.#preparingCheckpoint)
+                {
+                    this.invalidateCheckpoints();
+                }
                 for (const binding of this.#checkpointBindings)
                 {
                     if (binding.custody?.record.id === id)

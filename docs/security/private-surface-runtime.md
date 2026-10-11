@@ -136,3 +136,8 @@ Invalid-record cleanup rereads within its original readwrite transaction; a vali
 replacement is preserved, while actual invalid-row deletion revokes the custody
 of the row being deleted. Retired database callbacks cannot revoke a current
 connection's custody. Original authoritative mutation invalidation remains intact.
+
+Actual invalid-row deletion also revokes any preparation still awaiting its earlier
+completed read. A deleted original row cannot become a newly issued token when an
+old read later settles. This is authoritative mutation invalidation; an old list
+that preserves a valid replacement performs no deletion and cannot revoke it.

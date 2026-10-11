@@ -1381,3 +1381,52 @@ describe('original journal stable reference and native digest source controls', 
         expect(await binding.restoreReference(ref)).toBeNull();
     });
 });
+
+
+describe('original cleanup fences incomplete checkpoint issuance source control', () =>
+{
+    it('refuses B after actual cleanup deletes its row while its completed-read result is held', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const originalList = journal.list.bind(journal);
+        let releaseRead: () => void = () => {};
+        let notifyRead: () => void = () => {};
+        const held = new Promise<void>(resolve =>
+        {
+            notifyRead = resolve;
+        });
+        const released = new Promise<void>(resolve =>
+        {
+            releaseRead = resolve;
+        });
+        const delayed = vi.spyOn(journal, 'list').mockImplementationOnce(async (...args) =>
+        {
+            const actualRead = await originalList(...args);
+            notifyRead();
+            await released;
+            return actualRead;
+        });
+        try
+        {
+            const pendingB = binding.prepare();
+            await held;
+            const raw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+            raw.sourceHash = '0'.repeat(64);
+            await rawPut(indexedDB, raw);
+            const cleanup = await originalList(source.identityId, source.articleId);
+            expect(cleanup.removedInvalidRecords).toBe(1);
+            releaseRead();
+            expect(await pendingB).toBeNull();
+            expect(await rawGetAll(indexedDB)).toHaveLength(0);
+        }
+        finally
+        {
+            releaseRead();
+            delayed.mockRestore();
+            binding.release();
+        }
+    });
+});
