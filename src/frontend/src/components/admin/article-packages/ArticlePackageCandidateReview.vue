@@ -114,10 +114,10 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton } from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, shallowRef, useId, watch } from 'vue';
 
 import type { ArticlePackageCandidateReview, ArticlePackageCandidateReviewPageCompletion, ArticlePackageCandidateReviewPageRequest, ArticlePackageCandidateReviewTarget } from '@/api/types/articlePackageCandidateReview';
+import { FsusUiButton as ElButton } from '@/fsusui/button';
 
 defineOptions({ name: 'ArticlePackageCandidateReview', inheritAttrs: false });
 const props = withDefaults(defineProps<{
