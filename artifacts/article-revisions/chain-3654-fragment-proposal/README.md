@@ -63,9 +63,9 @@ conflict, continuity, action receipts and immutable rollback acceptance remain
 missing. Repeated proposal preparation is intended to be deterministic for the
 same input; it does not qualify duplicate insertion behavior.
 
-## Current source verification
+## Historical source verification
 
-All current results in `evidence.json` bind to source `24b351cee936e681a18016efe8925b334a547ce0`.
+The results in `evidence.json` bind to source `24b351cee936e681a18016efe8925b334a547ce0`.
 
 - Official frontend style: exit 0, one production module checked. The original
   policy excludes the unit TS file; do not describe it as linted.
@@ -145,3 +145,85 @@ issue identities are listed separately. This clarification changes handoff text
 only; source blobs 99199b5c286dc7be8b29ee4d4da4cb1980dbc811 and
 2959550796d99e69001e57428308ca3e42daf212 remain exact. No additional proposal-source
 error was found by this static review, and no unrelated dependency owner is patched.
+
+
+## 2026-10-11 source review and canonical consumer routing
+
+The coordinator reports independent P2 source CLOSED, with no new P1/P2, for
+`4815da650d1c64b55dde6203e385aa29619a2ede..d21c9328703c2387c33f7b8e672316734aa45269`.
+The scope is the [proposal module at d21c](https://github.com/Ozwasyd/FsusBlog/blob/d21c9328703c2387c33f7b8e672316734aa45269/src/frontend/src/services/revisionFragmentProposal.ts)
+and [unit source at d21c](https://github.com/Ozwasyd/FsusBlog/blob/d21c9328703c2387c33f7b8e672316734aa45269/tests/frontend/unit/services/revisionFragmentProposal.test.ts).
+The original 31 cases plus one first-capture reentrancy case are all UNRUN; no
+runner listing or execution occurred. The scoped d21c TypeScript check is still
+FAIL with the same 30 dependency diagnostics and zero in the two owned files.
+The original matrix identity/provenance preflight FAIL remains bound to 24b351ce,
+not d21c or this documentation increment. No old evidence was rebound, and no
+execution, permission, package, native or runtime qualification is released.
+`evidence.json` remains the original historical record, including its 31-case
+roster; it is not a current 32-case execution receipt.
+
+Current origin/master was fetched and verified again as
+`9d72a1c93b297f719d8695a642cdfb1615cf1d51`. The upstream PR4153 read-only reference
+still has exact head `8f3811352120d907fd4cd88eb465284ed2de415e`, branch
+`codex/chain-2246-preack-runtime-intake`, draft/open. It was not incorporated.
+The local FsusUI transaction source was read at
+`f2b3bb89ffe5f749da26c388f058efdbb6aee864`, with a clean worktree. These are source
+observations, not API execution or acceptance of the closed #268 boundary.
+
+The existing canonical execution consumer is
+[`ArticleEditorRuntimeBinding.dispatchTransaction(context, transaction)`](https://github.com/Ozwasyd/FsusBlog/blob/8f3811352120d907fd4cd88eb465284ed2de415e/src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts#L83).
+It accepts the actual public `MarkdownEditorTransaction`, checks current context,
+document identity/epoch and expected native source revision, then consumes the
+real accepted result through attachment and continuity owners. A post-dispatch
+observation exception must not become a fabricated rejection, inverse write or
+rollback receipt. No new FsusUI transaction API is required for this edge.
+
+The smallest host interface is the caller-held existing runtime binding together
+with the host's actual current `ArticleAnchorCaptureOptions` and document-task
+cancellation lifecycle. The binding already exposes `context`,
+`positionBinding()`, `continuity.capture(...)` and `dispatchTransaction(...)`;
+no new context registry, digest capability, grant boolean or receipt type is
+needed. Native capture is supplied by
+[`ArticleEditorContinuityAdapter.capture`](https://github.com/Ozwasyd/FsusBlog/blob/8f3811352120d907fd4cd88eb465284ed2de415e/src/frontend/src/services/authoring/articleEditorContinuity.ts#L439).
+Its observed current native selection must be used; historical UTF-8 offsets
+cannot become transaction insertion coordinates. Capture can fail when native
+observations are missing, and the caller must preserve that failure.
+
+The concrete composition edge currently ends in
+[`authoringEditorRuntime.bindEditor(...).binding`](https://github.com/Ozwasyd/FsusBlog/blob/8f3811352120d907fd4cd88eb465284ed2de415e/src/frontend/src/composables/useAdminArticleWrite.ts#L976)
+and the actual
+[`Write.vue` binding lifecycle](https://github.com/Ozwasyd/FsusBlog/blob/8f3811352120d907fd4cd88eb465284ed2de415e/src/frontend/src/views/admin/article/Write.vue#L1145).
+Neither exposes a fragment proposal intake. Wiring there would modify the
+previously excluded Writer/runtime composition, so this increment does not add
+an invented port or take over that owner's implementation.
+
+Dispatch request for the coordinating parent: route the host-binding handoff to
+existing root task **#2246**, under its **#1809** prerequisite and execution child
+**#2250** (continuity/tool lifecycle). The current #1809 comment explicitly owns
+`#2243 -> (#2245 || #2246) -> #2250 -> #2253`; the anchor issue #2246 alone does
+not own fragment actions. Ask for the accepted exact commit and source evidence
+for passing the existing caller-held binding, actual capture options and
+cancellation/disposal to the #2275 consumer. Do not ask this owner to implement
+fragment validation, historical authorization, rollback or a new transaction
+API. PR4153 at the supplied exact head is the reference to this request, not an
+accepted prerequisite. The coordinator thread is
+`01a1142b-a0b5-7419-a4df-a8bbe54660dd`; the root #2246 cloud-thread identifier is
+not supplied here and must be resolved by the coordinator rather than guessed.
+
+The #2275 owner retains the action consumer: after the accepted host handoff,
+join the original authorized historical package, fresh permission/package
+rechecks, exact current native capture and fragment-byte recheck, duplicate
+rejection and one canonical transaction. The existing
+[`compareArticleRevisionSources` API](https://github.com/Ozwasyd/FsusBlog/blob/d21c9328703c2387c33f7b8e672316734aa45269/src/frontend/src/api/articleRevisionCompare.ts#L325)
+uses the existing server route's ArticleWrite gate and package/plan verifier;
+these source locations do not grant a proposal continuing authorization. No
+public validate-original-proposal or atomic permission-plus-native-write API was
+found. Rechecking a new compare request must not silently rebind the original
+plan/package identities. This authority join remains #2268/#2275 work, not a
+host-owner grant or a cached frontend permission check.
+
+All fifteen assignment acceptances remain OPEN: execution issues #3654, #2175,
+#2690, #2691, #2268, #2270, #2271, #2273, #2275, #2277, #2543 and #2544; tracking
+issues #2176, #1724 and #1811. The source review and interface observations do not
+satisfy their original DAG, current publication/AOT evidence, missing external
+prerequisite acceptance, runtime controls or tracking-child acceptance gates.
