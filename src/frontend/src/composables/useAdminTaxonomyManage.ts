@@ -11,6 +11,8 @@ import type { FsusDialogWidth } from '@/fsusui/dialog';
 import { isFsusUiOk } from '@/fsusui/result';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 
+import type { FormItemRule, FormRules } from '@ozwasyd/element-plus';
+
 export type TaxonomyNameDisplay = 'text' | 'tag';
 
 export interface TaxonomyFormInstance {
@@ -48,7 +50,7 @@ export interface AdminTaxonomyItemBase {
     canDelete: boolean;
 }
 
-export type TaxonomyFormRules = {
+export interface TaxonomyFormRules extends FormRules<'name' | 'description'> {
     name: {
         required?: boolean;
         min?: number;
@@ -56,7 +58,7 @@ export type TaxonomyFormRules = {
         pattern?: RegExp;
         message?: string;
         trigger: string;
-        validator?: (rule: unknown, value: unknown) => void | Promise<void>;
+        validator?: FormItemRule['validator'];
     }[];
     description?: {
         required?: boolean;
@@ -65,9 +67,9 @@ export type TaxonomyFormRules = {
         pattern?: RegExp;
         message?: string;
         trigger: string;
-        validator?: (rule: unknown, value: unknown) => void | Promise<void>;
+        validator?: FormItemRule['validator'];
     }[];
-};
+}
 
 export interface TaxonomySchema<TItem extends AdminTaxonomyItemBase = AdminTaxonomyItemBase> {
     kind: string;
@@ -147,7 +149,7 @@ export interface AdminTaxonomyManageState {
     canSubmit: ComputedRef<boolean>;
     filters: { keyword: string; unusedOnly: boolean; };
     form: { name: string; description: string; };
-    rules: TaxonomyFormRules;
+    rules: Pick<TaxonomyFormRules, keyof TaxonomyFormRules>;
     relationLockReason: (row: AdminTaxonomyItemBase) => string;
     viewAssociatedArticles: (row: AdminTaxonomyItemBase) => void;
     hasDuplicateName: (name: string) => boolean;
