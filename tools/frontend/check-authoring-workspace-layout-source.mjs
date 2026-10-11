@@ -148,6 +148,60 @@ visit(separatorTree, node =>
     }
 });
 
+const separatorDeclarations = new Map();
+visit(separatorTree, node =>
+{
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name))
+    {
+        separatorDeclarations.set(node.name.text, node);
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        && node.expression.expression.getText(separatorTree) === 'ports'
+        && node.expression.name.text !== 'cancelSeparator')
+    {
+        let parent = node.parent;
+        while (parent && !(ts.isCallExpression(parent) && parent.expression.getText(separatorTree) === 'checked'))
+        {
+            parent = parent.parent;
+        }
+        if (!parent)
+        {
+            failures.push('separator-adapter: external-port-without-epoch-barrier');
+        }
+    }
+});
+for (const name of ['readBinding', 'start', 'proposal', 'end'])
+{
+    const initializer = separatorDeclarations.get(name)?.initializer;
+    if (!initializer || !ts.isArrowFunction(initializer) || !ts.isCallExpression(initializer.body)
+        || initializer.body.expression.getText(separatorTree) !== 'run')
+    {
+        failures.push(`separator-adapter: missing-operation-lock:${name}`);
+    }
+}
+const liveSource = separatorDeclarations.get('isLive')?.initializer?.getText(separatorTree) ?? '';
+if (!liveSource.includes('!disposed') || !liveSource.includes('invalidationEpoch === operation.epoch')
+    || !liveSource.includes('active === operation.interaction'))
+{
+    failures.push('separator-adapter: missing-disposal-epoch-interaction-guard');
+}
+let checkedBarriers = 0;
+const checkedInitializer = separatorDeclarations.get('checked')?.initializer;
+if (checkedInitializer)
+{
+    visit(checkedInitializer, node =>
+    {
+        if (ts.isCallExpression(node) && node.expression.getText(separatorTree) === 'isLive')
+        {
+            checkedBarriers++;
+        }
+    });
+}
+if (checkedBarriers !== 2)
+{
+    failures.push('separator-adapter: missing-before-after-callback-epoch-barriers');
+}
+
 const ratioValues = {};
 visit(ownerTree, node =>
 {

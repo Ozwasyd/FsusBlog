@@ -364,3 +364,27 @@ into a temporary declaration envelope; this does not change dependency pins,
 replace test/config entrypoints, or establish installed-source/bundle readiness.
 The 21 existing ordinary controls remain UNRUN; the new adapter has no executed
 behavioral or native qualification.
+
+
+The separator adapter now fences synchronous invalidation with a nonserializable
+operation context (captured bigint invalidation epoch plus exact interaction
+identity). A lock covers binding/start/proposal/end, including observation and
+measurement, not only publication. Every external read/publication port checks
+that context before and after returning. Prepare and publication have additional
+pre-mutation guards; binding/start/final acceptance also refuse a revoked context.
+Invalidate/cancel/end advance the epoch; disposal permanently blocks admission.
+The public cancel callback runs while locked, so it cannot synchronously start,
+bind or propose a replacement interaction. Valid later explicit interactions
+remain possible after invalidation; disposed adapters never revive. Genuine
+ratio CAS, staged discard, no repeated end commit and no cancellation rollback
+are preserved.
+
+`tests/frontend/unit/authoring/authoringWorkspaceSeparatorAdapter.test.ts` adds
+nine UNRUN ordinary source regression cases for callback invalidation/disposal,
+all prepublication read ports, nested proposal refusal, start/binding admission,
+final acceptance revocation, cancel callback reentry and staged cleanup/end/cancel
+semantics. Its fixture supplies synthetic adapter ports and a ratio-only publisher;
+it is neither a second production group model nor a real joint receipt/host
+qualification. The original 21 controls remain UNRUN. All 30 declared cases,
+including original locale/setup import effects, still require root's exact CLI
+approval before any execution or listing.
