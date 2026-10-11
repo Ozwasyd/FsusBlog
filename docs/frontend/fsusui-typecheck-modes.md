@@ -215,3 +215,16 @@ performance, migration and terminal/publication gates remain open. Historical
 source-epoch browser/backend results above are retained as history and do not
 qualify this new source combination. The upstream 13-case typography runtime
 entry likewise remains unrun; its static offer is not acceptance.
+
+Independent source review of the offered `d2ccb90` baseline subsequently reported
+four upstream blockers: a successor measure scheduled from post-paint violates
+frame phase ordering; native scroll during size changes/restoring viewport does
+not reliably cancel the pending typography operation; the effective actual
+font/line-height/width is not sufficiently verified before `applied`; and the
+current generated public metadata omits the new APIs. The FsusUI owner has the
+fixes; this consumer supplies no second scroll/scheduler algorithm or metadata
+shim. Current raw `applied` therefore cannot guarantee production success or
+freeze acceptance. The adapter remains a source-only call-through, with test
+sources for real refusals and no manufactured successful result. A repaired
+exact-source offer and its public metadata are required before qualifying any
+successful apply path. Static catalog resolution alone does not prove apply.
