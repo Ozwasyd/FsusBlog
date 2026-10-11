@@ -1,8 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { ElMarkdownEditor } from '@ozwasyd/element-plus';
-import { resolveLocalFsusUiRepositoryRoot } from '../../../../src/frontend/scripts/fsusui-root.mjs';
+import { MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG } from '@ozwasyd/element-plus';
 import { readAuthorTypographyDimensionMappings } from '@/services/authoring/authorTypographyMapping';
 import { describe, expect, it } from 'vitest';
 
@@ -24,29 +21,43 @@ const observation: AuthorTypographySettingsView = {
 
 describe('author typography controlled settings contract', () =>
 {
-    it('audits every dimension against actual documented public tokens without inventing a mapping', () =>
+    it('projects the actual public catalog/targets by reference without copying numeric mapping values', () =>
     {
-        const uiRoot = resolveLocalFsusUiRepositoryRoot({ override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT, repositoryRoot: fileURLToPath(new URL('../../../../', import.meta.url)) });
-        expect(uiRoot).not.toBeNull();
-        const documentation = readFileSync(resolve(uiRoot!, 'docs/theme/generated/tokens.md'), 'utf8');
+        const catalog = MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG;
         const mappings = readAuthorTypographyDimensionMappings();
         expect(mappings.map(mapping => mapping.dimension)).toEqual(AUTHOR_TYPOGRAPHY_FIELDS);
         expect(Object.isFrozen(mappings)).toBe(true);
         for (const mapping of mappings)
         {
             expect(mapping.values).toEqual(AUTHOR_TYPOGRAPHY_CHOICES[mapping.dimension]);
-            expect(mapping.status).toBe('blocked');
-            expect(mapping.target).toBeNull();
-            expect(mapping.missingContract).not.toBe('');
+            expect(mapping.values).toBe(catalog.choices[mapping.dimension]);
+            expect(mapping.supportedValues).toBe(catalog.supported[mapping.dimension]);
+            expect(mapping.publicCatalog).toBe(catalog);
+            expect(mapping.target).toBe(mapping.dimension === 'paragraphSpacing' ? catalog.baseline.paragraphSpacing : catalog.mapping[mapping.dimension]);
             expect(Object.isFrozen(mapping)).toBe(true);
-            expect(Object.isFrozen(mapping.inspectedPublicContracts)).toBe(true);
-            for (const name of mapping.inspectedPublicContracts)
+            if (mapping.dimension === 'fontFamily' || mapping.dimension === 'paragraphSpacing')
             {
-                if (name.startsWith('--'))
-                    expect(documentation.split('\n').some(line => line.includes(`\`${name}\``) && /\|\s*public\s*\|/.test(line))).toBe(true);
-                else expect(ElMarkdownEditor.props.editorProfile).toBeDefined();
+                expect(mapping.status).toBe('partial');
+                expect(mapping.unsupportedReason).toBe(catalog.mapping.unsupported[mapping.dimension]);
+            }
+            else
+            {
+                expect(mapping.status).toBe('supported');
+                expect(mapping.unsupportedReason).toBeNull();
             }
         }
+    });
+
+    it('allows a supported current observation to emit intents without treating capability as saved/applied', () =>
+    {
+        const supported = {
+            ...observation, profile: { ...observation.profile!, fontFamily: 'system-sans' as const, paragraphSpacing: 'standard' as const }
+        };
+        expect(authorTypographySettingsBlock(supported)).toBeNull();
+        expect(supported.status).toBe('current');
+        expect(supported.font).toBe('unavailable');
+        expect(authorTypographySettingsBlock({ ...supported, device: 'unavailable' })).toBe('device');
+        expect(authorTypographySettingsBlock({ ...supported, designDefault: 'unavailable' })).toBe('default');
     });
 
 

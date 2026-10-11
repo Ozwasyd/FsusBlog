@@ -1,21 +1,22 @@
 // @vitest-environment happy-dom
 import { mount } from '@vue/test-utils';
-import { ElMarkdownEditor } from '@ozwasyd/element-plus';
+import { ElMarkdownEditor, MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG as publicCatalog, resolveMarkdownEditorTypography as publicResolver } from '@ozwasyd/element-plus';
 import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime';
-import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
-import { FsusUiMarkdownEditor } from '@/fsusui/markdownEditor';
+import { FsusUiMarkdownEditor, MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG, resolveMarkdownEditorTypography } from '@/fsusui/markdownEditor';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter } from '@/services/authoring/articleAttachmentContext';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
 import { validateArticleEditorContinuityContext } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime } from '@/services/authoring/articleEditorRuntimeBinding';
-import { captureAuthorTypographyContinuity, readAuthorTypographyMappingAvailability } from '@/services/authoring/authorTypographyMapping';
+import { applyAuthorTypographyToEditor, captureAuthorTypographyContinuity, readAuthorTypographyMappingAvailability } from '@/services/authoring/authorTypographyMapping';
 import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS } from '@/view-contracts/authorTypographyProfile';
 
 import type { MarkdownEditorDispatchResult, MarkdownEditorTransaction } from '@ozwasyd/element-plus';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { AuthorTypographyEditorPort } from '@/services/authoring/authorTypographyMapping';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => cleanups.splice(0).reverse().forEach(cleanup => cleanup()));
@@ -71,6 +72,7 @@ describe('author typography public mapping boundary', () =>
     it('preserves the real public editor identity, prop types, default and validator through the named adapter', () =>
     {
         expectTypeOf(FsusUiMarkdownEditor).toEqualTypeOf<typeof ElMarkdownEditor>();
+        expectTypeOf<AuthorTypographyEditorPort['applyTypography']>().toEqualTypeOf<InstanceType<typeof ElMarkdownEditor>['applyTypography']>();
         expect(FsusUiMarkdownEditor).toBe(ElMarkdownEditor);
         expect(FsusUiMarkdownEditor.props).toBe(ElMarkdownEditor.props);
         expect(FsusUiMarkdownEditor.props.editorProfile).toBe(ElMarkdownEditor.props.editorProfile);
@@ -79,15 +81,17 @@ describe('author typography public mapping boundary', () =>
         expect(readAuthorTypographyMappingAvailability().publicEditorDefaultProfile).toBe(FsusUiMarkdownEditor.props.editorProfile.default);
     });
 
-    it('refuses the real aliased public editor contract without manufacturing CSS or defaults', () =>
+    it('preserves the actual public catalog/resolver and requires a profile rather than manufacturing a default', () =>
     {
         const availability = readAuthorTypographyMappingAvailability();
         expect(availability).toEqual({
             status: 'blocked',
-            reason: 'public-typography-contract-unavailable',
+            reason: 'profile-required',
             publicEditorDefaultProfile: ElMarkdownEditor.props.editorProfile.default
         });
         expect(Object.isFrozen(availability)).toBe(true);
+        expect(MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG).toBe(publicCatalog);
+        expect(resolveMarkdownEditorTypography).toBe(publicResolver);
         expect(ElMarkdownEditor.props.editorProfile.validator('markdown')).toBe(true);
         expect(ElMarkdownEditor.props.editorProfile.validator('prose')).toBe(true);
         for (const value of ['reading-serif', 'cjk-sans', 'system-sans', '18px', 'standard'])
@@ -105,24 +109,92 @@ describe('author typography public mapping boundary', () =>
         expect(readAuthorTypographyMappingAvailability()).not.toHaveProperty('profile');
     });
 
-    it('keeps all 243 closed profiles blocked without inventing an upstream mapping', () =>
+    it('delegates all 243 combinations to the real resolver: exactly 27 supported and 216 unsupported', () =>
     {
         let count = 0;
+        let supported = 0;
+        let unsupported = 0;
         for (const fontFamily of AUTHOR_TYPOGRAPHY_CHOICES.fontFamily)
         for (const fontSize of AUTHOR_TYPOGRAPHY_CHOICES.fontSize)
         for (const lineHeight of AUTHOR_TYPOGRAPHY_CHOICES.lineHeight)
         for (const canvasWidth of AUTHOR_TYPOGRAPHY_CHOICES.canvasWidth)
         for (const paragraphSpacing of AUTHOR_TYPOGRAPHY_CHOICES.paragraphSpacing)
         {
-            const availability = readAuthorTypographyMappingAvailability({
+            const profile = {
                 schemaVersion: 1, fontFamily, fontSize, lineHeight, canvasWidth, paragraphSpacing
-            });
-            expect(availability).toEqual(readAuthorTypographyMappingAvailability());
-            expect(availability.status).toBe('blocked');
+            };
+            const resolution = publicResolver(profile);
+            const availability = readAuthorTypographyMappingAvailability(profile);
+            expect(resolution.status).not.toBe('invalid');
+            if (resolution.status === 'supported')
+            {
+                expect(availability.status).toBe('supported');
+                expect(availability.reason).toBeNull();
+                supported += 1;
+            }
+            else
+            {
+                expect(availability.status).toBe('blocked');
+                expect(availability.reason).toBe('unsupported-profile');
+                unsupported += 1;
+            }
+            expect(availability).not.toHaveProperty('applied');
             expect(Object.isFrozen(availability)).toBe(true);
             count += 1;
         }
         expect(count).toBe(243);
+        expect(supported).toBe(27);
+        expect(unsupported).toBe(216);
+    });
+
+    it('delegates hostile records to the public resolver without executing profile getters', () =>
+    {
+        let reads = 0;
+        const profile = {
+            schemaVersion: 1, fontFamily: 'system-sans', fontSize: 'standard',
+            lineHeight: 'standard', canvasWidth: 'standard', paragraphSpacing: 'standard'
+        };
+        const accessor = { ...profile };
+        Object.defineProperty(accessor, 'fontFamily', { enumerable: true, get: () => { reads += 1; throw new Error('getter-must-not-run'); } });
+        const inherited = Object.assign(Object.create({}), profile);
+        for (const input of [accessor, inherited])
+            expect(readAuthorTypographyMappingAvailability(input).reason).toBe('invalid-profile');
+        expect(reads).toBe(0);
+    });
+
+    it.each(['unsupported-profile', 'stale-document', 'stale-revision'] as const)('forwards the actual mounted editor Promise and %s result without a Writer acknowledgement', async reason =>
+    {
+        const runtime = openRuntime('source');
+        expect(runtime.binding.initialize()).toBe(true);
+        const before = captureAuthorTypographyContinuity(runtime.binding, runtime.options);
+        const source = runtime.source();
+        const context = runtime.owner.context;
+        const instance = runtime.wrapper.vm;
+        const transactions = runtime.wrapper.emitted('transaction')?.length;
+        const call = vi.spyOn(instance, 'applyTypography'); // Call-through to the real public method; no mock result or geometry.
+        try
+        {
+            const promise = applyAuthorTypographyToEditor(instance, {
+                profile: {
+                    schemaVersion: 1, fontFamily: reason === 'unsupported-profile' ? 'reading-serif' : 'system-sans',
+                    fontSize: 'standard', lineHeight: 'standard', canvasWidth: 'standard', paragraphSpacing: 'standard'
+                },
+                expectedDocumentIdentity: reason === 'stale-document' ? { id: 'another-document', epoch: 0 } : runtime.owner.documentIdentity,
+                expectedRevision: reason === 'stale-revision' ? runtime.owner.context.sourceRevision + 1 : runtime.owner.context.sourceRevision,
+                requestId: `typography:${reason}`
+            });
+            expect(promise).toBe(call.mock.results[0].value);
+            expect(await promise).toMatchObject({ status: 'rejected', reason, visualCommitted: false, settle: 'not-applied', effective: null });
+            const after = captureAuthorTypographyContinuity(runtime.binding, runtime.options);
+            expect(runtime.source()).toBe(source);
+            expect(runtime.owner.context).toBe(context);
+            expect(runtime.wrapper.vm).toBe(instance);
+            expect(after.historyRef).toBe(before.historyRef);
+            expect(after.anchor.range).toEqual(before.anchor.range);
+            expect(after.anchor.direction).toBe(before.anchor.direction);
+            expect(runtime.wrapper.emitted('transaction')?.length).toBe(transactions);
+        }
+        finally { call.mockRestore(); }
     });
 
     it('refuses missing, extra, future, numeric, CSS and font URL profile inputs before capability inspection', () =>

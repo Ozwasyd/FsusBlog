@@ -1,6 +1,5 @@
+import { resolveMarkdownEditorTypography } from '@/fsusui/markdownEditor';
 import { readAuthorTypographyMappingAvailability } from '@/services/authoring/authorTypographyMapping';
-
-import { isAuthorTypographyProfileView } from './authorTypographyProfile';
 
 import type { AuthorTypographyProfileView } from './authorTypographyProfile';
 
@@ -34,7 +33,7 @@ export function authorTypographySettingsBlock(view: AuthorTypographySettingsView
     {
         return 'default';
     }
-    if (!isAuthorTypographyProfileView(view.profile) || !Number.isSafeInteger(view.revision)
+    if (resolveMarkdownEditorTypography(view.profile).status === 'invalid' || !Number.isSafeInteger(view.revision)
         || view.revision === null || view.revision < 0)
     {
         return 'observation';
@@ -55,7 +54,7 @@ export function authorTypographySettingsBlock(view: AuthorTypographySettingsView
     {
         return 'unavailable';
     }
-    // The actual aliased public contract must support all dimensions; display flags cannot invent that capability.
+    // The actual profile must be supported; permission/font display flags cannot supply missing capabilities.
     if (readAuthorTypographyMappingAvailability(view.profile).status === 'blocked')
     {
         return 'mapping';

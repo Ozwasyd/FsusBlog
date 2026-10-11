@@ -63,8 +63,8 @@ describe('AuthorTypographySettings with the real local FsusUI', () =>
         }
         expect(wrapper.getComponent(ElForm).props('disabled')).toBe(true);
         expect(wrapper.text()).toContain('当前偏好版本 17');
-        expect(wrapper.text()).toContain('作者排版映射暂不可用');
-        expect(wrapper.text()).toContain('尚未应用所选偏好');
+        expect(wrapper.text()).toContain('当前排版组合尚不受写作表面支持');
+        expect(wrapper.text()).toContain('不展示所选排版');
         expect(wrapper.findComponent(ElMarkdownEditor).exists()).toBe(false);
         const sample = wrapper.getComponent(MarkdownRenderer);
         expect(sample.props()).toMatchObject({ mode: 'preview', allowLatex: false, allowMermaid: false, baseUrl: null });
@@ -72,6 +72,32 @@ describe('AuthorTypographySettings with the real local FsusUI', () =>
         expect(sample.props('content')).toContain('العربية');
         expect(sample.props('content')).toContain('👩🏽‍💻');
         expect(wrapper.emitted('change')).toBeUndefined();
+    });
+
+    it('disables unsupported options and emits only controlled supported CAS/reset intents without a second editor', async () =>
+    {
+        const supported: AuthorTypographySettingsView = {
+            ...observation, profile: { ...observation.profile!, fontFamily: 'system-sans', paragraphSpacing: 'standard' }
+        };
+        const wrapper = open(supported);
+        expect(wrapper.getComponent(ElForm).props('disabled')).toBe(false);
+        const selects = wrapper.findAllComponents(ElSelect);
+        expect(selects[0].findAllComponents(ElOption).map(option => option.props('disabled'))).toEqual([false, true, true]);
+        expect(selects[4].findAllComponents(ElOption).map(option => option.props('disabled'))).toEqual([true, false, true]);
+        selects[0].vm.$emit('update:modelValue', 'reading-serif');
+        selects[4].vm.$emit('update:modelValue', 'relaxed');
+        expect(wrapper.emitted('change')).toBeUndefined();
+        selects[1].vm.$emit('update:modelValue', 'compact');
+        await flushPromises();
+        expect(wrapper.emitted('change')).toEqual([[{ expectedRevision: 17, profile: { ...supported.profile!, fontSize: 'compact' } }]]);
+        expect(Object.isFrozen(wrapper.emitted('change')![0][0])).toBe(true);
+        expect(selects[1].props('modelValue')).toBe('large');
+        expect(wrapper.props('view')).toBe(supported);
+        wrapper.getComponent(ElButton).vm.$emit('click', new MouseEvent('click'));
+        expect(wrapper.emitted('reset')).toEqual([[{ expectedRevision: 17 }]]);
+        expect(wrapper.findComponent(ElMarkdownEditor).exists()).toBe(false);
+        expect(wrapper.text()).not.toContain('服务端已确认偏好');
+        expect(wrapper.text()).not.toContain('已应用');
     });
 
     it('refuses forced select/reset events and does not keep optimistic local choices', async () =>

@@ -30,6 +30,7 @@
                         :key="value"
                         :value="value"
                         :label="valueLabels[value]"
+                        :disabled="!choiceSupported(dimension, value)"
                     />
                 </ElSelect>
             </ElFormItem>
@@ -58,7 +59,7 @@
             class="min-w-0"
             aria-label="排版内容样例"
         >
-            <p>内容样例 · 排版预览暂不可用，尚未应用所选偏好。</p>
+            <p>内容样例 · 不展示所选排版；实际效果须由写作表面确认。</p>
             <MarkdownRenderer
                 :content="sample"
                 mode="preview"
@@ -75,9 +76,10 @@
 import { computed, useId } from 'vue';
 
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue';
+import { resolveMarkdownEditorTypography } from '@/fsusui/markdownEditor';
 import { FsusUiSettingsSection } from '@/fsusui/settingsSection';
 import {
-    AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS, isAuthorTypographyChoice, isAuthorTypographyProfileView
+    AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS, isAuthorTypographyChoice
 } from '@/view-contracts/authorTypographyProfile';
 import type { AuthorTypographyDimension, AuthorTypographyProfileView } from '@/view-contracts/authorTypographyProfile';
 import { authorTypographySettingsBlock } from '@/view-contracts/authorTypographySettings';
@@ -91,7 +93,7 @@ const emit = defineEmits<{
 }>();
 const id = useId();
 const view = computed(() => props.view);
-const validProfile = computed(() => isAuthorTypographyProfileView(view.value.profile));
+const validProfile = computed(() => resolveMarkdownEditorTypography(view.value.profile).status !== 'invalid');
 const block = computed(() => authorTypographySettingsBlock(view.value));
 const dimensionLabels = {
     fontFamily: '字体', fontSize: '字号', lineHeight: '行高', canvasWidth: '画布宽度', paragraphSpacing: '段落间距'
@@ -105,7 +107,7 @@ const blockText = {
     default: '当前默认排版尚未确认，暂不能保存或重置。', observation: '尚无已验证的当前偏好。',
     exhausted: '偏好版本已达上限，暂不能保存或重置。',
     pending: '正在等待服务端确认。', conflict: '偏好已在另一设备更新，请重新读取后再选择。',
-    unavailable: '偏好服务暂不可用，尚未确认保存。', mapping: '作者排版映射暂不可用，暂不能应用或保存。'
+    unavailable: '偏好服务暂不可用，尚未确认保存。', mapping: '当前排版组合尚不受写作表面支持，暂不能应用或保存。'
 };
 const fontText = {
     unavailable: '字体映射尚未确认。', loading: '字体正在准备。', loaded: '字体已准备。',
@@ -130,13 +132,18 @@ function choose(dimension: AuthorTypographyDimension, value: unknown): void
     {
         return;
     }
-    const profile = { ...view.value.profile!, [dimension]: value };
-    if (!isAuthorTypographyProfileView(profile))
+    const resolution = resolveMarkdownEditorTypography({ ...view.value.profile!, [dimension]: value });
+    if (resolution.status !== 'supported')
     {
         return;
     }
     // No local draft or optimistic snapshot: only the canonical caller may execute CAS and supply a new observation.
-    emit('change', Object.freeze({ expectedRevision: view.value.revision!, profile: Object.freeze(profile) }));
+    emit('change', Object.freeze({ expectedRevision: view.value.revision!, profile: resolution.profile }));
+}
+
+function choiceSupported(dimension: AuthorTypographyDimension, value: string): boolean
+{
+    return validProfile.value && resolveMarkdownEditorTypography({ ...view.value.profile!, [dimension]: value }).status === 'supported';
 }
 
 function reset(): void

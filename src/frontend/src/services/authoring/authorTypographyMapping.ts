@@ -1,5 +1,6 @@
-import { FsusUiMarkdownEditor as ElMarkdownEditor } from '@/fsusui/markdownEditor';
-import { AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS, isAuthorTypographyProfileView } from '@/view-contracts/authorTypographyProfile';
+import { FsusUiMarkdownEditor, MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG, resolveMarkdownEditorTypography } from '@/fsusui/markdownEditor';
+import type { MarkdownEditorTypographyRequest, MarkdownEditorTypographyResult } from '@/fsusui/markdownEditor';
+import { AUTHOR_TYPOGRAPHY_FIELDS } from '@/view-contracts/authorTypographyProfile';
 import type { AuthorTypographyDimension } from '@/view-contracts/authorTypographyProfile';
 
 import type { ArticleEditorRuntimeBinding } from './articleEditorRuntimeBinding';
@@ -8,71 +9,61 @@ export interface AuthorTypographyDimensionMapping
 {
     readonly dimension: AuthorTypographyDimension;
     readonly values: readonly string[];
-    readonly inspectedPublicContracts: readonly string[];
-    readonly target: null;
-    readonly status: 'blocked';
-    readonly missingContract: string;
+    readonly supportedValues: readonly string[];
+    readonly publicCatalog: typeof MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG;
+    readonly target: Readonly<Record<string, string>> | string;
+    readonly status: 'supported' | 'partial';
+    readonly unsupportedReason: string | null;
 }
 
-/** Audited names only, no copied token values or inferred author-editor override. */
+/** Project the actual public catalog by reference; numeric/style authority remains in FsusUI. */
 export function readAuthorTypographyDimensionMappings(): readonly AuthorTypographyDimensionMapping[]
 {
-    const inspected: Record<AuthorTypographyDimension, readonly string[]> = {
-        fontFamily: ['--fsus-typography-family-body', '--fsus-typography-family-monospace'],
-        fontSize: ['--fsus-typography-body-md-size', '--fsus-typography-body-lg-size'],
-        lineHeight: ['--fsus-typography-body-md-line-height'],
-        canvasWidth: ['ElMarkdownEditor.props.editorProfile'],
-        paragraphSpacing: ['--fsus-space-2', '--fsus-space-4', '--fsus-space-6']
-    };
-    const missing: Record<AuthorTypographyDimension, string> = {
-        fontFamily: 'Registered system-sans/reading-serif/cjk-sans author profiles with pinned no-network fallback; body/monospace stacks do not supply them.',
-        fontSize: 'Closed compact/standard/large author-editor size contract; body tokens do not control prose editor text size.',
-        lineHeight: 'Closed compact/standard/relaxed author-editor line-height contract; one body line-height token is insufficient.',
-        canvasWidth: 'Closed narrow/standard/wide author-editor width contract; markdown/prose editorProfile cannot independently select width.',
-        paragraphSpacing: 'Closed compact/standard/relaxed author paragraph rhythm contract; task spacing tokens do not specify prose paragraph margins.'
-    };
+    const catalog = MARKDOWN_EDITOR_TYPOGRAPHY_CATALOG;
     return Object.freeze(AUTHOR_TYPOGRAPHY_FIELDS.map(dimension => Object.freeze({
-        dimension, values: AUTHOR_TYPOGRAPHY_CHOICES[dimension],
-        inspectedPublicContracts: Object.freeze(inspected[dimension]),
-        target: null, status: 'blocked' as const, missingContract: missing[dimension]
+        dimension, values: catalog.choices[dimension], supportedValues: catalog.supported[dimension],
+        publicCatalog: catalog,
+        target: dimension === 'paragraphSpacing' ? catalog.baseline.paragraphSpacing : catalog.mapping[dimension],
+        status: catalog.supported[dimension].length === catalog.choices[dimension].length ? 'supported' as const : 'partial' as const,
+        unsupportedReason: dimension === 'fontFamily' || dimension === 'paragraphSpacing' ? catalog.mapping.unsupported[dimension] : null
     })));
 }
 
-/** A refusal observation, never a preference, default profile, or runtime adapter. */
+/** Capability only; supported never means visually applied, persisted, or accepted. */
 export type AuthorTypographyMappingAvailability = Readonly<{
-    status: 'blocked';
-    reason: 'invalid-profile' | 'public-typography-contract-unavailable';
     publicEditorDefaultProfile: string | null;
-}>;
+} & ({ status: 'supported'; reason: null; } | {
+    status: 'blocked'; reason: 'invalid-profile' | 'profile-required' | 'unsupported-profile';
+})>;
 
 /**
- * The current public editorProfile contract selects markdown/prose geometry. It does
- * not implement the five independent author typography dimensions. Refuse apply until
- * the UI owner supplies its actual public catalog, font identities and reflow contract.
- * In particular, prop-name discovery alone must never promote a future API to supported.
+ * Resolve through the public upstream implementation. An argument-free probe does not
+ * invent an author preference/default; editorProfile remains a separate presentation prop.
  */
 export function readAuthorTypographyMappingAvailability(
     ...profiles: [] | [profile: unknown]
 ): AuthorTypographyMappingAvailability
 {
-    // Keep the original argument-free capability probe. Supplied profiles must pass
-    // the existing closed preflight before inspecting any upstream capability/default.
-    if (profiles.length === 1 && !isAuthorTypographyProfileView(profiles[0]))
+    const resolution = profiles.length === 1 ? resolveMarkdownEditorTypography(profiles[0]) : null;
+    if (resolution?.status === 'invalid')
     {
         return Object.freeze({
             status: 'blocked', reason: 'invalid-profile', publicEditorDefaultProfile: null
         });
     }
-    // The public package and local source are checked independently. Inspect the exported
-    // public prop defensively; a missing package declaration must not manufacture a default.
-    const editor: unknown = ElMarkdownEditor;
+    const editor: unknown = FsusUiMarkdownEditor;
     const props = isRecord(editor) ? editor.props : null;
-    const profile = isRecord(props) ? props.editorProfile : null;
-    const defaultProfile = isRecord(profile) ? profile.default : null;
+    const presentation = isRecord(props) ? props.editorProfile : null;
+    const defaultProfile: unknown = isRecord(presentation) ? presentation.default : null;
+    const publicEditorDefaultProfile = typeof defaultProfile === 'string' ? defaultProfile : null;
+    if (resolution?.status === 'supported')
+    {
+        return Object.freeze({ status: 'supported', reason: null, publicEditorDefaultProfile });
+    }
     return Object.freeze({
         status: 'blocked',
-        reason: 'public-typography-contract-unavailable',
-        publicEditorDefaultProfile: typeof defaultProfile === 'string' ? defaultProfile : null
+        reason: resolution === null ? 'profile-required' : 'unsupported-profile',
+        publicEditorDefaultProfile
     });
 }
 
@@ -81,8 +72,26 @@ function isRecord(value: unknown): value is Record<string, unknown>
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** Narrow the documented exposed method using its public request/result types; Writer supplies the mounted instance. */
+export interface AuthorTypographyEditorPort
+{
+    applyTypography(request: MarkdownEditorTypographyRequest): Promise<MarkdownEditorTypographyResult>;
+}
+
 /**
- * Capture through the existing Writer binding before a future supported typography
+ * Preserve the exact public Promise/result. The UI owns request validation, font/layout
+ * scheduling and restoration. This does not save preferences or complete Writer continuity.
+ */
+export function applyAuthorTypographyToEditor(
+    editor: AuthorTypographyEditorPort,
+    request: MarkdownEditorTypographyRequest
+): Promise<MarkdownEditorTypographyResult>
+{
+    return editor.applyTypography(request);
+}
+
+/**
+ * Capture through the existing Writer binding before typography
  * reflow. The canonical owner validates document/revision, public selection/history,
  * surface/tool and lifetime. Return its sealed context directly: no parallel anchor,
  * document state, receipt or persistence is created, and capture does not apply a profile.
