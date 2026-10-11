@@ -258,7 +258,7 @@ public sealed class AuthorArticleQuerySourceStabilityTests
         var owner = new AuthorRecentArticleHistoryOwner(7, "site-a");
         var entry = new AuthorRecentArticleHistoryEntry(1, 1,
             new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(revision),
-            null, null, "open", revision, string.Empty);
+            null, null, "open", revision, Hash("pending"));
         entry = entry with
         {
             ContentDigest = AuthorRecentArticleHistoryContract.ComputeEntryDigest(owner, entry)

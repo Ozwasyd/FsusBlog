@@ -276,7 +276,7 @@ public sealed class AuthorArticleQueryRecentSourceCompositionTests
         {
             var entry = new AuthorRecentArticleHistoryEntry(id, 10,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(ids.Length - index),
-                null, null, "open", ids.Length - index, string.Empty);
+                null, null, "open", ids.Length - index, Hash("pending"));
             return entry with
             {
                 ContentDigest = AuthorRecentArticleHistoryContract.ComputeEntryDigest(owner, entry)
