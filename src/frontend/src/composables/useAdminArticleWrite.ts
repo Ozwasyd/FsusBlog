@@ -1102,7 +1102,7 @@ export function useAdminArticleWrite()
                         draftId: document.draftId, documentId: document.documentId });
                     if (!active || editorRuntimeBinding !== binding || recoveryIdentityId() !== identityId
                         || document.userScope !== documentUserScope || document.siteScope !== documentSiteScope
-                        || suppressDraftSave || !clientRevision || !entry || entry.editorSessionRef !== editorSessionRef
+                        || suppressDraftSave || !clientRevision || entry?.editorSessionRef !== editorSessionRef
                         || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current')
                     {
                         return null;
@@ -1114,7 +1114,7 @@ export function useAdminArticleWrite()
                     if (mountedEditor !== editor || !observed || !active || editorRuntimeBinding !== binding
                         || recoveryIdentityId() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
                         || activeRecoveryClientRevision !== clientRevision || registry.getRevision() !== registryRevision
-                        || !current || current.lifecycleRevision !== entry.lifecycleRevision
+                        || current?.lifecycleRevision !== entry.lifecycleRevision
                         || current.editorSessionRef !== editorSessionRef
                         || observed.identity.articleId !== document.articleId || observed.identity.draftId !== document.draftId
                         || observed.identity.documentId !== document.documentId
@@ -1141,12 +1141,12 @@ export function useAdminArticleWrite()
                 const journal = articleRecoveryJournal.bindCheckpointSource(readSource);
                 const unsubscribe = articleDocumentContextAdapter.subscribeContext(() => journal.invalidate());
                 const stopIdentityWatch = watch(() => adminStore.adminPrincipal?.id, () => journal.invalidate(), { flush: 'sync' });
-                const checkpoint: ArticleRecoveryJournalCheckpointBinding = Object.freeze({
-                    prepare: journal.prepare,
-                    inspect: journal.inspect,
-                    validate: journal.validate,
-                    restore: journal.restore,
-                    invalidate: journal.invalidate,
+                const checkpoint = Object.freeze<ArticleRecoveryJournalCheckpointBinding>({
+                    prepare: signal => journal.prepare(signal),
+                    inspect: token => journal.inspect(token),
+                    validate: token => journal.validate(token),
+                    restore: token => journal.restore(token),
+                    invalidate: () => journal.invalidate(),
                     release: () =>
                     {
                         if (recoveryCheckpoint !== checkpoint)
