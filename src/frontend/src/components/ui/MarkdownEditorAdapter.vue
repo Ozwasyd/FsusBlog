@@ -27,7 +27,7 @@
             :command-surfaces="commandSurfaces"
             :document-identity="documentIdentity"
             :native-attachment-input="nativeAttachmentInput"
-            @attachment-capture="handleAttachmentCapture"
+            @upload-image="handleAttachmentCapture"
             @on-save="emit('save')"
             @on-draft-save="emit('draft-save')"
             @on-submit="emit('submit')"

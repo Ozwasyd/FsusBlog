@@ -129,6 +129,7 @@ import type {
 
 type FsusUiMarkdownEditorExpose = MarkdownEditorSessionExpose & Readonly<{
     dispatchTransaction: ArticleEditorContinuityPort['dispatchTransaction'];
+    withAttachmentFile: NonNullable<ArticleEditorContinuityPort['withAttachmentFile']>;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     closeCommandPalette?: () => void;
@@ -198,7 +199,7 @@ const emit = defineEmits<{
     (e: 'on-draft-save'): void;
     (e: 'on-submit'): void;
     (e: 'on-upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
-    (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
+    (e: 'upload-image', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'transaction', event: FsusUiMarkdownEditorTransactionEvent): void;
     (e: 'viewport-change', event: {
@@ -613,7 +614,7 @@ function requestImageUpload(batch: MarkdownAttachmentBatchIntent, capture?: Mark
 {
     if (props.nativeAttachmentInput)
     {
-        emit('attachment-capture', batch, capture);
+        emit('upload-image', batch, capture);
         return;
     }
     imageInputRef.value?.click();

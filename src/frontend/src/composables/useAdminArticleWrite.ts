@@ -94,7 +94,7 @@ import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
 
-import type { FormItemProp, FormValidateCallback, FormValidationResult } from '@ozwasyd/element-plus';
+import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
 
 interface ArticleParams {
     title: string;
@@ -1088,7 +1088,10 @@ export function useAdminArticleWrite()
                 ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
                     editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
                 : null;
-            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding =>
+            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding & {
+                /** Native retained snapshot only; complete application factory custody remains unavailable. */
+                captureRetainedSnapshot(reference: string): MarkdownEditorSessionSnapshot;
+            } =>
             {
                 const identityId = recoveryIdentityId();
                 if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || recoveryCheckpointCreating || !identityId
@@ -1143,7 +1146,7 @@ export function useAdminArticleWrite()
                 let journal: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
                 let unsubscribe: (() => void) | null = null;
                 let stopIdentityWatch: (() => void) | null = null;
-                let checkpoint: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+                let checkpoint: ReturnType<typeof bindRecoveryCheckpoint> | null = null;
                 let released = false;
                 const releaseCheckpoint = (): void =>
                 {
@@ -1182,7 +1185,7 @@ export function useAdminArticleWrite()
                     journal = issued;
                     unsubscribe = articleDocumentContextAdapter.subscribeContext(() => issued.invalidate());
                     stopIdentityWatch = watch(() => adminStore.adminPrincipal?.id, () => issued.invalidate(), { flush: 'sync' });
-                    checkpoint = Object.freeze<ArticleRecoveryJournalCheckpointReferenceBinding>({
+                    checkpoint = Object.freeze<ReturnType<typeof bindRecoveryCheckpoint>>({
                         prepare: signal => issued.prepare(signal),
                         inspect: token => issued.inspect(token),
                         validate: token => issued.validate(token),
@@ -1190,6 +1193,35 @@ export function useAdminArticleWrite()
                         inspectReference: reference => issued.inspectReference(reference),
                         validateReference: (reference, content) => issued.validateReference(reference, content),
                         restoreReference: reference => issued.restoreReference(reference),
+                        captureRetainedSnapshot: reference =>
+                        {
+                            const source = readSource();
+                            const mounted = mountedSource.readMountedEditor(editorSessionRef);
+                            const info = issued.inspectReference(reference);
+                            if (released || !source || !mounted || source.mountedEditor !== mounted || !info
+                                || info.editorSessionRef !== editorSessionRef || info.documentId !== source.documentId
+                                || info.documentEpoch !== source.documentEpoch || info.editorRevision !== source.editorRevision)
+                            {
+                                throw new Error('article-recovery-native-snapshot-owner-unavailable');
+                            }
+                            const session = mounted.getSession(editorSessionRef);
+                            const snapshot = session.captureSnapshot(nativeSource =>
+                            {
+                                if (!issued.validateReference(reference, nativeSource))
+                                {
+                                    throw new Error('article-recovery-native-source-checkpoint-mismatch');
+                                }
+                                return calculateOpenArticleDocumentDigest(nativeSource);
+                            }, { documentIdentity: { id: source.documentId, epoch: source.documentEpoch }, revision: source.editorRevision });
+                            if (mountedSource.readMountedEditor(editorSessionRef) !== mounted
+                                || mounted.getSession(editorSessionRef) !== session || !issued.inspectReference(reference)
+                                || snapshot.documentIdentity.id !== source.documentId
+                                || snapshot.documentIdentity.epoch !== source.documentEpoch || snapshot.revision !== source.editorRevision)
+                            {
+                                throw new Error('article-recovery-native-snapshot-stale');
+                            }
+                            return snapshot;
+                        },
                         restore: token => issued.restore(token),
                         invalidate: () => issued.invalidate(),
                         release: releaseCheckpoint
