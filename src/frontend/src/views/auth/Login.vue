@@ -188,6 +188,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AuthLoginView' });
 import { computed } from 'vue';
 
 import { useAuthLogin } from '@/composables/useAuthLogin';
