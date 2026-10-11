@@ -92,6 +92,10 @@ public sealed record AuthorArticleQuerySourceInspectionResult(
     {
         get; init;
     }
+    internal AuthorRecentArticleHistoryPermissionSnapshot? ObservedPermission
+    {
+        get; init;
+    }
 }
 
 /// <summary>
@@ -267,12 +271,101 @@ public sealed class AuthorArticleQuerySourceInspection(
         {
             HistoryIdentity = historyIdentity,
             NextAfterArticleId = batch.NextAfterArticleId,
+            ObservedPermission = after,
             RecentBindings = fields.Where(field => ordinals.ContainsKey(field.Coordinate.ArticleId))
                 .Select(field => new AuthorArticleQueryRecentSourceBinding(field.Coordinate,
                     ordinals[field.Coordinate.ArticleId].HistoryServerRevision,
                     ordinals[field.Coordinate.ArticleId].Ordinal))
                 .OrderBy(static binding => binding.Ordinal).ToArray()
         };
+    }
+
+    /// <summary>Rechecks bounded live coordinates and metadata through their original source owner.</summary>
+    /// <remarks>This preserves missing query admission and does not establish a complete corpus snapshot.</remarks>
+    public async Task<AuthorArticleQuerySourceInspectionResult> InspectStablePageAsync(
+        AuthorArticleQueryRequest request,
+        int afterArticleId,
+        CancellationToken cancellationToken = default)
+    {
+        AuthorArticleQuerySourceInspectionResult first = await InspectPageAsync(request, afterArticleId, cancellationToken)
+            .ConfigureAwait(false);
+        if (first.UnavailableReason != AuthorArticleQuerySourceUnavailableReason.SlugUnavailable
+            || first.ObservedFields.Count == 0)
+        {
+            return first;
+        }
+        AuthorRecentArticleHistoryPermissionSnapshot? anchor = first.ObservedPermission;
+        if (anchor is null)
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionUnavailable);
+        }
+        AuthorArticleQuerySourceFields[] observed = first.ObservedFields
+            .Select(static field => field with { Tags = field.Tags.ToArray() }).ToArray();
+        int[] ownerIds = anchor.Decisions.Select(static decision => decision.ArticleId).Order().ToArray();
+        int[] admittedIds = observed.Select(static field => field.Coordinate.ArticleId).Order().ToArray();
+        AuthorRecentArticleHistoryPermissionSnapshot admitted = await permission.ResolveAsync(
+            new(anchor.Owner, request.RequestId, ownerIds), cancellationToken).ConfigureAwait(false);
+        if (!ValidPermission(admitted, anchor.Owner, ownerIds) || admitted.ContentDigest != anchor.ContentDigest)
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
+        }
+        AuthorArticleQuerySourceBatch current;
+        try
+        {
+            current = await source.ReadCoordinatesForIdsAsync(request.Statuses, admittedIds, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (NotSupportedException)
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceWindowUnavailable);
+        }
+        if (current.HasMore || !ValidCoordinates(current.Coordinates, request.Statuses)
+            || !current.Coordinates.SequenceEqual(observed.Select(static field => field.Coordinate)
+                .OrderBy(static coordinate => coordinate.ArticleId)))
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceChanged);
+        }
+        IReadOnlyList<AuthorArticleQuerySourceFields> rechecked = await source.ReadFieldsAsync(admittedIds, cancellationToken)
+            .ConfigureAwait(false);
+        if (!SameFields(observed, rechecked))
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceChanged);
+        }
+        AuthorRecentArticleHistoryPermissionSnapshot after = await permission.ResolveAsync(
+            new(anchor.Owner, request.RequestId, ownerIds), cancellationToken).ConfigureAwait(false);
+        if (!ValidPermission(after, anchor.Owner, ownerIds) || after.ContentDigest != admitted.ContentDigest)
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
+        }
+        if (first.HistoryIdentity is not null && history is not null)
+        {
+            AuthorArticleQueryHistoryIdentityResult afterHistory = await history.ReadAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            if (afterHistory.Identity is null || !SameHistoryIdentity(first.HistoryIdentity, afterHistory.Identity))
+            {
+                return Unavailable(AuthorArticleQuerySourceUnavailableReason.VerifiedRecentSourceUnavailable);
+            }
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return first with
+        {
+            ObservedFields = observed,
+            ObservedPermission = after
+        };
+    }
+
+    private static bool SameFields(
+        IReadOnlyList<AuthorArticleQuerySourceFields> left,
+        IReadOnlyList<AuthorArticleQuerySourceFields> right)
+    {
+        if (left.Count != right.Count || right.Select(static field => field.Coordinate.ArticleId).Distinct().Count() != right.Count)
+        {
+            return false;
+        }
+        Dictionary<int, AuthorArticleQuerySourceFields> expected = left.ToDictionary(static field => field.Coordinate.ArticleId);
+        return right.All(field => expected.TryGetValue(field.Coordinate.ArticleId, out var prior)
+            && field.Coordinate == prior.Coordinate && field.Title == prior.Title && field.Category == prior.Category
+            && field.Tags.SequenceEqual(prior.Tags, StringComparer.Ordinal));
     }
 
     private static bool ValidCoordinates(
