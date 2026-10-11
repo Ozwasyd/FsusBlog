@@ -1819,6 +1819,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             }
             if (recoveryRecord)
             {
+                invalidateDraftCheckpoint();
                 const confirmed = await articleRecoveryJournal.confirm({
                     id: recoveryRecord.id,
                     clientRevision: recoveryRecord.clientRevision,
@@ -2123,6 +2124,199 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         suppressDraftSave = false;
     };
 
+    // One bounded immutable checkpoint in the ORIGINAL full-draft owner; no persistence/body store.
+    const freezeFullDraftSnapshot = (draft: ArticleDraftSnapshot) => Object.freeze({ ...draft,
+        tagIds: Object.freeze([...draft.tagIds]), rights: Object.freeze({ ...draft.rights }) });
+    const fullDraftIdentity = (draft: ArticleDraftSnapshot, clientRevision: string | null, revisionNo: number | null) =>
+        calculateOpenArticleDocumentDigest({ semantic: buildDraftSemanticIdentity(draft), categoryId: draft.categoryId,
+            clientRevision, revisionNo, documentContextDigest: draft.documentContextDigest });
+    const currentFullDraftIdentity = () => fullDraftIdentity(
+        buildDraftSnapshot(activeRecoveryClientRevision ?? ''), activeRecoveryClientRevision, currentRevisionNo.value);
+    const readFullDraftOwner = () =>
+    {
+        const document = articleDocumentContextAdapter.context;
+        const identityId = adminStore.adminPrincipal?.id?.trim() ?? null;
+        const runtime = originalMountedRuntime;
+        const registry = articleWorkspaceTabRouter.getRegistry();
+        const entry = registry.getEntryByIdentity({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId });
+        if (!active || !writerScope.active || !componentAttached || !identityId || identityId !== documentPrincipalIdentityId
+            || document.siteScope !== documentSiteScope || document.userScope !== documentUserScope
+            || articleId.value !== document.articleId || !runtime || runtime.binding !== editorRuntimeBinding
+            || !entry || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
+            || entry.documentContext.documentEpoch !== document.documentEpoch
+            || entry.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
+            || entry.documentContext.draftRevision !== document.draftRevision)
+        {
+            return null;
+        }
+        const retained = retainedPrimaryBinding.value?.inspect();
+        if (retained && (retained.registry.state !== 'live' || retained.invalidationFailed
+            || retained.context.contextDigest !== document.contextDigest || !retained.registryRevisionMatchesDocument))
+        {
+            return null;
+        }
+        const registryRevision = registry.getRevision();
+        const mounted = runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
+        const nativeBinding = runtime.mountedSource?.readDocumentBinding(entry.editorSessionRef);
+        if (!mounted || mounted !== originalMountedEditor || nativeBinding?.identity.documentId !== document.documentId
+            || nativeBinding.documentContext.documentEpoch !== document.documentEpoch
+            || nativeBinding.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
+            || nativeBinding.documentContext.draftRevision !== document.draftRevision)
+        {
+            return null;
+        }
+        const session = mounted.getSession(entry.editorSessionRef);
+        const native = session.inspectDocumentState();
+        const semanticIdentity = currentFullDraftIdentity();
+        if (!active || !writerScope.active || runtime !== originalMountedRuntime || runtime.binding !== editorRuntimeBinding
+            || adminStore.adminPrincipal?.id?.trim() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
+            || registry.getRevision() !== registryRevision || registry.getEntry(entry.tabId)?.lifecycleRevision !== entry.lifecycleRevision
+            || native.documentIdentity.id !== document.documentId || native.documentIdentity.epoch !== document.documentEpoch
+            || native.revision !== document.sourceRevision || mounted.getSession(entry.editorSessionRef) !== session)
+        {
+            return null;
+        }
+        return Object.freeze({ document, identityId, runtime, mounted, session, registryRevision,
+            associationRevision: entry.lifecycleRevision, editorSessionRef: entry.editorSessionRef,
+            draftKey: draftKey.value, clientRevision: activeRecoveryClientRevision, revisionNo: currentRevisionNo.value,
+            baseRevisionId: currentRevisionId.value, serverRevision: serverDraftRevision.value, semanticIdentity });
+    };
+    const fullDraftInfo = (reference: string, owner: NonNullable<ReturnType<typeof readFullDraftOwner>>) => Object.freeze({
+        draftStateRef: reference, documentContext: owner.document, principalIdentityId: owner.identityId,
+        siteScope: owner.document.siteScope, draftKey: owner.draftKey, editorSessionRef: owner.editorSessionRef,
+        registryRevision: owner.registryRevision, associationRevision: owner.associationRevision,
+        nativeRevision: owner.document.sourceRevision, clientRevision: owner.clientRevision,
+        baseRevisionId: owner.baseRevisionId, serverRevision: owner.serverRevision, revisionNo: owner.revisionNo,
+        fullDraftDigest: owner.semanticIdentity
+    });
+    let fullDraftCustody: { readonly snapshot: ReturnType<typeof freezeFullDraftSnapshot>;
+        readonly owner: NonNullable<ReturnType<typeof readFullDraftOwner>>; readonly info: ReturnType<typeof fullDraftInfo>; } | null = null;
+    let fullDraftGeneration = 0;
+    let fullDraftSequence = 0;
+    let fullDraftCapturing = false;
+    let fullDraftReleased = false;
+    const invalidateDraftCheckpoint = (): void =>
+    {
+        fullDraftCustody = null;
+        if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
+        {
+            fullDraftReleased = true;
+        }
+        else
+        {
+            fullDraftGeneration += 1;
+        }
+    };
+    const inspectDraftReference = (reference: string) =>
+    {
+        const custody = fullDraftCustody;
+        const generation = fullDraftGeneration;
+        if (fullDraftReleased || !custody || custody.info.draftStateRef !== reference)
+        {
+            return null;
+        }
+        try
+        {
+            const current = readFullDraftOwner();
+            if (!current || current.runtime !== custody.owner.runtime || current.mounted !== custody.owner.mounted
+                || current.session !== custody.owner.session || current.identityId !== custody.owner.identityId
+                || current.document.contextDigest !== custody.owner.document.contextDigest
+                || current.semanticIdentity !== custody.owner.semanticIdentity || current.draftKey !== custody.owner.draftKey
+                || current.registryRevision !== custody.owner.registryRevision || current.associationRevision !== custody.owner.associationRevision
+                || fullDraftCustody !== custody || fullDraftGeneration !== generation)
+            {
+                if (fullDraftCustody === custody)
+                {
+                    invalidateDraftCheckpoint();
+                }
+                return null;
+            }
+            return custody.info;
+        }
+        catch
+        {
+            if (fullDraftCustody === custody)
+            {
+                invalidateDraftCheckpoint();
+            }
+            return null;
+        }
+    };
+    const authoringDraftCheckpointRuntime = Object.freeze({
+        captureDraftCheckpoint: () =>
+        {
+            if (fullDraftReleased || fullDraftCapturing || fullDraftSequence === Number.MAX_SAFE_INTEGER)
+            {
+                return null;
+            }
+            fullDraftCapturing = true;
+            invalidateDraftCheckpoint();
+            const generation = fullDraftGeneration;
+            try
+            {
+                const owner = readFullDraftOwner();
+                if (!owner || typeof globalThis.crypto?.randomUUID !== 'function')
+                {
+                    return null;
+                }
+                const draft = buildDraftSnapshot(owner.clientRevision ?? '');
+                if (fullDraftIdentity(draft, owner.clientRevision, owner.revisionNo) !== owner.semanticIdentity)
+                {
+                    return null;
+                }
+                const snapshot = freezeFullDraftSnapshot(draft);
+                const reference = `article-draft-state:${globalThis.crypto.randomUUID()}:${++fullDraftSequence}`;
+                if (fullDraftReleased || fullDraftGeneration !== generation)
+                {
+                    return null;
+                }
+                fullDraftCustody = Object.freeze({ snapshot, owner, info: fullDraftInfo(reference, owner) });
+                return inspectDraftReference(reference);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                fullDraftCapturing = false;
+            }
+        },
+        inspectDraftReference,
+        validateDraftReference: (reference: string, nativeSource: string): boolean =>
+            !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
+        restoreDraftReference: (reference: string) =>
+        {
+            const info = inspectDraftReference(reference);
+            const custody = fullDraftCustody;
+            if (!info || !custody || custody.info !== info)
+            {
+                return null;
+            }
+            // Reapply the ORIGINAL full draft through its existing restore, never rewind newer metadata.
+            applyDraftToForm({ ...custody.snapshot, tagIds: [...custody.snapshot.tagIds], rights: { ...custody.snapshot.rights } });
+            return inspectDraftReference(reference);
+        },
+        releaseDraftCheckpoint: (reference: string): boolean =>
+        {
+            if (fullDraftCustody?.info.draftStateRef !== reference)
+            {
+                return false;
+            }
+            invalidateDraftCheckpoint();
+            return true;
+        },
+        invalidateDraftCheckpoint
+    });
+    watch(currentFullDraftIdentity, invalidateDraftCheckpoint, { flush: 'sync' });
+    const unsubscribeDraftCheckpointContext = articleDocumentContextAdapter.subscribeContext(invalidateDraftCheckpoint);
+    onScopeDispose(() =>
+    {
+        fullDraftReleased = true;
+        invalidateDraftCheckpoint();
+        unsubscribeDraftCheckpointContext();
+    });
+
     const clearArticleRecoveryScope = async (): Promise<void> =>
     {
         await articleRecoveryFlushOwner.drain();
@@ -2335,6 +2529,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const clearLocalDraft = async (): Promise<void> =>
     {
+        invalidateDraftCheckpoint();
         clearDraftSaveTimer();
         await clearArticleRecoveryScope();
         pendingDraft.value = null;
@@ -3875,6 +4070,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
         synchronousCleanupRunning = true;
         active = false;
+        invalidateDraftCheckpoint();
         retainedPrimaryReady = false;
         suppressDraftSave = true;
         // Attempt each original cleanup independently; a thrown port must not strand the channel/scope.
@@ -4024,6 +4220,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         authoringAttachmentRuntime,
         authoringEditorRuntime,
         authoringRetainedPrimaryRuntime,
+        authoringDraftCheckpointRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,
