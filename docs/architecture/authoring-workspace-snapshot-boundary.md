@@ -510,3 +510,48 @@ reviewed, full factory capture/restore remains blocked. Panel/draft/full rendere
 and complete resource controls are independent remaining dependencies. All source
 inspection is static; runtime/list/discovery/mount/storage/crypto/native and all
 qualification holds remain UNRUN.
+
+
+### Concrete Writer checkpoint intake and remaining draft/panel ownership
+
+Original Writer PR #4153 now publishes
+`60e2363cbbf2552166041fda331774ad6adf24c8` with the real runtime binding's
+`bindRecoveryCheckpoint(editorSessionRef)`. Its reader checks original mounted
+editor, registry association/revision, document context, principal, active recovery
+client revision, site/draft scope, permission and lifecycle, then supplies actual
+recovery-tab/base/server/client/content facts to the original journal. Runtime
+release releases that same binding. This is a source offer, not consumed here or
+independently accepted: its journal dependency intake is still incomplete. The
+factory will join the exact existing session and original Writer binding only
+after the original producer reference/content seams and caller source are reviewed.
+
+That recovery binding does not issue draftStateRef. The original Writer's
+buildDraftSnapshot/applyDraftToForm already own title/content/summary/cover,
+category/tagIds, publish status/schedule, rights, base/client/server revisions and
+context digest. A genuine draft checkpoint must use those original primitives and
+retain their original immutable snapshot custody, not reconstruct articleForm in
+the factory. Its producer must issue its own stable reference and synchronously
+inspect/validate the same token against actual principal/site/draft key, original
+runtime/mount/association, document identity/epoch/native revision and nullable
+source/draft refs. Native-source validation belongs before the existing UI capture
+replaces retained custody. Actual form/rights/tag/schedule changes also invalidate
+draft custody even when native content/revision is unchanged. Runtime release,
+principal/document replacement, real draft/server confirmation and scope cleanup
+must follow the original Writer's invalidation rules. saveDraftNow:void and pending
+flush/clientRevision do not certify a completed save or immutable checkpoint.
+Original restore uses applyDraftToForm and its real native synchronization, with
+post-owner/context checks; applying form values alone is not complete session
+restore. No second draft/body store or fake async-completion wrapper is introduced.
+
+UI's existing retained viewStateRef resolves only its original partial mode/search/
+caret-scroll checkpoint. It cannot be aliased into activeNodeRef, scrollAnchorRef,
+outlineRef, searchRef or attachmentStateRef to satisfy the full host refset. Those
+original UI owners must capture immutable actual state and resolve/validate their
+references in the existing bounded checkpoint custody, then restore through their
+existing native operations. Pure outline/anchor planners are not retained state
+issuers. Attachment capture/File observation and resource census also do not issue
+a recoverable attachment-state checkpoint. Same-byte epoch changes, original owner
+replacement/release, unresolved async continuations, IME and real restore failure
+must retain the original refusal semantics. Typography and shared expose remain
+with their coordinated owners. Full factory stays blocked until the real owners
+and caller join exist; all runtime and qualification work remains UNRUN.
