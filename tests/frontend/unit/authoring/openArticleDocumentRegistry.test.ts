@@ -1,17 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
     OpenArticleDocumentRegistry,
     calculateOpenArticleDocumentDigest,
     openArticleDocumentCommandSchema,
     openArticleDocumentRegistrySchema,
+    maxArticleGroupOwnershipTransactionTabs,
     replayOpenArticleDocumentCommands,
     verifyOpenArticleDocumentRegistryState,
     verifyOpenArticleDocumentResult,
     type ArticleDocumentIdentity,
     type ArticleWorkspaceStatusSummary,
     type OpenArticleDocumentCommand,
-    type OpenOrActivateArticleCommand
+    type OpenOrActivateArticleCommand,
+    type UpdateArticleGroupOwnershipSetCommand
 } from '@/services/authoring/openArticleDocumentRegistry';
 
 const cleanStatus: ArticleWorkspaceStatusSummary = {
@@ -74,6 +76,138 @@ function commandBase(kind: OpenArticleDocumentCommand['kind'], revision: number)
         expectedRevision: revision
     } as const;
 }
+
+function ownershipSet(registry: OpenArticleDocumentRegistry): UpdateArticleGroupOwnershipSetCommand
+{
+    return {
+        ...commandBase('update-group-ownership-set', registry.getRevision()),
+        kind: 'update-group-ownership-set',
+        targetGroupId: 'group-secondary',
+        ownershipTransactionRef: 'ownership-set-test',
+        tabs: registry.listEntries().map(entry => ({
+            tabId: entry.tabId,
+            expectedOwningGroupId: entry.owningGroupId,
+            editorSessionRef: entry.editorSessionRef,
+            documentEpoch: entry.documentContext.documentEpoch,
+            lifecycleRevision: entry.lifecycleRevision
+        }))
+    };
+}
+
+function registryWithTwoTabs(): OpenArticleDocumentRegistry
+{
+    const registry = new OpenArticleDocumentRegistry();
+    registry.execute(openCommand(901, 0));
+    registry.execute(openCommand(902, 1));
+    return registry;
+}
+
+describe('OpenArticleDocumentRegistry exact ownership set (#2298)', () => {
+    it('commits every exact tab in one revision while preserving identity, session, epoch and history refs', () => {
+        const registry = registryWithTwoTabs();
+        const before = registry.exportState();
+        const command = ownershipSet(registry);
+        const result = registry.execute(command);
+
+        expect(result.status).toBe('applied');
+        expect(registry.getRevision()).toBe(before.revision + 1);
+        expect(result.ownershipChanges).toHaveLength(2);
+        expect(verifyOpenArticleDocumentResult(result)).toBe(true);
+        for (const entry of before.entries)
+        {
+            expect(registry.getEntry(entry.tabId)).toEqual({
+                ...entry,
+                owningGroupId: command.targetGroupId,
+                lifecycleRevision: entry.lifecycleRevision + 1,
+                contentDigest: result.ownershipChanges?.find(change => change.entryBefore.tabId === entry.tabId)?.entryAfter.contentDigest
+            });
+        }
+        const accepted = registry.exportState();
+        expect(registry.execute(command).status).toBe('replayed');
+        expect(registry.exportState()).toEqual(accepted);
+    });
+
+    it.each(['first', 'last'])('refuses a missing %s tab with zero changes and leaves its retry available', position => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        command.tabs[position === 'first' ? 0 : 1].tabId = 'tab-missing';
+        const before = registry.exportState();
+        expect(registry.execute(command).status).toBe('rejected-not-found');
+        expect(registry.exportState()).toEqual(before);
+        expect(registry.execute(ownershipSet(registry)).status).toBe('applied');
+    });
+
+    it.each(['expectedOwningGroupId', 'editorSessionRef', 'documentEpoch', 'lifecycleRevision'] as const)(
+        'refuses stale %s on the last member before changing any member', field => {
+            const registry = registryWithTwoTabs();
+            const command = ownershipSet(registry);
+            const tab = command.tabs[1];
+            if (field === 'documentEpoch' || field === 'lifecycleRevision') tab[field] += 1;
+            else tab[field] = 'foreign-reference';
+            const before = registry.exportState();
+            expect(registry.execute(command).status).toBe('rejected-cas');
+            expect(registry.exportState()).toEqual(before);
+        }
+    );
+
+    it('rejects stale registry revision, duplicate exact refs and an invalid target without mutation', () => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        const before = registry.exportState();
+        expect(registry.execute({ ...command, expectedRevision: command.expectedRevision - 1 }).status).toBe('rejected-cas');
+        expect(registry.execute({ ...command, tabs: [command.tabs[0], command.tabs[0]] }).status).toBe('rejected-invalid-command');
+        expect(registry.execute({ ...command, targetGroupId: '' }).status).toBe('rejected-invalid-command');
+        expect(registry.execute({ ...command, tabs: [] }).status).toBe('rejected-invalid-command');
+        expect(registry.exportState()).toEqual(before);
+    });
+
+    it('rejects an oversized exact set and shares the legacy idempotency namespace', () => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        const before = registry.exportState();
+        const tabs = Array.from({ length: maxArticleGroupOwnershipTransactionTabs + 1 }, (_, index) => ({
+            ...command.tabs[0], tabId: `tab-bound-${index}`
+        }));
+        expect(registry.execute({ ...command, tabs }).status).toBe('rejected-invalid-command');
+        expect(registry.execute({ ...command, idempotencyKey: 'idempotency-open-901-0' }).status).toBe('rejected-idempotency-conflict');
+        expect(registry.exportState()).toEqual(before);
+    });
+
+    it.each([1, 3, 4])('keeps all owner state intact when preparation clone %i fails', failureCall => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        const before = registry.exportState();
+        const original = globalThis.structuredClone;
+        let calls = 0;
+        const spy = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+            if (++calls === failureCall) throw new Error('injected ownership preparation failure');
+            return original(value);
+        });
+        try
+        {
+            expect(registry.execute(command).status).toBe('rejected-state');
+        }
+        finally
+        {
+            spy.mockRestore();
+        }
+        expect(registry.exportState()).toEqual(before);
+        expect(registry.execute(command).status).toBe('applied');
+    });
+
+    it('rejects a resealed receipt that replaces a session in one ownership member', () => {
+        const registry = registryWithTwoTabs();
+        const result = registry.execute(ownershipSet(registry));
+        const tampered = structuredClone(result);
+        const after = tampered.ownershipChanges![1].entryAfter;
+        after.editorSessionRef = 'session-foreign';
+        const { contentDigest: _entryDigest, ...entryBody } = after;
+        after.contentDigest = calculateOpenArticleDocumentDigest(entryBody);
+        const { contentDigest: _resultDigest, ...resultBody } = tampered;
+        tampered.contentDigest = calculateOpenArticleDocumentDigest(resultBody);
+        expect(verifyOpenArticleDocumentResult(tampered)).toBe(false);
+    });
+});
 
 describe('OpenArticleDocumentRegistry contract (#2293)', () => {
     it.each([
