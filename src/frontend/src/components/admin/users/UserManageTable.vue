@@ -26,7 +26,6 @@
                     class="user-resource-list-item border-b border-[var(--fsusblog-panel-border)] px-4 py-3"
                     :class="rowMotionClass(row.accountId)"
                     role="listitem"
-                    v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"
                 >
                     <div class="user-resource-list-identity-row flex items-center gap-3">
                         <div class="shrink-0">
