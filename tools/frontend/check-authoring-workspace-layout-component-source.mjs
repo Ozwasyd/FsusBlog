@@ -121,6 +121,19 @@ if (/new\s+(?:ArticleRecoveryJournal|Map|WeakMap)\b/u.test(writer))
 {
     failures.push('parallel-journal-or-host-owner-store');
 }
+for (const required of ['getArticleWorkspaceRetainedRecoveryPort', 'const retainedRecoveryPort = createArticleWorkspaceRetainedRecoveryPort({',
+    'const checkpoint = getArticleWorkspaceRecoveryCheckpoint()', 'checkpoint !== getArticleWorkspaceRecoveryCheckpoint()',
+    'return { entry, checkpoint };', 'return getArticleWorkspaceRecoveryCheckpoint() ? retainedRecoveryPort : null;'])
+{
+    if (!writer.includes(required))
+    {
+        failures.push(`missing-original-partial-factory-caller:${required}`);
+    }
+}
+if (/\.(?:prepareSnapshot|restoreSnapshot)\s*\(|\binstallArticleWorkspaceEditorSessions\b/u.test(writer))
+{
+    failures.push('automatic-partial-checkpoint-or-alternate-host-installation');
+}
 const template = dom.parse(descriptor.template?.content ?? '');
 let groups = 0;
 let separator = 0;

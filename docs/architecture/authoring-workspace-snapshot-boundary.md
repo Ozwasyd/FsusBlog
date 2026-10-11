@@ -795,3 +795,48 @@ results, not import-side-effect or product acceptance. All tests/list and native
 geometry, browser, receipt tamper, race, privacy, security, selection and IME
 qualification remain UNRUN; independent rereview of the three outlet corrections
 and this host journal increment remains open.
+
+The later parent checkpoint reports bounded independent source closure of the
+placement and journal-host increments. Their code is preserved byte-for-byte in
+the caller increment; that closure does not qualify runtime or the new factory.
+Original Main offer 86b4f2954701792ca8b1711751fa7852131859bf supplies a minimal
+Write patch anchored to e6bb1b6c803a20da0bb047c96d0e86a5715fc73a. The actual Write
+consumes that exact patch and equals the complete offered postimage (SHA256
+8ff92877bf5b19e7cffdf610246392ba204fa801e191fa1837acf7c164716f07).
+Its composition, factory, partial retained snapshot contract and three-line
+original Writer admission-parameter increment are consumed as exact original
+postimages. All six original helper dependencies at55458 already match current
+source; no helper, generated API or transport facade is added.
+
+Write.getArticleWorkspaceRetainedRecoveryPort returns the original stable partial
+port or null, borrowing the existing getArticleWorkspaceRecoveryCheckpoint result
+and canonical registry entry with mount/tab/registry revision checks across reads.
+It does not bind again, install another host or automatically prepare/restore.
+Only an explicit request through that port can call prepareSnapshot(signal) or
+restoreSnapshot(bundle). Those operations use the same installed original
+composition/factory and genuine Writer/journal/native custody. A partial bundle
+does not become a complete host snapshot or a ready/paused/disposed/evicted receipt.
+The current original full factory still refuses panel-state, renderer-restoration,
+draft and full-recovery-refset. Main00240 factory/validator independent review is
+pending and all runtime qualifications remain held.
+
+Original Rail a4b4aaa69773e0039ce1acdb525bb7aef3d8b330 was fetched and read only.
+Its root creates the original resolver from supplied mountedEditors, calls
+connectAuthoringWorkspaceSessionSource(groupOwner, resolver), and before publication
+checks that installArticleWorkspaceEditorSessions(the same resolver) returns the
+same host. It provides the existing shallowReadonly layout injection and borrows
+the actual public Write layout ref. The new Write getter uses that exact composition
+module; no alternate bootstrap or Frame edit is supplied here. Rail's explicit
+partial-operation consumer/task-retirement path remains its owner's responsibility.
+
+Current static checks use actual UI9f92c8734409cef0c1984d4f512cb7477c9a77e4 plus
+the fourteen exact original a775 separator postimages in an isolated source tree.
+This supplies actual attachment File/observation and native store/admission APIs;
+it does not install/publish a package or admit the active baseline. Strict actual
+vue-tsc reports 211 diagnostics, with zero in Write/layout and the original factory,
+composition and partial snapshot modules. The comparison to the previous 217 uses
+a different actual SDK dependency and is not a same-SDK regression control.
+Write/factory repository ESLint, source AST/SFC and owned SCSS checks pass.
+Original API/codec/route failures, inherited source findings and missing type-fest
+remain visible; every tests/list/browser/native/security/privacy/race/IME/geometry
+qualification remains UNRUN.
