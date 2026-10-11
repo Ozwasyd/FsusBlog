@@ -55,7 +55,10 @@
                 name="before-content"
                 :mobile-navigation-active="mobileDrawerVisible || mobileNavigationTransitionActive"
             />
-            <RouterView v-slot="{ Component }">
+            <RouterView
+                v-if="routeOutletEnabled !== false"
+                v-slot="{ Component }"
+            >
                 <FsuTransition
                     :name="motionPolicy.preset ?? fsusBlogMotionPresets.route"
                     :disabled="motionPolicy.preset === null || !motionEnabled"
@@ -91,7 +94,7 @@ import {
     type AccountRouteMotionPolicy
 } from '@/layouts/accountRouteMotion';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     areaLabel: string;
     navGroups: readonly AccountNavGroup[];
     contentClasses: readonly string[];
@@ -99,7 +102,11 @@ const props = defineProps<{
     motionPolicy: AccountRouteMotionPolicy;
     /** Optional route-owned key; this frame keeps its original key policy for other consumers. */
     routeViewKey?: string;
-}>();
+    /** Startup completion gates the article outlet; other frame consumers keep their existing behavior. */
+    routeOutletEnabled?: boolean;
+}>(), {
+    routeOutletEnabled: true
+});
 
 const route = useRoute();
 const accountMain = ref<HTMLElement | null>(null);

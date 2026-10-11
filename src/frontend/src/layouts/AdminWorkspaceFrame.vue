@@ -6,9 +6,10 @@
         frame-class="admin-workspace-frame"
         :motion-policy="motionPolicy"
         :route-view-key="articleRouteViewKey"
+        :route-outlet-enabled="!isArticleWorkspaceRouteValue || workspaceStartupState === 'started'"
     >
         <template #before-content="{ mobileNavigationActive }">
-            <ArticleWorkspaceTabStrip v-if="isArticleWorkspaceRouteValue" />
+            <ArticleWorkspaceTabStrip v-if="isArticleWorkspaceRouteValue && workspaceStartupState === 'started'" />
             <div
                 v-if="isArticleWorkspaceRouteValue"
                 class="admin-workspace-library"
@@ -29,12 +30,16 @@
                     role="status"
                 >{{ libraryNavigationStatus }}</p>
             </div>
+            <p
+                v-if="isArticleWorkspaceRouteValue && workspaceStartupState !== 'started'"
+                role="status"
+            >{{ workspaceStartupState === 'starting' ? '正在启动文章工作区…' : '文章工作区启动尚未接入真实会话与恢复来源' }}</p>
         </template>
     </AccountRouteFrame>
 </template>
 
-<script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+<script lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import type { ArticleLibraryGroup, ArticleLibraryPresentation } from '@/components/admin/article/articleLibraryPresentation';
@@ -52,6 +57,8 @@ import {
     type AccountContentMode,
     type AccountPageKind
 } from '@/router/accountRouteMeta';
+import { installArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
+import { createArticleWorkspaceMountedEditorResolver, type ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
     articleWorkspaceTabRouter,
     isArticleWorkspaceRoute,
@@ -59,10 +66,108 @@ import {
     type ArticleWorkspaceTabPresentation,
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
+import { AuthoringTabGroupRegistry, type AuthoringTabGroupOptions, type AuthoringGroupCommandIdentity } from '@/services/authoring/authoringTabGroupRegistry';
+import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
+import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestoreCommands, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
+import type { AuthoringWorkspaceSnapshotSync } from '@/services/authoring/authoringWorkspaceSnapshotSync';
 
+/** Original-owner capabilities only; no null factory, local batch facts or fabricated receipts. */
+export interface AdminArticleWorkspaceStartupPorts {
+    readonly sync: AuthoringWorkspaceSnapshotSync;
+    readonly resolutionPort: AuthoringWorkspaceSnapshotRestoreCommands['resolutionPort'];
+    readonly mountedEditors: ArticleWorkspaceMountedEditorSource;
+    readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;
+    readonly createGroupIdentity: () => AuthoringGroupCommandIdentity;
+    readonly operationEpoch: number;
+    /** The original composition owner cancels this operation and disposes its sync/session resources. */
+    readonly signal: AbortSignal;
+    readonly assertRuntimeCapability: AuthoringWorkspaceSnapshotRestoreCommands['assertRuntimeCapability'];
+    readonly applyShell: AuthoringWorkspaceSnapshotRestoreCommands['applyShell'];
+    readonly isCurrent: AuthoringWorkspaceSnapshotRestoreCommands['isCurrent'];
+}
+
+// One original router/Registry has one startup installation, independent of route remounts.
+let workspaceInstallation: {
+    readonly ports: AdminArticleWorkspaceStartupPorts;
+    readonly task: Promise<AuthoringWorkspaceSnapshotRestorePlan>;
+} | undefined;
+
+function requireCurrentStartup(ports: AdminArticleWorkspaceStartupPorts, plan: AuthoringWorkspaceSnapshotRestorePlan): void
+{
+    ports.signal.throwIfAborted();
+    const state = ports.sync.getState();
+    if (!ports.sync.getServerObservation() || state.dirty || state.resetting || !ports.isCurrent({
+        scopeDigest: plan.scopeDigest,
+        sourceDigest: plan.sourceDigest,
+        serverRevision: plan.serverRevision,
+        operationEpoch: plan.operationEpoch
+    }))
+    {
+        throw new Error('article-workspace-startup-current-source-unavailable');
+    }
+}
+
+async function startArticleWorkspace(ports: AdminArticleWorkspaceStartupPorts): Promise<AuthoringWorkspaceSnapshotRestorePlan>
+{
+    const signal = ports.signal;
+    signal.throwIfAborted();
+    ports.assertRuntimeCapability();
+    if (articleWorkspaceTabRouter.getRegistry().listEntries().length !== 0)
+    {
+        throw new Error('article-workspace-startup-requires-empty-registry');
+    }
+    if (!ports.sync.getServerObservation())
+    {
+        await ports.sync.start(typeof navigator !== 'undefined' && navigator.onLine);
+    }
+    const plan = await prepareAuthoringWorkspaceSnapshotBootstrap(ports.sync, ports.resolutionPort, ports.operationEpoch, signal);
+    const groupOwner = new AuthoringTabGroupRegistry(articleWorkspaceTabRouter.getRegistry(), {
+        ...ports.groupOptions,
+        initialGroupId: plan.layout.activeGroupId,
+        initialGroupIds: plan.layout.groups.map((group: AuthoringWorkspaceSnapshotRestorePlan['layout']['groups'][number]) => group.groupId)
+    });
+    const groupAdapter = bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, articleWorkspaceTabRouter, groupOwner, ports.createGroupIdentity);
+    installArticleWorkspaceEditorSessions(createArticleWorkspaceMountedEditorResolver(ports.mountedEditors));
+    await applyAuthoringWorkspaceSnapshotRestore(plan, {
+        router: articleWorkspaceTabRouter,
+        resolutionPort: ports.resolutionPort,
+        ...groupAdapter,
+        assertRuntimeCapability: ports.assertRuntimeCapability,
+        applyShell: ports.applyShell,
+        isCurrent: ports.isCurrent
+    }, signal);
+    requireCurrentStartup(ports, plan);
+    return plan;
+}
+
+/** Sole host installer: failed/partial startup cannot be retried against a now-started Registry. */
+function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts): Promise<AuthoringWorkspaceSnapshotRestorePlan>
+{
+    const installed = workspaceInstallation;
+    if (installed)
+    {
+        if (installed.ports !== ports)
+        {
+            return Promise.reject(new Error('article-workspace-startup-owner-changed'));
+        }
+        return installed.task.then((plan) =>
+        {
+            requireCurrentStartup(ports, plan);
+            return plan;
+        });
+    }
+    const task = startArticleWorkspace(ports);
+    workspaceInstallation = { ports, task };
+    return task;
+}
+</script>
+
+<script setup lang="ts">
 const props = defineProps<{
     /** Only the shared query owner can supply an admitted display page. */
     libraryPresentation?: ArticleLibraryPresentation;
+    /** Supplied by the original snapshot/layout/retained-editor composition owners. */
+    workspaceStartup?: AdminArticleWorkspaceStartupPorts;
 }>();
 const emit = defineEmits<{
     group: [group: ArticleLibraryGroup];
@@ -73,6 +178,35 @@ const emit = defineEmits<{
     navigation: [receipt: ArticleWorkspaceRouterReceipt];
 }>();
 const route = useRoute();
+const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
+let mounted = true;
+function markWorkspaceStartupUnavailable(): void
+{
+    workspaceStartupState.value = 'unavailable';
+}
+if (props.workspaceStartup)
+{
+    workspaceStartupState.value = 'starting';
+    props.workspaceStartup.signal.addEventListener('abort', markWorkspaceStartupUnavailable);
+    void installArticleWorkspaceStartup(props.workspaceStartup).then(() =>
+    {
+        if (mounted)
+        {
+            workspaceStartupState.value = 'started';
+        }
+    }).catch(() =>
+    {
+        if (mounted)
+        {
+            workspaceStartupState.value = 'unavailable';
+        }
+    });
+}
+onBeforeUnmount(() =>
+{
+    mounted = false;
+    props.workspaceStartup?.signal.removeEventListener('abort', markWorkspaceStartupUnavailable);
+});
 const { tabs, activateTab } = useArticleWorkspaceTabs();
 const libraryGroup = ref<ArticleLibraryGroup>('recent');
 const libraryNavigationStatus = ref('');
@@ -170,6 +304,11 @@ function forwardLibraryPage(group: ArticleLibraryGroup, direction: 'previous' | 
 
 async function openLibraryArticle(articleId: number): Promise<void>
 {
+    if (workspaceStartupState.value !== 'started')
+    {
+        libraryNavigationStatus.value = '文章工作区启动尚未完成';
+        return;
+    }
     const tab = tabs.value.find((item) => item.articleId === articleId);
     if (!tab)
     {
@@ -192,10 +331,10 @@ async function openLibraryArticle(articleId: number): Promise<void>
     }
 }
 
-watch(() => route.fullPath, () =>
+watch([() => route.fullPath, workspaceStartupState], () =>
 {
     libraryNavigationStatus.value = '';
-    if (!isArticleWorkspaceRouteValue.value)
+    if (!isArticleWorkspaceRouteValue.value || workspaceStartupState.value !== 'started')
     {
         return;
     }
