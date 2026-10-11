@@ -397,8 +397,8 @@ approval before any execution or listing.
 `authoringWorkspaceGroupLayoutPorts.ts` is the concrete #2298 consumer for
 `createAuthoringWorkspaceSeparatorAdapter`. It imports the original group
 projection/class/command schema and article digest producer, not reconstructed
-interfaces. The current consumed owning source is Group418
-`418611fa6bedf623823b33c415b491215b746c7d`. The caller supplies its actual existing
+interfaces. The current consumed owning source is Group31d
+`31d1bc0456152976917c7cbc7587dfedb288fbf8`. The caller supplies its actual existing
 group instance, original operation identity allocator, measurements and public
 separator cancel. The factory creates no registry, scope, editor, session or
 additional group model.
@@ -501,8 +501,8 @@ inside them and does not take over either registry or editor/session ownership.
 
 | Original repository / exact source | Candidate file under src/frontend/src/services/authoring/ | SHA-256 |
 | --- | --- | --- |
-| FsusBlog `418611fa6bedf623823b33c415b491215b746c7d` | authoringTabGroupRegistry.ts | `3060b76ac4fae0e81f25fad30834b44debbde41e6093bc3b3d2a57d9e5dd1ced` |
-| FsusBlog `418611fa6bedf623823b33c415b491215b746c7d` | openArticleDocumentRegistry.ts | `e05f8fa46686e1778cea889e0666de04fd5349b6fde37a637d0d08ea0018a41d` |
+| FsusBlog `31d1bc0456152976917c7cbc7587dfedb288fbf8` | authoringTabGroupRegistry.ts | `0c3442c06a7be13245d66828c74cbeaa2b98b3554dc308805a29ea69c7e80870` |
+| FsusBlog `31d1bc0456152976917c7cbc7587dfedb288fbf8` | openArticleDocumentRegistry.ts | `2d3a7bb9c30807f7d2877bc4221c4a4b1889af3dcbed997724e33e1ab1586fb9` |
 | FsusBlog `cb154e1001f4d45977e1529b6c72cc59d0d02049` | articleWorkspaceEditorSessionComposition.ts | `83b6e9dc3018d84917ad447d5db7e6a2e35a33bd931600043eb0626ee3e6429c` |
 | FsusBlog `cb154e1001f4d45977e1529b6c72cc59d0d02049` | articleWorkspaceMountedEditorResolver.ts | `b24a3d5bc1f1c71caf9f1cdfe690330e430292cac676bc7a8accc4d26a7be247` |
 | FsusBlog `cb154e1001f4d45977e1529b6c72cc59d0d02049` | fsusUiEditorSessionFactory.ts | `5553fd87dbc83e4a704de7719cc82e935f32ec0281a5bedc2a754734cf3ee657` |
@@ -539,3 +539,100 @@ application/bundle readiness. Repository-config ESLint and bounded AST checks
 cover the changed consumer source only. Tests/list, product imports, installation,
 mounted DOM and all browser/receipt/race/security/privacy/IME/native qualification
 remain UNRUN. The existing 30 source cases do not exercise the new pairing.
+
+
+### Integrated layout component and original Writer prerequisites
+
+The current source now contains AuthoringWorkspaceLayout.vue, its concrete
+controller and a readonly Vue injection key for the original composition root.
+Write.vue actually wraps its existing editor panel in this component and borrows
+the original mounted-source binding lifetime; it does not construct a second
+editor, group, session host, installer or body/history store. With no provided
+source, the existing default editor slot remains mounted and source status is
+unavailable. The leading/trailing region containers and their slots are stable;
+collapse never uses v-if on either editor region. Only the public separator may
+be mounted/unmounted. Pointer/keyboard events delegate to the reviewed adapter.
+The public cancel capability is checked on the real component ref; no SDK module
+facade or private DOM selector is introduced.
+
+One live controller can own a genuine group instance. Its private WeakMap stores
+only a layout ownership token, no alternate group/article/session state. It
+checks the original canonical group binding, opaque ratio identity, true host
+state/entry digests and original mounted resolver/document associations. A
+measured-input fingerprint fences observations; the operation lock and captured
+epoch refuse reentry and invalidation. Component configuration/disposal has its
+own generation fence. A source invalidation disables input synchronously and
+defers rereading until the next Vue tick; before-change callbacks cannot
+synchronously re-admit. Own frame/footprint DOM measurements must be positive
+and contain the proposed geometry. The source retains genuine prior render
+observations while blocked to preserve DOM identity; these cached observations
+are not a new current layout or retention receipt. Blocked recovery and overflow
+behavior still need actual host/native qualification.
+
+For a real geometry change, the controller stages an original operation identity,
+checks live host/mount/measurement/group state, then calls only the original
+set-effective-single command. The proposed viewport receipt coordinate is
+viewport:<measured-input-digest>; it is a serial measurement coordinate, not a
+runtime capability or a substitute for the genuine ratio ref. No callback/await
+is inserted into the original group transaction. The actual next group/article
+revisions, unchanged active/focused identity and exact ratio scope/ref are
+checked. Host records must then actually match the new entry digests before a
+planned render observation is returned. Group publication alone does not issue
+a host/retention/layout receipt. Full factory capture/restore remains blocked;
+this source cannot qualify hidden DOM, resource suspension or restored state.
+
+The earlier focused-collapse finding concerned exact Group418: focus B with
+active A followed by set-effective-single produced effective focus A at group
+lines 633/788/853/1173 and Registry joint validation. This was distinct from R7,
+which preserves canonical activation. The actual candidate now consumes the
+original fix through Group31d 31d1bc0456152976917c7cbc7587dfedb288fbf8: all five
+rules select focused B while active A remains unchanged. Root reports independent
+source closure for this increment and its original type/lint repairs. No runtime
+or full PR acceptance is borrowed. Both group/Registry files remain byte-identical
+to that owner. The old focused-collapse mismatch is superseded, not a current
+blocked finding.
+
+Original Writer package f34b0d3ad4c7b919a5a21f228d5540610b627a0d was actually
+applied to this candidate: 34 complete supplied source postimages and the adapted
+Write consumer patch. Thirty-three files match original source
+5b6b905a9458caec2fde8c8046c7357fa75d71f5 byte-for-byte; the supplied index patch
+is the original additive preview export preserving existing owner exports.
+Writer's mounted-association correction is independently source-closed per root.
+The Write consumer now forwards actual native/session ports, binds the real
+document owner, fences generation and exact boundEditorPort identity, clears the
+mounted source on release and uses public validation callbacks/product-owned
+field roots. Original Group/Registry/session modules are preserved; no broad PR
+ancestor history or shared generated/wire contracts are copied. Known producer
+gaps include UploadAssetPreviewViewModel, UploadAssetFactsViewModel, actual facts
+frame 285/route/security/decoder/backend definitions and the genuine UI root
+attachment observation/file-consumer exports. They remain blockers; no fake
+exports, DTOs, JSON transport or grants are introduced.
+
+Snapshot source 1df8314c8000130448d798e7bf5d38f50e7f1ecd is consumed verbatim
+for its API/HTTP transport and Bootstrap/Cache/Restore/Status/Sync modules. Root
+reports independent source closure of its explicit-field and lint changes. Its
+old parameter-property diagnostics are superseded after integration; no previous
+compiler or runtime result is inherited. Static resolution now uses genuine
+UI914 673c342ae42967b9f505d749b3a91f5d261315e6 plus the same exact UI921 Vue
+files. This new public observation source remains under review; the full Blog
+factory is still partial. Original package/default baseline admission and native
+qualification remain pending.
+
+Concrete original-root handoff: provide authoringWorkspaceLayoutSourceKey with
+a readonly shallow ref containing the actual source. groups and sessions must
+come from the same original workspaceStarted result; mountedEditors must be the
+original startup/Writer source; reserveOperationIdentity must delegate to the
+original createGroupIdentity. measure must read actual frame, public reserved
+separator footprint, Rail/inspector/chrome/safe-area/scrollbar/zoom and editor
+chrome in the same CSS space. subscribeInvalidation must revoke synchronously
+before identity/measurement changes and notify again after committed changes.
+AdminWorkspaceFrame/AccountRouteFrame remain their original owner's files; the
+a16b799 host scaffolding is read but not copied while its imports/startup ports
+remain incomplete. Without these ports, the injection stays unavailable.
+
+SFC script/template source compile passes for the new component and actual
+patched Write; the bounded source guard does not import or mount them. Three
+accessible names are supplied through all ten real locale catalogs. All 30
+existing cases, tests/list, browser geometry, receipts/verifier/tamper, races,
+security/privacy, IME and native qualifications remain UNRUN. Source observations
+use planned/blocked, never a fabricated ready flag or accepted product receipt.

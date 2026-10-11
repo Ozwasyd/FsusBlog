@@ -1,5 +1,5 @@
-import { encodeAedsFrame } from '@/api/binaryFrame';
 import type { AuthoringWorkspaceSnapshotTransport } from '@/api/authoringWorkspaceSnapshot';
+import { encodeAedsFrame } from '@/api/binaryFrame';
 import { encodeAuthoringWorkspaceSnapshotRequest } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 

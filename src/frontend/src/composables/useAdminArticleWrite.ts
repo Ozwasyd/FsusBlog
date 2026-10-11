@@ -1,5 +1,4 @@
-import { type FormInstance } from '@ozwasyd/element-plus';
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -48,6 +47,7 @@ import { useImageUploadPreferences } from '@/composables/useImageUploadPreferenc
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import { usePow } from '@/composables/usePow';
 import { BinaryTransportError } from '@/composition/binaryTransport';
+import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
 import { toast } from '@/fsusui/feedback';
 import { isFsusUiOk } from '@/fsusui/result';
 import {
@@ -67,14 +67,32 @@ import {
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
+import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring';
+import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
+import { createArticleAttachmentBusinessIntentReader } from '@/services/authoring/articleAttachmentBusinessIntentReader';
+import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort, type ArticleAttachmentFilePort } from '@/services/authoring/articleAttachmentContext';
+import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
 import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter
 } from '@/services/authoring/articleDocumentContext';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
+import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
+import { ArticleEditorSearchRuntime } from '@/services/authoring/articleEditorSearchRuntime';
+import { validateArticleEditorSurfacePreference, type ArticleEditorSurfacePreference } from '@/services/authoring/articleEditorSurface';
+import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorSurfaceRuntime';
+import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
+import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articlePreviewAttachments';
+import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
+import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
+import { createArticleWriterMountedEditorSource } from '@/services/authoring/articleWriterMountedEditorSource';
+import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
+
+import type { FormItemProp, FormValidateCallback, FormValidationResult } from '@ozwasyd/element-plus';
 
 interface ArticleParams {
     title: string;
@@ -98,6 +116,13 @@ interface ArticleDraftSnapshot extends ArticleParams {
     serverRevision: number | null;
     documentContextDigest: string;
 }
+
+/** Borrow original live business and attribution owners; this host produces no asset grants or responsibility data. */
+type ArticleWriterPreviewOwners = Readonly<{
+    binding: ArticleEditorRuntimeBinding;
+    business: ArticlePreviewAttachmentPort;
+    readAttribution: () => Pick<ArticlePreviewSourceInput, 'responsibility' | 'siteAuthor'>;
+}>;
 
 export interface ArticleRevisionConflictMetadata {
     currentRevisionId: string;
@@ -469,7 +494,10 @@ export function useAdminArticleWrite()
     const router = useRouter();
     const powProvider = usePow();
     const adminStore = useAdminStore();
-    const formRef = useTemplateRef<FormInstance>('formRef');
+    const formRef = useTemplateRef<{
+        validate: (callback?: FormValidateCallback) => FormValidationResult;
+        scrollToField: (prop: FormItemProp) => void;
+    }>('formRef');
     const articleId = computed(() =>
     {
         const raw = route.params.id ?? route.query.id;
@@ -510,6 +538,7 @@ export function useAdminArticleWrite()
     const privatePreview = ref<ArticlePreviewResponse | null>(null);
     const privatePreviewLoading = ref(false);
     const privatePreviewStatusText = ref('预览仅在作者工作台内生成');
+    const previewOwners = shallowRef<ArticleWriterPreviewOwners | null>(null);
     const seoIssues = ref<PrepublishIssue[]>([]);
     const seoChecking = ref(false);
     const seoStatusText = ref('发布前检查随表单实时更新');
@@ -710,7 +739,8 @@ export function useAdminArticleWrite()
         [draftStatusText.value.trim(), articleRecoveryStorageWarning.value.trim()].filter(Boolean).join('；'));
     const requiresLeaveConfirm = computed(() => hasDraftContent(articleForm) || hasLocalDraft.value);
     const selectedRevisionLabel = computed(() => selectedRevision.value ? `版本 ${selectedRevision.value.revisionNo}` : '未选择历史版本');
-    const canGeneratePrivatePreview = computed(() => articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0);
+    const canGeneratePrivatePreview = computed(() => previewOwners.value !== null
+        && (articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0));
     const seoPreview = computed<ArticleSeoPreviewState>(() =>
     {
         const baseUrl = normalizeSeoBaseUrl(firstNonEmptyText(
@@ -808,9 +838,8 @@ export function useAdminArticleWrite()
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
-    const documentSiteHost = typeof window === 'undefined' ? '' : window.location.host.trim();
-    const documentSiteScope = `site:${documentSiteHost.length > 0 ? documentSiteHost : 'unknown'}`
-        .replace(/[^a-zA-Z0-9._:-]/gu, '-');
+    // Canonical author endpoints resolve the primary site; a browser host is not its authority.
+    const documentSiteScope = 'primary-site';
     const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() ?? 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
     const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
@@ -830,6 +859,232 @@ export function useAdminArticleWrite()
         id: authoringDocumentContext.value.documentId,
         epoch: authoringDocumentContext.value.documentEpoch
     }));
+    // Every authoring consumer shares the existing canonical document binding.
+    const authoringAnchors = new ArticleAnchorContextAdapter(articleDocumentContextAdapter);
+    const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
+        'article-assets', 'article-assets:v1', authoringAnchors);
+    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort> | null = null;
+    const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort = {
+        withAttachmentFile: (batch, item, consume) => active && !!attachmentEditor
+            && attachmentEditor.withAttachmentFile?.(batch, item, consume) === true,
+        dispatch: transaction =>
+        {
+            if (!active || !attachmentEditor)
+            {
+                throw new Error('article-attachment-editor-unbound');
+            }
+            return attachmentEditor.dispatch(transaction);
+        },
+        commitSource: result =>
+        {
+            const current = articleDocumentContextAdapter.context;
+            if (!active || !result.accepted || result.documentIdentity.id !== current.documentId
+                || result.documentIdentity.epoch !== current.documentEpoch
+                || (result.beforeRevision !== current.sourceRevision && result.revision !== current.sourceRevision))
+            {
+                throw new Error('article-attachment-source-commit-invalid');
+            }
+            // Commit the public revision first; the synchronous source watch is then idempotent.
+            if (result.revision > current.sourceRevision)
+            {
+                articleDocumentContextAdapter.updateSource(result.value, result.revision);
+            }
+            else if (articleForm.content !== result.value)
+            {
+                throw new Error('article-attachment-source-commit-invalid');
+            }
+            articleForm.content = result.value;
+            syncAuthoringDocumentContext();
+        },
+        binding: () => ({ document: articleDocumentContextAdapter.context,
+            map: createMarkdownAnchorMap({ identity: articleDocumentContextAdapter.documentIdentity,
+                source: articleForm.content }) })
+    };
+    // Only the caller-held original handle and this invocation's loan survive an await.
+    let attachmentUploadAttempt: { handle: ArticleAttachmentPendingHandle; file: File; } | null = null;
+    type UploadAttemptObservation = Readonly<{ status: 'observing' | 'settled' | 'interrupted';
+        observation: AttachmentUploadObservation | null; reason: string | null; }>;
+    // One consumption per genuine handle, without retaining the File or session credentials.
+    const consumedAttachmentUploads = new WeakMap<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
+    const attachmentUploadObligations = new Map<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
+    const assertUploadObligationAbsent = (handle?: ArticleAttachmentPendingHandle): void =>
+    {
+        if (handle ? attachmentUploadObligations.has(handle) : attachmentUploadObligations.size > 0)
+        {
+            throw new Error('article-attachment-upload-recovery-required');
+        }
+    };
+    const authoringAttachmentRuntime = Object.freeze({
+        readUploadObservation: (handle: ArticleAttachmentPendingHandle) => consumedAttachmentUploads.get(handle) ?? null,
+        get uploadObligations()
+        {
+            return Object.freeze(Array.from(attachmentUploadObligations, ([handle, observation]) =>
+                Object.freeze({ handle, ...observation })));
+        },
+        observeUpload: (handle: ArticleAttachmentPendingHandle, file: File, signal?: AbortSignal) =>
+            observeOwnedImageUpload(handle, file, signal),
+        captureAnchor: (selection: Parameters<ArticleAnchorContextAdapter['capture']>[1],
+            options: Parameters<ArticleAnchorContextAdapter['capture']>[2]) => authoringAnchors.capture(attachmentPort.binding(), selection, options),
+        capture: (input: Omit<Parameters<ArticleAttachmentContextAdapter['capture']>[0], 'source'>) =>
+            authoringAttachments.capture({ ...input, source: articleForm.content }),
+        admitAcceptedCapture: (input: Parameters<ArticleAttachmentContextAdapter['admitAcceptedCapture']>[0]) =>
+            authoringAttachments.admitAcceptedCapture(input, attachmentPort),
+        commitCreated: (capture: Parameters<ArticleAttachmentContextAdapter['commitCreated']>[0]) =>
+            authoringAttachments.commitCreated(capture, attachmentPort),
+        complete: (handle: Parameters<ArticleAttachmentContextAdapter['complete']>[0], result: Parameters<ArticleAttachmentContextAdapter['complete']>[1]) =>
+        {
+            assertUploadObligationAbsent(handle);
+            return authoringAttachments.complete(handle, result, attachmentPort);
+        },
+        remove: (handle: Parameters<ArticleAttachmentContextAdapter['remove']>[0]) => authoringAttachments.remove(handle, attachmentPort),
+        replace: (handle: Parameters<ArticleAttachmentContextAdapter['replace']>[0], file: Parameters<ArticleAttachmentContextAdapter['replace']>[1]) =>
+        {
+            assertUploadObligationAbsent(handle);
+            return authoringAttachments.replace(handle, file, attachmentPort);
+        },
+        retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) =>
+        {
+            assertUploadObligationAbsent(handle);
+            return authoringAttachments.retry(handle);
+        },
+        readOwnedIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
+            authoringAttachments.readOwnedIntent(handle, attachmentPort.binding()),
+        // Borrow one actual caller-held capability; the original adapter validates membership.
+        bindBusinessIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
+            createArticleAttachmentBusinessIntentReader({ attachments: authoringAttachments,
+                handle: intentRef => handle.snapshot.intent.task.taskRef === intentRef ? handle : null,
+                binding: () => attachmentPort.binding() }),
+        consumeTransaction: (result: MarkdownEditorDispatchResult) => authoringAttachments.consumeTransaction(result, attachmentPort),
+        get receipts()
+        {
+            return authoringAttachments.lifecycleReceipts;
+        },
+        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort>) =>
+        {
+            if (!active || attachmentEditor)
+            {
+                throw new Error('article-attachment-editor-binding-invalid');
+            }
+            attachmentEditor = editor;
+            return () =>
+            {
+                if (attachmentEditor !== editor)
+                {
+                    return;
+                }
+                attachmentEditor = null;
+                authoringAttachments.cancelPending('article-attachment-editor-release');
+            };
+        }
+    });
+    let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
+    let releaseEditorRuntime: (() => void) | null = null;
+    const authoringEditorRuntime = Object.freeze({
+        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
+            readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
+        {
+            if (!active || editorRuntimeBinding)
+            {
+                throw new Error('article-editor-runtime-already-bound');
+            }
+            const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
+                withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true });
+            let binding: ArticleEditorRuntimeBinding;
+            try
+            {
+                binding = bindArticleEditorRuntime(articleDocumentContextAdapter, authoringAnchors, authoringAttachments,
+                    attachmentPort, () => articleForm.content, editor, options);
+            }
+            catch (error)
+            {
+                releaseAttachmentEditor();
+                throw error;
+            }
+            let searchRuntime: ArticleEditorSearchRuntime;
+            try
+            {
+                searchRuntime = new ArticleEditorSearchRuntime(articleDocumentContextAdapter, binding);
+            }
+            catch (error)
+            {
+                binding.dispose();
+                releaseAttachmentEditor();
+                throw error;
+            }
+            editorRuntimeBinding = binding;
+            let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
+            const release = (): void =>
+            {
+                if (editorRuntimeBinding !== binding)
+                {
+                    return;
+                }
+                editorRuntimeBinding = null;
+                releaseEditorRuntime = null;
+                if (previewOwners.value?.binding === binding)
+                {
+                    previewOwners.value = null;
+                    previewTask.cancel();
+                    previewCurrentAuthorities.cancel();
+                }
+                searchRuntime.dispose();
+                surfaceRuntime?.dispose();
+                surfaceRuntime = null;
+                binding.dispose();
+                releaseAttachmentEditor();
+            };
+            releaseEditorRuntime = release;
+            const bindSurfacePreference = (readPreference: () => ArticleEditorSurfacePreference | null): ArticleEditorSurfaceRuntime =>
+            {
+                if (!active || editorRuntimeBinding !== binding || surfaceRuntime || typeof readPreference !== 'function')
+                {
+                    throw new Error('article-editor-surface-binding-invalid');
+                }
+                const readCurrentPreference = (): ArticleEditorSurfacePreference =>
+                {
+                    const preference = readPreference();
+                    const context = binding.context;
+                    if (!articleDocumentContextAdapter.isCurrentContext(context) || !validateArticleEditorSurfacePreference(preference)
+                        || preference.siteScope !== context.siteScope || preference.userScope !== context.userScope)
+                    {
+                        throw new Error('article-editor-surface-preference-unavailable');
+                    }
+                    return preference;
+                };
+                // No guessed preference: admission requires a real current owner snapshot before construction.
+                readCurrentPreference();
+                surfaceRuntime = new ArticleEditorSurfaceRuntime(articleDocumentContextAdapter, binding,
+                    new ArticleLiveCapabilitySession(articleDocumentContextAdapter), readCurrentPreference);
+                return surfaceRuntime;
+            };
+            const bindPreviewOwners = (business: ArticlePreviewAttachmentPort,
+                readAttribution: ArticleWriterPreviewOwners['readAttribution']): (() => void) =>
+            {
+                if (!active || editorRuntimeBinding !== binding || previewOwners.value !== null
+                    || typeof business?.assess !== 'function' || typeof business.verify !== 'function'
+                    || typeof readAttribution !== 'function')
+                {
+                    throw new Error('article-preview-owner-binding-invalid');
+                }
+                const owners = Object.freeze({ binding, business, readAttribution });
+                previewOwners.value = owners;
+                return () =>
+                {
+                    if (previewOwners.value === owners)
+                    {
+                        previewOwners.value = null;
+                        previewTask.cancel();
+                        previewCurrentAuthorities.cancel();
+                    }
+                };
+            };
+            const mountedSource = readMountedEditor
+                ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
+                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
+                : null;
+            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, search: searchRuntime, mountedSource });
+        }
+    });
     const initTask = useAbortableTask({
         registry: articleDocumentContextAdapter,
         kind: 'refresh',
@@ -845,11 +1100,8 @@ export function useAdminArticleWrite()
         kind: 'refresh',
         producerRef: 'article-write:taxonomy'
     });
-    const previewTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
-        kind: 'preview',
-        producerRef: 'article-write:preview'
-    });
+    // Source admission owns the document preview lease; this controller only cancels the caller.
+    const previewTask = useAbortableTask();
     const prepublishTask = useAbortableTask({
         registry: articleDocumentContextAdapter,
         kind: 'feature',
@@ -881,6 +1133,16 @@ export function useAdminArticleWrite()
         getWasmOnly: () => wasmOnlyMode.value,
         taskRegistry: articleDocumentContextAdapter,
         taskProducerRef: 'article-write:image-upload',
+        get getAttemptBinding()
+        {
+            return attachmentUploadAttempt ? (file: File) =>
+            {
+                const attempt = attachmentUploadAttempt;
+                return attempt?.file === toRaw(file) ? { owner: authoringAttachments,
+                    documentOwner: articleDocumentContextAdapter, intent: attempt.handle,
+                    getBinding: () => attachmentPort.binding() } : null;
+            } : undefined;
+        },
         notify: {
             success: (message) => toast.success(message),
             warning: (message) => showWarningToast(message, message),
@@ -888,33 +1150,133 @@ export function useAdminArticleWrite()
         }
     });
 
-    const handleUploadImg = async (
-        files: File[],
-        callback: (urls: string[]) => void,
+    const observeOwnedImageUpload = async (
+        handle: ArticleAttachmentPendingHandle,
+        file: File,
+        signal?: AbortSignal
+    ): Promise<AttachmentUploadObservation> =>
+    {
+        signal?.throwIfAborted();
+        const observation = authoringAttachments.readOwnedIntent(handle, attachmentPort.binding());
+        const candidate = observation?.snapshot.intent.candidate;
+        if (!active || !attachmentEditor || !observation?.current || handle.signal.aborted
+            || !authoringAttachments.matchesCapturedFile(handle, toRaw(file))
+            || candidate?.name !== file.name || candidate.mimeType !== file.type
+            || candidate.byteLength !== file.size)
+        {
+            throw new Error('article-attachment-upload-intent-invalid');
+        }
+        if (attachmentUploadAttempt)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
+        if (consumedAttachmentUploads.has(handle))
+        {
+            throw new Error('article-attachment-upload-consumed');
+        }
+        assertUploadObligationAbsent();
+        if (imageUploadFlow.pendingContext.value)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
+        const reservation: UploadAttemptObservation = Object.freeze({ status: 'observing', observation: null, reason: null });
+        consumedAttachmentUploads.set(handle, reservation);
+        attachmentUploadObligations.set(handle, reservation);
+        const attempt = { handle, file };
+        attachmentUploadAttempt = attempt;
+        const outcome: { value: AttachmentUploadObservation | null; error: Error | null; } = { value: null, error: null };
+        const cancel = (): void => imageUploadFlow.cancel();
+        signal?.addEventListener('abort', cancel, { once: true });
+        try
+        {
+            await imageUploadFlow.startUpload({ files: [file], maxFiles: 1,
+                notifyOnSuccess: false, notifyOnError: false,
+                onError: (_message, error) =>
+                {
+                    outcome.error = error instanceof Error ? error : new Error('article-attachment-upload-failed');
+                },
+                onFileUploaded: async completion =>
+                {
+                    if (toRaw(completion.file) !== file || completion.intent !== handle
+                        || attachmentUploadAttempt !== attempt)
+                    {
+                        throw new Error('article-attachment-upload-session-unavailable');
+                    }
+                    // Public runtime session has been cleared. Project named private loan fields
+                    // into the original provider, which freezes enumerable constructor input.
+                    outcome.value = await completion.borrow.withSession(async (facts, loanSignal) =>
+                    {
+                        const provider = createArticleAttachmentUploadProvider({
+                            uploadId: facts.uploadId, uploadToken: facts.uploadToken,
+                            sha256: facts.sha256, totalBytes: facts.totalBytes,
+                            commitMayHaveStarted: facts.commitMayHaveStarted
+                        });
+                        return await provider.observe(loanSignal);
+                    });
+                }
+            });
+            signal?.throwIfAborted();
+            if (outcome.error)
+            {
+                throw outcome.error;
+            }
+            if (!active || !outcome.value || !authoringAttachments.readOwnedIntent(handle, attachmentPort.binding())?.current)
+            {
+                throw new Error('article-attachment-upload-observation-unavailable');
+            }
+            // Facts are transport observations. A later business-authorized document
+            // transaction must run outside the loan callback and own its own grants.
+            Object.freeze(outcome.value);
+            const settled: UploadAttemptObservation = Object.freeze({ status: 'settled', observation: outcome.value, reason: null });
+            consumedAttachmentUploads.set(handle, settled);
+            if (outcome.value.status === 'committed' || outcome.value.status === 'cancelled')
+            {
+                attachmentUploadObligations.delete(handle);
+            }
+            else
+            {
+                attachmentUploadObligations.set(handle, settled);
+            }
+            return outcome.value;
+        }
+        catch (error)
+        {
+            const interrupted: UploadAttemptObservation = Object.freeze({ status: 'interrupted', observation: outcome.value,
+                reason: error instanceof Error ? error.message : 'article-attachment-upload-observation-unavailable' });
+            consumedAttachmentUploads.set(handle, interrupted);
+            attachmentUploadObligations.set(handle, interrupted);
+            throw error;
+        }
+        finally
+        {
+            signal?.removeEventListener('abort', cancel);
+            attachmentUploadAttempt = null;
+            // An unconfirmed attempt retains the original flow context and Writer obligation.
+            if (!attachmentUploadObligations.has(handle))
+            {
+                imageUploadFlow.clearPending();
+            }
+        }
+    };
+
+    const handleUploadImg = (
+        _files: File[],
+        _callback: (urls: string[]) => void,
         onError: (message: string) => void
     ): Promise<void> =>
     {
-        await imageUploadFlow.startUpload({
-            files,
-            maxFiles: 10,
-            messages: {
-                tooManyFiles: '单次上传资源文件不得超过 10 个',
-                uploadFailed: '图片存储服务不可用',
-                uploadSucceeded: `成功同步 ${files.length} 张资源图片`
-            },
-            onSuccess: (urls) =>
-            {
-                callback(urls);
-            },
-            onError: (message) =>
-            {
-                onError(message);
-            }
-        });
+        // The legacy File[] callback carries no original document-intent capability.
+        onError('article-attachment-upload-intent-required');
+        return Promise.resolve();
     };
 
     const resumeImageUpload = async (): Promise<void> =>
     {
+        if (attachmentUploadAttempt)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
+        assertUploadObligationAbsent();
         await imageUploadFlow.resumeUpload({
             messages: {
                 resumeMissing: '没有可恢复的上传任务',
@@ -925,6 +1287,11 @@ export function useAdminArticleWrite()
 
     const handleCoverUpload = async (files: File[]): Promise<void> =>
     {
+        if (attachmentUploadAttempt)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
+        assertUploadObligationAbsent();
         if (files.length === 0)
         {
             return;
@@ -1032,8 +1399,39 @@ export function useAdminArticleWrite()
         buildDraftSnapshot('', 'server')
     );
 
+    const previewCurrentAuthorities = createArticlePreviewCurrentAuthorities({
+        documentContext: articleDocumentContextAdapter,
+        readHost: () => ({
+            context: articleDocumentContextAdapter.context,
+            source: articleForm.content,
+            revisionId: currentRevisionId.value,
+            attachmentLifecycleHistory: authoringAttachments.lifecycleReceipts,
+            authoringInputDigest: calculateOpenArticleDocumentDigest(currentPrepublishIdentity())
+        }),
+        readEditingResponsibility: () =>
+        {
+            const owners = previewOwners.value;
+            // No editable responsibility fields exist in ArticleParams. Only a real live owner can supply them.
+            // Explicitly missing current input never falls back to saved-revision history.
+            return owners?.binding === editorRuntimeBinding
+                ? owners.readAttribution().responsibility : null;
+        },
+        readCurrentSiteAuthor: () => siteConfig.value?.author
+    });
+
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
+        documentContext: articleDocumentContextAdapter,
+        attachmentBusiness: () => previewOwners.value?.business ?? null,
+        sourceAdmission: () =>
+        {
+            const owners = previewOwners.value;
+            if (editorRuntimeBinding !== owners?.binding)
+            {
+                throw new Error('article-preview-owner-unavailable');
+            }
+            return ArticlePreviewSourceAdmission.attachRuntime(owners.binding, () => previewCurrentAuthorities.read());
+        },
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         ),
@@ -1385,7 +1783,10 @@ export function useAdminArticleWrite()
             return;
         }
         const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         parentSignal?.addEventListener('abort', abortParent, { once: true });
         const token = ++articleRecoveryRefreshToken;
         try
@@ -1820,7 +2221,10 @@ export function useAdminArticleWrite()
     const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
     {
         const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         signal?.addEventListener('abort', abortParent, { once: true });
         assetLibraryLoading.value = true;
         try
@@ -2044,7 +2448,8 @@ export function useAdminArticleWrite()
     {
         if (!canGeneratePrivatePreview.value)
         {
-            showWarningToast('请先填写标题或正文', '请先填写标题或正文');
+            const reason = previewOwners.value === null ? '预览所需的附件与责任信息尚未就绪' : '请先填写标题或正文';
+            showWarningToast(reason, reason);
             return;
         }
 
@@ -2054,6 +2459,7 @@ export function useAdminArticleWrite()
         {
             await previewTask.run(async (signal) =>
             {
+                await previewCurrentAuthorities.refresh(signal);
                 const preview = await articlePreviewGeneration.generate(signal);
                 if (!preview)
                 {
@@ -2516,14 +2922,20 @@ export function useAdminArticleWrite()
         return true;
     };
 
+    const firstInvalidFormProperty = ref<string | null>(null);
     const validateBeforeSubmit = async (): Promise<boolean> =>
     {
+        firstInvalidFormProperty.value = null;
         if (!formRef.value || submitting.value)
         {
             return false;
         }
 
-        const validation = await formRef.value.validate();
+        const captureInvalidProperty: FormValidateCallback = (valid, fields): void =>
+        {
+            firstInvalidFormProperty.value = valid ? null : Object.keys(fields ?? {})[0] ?? null;
+        };
+        const validation = await formRef.value.validate(captureInvalidProperty);
         if (!isFsusUiOk(validation))
         {
             return false;
@@ -3041,6 +3453,10 @@ export function useAdminArticleWrite()
         disposeArticleRecoveryLifecycle?.();
         disposeArticleRecoveryLifecycle = null;
         recoveryCoordinator.dispose();
+        previewCurrentAuthorities.dispose();
+        releaseEditorRuntime?.();
+        attachmentEditor = null;
+        authoringAttachments.dispose();
         articleDocumentContextBinding.release();
         initTask.cancel();
         submitTask.cancel();
@@ -3102,6 +3518,8 @@ export function useAdminArticleWrite()
         privatePreview,
         privatePreviewLoading,
         privatePreviewStatusText,
+        privatePreviewAttachmentState: articlePreviewGeneration.attachmentState,
+        privatePreviewCurrentAuthorities: previewCurrentAuthorities,
         canGeneratePrivatePreview,
         aiAssist,
         aiAssistLoading,
@@ -3116,6 +3534,9 @@ export function useAdminArticleWrite()
         articleForm,
         authoringDocumentContext,
         authoringDocumentIdentity,
+        authoringDocumentContextAdapter: articleDocumentContextAdapter,
+        authoringAttachmentRuntime,
+        authoringEditorRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,
@@ -3125,6 +3546,7 @@ export function useAdminArticleWrite()
         articleRightsExcerptMax: ARTICLE_RIGHTS_EXCERPT_MAX,
         rules,
         validateBeforeSubmit,
+        firstInvalidFormProperty,
         saveDraftNow,
         compareSelectedArticleRecovery,
         handleUploadImg,

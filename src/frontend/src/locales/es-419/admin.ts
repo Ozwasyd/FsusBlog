@@ -4,6 +4,11 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    workspaceLayout: {
+        leading: 'Primera área de edición',
+        trailing: 'Segunda área de edición',
+        resize: 'Ajustar el ancho de la primera área de edición',
+    },
     canvas: {
         retry: 'Reintentar operación pendiente',
         retryPending: 'El resultado anterior no está confirmado. Reintenta la misma solicitud.',

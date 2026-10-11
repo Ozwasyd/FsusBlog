@@ -142,6 +142,7 @@
                     </div>
 
                     <ArticleWriteTitleField
+                        data-article-form-property="title"
                         v-model="articleForm.title"
                         :disabled="submitting"
                     />
@@ -156,21 +157,38 @@
                         class="write-editor-panel"
                         data-editor-panel="true"
                     >
-                        <ElFormItem prop="content">
-                            <ArticleWriteEditor
-                                ref="articleEditorRef"
-                                v-model="articleForm.content"
-                                :command-surfaces="authoringCommandSurfaces"
-                                :article-identity="authoringDocumentIdentity.id"
-                                :document-identity="authoringDocumentIdentity"
-                                :loading="pageLoading"
-                                :saving="submitting"
-                                @save="saveDraftNow"
-                                @draft-save="saveDraftNow"
-                                @submit="requestSubmit"
-                                @upload-img="handleUploadImg"
-                            />
-                        </ElFormItem>
+                        <AuthoringWorkspaceLayout
+                            :source="workspaceLayoutSource"
+                            primary-region-id="article-write-leading-group"
+                            secondary-region-id="article-write-trailing-group"
+                            :primary-label="translate('admin.workspaceLayout.leading')"
+                            :secondary-label="translate('admin.workspaceLayout.trailing')"
+                            :separator-label="translate('admin.workspaceLayout.resize')"
+                        >
+                            <ElFormItem
+                                prop="content"
+                                data-article-form-property="content"
+                            >
+                                <ArticleWriteEditor
+                                    ref="articleEditorRef"
+                                    v-model="articleForm.content"
+                                    :command-surfaces="authoringCommandSurfaces"
+                                    :article-identity="authoringDocumentIdentity.id"
+                                    :document-identity="authoringDocumentIdentity"
+                                    :document-context="authoringDocumentContext"
+                                    :loading="pageLoading"
+                                    :saving="submitting"
+                                    @save="saveDraftNow"
+                                    @draft-save="saveDraftNow"
+                                    @submit="requestSubmit"
+                                    @upload-img="handleUploadImg"
+                                    @attachment-capture="consumeAcceptedAttachmentCapture"
+                                    @transaction="consumeAuthoringTransaction"
+                                    @selection-change="consumeAuthoringSelection"
+                                    @editor-focus="consumeAuthoringFocus"
+                                />
+                            </ElFormItem>
+                        </AuthoringWorkspaceLayout>
                     </div>
                 </section>
 
@@ -225,6 +243,7 @@
 
                                 <ElFormItem
                                     prop="rights.enabled"
+                                    data-article-form-property="rights.enabled"
                                     label="启用策略"
                                 >
                                     <ElSwitch
@@ -236,6 +255,7 @@
 
                                 <ElFormItem
                                     prop="rights.licenseType"
+                                    data-article-form-property="rights.licenseType"
                                     label="许可类型"
                                 >
                                     <ElSelect
@@ -255,6 +275,7 @@
 
                                 <ElFormItem
                                     prop="rights.copyrightHolder"
+                                    data-article-form-property="rights.copyrightHolder"
                                     label="权利人"
                                 >
                                     <ElInput
@@ -269,6 +290,7 @@
 
                                 <ElFormItem
                                     prop="rights.copyrightYear"
+                                    data-article-form-property="rights.copyrightYear"
                                     label="版权年份"
                                 >
                                     <ElInputNumber
@@ -286,6 +308,7 @@
 
                                 <ElFormItem
                                     prop="rights.rightsStatement"
+                                    data-article-form-property="rights.rightsStatement"
                                     label="权利声明"
                                 >
                                     <ElInput
@@ -303,6 +326,7 @@
 
                                 <ElFormItem
                                     prop="rights.attributionTemplate"
+                                    data-article-form-property="rights.attributionTemplate"
                                     label="署名模板"
                                 >
                                     <ElInput
@@ -320,6 +344,7 @@
 
                                 <ElFormItem
                                     prop="rights.copyPolicy"
+                                    data-article-form-property="rights.copyPolicy"
                                     label="复制策略"
                                 >
                                     <ElSelect
@@ -339,6 +364,7 @@
 
                                 <ElFormItem
                                     prop="rights.maxExcerptChars"
+                                    data-article-form-property="rights.maxExcerptChars"
                                     label="摘录长度"
                                 >
                                     <ElInputNumber
@@ -745,7 +771,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { computed, inject, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { ArticlePublishStatus } from '@/api/article';
@@ -760,6 +786,7 @@ import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vu
 import ArticleWriteInspectorShell from '@/components/admin/article/ArticleWriteInspectorShell.vue';
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue';
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue';
+import AuthoringWorkspaceLayout from '@/components/admin/article/AuthoringWorkspaceLayout.vue';
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
@@ -767,20 +794,34 @@ import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
+import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
+import { activeLocale, translate } from '@/locales';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
+import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
+import type { ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
     articleWorkspaceTabRouter,
     createArticleWorkspaceOpenInput,
     type ArticleWorkspaceStatusSummary
 } from '@/services/authoring/articleWorkspaceTabRouter';
-import type {
-    ArticleDocumentContextRef,
-    ArticleDocumentIdentity
+import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
+import { authoringWorkspaceLayoutSourceKey } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import {
+    calculateOpenArticleDocumentDigest,
+    type ArticleDocumentContextRef,
+    type ArticleDocumentIdentity
 } from '@/services/authoring/openArticleDocumentRegistry';
+import { useThemeRuntime } from '@/services/themeRuntime';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
+
+const workspaceLayoutContext = inject(authoringWorkspaceLayoutSourceKey, null);
+const workspaceLayoutSource = computed(() => workspaceLayoutContext?.value ?? null);
 
 const articleRecoveryPrivacyNotice = ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE;
 
@@ -839,8 +880,10 @@ const {
     seoStatusText,
     articleForm,
     authoringDocumentIdentity,
-    currentRevisionId,
-    currentRevisionNo,
+    authoringDocumentContext,
+    authoringAttachmentRuntime,
+    authoringEditorRuntime,
+    firstInvalidFormProperty,
     articleRightsUsingSiteDefaults,
     articleRightsInheritanceText,
     articleRightsLicenseOptions,
@@ -919,35 +962,11 @@ const workspaceArticleId = computed<number | null>(() =>
     const parsed = Number(value);
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 });
-const workspaceIdentity = computed<ArticleDocumentIdentity>(() =>
-{
-    const articleId = workspaceArticleId.value;
-    const documentRef = authoringDocumentIdentity.value.id;
-    return articleId === null
-        ? {
-            articleId: null,
-            draftId: `draft:${documentRef}`,
-            documentId: `document:${documentRef}`
-        }
-        : {
-            articleId,
-            draftId: `draft:article:${articleId}`,
-            documentId: `document:article:${articleId}`
-        };
-});
-const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => ({
-    documentEpoch: authoringDocumentIdentity.value.epoch,
-    sourceRevision: workspaceArticleId.value === null
-        ? null
-        : currentRevisionId.value?.trim()
-            ? `revision:source:${currentRevisionId.value.trim()}`
-            : `source:article:${workspaceArticleId.value}`,
-    draftRevision: workspaceArticleId.value === null
-        ? `draft:${authoringDocumentIdentity.value.id}`
-        : typeof currentRevisionNo.value === 'number'
-            ? `revision:article:${workspaceArticleId.value}:${currentRevisionNo.value}`
-            : `draft:article:${workspaceArticleId.value}`
-}));
+const workspaceDocument = computed(() => projectArticleWriterWorkspaceDocument(authoringDocumentContext.value));
+const workspaceIdentity = computed<ArticleDocumentIdentity>(() => workspaceDocument.value.identity);
+const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => workspaceDocument.value.documentContext);
+const workspaceMountedSource = shallowRef<ArticleWorkspaceMountedEditorSource | null>(null);
+defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value });
 const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
     dirty: requiresLeaveConfirm.value && !pageLoading.value,
     saving: submitting.value,
@@ -1011,7 +1030,10 @@ const syncWorkspaceTab = async (): Promise<void> =>
 
 watch(
     [workspaceCanRegister, workspaceIdentity],
-    () => { void syncWorkspaceTab(); },
+    () =>
+    {
+        void syncWorkspaceTab();
+    },
     { immediate: true, deep: true }
 );
 watch(
@@ -1047,7 +1069,115 @@ const quickTagName = ref('');
 const quickCategoryInputRef = ref<{ focus?: () => void; } | null>(null);
 const quickTagInputRef = ref<{ focus?: () => void; } | null>(null);
 const coverInputRef = ref<HTMLInputElement | null>(null);
-const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean; } | null>(null);
+const articleEditorRef = ref<{
+    getAuthoringEditorPort: () => ArticleEditorContinuityPort | null;
+    getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
+    insertMarkdownAtCursor?: (markdown: string) => boolean;
+} | null>(null);
+const authoringTheme = useThemeRuntime();
+const editorRuntimeBinding = shallowRef<ArticleEditorRuntimeBinding | null>(null);
+let boundEditorPort: ArticleEditorContinuityPort | null = null;
+let releaseEditorRuntime: (() => void) | null = null;
+let editorBindingGeneration = 0;
+
+watch(articleEditorRef, () =>
+{
+    const generation = ++editorBindingGeneration;
+    releaseEditorRuntime?.();
+    releaseEditorRuntime = null;
+    editorRuntimeBinding.value = null;
+    workspaceMountedSource.value = null;
+    boundEditorPort = null;
+    void nextTick().then(() =>
+    {
+        if (generation !== editorBindingGeneration)
+        {
+            return;
+        }
+        const port = articleEditorRef.value?.getAuthoringEditorPort();
+        if (!port)
+        {
+            return;
+        }
+        // Consumer retention bounds; automatic-render eligibility remains owned by the refresh policy.
+        const bound = authoringEditorRuntime.bindEditor(port, {
+            surface: 'source',
+            configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
+            identity: { themeDigest: calculateOpenArticleDocumentDigest({ theme: authoringTheme.resolvedTheme.value }),
+                        locale: activeLocale.value },
+            cachePolicy: { maxEntryBytes: 4 * 1024 * 1024, maxAgeMs: 60_000, maxReceipts: 64 }
+        }, () => generation === editorBindingGeneration && boundEditorPort === port
+            ? articleEditorRef.value?.getAuthoringSessionPort?.() ?? null : null);
+        boundEditorPort = port;
+        editorRuntimeBinding.value = bound.binding;
+        workspaceMountedSource.value = bound.mountedSource;
+        releaseEditorRuntime = bound.release;
+        // Observe actual editor events; initialization dispatch would steal initial title focus.
+    });
+}, { flush: 'post' });
+onUnmounted(() =>
+{
+    editorBindingGeneration += 1;
+    releaseEditorRuntime?.();
+    editorRuntimeBinding.value = null;
+    workspaceMountedSource.value = null;
+    boundEditorPort = null;
+});
+
+async function consumeAcceptedAttachmentCapture(batch: MarkdownAttachmentBatchIntent,
+                                                capture: MarkdownAttachmentCaptureObservation | undefined, anchorOptions: ArticleAnchorCaptureOptions): Promise<void>
+{
+    const admitted = authoringAttachmentRuntime.admitAcceptedCapture({ batch, capture, anchorOptions });
+    if (admitted.status !== 'admitted')
+    {
+        showErrorToast(admitted.reason, admitted.reason);
+        return;
+    }
+    for (const item of admitted.items)
+    {
+        try
+        {
+            const observation = await authoringAttachmentRuntime.observeUpload(item.handle, item.file, item.handle.signal);
+            if (observation.status !== 'committed')
+            {
+                const message = observation.status === 'pending' ? '附件上传尚未确认完成' : observation.reason;
+                showErrorToast(message, message);
+                // The original Writer retains the observation; no retry or cleanup authority is inferred.
+                return;
+            }
+        }
+        catch (error)
+        {
+            const message = error instanceof Error ? error.message : 'article-attachment-upload-failed';
+            showErrorToast(message, message);
+            return;
+        }
+    }
+}
+
+function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void
+{
+    editorRuntimeBinding.value?.consumeTransaction(event);
+}
+
+function consumeAuthoringSelection(event: {
+    documentIdentity?: { id: string; epoch: number; };
+    revision: number;
+    selection: MarkdownEditorResolvedSelection;
+}): void
+{
+    if (event.documentIdentity)
+    {
+        editorRuntimeBinding.value?.consumeSelection({ ...event, documentIdentity: event.documentIdentity });
+    }
+}
+
+function consumeAuthoringFocus(event: 'focusin' | 'focusout'): void
+{
+    editorRuntimeBinding.value?.consumeFocus(event);
+}
+
+
 const submitConfirmDialog = ref(false);
 const leaveConfirmDialog = ref(false);
 const {
@@ -1192,8 +1322,14 @@ const requestSubmit = async (): Promise<void> =>
     }
 
     await nextTick();
-    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
-    focusFirstArticleValidationError(firstErrorField?.$el);
+    const invalidProperty = firstInvalidFormProperty.value;
+    if (invalidProperty !== null)
+    {
+        formRef.value?.scrollToField(invalidProperty);
+    }
+    const invalidFieldRoot = invalidProperty === null ? null
+        : document.querySelector<HTMLElement>(`[data-article-form-property="${CSS.escape(invalidProperty)}"]`);
+    focusFirstArticleValidationError(invalidFieldRoot);
 };
 
 const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>

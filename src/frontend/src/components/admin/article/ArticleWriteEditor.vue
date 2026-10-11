@@ -2,6 +2,8 @@
     <div
         class="article-write-editor"
         data-article-document-editor="true"
+        @focusin.capture="$emit('editor-focus', 'focusin')"
+        @focusout.capture="$emit('editor-focus', 'focusout')"
     >
         <ArticleWriteOutlineRail
             :active-heading-id="activeHeadingId"
@@ -22,7 +24,8 @@
             status-density="minimal"
             toolbar-density="standard"
             :show-mode-switcher="false"
-            :mode="activeSurface"
+            :authoring-surface="activeSurface"
+            :source-compare-open="sourceCompareOpen"
             :editor-class="editorSizingClass"
             :toolbars-exclude="['save']"
             :loading="loading"
@@ -30,6 +33,8 @@
             :authoring-commands="authoringCommands"
             :command-surfaces="commandSurfaces"
             :document-identity="documentIdentity"
+            :native-attachment-input="true"
+            @attachment-capture="handleAttachmentCapture"
             @save="$emit('draft-save')"
             @draft-save="$emit('draft-save')"
             @submit="$emit('submit')"
@@ -51,19 +56,19 @@
             >
                 <button
                     type="button"
-                    :aria-pressed="persistedSurface === 'live'"
+                    :aria-pressed="sessionSurface === 'live'"
                     :disabled="loading"
                     data-authoring-surface="live"
-                    @click="setPersistedSurface('live')"
+                    @click="requestSurface('live')"
                 >
                     实时
                 </button>
                 <button
                     type="button"
-                    :aria-pressed="persistedSurface === 'source'"
+                    :aria-pressed="sessionSurface === 'source'"
                     :disabled="loading"
                     data-authoring-surface="source"
-                    @click="setPersistedSurface('source')"
+                    @click="requestSurface('source')"
                 >
                     源码
                 </button>
@@ -77,19 +82,12 @@
             >
                 源码对照
             </button>
+            <slot name="secondary-action" />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import type {
-    MarkdownEditorOutlineItem,
-    MarkdownEditorOutlineRange,
-    MarkdownEditorRevealOptions,
-    MarkdownEditorRevealResult,
-    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
-    MarkdownEditorTransactionEvent
-} from '@ozwasyd/element-plus';
 import { computed, ref, watch } from 'vue';
 
 import ArticleWriteOutlineRail from '@/components/admin/article/ArticleWriteOutlineRail.vue';
@@ -98,17 +96,32 @@ import {
     useArticleOutline,
     type ArticleOutlineSelection
 } from '@/composables/useArticleOutline';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
 import type {
     FsusUiAuthoringCommand,
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
-import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
+import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
+import type { ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
+import {
+    createArticleEditorSurfacePreference, validateArticleEditorSurfacePreference,
+    type ArticleEditorSurface, type ArticleEditorSurfacePreference
+} from '@/services/authoring/articleEditorSurface';
+
+import type {
+    MarkdownEditorOutlineItem,
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteEditor' });
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen';
-type PersistedAuthoringSurface = Extract<MarkdownEditorMode, 'live' | 'source'>;
 type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
     documentIdentity?: FsusUiAuthoringDocumentIdentity;
 }>;
@@ -122,6 +135,8 @@ const props = withDefaults(defineProps<{
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;
     documentIdentity?: FsusUiAuthoringDocumentIdentity;
     articleIdentity?: string;
+    surfacePreference?: ArticleEditorSurfacePreference | null;
+    documentContext?: ArticleDocumentContext | null;
 }>(), {
     layoutMode: 'standard',
     authoringCommands: () => [],
@@ -132,7 +147,9 @@ const props = withDefaults(defineProps<{
         commandPalette: true
     }),
     documentIdentity: undefined,
-    articleIdentity: undefined
+    articleIdentity: undefined,
+    surfacePreference: null,
+    documentContext: null
 });
 
 const emit = defineEmits<{
@@ -140,6 +157,11 @@ const emit = defineEmits<{
     (e: 'save'): void;
     (e: 'draft-save'): void;
     (e: 'submit'): void;
+    (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
+    (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined, options: ArticleAnchorCaptureOptions): void;
+    (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
+    (e: 'editor-focus', event: 'focusin' | 'focusout'): void;
+    (e: 'surface-request', surface: ArticleEditorSurface): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
 }>();
 
@@ -149,8 +171,11 @@ const content = computed({
 });
 
 const adapterRef = ref<{
+    getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
+    getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
+    closeCommandPalette?: () => void;
     revealHeading?: (
         nodeId: string,
         options?: MarkdownEditorRevealOptions
@@ -160,7 +185,25 @@ const adapterRef = ref<{
         options?: MarkdownEditorRevealOptions
     ) => MarkdownEditorRevealResult;
 } | null>(null);
-const persistedSurface = ref<PersistedAuthoringSurface>('source');
+// Until the canonical preference owner supplies a real snapshot, this is a session choice only.
+const sessionSurface = ref<ArticleEditorSurface>('source');
+const ownedSurfacePreference = computed(() =>
+{
+    const preference = props.surfacePreference;
+    const context = props.documentContext;
+    return context && validateArticleEditorSurfacePreference(preference)
+        && preference.siteScope === context.siteScope && preference.userScope === context.userScope
+        ? createArticleEditorSurfacePreference(context, preference.surface) : null;
+});
+watch([
+    () => ownedSurfacePreference.value?.contentDigest ?? null,
+    () => props.documentContext?.siteScope,
+    () => props.documentContext?.userScope
+], () =>
+{
+    // Source revisions do not overwrite a session Source escape; owner/scope changes do.
+    sessionSurface.value = ownedSurfacePreference.value?.surface ?? 'source';
+}, { immediate: true });
 const sourceCompareOpen = ref(false);
 const sourceRevision = ref(0);
 const selection = ref<ArticleOutlineSelection>({
@@ -186,9 +229,7 @@ const outline = useArticleOutline({
 });
 const activeHeadingId = computed(() => outline.active.value?.headingId ?? null);
 
-const activeSurface = computed<MarkdownEditorMode>(() => (
-    sourceCompareOpen.value ? 'split' : persistedSurface.value
-));
+const activeSurface = computed<ArticleEditorSurface>(() => sessionSurface.value);
 
 const editorSizingClass = computed(() =>
 {
@@ -205,15 +246,22 @@ const editorSizingClass = computed(() =>
     return 'h-[min(760px,calc(var(--fsus-viewport-block-size)-310px))] min-h-[520px] max-lg:h-[620px] max-lg:min-h-[460px] max-sm:h-[560px] max-sm:min-h-[420px]';
 });
 
+function handleAttachmentCapture(batch: MarkdownAttachmentBatchIntent, capture?: MarkdownAttachmentCaptureObservation): void
+{
+    emit('attachment-capture', batch, capture, { surface: activeSurface.value,
+                                                 tool: sourceCompareOpen.value ? 'source-compare' : 'none', affinity: 'after', viewportOffset: 0, percentage: 0 });
+}
+
 const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void =>
 {
     emit('upload-img', files, callback, onError);
 };
 
-function setPersistedSurface(surface: PersistedAuthoringSurface): void
+function requestSurface(surface: ArticleEditorSurface): void
 {
-    persistedSurface.value = surface;
+    sessionSurface.value = surface;
     sourceCompareOpen.value = false;
+    emit('surface-request', surface);
 }
 
 function toggleSourceCompare(): void
@@ -224,7 +272,10 @@ function toggleSourceCompare(): void
 function currentRevealOptions(): MarkdownEditorRevealOptions | undefined
 {
     const identity = props.documentIdentity;
-    if (!identity) return undefined;
+    if (!identity)
+    {
+        return undefined;
+    }
     return {
         expected: {
             documentIdentity: identity,
@@ -238,29 +289,37 @@ function handleSelectionChange(event: ArticleAuthoringSelectionEvent): void
 {
     const identity = props.documentIdentity;
     if (identity &&
-        (!event.documentIdentity ||
-            identity.id !== event.documentIdentity.id ||
-            identity.epoch !== event.documentIdentity.epoch))
+        (identity.id !== event.documentIdentity?.id ||
+            identity.epoch !== event.documentIdentity?.epoch))
     {
         return;
     }
-    if (event.revision < sourceRevision.value) return;
+    if (event.revision < sourceRevision.value)
+    {
+        return;
+    }
     activeCause.value = 'selection';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
+    emit('selection-change', event);
 }
 
 function handleTransaction(event: MarkdownEditorTransactionEvent): void
 {
     const identity = props.documentIdentity;
     if (!event.accepted ||
-        (identity && (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch))) {
+        (identity && (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch)))
+    {
         return;
     }
-    if (event.revision < sourceRevision.value) return;
+    if (event.revision < sourceRevision.value)
+    {
+        return;
+    }
     activeCause.value = event.transaction.origin === 'input' ? 'typing' : 'caret';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
+    emit('transaction', event);
 }
 
 function handleViewportChange(event: {
@@ -271,8 +330,9 @@ function handleViewportChange(event: {
 }): void
 {
     const identity = props.documentIdentity;
-    if (!identity || identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch ||
-        event.revision < sourceRevision.value) {
+    if (identity?.id !== event.documentIdentity.id || identity?.epoch !== event.documentIdentity.epoch ||
+        event.revision < sourceRevision.value)
+    {
         return;
     }
     sourceRevision.value = event.revision;
@@ -283,7 +343,8 @@ function handleViewportChange(event: {
 function handleOutlineReveal(item: MarkdownEditorOutlineItem): void
 {
     const result = adapterRef.value?.revealHeading?.(item.nodeId, currentRevealOptions());
-    if (result === 'success') {
+    if (result === 'success')
+    {
         outline.noteOutlineNavigation(item.nodeId);
     }
 }
@@ -291,18 +352,24 @@ function handleOutlineReveal(item: MarkdownEditorOutlineItem): void
 function handleOutlineDiagnosticReveal(item: MarkdownEditorOutlineItem): void
 {
     const result = adapterRef.value?.revealSourceRange?.(item.sourceRange, currentRevealOptions());
-    if (result === 'success') {
+    if (result === 'success')
+    {
         outline.noteOutlineNavigation(item.nodeId);
     }
 }
 
-watch(() => {
+watch(() =>
+{
     const identity = props.documentIdentity;
     return `${resolvedArticleIdentity.value}\u0000${identity
         ? `${identity.id}\u0000${String(identity.epoch)}`
         : ''}`;
-}, (next, previous) => {
-    if (next === previous) return;
+}, (next, previous) =>
+{
+    if (next === previous)
+    {
+        return;
+    }
     sourceRevision.value = 0;
     selection.value = {
         start: content.value.length,
@@ -323,9 +390,27 @@ function openCommandPalette(): void
     adapterRef.value?.openCommandPalette?.();
 }
 
+function closeCommandPalette(): void
+{
+    adapterRef.value?.closeCommandPalette?.();
+}
+
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    return adapterRef.value?.getAuthoringEditorPort?.() ?? null;
+}
+
+function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
+{
+    return adapterRef.value?.getAuthoringSessionPort?.() ?? null;
+}
+
 defineExpose({
+    getAuthoringEditorPort,
+    getAuthoringSessionPort,
     insertMarkdownAtCursor,
     openCommandPalette,
+    closeCommandPalette,
     revealHeading: (nodeId: string, options?: MarkdownEditorRevealOptions) =>
         adapterRef.value?.revealHeading?.(nodeId, options) ?? 'not-found',
     revealSourceRange: (range: MarkdownEditorOutlineRange, options?: MarkdownEditorRevealOptions) =>

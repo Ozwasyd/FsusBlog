@@ -1,6 +1,11 @@
 export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'admin' } as const);
 
 export const admin = {
+    workspaceLayout: {
+        leading: '第一编辑区',
+        trailing: '第二编辑区',
+        resize: '调整第一编辑区宽度',
+    },
     canvas: {
         retry: '重试未决操作',
         retryPending: '上次操作结果尚未确认，请重试同一请求',
