@@ -253,11 +253,14 @@ offscreen or unusably narrow observations. Group chrome is deducted before
 testing usable editing width, rather than calling an outer box usable content.
 
 The source offer chooses minimum usable widths of 384 CSS px per group in
-two-group mode and 128 CSS px for the focused single group. The 16 CSS px splitter
-footprint reserves a hit region and does not prescribe a large visible handle.
-These are reviewable product engineering choices based on the active FsusUI
-public `space.4` step (24, 8 and 1 multiples), not previously specified editor
-contracts or new FsusUI tokens. The canonical 1024 CSS px task tier gates two
+two-group mode and 128 CSS px for the focused single group. These are reviewable product engineering choices based on the active FsusUI
+public `space.4` step (24 and 8 multiples), not previously specified editor
+contracts or new FsusUI tokens. Separator width is a required actual CSS-pixel
+measurement, separate from workspace scrollbars and editor chrome. UI921's public
+handle reserves `--fsus-icon-target`, whose default is 40 CSS px; this supersedes
+the earlier proposed 16 CSS px footprint. The calculator exposes 40 as a default
+token coordinate, not a substitute for current measured extent. It rejects
+nonfinite/nonpositive footprint and subtracts the real value exactly once. The canonical 1024 CSS px task tier gates two
 groups. Mobile, soft keyboard, narrow viewport and insufficient two-group space
 plan a focused single group; width below the single minimum is blocked. No font
 shrink, width animation, tab move, article switch or session reconstruction is
@@ -267,12 +270,13 @@ preserving the owner's requested ratio/ref for later expansion.
 The exported required matrix includes 375/768/1024/1366/1440 viewports,
 100/150/200% browser zoom, Rail/inspector combinations, soft keyboard and
 appearance/input states. It records coverage requirements, not observations.
-`tools/frontend/check-authoring-workspace-layout-source.mjs` parses only the two
+`tools/frontend/check-authoring-workspace-layout-source.mjs` parses the three
 delivered product modules without importing them. Its AST guard checks their
 closed layout vocabulary, absence of DOM/storage/editor/group-model dependencies,
 sole private ratio owner and exact-ref CAS source, and canonical snapshot bounds.
-It explicitly does not cover the not-yet-wired SFC, actual retention, public
-splitter, runtime receipt/verifier or geometry/tamper qualification.
+The adapter guard also rejects standalone ratio commit/lifecycle calls and
+asynchronous publication. It explicitly does not cover the not-yet-wired SFC,
+actual retention, separator runtime, receipt/verifier or geometry/tamper qualification.
 
 `tests/frontend/unit/authoring/authoringWorkspaceLayoutPolicy.test.ts` declares
 ratio/CAS/proposal controls and synthetic geometry/zoom controls. They remain
@@ -289,3 +293,74 @@ node_modules/.bin/vitest run ../../tests/frontend/unit/authoring/authoringWorksp
 This command has not been executed. All actual browser geometry, hidden editor
 identity/restore, pointer/keyboard/screen reader, forced colors/reduced motion,
 receipt tamper/race/security/privacy/IME/native qualification remains UNRUN.
+
+
+### Controlled public separator source adapter
+
+`src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts`
+consumes the documented root-exported UI921 payload/coordinate types. Its public
+source is pinned to FsusUI `baf1334f19f938011ad0dd8c86905c91fef83979`, based on
+`8db0ac8f49749e3e5f28be5051bb3d3ed71ada71`. It does not import a private Slider,
+Scrollbar, Carousel, hook, DOM node or listener. Capture and keyboard/ARIA stay
+inside ElResizeSeparator/FsusResizeSeparator. Only the public instance `cancel()`
+is called through the required host port. Before changing any consumer identity,
+accepted source state or measurement configuration, the host must call adapter
+`invalidate()` in the same synchronous stack, which clears its interaction before
+calling the public handle's `cancel()`. No UI921 author execution result is
+admitted as qualification. At the inspected UI head, independent source review
+has reported Escape propagation and fractional half-step quantization P2 fixes
+pending with that owner; this adapter does not fix either in Blog. It uses
+integer permille step 1 and awaits the upstream corrected source head.
+
+The factory is generic over the original group's `AuthoringTabGroupProjection`,
+not a second local group shape. Required ports read that genuine projection,
+extract its owner-issued ratio scope/ref, check original current projection,
+supply real geometry measurements and synchronously publish a prepared ratio
+through the original group transaction. The adapter never calls ratio commit,
+opens/releases a scope, manufactures a command ID or owns group/session state.
+A missing/refused port, single/collapsed plan or zero resize span blocks binding.
+
+For the original `authoringTabGroupRegistry.ts` inspected at
+`f44c8196a0420d4471215607b52c18416e0d4ecd`, the host binds:
+
+- `readProjection` to `exportProjection()`; `ratioScope` and `ratioRef` to its
+  `ratioScope` and `splitRatioRef` fields, preserving exact object identity;
+- `isCurrentProjection` to the original owner/current source comparison: group
+  and article revisions, content digest, authentic live scope/ref, physical and
+  effective horizontal-two state, exact group/tab/session/focus/epoch projection;
+- `measure` to the current consumer-owned frame/viewport/chrome/scrollbar/safe-area
+  measurements, including the public handle's reserved CSS extent; it must not
+  query private component DOM;
+- `publishPreparedRatio` to the original `execute(command, change)` path with
+  `set-split-ratio-ref`, original operation command/idempotency identities,
+  captured group/article revisions, and `readPrepared`'s ratio revision/value.
+  Return the genuine new `exportProjection()` only after applied joint publication,
+  otherwise null. This source adapter is not itself the publication owner.
+
+Accepted props use integral permille `step=1`, vertical separator orientation,
+real distinct region IDs and label. Coordinates map geometry's inward-rounded
+min/max through the content extent plus the handle's half-width, in viewport
+clientX units. Initial/effective ratio is read from genuine owner-derived
+geometry, never written back just because it was clamped. A stationary gesture
+is unchanged. Effective equality of min/max leaves two-group geometry valid but
+provides no resizable handle.
+
+Start captures input source/pointer identity, exact current ref/projection and
+numeric measurement coordinates. Each valid proposal rechecks all of them,
+prepares through the sole ratio owner and delegates the joint transaction.
+After a verified success it advances to the actual new projection/ref while
+retaining the same measurements. Group/source or measurement drift cancels the
+public handle. Refused staging is discarded; an unexpected changed current
+ratio after a refused/failed publication reports recovery-required. End never
+commits again because the public primitive samples its last proposal before end.
+Cancel retains previously accepted proposals and does not roll back them. Dispose
+cancels the interaction, leaving scope disposal to the actual workspace lifecycle.
+
+This is unmounted source composition. Actual group-host wiring, retain/suspend,
+responsive effective-state publication, rendered layout, native capture and all
+browser/receipt/race/security/privacy/IME qualifications remain blocked/UNRUN.
+Bounded static type checks may extract only the exact pinned public type aliases
+into a temporary declaration envelope; this does not change dependency pins,
+replace test/config entrypoints, or establish installed-source/bundle readiness.
+The 21 existing ordinary controls remain UNRUN; the new adapter has no executed
+behavioral or native qualification.

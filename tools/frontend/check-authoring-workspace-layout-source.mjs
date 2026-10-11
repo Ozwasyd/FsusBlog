@@ -15,7 +15,8 @@ const requireFrontend = createRequire(path.join(root, 'src/frontend/package.json
 const ts = requireFrontend('typescript');
 const ownerPath = 'src/frontend/src/services/authoring/authoringWorkspaceRatioOwner.ts';
 const geometryPath = 'src/frontend/src/services/authoring/authoringWorkspaceGeometryPolicy.ts';
-const sources = new Map([ownerPath, geometryPath].map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
+const separatorPath = 'src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts';
+const sources = new Map([ownerPath, geometryPath, separatorPath].map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
 const trees = new Map([...sources].map(([file, source]) => [file, ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)]));
 const failures = [];
 const forbiddenIdentifiers = new Set([
@@ -46,8 +47,11 @@ for (const [file, tree] of trees)
         {
             failures.push(`${file}: forbidden-state-or-runtime-dependency:${node.text}`);
         }
-        if (ts.isImportDeclaration(node)
-            && (file !== geometryPath || node.moduleSpecifier.text !== './authoringWorkspaceRatioOwner'))
+        const ownedImport = ts.isImportDeclaration(node) && (file === geometryPath
+            && node.moduleSpecifier.text === './authoringWorkspaceRatioOwner'
+            || file === separatorPath && (['./authoringWorkspaceRatioOwner', './authoringWorkspaceGeometryPolicy'].includes(node.moduleSpecifier.text)
+                || node.moduleSpecifier.text === '@ozwasyd/element-plus' && node.importClause?.isTypeOnly));
+        if (ts.isImportDeclaration(node) && !ownedImport)
         {
             failures.push(`${file}: unowned-import`);
         }
@@ -129,6 +133,21 @@ for (const member of ownerClasses[0]?.members ?? [])
     }
 }
 
+const separatorTree = trees.get(separatorPath);
+visit(separatorTree, node =>
+{
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        && ['commit', 'openWorkspace', 'releaseWorkspace'].includes(node.expression.name.text))
+    {
+        failures.push('separator-adapter: standalone-ratio-lifecycle-or-publication');
+    }
+    if (node.kind === ts.SyntaxKind.AwaitExpression
+        || node.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.AsyncKeyword))
+    {
+        failures.push('separator-adapter: asynchronous-publication');
+    }
+});
+
 const ratioValues = {};
 visit(ownerTree, node =>
 {
@@ -174,7 +193,7 @@ if (!wireRatio || ratioValues.minimumPermille !== wireRatio.min || ratioValues.m
 const uniqueFailures = [...new Set(failures)];
 console.log(JSON.stringify({
     schema: 'fsusblog.authoring-workspace-layout-source-scan.v1',
-    scope: 'ratio-and-pure-geometry-source-only',
+    scope: 'ratio-pure-geometry-and-public-separator-adapter-source-only',
     status: uniqueFailures.length === 0 ? 'source-check-pass' : 'source-check-fail',
     sources: [...sources].map(([file, source]) => ({ path: file, sha256: createHash('sha256').update(source).digest('hex') })),
     failures: uniqueFailures,

@@ -2,14 +2,14 @@ import { authoringWorkspaceRatioPolicy, isAuthoringWorkspaceRatioPermille } from
 
 /**
  * Product engineering choices for this source offer, not inherited minimum-width tokens.
- * 384 = 24 × public space.4; 128 = 8 × space.4; splitter 16 = one space.4.
- * The splitter footprint reserves its hit region, not a large visible handle.
+ * 384 = 24 × public space.4; 128 = 8 × space.4.
+ * Separator default 40 follows public --fsus-icon-target; actual footprint is measured.
  */
 export const authoringWorkspaceGeometryPolicy = Object.freeze({
     schema: 'fsusblog.authoring-workspace-geometry-policy.v1',
     minimumTwoGroupUsableWidthCssPx: 384,
     minimumFocusedUsableWidthCssPx: 128,
-    splitterFootprintCssPx: 16,
+    defaultSplitterFootprintCssPx: 40,
     twoGroupMinimumViewportWidthCssPx: 1024,
     effectiveLayouts: Object.freeze(['single-group', 'horizontal-two-group'] as const),
     hiddenGroupAction: 'retain-or-suspend-with-exact-restore',
@@ -55,6 +55,8 @@ export interface AuthoringWorkspaceGeometryInput {
     readonly pageChromeTopCssPx: number;
     readonly pageChromeBottomCssPx: number;
     readonly scrollbarWidthCssPx: number;
+    /** Actual reserved public separator extent, including its hit region; never private DOM. */
+    readonly splitterFootprintCssPx: number;
     readonly leadingGroupChromeWidthCssPx: number;
     readonly trailingGroupChromeWidthCssPx: number;
     readonly focusedGroupChromeWidthCssPx: number;
@@ -135,6 +137,7 @@ export function calculateAuthoringWorkspaceGeometry(input: AuthoringWorkspaceGeo
         || !Number.isFinite(input.layoutViewportHeightCssPx) || input.layoutViewportHeightCssPx <= 0
         || !Number.isFinite(input.browserZoomPercent) || input.browserZoomPercent <= 0
         || !Number.isFinite(input.visualViewportScale) || input.visualViewportScale <= 0
+        || !Number.isFinite(input.splitterFootprintCssPx) || input.splitterFootprintCssPx <= 0
         || typeof input.mobile !== 'boolean' || typeof input.softKeyboardOpen !== 'boolean'
         || deductionKeys.some(key => !Number.isFinite(input[key]) || input[key] < 0))
     {
@@ -211,7 +214,7 @@ export function calculateAuthoringWorkspaceGeometry(input: AuthoringWorkspaceGeo
         return single('narrow-viewport');
     }
 
-    const contentWidth = width - authoringWorkspaceGeometryPolicy.splitterFootprintCssPx;
+    const contentWidth = width - input.splitterFootprintCssPx;
     const minimumWidth = authoringWorkspaceGeometryPolicy.minimumTwoGroupUsableWidthCssPx;
     const minimumLeadingWidth = minimumWidth + input.leadingGroupChromeWidthCssPx;
     const minimumTrailingWidth = minimumWidth + input.trailingGroupChromeWidthCssPx;
@@ -234,7 +237,7 @@ export function calculateAuthoringWorkspaceGeometry(input: AuthoringWorkspaceGeo
     const splitter = Object.freeze({
         left: left + leadingWidth,
         top,
-        width: authoringWorkspaceGeometryPolicy.splitterFootprintCssPx,
+        width: input.splitterFootprintCssPx,
         height
     });
     // Keep the user ratio untouched: this clamp is an effective projection, never a CAS write.

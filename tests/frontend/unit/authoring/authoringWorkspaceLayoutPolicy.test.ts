@@ -44,6 +44,7 @@ function measurements(overrides: Partial<AuthoringWorkspaceGeometryInput> = {}):
         pageChromeTopCssPx: 0,
         pageChromeBottomCssPx: 0,
         scrollbarWidthCssPx: 0,
+        splitterFootprintCssPx: 40,
         leadingGroupChromeWidthCssPx: 0,
         trailingGroupChromeWidthCssPx: 0,
         focusedGroupChromeWidthCssPx: 0,
@@ -221,6 +222,7 @@ describe('workspace pure geometry source controls', () =>
         expect(plan.leadingGroupUsableWidthCssPx).toBeGreaterThanOrEqual(384);
         expect(plan.trailingGroupUsableWidthCssPx).toBeGreaterThanOrEqual(384);
         expect(plan.splitter.left).toBe(plan.available.left + plan.leadingGroupWidthCssPx);
+        expect(plan.splitter.width).toBe(40);
     });
 
     it('subtracts disjoint Rail, inspector, page chrome and scrollbar observations', () =>
@@ -249,7 +251,7 @@ describe('workspace pure geometry source controls', () =>
         const scope = workspace();
         const before = authoringWorkspaceRatioOwner.read(scope);
         const current = authoringWorkspaceRatioOwner.commit(scope, authoringWorkspaceRatioOwner.prepare(scope, before.ratioRef, 200));
-        const input = measurements({ splitRatioPermille: current.splitRatioPermille, frame: { left: 0, top: 0, width: 800, height: 900 } });
+        const input = measurements({ splitRatioPermille: current.splitRatioPermille, frame: { left: 0, top: 0, width: 832, height: 900 } });
         const plan = calculateAuthoringWorkspaceGeometry(input);
         expect(plan.status === 'planned' && plan.effectiveLayout).toBe('horizontal-two-group');
         if (plan.status !== 'planned' || plan.effectiveLayout !== 'horizontal-two-group')
@@ -298,6 +300,8 @@ describe('workspace pure geometry source controls', () =>
     {
         expect(calculateAuthoringWorkspaceGeometry(measurements({ railWidthCssPx: -1 }))).toEqual({ status: 'blocked', reason: 'invalid-measurement' });
         expect(calculateAuthoringWorkspaceGeometry(measurements({ browserZoomPercent: NaN }))).toEqual({ status: 'blocked', reason: 'invalid-measurement' });
+        expect(calculateAuthoringWorkspaceGeometry(measurements({ splitterFootprintCssPx: 0 }))).toEqual({ status: 'blocked', reason: 'invalid-measurement' });
+        expect(calculateAuthoringWorkspaceGeometry(measurements({ splitterFootprintCssPx: Infinity }))).toEqual({ status: 'blocked', reason: 'invalid-measurement' });
         expect(calculateAuthoringWorkspaceGeometry(measurements({ splitRatioPermille: 0 }))).toEqual({ status: 'blocked', reason: 'invalid-ratio' });
         expect(calculateAuthoringWorkspaceGeometry(measurements({ requestedLayout: 'grid' as AuthoringWorkspaceGeometryInput['requestedLayout'] }))).toEqual({ status: 'blocked', reason: 'invalid-layout' });
     });
