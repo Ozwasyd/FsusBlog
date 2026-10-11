@@ -4,30 +4,56 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/shared/Contracts/AuthorTypography/AuthorTypographyContracts.cs",
-                "src/shared/Contracts/AuthorTypography/AuthorTypographyContractValidator.cs",
-                "src/shared/Contracts/AuthorTypography/AuthorTypographyCommands.cs",
-                "src/shared/Contracts/AuthorTypography/AuthorTypographyCommandPolicy.cs",
-                "src/shared/Contracts/AuthorTypography/AuthorTypographyRequestReplayPolicy.cs",
-                "src/shared/Contracts/AuthorTypography/AuthorTypographyPreferenceResults.cs",
-                "src/shared/Contracts/AuthorTypography/AuthorTypographyPreferenceResultValidator.cs",
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
                 "src/backend/Interfaces/AuthorTypographyPreferencePorts.cs",
+                "src/backend/Interfaces/WritingAidPreferencePorts.cs",
                 "src/backend/Services/UserLocalePreferenceService.AuthorTypography.cs",
+                "src/backend/Services/UserLocalePreferenceService.AuthoringPreferences.cs",
+                "src/backend/Services/UserLocalePreferenceService.WritingAids.cs",
+                "src/backend/Services/UserLocalePreferenceService.cs",
+                "src/migration/Catalogs/SchemaMigrationCatalog20261008WritingAidPreferences.cs",
+                "src/migration/Definitions/WritingAidPreferenceMigrationDefinitions.cs",
+                "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+                "src/migration/OfflineMigrationClassificationFacts.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyCommandPolicy.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyCommands.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyContractValidator.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyContracts.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyPreferenceResultValidator.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyPreferenceResults.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyRequestReplayPolicy.cs",
+                "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs",
+                "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs",
+                "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs",
                 "tools/frontend/author-typography-inventory.mjs",
-                "src/frontend/src/view-contracts/authorTypographyProfile.ts",
-                "src/frontend/src/view-contracts/authorTypographySettings.ts",
-                "src/frontend/src/components/admin/article/AuthorTypographySettings.vue",
-                "src/frontend/src/services/authoring/authorTypographyMapping.ts"
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/frontend/writing-aid-legacy-inventory.mjs",
+                "tools/frontend/writing-aid-legacy-inventory.test.mjs",
+                "tools/governance/check-article-relations.mjs"
             ],
-            "reason": "These paths intersect the broad environment registry but introduce no process environment keys. Shared C# and client preflight preserve exactly the existing closed profile IDs; the controlled settings projection creates no authority or persisted preference."
+            "reason": "Preserve existing process-environment names and registered C# contract/tool surfaces in this PR: shared-row authoring CAS and domain records, DI registration, canonical writing-aid migration/catalog output, article-relation validation, legacy inventories and the merged local FsusUI style hooks. This declaration covers their current changed paths only; it changes no external identifier and supplies no runtime, generated-output or acceptance evidence."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/frontend-style-policy.json",
+                "config/schemas/article-relation-contract.schema.json",
+                "config/testing/fsusui-baseline.json",
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve the existing serialized relation-schema and FsusUI source-pin keys, original NuGet lock dependency/hash keys, and canonical frontend-style policy keys. Their current changes retain the established wire/configuration spelling rather than renaming external contracts; this scope declaration supplies no package publication or execution qualification."
         },
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/frontend/fsusui-typecheck-modes.md",
-                "src/frontend/src/services/authoring/authorTypographyMapping.ts"
+                "docs/api/contracts.md",
+                "docs/architecture/overview.md",
+                "docs/frontend/fsusui-typecheck-modes.md"
             ],
-            "reason": "Preserve exact documented public FsusUI token/property names in the five-dimension audit and current documentation. The audit supplies no CSS values, selectors or style injection and every typography target remains unavailable."
+            "reason": "Preserve documented caller-visible public FsusUI selector/token and contract spellings in current API, architecture and typography typecheck documentation. The documentation describes the existing relation, anchor, attachment, render-cache and typography boundaries without renaming DOM/CSS contracts or establishing runtime acceptance."
         }
     ]
 }
