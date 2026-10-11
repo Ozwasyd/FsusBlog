@@ -35,9 +35,9 @@ const parsePageQuery = (value: unknown): number =>
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 };
 
-const firstArrayOf = <T>(...candidates: (T[] | null | undefined)[]): T[] =>
+const firstArrayOf = <T>(...candidates: (readonly T[] | null | undefined)[]): T[] =>
 {
-    const selected = candidates.find((candidate) => Array.isArray(candidate));
+    const selected = candidates.find((candidate): candidate is readonly T[] => Array.isArray(candidate));
     return selected ? [...selected] : [];
 };
 
