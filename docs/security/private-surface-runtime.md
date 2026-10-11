@@ -17,3 +17,20 @@ Cross-tab broadcasts contain only `type` and `at`; never add account id, admin i
 Article-recovery coordination uses an independent, versioned, body-free BroadcastChannel message containing only `type/articleKey/tabId/at`; body, identity, revision, and source hash never enter it. Without BroadcastChannel, low-frequency IndexedDB checks discover other-tab versions; full-text localStorage events are not a fallback. Cleanup failure never restores a revoked server session; the next private-page start revalidates the server session and journal schema, TTL, capacity, and identity scope.
 
 Journal v2 raw IndexedDB values store only a versioned `utf8-v1` typed plaintext payload, never a full `content` string. Logical body and each stored payload are capped at 1 MiB; total stored bytes are capped at 4 MiB; TTL is 168 hours from the last unconfirmed mutation. Scheduling keeps at most one in-flight and one newest pending snapshot, so input cannot create an unbounded encode/IDB queue. The payload is unencrypted: same-origin scripts and local profile access can read it. SHA-256 digests isolate identity/source and are not a confidentiality claim. If IndexedDB is unavailable, journal fails soft without a localStorage/sessionStorage fallback and server autosave continues.
+
+## Journal checkpoint integration boundary
+
+The original journal persistence owner is `ArticleRecoveryJournal`, introduced by
+`98b480fe9681e42720b94067409453e5574ae8e5`. The later plaintext/168-hour alignment
+in #3413 did not introduce session checkpoint custody. A flush Promise, queued
+client revision, mutable record ID or source digest cannot independently establish
+a completed durable checkpoint. Session integration must receive the actual
+principal, article/recovery-tab scope, editor session, document identity, epoch and
+revision from their original owners and revalidate them across asynchronous work.
+
+The bounded checkpoint extension is source WIP for #2295/#1813. Its consumer
+contract is Blog #4210 at `114661988af3ab6022a5adf9a0e7b18d6c630388`; Writer and
+factory wiring remain separate original-owner work. Source/compiler checks do not
+qualify persistence, recovery, races, privacy or native session behavior. Runtime
+qualification remains held until the coordinating parent reviews the original
+preflight; no frozen authority or seal is refreshed for this source handoff.
