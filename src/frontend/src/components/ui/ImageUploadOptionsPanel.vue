@@ -81,6 +81,7 @@
                     </div>
                     <ElSwitch
                         :model-value="options.preserveAlpha"
+                        label="透明通道 (Alpha Channel)"
                         @update:model-value="updatePreserveAlpha"
                     />
                 </div>
@@ -92,6 +93,7 @@
                     </div>
                     <ElSwitch
                         :model-value="wasmOnly"
+                        label="WASM-only 模式"
                         @update:model-value="updateWasmOnly"
                     />
                 </div>
@@ -102,6 +104,7 @@
         <footer class="mt-12 space-y-6">
             <div
                 v-if="statusText"
+                role="status"
                 class="flex items-center gap-4 py-3 px-4 bg-[var(--fsusblog-page-bg)] border border-[var(--fsusblog-panel-border-strong)] rounded-[var(--fsus-radius-control)]"
             >
                 <span class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">{{ statusText }}</span>

@@ -110,6 +110,42 @@ describe('ImageUploadOptionsPanel', () => {
     expect(panel.emitted('update:wasm-only')).toEqual([[false], [true]])
   })
 
+  it.each([
+    { index: 0, label: '透明通道 (Alpha Channel)' },
+    { index: 1, label: 'WASM-only 模式' }
+  ])('names the real public switch input with $label', ({ index, label }) => {
+    const panel = mountPanel()
+    const control = panel.findAllComponents(ElSwitch)[index]!
+
+    expect(control.props('label')).toBe(label)
+    expect(control.get('input[role="switch"]').attributes('aria-label')).toBe(label)
+    expect(panel.emitted('update:options')).toBeUndefined()
+    expect(panel.emitted('update:wasm-only')).toBeUndefined()
+  })
+
+  it('updates status text in one implicit polite live region without duplicate announcements', async () => {
+    const panel = mountPanel()
+    expect(panel.find('[role="status"]').exists()).toBe(false)
+
+    await panel.setProps({ statusText: '已暂停', canResume: true, canAbort: true })
+    const status = panel.get('[role="status"]')
+    const statusElement = status.element
+    expect(status.text()).toContain('已暂停')
+    expect(status.findAllComponents(ElButton).map(button => button.text())).toEqual(['继续上传', '中止上传'])
+
+    await panel.setProps({ statusText: '正在上传' })
+    expect(panel.findAll('[role="status"]')).toHaveLength(1)
+    expect(panel.get('[role="status"]').element).toBe(statusElement)
+    expect(panel.get('[role="status"]').text()).toContain('正在上传')
+    expect(panel.findAll('[aria-live], [role="alert"]')).toHaveLength(0)
+    expect(status.find('[role="status"]').exists()).toBe(false)
+    expect(panel.emitted('update:options')).toBeUndefined()
+    expect(panel.emitted('update:wasm-only')).toBeUndefined()
+
+    await panel.setProps({ statusText: '' })
+    expect(panel.find('[role="status"]').exists()).toBe(false)
+  })
+
   it('preserves supported format updates and rejects other formats', async () => {
     const panel = mountPanel()
     const select = panel.getComponent(ElSelect)
