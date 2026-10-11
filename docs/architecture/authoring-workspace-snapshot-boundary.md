@@ -462,3 +462,51 @@ expose body/principal or create another body/journal owner. A prefixed async
 sourceHash-only API cannot by itself perform this synchronous pre-custody join.
 This is a required concrete original-producer seam, not an implemented substitute
 or authorization receipt. Runtime/storage/crypto qualification remains UNRUN.
+
+
+### Published original journal token versus host reference
+
+The original #1813 producer source in PR #4225 at
+`61c156009ee7b2bc540b5efd84071adf171d679e` now provides real asynchronous
+`bindCheckpointSource(...).prepare()`, original process-local object custody,
+synchronous `inspect`/`validate`, asynchronous original storage `restore`, and
+`invalidate`/`release`. Its independent source review and actual Writer reader
+integration are pending. These APIs have not been copied into this branch or
+executed here; the original journal continues to own persistence and custody.
+
+The published token is a frozen empty object checked by exact object identity in
+the issuing binding's existing custody. Its inspection returns owner/version and
+storage metadata, with no stable checkpoint reference. The unchanged #2294 host
+requires `crashJournalRef:string` matching
+`[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}`. Object serialization/hash, mutable record id,
+client revision, sourceHash, or a newly allocated factory label cannot establish
+this missing producer-owned reference.
+
+The smallest legitimate join requires the ORIGINAL journal binding to issue a
+stable content-free reference in its existing completed custody and return it
+from inspection of that same original token. The factory can retain the existing
+binding/token alongside its original session and compare the inspected reference
+to snapshot.crashJournalRef at each capture/restore admission. Original inspection
+must still independently validate exact owner/mount/context/version and expiry;
+reference equality alone is never authority. A copied reference, foreign token,
+retired binding, overwrite/confirm/discard/clear or stale context must refuse.
+No second journal, checkpoint producer, token-to-string registry or snapshot
+contract relaxation is needed. The original producer must define non-reuse and
+collision safety for its reference; this lane does not manufacture that value.
+
+A second seam remains: published inspect/validate compares scalar owner/version
+fields, not current content, and original custody deliberately retains no body.
+Its prepare verifies source/current/stored content during the actual async write,
+but that does not supply synchronous validation of the actual nativeSource inside
+the UI capture digest callback. Original journal and Writer must expose a genuine
+completed-version/current-content join usable there before retained checkpoint
+replacement. Async storage restore/hash, metadata equality, a content echo, or
+publishing a second retained body cannot substitute. Async physical restoration
+also cannot be inserted into the synchronous host restore. Confirmed/empty journal
+custody remains unsupported unless supplied by the actual producer.
+
+Until the reference and content/version joins plus actual Writer integration are
+reviewed, full factory capture/restore remains blocked. Panel/draft/full renderer
+and complete resource controls are independent remaining dependencies. All source
+inspection is static; runtime/list/discovery/mount/storage/crypto/native and all
+qualification holds remain UNRUN.
