@@ -1,0 +1,2 @@
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1201:104 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/services/authoring/articleEditorContinuity.ts:3:1 eslint/import-x/order: `@/fsusui/articleAttachments` type import should occur before type import of `@/fsusui/articlePositionMaps`

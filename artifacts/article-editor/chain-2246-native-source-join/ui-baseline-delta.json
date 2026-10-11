@@ -1,0 +1,14 @@
+{
+  "beforeErrors": 227,
+  "afterErrors": 221,
+  "added": [],
+  "removed": [
+    "src/fsusui/articleAttachments.ts(line,column): error TS2724: '\"@ozwasyd/element-plus\"' has no exported member named 'MarkdownAttachmentCaptureObservation'. Did you mean 'MarkdownAttachmentCaptureSession'?",
+    "src/fsusui/articleAttachments.ts(line,column): error TS2724: '\"@ozwasyd/element-plus\"' has no exported member named 'MarkdownAttachmentFileConsumer'. Did you mean 'MarkdownAttachmentAnchor'?",
+    "src/services/authoring/articleAttachmentContext.ts(line,column): error TS7006: Parameter 'file' implicitly has an 'any' type.",
+    "src/services/authoring/articleAttachmentContext.ts(line,column): error TS7006: Parameter 'observation' implicitly has an 'any' type.",
+    "src/services/authoring/articleAttachmentContext.ts(line,column): error TS7006: Parameter 'change' implicitly has an 'any' type.",
+    "src/services/authoring/articleAttachmentContext.ts(line,column): error TS7006: Parameter 'index' implicitly has an 'any' type."
+  ],
+  "normalization": "diagnostic coordinates and disposable UI-root path only; no message/type/name removed"
+}
