@@ -3844,7 +3844,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     }
                     catch (cleanupError)
                     {
-                        throw new AggregateError([error, cleanupError], 'article-writer-adoption-and-cleanup-failed', { cause: error });
+                        throw new AggregateError([error, cleanupError], 'article-writer-adoption-and-cleanup-failed', { cause: cleanupError });
                     }
                 }
                 throw error;
