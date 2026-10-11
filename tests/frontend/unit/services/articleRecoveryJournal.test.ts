@@ -1,4 +1,4 @@
-import { IDBFactory, IDBObjectStore } from 'fake-indexeddb'
+import { IDBFactory, IDBObjectStore, IDBVersionChangeEvent } from 'fake-indexeddb'
 import { describe, expect, it, vi } from 'vitest'
 import {
   ARTICLE_RECOVERY_JOURNAL_DATABASE,
@@ -1051,6 +1051,158 @@ describe('original journal checkpoint custody source regressions', () =>
         finally
         {
             bindings.forEach(binding => binding.release());
+        }
+    });
+});
+
+
+function holdNextRecoveryHash(content: string)
+{
+    const digest = globalThis.crypto.subtle.digest.bind(globalThis.crypto.subtle);
+    let resumeRead: () => void = () => {};
+    let notifyHeld: () => void = () => {};
+    const held = new Promise<void>(resolve =>
+    {
+        notifyHeld = resolve;
+    });
+    const resumed = new Promise<void>(resolve =>
+    {
+        resumeRead = resolve;
+    });
+    let blocked = false;
+    const spy = vi.spyOn(globalThis.crypto.subtle, 'digest').mockImplementation(async (algorithm, data) =>
+    {
+        if (!blocked && new TextDecoder().decode(data) === `${ARTICLE_RECOVERY_JOURNAL_SCHEMA}:source:${content}`)
+        {
+            blocked = true;
+            notifyHeld();
+            await resumed;
+        }
+        return digest(algorithm, data);
+    });
+    return {
+        held,
+        resume: resumeRead,
+        release: () =>
+        {
+            resumeRead();
+            spy.mockRestore();
+        }
+    };
+}
+
+describe('original journal asynchronous custody replacement source controls', () =>
+{
+    it.each(['restore', 'list'] as const)('preserves B after a delayed A %s settles', async (kind) =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        let source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const tokenA = await binding.prepare();
+        if (!tokenA)
+        {
+            throw new Error('checkpoint_A_not_issued');
+        }
+        const heldRead = holdNextRecoveryHash(source.content);
+        try
+        {
+            const pendingA = kind === 'restore' ? binding.restore(tokenA) : journal.list(source.identityId, source.articleId);
+            await heldRead.held;
+            source = { ...source, clientRevision: 'client-2295-B', editorRevision: 12, content: 'B persisted body' };
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            heldRead.resume();
+            const resultA = await pendingA;
+            if (kind === 'restore')
+            {
+                expect(resultA).toBeNull();
+            }
+            expect(binding.validate(tokenB)).toBe(true);
+            expect((await binding.restore(tokenB))?.content).toBe(source.content);
+        }
+        finally
+        {
+            heldRead.release();
+            binding.release();
+        }
+    });
+
+    it('does not delete or revoke valid B using delayed A invalid-record cleanup', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        let source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const tokenA = await binding.prepare();
+        if (!tokenA)
+        {
+            throw new Error('checkpoint_A_not_issued');
+        }
+        const rawA = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+        rawA.sourceHash = '0'.repeat(64);
+        await rawPut(indexedDB, rawA);
+        const heldRead = holdNextRecoveryHash(source.content);
+        try
+        {
+            const pendingA = journal.list(source.identityId, source.articleId);
+            await heldRead.held;
+            source = { ...source, clientRevision: 'client-2295-B', editorRevision: 12, content: 'valid replacement B' };
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            heldRead.resume();
+            const oldRead = await pendingA;
+            expect(oldRead.removedInvalidRecords).toBe(0);
+            expect(binding.validate(tokenB)).toBe(true);
+            expect((await binding.restore(tokenB))?.content).toBe(source.content);
+        }
+        finally
+        {
+            heldRead.release();
+            binding.release();
+        }
+    });
+
+    it('ignores queued callbacks belonging to a retired checkpoint connection', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const databases: IDBDatabase[] = [];
+        const originalOpen = indexedDB.open.bind(indexedDB);
+        const opened = vi.spyOn(indexedDB, 'open').mockImplementation((...args) =>
+        {
+            const request = originalOpen(...args);
+            request.addEventListener('success', () => databases.push(request.result));
+            return request;
+        });
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        let source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        try
+        {
+            expect(await binding.prepare()).not.toBeNull();
+            const retired = databases[0]!;
+            const oldVersionChange = retired.onversionchange;
+            const oldClose = retired.onclose;
+            source = { ...source, clientRevision: 'client-2295-B', editorRevision: 12, content: 'new connection B' };
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            oldVersionChange?.call(retired, new IDBVersionChangeEvent('versionchange', { oldVersion: 1, newVersion: 2 }));
+            oldClose?.call(retired, new Event('close'));
+            expect(binding.validate(tokenB)).toBe(true);
+        }
+        finally
+        {
+            opened.mockRestore();
+            binding.release();
         }
     });
 });

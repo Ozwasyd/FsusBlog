@@ -568,19 +568,56 @@ function classifyWriteFailure(error: unknown): ArticleRecoveryJournalWriteStatus
         : 'unavailable';
 }
 
-async function deleteRecordIds(database: IDBDatabase, ids: readonly string[]): Promise<void>
+function sameStoredRecordSnapshot(left: unknown, right: unknown): boolean
 {
-    if (ids.length === 0)
+    if (Object.is(left, right))
     {
-        return;
+        return true;
+    }
+    if (left instanceof Uint8Array && right instanceof Uint8Array)
+    {
+        return left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
+    }
+    if (typeof left !== 'object' || left === null || typeof right !== 'object' || right === null)
+    {
+        return false;
+    }
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const keys = Object.keys(leftRecord);
+    return keys.length === Object.keys(rightRecord).length
+        && keys.every(key => Object.hasOwn(rightRecord, key) && sameStoredRecordSnapshot(leftRecord[key], rightRecord[key]));
+}
+
+async function deleteRecordIds(
+    database: IDBDatabase,
+    records: readonly { id: string; value: unknown; }[],
+    now: number,
+    onDeleting: (id: string) => void
+): Promise<number>
+{
+    if (records.length === 0)
+    {
+        return 0;
     }
     const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readwrite');
+    const completed = transactionDone(transaction);
     const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
-    for (const id of ids)
+    const current = await Promise.all(records.map(record => requestResult<unknown>(store.get(record.id))));
+    let removed = 0;
+    for (const [index, observed] of records.entries())
     {
-        store.delete(id);
+        const value = current[index];
+        // A valid replacement must not be deleted using an earlier read's invalid IDs.
+        if (value !== undefined && (normalizeStoredRecord(value, now) === null || sameStoredRecordSnapshot(observed.value, value)))
+        {
+            onDeleting(observed.id);
+            store.delete(observed.id);
+            removed += 1;
+        }
     }
-    await transactionDone(transaction);
+    await completed;
+    return removed;
 }
 
 export class ArticleRecoveryJournal
@@ -685,7 +722,7 @@ export class ArticleRecoveryJournal
             || custody.record.expiresAt <= now)
         {
             // A foreign token must not revoke the legitimate token as a side effect.
-            if (custody?.token === token)
+            if (custody?.token === token && state.custody === custody)
             {
                 this.invalidateCheckpointBinding(state);
             }
@@ -722,6 +759,11 @@ export class ArticleRecoveryJournal
                 const database = await openDatabase(indexedDB);
                 database.onversionchange = () =>
                 {
+                    if (this.#checkpointDatabase !== database)
+                    {
+                        database.close();
+                        return;
+                    }
                     this.invalidateCheckpoints();
                     database.close();
                     if (this.#checkpointDatabase === database)
@@ -729,7 +771,13 @@ export class ArticleRecoveryJournal
                         this.#checkpointDatabase = null;
                     }
                 };
-                database.onclose = () => this.invalidateCheckpoints();
+                database.onclose = () =>
+                {
+                    if (this.#checkpointDatabase === database)
+                    {
+                        this.invalidateCheckpoints();
+                    }
+                };
                 if (state.generation !== generation || !this.#checkpointBindings.has(state))
                 {
                     database.close();
@@ -808,7 +856,10 @@ export class ArticleRecoveryJournal
         if (result.status !== 'ready' || !record || !this.inspectCheckpoint(state, token)
             || Object.entries(custody.record).some(([key, value]) => record[key as keyof ArticleRecoveryJournalRecord] !== value))
         {
-            this.invalidateCheckpointBinding(state);
+            if (state.custody === custody)
+            {
+                this.invalidateCheckpointBinding(state);
+            }
             return null;
         }
         return Object.freeze({ ...record });
@@ -942,6 +993,7 @@ export class ArticleRecoveryJournal
 
     async list(identityId: string, articleId: number | null): Promise<ArticleRecoveryJournalReadResult>
     {
+        const checkpointCustodies = [...this.#checkpointBindings].map(binding => ({ binding, custody: binding.custody }));
         const indexedDB = this.resolveIndexedDb();
         if (!indexedDB || !identityId.trim())
         {
@@ -957,7 +1009,7 @@ export class ArticleRecoveryJournal
             const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readonly');
             const rawRecords = await requestResult(transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE).getAll()) as unknown[];
             await transactionDone(transaction);
-            const invalidIds: string[] = [];
+            const invalidRecords: { id: string; value: unknown; }[] = [];
             const candidates: ArticleRecoveryJournalRecord[] = [];
             for (const raw of rawRecords)
             {
@@ -967,7 +1019,7 @@ export class ArticleRecoveryJournal
                 {
                     if (typeof rawId === 'string')
                     {
-                        invalidIds.push(rawId);
+                        invalidRecords.push({ id: rawId, value: raw });
                     }
                     continue;
                 }
@@ -981,22 +1033,24 @@ export class ArticleRecoveryJournal
                 }
                 catch
                 {
-                    invalidIds.push(stored.id);
+                    invalidRecords.push({ id: stored.id, value: raw });
                 }
             }
-            if (invalidIds.length > 0)
+            const removedInvalidRecords = await deleteRecordIds(database, invalidRecords, this.now(), (id) =>
             {
-                this.invalidateCheckpoints();
-            }
-            await deleteRecordIds(database, invalidIds);
-            if (invalidIds.length > 0)
+                // This is an actual conditional storage deletion, not a stale read's observation.
+                for (const binding of this.#checkpointBindings)
+                {
+                    if (binding.custody?.record.id === id)
+                    {
+                        this.invalidateCheckpointBinding(binding);
+                    }
+                }
+            });
+            for (const { binding, custody } of checkpointCustodies)
             {
-                this.invalidateCheckpoints();
-            }
-            for (const binding of this.#checkpointBindings)
-            {
-                const custody = binding.custody;
-                if (custody?.record.identityHash !== identityHash || custody.record.articleKey !== articleKey)
+                if (!custody || binding.custody !== custody
+                    || custody.record.identityHash !== identityHash || custody.record.articleKey !== articleKey)
                 {
                     continue;
                 }
@@ -1010,7 +1064,7 @@ export class ArticleRecoveryJournal
             return {
                 status: 'ready',
                 records: Object.freeze(candidates),
-                removedInvalidRecords: invalidIds.length
+                removedInvalidRecords
             };
         }
         catch

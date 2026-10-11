@@ -105,3 +105,30 @@ custody/actual owner facts. IndexedDB has no synchronous external existence quer
 unobserved other-tab mutation is not ruled out by inspect. Original coordination,
 list observation and asynchronous restore provide the existing external change
 boundary. No second journal, body cache, storage fallback or dispatcher is added.
+
+
+## Independent asynchronous invalidation review correction
+
+Independent review of `61c156009ee7b2bc540b5efd84071adf171d679e` identified a P2:
+an old restore/list completion could invalidate a newly prepared B token. The
+original owner now captures custody at list entry and revokes only that exact
+custody while it is still current. Restore failure uses the same object-identity
+fence. Retired database versionchange/close callbacks check their exact original
+connection before revocation.
+
+The same audit found that cleanup using an earlier invalid-ID list needed a
+transactional storage recheck. The original cleanup helper now rereads the exact
+rows inside its original readwrite transaction and preserves valid replacements.
+Unchanged integrity-invalid rows and currently structurally invalid/expired rows
+still follow original deletion semantics. Actual conditional deletion revokes
+current custody for the row being deleted; an old read's mere observation does
+not revoke replacement custody. Removed-invalid count reflects actual deletion.
+Original authoritative write/confirm/discard/clear invalidation stays intact.
+
+Added original-source controls delay A's actual recovery-source digest while B
+prepares, for both restore and list. A separate delayed integrity-invalid read
+proves that its cleanup must preserve valid B, and retired-connection callbacks
+must preserve B. These cases are UNRUN. P2 scoped compiler/style results remain
+PASS for the service / two original services, respectively; whole-file compiler
+remains RED with the same three master diagnostics (`P2-compiler.txt`). This is a
+source correction awaiting independent re-review, not accepted runtime closure.
