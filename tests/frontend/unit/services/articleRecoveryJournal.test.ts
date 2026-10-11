@@ -1210,6 +1210,40 @@ describe('original journal asynchronous custody replacement source controls', ()
 
 describe('original journal stable reference and native digest source controls', () =>
 {
+    it('checks exact issuer-held proof without another reentrant source or clock read', async () =>
+    {
+        const source = checkpointSource();
+        let sourceReads = 0;
+        let clockReads = 0;
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory(), now: () =>
+        {
+            clockReads += 1;
+            return Date.now();
+        } }).bindCheckpointSource(() =>
+        {
+            sourceReads += 1;
+            return source;
+        });
+        try
+        {
+            const token = await binding.prepare();
+            if (!token) throw new Error('checkpoint_not_issued');
+            const info = binding.inspect(token)!;
+            const before = { sourceReads, clockReads };
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+            expect(binding.hasReferenceCustody(info.checkpointRef, { ...info })).toBe(false);
+            expect(binding.hasReferenceCustody(`${info.checkpointRef}:forged`, info)).toBe(false);
+            expect({ sourceReads, clockReads }).toEqual(before);
+            binding.invalidate();
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(false);
+            expect({ sourceReads, clockReads }).toEqual(before);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
     it('issues an owner locator for the completed token and resolves it only in the same binding', async () =>
     {
         const source = checkpointSource();

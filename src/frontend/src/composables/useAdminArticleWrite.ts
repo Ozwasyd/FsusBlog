@@ -1191,6 +1191,7 @@ export function useAdminArticleWrite()
                         validate: token => issued.validate(token),
                         validateContent: (token, content) => issued.validateContent(token, content),
                         inspectReference: reference => issued.inspectReference(reference),
+                        hasReferenceCustody: (reference, info) => issued.hasReferenceCustody(reference, info),
                         validateReference: (reference, content) => issued.validateReference(reference, content),
                         restoreReference: reference => issued.restoreReference(reference),
                         captureRetainedSnapshot: (reference, assertAdmission?: () => void) =>

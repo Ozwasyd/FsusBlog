@@ -697,3 +697,29 @@ for the consumer hunk. No replacement installation path or automatic prepare on
 mount/geometry/document publication is introduced. Missing original caller/native
 binding/composition still refuses. Full host/resource and second-owner gates remain
 open; all runtime/tests/list/mount/native/kernel qualification remains UNRUN.
+
+
+### Reference callback precedes final mounted authority read
+
+The bounded P1 rereview found that a legitimate original journal source callback
+could withdraw the mounted resolver after the old mounted check while leaving
+original binding/native data alive. Capture and restore now finish original
+inspectReference and its source/expiry callback FIRST, then resolve the actual
+current mounted editor/session/context LAST and compare the original pinned owner.
+A null/withdrawn resolver refuses before native retain/history/selection mutation.
+No second reference callback is started after this final mounted read.
+
+Because the mounted resolver can itself invalidate/release/replace journal custody,
+the original issuer now exposes hasReferenceCustody(reference, inspectedInfo). It
+reads ONLY its existing private binding set and current custody's EXACT original
+info object; equal metadata/copies/locators cannot satisfy it. No clock/source or
+external callback, allocation, index, body, history or second producer is used.
+It is a private custody-continuity check, not a source/expiry inspection and never
+replaces the preceding original fresh inspectReference. Writer forwards the same
+issued method. The factory pins this real method, uses it after final mounted
+authority resolution, then checks actual composition admission. There is no
+mutually recursive resolve/inspect loop or metadata-issued authority. Native
+methods invoke this complete guard after their last renderer/view callbacks.
+Original transaction readonly ABA protection and mutating restore bytes remain.
+The original journal source case checks exact/copy/invalidation and ZERO additional
+source/clock reads; AST-only, UNRUN. Full ref/resource/caller qualification stays held.

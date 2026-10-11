@@ -161,6 +161,8 @@ export interface ArticleRecoveryJournalCheckpointReferenceBinding extends Articl
     validateContent(token: ArticleRecoveryJournalCheckpoint, content: string): boolean;
     /** Resolves only the current locator in this SAME original binding's private custody. */
     inspectReference(reference: string): ArticleRecoveryJournalCheckpointInfo | null;
+    /** Callback-free SAME issuer custody check of the exact inspected proof; not a source/expiry read. */
+    hasReferenceCustody(reference: string, info: ArticleRecoveryJournalCheckpointInfo): boolean;
     /** A locator alone is not persistence authentication; live custody and native source must match. */
     validateReference(reference: string, content: string): boolean;
     restoreReference(reference: string): Promise<Readonly<ArticleRecoveryJournalRecord> | null>;
@@ -705,6 +707,14 @@ export class ArticleRecoveryJournal
             {
                 const token = this.checkpointReferenceToken(state, reference);
                 return token ? this.inspectCheckpoint(state, token) : null;
+            },
+            hasReferenceCustody: (reference: string, info: ArticleRecoveryJournalCheckpointInfo) =>
+            {
+                const custody = state.custody;
+                // Exact original proof identity, not equal metadata or a caller-supplied locator alone.
+                // No source/clock/callback, allocation, body copy or alternate custody is consulted.
+                return this.#checkpointBindings.has(state) && custody !== null
+                    && custody.info === info && custody.info.checkpointRef === reference;
             },
             validateReference: (reference: string, content: string) =>
             {
