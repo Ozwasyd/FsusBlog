@@ -5,7 +5,6 @@ import {
     calculateOpenArticleDocumentDigest,
     openArticleDocumentCommandSchema,
     openArticleDocumentRegistrySchema,
-    maxArticleGroupOwnershipTransactionTabs,
     replayOpenArticleDocumentCommands,
     verifyOpenArticleDocumentRegistryState,
     verifyOpenArticleDocumentResult,
@@ -112,7 +111,7 @@ describe('OpenArticleDocumentRegistry exact ownership set (#2298)', () => {
         expect(result.status).toBe('applied');
         expect(registry.getRevision()).toBe(before.revision + 1);
         expect(result.ownershipChanges).toHaveLength(2);
-        expect(verifyOpenArticleDocumentResult(result)).toBe(true);
+        expect(verifyOpenArticleDocumentResult(result, command)).toBe(true);
         for (const entry of before.entries)
         {
             expect(registry.getEntry(entry.tabId)).toEqual({
@@ -161,15 +160,39 @@ describe('OpenArticleDocumentRegistry exact ownership set (#2298)', () => {
         expect(registry.exportState()).toEqual(before);
     });
 
-    it('rejects an oversized exact set and shares the legacy idempotency namespace', () => {
+    it('bounds the request by actual owned members and shares the legacy idempotency namespace', () => {
         const registry = registryWithTwoTabs();
         const command = ownershipSet(registry);
         const before = registry.exportState();
-        const tabs = Array.from({ length: maxArticleGroupOwnershipTransactionTabs + 1 }, (_, index) => ({
+        const tabs = Array.from({ length: registry.listEntries().length + 1 }, (_, index) => ({
             ...command.tabs[0], tabId: `tab-bound-${index}`
         }));
         expect(registry.execute({ ...command, tabs }).status).toBe('rejected-invalid-command');
         expect(registry.execute({ ...command, idempotencyKey: 'idempotency-open-901-0' }).status).toBe('rejected-idempotency-conflict');
+        expect(registry.exportState()).toEqual(before);
+    });
+
+    it('moves 101 existing members in one transaction without inventing a registry capacity', () => {
+        const registry = new OpenArticleDocumentRegistry();
+        for (let articleId = 1; articleId <= 101; articleId += 1)
+        {
+            registry.execute(openCommand(articleId, registry.getRevision()));
+        }
+        const command = ownershipSet(registry);
+        const before = registry.exportState();
+        const result = registry.execute(command);
+        expect(result.status).toBe('applied');
+        expect(result.ownershipChanges).toHaveLength(101);
+        expect(result.revisionAfter).toBe(before.revision + 1);
+        expect(verifyOpenArticleDocumentResult(result, command)).toBe(true);
+    });
+
+    it.each([0, 1])('refuses a sparse exact set with a hole at index %i without changing owner state', hole => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        delete command.tabs[hole];
+        const before = registry.exportState();
+        expect(registry.execute(command).status).toBe('rejected-invalid-command');
         expect(registry.exportState()).toEqual(before);
     });
 
@@ -197,7 +220,8 @@ describe('OpenArticleDocumentRegistry exact ownership set (#2298)', () => {
 
     it('rejects a resealed receipt that replaces a session in one ownership member', () => {
         const registry = registryWithTwoTabs();
-        const result = registry.execute(ownershipSet(registry));
+        const command = ownershipSet(registry);
+        const result = registry.execute(command);
         const tampered = structuredClone(result);
         const after = tampered.ownershipChanges![1].entryAfter;
         after.editorSessionRef = 'session-foreign';
@@ -205,7 +229,39 @@ describe('OpenArticleDocumentRegistry exact ownership set (#2298)', () => {
         after.contentDigest = calculateOpenArticleDocumentDigest(entryBody);
         const { contentDigest: _resultDigest, ...resultBody } = tampered;
         tampered.contentDigest = calculateOpenArticleDocumentDigest(resultBody);
-        expect(verifyOpenArticleDocumentResult(tampered)).toBe(false);
+        expect(verifyOpenArticleDocumentResult(tampered, command)).toBe(false);
+    });
+
+    it.each([null, undefined])('returns false without dereferencing a malformed ownership member %s', member => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        const result = registry.execute(command);
+        const malformed = { ...result, ownershipChanges: [member] } as unknown as typeof result;
+        expect(() => verifyOpenArticleDocumentResult(malformed, command)).not.toThrow();
+        expect(verifyOpenArticleDocumentResult(malformed, command)).toBe(false);
+    });
+
+    it('binds resealed ownership receipts to the original exact set, target and transaction', () => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        const result = registry.execute(command);
+        const reseal = (candidate: typeof result) => {
+            const { contentDigest: _digest, ...body } = candidate;
+            return { ...body, contentDigest: calculateOpenArticleDocumentDigest(body) };
+        };
+        const mixed = structuredClone(result);
+        const after = mixed.ownershipChanges![1].entryAfter;
+        after.owningGroupId = 'group-third';
+        const { contentDigest: _entryDigest, ...entryBody } = after;
+        after.contentDigest = calculateOpenArticleDocumentDigest(entryBody);
+        const removed = { ...result, ownershipChanges: result.ownershipChanges!.slice(0, 1) };
+        for (const candidate of [mixed, removed, { ...result, authorityRef: 'foreign-transaction' },
+            { ...result, revisionBefore: result.revisionBefore + 1, revisionAfter: result.revisionAfter + 1 }])
+        {
+            expect(verifyOpenArticleDocumentResult(reseal(candidate), command)).toBe(false);
+        }
+        expect(verifyOpenArticleDocumentResult(result)).toBe(false);
+        expect(verifyOpenArticleDocumentResult(result, { ...command, targetGroupId: 'group-third' })).toBe(false);
     });
 });
 

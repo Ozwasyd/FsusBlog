@@ -5,7 +5,6 @@ export const openArticleDocumentRegistrySchema = 'fsusblog.open-article-document
 export const openArticleDocumentEntrySchema = 'fsusblog.open-article-document-entry.v1' as const;
 export const openArticleDocumentCommandSchema = 'fsusblog.open-article-document-command.v1' as const;
 export const openArticleDocumentResultSchema = 'fsusblog.open-article-document-result.v1' as const;
-export const maxArticleGroupOwnershipTransactionTabs = 100;
 
 const digestPattern = /^[a-f0-9]{64}$/u;
 const stableIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u;
@@ -398,7 +397,31 @@ function isStatus(value: unknown): value is ArticleWorkspaceStatusSummary
         && isStableId(value.statusRef);
 }
 
-function isValidCommand(command: unknown): command is OpenArticleDocumentCommand
+function isOwnershipTabSet(value: unknown, memberLimit: number): value is ArticleGroupOwnershipTabRef[]
+{
+    if (!Array.isArray(value) || value.length === 0 || value.length > memberLimit)
+    {
+        return false;
+    }
+    const tabIds = new Set<string>();
+    for (let index = 0; index < value.length; index += 1)
+    {
+        if (!Object.prototype.hasOwnProperty.call(value, index)) return false;
+        const tab: unknown = value[index];
+        if (!hasExactKeys(tab, ['tabId', 'expectedOwningGroupId', 'editorSessionRef', 'documentEpoch', 'lifecycleRevision'])
+            || !isStableId(tab.tabId) || !isStableId(tab.expectedOwningGroupId) || !isStableId(tab.editorSessionRef)
+            || !Number.isSafeInteger(tab.documentEpoch) || Number(tab.documentEpoch) < 1
+            || !Number.isSafeInteger(tab.lifecycleRevision) || Number(tab.lifecycleRevision) < 1
+            || tabIds.has(tab.tabId))
+        {
+            return false;
+        }
+        tabIds.add(tab.tabId);
+    }
+    return true;
+}
+
+function isValidCommand(command: unknown, ownershipMemberLimit = Number.MAX_SAFE_INTEGER): command is OpenArticleDocumentCommand
 {
     if (!command || typeof command !== 'object' || Array.isArray(command))
     {
@@ -407,7 +430,7 @@ function isValidCommand(command: unknown): command is OpenArticleDocumentCommand
 
     const record = command as Record<string, unknown>;
     const kind = record.kind as OpenArticleDocumentCommand['kind'];
-    const keys = commandKeys[kind];
+    const keys = Object.prototype.hasOwnProperty.call(commandKeys, kind) ? commandKeys[kind] : undefined;
     if (
         !keys
         || !hasExactKeys(record, keys)
@@ -465,17 +488,7 @@ function isValidCommand(command: unknown): command is OpenArticleDocumentCommand
         case 'update-group-ownership-set':
             return isStableId(record.targetGroupId)
                 && isStableId(record.ownershipTransactionRef)
-                && Array.isArray(record.tabs)
-                && record.tabs.length > 0
-                && record.tabs.length <= maxArticleGroupOwnershipTransactionTabs
-                && record.tabs.every(tab => hasExactKeys(tab, [
-                    'tabId', 'expectedOwningGroupId', 'editorSessionRef', 'documentEpoch', 'lifecycleRevision'
-                ]) && isStableId(tab.tabId)
-                    && isStableId(tab.expectedOwningGroupId)
-                    && isStableId(tab.editorSessionRef)
-                    && Number.isSafeInteger(tab.documentEpoch) && Number(tab.documentEpoch) > 0
-                    && Number.isSafeInteger(tab.lifecycleRevision) && Number(tab.lifecycleRevision) > 0)
-                && new Set(record.tabs.map(tab => tab.tabId)).size === record.tabs.length;
+                && isOwnershipTabSet(record.tabs, ownershipMemberLimit);
     }
 }
 
@@ -555,6 +568,7 @@ export class OpenArticleDocumentRegistry
     private tabIdBySessionRef = new Map<string, string>();
     private processedCommands = new Map<string, ProcessedCommand>();
     private revision = 0;
+    private ownershipTransactionPending = false;
 
     public getRevision(): number
     {
@@ -587,8 +601,12 @@ export class OpenArticleDocumentRegistry
 
     public execute(command: unknown): OpenArticleDocumentCommandResult
     {
+        if (this.ownershipTransactionPending)
+        {
+            return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
+        }
         const commandDigest = calculateOpenArticleDocumentDigest(command);
-        if (!isValidCommand(command))
+        if (!isValidCommand(command, this.entriesByTabId.size))
         {
             return makeRejectedResult(
                 command,
@@ -623,7 +641,15 @@ export class OpenArticleDocumentRegistry
 
         if (command.kind === 'update-group-ownership-set')
         {
-            return this.applyOwnershipSet(command, commandDigest);
+            this.ownershipTransactionPending = true;
+            try
+            {
+                return this.applyOwnershipSet(command, commandDigest);
+            }
+            finally
+            {
+                this.ownershipTransactionPending = false;
+            }
         }
 
         const result = this.applyCommand(command, commandDigest);
@@ -1149,8 +1175,21 @@ function isRiskStatus(status: ArticleWorkspaceStatusSummary): boolean
         || status.lifecycle !== 'current';
 }
 
-export function verifyOpenArticleDocumentResult(result: OpenArticleDocumentCommandResult): boolean
+export function verifyOpenArticleDocumentResult(result: OpenArticleDocumentCommandResult, originalCommand?: unknown): boolean
 {
+    try
+    {
+        return verifyResultAgainstCommand(result, originalCommand);
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+function verifyResultAgainstCommand(result: OpenArticleDocumentCommandResult, originalCommand?: unknown): boolean
+{
+    if (!result || typeof result !== 'object') return false;
     if (!hasExactKeys(result, [
         'schema',
         'commandId',
@@ -1214,27 +1253,50 @@ export function verifyOpenArticleDocumentResult(result: OpenArticleDocumentComma
     if (result.commandKind === 'update-group-ownership-set')
     {
         const changes = result.ownershipChanges;
-        if (!Array.isArray(changes) || changes.length > maxArticleGroupOwnershipTransactionTabs
-            || new Set(changes.map(change => change.entryBefore?.tabId)).size !== changes.length)
+        if (!isValidCommand(originalCommand) || originalCommand.kind !== 'update-group-ownership-set'
+            || result.commandId !== originalCommand.commandId || result.idempotencyKey !== originalCommand.idempotencyKey
+            || result.commandDigest !== calculateOpenArticleDocumentDigest(originalCommand)
+            || !['applied', 'replayed', 'rejected-cas', 'rejected-idempotency-conflict',
+                'rejected-invalid-command', 'rejected-not-found', 'rejected-state'].includes(result.status)
+            || result.tabId !== null || result.editorSessionRef !== null || result.owningGroupId !== null
+            || result.replacedPreviewTabId !== null || result.replacedPreviewSessionRef !== null
+            || result.entryBefore !== null || result.entryAfter !== null
+            || !Array.isArray(changes) || changes.length > originalCommand.tabs.length)
         {
             return false;
         }
-        const applied = result.status === 'applied' || result.status === 'replayed';
-        if (applied && (changes.length === 0 || result.revisionAfter !== result.revisionBefore + 1)
-            || !applied && (changes.length !== 0 || result.revisionAfter !== result.revisionBefore))
+        for (let index = 0; index < changes.length; index += 1)
         {
-            return false;
-        }
-        for (const change of changes)
-        {
+            if (!Object.prototype.hasOwnProperty.call(changes, index)) return false;
+            const change: unknown = changes[index];
             if (!hasExactKeys(change, ['entryBefore', 'entryAfter'])
-                || !isValidEntry(change.entryBefore) || !isValidEntry(change.entryAfter))
-            {
-                return false;
-            }
+                || !isValidEntry(change.entryBefore) || !isValidEntry(change.entryAfter)) return false;
+        }
+        if (new Set(changes.map(change => change.entryBefore.tabId)).size !== changes.length) return false;
+        const applied = result.status === 'applied' || result.status === 'replayed';
+        if (applied && (changes.length !== originalCommand.tabs.length
+            || result.revisionBefore !== originalCommand.expectedRevision
+            || result.revisionAfter !== originalCommand.expectedRevision + 1
+            || result.authorityRef !== originalCommand.ownershipTransactionRef
+            || result.reason !== (result.status === 'replayed' ? 'applied' : null))
+            || !applied && (changes.length !== 0 || result.revisionAfter !== result.revisionBefore
+                || result.authorityRef !== null
+                || !['rejected-cas', 'rejected-idempotency-conflict', 'rejected-invalid-command'].includes(result.status)
+                    && result.revisionBefore !== originalCommand.expectedRevision))
+        {
+            return false;
+        }
+        for (const [index, change] of changes.entries())
+        {
+            const reference = originalCommand.tabs[index];
             const before = change.entryBefore;
             const after = change.entryAfter;
-            if (after.owningGroupId === before.owningGroupId
+            if (before.tabId !== reference.tabId || before.owningGroupId !== reference.expectedOwningGroupId
+                || before.editorSessionRef !== reference.editorSessionRef
+                || before.documentContext.documentEpoch !== reference.documentEpoch
+                || before.lifecycleRevision !== reference.lifecycleRevision
+                || after.owningGroupId !== originalCommand.targetGroupId
+                || after.owningGroupId === before.owningGroupId
                 || after.lifecycleRevision !== before.lifecycleRevision + 1
                 || calculateOpenArticleDocumentDigest({
                     ...omitContentDigest(before),
@@ -1374,7 +1436,7 @@ export function replayOpenArticleDocumentCommands(
     const state = registry.exportState();
     return {
         accepted: failingCommandIndex === null
-            && results.every(verifyOpenArticleDocumentResult)
+            && results.every((result, index) => verifyOpenArticleDocumentResult(result, commands[index]))
             && verifyOpenArticleDocumentRegistryState(state),
         failingCommandIndex,
         results,
