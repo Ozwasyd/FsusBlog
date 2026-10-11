@@ -109,7 +109,15 @@ describe('original retained document authority source controls', () =>
         task.cancel('actual-cancellation');
         expect(task.signal.aborted).toBe(true);
         expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
+        expect(task.accept('late-result').accepted).toBe(false);
+        task.complete();
+        expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
         task.settle();
+        expect(retained.inspect().pendingTaskRefs).toEqual([]);
+        const completed = retained.adapter.beginTask('render', 'producer:completed');
+        expect(completed.accept('real-result').accepted).toBe(true);
+        expect(retained.inspect().pendingTaskRefs).toEqual([completed.taskRef]);
+        completed.settle();
         expect(retained.inspect().pendingTaskRefs).toEqual([]);
     });
 
@@ -232,5 +240,43 @@ describe('original retained document authority source controls', () =>
         expect(retained.inspect().invalidationFailed).toBe(true);
         expect(() => retained.attachConsumer(createConsumer)).toThrow('attachment-unsettled');
         expect(attempts).toBe(1);
+    });
+
+    it('publishes one terminal envelope before abort callbacks and fences reentrant context mutation', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const original = retained.adapter.context;
+        const task = retained.adapter.beginTask('render', 'producer:reentrant');
+        let observedStatus: string | null = null;
+        task.signal.addEventListener('abort', () =>
+        {
+            observedStatus = task.accept('late-abort-result').envelope.status;
+            expect(() => retained.adapter.updateSource('# reentrant')).toThrow('cancellation-in-progress');
+        });
+        retained.adapter.cancelAll('actual-suspension');
+        expect(observedStatus).toBe('aborted');
+        expect(retained.adapter.completedTaskEnvelopes).toHaveLength(1);
+        expect(retained.adapter.context).toBe(original);
+        expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
+    });
+
+    it('keeps the actually returned asynchronous cleanup pending until its own completion', async () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        let finish: (() => void) | null = null;
+        const actualCleanup = new Promise<void>(resolve =>
+        {
+            finish = resolve;
+        });
+        retained.attachConsumer(() => ({ invalidateDocument: () => actualCleanup }));
+        authority.revokeRetainedScope('site:test', 'test');
+        expect(retained.inspect().consumerInvalidationState).toBe('pending');
+        const finishActualCleanup = finish as unknown as () => void;
+        finishActualCleanup();
+        await actualCleanup;
+        expect(retained.inspect().consumerInvalidationState).toBe('settled');
+        expect(retained.inspect().registry.state).toBe('revoked');
     });
 });

@@ -71,7 +71,7 @@ publication and native mount/restoration remain original-owner integration work.
 ## Original complete test entrances: UNRUN / HOLD
 
 Existing original document-context source file has 14 cases. New Registry handle
-source file has 7 cases; new retained-authority source file has 12 cases. Counts
+source file has 7 cases; new retained-authority source file has 14 cases. Counts
 come from source inspection, not Vitest list/discovery. Existing original cases
 are unchanged. All files remain complete; no `-t`, skip, mock/config replacement,
 timeout increase, worker override, coverage threshold or runner substitution is
@@ -148,3 +148,25 @@ All tests/list/discovery/candidate-import/browser/mount/native/security/privacy/
 receipt/race/real-database/storage/full Host lifecycle/full CI qualification remain
 HOLD/UNRUN. Parent and original Registry owner must independently review the actual
 exact remote head; no previous source acceptance is inherited by this new seam.
+
+## Delivery source validation checkpoint
+
+The final production owner source passed the original strict-full checker: two
+files, zero violations. Initial two optional-chain findings remain preserved in
+`.tmp/retained-document-authority/strict-full-initial.txt`; repaired and subsequent
+current passes remain separate. Final publication/inspection notifications also
+contain post-commit clone/inspection failures without rewriting original success
+receipts/history. The authority is bound to one original Registry instance.
+
+Result acceptance, stale rejection and logical `complete()` never acknowledge real
+work settlement: producer `settle()` is explicit after actual completion/cleanup.
+A consumer's actually returned asynchronous cleanup promise is retained with
+pending/settled/failed facts, and does not confer native disposal or release.
+Canceled lease and failed consumer custody remain actual references.
+
+Latest compiler-only and four-file AST results are retained separately in the
+task-owned `.tmp/retained-document-authority/` directory. Complete original full
+application RED is not waived; previous fixed-baseline comparison is 255 versus
+249 diagnostics with no added complete headline messages. No test/qualification
+was run. Source tests are 14 retained-authority and 7 Registry-handle controls,
+counted by pure TypeScript AST reading. Original context/Registry tests unchanged.

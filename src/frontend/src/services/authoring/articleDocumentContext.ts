@@ -208,11 +208,12 @@ export interface ArticleDocumentRetainedInspection {
     readonly registryRevisionMatchesDocument: boolean;
     readonly pendingTaskRefs: readonly string[];
     readonly invalidationFailed: boolean;
+    readonly consumerInvalidationState: 'not-requested' | 'pending' | 'settled' | 'failed';
 }
 
 export interface ArticleDocumentRetainedConsumer {
     /** Release actual Writer effects/ports; the producer retains this object on failure. */
-    invalidateDocument(observation: ArticleDocumentRetainedInspection): void;
+    invalidateDocument(observation: ArticleDocumentRetainedInspection): void | Promise<void>;
 }
 
 export interface ArticleDocumentRetainedBinding {
@@ -234,6 +235,8 @@ interface ArticleDocumentRetainedOwner {
     consumerFactory: ((binding: ArticleDocumentRetainedBinding) => ArticleDocumentRetainedConsumer) | null;
     attachingConsumer: boolean;
     invalidationFailed: boolean;
+    consumerInvalidationState: ArticleDocumentRetainedInspection['consumerInvalidationState'];
+    pendingConsumerInvalidation: Promise<void> | null;
     lastState: RetainedArticleDocumentInspection['state'];
     readonly listeners: Set<(observation: ArticleDocumentRetainedInspection) => void>;
 }
@@ -659,9 +662,9 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
         assertAbortReason(reason);
         if (!this.finished)
         {
-            this.controller.abort(reason);
             this.finished = true;
             this.currentEnvelope = this.owner.finishTask(this, 'aborted', null, null, reason);
+            this.controller.abort(reason);
         }
         return this.currentEnvelope;
     }
@@ -670,11 +673,14 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
     {
         if (this.finished)
         {
-            this.settle();
             return this.currentEnvelope;
         }
         const accepted = this.isCurrent()
             && (completedRevision === undefined || completedRevision === this.owner.context.sourceRevision);
+        if (this.finished)
+        {
+            return this.currentEnvelope;
+        }
         this.finished = true;
         this.currentEnvelope = this.owner.finishTask(
             this,
@@ -683,7 +689,6 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
             accepted ? value : null,
             accepted ? null : (this.signal.aborted ? 'task-aborted' : 'task-stale')
         );
-        this.settle();
         return this.currentEnvelope;
     }
 
@@ -691,7 +696,6 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
     {
         if (this.finished)
         {
-            this.settle();
             return {
                 accepted: false,
                 value: null,
@@ -701,6 +705,10 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
         }
         const accepted = this.isCurrent()
             && (completedRevision === undefined || completedRevision === this.owner.context.sourceRevision);
+        if (this.finished)
+        {
+            return this.accept(value, completedRevision);
+        }
         this.finished = true;
         this.currentEnvelope = this.owner.finishTask(
             this,
@@ -709,7 +717,6 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
             accepted ? value : null,
             accepted ? null : (this.signal.aborted ? 'task-aborted' : 'task-stale')
         );
-        this.settle();
         return {
             accepted,
             value: accepted ? value : null,
@@ -834,6 +841,19 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
     }
 
+    private assertContextMutation(): void
+    {
+        this.assertRetainedAdmission();
+        if (this.disposed)
+        {
+            throw new Error('article-document-context-disposed');
+        }
+        if (this.taskCancellationDepth > 0)
+        {
+            throw new Error('article-document-context-cancellation-in-progress');
+        }
+    }
+
     public beginTask(
         kind: ArticleDocumentTaskKind,
         producerRef: string,
@@ -894,6 +914,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-retained-switch-requires-registry');
         }
+        this.assertContextMutation();
         if (this.disposed)
         {
             throw new Error('article-document-context-disposed');
@@ -946,7 +967,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public updateSource(content: string, sourceRevision?: number): ArticleDocumentContext
     {
-        this.assertRetainedAdmission();
+        this.assertContextMutation();
         if (this.disposed)
         {
             throw new Error('article-document-context-disposed');
@@ -966,7 +987,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             throw new Error('article-document-source-revision-must-advance');
         }
         this.cancelAll('source-revision-changed');
-        this.assertRetainedAdmission();
+        this.assertContextMutation();
         this.current = createArticleDocumentContext({
             articleId: this.current.articleId,
             draftId: this.current.draftId,
@@ -985,7 +1006,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public updateDraftRevision(draftRevision: string | null): ArticleDocumentContext
     {
-        this.assertRetainedAdmission();
+        this.assertContextMutation();
         if (this.disposed)
         {
             throw new Error('article-document-context-disposed');
@@ -999,7 +1020,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             return this.current;
         }
         this.cancelAll('draft-revision-changed');
-        this.assertRetainedAdmission();
+        this.assertContextMutation();
         this.current = createArticleDocumentContext({
             articleId: this.current.articleId,
             draftId: this.current.draftId,
@@ -1195,6 +1216,7 @@ export class ArticleDocumentContextAuthority
     private readonly ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
     private readonly scopedOwners = new Set<ArticleDocumentRetainedOwner>();
     private scopeRevocationPending = false;
+    private retainedRegistry: OpenArticleDocumentRegistry | null = null;
 
     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
     {
@@ -1295,7 +1317,10 @@ export class ArticleDocumentContextAuthority
             {
                 throw new Error('article-document-primary-already-retained');
             }
-            previous.binding.inspect();
+            if (previous.binding.inspect().registry.state === 'revoked')
+            {
+                throw new Error('article-document-retained-owner-revoked');
+            }
             return previous.binding;
         }
         return this.bindRetainedOwner(handle, this.createRetainedOwner(registry, custody.adapter, scope));
@@ -1381,8 +1406,14 @@ export class ArticleDocumentContextAuthority
         {
             throw new Error('article-document-retained-scope-invalid');
         }
+        if (this.retainedRegistry && this.retainedRegistry !== registry)
+        {
+            throw new Error('article-document-retained-registry-owner-mismatch');
+        }
+        this.retainedRegistry = registry;
         return { registry, adapter, scope, principalIdentityId, handle: null, binding: null,
             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
+            consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
             lastState: 'live', listeners: new Set() };
     }
 
@@ -1407,7 +1438,8 @@ export class ArticleDocumentContextAuthority
         return Object.freeze({ registry, context, principalIdentityId: owner.principalIdentityId,
             registryRevisionMatchesDocument: registry.entry?.documentContext.sourceRevision === `source-revision:${context.sourceRevision}`
                 && registry.entry.documentContext.draftRevision === context.draftRevision,
-            pendingTaskRefs: owner.adapter.pendingTaskRefs, invalidationFailed: owner.invalidationFailed });
+            pendingTaskRefs: owner.adapter.pendingTaskRefs, invalidationFailed: owner.invalidationFailed,
+            consumerInvalidationState: owner.consumerInvalidationState });
     }
 
     private bindRetainedOwner(handle: RetainedArticleDocumentHandle, owner: ArticleDocumentRetainedOwner): ArticleDocumentRetainedBinding
@@ -1452,6 +1484,14 @@ export class ArticleDocumentContextAuthority
                 {
                     throw new Error('article-document-retained-consumer-unavailable');
                 }
+                if (owner.consumerFactory && !owner.consumer)
+                {
+                    throw new Error('article-document-retained-consumer-attachment-unsettled');
+                }
+                if (owner.invalidationFailed)
+                {
+                    throw new Error('article-document-retained-consumer-unavailable');
+                }
                 if (owner.consumer)
                 {
                     if (owner.consumerFactory !== create)
@@ -1459,10 +1499,6 @@ export class ArticleDocumentContextAuthority
                         throw new Error('article-document-retained-consumer-already-attached');
                     }
                     return owner.consumer as T;
-                }
-                if (owner.consumerFactory)
-                {
-                    throw new Error('article-document-retained-consumer-attachment-unsettled');
                 }
                 owner.attachingConsumer = true;
                 owner.consumerFactory = create;
@@ -1477,7 +1513,7 @@ export class ArticleDocumentContextAuthority
                     {
                         if (this.readRetainedRegistry(owner).state === 'revoked')
                         {
-                            owner.consumer.invalidateDocument(this.inspectRetainedOwner(owner));
+                            this.invalidateRetainedConsumer(owner);
                         }
                         throw new Error('article-document-retained-consumer-admission-changed');
                     }
@@ -1529,14 +1565,7 @@ export class ArticleDocumentContextAuthority
             }
             if (state === 'revoked' && changedState && owner.consumer)
             {
-                try
-                {
-                    owner.consumer.invalidateDocument(this.inspectRetainedOwner(owner));
-                }
-                catch
-                {
-                    owner.invalidationFailed = true;
-                }
+                this.invalidateRetainedConsumer(owner);
             }
         }
         for (const listener of [...owner.listeners])
@@ -1549,6 +1578,41 @@ export class ArticleDocumentContextAuthority
             {
                 owner.invalidationFailed = true;
             }
+        }
+    }
+
+    private invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
+    {
+        if (!owner.consumer || owner.consumerInvalidationState !== 'not-requested')
+        {
+            return;
+        }
+        owner.consumerInvalidationState = 'pending';
+        try
+        {
+            const pending = owner.consumer.invalidateDocument(this.inspectRetainedOwner(owner));
+            if (!pending)
+            {
+                owner.consumerInvalidationState = 'settled';
+                return;
+            }
+            // Preserve the ACTUAL returned cleanup promise; do not invent a task,
+            // recovery token, timeout completion or zero-resource receipt.
+            owner.pendingConsumerInvalidation = pending;
+            void pending.then(() =>
+            {
+                owner.consumerInvalidationState = 'settled';
+                owner.pendingConsumerInvalidation = null;
+            }, () =>
+            {
+                owner.consumerInvalidationState = 'failed';
+                owner.invalidationFailed = true;
+            });
+        }
+        catch
+        {
+            owner.consumerInvalidationState = 'failed';
+            owner.invalidationFailed = true;
         }
     }
 

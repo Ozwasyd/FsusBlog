@@ -50,6 +50,10 @@ another Writer composable. A different factory or reentrant attachment refuses.
 Layout borrows the original Writer's commands and view/mount ports. The authority
 retains actual consumer references on final invalidation or cleanup failure;
 permission/delete/archive blocking does not invoke final consumer release.
+If final invalidation returns an actual cleanup promise, the SAME promise remains
+in owner custody and `consumerInvalidationState` reports pending/settled/failed;
+an asynchronous rejection records failure and preserves the actual reference.
+This is producer completion observation, not native disposal or release permission.
 Original `adapter.subscribeContext` remains the context-change subscription.
 
 `inspect().registry` reads canonical membership and permission/lifecycle facts;
@@ -63,8 +67,11 @@ never rewritten as current readiness.
 
 Canceled leases stay in their original adapter's `pendingTaskRefs` until the
 actual producer calls `lease.settle()` after its real work/cleanup has settled.
-Running work cannot be settled. Real completion/late-result delivery settles its
-lease while keeping the original acceptance/stale result rules. An abort or
+Running work cannot be settled. Acceptance, rejection and logical completion do
+not settle actual underlying work; the original producer explicitly acknowledges
+settlement after its real completion AND cleanup. Original acceptance/stale result
+rules remain intact. Terminal envelopes are published before synchronous abort
+listeners run, preventing duplicate completion on reentrant cancellation. An abort or
 aborted envelope is not completion. Final close, identity replacement and scope
 revocation disable old admission and notify consumers while retaining canceled
 work and recovery references; they do not prove native disposal or zero resources.

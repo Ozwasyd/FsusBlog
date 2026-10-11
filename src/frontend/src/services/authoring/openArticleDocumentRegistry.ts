@@ -839,7 +839,16 @@ export class OpenArticleDocumentRegistry
         {
             for (const cell of this.retainedDocumentCells)
             {
-                notifyRetainedArticleDocumentCell(cell);
+                try
+                {
+                    notifyRetainedArticleDocumentCell(cell);
+                }
+                catch
+                {
+                    // Inspection/clone failure is also post-publication failure;
+                    // never rewrite the original committed result or history.
+                    cell.notificationFailed = true;
+                }
             }
         }
         finally
