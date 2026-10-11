@@ -451,3 +451,14 @@ its narrow source tests/docs; it does not edit Writer/runtime/Write/factory. Thi
 factory lane will consume the published original concrete API after independent
 source review, with actual Writer current-owner rechecks and no second journal.
 All runtime/list/discovery/mount/native/storage/network qualification remains UNRUN.
+
+The consumer also needs synchronous original-token validation against the actual
+native source. The existing UI captureSnapshot digest callback receives the real
+sole-owner source before view/history/checkpoint custody is replaced. Factory can
+call the original journal's synchronous completed-content/version validator there
+and throw on mismatch, preserving the previous retained checkpoint. The journal
+owner keeps its original completed write custody private; inspection must not
+expose body/principal or create another body/journal owner. A prefixed async
+sourceHash-only API cannot by itself perform this synchronous pre-custody join.
+This is a required concrete original-producer seam, not an implemented substitute
+or authorization receipt. Runtime/storage/crypto qualification remains UNRUN.
