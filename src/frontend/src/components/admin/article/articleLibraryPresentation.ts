@@ -4,6 +4,16 @@ import type { ArticleDetailResponse } from '@/contracts/binaryApi';
 /** Display scopes only. The shared query owner interprets these navigation intents. */
 export type ArticleLibraryGroup = 'recent' | 'draft' | 'published' | 'scheduled' | 'archived';
 
+/** Only ElButton's documented exposed native ref is consumed, never component internals. */
+export interface ArticleLibraryButtonHandle {
+    readonly ref?: HTMLButtonElement;
+}
+
+/** The product content's public focus method, checked at its defineExpose boundary. */
+export interface ArticleLibraryContentHandle {
+    focusInitial(): void;
+}
+
 /** Metadata projected from an admitted source; construction does not establish permission. */
 export type ArticleLibraryEntry = Readonly<Pick<ArticleDetailResponse, 'id' | 'title' | 'updatedAt'> & {
     status: Exclude<ArticlePublishStatus, typeof ArticlePublishStatus.Deleted>;
@@ -38,9 +48,18 @@ const groupStatuses = {
 /** Reject oversized or inconsistent pages rather than truncating or inventing results. */
 export function isArticleLibraryPageValid(page: ArticleLibraryPresentation): boolean
 {
-    if (!articleLibraryGroups.some((group) => group.key === page.group)) return false;
-    if (page.state !== 'ready') return true;
-    if (page.entries.length > 50) return false;
+    if (!articleLibraryGroups.some((group) => group.key === page.group))
+    {
+        return false;
+    }
+    if (page.state !== 'ready')
+    {
+        return true;
+    }
+    if (page.entries.length > 50)
+    {
+        return false;
+    }
     const ids = new Set<number>();
     for (const entry of page.entries)
     {
