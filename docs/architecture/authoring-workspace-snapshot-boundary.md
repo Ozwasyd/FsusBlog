@@ -293,7 +293,9 @@ receipt tamper/race/security/privacy/IME/native qualification remains UNRUN.
 ## Snapshot ratio conversion source
 
 The independent snapshot consumer imports the actual sole ratio owner from
-`c1141febceb4547d4e785f7b7c378695ea5e7b08` without modifying its source.
+`a4212c5739c74381a3b9ecbe2942c6d0bbf9277b` without modifying its source.
+This replaces the earlier `c1141feb` dependency; the runtime-private issuer
+correction is statically reviewed, while all 21 declared controls remain UNRUN.
 `projectAuthoringWorkspaceSnapshotRatio(scope, ratioRef)` resolves the exact
 current ref and returns only its requested `splitRatioPermille`. Missing,
 foreign, staged or disposed refs never fall back to current/default or an
@@ -311,7 +313,23 @@ all fallible group/registry publication, then jointly publish synchronously
 without callbacks/await, or discard the proposed ratio on cancellation/refusal.
 This consumer does not call `commit`, `discard`, `applyGroups` or any runtime
 factory and does not claim cross-owner atomicity or readiness. The original
-#2298 contract, including its replay-before-count repair, remains a dependency
-to be supplied through root. Existing transport/factory/restore source is
-unchanged. All held behavioral/receipt/restore/DB/race/native qualification and
-the upstream declared controls remain UNRUN; static compilation is source-only.
+#2298 joint-publication contract remains a dependency to be supplied through
+root. At exact original head `4b19fca33b145a0c8af4b93a8ee20a1029be2721`,
+the replay-before-count repair is reported statically closed, but
+`authoringTabGroupRegistry.ts` still declares `AuthoringSplitRatioRef = string`,
+validates ratio refs with `isRef`, and clones command/projection state through
+`structuredClone`. These paths cannot preserve or verify the real opaque ratio
+capability. No string encoding, copied handle or substitute group owner is
+admitted. The original owner's proposed opaque integration is not published
+at that head and is not consumed here.
+
+The real group bootstrap must explicitly accept the restored one/two group IDs:
+the official router opens restored tabs into those saved owners before
+`applyGroups`. The common transaction's exact article Registry +1 transition
+must also be bound to a genuine verified group receipt before the snapshot
+restore advances its revision guard. The present digest-only `applyGroups`
+port does not provide that binding; reading the latest Registry revision or
+trusting a ratio-only commit cannot substitute for it. Existing
+transport/factory/restore source is unchanged. All held behavioral/receipt/
+restore/DB/race/native qualification and the upstream declared controls remain
+UNRUN; static compilation is source-only.
