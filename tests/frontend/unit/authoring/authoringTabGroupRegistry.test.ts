@@ -171,6 +171,50 @@ describe('AuthoringTabGroupRegistry ordinary source controls (#2298)', () => {
         expect(articles.exportState()).toEqual(before);
     });
 
+    it('refuses stale startup custody after binding validation reenters a real joint Group and ratio commit', () => {
+        const articles = new OpenArticleDocumentRegistry();
+        const groups = new AuthoringTabGroupRegistry(articles, ratioOptions());
+        const initial = groups.exportProjection();
+        const command: AuthoringTabGroupCommand = { ...commandBase(initial.state), kind: 'apply-group-references',
+            groups: [{ groupId: 'group-primary', expectedRevision: initial.state.groups[0].revision,
+                tabs: [], activeTabId: null }], activeGroupId: 'group-primary',
+            expectedRatioRevision: initial.state.splitRatio.revision, splitRatioPermille: 600 };
+        let committedState = initial.state;
+        let committedRatioRef = initial.splitRatioRef;
+        let committedRegistry = articles.exportState();
+        const verifyBinding = groups.verifyBinding.bind(groups);
+        const observation = vi.spyOn(groups, 'verifyBinding').mockImplementationOnce(registry => {
+            const receipt = executeWithRatio(groups, command);
+            expect(receipt.status).toBe('applied');
+            expect(groups.verifyCommittedTransition({ schema: 'fsusblog.authoring-snapshot-group-transition.v1', command, receipt })).toBe(true);
+            const projection = groups.exportProjection();
+            committedState = projection.state;
+            committedRatioRef = projection.splitRatioRef;
+            committedRegistry = articles.exportState();
+            return verifyBinding(registry);
+        });
+        try
+        {
+            expect(() => groups.beginStartupCustody()).toThrow('startup-requires-unstarted-owner');
+        }
+        finally { observation.mockRestore(); }
+        expect(committedState.revision).toBe(1);
+        expect(committedRegistry.revision).toBe(1);
+        expect(groups.exportState()).toEqual(committedState);
+        expect(articles.exportState()).toEqual(committedRegistry);
+        expect(groups.exportProjection().ratioScope).toBe(initial.ratioScope);
+        expect(groups.exportProjection().splitRatioRef).toBe(committedRatioRef);
+        expect(authoringWorkspaceRatioOwner.resolve(initial.ratioScope, committedRatioRef).splitRatioPermille).toBe(600);
+        expect(groups.verifyBinding(articles)).toBe(true);
+        expect(() => groups.beginStartupCustody()).toThrow('startup-requires-unstarted-owner');
+        expect(groups.execute(command).status).toBe('replayed');
+        expect(groups.exportState()).toEqual(committedState);
+        expect(articles.exportState()).toEqual(committedRegistry);
+        expect(addSecond(groups).status).toBe('applied');
+        expect(articles.exportState().entries).toEqual(committedRegistry.entries);
+        expect(groups.exportProjection().splitRatioRef).toBe(committedRatioRef);
+    });
+
     it('collapses active A and focused B to visual B while preserving canonical entries and replay', () => {
         const { articles, groups } = fixture();
         const create: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'create-second-group', groupId: 'group-secondary' };
