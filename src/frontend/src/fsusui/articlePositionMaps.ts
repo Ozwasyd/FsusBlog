@@ -1,7 +1,8 @@
 export type {
     MarkdownEditorDispatchResult,
     MarkdownEditorPositionMap,
-    MarkdownEditorResolvedSelection
+    MarkdownEditorResolvedSelection,
+    MarkdownEditorSessionExpose
 } from '@ozwasyd/element-plus';
 
 export type {

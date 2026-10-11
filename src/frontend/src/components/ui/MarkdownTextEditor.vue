@@ -110,6 +110,7 @@ import {
 } from '@/components/ui/markdown-editor/commands';
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection';
 import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
+import type { MarkdownEditorSessionExpose } from '@/fsusui/articlePositionMaps';
 import {
     mergeFsusUiAuthoringCommands,
     type FsusUiAuthoringCommand,
@@ -117,7 +118,7 @@ import {
     type FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import { createMarkdownSourceCoordinateMap } from '@/fsusui/markdownOutline';
-import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -126,7 +127,7 @@ import type {
     MarkdownEditorStatusDensity
 } from '@/ui-contracts/markdownEditor';
 
-type FsusUiMarkdownEditorExpose = Readonly<{
+type FsusUiMarkdownEditorExpose = MarkdownEditorSessionExpose & Readonly<{
     dispatchTransaction: ArticleEditorContinuityPort['dispatchTransaction'];
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
@@ -794,8 +795,16 @@ function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
     return editor && typeof editor.dispatchTransaction === 'function' ? editor : null;
 }
 
+function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
+{
+    const editor = editorRef.value;
+    return editor && typeof editor.dispatchTransaction === 'function' && typeof editor.getSession === 'function'
+        ? editor : null;
+}
+
 defineExpose({
     getAuthoringEditorPort,
+    getAuthoringSessionPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     closeCommandPalette,

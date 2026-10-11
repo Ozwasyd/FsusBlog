@@ -1,4 +1,4 @@
-import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection } from '@/fsusui/articlePositionMaps';
+import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection, MarkdownEditorSessionExpose } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringCommand } from '@/fsusui/authoringCommands';
 
 import {
@@ -47,6 +47,9 @@ export interface ArticleEditorContinuityPort
 {
     dispatchTransaction(transaction: Transaction): MarkdownEditorDispatchResult;
 }
+
+/** The actual public mounted object, with both transaction and retained session methods. */
+export type ArticleEditorMountedSessionPort = ArticleEditorContinuityPort & MarkdownEditorSessionExpose;
 
 export interface ArticleContinuityTaskRef
 {

@@ -1,0 +1,70 @@
+import type { ArticleDocumentContext, ArticleDocumentContextAdapter } from './articleDocumentContext';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from './articleEditorContinuity';
+import type { ArticleWorkspaceMountedEditorSource } from './articleWorkspaceMountedEditorResolver';
+import type { OpenArticleDocumentRegistry } from './openArticleDocumentRegistry';
+
+/** Project the original context into the existing workspace reference vocabulary; this is not an identity or permission issuer. */
+export function projectArticleWriterWorkspaceDocument(document: ArticleDocumentContext):
+    NonNullable<ReturnType<ArticleWorkspaceMountedEditorSource['readDocumentBinding']>>
+{
+    return Object.freeze({
+        identity: Object.freeze({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId }),
+        documentContext: Object.freeze({ documentEpoch: document.documentEpoch,
+            sourceRevision: `source-revision:${document.sourceRevision}`, draftRevision: document.draftRevision })
+    });
+}
+
+/** Borrow one actual Writer mount and the original document/registry owners; retain no second mount, body or session index. */
+export function createArticleWriterMountedEditorSource(
+    owner: ArticleDocumentContextAdapter,
+    registry: OpenArticleDocumentRegistry,
+    editor: ArticleEditorContinuityPort,
+    readMountedEditor: () => ArticleEditorMountedSessionPort | null,
+    isActive: () => boolean
+): ArticleWorkspaceMountedEditorSource
+{
+    const readMounted = (editorSessionRef: string): ArticleEditorMountedSessionPort | null =>
+    {
+        if (!isActive())
+        {
+            return null;
+        }
+        const document = owner.context;
+        if (!owner.isCurrentContext(document) || !registry.listEntries().some(entry =>
+            entry.editorSessionRef === editorSessionRef && entry.identity.articleId === document.articleId
+            && entry.identity.draftId === document.draftId && entry.identity.documentId === document.documentId))
+        {
+            return null;
+        }
+        const mounted = readMountedEditor();
+        return mounted === editor && isActive() && owner.isCurrentContext(document) ? mounted : null;
+    };
+    return Object.freeze({
+        readMountedEditor: readMounted,
+        readDocumentBinding: (editorSessionRef: string) =>
+        {
+            const mounted = readMounted(editorSessionRef);
+            if (!mounted)
+            {
+                return null;
+            }
+            const document = owner.context;
+            const session = mounted.getSession(editorSessionRef);
+            const observed = session.inspectDocumentState();
+            if (observed.documentIdentity.id !== document.documentId || observed.documentIdentity.epoch !== document.documentEpoch
+                || observed.revision !== document.sourceRevision || readMounted(editorSessionRef) !== mounted
+                || !owner.isCurrentContext(document) || mounted.getSession(editorSessionRef) !== session)
+            {
+                return null;
+            }
+            const current = session.inspectDocumentState();
+            if (current.documentIdentity.id !== observed.documentIdentity.id
+                || current.documentIdentity.epoch !== observed.documentIdentity.epoch || current.revision !== observed.revision
+                || !isActive() || !owner.isCurrentContext(document))
+            {
+                return null;
+            }
+            return projectArticleWriterWorkspaceDocument(document);
+        }
+    });
+}

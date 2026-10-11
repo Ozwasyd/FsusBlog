@@ -76,7 +76,7 @@ import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter
 } from '@/services/authoring/articleDocumentContext';
-import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
 import { ArticleEditorSearchRuntime } from '@/services/authoring/articleEditorSearchRuntime';
 import { validateArticleEditorSurfacePreference, type ArticleEditorSurfacePreference } from '@/services/authoring/articleEditorSurface';
@@ -84,6 +84,8 @@ import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorS
 import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
 import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articlePreviewAttachments';
 import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
+import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
+import { createArticleWriterMountedEditorSource } from '@/services/authoring/articleWriterMountedEditorSource';
 import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
@@ -978,7 +980,8 @@ export function useAdminArticleWrite()
     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
     let releaseEditorRuntime: (() => void) | null = null;
     const authoringEditorRuntime = Object.freeze({
-        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions) =>
+        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
+            readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
         {
             if (!active || editorRuntimeBinding)
             {
@@ -1075,7 +1078,11 @@ export function useAdminArticleWrite()
                     }
                 };
             };
-            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, search: searchRuntime });
+            const mountedSource = readMountedEditor
+                ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
+                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
+                : null;
+            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, search: searchRuntime, mountedSource });
         }
     });
     const initTask = useAbortableTask({

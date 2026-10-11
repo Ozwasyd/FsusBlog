@@ -104,7 +104,7 @@ import type {
 } from '@/fsusui/authoringCommands';
 import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
 import type { ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
-import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import {
     createArticleEditorSurfacePreference, validateArticleEditorSurfacePreference,
     type ArticleEditorSurface, type ArticleEditorSurfacePreference
@@ -172,6 +172,7 @@ const content = computed({
 
 const adapterRef = ref<{
     getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
+    getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     closeCommandPalette?: () => void;
@@ -399,8 +400,14 @@ function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
     return adapterRef.value?.getAuthoringEditorPort?.() ?? null;
 }
 
+function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
+{
+    return adapterRef.value?.getAuthoringSessionPort?.() ?? null;
+}
+
 defineExpose({
     getAuthoringEditorPort,
+    getAuthoringSessionPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     closeCommandPalette,

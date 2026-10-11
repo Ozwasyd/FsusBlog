@@ -49,7 +49,7 @@ import type {
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
-import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import type { ArticleEditorSurface } from '@/services/authoring/articleEditorSurface';
 import type {
     MarkdownEditorChrome,
@@ -140,6 +140,7 @@ const emit = defineEmits<{
 const provider = computed(() => resolveMarkdownEditorProvider());
 const editorRef = ref<{
     getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
+    getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     closeCommandPalette?: () => void;
@@ -217,8 +218,14 @@ function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
     return editorRef.value?.getAuthoringEditorPort?.() ?? null;
 }
 
+function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
+{
+    return editorRef.value?.getAuthoringSessionPort?.() ?? null;
+}
+
 defineExpose({
     getAuthoringEditorPort,
+    getAuthoringSessionPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     closeCommandPalette,
