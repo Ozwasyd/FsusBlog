@@ -1,5 +1,4 @@
-import { ElMarkdownEditor } from '@ozwasyd/element-plus';
-
+import { FsusUiMarkdownEditor as ElMarkdownEditor } from '@/fsusui/markdownEditor';
 import { AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS } from '@/view-contracts/authorTypographyProfile';
 import type { AuthorTypographyDimension } from '@/view-contracts/authorTypographyProfile';
 

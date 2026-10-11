@@ -2,8 +2,9 @@
 import { mount } from '@vue/test-utils';
 import { ElMarkdownEditor } from '@ozwasyd/element-plus';
 import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
 
+import { FsusUiMarkdownEditor } from '@/fsusui/markdownEditor';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter } from '@/services/authoring/articleAttachmentContext';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
@@ -66,6 +67,17 @@ function openRuntime(surface: 'live' | 'source')
 
 describe('author typography public mapping boundary', () =>
 {
+    it('preserves the real public editor identity, prop types, default and validator through the named adapter', () =>
+    {
+        expectTypeOf(FsusUiMarkdownEditor).toEqualTypeOf<typeof ElMarkdownEditor>();
+        expect(FsusUiMarkdownEditor).toBe(ElMarkdownEditor);
+        expect(FsusUiMarkdownEditor.props).toBe(ElMarkdownEditor.props);
+        expect(FsusUiMarkdownEditor.props.editorProfile).toBe(ElMarkdownEditor.props.editorProfile);
+        expect(FsusUiMarkdownEditor.props.editorProfile.default).toBe(ElMarkdownEditor.props.editorProfile.default);
+        expect(FsusUiMarkdownEditor.props.editorProfile.validator).toBe(ElMarkdownEditor.props.editorProfile.validator);
+        expect(readAuthorTypographyMappingAvailability().publicEditorDefaultProfile).toBe(FsusUiMarkdownEditor.props.editorProfile.default);
+    });
+
     it('refuses the real aliased public editor contract without manufacturing CSS or defaults', () =>
     {
         const availability = readAuthorTypographyMappingAvailability();
