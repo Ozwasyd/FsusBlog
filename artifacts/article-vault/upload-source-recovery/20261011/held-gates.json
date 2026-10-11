@@ -1,0 +1,12 @@
+{
+  "tests": "NOT RUN",
+  "testListOrDiscovery": "NOT RUN",
+  "buildTypeLintProductExecution": "NOT RUN",
+  "frozenAuthorityRefresh": "NOT RUN; OpenAPI, route generation, AEDS golden catalogs, matrix, receipt and current-run authorities unchanged",
+  "assets1975": "PAUSED; no asset switching/native/migration/backup/security/receipt qualification",
+  "issue1976": "waiting actual1975",
+  "issue2258": "source offer only; whole provider/rights/reference/cleanup/product acceptance OPEN",
+  "registryPackage": "held, no package installation/publication",
+  "allPriorHolds": "preserved including business receiver/canonical receipt, Writer/host, server/native/browser/security/custody/race and global merge barrier",
+  "qualification": false
+}

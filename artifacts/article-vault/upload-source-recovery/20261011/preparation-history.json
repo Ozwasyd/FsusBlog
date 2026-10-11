@@ -1,0 +1,21 @@
+{
+  "firstAttempt": {
+    "command": "git apply --check --index -",
+    "exitCode": 1,
+    "phase": "first text-only master fixture",
+    "stderr": "not printed by initial helper; no diagnostic inferred",
+    "effect": "fixture removed by TemporaryDirectory; only incomplete master patch retained; no product changes",
+    "correction": "refresh reconstructed baseline index stat cache before apply --index check",
+    "testsRun": false
+  },
+  "secondAttempt": {
+    "phase": "writer7b text fixture source metadata aggregation",
+    "failure": "asserted15 changed paths, but original UploadAssetObservation record already exactly present so14 changed plus1 retained postimage",
+    "actualBeforeAssertion": "git apply --check and actual text apply succeeded, all15 applied bytes matched",
+    "effect": "TemporaryDirectory removed, no product source changes",
+    "correction": "assert exact set of genuinely changed target leaves, separately count15 postimages and14 Writer changes"
+  },
+  "currentAttempt": "all three full source apply/reverse/byte checks succeed; prior incomplete offers retained in task scratch",
+  "testsRun": false,
+  "qualification": false
+}

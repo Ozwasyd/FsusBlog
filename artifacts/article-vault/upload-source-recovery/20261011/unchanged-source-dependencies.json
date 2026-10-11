@@ -1,0 +1,147 @@
+{
+  "rows": [
+    {
+      "target": "master",
+      "path": "src/backend/Services/FileService.cs",
+      "blob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380",
+      "sha256": "e63a5a6e0cc348e2c747caf9dc63ae6cd4b2cff5d6b57c281606bd2c21571e09",
+      "unchanged": true
+    },
+    {
+      "target": "master",
+      "path": "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+      "blob": "560976863b4a98395d9dbef7141a3f77e821923c",
+      "sha256": "5d5e97daf6834bd9a3385461927805b8199a48a1e7120c92d2151c7a214106b1",
+      "unchanged": true
+    },
+    {
+      "target": "master",
+      "path": "src/backend/Contracts/Assets/ContentAssetMediaInspector.cs",
+      "blob": "963f9b76d72d3a59053daa5db1da3d20622430f4",
+      "sha256": "75269543102ba52cef2134c6ab944cb43f781030fe6a9c4313789e5cb85457aa",
+      "unchanged": true
+    },
+    {
+      "target": "master",
+      "path": "src/core/Cache/PodBinaryCodec.Upload.cs",
+      "blob": "c0b040fb6950ae2d5d13245d22c21c0106e86367",
+      "sha256": "a4248eb945fe6479288f844359472daf51ca75eb977e5a0032ce3b6b602e3633",
+      "unchanged": true
+    },
+    {
+      "target": "master",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "blob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e",
+      "sha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "unchanged": true
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "path": "src/backend/Services/FileService.cs",
+      "blob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380",
+      "sha256": "e63a5a6e0cc348e2c747caf9dc63ae6cd4b2cff5d6b57c281606bd2c21571e09",
+      "unchanged": true
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "path": "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+      "blob": "560976863b4a98395d9dbef7141a3f77e821923c",
+      "sha256": "5d5e97daf6834bd9a3385461927805b8199a48a1e7120c92d2151c7a214106b1",
+      "unchanged": true
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "path": "src/backend/Contracts/Assets/ContentAssetMediaInspector.cs",
+      "blob": "963f9b76d72d3a59053daa5db1da3d20622430f4",
+      "sha256": "75269543102ba52cef2134c6ab944cb43f781030fe6a9c4313789e5cb85457aa",
+      "unchanged": true
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "path": "src/core/Cache/PodBinaryCodec.Upload.cs",
+      "blob": "c0b040fb6950ae2d5d13245d22c21c0106e86367",
+      "sha256": "a4248eb945fe6479288f844359472daf51ca75eb977e5a0032ce3b6b602e3633",
+      "unchanged": true
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "blob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e",
+      "sha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "unchanged": true
+    },
+    {
+      "target": "writer-7b203a3f",
+      "path": "src/backend/Services/FileService.cs",
+      "blob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380",
+      "sha256": "e63a5a6e0cc348e2c747caf9dc63ae6cd4b2cff5d6b57c281606bd2c21571e09",
+      "unchanged": true
+    },
+    {
+      "target": "writer-7b203a3f",
+      "path": "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+      "blob": "560976863b4a98395d9dbef7141a3f77e821923c",
+      "sha256": "5d5e97daf6834bd9a3385461927805b8199a48a1e7120c92d2151c7a214106b1",
+      "unchanged": true
+    },
+    {
+      "target": "writer-7b203a3f",
+      "path": "src/backend/Contracts/Assets/ContentAssetMediaInspector.cs",
+      "blob": "963f9b76d72d3a59053daa5db1da3d20622430f4",
+      "sha256": "75269543102ba52cef2134c6ab944cb43f781030fe6a9c4313789e5cb85457aa",
+      "unchanged": true
+    },
+    {
+      "target": "writer-7b203a3f",
+      "path": "src/core/Cache/PodBinaryCodec.Upload.cs",
+      "blob": "c0b040fb6950ae2d5d13245d22c21c0106e86367",
+      "sha256": "a4248eb945fe6479288f844359472daf51ca75eb977e5a0032ce3b6b602e3633",
+      "unchanged": true
+    },
+    {
+      "target": "writer-7b203a3f",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "blob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e",
+      "sha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "unchanged": true
+    },
+    {
+      "target": "writer-5e324f1d",
+      "path": "src/backend/Services/FileService.cs",
+      "blob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380",
+      "sha256": "e63a5a6e0cc348e2c747caf9dc63ae6cd4b2cff5d6b57c281606bd2c21571e09",
+      "unchanged": true
+    },
+    {
+      "target": "writer-5e324f1d",
+      "path": "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+      "blob": "560976863b4a98395d9dbef7141a3f77e821923c",
+      "sha256": "5d5e97daf6834bd9a3385461927805b8199a48a1e7120c92d2151c7a214106b1",
+      "unchanged": true
+    },
+    {
+      "target": "writer-5e324f1d",
+      "path": "src/backend/Contracts/Assets/ContentAssetMediaInspector.cs",
+      "blob": "963f9b76d72d3a59053daa5db1da3d20622430f4",
+      "sha256": "75269543102ba52cef2134c6ab944cb43f781030fe6a9c4313789e5cb85457aa",
+      "unchanged": true
+    },
+    {
+      "target": "writer-5e324f1d",
+      "path": "src/core/Cache/PodBinaryCodec.Upload.cs",
+      "blob": "c0b040fb6950ae2d5d13245d22c21c0106e86367",
+      "sha256": "a4248eb945fe6479288f844359472daf51ca75eb977e5a0032ce3b6b602e3633",
+      "unchanged": true
+    },
+    {
+      "target": "writer-5e324f1d",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "blob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e",
+      "sha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "unchanged": true
+    }
+  ],
+  "masterNativeGuardExactOldSource": true,
+  "nativeExecution": "UNRUN/HELD",
+  "qualification": false
+}

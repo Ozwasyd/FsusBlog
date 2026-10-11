@@ -1,0 +1,191 @@
+{
+  "records": [
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "manifestBlob": "983a35bd57ff8da6a0718bc2282ea9b764432402",
+      "manifestSha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+      "frameCount": 244,
+      "actualEntries": [],
+      "fourExistingGeneratedSources": [
+        {
+          "path": "src/core/Algorithms/AedsFrameType.cs",
+          "sha256": "ec89e32d33e126d2cd0f90579525c37cb1cc7ef7decbc292d1fe3d1305400d85",
+          "previewPresent": false,
+          "factsPresent": false
+        },
+        {
+          "path": "src/shared/AedsFrameHeader.cs",
+          "sha256": "cf91019019f7dee0872c8ba18d0a999205630e05a5af4190dc9a63f7615f6783",
+          "previewPresent": false,
+          "factsPresent": false
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+          "sha256": "bd886fa5dbdadbde37f3ab17d4d424cf549ba309df60c36e18a193c29f7f7f60",
+          "previewPresent": false,
+          "factsPresent": false
+        },
+        {
+          "path": "src/frontend/wasm/web/protocol/frame.ts",
+          "sha256": "5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19",
+          "previewPresent": false,
+          "factsPresent": false
+        }
+      ],
+      "offerModifiesProtocolOrGeneratedEnum": false,
+      "status": "BLOCKED activation: canonical Shared owner must join Preview275/Facts285 into complete current target roster; source generator and frozen outputs untouched"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "manifestBlob": "983a35bd57ff8da6a0718bc2282ea9b764432402",
+      "manifestSha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+      "frameCount": 244,
+      "actualEntries": [],
+      "fourExistingGeneratedSources": [
+        {
+          "path": "src/core/Algorithms/AedsFrameType.cs",
+          "sha256": "ec89e32d33e126d2cd0f90579525c37cb1cc7ef7decbc292d1fe3d1305400d85",
+          "previewPresent": false,
+          "factsPresent": false
+        },
+        {
+          "path": "src/shared/AedsFrameHeader.cs",
+          "sha256": "cf91019019f7dee0872c8ba18d0a999205630e05a5af4190dc9a63f7615f6783",
+          "previewPresent": false,
+          "factsPresent": false
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+          "sha256": "bd886fa5dbdadbde37f3ab17d4d424cf549ba309df60c36e18a193c29f7f7f60",
+          "previewPresent": false,
+          "factsPresent": false
+        },
+        {
+          "path": "src/frontend/wasm/web/protocol/frame.ts",
+          "sha256": "5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19",
+          "previewPresent": false,
+          "factsPresent": false
+        }
+      ],
+      "offerModifiesProtocolOrGeneratedEnum": false,
+      "status": "BLOCKED activation: canonical Shared owner must join Preview275/Facts285 into complete current target roster; source generator and frozen outputs untouched"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "manifestBlob": "3a2b9832a37a3da53378ea000f5d3d08f0c0379a",
+      "manifestSha256": "34556f6c878fcf16ccca736fdc48f82fe8e6e26196d25f8d8efaa207b095bb0e",
+      "frameCount": 263,
+      "actualEntries": [
+        {
+          "name": "UploadAssetPreview",
+          "value": 275,
+          "goldenFamily": "upload-response",
+          "goldenOrder": 261
+        },
+        {
+          "name": "UploadAssetFacts",
+          "value": 285,
+          "goldenFamily": "upload-response",
+          "goldenOrder": 262
+        }
+      ],
+      "fourExistingGeneratedSources": [
+        {
+          "path": "src/core/Algorithms/AedsFrameType.cs",
+          "sha256": "030eccdf191d1edcd418dcdd3bf510af0ddf18f28d26139dc8d0065460aa6684",
+          "previewPresent": true,
+          "factsPresent": true
+        },
+        {
+          "path": "src/shared/AedsFrameHeader.cs",
+          "sha256": "39524201ef934914fb09881328ee70ad02ef65de81898842ab1d498622835fab",
+          "previewPresent": true,
+          "factsPresent": true
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+          "sha256": "b2e54bb8e7f94a2580e7aa45303d13ec75df2751f5d032ba782df4f9571cac49",
+          "previewPresent": true,
+          "factsPresent": true
+        },
+        {
+          "path": "src/frontend/wasm/web/protocol/frame.ts",
+          "sha256": "12e04883266c5b546d6cb48c2b3f9772867d97ab1485dc391daa1b01369a5360",
+          "previewPresent": true,
+          "factsPresent": true
+        }
+      ],
+      "offerModifiesProtocolOrGeneratedEnum": false,
+      "status": "existing complete named source allocation; no runtime/golden qualification claimed"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "manifestBlob": "3a2b9832a37a3da53378ea000f5d3d08f0c0379a",
+      "manifestSha256": "34556f6c878fcf16ccca736fdc48f82fe8e6e26196d25f8d8efaa207b095bb0e",
+      "frameCount": 263,
+      "actualEntries": [
+        {
+          "name": "UploadAssetPreview",
+          "value": 275,
+          "goldenFamily": "upload-response",
+          "goldenOrder": 261
+        },
+        {
+          "name": "UploadAssetFacts",
+          "value": 285,
+          "goldenFamily": "upload-response",
+          "goldenOrder": 262
+        }
+      ],
+      "fourExistingGeneratedSources": [
+        {
+          "path": "src/core/Algorithms/AedsFrameType.cs",
+          "sha256": "030eccdf191d1edcd418dcdd3bf510af0ddf18f28d26139dc8d0065460aa6684",
+          "previewPresent": true,
+          "factsPresent": true
+        },
+        {
+          "path": "src/shared/AedsFrameHeader.cs",
+          "sha256": "39524201ef934914fb09881328ee70ad02ef65de81898842ab1d498622835fab",
+          "previewPresent": true,
+          "factsPresent": true
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+          "sha256": "b2e54bb8e7f94a2580e7aa45303d13ec75df2751f5d032ba782df4f9571cac49",
+          "previewPresent": true,
+          "factsPresent": true
+        },
+        {
+          "path": "src/frontend/wasm/web/protocol/frame.ts",
+          "sha256": "12e04883266c5b546d6cb48c2b3f9772867d97ab1485dc391daa1b01369a5360",
+          "previewPresent": true,
+          "factsPresent": true
+        }
+      ],
+      "offerModifiesProtocolOrGeneratedEnum": false,
+      "status": "existing complete named source allocation; no runtime/golden qualification claimed"
+    }
+  ],
+  "originalAllocations": [
+    {
+      "name": "UploadAssetPreview",
+      "value": 275,
+      "goldenOrder": 266,
+      "originalCommit": "77d5a0602692da09a37ead6f544b1f09322b597a"
+    },
+    {
+      "name": "UploadAssetFacts",
+      "value": 285,
+      "goldenOrder": 267,
+      "originalCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd"
+    }
+  ],
+  "goldenOrderIsBoundToCompleteRoster": "original268 and Writer263 source graphs differ; no renumbering/overwriting or frozen-catalog generation in this task",
+  "canonicalSharedRequest": "exact parent-supplied current-master protocol closure and owner-approved complete roster required before master activation",
+  "qualification": false
+}
