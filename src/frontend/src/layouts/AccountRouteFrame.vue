@@ -65,6 +65,7 @@
                 >
                     <component
                         :is="Component"
+                        :ref="captureRouteOutlet"
                         :key="accountRouteViewKey"
                         class="account-frame-outlet"
                         :class="contentClasses"
@@ -107,6 +108,14 @@ const props = withDefaults(defineProps<{
 }>(), {
     routeOutletEnabled: true
 });
+const emit = defineEmits<{
+    routeOutlet: [instance: unknown];
+}>();
+function captureRouteOutlet(instance: unknown): void
+{
+    // Vue's actual public routed-component ref, including null on release.
+    emit('routeOutlet', instance);
+}
 
 const route = useRoute();
 const accountMain = ref<HTMLElement | null>(null);
