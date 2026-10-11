@@ -110,37 +110,46 @@ full attachment acceptance remain outstanding.
 The original image-upload runtime keeps initialized upload facts private to its
 actual owner, pending intent, document lease and generation. Before completion,
 these remain operation-owned locals and cannot be borrowed. After the original
-successful complete acknowledgement, `onSessionReady` acquires a session loan
-while the original operation and binding are still current, before public session
-cleanup. A loan is issued at most once per attempt and expires 30 seconds from
-that actual acquisition; release, expiry or an inactive operation cannot remint
-or refresh it. Each `withSession` invocation has a separate
-access object and signal; getters are revoked and that signal is aborted when
-the awaited callback settles or its 30-second scope expires. Concurrent scopes
-do not revoke each other or extend the loan deadline. Slow chunk IO grants no
-precompletion loan. Raw upload failure grants no loan. A current operation's
-successful complete acknowledgement is kept separately from loan access. If the
-runtime completion callback fails, is cancelled, or is disposed, the runtime
-revokes access and resets public transport without sending abort. Repeated
-abandon also sends no abort after an acknowledged completion. It retains the
-original recovery snapshot, acknowledgement response and callback error privately
-and reports `upload_completion_recovery_required` through its existing error and
-cleanup state. This acknowledged operation cannot resume, recomplete or be
-overwritten while recovery is required. No canonical recovery receiver is wired
-here, so local reset does not acknowledge recovery or committed-asset cleanup.
-Successful raw upload still returns its original URL and clears transport as
-before. Its successful callback is not a canonical recovery or asset-cleanup
-receipt. Only the current operation's generation, upload ID and actual ACK history
-remain privately until replacement or instance release; successful transport
-does not retain snapshot credentials. Later flow consumer failure is a separate
-recovery boundary whose integration remains open.
+strictly correlated successful complete acknowledgement, `onSessionReady(borrow,
+completionUrl)` acquires a session loan while that operation and binding are
+still current, before public session cleanup. The second callback argument and
+the returned URL come from a frozen copy of that operation's actual validated
+ACK; callers cannot supply them. Existing single-argument callbacks remain valid.
+A loan is issued at most once per attempt and expires 30 seconds from that actual
+acquisition; release, expiry or an inactive operation cannot remint or refresh
+it. Each `withSession` invocation has a separate access object and signal;
+getters are revoked and that signal is aborted when the awaited callback settles
+or its scope expires within the original loan deadline. Concurrent scopes do not
+revoke each other or extend that deadline. Slow chunk IO and raw upload failure
+grant no precompletion loan.
 
-The original Flow separately retains its File/context while its awaited execution
-is still pending, including after logical cancellation. Repeated start/resume and
+The original Flow awaits `onFileUploaded` inside this runtime callback and an
+existing `withSession` scope, passing the original File, intent, loan and actual
+ACK URL. It does not acquire another loan. If the observer or consumer rejects,
+or cancellation, document replacement, disposal or expiry invalidates the
+original binding before the callback settles, the original runtime catch retains
+its ACK, recovery snapshot, first callback error, generation, upload ID and
+original binding identities privately before final loan release. The runtime
+revokes access, clears public transport and reports
+`upload_completion_recovery_required` through its existing error and cleanup
+state. It sends no abort after an acknowledged completion; repeated abandon
+also sends no abort. The acknowledged operation cannot resume, recomplete or be
+overwritten while recovery is required. Late completion cannot write into a
+replacement owner's context.
+
+The Flow retains its original File/context while the awaited execution is still
+pending, including after logical cancellation. Reentrant start/resume and
 clearPending cannot replace that context while execution or runtime cleanup is
-blocked. This local admission guard is not an ACK handoff or receiver release:
-the post-transport `onFileUploaded` recovery gap described above remains open
-until the original callback contract is supplied and approved.
+blocked. A permanently pending noncooperative callback can outlive revoked
+access: expiry revokes its access and signal, but does not claim physical
+termination or authorize a timeout to release the operation. Normal fulfilled
+void callbacks and batch success remain supported. Successful transport clears
+snapshot credentials and retains bounded current-operation ACK/binding history
+until replacement or instance release. A fulfilled callback, logical cancellation,
+public reset, loan release and local cleanup flags are not business acceptance or
+committed-asset cleanup receipts. No canonical recovery receiver is wired here;
+failed handoff remains a local obligation, without physical cleanup, a new ledger,
+or permission to release it.
 
 Pre-ACK cancellation captures a private context from the actual original init
 promise before invalidating its generation. Cancellation before init ACK awaits

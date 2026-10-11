@@ -91,6 +91,7 @@ interface UploadCancellationContext {
 interface AcknowledgedUploadCompletion {
     readonly generation: number;
     readonly uploadId: string;
+    readonly binding: ImageUploadAttemptBinding | undefined;
     snapshot: ResumeSessionSnapshot | null;
     readonly response: Awaited<ReturnType<typeof completeUpload>>;
     transportCompleted: boolean;
@@ -112,7 +113,7 @@ export interface ImageUploadRuntimeOptions {
     bypassCompression?: boolean;
     targetFormat?: string;
     attemptBinding?: ImageUploadAttemptBinding;
-    onSessionReady?: (borrow: ImageUploadSessionBorrow) => void | Promise<void>;
+    onSessionReady?: (borrow: ImageUploadSessionBorrow, completionUrl: string) => void | Promise<void>;
 }
 
 function buildResumeKey(file: File, options: ImageCompressionOptions, runtimeOptions?: ImageUploadRuntimeOptions): string
@@ -850,8 +851,10 @@ export function useImageUploadRuntime()
         }
         ensureCurrentAttempt();
         ownedCommitStateUnknown = false;
+        const acknowledgedResponse = Object.freeze({ ...complete });
         acknowledgedCompletion = {
-            generation, uploadId, snapshot, response: complete, transportCompleted: false,
+            generation, uploadId, binding: runtimeOptions.attemptBinding, snapshot,
+            response: acknowledgedResponse, transportCompleted: false,
             recoveryRequired: false, callbackError: undefined
         };
         cancellationOperation = null;
@@ -869,7 +872,8 @@ export function useImageUploadRuntime()
             {
                 throw createAppError(AppErrorCode.Conflict, 'upload_session_borrow_unavailable');
             }
-            await runtimeOptions.onSessionReady(borrow);
+            // The result comes only from this operation's already-correlated actual ACK.
+            await runtimeOptions.onSessionReady(borrow, acknowledgedResponse.url);
             ensureCurrentAttempt();
         }
         phase.value = 'completed';
@@ -887,7 +891,7 @@ export function useImageUploadRuntime()
             // A void callback is not an asset-cleanup receipt; failed callbacks keep their snapshot.
             acknowledgedCompletion.snapshot = null;
         }
-        return complete.url;
+        return acknowledgedResponse.url;
     };
 
     const uploadFile = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions = {}): Promise<string> =>

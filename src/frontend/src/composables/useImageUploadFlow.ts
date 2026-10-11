@@ -151,25 +151,30 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 intent = binding.intent;
                 if (options.onSessionReady || onFileUploaded)
                 {
-                    runtimeOptions.onSessionReady = async value =>
+                    runtimeOptions.onSessionReady = async (value, completionUrl) =>
                     {
                         borrow = value;
                         await options.onSessionReady?.(file, value);
+                        if (onFileUploaded)
+                        {
+                            const completedIntent = intent;
+                            if (!value.isCurrent() || !completedIntent || signal.aborted)
+                            {
+                                throw new Error('upload_session_borrow_unavailable');
+                            }
+                            // Stay inside the original ACK owner's catch and original finite access scope.
+                            await value.withSession(async () =>
+                            {
+                                await onFileUploaded(Object.freeze({ file, intent: completedIntent,
+                                    borrow: value, url: completionUrl }));
+                            });
+                        }
                     };
                 }
             }
             try
             {
                 const url = await options.runtime.uploadFile(file, options.getOptions(), runtimeOptions);
-                if (onFileUploaded)
-                {
-                    const completedBorrow = borrow as ImageUploadSessionBorrow | null;
-                    if (!completedBorrow?.isCurrent() || !intent || signal.aborted)
-                    {
-                        throw new Error('upload_session_borrow_unavailable');
-                    }
-                    await onFileUploaded(Object.freeze({ file, intent, borrow: completedBorrow, url }));
-                }
                 urls.push(url);
             }
             finally

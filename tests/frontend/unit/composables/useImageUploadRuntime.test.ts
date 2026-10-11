@@ -221,6 +221,286 @@ describe('useImageUploadRuntime', () => {
     expect(api.abortUpload).not.toHaveBeenCalled()
   })
 
+  it('Flow ACK handoff uses only the immutable validated original ACK URL', async () => {
+    const file = fileOf(73), original = boundAttempt(file), runtime = useImageUploadRuntime()
+    const ack = completeReply(uploadIds.old, 73, '/uploads/original-ack.webp')
+    api.completeUpload.mockResolvedValueOnce(ack)
+    let callbackBorrow!: ImageUploadSessionBorrow
+    const url = await runtime.uploadFile(file, options, { attemptBinding: original.binding,
+      onSessionReady: async (borrow, completionUrl) => {
+        callbackBorrow = borrow
+        expect(completionUrl).toBe('/uploads/original-ack.webp')
+        ack.url = '/uploads/forged-after-ack.webp'
+        runtime.activeSession.uploadId = uploadIds.new
+        await borrow.withSession(async facts => expect(facts.uploadId).toBe(uploadIds.old))
+      } })
+    expect(url).toBe('/uploads/original-ack.webp')
+    expect(runtime.cleanupRequired).toBe(false)
+    const recovery = await runtime.abandon().catch(error => error)
+    expect(recovery.details).toContain('result_url=/uploads/original-ack.webp')
+    expect(recovery.details).not.toContain('forged-after-ack')
+    expect(callbackBorrow.signal.aborted).toBe(true)
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow ACK handoff never writes an old late result into a replacement document owner', async () => {
+    const file = fileOf(73), host = attachmentHost(), replacement = attachmentHost()
+    const replacementSource = replacement.source()
+    const runtime = useImageUploadRuntime(), gate = deferred<void>(), success = vi.fn(), rejected = vi.fn()
+    let completion!: ImageUploadFileCompletion
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async value => { completion = value; await gate.promise } })
+    const work = flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onSuccess: success, notifyOnError: false })
+    await flushPromises()
+    const snapshot = storedSnapshot(), originalKeyValue = localStorage.getItem(snapshot.key)
+    host.documentOwner.updateSource('replacement source')
+    await flushPromises()
+    expect(completion.borrow.signal.aborted).toBe(true)
+    const capture = vi.spyOn(replacement.owner, 'capture')
+    const other = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: replacement.documentOwner, onFileUploaded: async () => {} })
+    await other.startUpload({ files: [fileOf(64, 'replacement.png')], attachmentInput: { ...replacement, origin: 'pick' }, onError: rejected })
+    expect(rejected).toHaveBeenCalledOnce()
+    expect(capture).not.toHaveBeenCalled()
+    expect(replacement.source()).toBe(replacementSource)
+    gate.resolve(); await work
+    expect(success).not.toHaveBeenCalled()
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(localStorage.getItem(snapshot.key)).toBe(originalKeyValue)
+    const recovery = await runtime.abandon().catch(error => error)
+    expect(recovery.details).toContain(`upload_id=${uploadIds.old}`)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow ACK handoff rejects reentrant replacement while preserving a normal fulfilled void consumer', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime()
+    const capture = vi.spyOn(host.owner, 'capture'), success = vi.fn(), rejected = vi.fn()
+    let flow!: ReturnType<typeof useImageUploadFlow>
+    flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async completion => {
+        expect(completion.file).toBe(file)
+        await flow.startUpload({ files: [fileOf(64, 'reentrant.png')], attachmentInput: { ...host, origin: 'pick' }, onError: rejected })
+        expect(flow.pendingContext.value?.files[0]).toBe(file)
+        await expect(runtime.uploadFile(fileOf(64, 'raw-reentrant.png'), options)).rejects.toThrow('上传尝试仍在执行')
+      } })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onSuccess: success })
+    expect(rejected).toHaveBeenCalledOnce()
+    expect(capture).toHaveBeenCalledOnce()
+    expect(success).toHaveBeenCalledWith(['/uploads/complete.webp'], { files: [file] })
+    expect(runtime.cleanupRequired).toBe(false)
+    expect(flow.pendingContext.value).toBeNull()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow ACK handoff retains an original session observer error before invoking the file consumer', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime()
+    const failure = new Error('original-session-observer-refused'), consumer = vi.fn(), rejected = vi.fn()
+    let borrow!: ImageUploadSessionBorrow
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onSessionReady: async (input, value) => {
+        expect(input).toBe(file); borrow = value; throw failure
+      }, onFileUploaded: consumer })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onError: rejected, notifyOnError: false })
+    expect(rejected.mock.calls[0]![1]).toBe(failure)
+    expect(consumer).not.toHaveBeenCalled()
+    expect(borrow.signal.aborted).toBe(true)
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(storedSnapshot().snapshot.uploadId).toBe(uploadIds.old)
+    const recovery = await runtime.abandon().catch(error => error)
+    expect(recovery.cause).toBe(failure)
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow ACK handoff revokes finite access without claiming to physically terminate a pending consumer', async () => {
+    vi.useFakeTimers()
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), gate = deferred<void>()
+    const success = vi.fn(), rejected = vi.fn()
+    let borrow!: ImageUploadSessionBorrow, settled = false
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async value => { borrow = value.borrow; await gate.promise } })
+    const work = flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onSuccess: success, notifyOnError: false })
+      .finally(() => { settled = true })
+    await flushPromises()
+    const snapshot = storedSnapshot(), context = flow.pendingContext.value
+    await vi.advanceTimersByTimeAsync(30_001)
+    expect(borrow.signal.aborted).toBe(true)
+    expect(settled).toBe(false)
+    expect(flow.canResume.value).toBe(false)
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('上传尝试仍在执行')
+    await flow.startUpload({ files: [fileOf(64, 'other.png')], onError: rejected })
+    expect(rejected).toHaveBeenCalledOnce()
+    expect(flow.pendingContext.value).toBe(context)
+    gate.resolve(); await work
+    expect(settled).toBe(true)
+    expect(success).not.toHaveBeenCalled()
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow consumer recovery retains the original ACK snapshot error and File when the consumer fails', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime()
+    const failure = new Error('original-flow-consumer-failed'), onError = vi.fn(), onSuccess = vi.fn()
+    let original!: ReturnType<typeof storedSnapshot>, completion!: ImageUploadFileCompletion
+    api.completeUpload.mockImplementationOnce(async id => {
+      original = storedSnapshot()
+      return completeReply(id, 73)
+    })
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async value => {
+        completion = value
+        expect(value.file).toBe(file)
+        expect(value.url).toBe('/uploads/complete.webp')
+        await value.borrow.withSession(async facts => {
+          expect(facts.uploadId).toBe(uploadIds.old)
+          expect(facts.uploadToken).toBe('token-old')
+          expect(facts.commitMayHaveStarted).toBe(true)
+        })
+        throw failure
+      } })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onError, onSuccess, notifyOnError: false })
+    expect(onError.mock.calls[0]![1]).toBe(failure)
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(runtime.canResume).toBe(false)
+    expect(runtime.phase).toBe('error')
+    expect(runtime.statusText).toContain('upload_completion_recovery_required')
+    expect(runtime.activeSession).toEqual({ uploadId: '', resumeKey: '', fileName: '' })
+    expect(completion.borrow.signal.aborted).toBe(true)
+    expect(localStorage.getItem(original.key)).not.toBeNull()
+    expect(storedSnapshot().snapshot).toEqual(original.snapshot)
+    expect(flow.pendingContext.value?.files[0]).toBe(file)
+    const context = flow.pendingContext.value
+    flow.clearPending()
+    expect(flow.pendingContext.value).toBe(context)
+    expect(flow.canResume.value).toBe(false)
+    for (let index = 0; index < 2; index++) {
+      const error = await runtime.abandon().catch(error => error)
+      expect(error.message).toBe('upload_completion_recovery_required')
+      expect(error.cause).toBe(failure)
+      expect(error.details).toContain(`upload_id=${uploadIds.old}`)
+      await expect(runtime.resumeLatest()).rejects.toThrow('upload_completion_recovery_required')
+      await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('upload_completion_recovery_required')
+    }
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow consumer recovery refuses duplicate start resume and reupload while the original consumer is pending', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), gate = deferred<void>()
+    const capture = vi.spyOn(host.owner, 'capture'), onSuccess = vi.fn(), duplicateError = vi.fn(), resumedConsumer = vi.fn()
+    let consumer!: ImageUploadFileCompletion
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async value => { consumer = value; await gate.promise } })
+    const work = flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onSuccess })
+    await flushPromises()
+    expect(consumer.file).toBe(file)
+    const context = flow.pendingContext.value
+    await flow.startUpload({ files: [fileOf(64, 'replacement.png')], attachmentInput: { ...host, origin: 'pick' }, onError: duplicateError, notifyOnError: false })
+    await flow.resumeUpload({ onFileUploaded: resumedConsumer, onError: duplicateError })
+    expect(duplicateError).toHaveBeenCalledTimes(2)
+    expect(capture).toHaveBeenCalledOnce()
+    expect(flow.pendingContext.value).toBe(context)
+    expect(resumedConsumer).not.toHaveBeenCalled()
+    await expect(runtime.uploadFile(fileOf(64, 'direct.png'), options)).rejects.toThrow('上传尝试仍在执行')
+    flow.clearPending()
+    expect(flow.pendingContext.value).toBe(context)
+    gate.resolve(); await work
+    expect(onSuccess).toHaveBeenCalledOnce()
+    expect(runtime.cleanupRequired).toBe(false)
+    expect(consumer.borrow.signal.aborted).toBe(true)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it.each(['cancel-resolve', 'cancel-reject', 'intent-cancel', 'dispose', 'abandon'] as const)(
+    'Flow consumer recovery keeps the original obligation after %s and rejects late completion', async action => {
+      const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), gate = deferred<void>()
+      const onSuccess = vi.fn(), lateFailure = new Error('original-late-consumer-failure')
+      let consumer!: ImageUploadFileCompletion, original!: ReturnType<typeof storedSnapshot>
+      api.completeUpload.mockImplementationOnce(async id => { original = storedSnapshot(); return completeReply(id, 73) })
+      const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+        taskRegistry: host.documentOwner, onFileUploaded: async value => { consumer = value; await gate.promise } })
+      const work = flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onSuccess, notifyOnError: false })
+      await flushPromises()
+      expect(consumer.file).toBe(file)
+      if (action.startsWith('cancel')) flow.cancel()
+      else if (action === 'intent-cancel') consumer.intent.cancel()
+      else if (action === 'dispose') host.documentOwner.dispose()
+      else await expect(runtime.abandon()).rejects.toThrow('upload_completion_recovery_required')
+      await flushPromises()
+      expect(runtime.cleanupRequired).toBe(true)
+      expect(api.abortUpload).not.toHaveBeenCalled()
+      expect(consumer.borrow.signal.aborted).toBe(true)
+      expect(storedSnapshot().snapshot).toEqual(original.snapshot)
+      const context = flow.pendingContext.value
+      await flow.startUpload({ files: [fileOf(64, 'other.png')], onError: vi.fn(), notifyOnError: false })
+      expect(flow.pendingContext.value).toBe(context)
+      if (action === 'cancel-reject') gate.reject(lateFailure)
+      else gate.resolve()
+      await work
+      expect(onSuccess).not.toHaveBeenCalled()
+      expect(runtime.cleanupRequired).toBe(true)
+      expect(storedSnapshot().snapshot).toEqual(original.snapshot)
+      const recovery = await runtime.abandon().catch(error => error)
+      expect(recovery.message).toBe('upload_completion_recovery_required')
+      if (action === 'cancel-reject') expect(recovery.cause).toBe(lateFailure)
+      await expect(runtime.uploadFile(file, options)).rejects.toThrow('upload_completion_recovery_required')
+      expect(api.initUploadSession).toHaveBeenCalledOnce()
+      expect(api.completeUpload).toHaveBeenCalledOnce()
+      expect(api.abortUpload).not.toHaveBeenCalled()
+    })
+
+  it('Flow consumer recovery keeps the ACK when a consumer settles after the original loan deadline', async () => {
+    vi.useFakeTimers()
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), gate = deferred<void>()
+    const onSuccess = vi.fn(), onError = vi.fn()
+    let consumer!: ImageUploadFileCompletion, original!: ReturnType<typeof storedSnapshot>
+    api.completeUpload.mockImplementationOnce(async id => { original = storedSnapshot(); return completeReply(id, 73) })
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async value => { consumer = value; await gate.promise } })
+    const work = flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onSuccess, onError, notifyOnError: false })
+    await flushPromises()
+    expect(consumer.file).toBe(file)
+    await vi.advanceTimersByTimeAsync(30_001)
+    expect(consumer.borrow.signal.aborted).toBe(true)
+    gate.resolve(); await work
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledOnce()
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(storedSnapshot().snapshot).toEqual(original.snapshot)
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow consumer recovery does not persist a new token or accept mutable public state as release acknowledgement', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), failure = new Error('consumer refused')
+    const writes = vi.spyOn(window.localStorage, 'setItem')
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async () => { throw failure } })
+    try {
+      await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+      expect(writes.mock.calls.filter(([key]) => key.startsWith('fsus:image-upload-session:'))).toHaveLength(1)
+      runtime.cleanupRequired = false
+      runtime.activeSession.uploadId = uploadIds.new
+      await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('upload_completion_recovery_required')
+      const error = await runtime.abandon().catch(error => error)
+      expect(error.cause).toBe(failure)
+      expect(error.details).toContain(`upload_id=${uploadIds.old}`)
+      expect(runtime.cleanupRequired).toBe(true)
+      expect(api.initUploadSession).toHaveBeenCalledOnce()
+      expect(api.abortUpload).not.toHaveBeenCalled()
+    } finally { writes.mockRestore() }
+  })
+
   it.each([
     ['reviewer-258-byte', 'é'.repeat(127) + '.png'],
     ['ascii-257-byte', 'a'.repeat(253) + '.png'],
