@@ -26,6 +26,8 @@
             :authoring-commands="authoringCommands"
             :command-surfaces="commandSurfaces"
             :document-identity="documentIdentity"
+            :native-attachment-input="nativeAttachmentInput"
+            @upload-image="handleAttachmentCapture"
             @on-save="emit('save')"
             @on-draft-save="emit('draft-save')"
             @on-submit="emit('submit')"
@@ -39,6 +41,22 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+
+import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
+import type {
+    FsusUiAuthoringCommand,
+    FsusUiAuthoringDocumentIdentity,
+    FsusUiAuthoringSurfaceOptions
+} from '@/fsusui/authoringCommands';
+import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorSurface } from '@/services/authoring/articleEditorSurface';
+import type {
+    MarkdownEditorChrome,
+    MarkdownEditorMode,
+    MarkdownEditorStatusDensity
+} from '@/ui-contracts/markdownEditor';
+
 import type {
     MarkdownEditorOutlineRange,
     MarkdownEditorRevealOptions,
@@ -46,18 +64,6 @@ import type {
     MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
     MarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus';
-
-import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
-import type {
-    FsusUiAuthoringCommand,
-    FsusUiAuthoringDocumentIdentity,
-    FsusUiAuthoringSurfaceOptions
-} from '@/fsusui/authoringCommands';
-import type {
-    MarkdownEditorChrome,
-    MarkdownEditorMode,
-    MarkdownEditorStatusDensity
-} from '@/ui-contracts/markdownEditor';
 
 type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
     documentIdentity?: FsusUiAuthoringDocumentIdentity;
@@ -77,9 +83,12 @@ const props = withDefaults(defineProps<{
     loading?: boolean;
     saving?: boolean;
     mode?: MarkdownEditorMode;
+    authoringSurface?: ArticleEditorSurface;
+    sourceCompareOpen?: boolean;
     chrome?: MarkdownEditorChrome;
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
+    nativeAttachmentInput?: boolean;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     authoringCommands?: readonly FsusUiAuthoringCommand[];
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;
@@ -94,9 +103,12 @@ const props = withDefaults(defineProps<{
     loading: false,
     saving: false,
     mode: 'source',
+    authoringSurface: undefined,
+    sourceCompareOpen: false,
     chrome: 'framed',
     statusDensity: 'minimal',
     showModeSwitcher: true,
+    nativeAttachmentInput: false,
     toolbarDensity: 'standard',
     authoringCommands: () => [],
     commandSurfaces: () => ({
@@ -114,6 +126,7 @@ const emit = defineEmits<{
     (e: 'draft-save'): void;
     (e: 'submit'): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
+    (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
     (e: 'viewport-change', event: {
@@ -126,8 +139,11 @@ const emit = defineEmits<{
 
 const provider = computed(() => resolveMarkdownEditorProvider());
 const editorRef = ref<{
+    getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
+    getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
+    closeCommandPalette?: () => void;
     revealHeading?: (
         nodeId: string,
         options?: MarkdownEditorRevealOptions
@@ -143,7 +159,9 @@ const content = computed({
     set: (value: string) => emit('update:modelValue', value)
 });
 
-const resolvedMode = computed<MarkdownEditorMode>(() => props.mode);
+// Product surfaces remain closed; the temporary compare tool maps at this native adapter boundary.
+const resolvedMode = computed<MarkdownEditorMode>(() => props.authoringSurface === undefined
+    ? props.mode : props.sourceCompareOpen ? 'split' : props.authoringSurface);
 const mergedToolbarsExclude = computed(() =>
 {
     return Array.from(new Set([...(props.toolbarsExclude ?? []), ...provider.value.defaultToolbarsExclude]));
@@ -153,6 +171,11 @@ const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onEr
 {
     emit('upload-img', files, callback, onError);
 };
+
+function handleAttachmentCapture(batch: MarkdownAttachmentBatchIntent, capture?: MarkdownAttachmentCaptureObservation): void
+{
+    emit('attachment-capture', batch, capture);
+}
 
 function insertMarkdownAtCursor(markdown: string): boolean
 {
@@ -164,12 +187,17 @@ function openCommandPalette(): void
     editorRef.value?.openCommandPalette?.();
 }
 
+function closeCommandPalette(): void
+{
+    editorRef.value?.closeCommandPalette?.();
+}
+
 function revealHeading(
     nodeId: string,
     options?: MarkdownEditorRevealOptions
 ): MarkdownEditorRevealResult
 {
-    return editorRef.value?.revealHeading?.(nodeId, options) ?? 'not-found';
+    return editorRef.value?.revealHeading?.(nodeId, nativeRevealOptions(options)) ?? 'not-found';
 }
 
 function revealSourceRange(
@@ -177,12 +205,30 @@ function revealSourceRange(
     options?: MarkdownEditorRevealOptions
 ): MarkdownEditorRevealResult
 {
-    return editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
+    return editorRef.value?.revealSourceRange?.(range, nativeRevealOptions(options)) ?? 'not-found';
+}
+
+function nativeRevealOptions(options?: MarkdownEditorRevealOptions): MarkdownEditorRevealOptions | undefined
+{
+    return options && props.authoringSurface !== undefined ? { ...options, mode: resolvedMode.value } : options;
+}
+
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    return editorRef.value?.getAuthoringEditorPort?.() ?? null;
+}
+
+function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
+{
+    return editorRef.value?.getAuthoringSessionPort?.() ?? null;
 }
 
 defineExpose({
+    getAuthoringEditorPort,
+    getAuthoringSessionPort,
     insertMarkdownAtCursor,
     openCommandPalette,
+    closeCommandPalette,
     revealHeading,
     revealSourceRange
 });

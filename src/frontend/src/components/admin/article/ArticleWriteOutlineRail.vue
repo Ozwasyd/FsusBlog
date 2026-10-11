@@ -5,7 +5,7 @@
         type="button"
         class="article-write-outline-launcher"
         aria-label="打开文章大纲"
-        aria-controls="article-write-outline-panel"
+        :aria-controls="resolvedPanelId"
         :aria-expanded="isOpen"
         data-article-outline-launcher="true"
         @click="openRail"
@@ -25,13 +25,14 @@
     >
         <aside
             v-if="!isCompact"
-            id="article-write-outline-panel"
+            :id="resolvedPanelId"
             class="article-write-outline-panel"
             role="complementary"
-            aria-label="文章大纲"
+            :aria-labelledby="resolvedTitleId"
             data-article-outline-panel="true"
         >
             <OutlinePanelContent
+                :title-id="resolvedTitleId"
                 :snapshot="snapshot"
                 :active-heading-id="activeHeadingId"
                 :expanded-node-ids="expandedNodeIds"
@@ -44,13 +45,14 @@
 
         <div
             v-else
-            id="article-write-outline-panel"
+            :id="resolvedPanelId"
             class="article-write-outline-drawer-content"
             role="region"
-            aria-label="文章大纲"
+            :aria-labelledby="resolvedTitleId"
             data-article-outline-panel="true"
         >
             <OutlinePanelContent
+                :title-id="resolvedTitleId"
                 :snapshot="snapshot"
                 :active-heading-id="activeHeadingId"
                 :expanded-node-ids="expandedNodeIds"
@@ -72,6 +74,7 @@ import {
     onMounted,
     ref,
     resolveComponent,
+    useId,
     watch,
     type PropType
 } from 'vue';
@@ -98,6 +101,10 @@ const diagnosticLabels: Record<string, string> = {
 const OutlinePanelContent = defineComponent({
     name: 'ArticleWriteOutlinePanelContent',
     props: {
+        titleId: {
+            type: String,
+            required: true
+        },
         snapshot: {
             type: Object as PropType<ArticleOutlineSnapshot | null>,
             default: null
@@ -131,7 +138,7 @@ const OutlinePanelContent = defineComponent({
             return hasHeadings.value ? 'ready' : 'empty';
         });
 
-        const registerNodeButton = (nodeId: string, element: Element | null): void => {
+        const registerNodeButton = (nodeId: string, element: unknown): void => {
             if (element instanceof HTMLButtonElement) {
                 nodeButtons.set(nodeId, element);
                 return;
@@ -216,7 +223,7 @@ const OutlinePanelContent = defineComponent({
             'data-article-outline-status': status.value
         }, [
             h('header', { class: 'article-write-outline-header' }, [
-                h('h2', { class: 'article-write-outline-title' }, '文章大纲'),
+                h('h2', { id: props.titleId, class: 'article-write-outline-title' }, '文章大纲'),
                 h('button', {
                     type: 'button',
                     class: 'article-write-outline-close',
@@ -296,9 +303,15 @@ const OutlinePanelContent = defineComponent({
 const props = withDefaults(defineProps<{
     snapshot: ArticleOutlineSnapshot | null;
     activeHeadingId?: string | null;
+    panelId?: string;
+    titleId?: string;
 }>(), {
     activeHeadingId: null
 });
+
+const instanceId = useId();
+const resolvedPanelId = computed(() => props.panelId ?? `${instanceId}-article-outline-panel`);
+const resolvedTitleId = computed(() => props.titleId ?? `${resolvedPanelId.value}-title`);
 
 const emit = defineEmits<{
     (event: 'reveal-heading', item: MarkdownEditorOutlineItem): void;
@@ -327,7 +340,7 @@ const outlineHostProperties = computed(() => isCompact.value
         class: 'article-write-outline-drawer'
     }
     : {
-        id: 'article-write-outline-panel-host',
+        id: `${resolvedPanelId.value}-host`,
         hidden: !isOpen.value,
         role: 'complementary',
         'aria-label': '文章大纲',
