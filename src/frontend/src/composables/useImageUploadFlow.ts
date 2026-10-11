@@ -2,7 +2,7 @@ import { computed, shallowRef, type ShallowRef } from 'vue';
 
 import type { ImageCompressionOptions } from '@/api/upload';
 import { useAbortableTask } from '@/composables/useAbortableTask';
-import type { ImageUploadAttemptBinding, ImageUploadRuntimeOptions, ImageUploadSessionBorrow, useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
+import { getImageUploadRuntimeAdmissionError, type ImageUploadAttemptBinding, type ImageUploadRuntimeOptions, type ImageUploadSessionBorrow, type useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import type { ArticleAnchorContext } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
 import { ArticleDocumentContextAdapter, type ArticleDocumentTaskLease, type ArticleDocumentTaskRegistry } from '@/services/authoring/articleDocumentContext';
@@ -86,6 +86,7 @@ interface PendingUploadContext {
 
 export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 {
+    const originalRuntime = options.runtime;
     let currentLease: ArticleDocumentTaskLease | null = null;
     const uploadTask = useAbortableTask({
         registry: options.taskRegistry ? {
@@ -104,10 +105,10 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
     // This identifies a still-awaited local execution, never a business receipt or release ACK.
     const activeRun: ShallowRef<object | null> = shallowRef<object | null>(null);
 
-    const canResume = computed(() => pendingContext.value !== null && activeRun.value === null && !options.runtime.cleanupRequired);
     const admissionError = (): ReturnType<typeof createAppError> | null => activeRun.value !== null
         ? createAppError(AppErrorCode.Conflict, 'upload_flow_operation_pending')
-        : options.runtime.cleanupRequired ? createAppError(AppErrorCode.Conflict, 'upload_flow_recovery_blocked') : null;
+        : getImageUploadRuntimeAdmissionError(originalRuntime);
+    const canResume = computed(() => pendingContext.value !== null && admissionError() === null);
 
     const notifyWarning = (message: string): void =>
     {
@@ -174,7 +175,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             }
             try
             {
-                const url = await options.runtime.uploadFile(file, options.getOptions(), runtimeOptions);
+                const url = await originalRuntime.uploadFile(file, options.getOptions(), runtimeOptions);
                 urls.push(url);
             }
             finally
@@ -201,6 +202,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 
     const startUpload = async (params: StartUploadParams): Promise<void> =>
     {
+        const blocked = admissionError();
         if (params.files.length === 0)
         {
             const message = params.messages?.emptyFiles ?? '没有可上传的文件';
@@ -217,7 +219,6 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             return;
         }
 
-        const blocked = admissionError();
         if (blocked)
         {
             await params.onError?.(blocked.message, blocked, { files: params.files });
@@ -311,9 +312,15 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 
     const resumeUpload = async (overrides?: UploadCallbacks & { messages?: UploadMessages; }): Promise<void> =>
     {
+        const blocked = admissionError();
         const context = pendingContext.value;
         if (!context)
         {
+            if (blocked)
+            {
+                await overrides?.onError?.(blocked.message, blocked, { files: [] });
+                return;
+            }
             notifyWarning(overrides?.messages?.resumeMissing ?? '没有可恢复的上传任务');
             return;
         }
@@ -324,7 +331,6 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             onFileUploaded: overrides?.onFileUploaded ?? context.callbacks?.onFileUploaded
         };
 
-        const blocked = admissionError();
         if (blocked)
         {
             await callbacks.onError?.(blocked.message, blocked, { files: context.files });

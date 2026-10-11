@@ -1,4 +1,4 @@
-import { computed, getCurrentScope, onScopeDispose, reactive, ref, shallowRef } from 'vue';
+import { computed, getCurrentScope, onScopeDispose, reactive, ref, shallowReactive, shallowRef } from 'vue';
 
 import {
     abortUpload,
@@ -259,6 +259,22 @@ async function retry<T>(task: () => Promise<T>, onRetry: (attempt: number) => vo
     throw createAppError(AppErrorCode.InfraFailure, 'upload_retry_exhausted');
 }
 
+// Sole registration is the original factory; this holds a reader, never another obligation record.
+const originalRuntimeAdmission = new WeakMap<object, () => ReturnType<typeof createAppError> | null>();
+
+/** Read-only original-instance admission observation; this grants no recovery release authority. */
+export function getImageUploadRuntimeAdmissionError(runtime: ReturnType<typeof useImageUploadRuntime>): ReturnType<typeof createAppError> | null
+{
+    const read = originalRuntimeAdmission.get(runtime);
+    if (!read)
+    {
+        return createAppError(AppErrorCode.Conflict, 'upload_runtime_authority_unavailable');
+    }
+    const blocked = read();
+    // Diagnostic copy only. Never expose original callback payload, ACK, snapshot or closure state.
+    return blocked ? createAppError(blocked.code, blocked.message) : null;
+}
+
 export function useImageUploadRuntime()
 {
     const phase = ref<UploadPhase>('idle');
@@ -274,21 +290,28 @@ export function useImageUploadRuntime()
     });
     let attemptGeneration = 0;
     const cleanupRequired = ref(false);
-    let abandonPromise: Promise<void> | null = null;
-    let ownedAttempt: OwnedUploadAttempt | null = null;
-    let disposed = false;
-    let ownedCommitStateUnknown = false;
-    let resumeLookupUnresolved = false;
-    let acknowledgedCompletion: AcknowledgedUploadCompletion | null = null;
-    let pendingOwnedInitialization: UploadCancellationContext | null = null;
+    // These replace the original private locals; nested SDK/File/payload identities stay raw.
+    const ownedState = shallowReactive<{
+        abandonPromise: Promise<void> | null;
+        ownedAttempt: OwnedUploadAttempt | null;
+        disposed: boolean;
+        ownedCommitStateUnknown: boolean;
+        resumeLookupUnresolved: boolean;
+        acknowledgedCompletion: AcknowledgedUploadCompletion | null;
+        pendingOwnedInitialization: UploadCancellationContext | null;
+        cancellationObligation: UploadCancellationContext | null;
+    }>({
+        abandonPromise: null, ownedAttempt: null, disposed: false,
+        ownedCommitStateUnknown: false, resumeLookupUnresolved: false, acknowledgedCompletion: null,
+        pendingOwnedInitialization: null, cancellationObligation: null
+    });
     let cancellationOperation: { generation: number; context: UploadCancellationContext; } | null = null;
-    let cancellationObligation: UploadCancellationContext | null = null;
 
     const bindingIsCurrent = (binding: ImageUploadAttemptBinding, file: File, completed = false): boolean =>
     {
         try
         {
-            if (disposed || !(binding.owner instanceof ArticleAttachmentContextAdapter)
+            if (ownedState.disposed || !(binding.owner instanceof ArticleAttachmentContextAdapter)
                 || !(binding.documentOwner instanceof ArticleDocumentContextAdapter)
                 || binding.lease.signal.aborted || binding.intent.signal.aborted
                 || !binding.documentOwner.isCurrentContext(binding.lease.envelope.context)
@@ -313,8 +336,8 @@ export function useImageUploadRuntime()
 
     const discardOwnedAttempt = (): void =>
     {
-        const attempt = ownedAttempt;
-        ownedAttempt = null;
+        const attempt = ownedState.ownedAttempt;
+        ownedState.ownedAttempt = null;
         if (attempt)
         {
             attempt.borrow?.release();
@@ -324,15 +347,15 @@ export function useImageUploadRuntime()
 
     const completionRecoveryError = (): ReturnType<typeof createAppError> => createAppError(
         AppErrorCode.Conflict, 'upload_completion_recovery_required', {
-            cause: acknowledgedCompletion?.callbackError,
+            cause: ownedState.acknowledgedCompletion?.callbackError,
             // Diagnostic history only; this is neither an asset receipt nor cleanup authority.
-            details: acknowledgedCompletion ? `completion_acknowledged; generation=${acknowledgedCompletion.generation}; `
-                + `upload_id=${acknowledgedCompletion.uploadId}; result_url=${acknowledgedCompletion.response.url}` : undefined
+            details: ownedState.acknowledgedCompletion ? `completion_acknowledged; generation=${ownedState.acknowledgedCompletion.generation}; `
+                + `upload_id=${ownedState.acknowledgedCompletion.uploadId}; result_url=${ownedState.acknowledgedCompletion.response.url}` : undefined
         });
 
     const retainCompletionRecovery = (error?: unknown): void =>
     {
-        const acknowledged = acknowledgedCompletion;
+        const acknowledged = ownedState.acknowledgedCompletion;
         if (!acknowledged)
         {
             return;
@@ -357,7 +380,7 @@ export function useImageUploadRuntime()
 
     const borrowCurrentSession = (): ImageUploadSessionBorrow | null =>
     {
-        const attempt = ownedAttempt;
+        const attempt = ownedState.ownedAttempt;
         if (!attempt || !bindingIsCurrent(attempt.binding, attempt.file, attempt.completed))
         {
             discardOwnedAttempt();
@@ -389,8 +412,8 @@ export function useImageUploadRuntime()
         const controller = new AbortController();
         const deadline = performance.now() + SESSION_BORROW_LIFETIME_MS;
         let released = false;
-        const current = (): boolean => !released && !disposed && performance.now() < deadline
-            && ownedAttempt === attempt && attempt.generation === attemptGeneration && attempt.access !== null
+        const current = (): boolean => !released && !ownedState.disposed && performance.now() < deadline
+            && ownedState.ownedAttempt === attempt && attempt.generation === attemptGeneration && attempt.access !== null
             && bindingIsCurrent(attempt.binding, attempt.file, attempt.completed);
         const assertCurrent = (): void =>
         {
@@ -415,9 +438,9 @@ export function useImageUploadRuntime()
             if (!attempt.active)
             {
                 attempt.access = null;
-                if (ownedAttempt === attempt)
+                if (ownedState.ownedAttempt === attempt)
                 {
-                    ownedAttempt = null;
+                    ownedState.ownedAttempt = null;
                 }
             }
         };
@@ -508,34 +531,48 @@ export function useImageUploadRuntime()
         }
     });
 
-    const canResume = computed(() => !cleanupRequired.value && (phase.value === 'paused' || phase.value === 'error'));
+    const readOriginalAdmission = (): ReturnType<typeof createAppError> | null =>
+    {
+        if (ownedState.acknowledgedCompletion?.recoveryRequired)
+        {
+            return completionRecoveryError();
+        }
+        if (ownedState.ownedCommitStateUnknown)
+        {
+            return createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
+        }
+        if (ownedState.disposed)
+        {
+            return createAppError(AppErrorCode.Conflict, 'upload_attempt_superseded');
+        }
+        if (ownedState.abandonPromise || ownedState.cancellationObligation || ownedState.resumeLookupUnresolved)
+        {
+            return createAppError(AppErrorCode.Conflict, '上传会话尚未取消，请先重试取消');
+        }
+        if (ownedState.ownedAttempt?.active || ownedState.pendingOwnedInitialization)
+        {
+            return createAppError(AppErrorCode.Conflict, '上传尝试仍在执行，请先取消并等待清理确认');
+        }
+        return null;
+    };
+
+    const canResume = computed(() => readOriginalAdmission() === null && (phase.value === 'paused' || phase.value === 'error'));
 
     const performUpload = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions): Promise<string> =>
     {
-        if (acknowledgedCompletion?.recoveryRequired)
+        const blocked = readOriginalAdmission();
+        if (blocked)
         {
-            throw completionRecoveryError();
-        }
-        if (ownedCommitStateUnknown)
-        {
-            throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
-        }
-        if (cleanupRequired.value || abandonPromise)
-        {
-            throw createAppError(AppErrorCode.Conflict, '上传会话尚未取消，请先重试取消');
-        }
-        if (ownedAttempt?.active || pendingOwnedInitialization)
-        {
-            throw createAppError(AppErrorCode.Conflict, '上传尝试仍在执行，请先取消并等待清理确认');
+            throw blocked;
         }
         discardOwnedAttempt();
-        acknowledgedCompletion = null;
+        ownedState.acknowledgedCompletion = null;
         const previousCancellation = cancellationOperation;
         const generation = ++attemptGeneration;
         cancellationOperation = previousCancellation ? { generation, context: previousCancellation.context } : null;
         const ensureCurrentAttempt = (): void =>
         {
-            if (disposed || generation !== attemptGeneration
+            if (ownedState.disposed || generation !== attemptGeneration
                 || (runtimeOptions.attemptBinding && !bindingIsCurrent(runtimeOptions.attemptBinding, file)))
             {
                 if (generation === attemptGeneration)
@@ -614,7 +651,7 @@ export function useImageUploadRuntime()
                 }
                 if (status.status === 'completed')
                 {
-                    ownedCommitStateUnknown = true;
+                    ownedState.ownedCommitStateUnknown = true;
                     throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
                 }
                 assertUploadGeometry(status.totalBytes, status.chunkSize, status.totalParts, uploadPayload.file.size);
@@ -659,7 +696,7 @@ export function useImageUploadRuntime()
         {
             ensureCurrentAttempt();
             cleanupRequired.value = true;
-            resumeLookupUnresolved = true;
+            ownedState.resumeLookupUnresolved = true;
             phase.value = 'error';
             errorMessage.value = toAppError(error, 'upload_resume_lookup_failed').message;
             // Lookup failures, including obscured 404, acknowledge neither absence nor cleanup.
@@ -690,7 +727,7 @@ export function useImageUploadRuntime()
                 sha256: fullHash, request: initializationRequest, bound: Boolean(runtimeOptions.attemptBinding), acknowledgement: null
             };
             // Capture the actual promise before cancellation can intentionally invalidate its generation.
-            pendingOwnedInitialization = cancellationContext;
+            ownedState.pendingOwnedInitialization = cancellationContext;
             cancellationOperation = { generation, context: cancellationContext };
             let init: Awaited<typeof initialization>;
             try
@@ -711,9 +748,9 @@ export function useImageUploadRuntime()
                 throw error;
             }
             ensureCurrentAttempt();
-            if (pendingOwnedInitialization?.work === initialization)
+            if (ownedState.pendingOwnedInitialization?.work === initialization)
             {
-                pendingOwnedInitialization = null;
+                ownedState.pendingOwnedInitialization = null;
             }
             uploadId = init.uploadId;
             uploadToken = init.uploadToken;
@@ -739,7 +776,7 @@ export function useImageUploadRuntime()
         if (runtimeOptions.attemptBinding && initializedByThisAttempt)
         {
             // Keep original operation ownership without granting precompletion access.
-            ownedAttempt = {
+            ownedState.ownedAttempt = shallowReactive({
                 generation,
                 file,
                 binding: runtimeOptions.attemptBinding,
@@ -748,9 +785,9 @@ export function useImageUploadRuntime()
                 completed: false,
                 borrow: null,
                 borrowIssued: false
-            };
+            });
         }
-        if (runtimeOptions.onSessionReady && !ownedAttempt)
+        if (runtimeOptions.onSessionReady && !ownedState.ownedAttempt)
         {
             throw createAppError(AppErrorCode.Conflict, 'upload_session_borrow_unavailable');
         }
@@ -825,7 +862,7 @@ export function useImageUploadRuntime()
 
         ensureCurrentAttempt();
         commitMayHaveStarted = true;
-        ownedCommitStateUnknown = true;
+        ownedState.ownedCommitStateUnknown = true;
         let complete: Awaited<ReturnType<typeof completeUpload>>;
         try
         {
@@ -850,19 +887,19 @@ export function useImageUploadRuntime()
             throw error;
         }
         ensureCurrentAttempt();
-        ownedCommitStateUnknown = false;
+        ownedState.ownedCommitStateUnknown = false;
         const acknowledgedResponse = Object.freeze({ ...complete });
-        acknowledgedCompletion = {
+        ownedState.acknowledgedCompletion = shallowReactive({
             generation, uploadId, binding: runtimeOptions.attemptBinding, snapshot,
             response: acknowledgedResponse, transportCompleted: false,
             recoveryRequired: false, callbackError: undefined
-        };
+        });
         cancellationOperation = null;
-        if (ownedAttempt?.generation === generation)
+        if (ownedState.ownedAttempt?.generation === generation)
         {
-            ownedAttempt.completed = true;
+            ownedState.ownedAttempt.completed = true;
             // Only actual successful completion exposes the fresh initialization facts.
-            ownedAttempt.access = () => ({ uploadId, uploadToken, sha256: fullHash,
+            ownedState.ownedAttempt.access = () => ({ uploadId, uploadToken, sha256: fullHash,
                 totalBytes: uploadPayload.file.size, commitMayHaveStarted });
         }
         if (runtimeOptions.onSessionReady)
@@ -884,19 +921,19 @@ export function useImageUploadRuntime()
         activeSession.uploadId = '';
         activeSession.resumeKey = '';
         activeSession.fileName = '';
-        if (acknowledgedCompletion?.generation === generation)
+        if (ownedState.acknowledgedCompletion?.generation === generation)
         {
-            acknowledgedCompletion.transportCompleted = true;
+            ownedState.acknowledgedCompletion.transportCompleted = true;
             // Normal transport completion retains only bounded current-operation ACK history.
             // A void callback is not an asset-cleanup receipt; failed callbacks keep their snapshot.
-            acknowledgedCompletion.snapshot = null;
+            ownedState.acknowledgedCompletion.snapshot = null;
         }
         return acknowledgedResponse.url;
     };
 
     const uploadFile = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions = {}): Promise<string> =>
     {
-        if (disposed)
+        if (ownedState.disposed)
         {
             throw new UploadAttemptSupersededError();
         }
@@ -931,7 +968,7 @@ export function useImageUploadRuntime()
         }
         catch (error)
         {
-            if (acknowledgedCompletion?.generation === generation && !acknowledgedCompletion.transportCompleted)
+            if (ownedState.acknowledgedCompletion?.generation === generation && !ownedState.acknowledgedCompletion.transportCompleted)
             {
                 retainCompletionRecovery(error);
             }
@@ -941,10 +978,10 @@ export function useImageUploadRuntime()
         {
             binding?.lease.signal.removeEventListener('abort', onAbort);
             binding?.intent.signal.removeEventListener('abort', onAbort);
-            if (ownedAttempt?.generation === generation)
+            if (ownedState.ownedAttempt?.generation === generation)
             {
-                ownedAttempt.active = false;
-                if (!succeeded || !ownedAttempt.borrow?.isCurrent())
+                ownedState.ownedAttempt.active = false;
+                if (!succeeded || !ownedState.ownedAttempt.borrow?.isCurrent())
                 {
                     discardOwnedAttempt();
                 }
@@ -954,7 +991,7 @@ export function useImageUploadRuntime()
 
     const resumeLatest = async (): Promise<string> =>
     {
-        if (acknowledgedCompletion?.recoveryRequired)
+        if (ownedState.acknowledgedCompletion?.recoveryRequired)
         {
             throw completionRecoveryError();
         }
@@ -969,40 +1006,40 @@ export function useImageUploadRuntime()
 
     const abandon = (): Promise<void> =>
     {
-        if (abandonPromise)
+        if (ownedState.abandonPromise)
         {
-            return abandonPromise;
+            return ownedState.abandonPromise;
         }
-        if (acknowledgedCompletion)
+        if (ownedState.acknowledgedCompletion)
         {
             retainCompletionRecovery();
             attemptGeneration += 1;
             return Promise.reject(completionRecoveryError());
         }
-        const initialization = pendingOwnedInitialization;
+        const initialization = ownedState.pendingOwnedInitialization;
         const currentCancellation = cancellationOperation?.generation === attemptGeneration
             ? cancellationOperation.context : null;
         // An existing obligation survives this intentional invalidation and every genuine retry.
-        cancellationObligation ??= currentCancellation;
-        const cancellation = cancellationObligation;
+        ownedState.cancellationObligation ??= currentCancellation;
+        const cancellation = ownedState.cancellationObligation;
         let uploadId = cancellation?.acknowledgement?.uploadId ?? '';
         let resumeKey = cancellation?.resumeKey ?? activeSession.resumeKey;
-        ownedCommitStateUnknown ||= ownedAttempt?.access?.().commitMayHaveStarted === true && !ownedAttempt.completed;
+        ownedState.ownedCommitStateUnknown ||= ownedState.ownedAttempt?.access?.().commitMayHaveStarted === true && !ownedState.ownedAttempt.completed;
         discardOwnedAttempt();
         attemptGeneration += 1;
         progress.value = 0;
         errorMessage.value = '';
         preview.value = null;
         pendingAttempt.value = null;
-        cleanupRequired.value = cancellation !== null || Boolean(activeSession.uploadId) || initialization !== null || ownedCommitStateUnknown || resumeLookupUnresolved;
+        cleanupRequired.value = cancellation !== null || Boolean(activeSession.uploadId) || initialization !== null || ownedState.ownedCommitStateUnknown || ownedState.resumeLookupUnresolved;
         // Invalidate live work immediately, but retain its original session and
         // recovery evidence until the canonical abort API acknowledges cleanup.
         // Schedule the request after assigning the promise, including sync throws.
-        abandonPromise = Promise.resolve().then(async () =>
+        ownedState.abandonPromise = Promise.resolve().then(async () =>
         {
             try
             {
-                if (ownedCommitStateUnknown)
+                if (ownedState.ownedCommitStateUnknown)
                 {
                     throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
                 }
@@ -1038,12 +1075,12 @@ export function useImageUploadRuntime()
                 activeSession.resumeKey = '';
                 activeSession.fileName = '';
                 cleanupRequired.value = false;
-                resumeLookupUnresolved = false;
-                cancellationObligation = null;
+                ownedState.resumeLookupUnresolved = false;
+                ownedState.cancellationObligation = null;
                 cancellationOperation = null;
-                if (pendingOwnedInitialization === initialization)
+                if (ownedState.pendingOwnedInitialization === initialization)
                 {
-                    pendingOwnedInitialization = null;
+                    ownedState.pendingOwnedInitialization = null;
                 }
                 phase.value = 'idle';
             }
@@ -1055,18 +1092,18 @@ export function useImageUploadRuntime()
             }
             finally
             {
-                abandonPromise = null;
+                ownedState.abandonPromise = null;
             }
         });
-        return abandonPromise;
+        return ownedState.abandonPromise;
     };
 
     if (getCurrentScope())
     {
         onScopeDispose(() =>
         {
-            disposed = true;
-            if (ownedAttempt || acknowledgedCompletion || pendingOwnedInitialization?.bound || ownedCommitStateUnknown
+            ownedState.disposed = true;
+            if (ownedState.ownedAttempt || ownedState.acknowledgedCompletion || ownedState.pendingOwnedInitialization?.bound || ownedState.ownedCommitStateUnknown
                 || pendingAttempt.value?.runtimeOptions.attemptBinding)
             {
                 void abandon().catch(() =>
@@ -1093,7 +1130,7 @@ export function useImageUploadRuntime()
         wasmSupportedFormats.value = ['png'];
     });
 
-    return reactive({
+    const runtime = reactive({
         phase,
         progress,
         errorMessage,
@@ -1108,4 +1145,6 @@ export function useImageUploadRuntime()
         borrowCurrentSession,
         abandon
     });
+    originalRuntimeAdmission.set(runtime, readOriginalAdmission);
+    return runtime;
 }

@@ -151,6 +151,28 @@ committed-asset cleanup receipts. No canonical recovery receiver is wired here;
 failed handoff remains a local obligation, without physical cleanup, a new ledger,
 or permission to release it.
 
+The approved read-only `getImageUploadRuntimeAdmissionError(runtime)` observes
+local admission through a factory-private WeakMap. Only the original runtime
+factory registers its actual returned instance with a reader of its existing
+private obligations. The map stores no second snapshot, error, flag or receipt;
+unknown objects, clones and nonoriginal proxies fail closed. Each read returns
+null or a fresh diagnostic containing only code/message, without the original
+callback payload, token, ACK, File or mutable closure state. Null describes local
+admission, not canonical business acceptance or recovery release. Existing
+runtime failure/abandon paths retain their original error and evidence.
+
+The Flow captures that original runtime instance once. Its controlled clear,
+start and resume methods query admission before replacing context or capturing
+another intent; changing the options object cannot redirect the retained
+operation to another runtime. Public `cleanupRequired` is display state and does
+not decide admission. The runtime and Flow use the same original private checks,
+including actual ACK recovery, commit uncertainty, pending init/work and genuine
+cancellation/lookup obligations. Those original private holders are shallow
+reactive so computed resume views follow actual state changes rather than cached
+flags; nested SDK, File and callback-payload identities remain raw. An actual
+precomplete abort acknowledgement can clear its original transport obligation;
+there is still no receiver or release path for failed post-complete handoff.
+
 Pre-ACK cancellation captures a private context from the actual original init
 promise before invalidating its generation. Cancellation before init ACK awaits
 that same promise; retries retain the same obligation and forward its token only

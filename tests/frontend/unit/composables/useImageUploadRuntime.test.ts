@@ -8,6 +8,7 @@ import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime'
 
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
+import { getImageUploadRuntimeAdmissionError } from '@/composables/useImageUploadRuntime'
 import { useImageUploadRuntime, type ImageUploadSessionBorrow, type ImageUploadSessionAccess } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow, type ImageUploadFileCompletion } from '@/composables/useImageUploadFlow'
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext'
@@ -499,6 +500,284 @@ describe('useImageUploadRuntime', () => {
       expect(api.initUploadSession).toHaveBeenCalledOnce()
       expect(api.abortUpload).not.toHaveBeenCalled()
     } finally { writes.mockRestore() }
+  })
+
+
+  it('Independent Flow recovery public flag reset must not clear or replace original File context', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime()
+    const failure = new Error('independent-original-consumer-refused'), capture = vi.spyOn(host.owner, 'capture')
+    const rejected = vi.fn()
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async () => { throw failure } })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+    const context = flow.pendingContext.value, snapshot = storedSnapshot()
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(context?.files[0]).toBe(file)
+    expect(capture).toHaveBeenCalledOnce()
+    // Same writable public-state reset as the original retained author control.
+    // It is not a canonical receiver or release acknowledgement.
+    runtime.cleanupRequired = false
+    flow.clearPending()
+    expect.soft(flow.pendingContext.value === context).toBe(true)
+    await flow.startUpload({ files: [fileOf(64, 'independent-replacement.png')],
+      attachmentInput: { ...host, origin: 'pick' }, onError: rejected, notifyOnError: false })
+    expect.soft(capture.mock.calls.length).toBe(1)
+    expect.soft(flow.pendingContext.value === context).toBe(true)
+    expect.soft(flow.pendingContext.value?.files[0] === file).toBe(true)
+    expect(rejected).toHaveBeenCalledOnce()
+    expect(rejected.mock.calls[0]![1].message).toBe('upload_completion_recovery_required')
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    const recovery = await runtime.abandon().catch(error => error)
+    expect(recovery.cause).toBe(failure)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])('Flow private recovery admission keeps the original context under public cleanup flag %s', async value => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime()
+    const failure = new Error('original-private-obligation'), capture = vi.spyOn(host.owner, 'capture')
+    const resumed = vi.fn(), rejected = vi.fn(), replacementConsumer = vi.fn()
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async () => { throw failure } })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+    const context = flow.pendingContext.value, snapshot = storedSnapshot()
+    runtime.cleanupRequired = value
+    expect.soft(flow.canResume.value).toBe(false)
+    flow.clearPending()
+    expect.soft(flow.pendingContext.value === context).toBe(true)
+    await flow.resumeUpload({ onError: resumed, onFileUploaded: replacementConsumer })
+    expect.soft(resumed).toHaveBeenCalledOnce()
+    expect.soft(resumed.mock.calls[0]?.[1]?.message).toBe('upload_completion_recovery_required')
+    expect.soft(resumed.mock.calls[0]?.[1]?.cause).toBeUndefined()
+    await flow.startUpload({ files: [fileOf(64, 'replacement.png')], onError: rejected, notifyOnError: false })
+    expect.soft(rejected).toHaveBeenCalledOnce()
+    expect.soft(rejected.mock.calls[0]?.[1]?.message).toBe('upload_completion_recovery_required')
+    expect.soft(rejected.mock.calls[0]?.[1]?.cause).toBeUndefined()
+    expect.soft(flow.pendingContext.value === context).toBe(true)
+    expect.soft(flow.pendingContext.value?.files[0] === file).toBe(true)
+    runtime.cleanupRequired = !value
+    flow.clearPending()
+    expect.soft(flow.canResume.value).toBe(false)
+    expect.soft(flow.pendingContext.value === context).toBe(true)
+    expect(replacementConsumer).not.toHaveBeenCalled()
+    expect(capture).toHaveBeenCalledOnce()
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    const recovery = await runtime.abandon().catch(error => error)
+    expect(recovery.cause).toBe(failure)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow private recovery admission refuses fresh original anchor capture after public flag reset', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime()
+    const failure = new Error('original-consumer-refused'), capture = vi.spyOn(host.owner, 'capture'), rejected = vi.fn()
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async () => { throw failure } })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+    const context = flow.pendingContext.value, snapshot = storedSnapshot(), source = host.source()
+    // Obtain a genuine current anchor after the first source insertion, not the old stale anchor.
+    const anchors = new ArticleAnchorContextAdapter(host.documentOwner)
+    const anchor = anchors.capture(host.getBinding(), { start: 0, end: 0, direction: 'none' },
+      { affinity: 'after', viewportOffset: 0, percentage: 0, surface: 'source', tool: 'none' })
+    expect(host.documentOwner.isCurrentContext(anchor.document)).toBe(true)
+    runtime.cleanupRequired = false
+    await flow.startUpload({ files: [fileOf(64, 'replacement.png')], attachmentInput: { ...host, anchor, origin: 'pick' },
+      onError: rejected, notifyOnError: false })
+    expect.soft(capture).toHaveBeenCalledOnce()
+    expect.soft(host.source()).toBe(source)
+    expect.soft(flow.pendingContext.value === context).toBe(true)
+    expect.soft(flow.pendingContext.value?.files[0] === file).toBe(true)
+    expect(rejected).toHaveBeenCalledOnce()
+    expect(rejected.mock.calls[0]![1].message).toBe('upload_completion_recovery_required')
+    expect(rejected.mock.calls[0]![1].cause).toBeUndefined()
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow private recovery admission refuses another Flow capture on the same original runtime', async () => {
+    const file = fileOf(73), host = attachmentHost(), replacement = attachmentHost(), runtime = useImageUploadRuntime()
+    const capture = vi.spyOn(replacement.owner, 'capture'), source = replacement.source(), rejected = vi.fn()
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async () => { throw new Error('original-consumer-refused') } })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+    const context = flow.pendingContext.value, snapshot = storedSnapshot()
+    runtime.cleanupRequired = false
+    const other = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: replacement.documentOwner, onFileUploaded: async () => {} })
+    await other.startUpload({ files: [fileOf(64, 'replacement.png')], attachmentInput: { ...replacement, origin: 'pick' },
+      onError: rejected, notifyOnError: false })
+    expect.soft(capture).not.toHaveBeenCalled()
+    expect.soft(replacement.source()).toBe(source)
+    expect.soft(other.pendingContext.value).toBeNull()
+    expect(flow.pendingContext.value).toBe(context)
+    expect(flow.pendingContext.value?.files[0]).toBe(file)
+    expect(rejected).toHaveBeenCalledOnce()
+    expect(rejected.mock.calls[0]![1].message).toBe('upload_completion_recovery_required')
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow private recovery admission stays with its original runtime when the options object is replaced', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), other = useImageUploadRuntime()
+    const failure = new Error('original-runtime-obligation'), rejected = vi.fn()
+    const flowOptions = { runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async () => { throw failure } }
+    const flow = useImageUploadFlow(flowOptions)
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+    const context = flow.pendingContext.value, snapshot = storedSnapshot()
+    runtime.cleanupRequired = false
+    flowOptions.runtime = other
+    flow.clearPending()
+    expect.soft(flow.pendingContext.value === context).toBe(true)
+    await flow.resumeUpload({ onError: rejected })
+    expect.soft(rejected).toHaveBeenCalledOnce()
+    expect.soft(rejected.mock.calls[0]?.[1]?.message).toBe('upload_completion_recovery_required')
+    expect.soft(rejected.mock.calls[0]?.[1]?.cause).toBeUndefined()
+    expect.soft(flow.pendingContext.value?.files[0] === file).toBe(true)
+    expect(other.cleanupRequired).toBe(false)
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow private recovery admission preserves normal void observers and batch success after display flag reset', async () => {
+    const runtime = useImageUploadRuntime(), first = fileOf(73), host = attachmentHost(), next = attachmentHost()
+    const batch = [fileOf(64, 'second.png'), fileOf(65, 'third.png')], observed: File[] = [], ready = vi.fn(), succeeded = vi.fn(), rejected = vi.fn()
+    const consumer = async (completion: ImageUploadFileCompletion) => {
+      await completion.borrow.withSession(async access => { expect(access.totalBytes).toBe(completion.file.size); observed.push(completion.file) })
+    }
+    const firstFlow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onSessionReady: async (file, borrow) => { ready(file); expect(borrow.isCurrent()).toBe(true) }, onFileUploaded: consumer })
+    await firstFlow.startUpload({ files: [first], attachmentInput: { ...host, origin: 'pick' }, onSuccess: succeeded, notifyOnError: false })
+    expect(firstFlow.pendingContext.value).toBeNull()
+    expect(runtime.cleanupRequired).toBe(false)
+    const secondFlow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: next.documentOwner, onSessionReady: async (file, borrow) => { ready(file); expect(borrow.isCurrent()).toBe(true) }, onFileUploaded: consumer })
+    const capture = vi.spyOn(next.owner, 'capture')
+    runtime.cleanupRequired = true
+    await secondFlow.startUpload({ files: batch, attachmentInput: { ...next, origin: 'pick' }, onError: rejected, onSuccess: succeeded, notifyOnError: false })
+    expect(rejected).not.toHaveBeenCalled()
+    runtime.cleanupRequired = false
+    expect(capture).toHaveBeenCalledOnce()
+    expect(observed).toEqual([first, ...batch])
+    expect(ready).toHaveBeenCalledTimes(3)
+    expect(succeeded).toHaveBeenCalledTimes(2)
+    expect(succeeded.mock.calls[1]![0]).toHaveLength(2)
+    expect(secondFlow.pendingContext.value).toBeNull()
+    expect(runtime.cleanupRequired).toBe(false)
+    expect(api.initUploadSession).toHaveBeenCalledTimes(3)
+    expect(api.completeUpload).toHaveBeenCalledTimes(3)
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it.each(['unknown', 'clone', 'proxy', 'inherited'] as const)('Flow private recovery reader fails closed for a nonoriginal %s instance before any capture', async kind => {
+    const runtime = useImageUploadRuntime(), host = attachmentHost(), capture = vi.spyOn(host.owner, 'capture')
+    const get = vi.fn((target: typeof runtime, key: PropertyKey, receiver: unknown) => Reflect.get(target, key, receiver))
+    const candidate = kind === 'unknown' ? {} : kind === 'clone' ? { ...runtime }
+      : kind === 'proxy' ? new Proxy(runtime, { get }) : Object.create(runtime)
+    const facade = candidate as ReturnType<typeof useImageUploadRuntime>, rejected = vi.fn(), consumer = vi.fn()
+    runtime.cleanupRequired = true
+    expect(getImageUploadRuntimeAdmissionError(runtime)).toBeNull()
+    runtime.cleanupRequired = false
+    const error = getImageUploadRuntimeAdmissionError(facade)!
+    expect(error.code).toBe('Conflict')
+    expect(error.message).toBe('upload_runtime_authority_unavailable')
+    expect(error.cause).toBeUndefined()
+    expect(error.details).toBeUndefined()
+    Object.defineProperty(error, 'message', { value: 'forged-release' })
+    expect(getImageUploadRuntimeAdmissionError(facade)?.message).toBe('upload_runtime_authority_unavailable')
+    const flow = useImageUploadFlow({ runtime: facade, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: consumer })
+    await flow.startUpload({ files: [fileOf(73)], attachmentInput: { ...host, origin: 'pick' }, onError: rejected, notifyOnError: false })
+    flow.clearPending()
+    await flow.resumeUpload({ onError: rejected })
+    expect(rejected).toHaveBeenCalledTimes(2)
+    expect(rejected.mock.calls.every(([, value]) => value.message === 'upload_runtime_authority_unavailable')).toBe(true)
+    expect(flow.pendingContext.value).toBeNull()
+    expect(flow.canResume.value).toBe(false)
+    expect(capture).not.toHaveBeenCalled()
+    expect(consumer).not.toHaveBeenCalled()
+    expect(get).not.toHaveBeenCalled()
+    expect(api.initUploadSession).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow private recovery reader returns fresh diagnostics without exposing original File token ACK or callback payload', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime()
+    const acknowledgement = completeReply(uploadIds.old, 73)
+    api.completeUpload.mockResolvedValueOnce(acknowledgement)
+    let originalPayload!: { file: File; uploadToken: string; acknowledgement: typeof acknowledgement }
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async completion => {
+        await completion.borrow.withSession(async access => {
+          originalPayload = { file: completion.file, uploadToken: access.uploadToken, acknowledgement }
+          throw originalPayload
+        })
+      } })
+    await flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+    const context = flow.pendingContext.value, snapshot = storedSnapshot(), first = getImageUploadRuntimeAdmissionError(runtime)!
+    expect(first.message).toBe('upload_completion_recovery_required')
+    expect(first.cause).toBeUndefined()
+    expect(first.details).toBeUndefined()
+    expect(Object.values(first)).not.toContain(file)
+    expect(Object.values(first)).not.toContain(acknowledgement)
+    expect(JSON.stringify(first)).not.toContain(originalPayload.uploadToken)
+    Object.defineProperty(first, 'message', { value: 'forged-recovery-release' })
+    runtime.cleanupRequired = false
+    flow.clearPending()
+    const second = getImageUploadRuntimeAdmissionError(runtime)!
+    expect(second).not.toBe(first)
+    expect(second.message).toBe('upload_completion_recovery_required')
+    expect(second.cause).toBeUndefined()
+    expect(second.details).toBeUndefined()
+    expect(flow.pendingContext.value).toBe(context)
+    expect(flow.pendingContext.value?.files[0]).toBe(file)
+    expect(storedSnapshot().snapshot).toEqual(snapshot.snapshot)
+    const recovery = await runtime.abandon().catch(error => error)
+    expect(recovery.cause).toBe(originalPayload)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('Flow private recovery reader observes the live original precomplete cancellation obligation and its actual abort ACK', async () => {
+    vi.useFakeTimers()
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), consumer = vi.fn()
+    api.uploadPart.mockRejectedValue(new Error('part unavailable'))
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: consumer })
+    const work = flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, notifyOnError: false })
+    await vi.runAllTimersAsync(); await work; vi.useRealTimers()
+    const context = flow.pendingContext.value
+    expect(flow.canResume.value).toBe(true)
+    expect(getImageUploadRuntimeAdmissionError(runtime)).toBeNull()
+    const abort = deferred<{ uploadId: string; status: string }>()
+    api.abortUpload.mockReturnValueOnce(abort.promise)
+    const cleanup = runtime.abandon()
+    await flushPromises()
+    expect(flow.canResume.value).toBe(false)
+    expect(getImageUploadRuntimeAdmissionError(runtime)?.message).toContain('上传会话尚未取消')
+    runtime.cleanupRequired = false
+    flow.clearPending()
+    expect(flow.pendingContext.value).toBe(context)
+    expect(flow.pendingContext.value?.files[0]).toBe(file)
+    expect(flow.canResume.value).toBe(false)
+    abort.resolve({ uploadId: uploadIds.old, status: 'aborted' }); await cleanup
+    expect(getImageUploadRuntimeAdmissionError(runtime)).toBeNull()
+    expect(flow.canResume.value).toBe(true)
+    expect(flow.pendingContext.value).toBe(context)
+    expect(consumer).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(api.abortUpload).toHaveBeenCalledExactlyOnceWith(uploadIds.old, undefined, 'token-old')
   })
 
   it.each([
