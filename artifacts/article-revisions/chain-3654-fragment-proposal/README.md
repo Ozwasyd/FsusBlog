@@ -227,3 +227,74 @@ All fifteen assignment acceptances remain OPEN: execution issues #3654, #2175,
 issues #2176, #1724 and #1811. The source review and interface observations do not
 satisfy their original DAG, current publication/AOT evidence, missing external
 prerequisite acceptance, runtime controls or tracking-child acceptance gates.
+
+## 2026-10-11 borrowed compare loan preflight WIP
+
+The coordinator supplied upstream runtime source
+`4d3ee43721b2fae113ffb86338e85a951335138c` and handoff head
+`9595e4edabb482768fcc93c844f87301f55fc75d` from PR4153. Both were fetched/read;
+neither was merged, cherry-picked or accepted. The upstream source offer now
+contains `borrowCompareTask(...)`, returning the real task, `captureCurrent()`
+and idempotent `release()`. Its new source is independently unreviewed; the old
+8f38 377 PASS does not cover it. The actual host viewport/options callback is
+still missing, so there is no executed Writer fragment consumer.
+
+The #2275 source increment adds `recheckRevisionFragmentProposal(proposal,
+presentation, originalRequest, caller)` in `revisionFragmentPreflight.ts`.
+`caller` is a minimal structural read-only view of that exact existing upstream
+loan: actual `ArticleDocumentTaskLease`, native document/anchor capture and
+release. It is not a new issuer, context registry or membership verifier. The
+host must supply the actual caller-held loan and preserve the original authorized
+compare presentation/request association. The preflight always releases the
+loan, including error and abort paths; its returned value cannot keep that task
+alive for later execution.
+
+The preflight owns input snapshots before native callbacks, regenerates the
+original proposal using native captures and original UTF-8 source verification,
+and joins the complete result to the supplied proposal. It then calls the real
+existing `compareArticleRevisionSources` API using the same selectors/options/
+budgets and the borrowed task's distinct read cancellation identity. The existing
+server route re-enters ArticleWrite and authorized package/plan validation. No
+injected permission boolean, cached admin summary, extension grant or invented
+server validator is used.
+
+The fresh read's complete base/compare package references and package digests,
+permission scope, options, budget and metadata schema digests must equal the
+original values. The server's new request/plan digest is preserved separately as
+`readObservation`; it never replaces the original proposal plan. Package sealing
+includes article identity, source coordinate, metadata and snapshots;
+permission-scope hashing includes article/principal/site. Those are joins to a
+real authorized API read, not client proof of permission. After the read, the
+preflight rehashes the original owned bytes, captures native context/selection
+again, checks task currentness and checks all original live inputs for drift.
+
+The result is still `status: unexecuted`, the original immutable proposal and a
+fresh read observation. There is no dispatcher, native transaction, dirty/
+autosave/conflict result, action receipt, rollback command or authority lease.
+Permission may change after this read; the result does not authorize a future
+write. The actual host callback, accepted upstream source, original package/local
+versus server-coordinate authority join, duplicate execution and canonical
+transaction/receipt acceptance remain gates. Writer/runtime/inspector/history/
+FsusUI/qualification files and the original 32-case source are unchanged.
+
+Fifteen new static unit controls remain UNRUN and unlisted. Nine ordinary
+`it` declarations plus literal `it.each` groups of 2 and 4 cover separate read
+identity/exact bytes, real API rejection propagation, both package references,
+permission/options/budget/schema drift, source revision, native selection,
+request mutation, disposal, original request mismatch, released loan and proposal
+byte tampering. Their mocked transport and controlled capture fixture grant no
+permission/package/native acceptance. Together with the unchanged 32 historical
+cases there are 47 statically authored cases, no runner discovery or execution.
+
+Syntax inspection with actual TypeScript 6.0.3 reports zero parse diagnostics for
+the two new files. Official style checks the new production module only and exits
+0; the policy still excludes unit TS. Revision authority and whitespace checks
+exit 0. Using the same scoped no-emit source-check setup as d21c, expanded with
+the two new roots, reports the same 30 dependency diagnostics, zero in all four
+owned source files, and exits 1. An initial direct tsconfig inspection without
+the prior source check's real Vitest dependency path also reported 10 test module/
+inference diagnostics (40 total); those are retained separately, not erased or
+claimed as a full typecheck pass. No existing test entry/setup/guard/config was
+changed. The old matrix identity/provenance FAIL and original evidence.json
+remain at their original identities. New source prechecks, not unit/native
+runtime execution, are the only new verification.
