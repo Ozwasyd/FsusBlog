@@ -127,6 +127,7 @@ async function startArticleWorkspace(
     const signal = ports.signal;
     signal.throwIfAborted();
     ports.assertRuntimeCapability();
+    signal.throwIfAborted();
     if (articleWorkspaceTabRouter.getRegistry().listEntries().length !== 0)
     {
         throw new Error('article-workspace-startup-requires-empty-registry');
@@ -185,6 +186,12 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         throw error;
     });
     workspaceInstallation = { ports, resources, failed: false, task };
+    // Observe the original operation lifetime even after its current view unmounts.
+    ports.signal.addEventListener('abort', () => markWorkspaceInstallationFailed(ports), { once: true });
+    if (ports.signal.aborted)
+    {
+        markWorkspaceInstallationFailed(ports);
+    }
     return task;
 }
 
