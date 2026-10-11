@@ -1,0 +1,24 @@
+{
+  "kind": "Minimal original consumer declarations and decoder registrations; not server/protocol implementation",
+  "targetSha": "f39140f8ecccd4cbe2193c1a2525b6bfb5b6c362",
+  "paths": [
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "targetBlob": "ccde3a7d19ee2ed7683e8a79b8c6962663d9eb98",
+      "postimageSha256": "3ead403e2f85eefe363a7b55796687a5124543a2ba02098693f9652ff2c50965",
+      "canonicalSymbolsFromSourceSha": "59ee0eeb4a7e9b82f7787e95c3dcae616bda815e",
+      "applied": false
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "targetBlob": "e0079dfbd3bf43301804706f1311e9094a5f557b",
+      "postimageSha256": "7d60d638ca461165bd518f7574273daea34153947078d98ce10ffa70453dc530",
+      "canonicalSymbolsFromSourceSha": "59ee0eeb4a7e9b82f7787e95c3dcae616bda815e",
+      "applied": false
+    }
+  ],
+  "applyCheckExit": 0,
+  "requires": "Original uploadAdapter postimage in f34 source closure and original generated facts frame285; route/security/backend owner output remains required",
+  "generatedOrBackendFilesEdited": false,
+  "nativeOrRuntimeExecuted": false
+}

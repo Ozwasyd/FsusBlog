@@ -1,0 +1,571 @@
+{
+  "kind": "Precise original upload/API/ABI source owner request; no generated source or backend implementation invented",
+  "layoutSha": "f39140f8ecccd4cbe2193c1a2525b6bfb5b6c362",
+  "writerSha": "59ee0eeb4a7e9b82f7787e95c3dcae616bda815e",
+  "owners": {
+    "implementation": {
+      "repo": "Ozwasyd/FsusBlog",
+      "issue": 2258,
+      "title": "WASM image runtime/resume upload/AssetId/reference-ledger provider",
+      "proof": "Current issue2258 body requires original upload/session/commit and current-grant/byte/ledger observation; original54e99010 commit Refs2258."
+    },
+    "assetActivation": {
+      "issue": 1975,
+      "proof": "Current1975 body reserves sole migration/backfill/production cutover; remains OPEN."
+    },
+    "existingUrlEndpointBoundary": {
+      "issue": 1974,
+      "proof": "Closed boundary establishes canonical AssetId/PublicAssetUrlCodec; does not authorize activation."
+    },
+    "acceptanceOnly": {
+      "issue": 2077,
+      "proof": "Current2077 body explicitly forbids fixing product defects; not the implementation owner."
+    },
+    "businessGateConsumer": {
+      "issue": 2263,
+      "proof": "Consumer of2256/2258 state; not a bytes/provider/ledger implementation owner."
+    }
+  },
+  "rows": [
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "symbols": [
+        "UploadAssetPreviewViewModel",
+        "UploadAssetFactsViewModel"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "ccde3a7d19ee2ed7683e8a79b8c6962663d9eb98",
+        "symbolsPresent": {
+          "UploadAssetPreviewViewModel": false,
+          "UploadAssetFactsViewModel": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "3307348190f5aee7c64cf50945a085f039b3bc70",
+        "symbolsPresent": {
+          "UploadAssetPreviewViewModel": true,
+          "UploadAssetFactsViewModel": true
+        }
+      }
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "symbols": [
+        "mapUploadAssetPreviewFromPayload",
+        "mapUploadAssetFactsFromPayload"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "347e5c8dae647276ddaba3466688d004d8d3d4c1",
+        "symbolsPresent": {
+          "mapUploadAssetPreviewFromPayload": false,
+          "mapUploadAssetFactsFromPayload": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+        "symbolsPresent": {
+          "mapUploadAssetPreviewFromPayload": true,
+          "mapUploadAssetFactsFromPayload": true
+        }
+      }
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "symbols": [
+        "FrameType.UploadAssetPreview",
+        "FrameType.UploadAssetFacts",
+        "mapUploadAssetPreviewFromPayload",
+        "mapUploadAssetFactsFromPayload"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "e0079dfbd3bf43301804706f1311e9094a5f557b",
+        "symbolsPresent": {
+          "FrameType.UploadAssetPreview": false,
+          "FrameType.UploadAssetFacts": false,
+          "mapUploadAssetPreviewFromPayload": false,
+          "mapUploadAssetFactsFromPayload": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "f9d6076322578e42cda78ab4605b1bc5ba89e671",
+        "symbolsPresent": {
+          "FrameType.UploadAssetPreview": true,
+          "FrameType.UploadAssetFacts": true,
+          "mapUploadAssetPreviewFromPayload": true,
+          "mapUploadAssetFactsFromPayload": true
+        }
+      }
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "symbols": [
+        "UploadAssetPreview: 275",
+        "UploadAssetFacts: 285"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "f5b8f0055ea33bd0127505a93a8c4eb32739dd5f",
+        "symbolsPresent": {
+          "UploadAssetPreview: 275": true,
+          "UploadAssetFacts: 285": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "d04a8e6fe22b48f6f314160713bbb811d093d7a2",
+        "symbolsPresent": {
+          "UploadAssetPreview: 275": true,
+          "UploadAssetFacts: 285": true
+        }
+      }
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "symbols": [
+        "UploadAssetPreview = 275",
+        "UploadAssetFacts = 285"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "1e16a8e895c362692dbb6de96712d2d56337c50e",
+        "symbolsPresent": {
+          "UploadAssetPreview = 275": true,
+          "UploadAssetFacts = 285": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "80c821c722f45c26d619caae5a4bd244f6858419",
+        "symbolsPresent": {
+          "UploadAssetPreview = 275": true,
+          "UploadAssetFacts = 285": true
+        }
+      }
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "symbols": [
+        "UploadAssetPreview = 275",
+        "UploadAssetFacts = 285"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "d83f49a4668639f579b66cf019fee7d156a8db6f",
+        "symbolsPresent": {
+          "UploadAssetPreview = 275": true,
+          "UploadAssetFacts = 285": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "ced7f7a10ec06aa008412a71bfc16b5fffc3acf0",
+        "symbolsPresent": {
+          "UploadAssetPreview = 275": true,
+          "UploadAssetFacts = 285": true
+        }
+      }
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "symbols": [
+        "UploadAssetPreview = 275",
+        "UploadAssetFacts = 285"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "b6f8249d2c215768d1b019201ff737a4641f7a8e",
+        "symbolsPresent": {
+          "UploadAssetPreview = 275": true,
+          "UploadAssetFacts = 285": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "34cc2fddb182206edcb867f133ddc986cb9b98f1",
+        "symbolsPresent": {
+          "UploadAssetPreview = 275": true,
+          "UploadAssetFacts = 285": true
+        }
+      }
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "symbols": [
+        "/upload/{uploadId}/preview",
+        "/upload/{uploadId}/facts"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "b0890f258d4a98034257d4c0b20a06c3b4658f2c",
+        "symbolsPresent": {
+          "/upload/{uploadId}/preview": false,
+          "/upload/{uploadId}/facts": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "b07555c88b9e2459adf45c0adfb8148149bbc2f7",
+        "symbolsPresent": {
+          "/upload/{uploadId}/preview": false,
+          "/upload/{uploadId}/facts": false
+        }
+      }
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "symbols": [
+        "\"name\": \"UploadAssetPreview\"",
+        "\"name\": \"UploadAssetFacts\""
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "11b37a4f3787f13c5d5d9e560a880e0fef9b0676",
+        "symbolsPresent": {
+          "\"name\": \"UploadAssetPreview\"": true,
+          "\"name\": \"UploadAssetFacts\"": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "3a2b9832a37a3da53378ea000f5d3d08f0c0379a",
+        "symbolsPresent": {
+          "\"name\": \"UploadAssetPreview\"": true,
+          "\"name\": \"UploadAssetFacts\"": true
+        }
+      }
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "symbols": [
+        "binary_post_upload_uploadId_preview",
+        "binary_post_upload_uploadId_facts"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "6787144cd0f14b32eaef3e02a77cc9a0e5de1d00",
+        "symbolsPresent": {
+          "binary_post_upload_uploadId_preview": false,
+          "binary_post_upload_uploadId_facts": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "f9a27ad10e1a6b7263e97d59e81586032056a081",
+        "symbolsPresent": {
+          "binary_post_upload_uploadId_preview": true,
+          "binary_post_upload_uploadId_facts": true
+        }
+      }
+    },
+    {
+      "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "symbols": [
+        "/api/binary/upload/{uploadId}/preview",
+        "/api/binary/upload/{uploadId}/facts"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "d73eafbc58bb3b6d10c767eb73202e89e6f1a70d",
+        "symbolsPresent": {
+          "/api/binary/upload/{uploadId}/preview": false,
+          "/api/binary/upload/{uploadId}/facts": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "50acf45a9005d203708bc6276845abbed4695d13",
+        "symbolsPresent": {
+          "/api/binary/upload/{uploadId}/preview": true,
+          "/api/binary/upload/{uploadId}/facts": true
+        }
+      }
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "symbols": [
+        "/{uploadId}/preview",
+        "/{uploadId}/facts",
+        "HandleUploadAssetPreviewAsync",
+        "MapBinaryUploadAssetFactsEndpoints"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "9070d076b8b3c5d94051c436497f5eb5f63d003f",
+        "symbolsPresent": {
+          "/{uploadId}/preview": false,
+          "/{uploadId}/facts": false,
+          "HandleUploadAssetPreviewAsync": false,
+          "MapBinaryUploadAssetFactsEndpoints": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "9070d076b8b3c5d94051c436497f5eb5f63d003f",
+        "symbolsPresent": {
+          "/{uploadId}/preview": false,
+          "/{uploadId}/facts": false,
+          "HandleUploadAssetPreviewAsync": false,
+          "MapBinaryUploadAssetFactsEndpoints": false
+        }
+      }
+    },
+    {
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "symbols": [
+        "ObserveCommittedUploadAsync",
+        "ReadCommittedUploadPreviewAsync"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "254587dc73fc0c6d43b3dcb2f116edf68a264e05",
+        "symbolsPresent": {
+          "ObserveCommittedUploadAsync": false,
+          "ReadCommittedUploadPreviewAsync": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "87d20f3ba03fe07d55f47b35b6a4debbd63583f9",
+        "symbolsPresent": {
+          "ObserveCommittedUploadAsync": true,
+          "ReadCommittedUploadPreviewAsync": false
+        }
+      }
+    },
+    {
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "symbols": [
+        "ObserveCommittedUploadAsync",
+        "ReadCommittedUploadPreviewAsync"
+      ],
+      "layout": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "ObserveCommittedUploadAsync": false,
+          "ReadCommittedUploadPreviewAsync": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "a0f3cb9feb998efe39418673ba8ff293319e7022",
+        "symbolsPresent": {
+          "ObserveCommittedUploadAsync": true,
+          "ReadCommittedUploadPreviewAsync": false
+        }
+      }
+    },
+    {
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "symbols": [
+        "UploadAssetObservation"
+      ],
+      "layout": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "UploadAssetObservation": false
+        }
+      },
+      "writer": {
+        "exists": true,
+        "blob": "37afe9d22327903e50340b36484a07595ef6f76d",
+        "symbolsPresent": {
+          "UploadAssetObservation": true
+        }
+      }
+    },
+    {
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "symbols": [
+        "UploadAssetPreview"
+      ],
+      "layout": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "UploadAssetPreview": false
+        }
+      },
+      "writer": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "UploadAssetPreview": false
+        }
+      }
+    },
+    {
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "symbols": [
+        "UploadAssetPreviewDto"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "000bc0b3b7fbcc84575d580b5fb18c514d091ac8",
+        "symbolsPresent": {
+          "UploadAssetPreviewDto": true
+        }
+      },
+      "writer": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "UploadAssetPreviewDto": false
+        }
+      }
+    },
+    {
+      "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+      "symbols": [
+        "UploadAssetPreviewPod"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "50f1b80af5aa6c9ed2fdd7c106257fc50217911d",
+        "symbolsPresent": {
+          "UploadAssetPreviewPod": true
+        }
+      },
+      "writer": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "UploadAssetPreviewPod": false
+        }
+      }
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "symbols": [
+        "WriteUploadAssetPreview"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "8c0c0e5b3b9f89afff706d9bb4c11c1aa5557c26",
+        "symbolsPresent": {
+          "WriteUploadAssetPreview": true
+        }
+      },
+      "writer": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "WriteUploadAssetPreview": false
+        }
+      }
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "symbols": [
+        "UploadAssetPreviewPod"
+      ],
+      "layout": {
+        "exists": true,
+        "blob": "6c68f7759cd8efabff25b5d2d685db3dc9507d55",
+        "symbolsPresent": {
+          "UploadAssetPreviewPod": false
+        }
+      },
+      "writer": {
+        "exists": false,
+        "blob": null,
+        "symbolsPresent": {
+          "UploadAssetPreviewPod": false
+        }
+      }
+    }
+  ],
+  "layoutFactsFrame285": {
+    "allocated": [],
+    "retired": [],
+    "neededOriginalAllocation": 285
+  },
+  "requestContract": {
+    "routes": [
+      "POST /api/binary/upload/{uploadId}/preview",
+      "POST /api/binary/upload/{uploadId}/facts"
+    ],
+    "requestFrame": "UploadCompleteRequest",
+    "body": "Original64-byte fixed SHA256 request",
+    "grant": "Original authenticated upload owner/session token; no article-operation or cleanup receipt inferred",
+    "previewResponse": {
+      "frame": 275,
+      "schema": "fsusblog.upload-asset-preview.v1",
+      "headerBytes": 760,
+      "bytes": "Current same-observation bytes; existing original DTO/POD/codec must be retained"
+    },
+    "factsResponse": {
+      "frame": 285,
+      "schema": "fsusblog.upload-asset-facts.v1",
+      "payloadBytes": 760,
+      "bytes": "No image bytes; original current-observation metadata only; server codec/endpoint join absent in both read source graphs"
+    }
+  },
+  "sourceReferencesOnly": [
+    {
+      "sha": "54e990105eae05e18d4be82b6536c3a10ba057de",
+      "refsIssue": 2258,
+      "meaning": "Original committed observation service source reference only",
+      "authorization": "NOT supplied for fresh sibling consumption; no cherry-pick"
+    },
+    {
+      "sha": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "refsIssues": [
+        1975,
+        2077,
+        2258
+      ],
+      "meaning": "Original preview275 service/endpoint/wire source reference only; contains mixed owned surfaces",
+      "authorization": "Original owner must provide exact minimal delta/evidence; no whole commit consumption"
+    },
+    {
+      "sha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+      "refsIssues": [
+        2246,
+        2256,
+        1975
+      ],
+      "meaning": "Existing original Writer consumer facts decoder/DTO/type/frame source; not proof of a server facts endpoint"
+    }
+  ],
+  "uiBoundary": {
+    "source": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+    "absent": [
+      "MarkdownAttachmentCaptureObservation",
+      "MarkdownAttachmentFileConsumer",
+      "withAttachmentFile public native loan",
+      "attachment-capture public native event"
+    ],
+    "actualSourceReference": "8f69342eb0ce7b02a38d0669b38794728161a53a at prior b4ce (read only, not substituted)",
+    "implementationOwners": [
+      {
+        "repo": "Ozwasyd/FsusUI",
+        "issue": 375,
+        "scope": "Picker/paste/drop input capture and anchors"
+      },
+      {
+        "repo": "Ozwasyd/FsusUI",
+        "issue": 376,
+        "scope": "Native attachment lifecycle/cancellation/undo"
+      }
+    ],
+    "trackingIssue": 275,
+    "closedStateIsNotCurrentApiAcceptance": true,
+    "newSession673ReadOnly": "673c342ae42967b9f505d749b3a91f5d261315e6",
+    "newSessionMeaning": "Honest actual renderer/attachment resource observations; full qualification not established"
+  },
+  "canonicalProducers": {
+    "protocol": "node tools/frontend/generate-aeds-protocol.mjs (after original protocol owner supplies manifest)",
+    "openApi": "bash tools/contracts/export-openapi.sh (compiled actual endpoint observation; not run under runtime hold)",
+    "frontendRoutes": "node tools/contracts/generate-frontend-routes.mjs (only from actual authoritative endpoint observation)",
+    "endpointContracts": "node tools/contracts/generate-cross-stack-contract.mjs (same actual observation)"
+  },
+  "allTestsListMountNative": "NOT RUN / HELD"
+}
