@@ -39,14 +39,6 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type {
-    MarkdownEditorSessionExpose,
-    MarkdownEditorOutlineRange,
-    MarkdownEditorRevealOptions,
-    MarkdownEditorRevealResult,
-    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
-    MarkdownEditorTransactionEvent
-} from '@ozwasyd/element-plus';
 
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
 import type {
@@ -59,6 +51,15 @@ import type {
     MarkdownEditorMode,
     MarkdownEditorStatusDensity
 } from '@/ui-contracts/markdownEditor';
+
+import type {
+    MarkdownEditorSessionExpose,
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 
 type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
     documentIdentity?: FsusUiAuthoringDocumentIdentity;

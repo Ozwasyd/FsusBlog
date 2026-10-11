@@ -1,8 +1,8 @@
-import { AuthoringSessionHost } from './authoringSessionHost';
 import {
     articleWorkspaceTabRouter,
     createArticleWorkspaceSessionPort
 } from './articleWorkspaceTabRouter';
+import { AuthoringSessionHost } from './authoringSessionHost';
 import {
     createFsusUiEditorSessionFactory,
     type ArticleWorkspaceMountedEditorResolver

@@ -1,9 +1,3 @@
-import type {
-    MarkdownEditorSession,
-    MarkdownEditorSessionExpose,
-    MarkdownEditorSessionSnapshot
-} from '@ozwasyd/element-plus';
-
 import {
     type AuthoringSessionSnapshotContext,
     type FsusUiPublicEditorSession,
@@ -15,6 +9,12 @@ import {
     type ArticleDocumentIdentity,
     type OpenArticleDocumentEntry
 } from './openArticleDocumentRegistry';
+
+import type {
+    MarkdownEditorSession,
+    MarkdownEditorSessionExpose,
+    MarkdownEditorSessionSnapshot
+} from '@ozwasyd/element-plus';
 
 /** Supplied by the existing mounted editor/document owner, never route discovery. */
 export interface ArticleWorkspaceMountedEditorBinding {
