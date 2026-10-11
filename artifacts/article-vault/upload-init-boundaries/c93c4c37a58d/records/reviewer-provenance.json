@@ -1,0 +1,14 @@
+{
+  "libraryId": "libfile_95e98dda465c81918dbdb71b681e706d",
+  "zipSha256": "3fc6b7419b889c4183762106a276e3fe3ffceb8647c3f5f5f31a3f49809bb15b",
+  "reviewSha256": "b91037a1916363c8f4869c0adb20b0ce8577e0417f25dd56752460ce0838a3bf",
+  "reviewer": "01a1219d-1a8a-7640-be37-1002c0f51014",
+  "frozenSource": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "probeRemapOnly": true,
+  "sourceInputCount": 13,
+  "reviewerFocused": "UNRUN",
+  "reviewerPositive": "UNRUN",
+  "reviewerNegative28": "UNRUN",
+  "rosterMismatch": "Parent confirms121 exact matches and1 static undefined display mismatch; no source test rename or oracle change",
+  "qualification": false
+}

@@ -1,0 +1,57 @@
+{
+  "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "parser": "6.0.3",
+  "node": "v24.16.0",
+  "selectedOriginalFunctions": [
+    {
+      "file": "src/frontend/src/api/binaryFrame.ts",
+      "name": "writeFixedUtf8",
+      "line": 124,
+      "sha256": "6c58b017b54c601a3b725959319688c872ed4c6f2002c53919f38bb32778e459"
+    },
+    {
+      "file": "src/frontend/src/api/upload.ts",
+      "name": "encodeUploadInitRequest",
+      "line": 154,
+      "sha256": "755f55a51321fb7bf15e1ff7ca297827aa8912a0e3c36fe544b6dcbce5579aa3"
+    },
+    {
+      "file": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "name": "validUploadId",
+      "line": 177,
+      "sha256": "00ebc71c2788849552489e34e539b84eb575f847d74446ac89c14807452bd1c9"
+    },
+    {
+      "file": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "name": "assertUploadGeometry",
+      "line": 182,
+      "sha256": "e0e724f1d053707d4573f310f139fb8b0405ee24626abf400e7135d416f0a14d"
+    },
+    {
+      "file": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "name": "assertInitialization",
+      "line": 191,
+      "sha256": "01840075b411c04fecff6ffa5e6add94a62832004da2b0f99e1a13f24b23d2b3"
+    }
+  ],
+  "observations": {
+    "zeroGuidAccepted": true,
+    "longFileName": {
+      "requestCharacters": 131,
+      "requestUtf8Bytes": 258,
+      "wireCharacters": 129,
+      "wireUtf8Bytes": 256,
+      "wireNameEqualsRequest": false,
+      "initValidation": {
+        "code": "ProtocolFailure",
+        "message": "upload_init_response_mismatch"
+      },
+      "cleanupSameValidation": true
+    },
+    "functionsOnly": true
+  },
+  "notFullRuntime": true,
+  "noTransport": true,
+  "noNewUnitTests": true,
+  "noServerOrAuthorityFixture": true
+}

@@ -1,0 +1,271 @@
+{
+  "reviewedAtUtc": "2026-10-11T10:06:03.644833+00:00",
+  "reviewer": "original independent reviewer; same selected environment; no subagent",
+  "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "tree": "5d2b5efcd19e8de63ebdd8b6f326109a484eb13f",
+  "evidenceHead": "60e46fcbc738a855ed2f78d62ad088ae5dde75f9",
+  "verdict": "MUST_FIX; independent focused acceptance incomplete",
+  "findings": [
+    {
+      "id": "F1",
+      "priority": "P2",
+      "mustFix": true,
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "line": 197,
+      "relatedLine": 1002,
+      "title": "Validate the transmitted filename before creating an upload obligation",
+      "trigger": "Use a File name '\u00e9'.repeat(127)+'.png' (131 characters,258UTF8 bytes), image/png, explicit png target,128bytes. Original encodeUploadInitRequest sends only256filename bytes; backend decodes and returns the valid truncated filename (129characters, ends .p).",
+      "actual": "assertInitialization compares returned wire filename against full original request.fileName and rejects upload_init_response_mismatch; error retains original private init context. Every abandon reuses assertInitialization before DELETE, rejects again, and cannot confirm cleanup or permit replacement. No part IO, no receiver; a real server init can already exist.",
+      "expected": "Normalize or refuse unrepresentable filename before init IO; correlate the response to actual original transmitted metadata while retaining genuine original ID/token/geometry. Do not loosen cleanup authority or fabricate a snapshot.",
+      "evidence": "source-probes.json: exact five selected original pure functions evaluated with original appError; backend and shared decoder inspected statically. Full runtime/server reproduction UNRUN; no new fixture or server authority created."
+    },
+    {
+      "id": "F2",
+      "priority": "P2",
+      "mustFix": true,
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "line": 179,
+      "title": "Reject the empty GUID under the actual backend upload-ID contract",
+      "trigger": "validUploadId('0'.repeat(32))",
+      "actual": "true; an otherwise correlated zero-ID init proceeds to snapshot and part IO instead of failing ID validation. Same predicate admits a zero-ID stored snapshot.",
+      "expected": "Require canonical32lowerhex and nonzero GUID; FileService.TryNormalizeUploadId rejects Guid.Empty.",
+      "evidence": "source-probes.json pure original validator observation; backend FileService.cs1188 excludes Guid.Empty. No server call or successful zero-ID server session is claimed."
+    }
+  ],
+  "independent": {
+    "preflight": "PASS exit0 original pinned Node24.16",
+    "discovery": "PASS122 nonempty unique names,110runtime+12API",
+    "selector": "FAIL independent AST undefined-display mismatch; dependent execution stopped",
+    "positive": "UNRUN",
+    "focused122": "UNRUN",
+    "negative28": "UNRUN",
+    "prerequisites": "PASS37 zero failures/skips",
+    "style": "initial own copied-bin setup FAIL; original locked graph reconstructed preserving symlinks, final PASS0",
+    "newCommitRange": "PASS0",
+    "sourceProbes": "Two pure original-function observations reproduced; not full application/runtime/server tests"
+  },
+  "authorOnly": {
+    "focused": "122PASS zero skips",
+    "positive": "2PASS",
+    "prerequisites": "37PASS",
+    "prefixNegative": "28expectedFAIL94outside",
+    "fullApplicationTypes": {
+      "currentSource": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "baselineSource": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+      "currentCommandRecord": "types-current.json",
+      "baselineCommandRecord": "types-baseline.json",
+      "currentExit": 2,
+      "baselineExit": 2,
+      "currentCount": 244,
+      "baselineCount": 244,
+      "added": [],
+      "removed": [],
+      "fullTypecheckPassed": false,
+      "qualification": false
+    },
+    "wholePublishedFooter": "FAIL old9def missing independent Refs; not waived"
+  },
+  "selectionFailure": {
+    "result": "FAIL",
+    "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+    "discoveredRuntime": 110,
+    "discoveredApi": 12,
+    "nonemptyUniqueDiscoveredNames": true,
+    "reason": "independent static-name expansion represented AST identifier undefined as a string, adding quotes; one official object-row name did not exactly match",
+    "actualName": "retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/undefined",
+    "staticName": "retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/'undefined'",
+    "focused": "UNRUN",
+    "positive": "UNRUN",
+    "negative28": "UNRUN",
+    "testFallback": false,
+    "retry": false
+  },
+  "records": {
+    "preflight": {
+      "label": "preflight",
+      "cwd": "/workspace/runtime-protocol-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "startUtc": "2026-10-11T09:58:27.259584+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-protocol-review-evidence/preflight",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-protocol-review-evidence/preflight/topology.jsonl"
+      },
+      "pid": 2618,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T09:59:57.001890+00:00"
+    },
+    "discovery": {
+      "label": "discovery",
+      "cwd": "/workspace/runtime-protocol-review/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "list",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "../../tests/frontend/unit/api/upload.test.ts",
+        "--json=/workspace/runtime-protocol-review-evidence/discovery-tests.json"
+      ],
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "startUtc": "2026-10-11T10:00:24.391504+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-protocol-review-evidence/discovery",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-protocol-review-evidence/discovery/topology.jsonl"
+      },
+      "pid": 5098,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T10:00:32.881457+00:00"
+    },
+    "prerequisites": {
+      "label": "prerequisites",
+      "cwd": "/workspace/runtime-protocol-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tests/tools/local-production-profile-resources.test.mjs",
+        "tests/tools/matrix-fixture-profile.test.mjs",
+        "tests/tools/linux-cgroup-membership-locator.test.mjs"
+      ],
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "startUtc": "2026-10-11T10:00:25.667032+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-protocol-review-evidence/prerequisites",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-protocol-review-evidence/prerequisites/topology.jsonl"
+      },
+      "pid": 5147,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T10:00:27.274443+00:00"
+    },
+    "pure-source-probes": {
+      "label": "pure-source-probes",
+      "cwd": "/workspace/runtime-protocol-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/runtime-protocol-review-evidence/source-probes.cjs"
+      ],
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "startUtc": "2026-10-11T10:01:41.303417+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-protocol-review-evidence/pure-source-probes",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-protocol-review-evidence/pure-source-probes/topology.jsonl"
+      },
+      "pid": 5814,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T10:01:41.587284+00:00"
+    },
+    "source-style": {
+      "label": "source-style",
+      "cwd": "/workspace/runtime-protocol-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--file",
+        "src/frontend/src/composables/useImageUploadRuntime.ts",
+        "--file",
+        "src/frontend/src/composables/useImageUploadFlow.ts",
+        "--file",
+        "src/frontend/src/api/upload.ts"
+      ],
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "startUtc": "2026-10-11T10:02:54.183925+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-protocol-review-evidence/source-style",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-protocol-review-evidence/source-style/topology.jsonl"
+      },
+      "pid": 6487,
+      "exitCode": 1,
+      "stopUtc": "2026-10-11T10:02:56.754567+00:00"
+    },
+    "source-style-reconstructed-cache": {
+      "label": "source-style-reconstructed-cache",
+      "cwd": "/workspace/runtime-protocol-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--file",
+        "src/frontend/src/composables/useImageUploadRuntime.ts",
+        "--file",
+        "src/frontend/src/composables/useImageUploadFlow.ts",
+        "--file",
+        "src/frontend/src/api/upload.ts"
+      ],
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "startUtc": "2026-10-11T10:04:25.919108+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-protocol-review-evidence/source-style-reconstructed-cache",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-protocol-review-evidence/source-style-reconstructed-cache/topology.jsonl"
+      },
+      "pid": 8199,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T10:04:33.568689+00:00"
+    },
+    "current-commit-range": {
+      "label": "current-commit-range",
+      "cwd": "/workspace/runtime-protocol-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "5d1b82763d67af6fbcb4abc5908fe465c09d7149..HEAD"
+      ],
+      "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+      "startUtc": "2026-10-11T10:03:28.621572+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-protocol-review-evidence/current-commit-range",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-protocol-review-evidence/current-commit-range/topology.jsonl"
+      },
+      "pid": 7278,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T10:03:29.670061+00:00"
+    }
+  },
+  "binding": "Five original source paths, tree,110manifest entries plus manifest file=111, exact pre/post byte/blob/hash/gzip/patch and evidence-only delta independently verified. Original20prerequisites and sole1686/2899 inputs/declarations checked; no broad source admission.",
+  "originalControls": "All11 original identities and all previous734 test-call identities retained, two original complete calls byte-identical; typed/token/ACK fixtures and two explicit no-fresh-init oracle changes reviewed individually, not claimed byte-identical. No original oracle replaced by a reviewer test.",
+  "exclusions": "No source edit, test/runner/host replacement, server/native/browser/migration/held QA, custody/security/product receipt, GitHub write/PR/body/comment/label/ready/merge, deployment or publication. No all-test fallback or retry of canceled/denied calls.",
+  "priorReview": "734 preflightPASS,67officialcollected and37prerequisitesPASS. Independent static-name mismatch FAIL; positive command mistakenly launched after failed shell assertion and completed2/57outside exit0, explicitly inadmissible; focused67 and negative7UNRUN. Initial4phase histories remain immutable, no result transplanted to8a.",
+  "heldState": "91pending79null fullGeometryVerifiedfalse remains prior reported state; no independent refresh or qualification."
+}

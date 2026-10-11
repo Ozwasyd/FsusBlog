@@ -1,0 +1,20 @@
+{
+  "label": "discovery",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "list",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--json=/workspace/chain-1975-evidence/upload-init-boundaries-20261011/discovery-roster.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T10:18:02.881146+00:00",
+  "head": "c93c4c37a58dd66fde473aa885552ea4663d4af3",
+  "runId": "chain1975-init-boundaries-discovery-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T10:18:10.914740+00:00"
+}

@@ -1,0 +1,23 @@
+{
+  "label": "prefix-boundaries",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--testNamePattern",
+    "refuses unrepresentable upload filename|accepts a lossless 256-byte upload filename|checks the actual compressed filename|cancels a lossless boundary filename|rejects a zero GUID|encodes the actual 256-byte",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/upload-init-boundaries-20261011/prefix-boundaries/report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T10:14:22.775000+00:00",
+  "head": "60e46fcbc738a855ed2f78d62ad088ae5dde75f9",
+  "runId": "chain1975-init-boundaries-prefix-20261011",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T10:14:32.282304+00:00"
+}

@@ -1,0 +1,8 @@
+{
+  "before": "60e46fcbc738a855ed2f78d62ad088ae5dde75f9",
+  "after": "c93c4c37a58dd66fde473aa885552ea4663d4af3",
+  "original122TestBytesUnchanged": true,
+  "onlyInsertionBeforeOriginalFirstTest": true,
+  "original28SelectorsAndOraclesUnchanged": true,
+  "qualification": false
+}

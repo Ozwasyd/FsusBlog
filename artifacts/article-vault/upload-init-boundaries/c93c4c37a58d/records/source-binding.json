@@ -1,0 +1,61 @@
+{
+  "source": "c93c4c37a58dd66fde473aa885552ea4663d4af3",
+  "tree": "cace8e7371cee25c951a299260b88f0b5c7c52b2",
+  "previousEvidenceHead": "60e46fcbc738a855ed2f78d62ad088ae5dde75f9",
+  "paths": [
+    {
+      "path": "docs/architecture/overview.md",
+      "pre": {
+        "blob": "95be49c53a96579ce10c69f280293f840f351419",
+        "sha256": "e782878a89da933452acab7db172eb80858e2ce80736b84e7743f3319f81ac1d",
+        "bytes": 44562
+      },
+      "post": {
+        "blob": "5a3a13b08f7bfb9f6f636e96985a01b160cc070d",
+        "sha256": "deb7066b9bd255cf6ebf19438b1476279bec8610ba61b7ee30d04bf5d72e8d3c",
+        "bytes": 44963
+      }
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "pre": {
+        "blob": "2a37f7ca3e9d2dd7a506ca6e4cde0c9009ab7d88",
+        "sha256": "b838ca4bdce6baef18428779339486b23800a38273d428bda905d02e928101e3",
+        "bytes": 43582
+      },
+      "post": {
+        "blob": "4bec9e434712db8f7b9225d2f469bec6eef4470b",
+        "sha256": "4199012d17729718730ed0b7f28d7c0145b24aa1b82988b5dec6220deec9eb8a",
+        "bytes": 44265
+      }
+    },
+    {
+      "path": "tests/frontend/unit/api/upload.test.ts",
+      "pre": {
+        "blob": "9dd16fdba7da7494836836f724fc0f83b46e3d1a",
+        "sha256": "2205b2f9ee9a6b5be399dc126522cdf799b69d6b87f9b644cefda752a6b6362f",
+        "bytes": 11605
+      },
+      "post": {
+        "blob": "8ed792a139ae6b6b41fd03e84b85fb8d8e8337e6",
+        "sha256": "5e59fa40efbd664bafa9e0219c0ee2edc226bed719f4e17aac3bbaa85a603c19",
+        "bytes": 12761
+      }
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "pre": {
+        "blob": "275245da4ae2e580cebd8178ab38dfb31f4492a0",
+        "sha256": "696634fafc320b27e2e92160f6e182d88ea6a62bdf6d445bf692f5a1c81ddfd3",
+        "bytes": 86468
+      },
+      "post": {
+        "blob": "f414a741194a4351215d26c48b511177cd42cc7a",
+        "sha256": "46d33aa014baaed9cc94755faa635831e1ff6ddb3f4362f53ec5d4aecfc2113d",
+        "bytes": 92171
+      }
+    }
+  ],
+  "clean": true,
+  "qualification": false
+}

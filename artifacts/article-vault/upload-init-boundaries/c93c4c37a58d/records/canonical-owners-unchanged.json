@@ -1,0 +1,73 @@
+{
+  "source": "c93c4c37a58dd66fde473aa885552ea4663d4af3",
+  "comparedTo": "60e46fcbc738a855ed2f78d62ad088ae5dde75f9",
+  "paths": [
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "sha256": "d7255b1419eaf086041fcedec645cc35017a95813b74867a30baf3952513f0e4",
+      "bytes": 5459,
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/api/binaryFrame.ts",
+      "sha256": "000c2e947abb699e43ce91c5dc5bc30ca1f6b0639246a796e7a9088a6e2915fe",
+      "bytes": 4885,
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "sha256": "1881e7ec6dcc2ab5618599bf5552602349bec03c53e1a5fe83a3aaf03c84c944",
+      "bytes": 13846,
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/composition/binaryTransport.ts",
+      "sha256": "19634006e8e2a36bd61887aec463f4799a53a56189806314823bc96c88660abf",
+      "bytes": 291,
+      "unchanged": true
+    },
+    {
+      "path": "tests/frontend/support/unit/setup.ts",
+      "sha256": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+      "bytes": 4852,
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/vitest.config.ts",
+      "sha256": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+      "bytes": 2792,
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/vitest.shared.mjs",
+      "sha256": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+      "bytes": 5478,
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/package.json",
+      "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "bytes": 48113,
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/package-lock.json",
+      "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "bytes": 337719,
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Services/FileService.cs",
+      "sha256": "e63a5a6e0cc348e2c747caf9dc63ae6cd4b2cff5d6b57c281606bd2c21571e09",
+      "bytes": 97456,
+      "unchanged": true
+    },
+    {
+      "path": "src/shared/Contracts/Models/FileAndPowPods.cs",
+      "sha256": "d001f17d2f6188b6aef4bb7b548b720fa01ca7a44275df69284cb2ed78de3a56",
+      "bytes": 4246,
+      "unchanged": true
+    }
+  ],
+  "qualification": false
+}

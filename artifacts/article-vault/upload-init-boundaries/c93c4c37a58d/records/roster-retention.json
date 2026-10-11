@@ -1,0 +1,27 @@
+{
+  "original122Preserved": true,
+  "currentCount": 139,
+  "runtime": 123,
+  "api": 16,
+  "newNames": [
+    "useImageUploadRuntime > refuses unrepresentable upload filename reviewer-258-byte before init and leaves no cancellation obligation",
+    "useImageUploadRuntime > refuses unrepresentable upload filename ascii-257-byte before init and leaves no cancellation obligation",
+    "useImageUploadRuntime > refuses unrepresentable upload filename split-codepoint before init and leaves no cancellation obligation",
+    "useImageUploadRuntime > refuses unrepresentable upload filename four-byte-overflow before init and leaves no cancellation obligation",
+    "useImageUploadRuntime > refuses unrepresentable upload filename unpaired-surrogate before init and leaves no cancellation obligation",
+    "useImageUploadRuntime > refuses unrepresentable upload filename embedded-nul before init and leaves no cancellation obligation",
+    "useImageUploadRuntime > accepts a lossless 256-byte upload filename ascii without changing its identity",
+    "useImageUploadRuntime > accepts a lossless 256-byte upload filename two-byte without changing its identity",
+    "useImageUploadRuntime > accepts a lossless 256-byte upload filename four-byte without changing its identity",
+    "useImageUploadRuntime > checks the actual compressed filename before creating an init obligation",
+    "useImageUploadRuntime > cancels a lossless boundary filename using only the original late init ID and token",
+    "useImageUploadRuntime > rejects a zero GUID init before snapshot or part IO and cannot grant cancellation authority",
+    "useImageUploadRuntime > rejects a zero GUID stored identity without status lookup or replacement init",
+    "upload API requests > encodes the actual 256-byte init filename field for ascii-boundary",
+    "upload API requests > encodes the actual 256-byte init filename field for unicode-boundary",
+    "upload API requests > encodes the actual 256-byte init filename field for reviewer-258-byte",
+    "upload API requests > encodes the actual 256-byte init filename field for split-codepoint"
+  ],
+  "noRenames": true,
+  "qualification": false
+}

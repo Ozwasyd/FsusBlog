@@ -1,0 +1,20 @@
+{
+  "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "tree": "5d2b5efcd19e8de63ebdd8b6f326109a484eb13f",
+  "originalProbeSha256": "46c3e681b499a76fb4dee8c236a98b9327da3122a99561472443a100a83ffb73",
+  "originalFilesUnchanged": true,
+  "pathRemapOnly": {
+    "'/workspace/runtime-borrow-install/node_modules/typescript'": "\"/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/typescript\"",
+    "'/workspace/runtime-protocol-review'": "\"/workspace/chain-1975-evidence/upload-init-boundaries-20261011/reviewer/original/frozen-source-inputs\"",
+    "'/workspace/runtime-protocol-review-evidence'": "\"/workspace/chain-1975-evidence/upload-init-boundaries-20261011/original-probe-rerun\""
+  },
+  "node": "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+  "typescript": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/typescript",
+  "noUnitTestsOrTransport": true,
+  "noAcceptanceUpgrade": true,
+  "argv": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "/tmp/original-source-probe-cqyr6wwh/source-probes.cjs"
+  ],
+  "exitCode": 0
+}

@@ -1,0 +1,34 @@
+{"event":"start","workerProcessId":35199,"task":{"id":"1154655295_0_1","name":"encodes the actual 256-byte init filename field for ascii-boundary"}}
+{"event":"finish","workerProcessId":35199,"task":{"id":"1154655295_0_1","name":"encodes the actual 256-byte init filename field for ascii-boundary"}}
+{"event":"start","workerProcessId":35199,"task":{"id":"1154655295_0_2","name":"encodes the actual 256-byte init filename field for unicode-boundary"}}
+{"event":"finish","workerProcessId":35199,"task":{"id":"1154655295_0_2","name":"encodes the actual 256-byte init filename field for unicode-boundary"}}
+{"event":"start","workerProcessId":35199,"task":{"id":"1154655295_0_3","name":"encodes the actual 256-byte init filename field for reviewer-258-byte"}}
+{"event":"finish","workerProcessId":35199,"task":{"id":"1154655295_0_3","name":"encodes the actual 256-byte init filename field for reviewer-258-byte"}}
+{"event":"start","workerProcessId":35199,"task":{"id":"1154655295_0_4","name":"encodes the actual 256-byte init filename field for split-codepoint"}}
+{"event":"finish","workerProcessId":35199,"task":{"id":"1154655295_0_4","name":"encodes the actual 256-byte init filename field for split-codepoint"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_0","name":"refuses unrepresentable upload filename reviewer-258-byte before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_0","name":"refuses unrepresentable upload filename reviewer-258-byte before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_1","name":"refuses unrepresentable upload filename ascii-257-byte before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_1","name":"refuses unrepresentable upload filename ascii-257-byte before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_2","name":"refuses unrepresentable upload filename split-codepoint before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_2","name":"refuses unrepresentable upload filename split-codepoint before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_3","name":"refuses unrepresentable upload filename four-byte-overflow before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_3","name":"refuses unrepresentable upload filename four-byte-overflow before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_4","name":"refuses unrepresentable upload filename unpaired-surrogate before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_4","name":"refuses unrepresentable upload filename unpaired-surrogate before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_5","name":"refuses unrepresentable upload filename embedded-nul before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_5","name":"refuses unrepresentable upload filename embedded-nul before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_6","name":"accepts a lossless 256-byte upload filename ascii without changing its identity"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_6","name":"accepts a lossless 256-byte upload filename ascii without changing its identity"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_7","name":"accepts a lossless 256-byte upload filename two-byte without changing its identity"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_7","name":"accepts a lossless 256-byte upload filename two-byte without changing its identity"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_8","name":"accepts a lossless 256-byte upload filename four-byte without changing its identity"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_8","name":"accepts a lossless 256-byte upload filename four-byte without changing its identity"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_9","name":"checks the actual compressed filename before creating an init obligation"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_9","name":"checks the actual compressed filename before creating an init obligation"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_10","name":"cancels a lossless boundary filename using only the original late init ID and token"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_10","name":"cancels a lossless boundary filename using only the original late init ID and token"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_11","name":"rejects a zero GUID init before snapshot or part IO and cannot grant cancellation authority"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_11","name":"rejects a zero GUID init before snapshot or part IO and cannot grant cancellation authority"}}
+{"event":"start","workerProcessId":35226,"task":{"id":"-298466997_0_12","name":"rejects a zero GUID stored identity without status lookup or replacement init"}}
+{"event":"finish","workerProcessId":35226,"task":{"id":"-298466997_0_12","name":"rejects a zero GUID stored identity without status lookup or replacement init"}}
