@@ -296,6 +296,55 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
         Assert.True(completed);
     }
 
+    [Fact]
+    public async Task SuccessfulLateCoordinateReturnIsRejectedAfterBorrowedWorkCompletes()
+    {
+        var fixture = new Fixture();
+        var started = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ArticleRelationRevisionCoordinate? successfullyReturned = null;
+        var consumer = new ArticleGraphNodeProjectionConsumer(fixture, fixture,
+            async (id, revisionId, token) =>
+            {
+                started.TrySetResult(token);
+                await release.Task;
+                // This reader deliberately ignores cancellation and returns a valid native fact.
+                // It owns no real database/client; the held task models borrowed-work completion.
+                Assert.True(token.IsCancellationRequested);
+                successfullyReturned = new(id, revisionId, fixture.Version, Article(id), Revision(id, fixture.Version), fixture.SourceEpoch);
+                return successfullyReturned;
+            }, () => true);
+        Task<ArticleGraphNodeProjectionConsumer.NodeRead?> pending = consumer.ReadAsync(fixture.Request() with
+        {
+            RemainingMilliseconds = 250
+        });
+        try
+        {
+            CancellationToken token = await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using CancellationTokenRegistration registration = token.Register(() => cancelled.TrySetResult());
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Null(successfullyReturned);
+            Task observation = Task.Delay(TimeSpan.FromMilliseconds(25));
+            Assert.Same(observation, await Task.WhenAny(pending, observation).WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.False(pending.IsCompleted);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        Assert.Null(await pending.WaitAsync(TimeSpan.FromSeconds(5)));
+        ArticleRelationRevisionCoordinate coordinate = Assert.IsType<ArticleRelationRevisionCoordinate>(successfullyReturned);
+        Assert.Equal(1, coordinate.ArticleId);
+        Assert.Equal(101, coordinate.RevisionId);
+        Assert.Equal(1, coordinate.RevisionNo);
+        Assert.Equal(Article(1), coordinate.ArticleIdentity);
+        Assert.Equal(Revision(1, 1), coordinate.RevisionIdentity);
+        Assert.Equal(fixture.SourceEpoch, coordinate.SourceEpoch);
+        Assert.Equal(new[] { "", "1,2" }, fixture.PermissionRequests);
+        Assert.Equal(new[] { "1,2" }, fixture.MetadataRequests);
+    }
+
     private static string Article(int id) => $"article:80000000-0000-0000-0000-{id:D12}";
     private static string Revision(int id, int version) => $"revision:90000000-0000-0000-{version:D4}-{id:D12}";
 
