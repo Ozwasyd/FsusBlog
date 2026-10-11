@@ -534,7 +534,9 @@ export class AuthoringTabGroupRegistry
             }
             next.revision += 1;
             next.articleRegistryRevision += 1;
-            const activeTabId = next.groups.find(group => group.groupId === next.activeGroupId)!.activeTabId;
+            const activeTabId = command.kind === 'activate-tab-in-group' || command.kind === 'apply-group-references'
+                ? next.groups.find(group => group.groupId === next.activeGroupId)!.activeTabId
+                : this.#articleRegistry.listEntries().find(entry => entry.isActive)?.tabId ?? null;
             const references: UpdateArticleGroupOwnershipTransactionCommand['tabs'] = [];
             for (const group of next.groups)
             {
@@ -939,6 +941,10 @@ export function verifyAuthoringTabGroupResult(result: AuthoringTabGroupCommandRe
         {
             return false;
         }
+        if (applied && !matchesGroupCommandTransition(result, originalCommand, articleBefore, articleAfter))
+        {
+            return false;
+        }
         if (applied && originalCommand.kind === 'apply-group-references')
         {
             if (result.after.activeGroupId !== originalCommand.activeGroupId
@@ -977,6 +983,189 @@ export function verifyAuthoringTabGroupResult(result: AuthoringTabGroupCommandRe
     {
         return false;
     }
+}
+
+/** Relational verifier oracle; it never invokes the production planner or mutates an owner. */
+function matchesGroupCommandTransition(result: AuthoringTabGroupCommandResult, command: AuthoringTabGroupCommand,
+    articleBefore: OpenArticleDocumentRegistryState, articleAfter: OpenArticleDocumentRegistryState): boolean
+{
+    const before = result.before;
+    const expected = structuredClone(before);
+    const group = (id: string) => expected.groups.find(item => item.groupId === id);
+    const focusHistory = (id: string) => [...before.focusHistory.filter(item => item !== id), id].slice(-before.historyCapacity);
+    const refMatches = (left: AuthoringGroupTabRef | undefined, right: AuthoringGroupTabRef) => !!left
+        && calculateOpenArticleDocumentDigest(left) === calculateOpenArticleDocumentDigest(right);
+    const removeGroup = (sourceId: string, targetId: string) =>
+    {
+        expected.groups = expected.groups.filter(item => item.groupId !== sourceId);
+        if (expected.activeGroupId === sourceId)
+        {
+            expected.activeGroupId = targetId;
+        }
+        if (expected.focusedGroupId === sourceId)
+        {
+            expected.focusedGroupId = targetId;
+        }
+        const mapped = before.focusHistory.map(id => id === sourceId ? targetId : id);
+        expected.focusHistory = mapped.filter((id, index) => mapped.lastIndexOf(id) === index);
+    };
+    switch (command.kind)
+    {
+        case 'create-second-group':
+            if (before.groups.length !== 1 || group(command.groupId))
+            {
+                return false;
+            }
+            expected.groups.push({ groupId: command.groupId, revision: 0, tabs: [], activeTabId: null });
+            break;
+        case 'focus-group':
+            if (!group(command.groupId))
+            {
+                return false;
+            }
+            expected.focusedGroupId = command.groupId;
+            expected.focusHistory = focusHistory(command.groupId);
+            break;
+        case 'activate-tab-in-group': {
+            const target = group(command.groupId);
+            const entry = articleBefore.entries.find(item => item.tabId === command.tab.tabId);
+            if (!target || !refMatches(target.tabs.find(tab => tab.tabId === command.tab.tabId), command.tab)
+                || !entry || entry.status.permission === 'denied' || entry.status.permission === 'revoked'
+                || entry.status.lifecycle !== 'current')
+            {
+                return false;
+            }
+            target.revision += 1;
+            target.activeTabId = command.tab.tabId;
+            expected.activeGroupId = target.groupId;
+            expected.focusedGroupId = target.groupId;
+            expected.focusHistory = focusHistory(target.groupId);
+            expected.activationHistory = [...before.activationHistory.filter(ref => ref.tabId !== command.tab.tabId),
+                { groupId: target.groupId, tabId: command.tab.tabId, editorSessionRef: command.tab.editorSessionRef }].slice(-before.historyCapacity);
+            break;
+        }
+        case 'move-tab':
+        case 'merge-groups': {
+            const source = group(command.sourceGroupId);
+            const target = group(command.targetGroupId);
+            if (!source || !target || source.revision !== command.expectedSourceGroupRevision
+                || target.revision !== command.expectedTargetGroupRevision)
+            {
+                return false;
+            }
+            const moved = command.kind === 'merge-groups' ? [...source.tabs] : source.tabs.filter(tab => tab.tabId === command.tab.tabId);
+            if (command.kind === 'move-tab' && (moved.length !== 1 || !refMatches(moved[0], command.tab)
+                || command.insertBeforeTabId !== null && !target.tabs.some(tab => tab.tabId === command.insertBeforeTabId)))
+            {
+                return false;
+            }
+            const position = command.kind === 'move-tab' && command.insertBeforeTabId !== null
+                ? target.tabs.findIndex(tab => tab.tabId === command.insertBeforeTabId) : target.tabs.length;
+            source.tabs = source.tabs.filter(tab => !moved.some(ref => ref.tabId === tab.tabId));
+            target.tabs = [...target.tabs.slice(0, position), ...moved, ...target.tabs.slice(position)];
+            source.revision += 1;
+            target.revision += 1;
+            if (moved.some(tab => tab.tabId === source.activeTabId))
+            {
+                if (before.activeGroupId === source.groupId)
+                {
+                    target.activeTabId = source.activeTabId;
+                    expected.activeGroupId = target.groupId;
+                }
+                source.activeTabId = source.tabs[0]?.tabId ?? null;
+            }
+            target.activeTabId ??= target.tabs[0]?.tabId ?? null;
+            expected.activationHistory = before.activationHistory.map(ref => moved.some(tab => tab.tabId === ref.tabId)
+                ? { ...ref, groupId: target.groupId } : ref);
+            if (command.kind === 'merge-groups')
+            {
+                removeGroup(source.groupId, target.groupId);
+            }
+            break;
+        }
+        case 'close-empty-group': {
+            const source = group(command.groupId);
+            if (before.groups.length !== 2 || source?.tabs.length !== 0)
+            {
+                return false;
+            }
+            removeGroup(source.groupId, expected.groups.find(item => item.groupId !== source.groupId)!.groupId);
+            break;
+        }
+        case 'set-effective-single':
+            expected.collapsedByViewportRef = command.enabled ? command.viewportStateRef : null;
+            break;
+        case 'set-split-ratio-ref':
+            break;
+        case 'apply-group-references':
+            if (command.groups.some(proposal => proposal.expectedRevision !== (group(proposal.groupId)?.revision ?? null)))
+            {
+                return false;
+            }
+            expected.groups = command.groups.map(proposal => ({ groupId: proposal.groupId,
+                revision: (group(proposal.groupId)?.revision ?? -1) + 1,
+                tabs: structuredClone(proposal.tabs), activeTabId: proposal.activeTabId }));
+            for (const proposal of command.groups)
+            {
+                if (proposal.activeTabId !== null && !proposal.tabs.some(tab => tab.tabId === proposal.activeTabId)
+                    || proposal.tabs.some(ref => !refMatches(articleBefore.entries.find(entry => entry.tabId === ref.tabId)
+                        ? tabReference(articleBefore.entries.find(entry => entry.tabId === ref.tabId)!) : undefined, ref)))
+                {
+                    return false;
+                }
+            }
+            expected.activeGroupId = command.activeGroupId;
+            expected.focusedGroupId = command.activeGroupId;
+            expected.focusHistory = before.focusHistory.filter(id => expected.groups.some(item => item.groupId === id));
+            expected.activationHistory = before.activationHistory.map(ref => ({ ...ref,
+                groupId: expected.groups.find(item => item.tabs.some(tab => tab.tabId === ref.tabId))!.groupId }));
+            break;
+    }
+    if (command.kind === 'set-split-ratio-ref' || command.kind === 'apply-group-references')
+    {
+        if (before.splitRatio.revision !== command.expectedRatioRevision)
+        {
+            return false;
+        }
+        expected.splitRatio = { policySchema: authoringWorkspaceRatioPolicy.schema,
+            revision: command.expectedRatioRevision + 1, splitRatioPermille: command.splitRatioPermille };
+    }
+    const tabs = expected.groups.flatMap(item => item.tabs.map(tab => tab.tabId));
+    if (new Set(tabs).size !== tabs.length || tabs.length !== articleBefore.entries.length
+        || articleAfter.entries.length !== articleBefore.entries.length
+        || articleAfter.entries.some((entry, index) => entry.tabId !== articleBefore.entries[index].tabId))
+    {
+        return false;
+    }
+    const activeTabId = command.kind === 'activate-tab-in-group' || command.kind === 'apply-group-references'
+        ? group(expected.activeGroupId)?.activeTabId ?? null : articleBefore.entries.find(entry => entry.isActive)?.tabId ?? null;
+    for (const entry of articleBefore.entries)
+    {
+        const owner = expected.groups.find(item => item.tabs.some(tab => tab.tabId === entry.tabId));
+        const after = articleAfter.entries.find(item => item.tabId === entry.tabId);
+        if (!owner || !after)
+        {
+            return false;
+        }
+        const body = withoutDigest(entry);
+        const active = entry.tabId === activeTabId;
+        const changed = entry.owningGroupId !== owner.groupId || entry.isActive !== active;
+        if (calculateOpenArticleDocumentDigest({ ...body, owningGroupId: owner.groupId,
+            isActive: active, lifecycleRevision: entry.lifecycleRevision + (changed ? 1 : 0) }) !== after.contentDigest)
+        {
+            return false;
+        }
+    }
+    for (const target of expected.groups)
+    {
+        target.tabs = target.tabs.map(ref => tabReference(articleAfter.entries.find(entry => entry.tabId === ref.tabId)!));
+    }
+    expected.revision = before.revision + 1;
+    expected.articleRegistryRevision = articleBefore.revision + 1;
+    expected.layoutState = expected.groups.length === 2 ? 'horizontal-two-group' : 'single-group';
+    expected.effectiveLayoutState = expected.collapsedByViewportRef ? 'single-group' : expected.layoutState;
+    expected.effectiveFocusedGroupId = expected.collapsedByViewportRef ? expected.activeGroupId : expected.focusedGroupId;
+    return calculateOpenArticleDocumentDigest(withoutDigest(expected)) === result.after.contentDigest;
 }
 
 export interface AuthoringTabGroupReplayResult {

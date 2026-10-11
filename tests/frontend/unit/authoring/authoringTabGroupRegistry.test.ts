@@ -78,6 +78,96 @@ function move(groups: AuthoringTabGroupRegistry): AuthoringTabGroupCommand
 }
 
 describe('AuthoringTabGroupRegistry ordinary source controls (#2298)', () => {
+    it.each(['create-second-group', 'focus-group', 'move-tab', 'activate-tab-in-group', 'merge-groups',
+        'close-empty-group', 'set-effective-single', 'set-split-ratio-ref', 'apply-group-references'] as const)(
+        'rejects a resealed but semantically different %s receipt', kind => {
+            const { articles, groups } = fixture();
+            if (['focus-group', 'move-tab', 'merge-groups', 'close-empty-group', 'set-effective-single'].includes(kind))
+                expect(addSecond(groups).status).toBe('applied');
+            const state = groups.exportState();
+            const base = commandBase(state);
+            let command: AuthoringTabGroupCommand;
+            switch (kind)
+            {
+                case 'create-second-group': command = { ...base, kind, groupId: 'group-secondary' }; break;
+                case 'focus-group': command = { ...base, kind, groupId: 'group-secondary' }; break;
+                case 'move-tab': command = move(groups); break;
+                case 'activate-tab-in-group': command = { ...base, kind, groupId: 'group-primary', tab: state.groups[0].tabs[0] }; break;
+                case 'merge-groups': command = { ...base, kind, sourceGroupId: 'group-secondary', targetGroupId: 'group-primary',
+                    expectedSourceGroupRevision: state.groups[1].revision, expectedTargetGroupRevision: state.groups[0].revision }; break;
+                case 'close-empty-group': command = { ...base, kind, groupId: 'group-secondary' }; break;
+                case 'set-effective-single': command = { ...base, kind, enabled: true, viewportStateRef: 'viewport-original' }; break;
+                case 'set-split-ratio-ref': command = { ...base, kind, expectedRatioRevision: state.splitRatio.revision, splitRatioPermille: 600 }; break;
+                case 'apply-group-references': command = { ...base, kind,
+                    groups: [{ groupId: 'group-primary', expectedRevision: state.groups[0].revision,
+                        tabs: state.groups[0].tabs, activeTabId: 'tab-2' }], activeGroupId: 'group-primary',
+                    expectedRatioRevision: state.splitRatio.revision, splitRatioPermille: 600 }; break;
+            }
+            const before = articles.exportState();
+            const receipt = command.kind === 'set-split-ratio-ref' || command.kind === 'apply-group-references'
+                ? executeWithRatio(groups, command) : groups.execute(command);
+            const after = articles.exportState();
+            expect(receipt.status).toBe('applied');
+            expect(verifyAuthoringTabGroupResult(receipt, before, after, command)).toBe(true);
+            const tampered = structuredClone(receipt);
+            switch (kind)
+            {
+                case 'create-second-group': tampered.after.groups[1].groupId = 'group-unrequested'; break;
+                case 'focus-group': tampered.after.focusedGroupId = 'group-primary'; tampered.after.effectiveFocusedGroupId = 'group-primary'; break;
+                case 'move-tab':
+                case 'merge-groups':
+                case 'close-empty-group': tampered.after.groups[0].revision += 1; break;
+                case 'activate-tab-in-group': tampered.after.activationHistory = []; break;
+                case 'set-effective-single': tampered.after.collapsedByViewportRef = 'viewport-unrequested'; break;
+                case 'set-split-ratio-ref': tampered.after.splitRatio.splitRatioPermille = 601; break;
+                case 'apply-group-references': tampered.after.groups[0].tabs.reverse(); break;
+            }
+            const { contentDigest: _stateDigest, ...stateBody } = tampered.after;
+            tampered.after.contentDigest = calculateOpenArticleDocumentDigest(stateBody);
+            const { contentDigest: _resultDigest, ...resultBody } = tampered;
+            tampered.contentDigest = calculateOpenArticleDocumentDigest(resultBody);
+            expect(verifyAuthoringTabGroupRegistryState(tampered.after, after)).toBe(true);
+            expect(verifyAuthoringTabGroupResult(tampered, before, after, command)).toBe(false);
+            const metadataTampered = structuredClone(receipt);
+            metadataTampered.after.historyCapacity += 1;
+            const { contentDigest: _metadataStateDigest, ...metadataStateBody } = metadataTampered.after;
+            metadataTampered.after.contentDigest = calculateOpenArticleDocumentDigest(metadataStateBody);
+            const { contentDigest: _metadataResultDigest, ...metadataResultBody } = metadataTampered;
+            metadataTampered.contentDigest = calculateOpenArticleDocumentDigest(metadataResultBody);
+            expect(verifyAuthoringTabGroupRegistryState(metadataTampered.after, after)).toBe(true);
+            expect(verifyAuthoringTabGroupResult(metadataTampered, before, after, command)).toBe(false);
+        }
+    );
+
+    it.each(['allowed', 'denied'] as const)(
+        'preserves no canonical active tab during collapse after legal close with %s survivor', permission => {
+            const { articles, groups } = fixture();
+            expect(addSecond(groups).status).toBe('applied');
+            const articleBase = (id: string) => ({ schema: openArticleDocumentCommandSchema,
+                commandId: id, idempotencyKey: id, expectedRevision: articles.getRevision() });
+            expect(articles.execute({ ...articleBase('collapse-close-request'), kind: 'request-close', tabId: 'tab-2' }).status).toBe('applied');
+            expect(articles.execute({ ...articleBase('collapse-final-close'), kind: 'detach-on-final-close',
+                tabId: 'tab-2', closeDecisionRef: 'collapse-close-decision' }).status).toBe('applied');
+            if (permission === 'denied') expect(articles.execute({ ...articleBase('collapse-deny-survivor'),
+                kind: 'invalidate-permission', tabId: 'tab-1', permission, statusRef: 'collapse-denied-status' }).status).toBe('applied');
+            const survivor = articles.getEntry('tab-1');
+            for (const enabled of [true, false, true])
+            {
+                const before = articles.exportState();
+                const command: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'set-effective-single',
+                    enabled, viewportStateRef: 'viewport-closed-tab' };
+                const result = groups.execute(command);
+                expect(result.status).toBe('applied');
+                expect(articles.getEntry('tab-1')).toEqual(survivor);
+                expect(articles.listEntries().some(entry => entry.isActive)).toBe(false);
+                expect(verifyAuthoringTabGroupResult(result, before, articles.exportState(), command)).toBe(true);
+                const published = articles.exportState();
+                expect(groups.execute(command).status).toBe('replayed');
+                expect(articles.exportState()).toEqual(published);
+            }
+        }
+    );
+
     it('independently replays exact commands and receipts against a separate canonical owner', () => {
         const { groups } = fixture();
         const create: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'create-second-group', groupId: 'group-secondary' };
