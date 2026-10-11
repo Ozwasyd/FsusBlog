@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "actualOriginalCliSelectedCount": 1,
+  "expectedCount": 1,
+  "selectedExactOriginalNameAndFile": [
+    {
+      "name": "useImageUploadRuntime > Independent Flow recovery public flag reset must not clear or replace original File context",
+      "file": "/workspace/runtime-flow-ack-public-state-probe/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    }
+  ],
+  "originalFullMatcherName": "useImageUploadRuntime Independent Flow recovery public flag reset must not clear or replace original File context",
+  "exactAnchoredPattern": "^useImageUploadRuntime Independent Flow recovery public flag reset must not clear or replace original File context$",
+  "all155DiscoveryNamesMatchOriginalProbeInput": true,
+  "allOtherTestsExcluded": true,
+  "originalTaskMatcherAndCliAgree": true,
+  "priorFailurePreserved": true
+}

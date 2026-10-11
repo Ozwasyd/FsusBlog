@@ -1,0 +1,34 @@
+{
+  "productionSource": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "testCompositeSha256": "0f37e107ef2bfcd825e17dba5fe61d927a5c258d7a53f2509b41d93f94c8d854",
+  "originalProbeSha256": "e6f363c70dc2c02bc48c90b0c222459df456b2df4d24905d8daf0a6e8eb7a9de",
+  "originalOracleAndInputsUnchanged": true,
+  "actualExecuted": 1,
+  "failed": 1,
+  "passed": 0,
+  "outsideSelector": 138,
+  "actualExitCode": 1,
+  "actualFullName": "useImageUploadRuntime Independent Flow recovery public flag reset must not clear or replace original File context",
+  "exactFile": "/workspace/runtime-flow-ack-public-state-probe/tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+  "hookStarts": 1,
+  "hookFinishes": 1,
+  "workerPids": [
+    84129
+  ],
+  "workerDeparted": true,
+  "assertionFailures": [
+    "AssertionError: expected false to be true // Object.is equality\n    at /workspace/runtime-flow-ack-public-state-probe/tests/frontend/unit/composables/useImageUploadRuntime.test.ts:520:56\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at file:///workspace/runtime-borrow-install/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20",
+    "AssertionError: expected false to be true // Object.is equality\n    at /workspace/runtime-flow-ack-public-state-probe/tests/frontend/unit/composables/useImageUploadRuntime.test.ts:524:56\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at file:///workspace/runtime-borrow-install/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20",
+    "AssertionError: expected false to be true // Object.is equality\n    at /workspace/runtime-flow-ack-public-state-probe/tests/frontend/unit/composables/useImageUploadRuntime.test.ts:525:63\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at file:///workspace/runtime-borrow-install/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20",
+    "AssertionError: expected 'upload_attachment_input_invalid' to be 'upload_completion_recovery_required' // Object.is equality\n    at /workspace/runtime-flow-ack-public-state-probe/tests/frontend/unit/composables/useImageUploadRuntime.test.ts:527:48\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at file:///workspace/runtime-borrow-install/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+  ],
+  "F1Core": "Dynamically confirmed ordinary-unit context loss: line520 original context not retained after public reset+clearPending; lines524/525 original context/File not retained after rejected replacement start.",
+  "additionalMessageExpectation": "Original probe line527 expected upload_completion_recovery_required; actual upload_attachment_input_invalid because original attachment anchor is no longer current. This assertion was not changed.",
+  "broaderCaptureClaim": "Not demonstrated. Original capture-count soft assertion at523 passes: capture remains1. No new capture/source mutation observed in this exact unchanged-input run.",
+  "unreachedAssertions": "Lines528-533 snapshot equality, recovery cause, init/complete counts and zeroabort assertions did not execute after hard failure at527. Do not claim their PASS here.",
+  "oldSelectorFailBehaviorUnrunPreserved": true,
+  "supplementAuthorizedExecutionCount": 1,
+  "rerunOrOracleChange": false,
+  "qualification": false,
+  "WriterOrProductOrHeldQAAccepted": false
+}

@@ -1,0 +1,8 @@
+{
+  "failure": "edit script used frontend cwd for repository paths and stopped before any product edit; shell lacked set-e so runner subsequently executed unchanged product",
+  "runLabel": "exploratory-approved",
+  "actualProduct": "unchanged0324 at evidencehead d8d0",
+  "actualResult": "repeat before-source155PASS/6FAIL, not a repaired-source run",
+  "correction": "all edits now use explicit absolute repository root, sequential dependency and set-e; retain actual before-source report",
+  "qualification": false
+}

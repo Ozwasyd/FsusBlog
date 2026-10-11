@@ -1,0 +1,13 @@
+{
+  "parentThread": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+  "approval": "parent explicitly approved minimal read-only module export before source implementation; no permission blocker remains",
+  "approvedSignature": "getImageUploadRuntimeAdmissionError(runtime: ReturnType<typeof useImageUploadRuntime>): ReturnType<typeof createAppError> | null",
+  "implementation": "factory-only WeakMap registration original returned instance -> reader of same original private shallowReactive holder; no second ledger, public-flag input, stale snapshot cache or mutating export",
+  "reader": "fresh sanitized code/message only; no cause/details/ACK/token/File/callback payload; unknown/clone/native proxy/inherited fail closed",
+  "flow": "capture original instance; query before clear/start/resume/context assignment/capture; public cleanupRequired display-only; null local admission is not canonical business release",
+  "rawIdentity": "nested original Files/SDK bindings/promises/cause/ACK remain raw; shallow holder replaces original private fields, does not duplicate obligations",
+  "allowedTransportControl": "one precomplete real mocked abort ACK while original work pending; complete0; not postACK business cleanup",
+  "postAck": "zero abort, duplicate init/complete or receiver release in all actual original ACK failure controls",
+  "prohibitions": "no Writer/#4153, Shared/#4155, #4170, server activation, migration, held QA, production DB, issue closure, merge, deployment or package publication",
+  "qualification": false
+}

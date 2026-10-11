@@ -1,0 +1,33 @@
+{
+  "total": 161,
+  "selector": "Flow private recovery admission",
+  "selected": [
+    {
+      "name": "useImageUploadRuntime > Flow private recovery admission keeps the original context under public cleanup flag false",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    },
+    {
+      "name": "useImageUploadRuntime > Flow private recovery admission keeps the original context under public cleanup flag true",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    },
+    {
+      "name": "useImageUploadRuntime > Flow private recovery admission refuses fresh original anchor capture after public flag reset",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    },
+    {
+      "name": "useImageUploadRuntime > Flow private recovery admission refuses another Flow capture on the same original runtime",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    },
+    {
+      "name": "useImageUploadRuntime > Flow private recovery admission stays with its original runtime when the options object is replaced",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    },
+    {
+      "name": "useImageUploadRuntime > Flow private recovery admission preserves normal void observers and batch success after display flag reset",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    }
+  ],
+  "expected": 6,
+  "noFallback": true,
+  "qualification": false
+}

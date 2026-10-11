@@ -1,0 +1,21 @@
+{
+  "label": "exploratory-complete",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/flow-private-recovery-20261011/exploratory-complete-report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T12:47:14.129306+00:00",
+  "head": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "runId": "chain1975-flow-private-exploratory-complete-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T12:47:26.478437+00:00"
+}

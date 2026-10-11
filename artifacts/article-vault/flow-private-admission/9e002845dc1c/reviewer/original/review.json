@@ -1,0 +1,738 @@
+{
+  "verdict": "MUST_FIX \u2014 F1 static source finding; extra probe selector FAIL / behavior UNRUN",
+  "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "tree": "168b91f10b5713fdc11d723b4b058b4630e07eb8",
+  "evidenceHead": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "qualification": false,
+  "sourceOrFullChainAccepted": false,
+  "productSourceChanged": false,
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "P2 \u2014 MUST_FIX source contract discrepancy",
+      "status": "OPEN",
+      "basis": "Independent deterministic static source trace; extra dynamic probe UNRUN due actual selector FAIL, no dynamic failure claimed.",
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "lines": [
+        107,
+        108,
+        110,
+        220,
+        228,
+        303,
+        307,
+        372,
+        378
+      ],
+      "title": "Writable public cleanup flag can unlock clearing/replacing the retained original Flow context",
+      "trigger": "A genuine original onFileUploaded throws; startUpload settles, runtime private ACK recovery remains required and original Flow File/context remains pending. Set the already-writable public runtime.cleanupRequired=false, as the preserved original public-state control does. Then call flow.clearPending or startUpload with another original attachment input.",
+      "sourceTrace": "startUpload finally clears activeRun. admissionError then tests only options.runtime.cleanupRequired. A false public flag yields no blocker; clearPending sets pendingContext=null. New start overwrites pendingContext before its try, and capture/commitCreated run before runtime.uploadFile reaches private acknowledgedCompletion.recoveryRequired refusal.",
+      "impact": "Original File/context can be lost and a new pending intent/source mutation can be captured before the private runtime refuses replacement. This contradicts retention until real recovery and the documented statement that public cleanup flags are not release acknowledgements.",
+      "limits": "Private original runtime recovery check still blocks new init/complete and no abort permission is granted. No credential leak, live server action, Writer behavior or product effect was demonstrated. Direct external writes to pendingContext itself are a separate trust boundary, not this method-admission finding.",
+      "actionForOriginal1975": "Keep controlled Flow method admission/context retention tied to its original private recovery obligation rather than allowing a mutable display flag to retire it. Preserve active-run guard, original binding and normal fulfilled void/batch. Do not add a canonical receiver, receipt, token persistence, loan or second ledger as a workaround; any needed contract decision remains with original owners.",
+      "portableReproduction": "public-state-probe.ts and public-state-probe-binding.json; exact original helper/config/owner/registry. Initial actual selector failure is in probe-selector-failure.json. Corrected future suffix pattern is documented but explicitly NOT RUN.",
+      "reviewOracle": "Original new public-state test only calls raw runtime after flag reset; it does not test Flow.clearPending or Flow.startUpload before private runtime admission."
+    }
+  ],
+  "remainingGates": [
+    "F1 local Flow context admission is unresolved; extra source probe behavior UNRUN after actual selector FAIL. No independent source acceptance granted.",
+    "Canonical recovery receiver/current business receipt/release acknowledgement absent; original local retention does not accept terminal cutover, cleanup business or the full chain.",
+    "Noncooperative callback remains physically pending after finite access revocation. No timeout is a physical termination ACK or release permission.",
+    "Author full types remain FAIL244/244 with zero delta. Not independently rerun. Old9def missing independent Refs footer remains FAIL; current new-range PASS does not waive inherited history.",
+    "Writer2246, SharedDI/4170 activation and all held server/backup/migration/native/browser/product/receipt/custody/security/cohort/race/ProjectXML/Git replacement scopes remain excluded PAUSED/UNRUN."
+  ],
+  "independentOrdinaryResults": {
+    "preflight": "PASS0",
+    "exactDiscoverySelection": "PASS154 nonempty unique identities",
+    "focused": {
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "passed": 154,
+      "failed": 0,
+      "skipped": 0,
+      "runtime": 138,
+      "api": 16,
+      "hookStarts": 154,
+      "hookFinishes": 154,
+      "workerPids": [
+        71811,
+        72641
+      ],
+      "allActualNamesExactlyDiscovered": true,
+      "originalSelectedControlsAllPassed": {
+        "positive2": 2,
+        "nine": 9,
+        "five": 5,
+        "guard": 1,
+        "old28": 28,
+        "old17": 17
+      }
+    },
+    "positiveAndNineAfter": {
+      "positive": {
+        "passed": 2,
+        "failed": 0,
+        "outsideSelector": 136,
+        "exactActualNames": [
+          "runs compression and hashing before init, uploads every required part, then completes once",
+          "borrows actual compressed facts and retains a bound handle after public session and original lease clear"
+        ],
+        "hookStarts": 2,
+        "hookFinishes": 2,
+        "workerPids": [
+          74448
+        ]
+      },
+      "nine-after": {
+        "passed": 9,
+        "failed": 0,
+        "outsideSelector": 129,
+        "exactActualNames": [
+          "Flow consumer recovery retains the original ACK snapshot error and File when the consumer fails",
+          "Flow consumer recovery refuses duplicate start resume and reupload while the original consumer is pending",
+          "Flow consumer recovery keeps the original obligation after cancel-resolve and rejects late completion",
+          "Flow consumer recovery keeps the original obligation after cancel-reject and rejects late completion",
+          "Flow consumer recovery keeps the original obligation after intent-cancel and rejects late completion",
+          "Flow consumer recovery keeps the original obligation after dispose and rejects late completion",
+          "Flow consumer recovery keeps the original obligation after abandon and rejects late completion",
+          "Flow consumer recovery keeps the ACK when a consumer settles after the original loan deadline",
+          "Flow consumer recovery does not persist a new token or accept mutable public state as release acknowledgement"
+        ],
+        "hookStarts": 9,
+        "hookFinishes": 9,
+        "workerPids": [
+          74441
+        ]
+      }
+    },
+    "original37Prerequisites": "PASS37 zero failures/skips",
+    "style": "PASS0",
+    "new22813..0324Range": "PASS0",
+    "nineBefore": "Actual exit1:9FAIL0PASS,129 runtime outside selector,9 real hook pairs",
+    "fiveBefore": "Actual exit1:4FAIL1PASS,133 runtime outside selector,5 real hook pairs",
+    "publicStateProbe": {
+      "status": "FAIL",
+      "boundary": "actual original runner selection",
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "preflight": "PASS0",
+      "discovery": "PASS155 exact original154 plus one probe",
+      "preRunLeafOnlySelectionClaim": "INADMISSIBLE: ignored original runner full-name matching",
+      "actualSelected": 0,
+      "actualOutsideSelector": 139,
+      "actualExitCode": 0,
+      "actualHookPairs": 0,
+      "behaviorResult": "UNRUN",
+      "initialPattern": "^Independent Flow recovery public flag reset must not clear or replace original File context$",
+      "cause": "Original Vitest4.1.11 getTaskFullName recursively includes suite/file names; ^leaf$ matches none.",
+      "originalRunnerSource": "@vitest/runner/dist/chunk-artifact.js:964,1006",
+      "affectedExecutionStopped": true,
+      "rerunOrFallback": false,
+      "portableFuturePatternNotExecuted": "Independent Flow recovery public flag reset must not clear or replace original File context$",
+      "noProductAssertionsChanged": true
+    },
+    "completeC93EvidenceToCurrentNewRange": "PASS0 for four new commits, not full inherited history"
+  },
+  "testRetention": "Original139/140 whole complete calls/hooks/imports and original API file retained byte-identical; original9 block SHA692dffe3770e3998dfbc6a5bd52bc84a22f86d775a318dca09414afaa645d83e independently checked. All45 prior controls passed current154; old before results preserved, not rerun or upgraded.",
+  "authorEvidence": "104 files including manifest;103 manifest entries independently byte/SHA checked. Author reports stay separate under author-published/.",
+  "actualRuns": [
+    {
+      "label": "preflight",
+      "cwd": "/workspace/runtime-flow-ack-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T11:56:57.692548+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/preflight",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/preflight/topology.jsonl"
+      },
+      "pid": 67824,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T11:58:29.466302+00:00"
+    },
+    {
+      "label": "discovery",
+      "cwd": "/workspace/runtime-flow-ack-review/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "list",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "../../tests/frontend/unit/api/upload.test.ts",
+        "--json=/workspace/runtime-flow-ack-review-evidence/discovery-tests.json"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T11:58:45.864708+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/discovery",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/discovery/topology.jsonl"
+      },
+      "pid": 70117,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T11:58:54.038293+00:00"
+    },
+    {
+      "label": "focused",
+      "cwd": "/workspace/runtime-flow-ack-review/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "../../tests/frontend/unit/api/upload.test.ts"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T11:59:45.155002+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/focused",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/focused/topology.jsonl"
+      },
+      "pid": 71636,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:00:02.353336+00:00"
+    },
+    {
+      "label": "positive",
+      "cwd": "/workspace/runtime-flow-ack-review/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "--testNamePattern",
+        "(runs compression and hashing before init, uploads every required part, then completes once|borrows actual compressed facts and retains a bound handle after public session and original lease clear)$"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T12:01:04.776336+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/positive",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/positive/topology.jsonl"
+      },
+      "pid": 74371,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:01:18.624606+00:00"
+    },
+    {
+      "label": "nine-after",
+      "cwd": "/workspace/runtime-flow-ack-review/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "--testNamePattern",
+        "Flow consumer recovery",
+        "--reporter=json",
+        "--outputFile=/workspace/runtime-flow-ack-review-evidence/nine-after-report.json"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T12:01:04.766551+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/nine-after",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/nine-after/topology.jsonl"
+      },
+      "pid": 74364,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:01:19.085658+00:00"
+    },
+    {
+      "label": "prerequisites",
+      "cwd": "/workspace/runtime-flow-ack-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tests/tools/local-production-profile-resources.test.mjs",
+        "tests/tools/matrix-fixture-profile.test.mjs",
+        "tests/tools/linux-cgroup-membership-locator.test.mjs"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T11:59:45.155323+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/prerequisites",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/prerequisites/topology.jsonl"
+      },
+      "pid": 71638,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T11:59:47.922996+00:00"
+    },
+    {
+      "label": "source-style",
+      "cwd": "/workspace/runtime-flow-ack-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--file",
+        "src/frontend/src/composables/useImageUploadRuntime.ts",
+        "--file",
+        "src/frontend/src/composables/useImageUploadFlow.ts",
+        "--file",
+        "src/frontend/src/api/upload.ts"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T11:59:45.148415+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/source-style",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/source-style/topology.jsonl"
+      },
+      "pid": 71633,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T11:59:55.775024+00:00"
+    },
+    {
+      "label": "new-range",
+      "cwd": "/workspace/runtime-flow-ack-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "22813e9b81db72a0d01b1a0752551a1f96ab9c89..HEAD"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T11:59:45.169208+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/new-range",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/new-range/topology.jsonl"
+      },
+      "pid": 71654,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T11:59:48.084850+00:00"
+    },
+    {
+      "label": "before-preflight",
+      "cwd": "/workspace/runtime-flow-ack-before",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "source": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+      "startUtc": "2026-10-11T11:59:04.481862+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/before-preflight",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/before-preflight/topology.jsonl"
+      },
+      "pid": 70337,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:00:37.259479+00:00"
+    },
+    {
+      "label": "before-discovery",
+      "cwd": "/workspace/runtime-flow-ack-before/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "list",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "../../tests/frontend/unit/api/upload.test.ts",
+        "--json=/workspace/runtime-flow-ack-review-evidence/before-discovery-tests.json"
+      ],
+      "source": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+      "startUtc": "2026-10-11T12:01:04.785681+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/before-discovery",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/before-discovery/topology.jsonl"
+      },
+      "pid": 74378,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:01:18.830038+00:00"
+    },
+    {
+      "label": "nine-before",
+      "cwd": "/workspace/runtime-flow-ack-before/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "--testNamePattern",
+        "Flow consumer recovery",
+        "--reporter=json",
+        "--outputFile=/workspace/runtime-flow-ack-review-evidence/nine-before-report.json"
+      ],
+      "source": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+      "startUtc": "2026-10-11T12:01:50.067931+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/nine-before",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/nine-before/topology.jsonl"
+      },
+      "pid": 74944,
+      "exitCode": 1,
+      "stopUtc": "2026-10-11T12:01:59.412648+00:00"
+    },
+    {
+      "label": "five-before",
+      "cwd": "/workspace/runtime-flow-ack-before/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "--testNamePattern",
+        "Flow ACK handoff",
+        "--reporter=json",
+        "--outputFile=/workspace/runtime-flow-ack-review-evidence/five-before-report.json"
+      ],
+      "source": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+      "startUtc": "2026-10-11T12:02:34.725097+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/five-before",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/five-before/topology.jsonl"
+      },
+      "pid": 75635,
+      "exitCode": 1,
+      "stopUtc": "2026-10-11T12:02:44.676137+00:00"
+    },
+    {
+      "label": "probe-preflight",
+      "cwd": "/workspace/runtime-flow-ack-public-state-probe",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T12:00:46.919362+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/probe-preflight",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/probe-preflight/topology.jsonl"
+      },
+      "pid": 73322,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:02:21.370363+00:00"
+    },
+    {
+      "label": "probe-discovery",
+      "cwd": "/workspace/runtime-flow-ack-public-state-probe/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "list",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "../../tests/frontend/unit/api/upload.test.ts",
+        "--json=/workspace/runtime-flow-ack-review-evidence/probe-discovery-tests.json"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T12:02:34.719438+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/probe-discovery",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/probe-discovery/topology.jsonl"
+      },
+      "pid": 75628,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:02:44.205966+00:00"
+    },
+    {
+      "label": "public-state-probe",
+      "cwd": "/workspace/runtime-flow-ack-public-state-probe/src/frontend",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "--testNamePattern",
+        "^Independent Flow recovery public flag reset must not clear or replace original File context$",
+        "--reporter=json",
+        "--outputFile=/workspace/runtime-flow-ack-review-evidence/public-state-probe-report.json"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T12:03:05.019790+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/public-state-probe",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/public-state-probe/topology.jsonl"
+      },
+      "pid": 75959,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:03:13.357075+00:00"
+    },
+    {
+      "label": "complete-new-range",
+      "cwd": "/workspace/runtime-flow-ack-review",
+      "argv": [
+        "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "0c1576c37d75e69e2b6425e245fd3f47eee25367..HEAD"
+      ],
+      "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+      "startUtc": "2026-10-11T12:06:30.817168+00:00",
+      "qualification": false,
+      "environment": {
+        "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+        "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+        "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-review-evidence/complete-new-range",
+        "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-review-evidence/complete-new-range/topology.jsonl"
+      },
+      "pid": 77670,
+      "exitCode": 0,
+      "stopUtc": "2026-10-11T12:06:31.917252+00:00"
+    }
+  ],
+  "toolchain": {
+    "Node": "24.16.0",
+    "binarySha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+    "Vitest": "4.1.11",
+    "TypeScript": "6.0.3",
+    "Vue": "3.5.33",
+    "FsusUI": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+    "originalReleaseWasm": "Original six prior independent Release build assets reused, no native qualification"
+  },
+  "failureHistory": "setup-initial-failure.json preserves original helper directory-exists FAIL twice and failed cleanup-reader assertion; no preflight/tests launched before setup repaired. Static inspector first binding assertion failed on extra delimiter newline; first static output was inadmissible, corrected exact-function binding then original inspector rerun read-only. Actual source-probe selector FAIL stops that affected execution; no rerun/fallback.",
+  "previousIndependentReviews": "c93 bounded139 PASS remains historical, not inherited.734/8a incomplete selectorFAIL/focusedUNRUN and original missing@vue/shared/Node-preflight failures remain preserved.",
+  "prohibitedOperationsExecuted": false,
+  "cleanup": {
+    "ownedLinksRemoved": 27,
+    "removedLinks": [
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/async-validator",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/async-validator"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/escape-html",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/escape-html"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/motion-dom",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/motion-dom"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/vue",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/vue"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/katex",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/fsusui-local-katex"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/gsap",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/gsap"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/normalize-wheel-es",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/normalize-wheel-es"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/lodash-es",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/lodash-es"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/lodash",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/lodash"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/lodash-unified",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/lodash-unified"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/dayjs",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/dayjs"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/mermaid",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/mermaid"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/shiki",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/shiki"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/memoize-one",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/memoize-one"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@popperjs/core",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@popperjs/core"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@types/lodash-es",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@types/lodash-es"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@types/lodash",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@types/lodash"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@floating-ui/dom",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@floating-ui/dom"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@ctrl/tinycolor",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@ctrl/tinycolor"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@vue/runtime-dom",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@vue/runtime-dom"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@vue/reactivity",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@vue/reactivity"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@vue/runtime-core",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@vue/runtime-core"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@vue/shared",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@vue/shared"
+      },
+      {
+        "path": "/workspace/runtime-borrow-ui/vue/packages/node_modules/@element-plus/icons-vue",
+        "target": "/workspace/runtime-flow-ack-review/src/frontend/node_modules/@element-plus/icons-vue"
+      },
+      {
+        "path": "/workspace/runtime-flow-ack-review/src/frontend/node_modules",
+        "target": "/workspace/runtime-borrow-install/node_modules"
+      },
+      {
+        "path": "/workspace/runtime-flow-ack-before/src/frontend/node_modules",
+        "target": "/workspace/runtime-borrow-install/node_modules"
+      },
+      {
+        "path": "/workspace/runtime-flow-ack-public-state-probe/src/frontend/node_modules",
+        "target": "/workspace/runtime-borrow-install/node_modules"
+      }
+    ],
+    "emptyOwnedDependencyParentsRemoved": [
+      "/workspace/runtime-borrow-ui/vue/packages/node_modules/@types",
+      "/workspace/runtime-borrow-ui/vue/packages/node_modules/@floating-ui",
+      "/workspace/runtime-borrow-ui/vue/packages/node_modules/@ctrl",
+      "/workspace/runtime-borrow-ui/vue/packages/node_modules/@popperjs",
+      "/workspace/runtime-borrow-ui/vue/packages/node_modules/@element-plus",
+      "/workspace/runtime-borrow-ui/vue/packages/node_modules/@vue",
+      "/workspace/runtime-borrow-ui/vue/packages/node_modules"
+    ],
+    "restoredTestFiles": [
+      {
+        "path": "/workspace/runtime-flow-ack-before/tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "restoredSource": "22813e9b81db72a0d01b1a0752551a1f96ab9c89"
+      },
+      {
+        "path": "/workspace/runtime-flow-ack-public-state-probe/tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "restoredSource": "0324e7adb18f8aecfa870e86dec1153046a9f782"
+      }
+    ],
+    "sourceStatuses": [
+      {
+        "checkout": "/workspace/runtime-flow-ack-review",
+        "head": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+        "status": ""
+      },
+      {
+        "checkout": "/workspace/runtime-flow-ack-before",
+        "head": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+        "status": ""
+      },
+      {
+        "checkout": "/workspace/runtime-flow-ack-public-state-probe",
+        "head": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+        "status": ""
+      },
+      {
+        "checkout": "/workspace/runtime-borrow-ui",
+        "head": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+        "status": ""
+      }
+    ],
+    "activeReviewNodeWorkers": [],
+    "productOrForeignFilesChanged": false,
+    "originalLockedCachesPreserved": true
+  },
+  "actualRunIdEnvironment": "Logger set FSUSBLOG_RUN_ID=independent-flow-ack-<label>-0324e7adb18f before each original command; source helper retained. Existing actual run record environment whitelist omitted this variable; no run receipt invented."
+}

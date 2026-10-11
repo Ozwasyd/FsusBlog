@@ -1,0 +1,11 @@
+{
+  "status": "PROPOSED ONLY; product patch not applied",
+  "publicChange": "new read-only module export, no new returned-runtime method/option/DTO",
+  "signature": "getImageUploadRuntimeAdmissionError(runtime: ReturnType<typeof useImageUploadRuntime>): ReturnType<typeof createAppError> | null",
+  "caller": "Flow imports canonical reader and captures original actual factory instance once; callers may observe original error but cannot register/set/release an obligation",
+  "authority": "module-private WeakMap holds only original closure reader; sole registration in actual runtime factory; both performUpload and Flow admission read same original live owner checks; no state copy/second ledger",
+  "unknownInstance": "Conflict upload_runtime_authority_unavailable; no forged registration",
+  "privateChecks": "actual original ACK recovery; commit-unknown; existing cleanup/abandon; actual active original/init; existing order/messages retained",
+  "qualification": false,
+  "approvalRequiredBecause": "parent explicitly says propose any new public method/contract first"
+}

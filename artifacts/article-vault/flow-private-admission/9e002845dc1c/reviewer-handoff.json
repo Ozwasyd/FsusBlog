@@ -1,0 +1,26 @@
+{
+  "to": "01a1219d-1a8a-7640-be37-1002c0f51014",
+  "viaParent": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+  "delivery": "prepared for parent forwarding; no outbound cross-thread tool available; not claimed delivered",
+  "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+  "tree": "9b8b0857444bccec3ab1a276385712843b75bd61",
+  "branch": "codex/chain-1975-runtime-attempt-borrow",
+  "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/4151",
+  "publicationHead": "artifact-only descendant supplied by final response and PR, source bytes unchanged",
+  "previousVerdict": "0324 independent original154PASS but MUST_FIX F1; initial selector0 FAIL/behavior UNRUN; supplemental original probe actual1FAIL. Author also reproduced unchanged original probe1FAIL; capture remains1 and late assertions UNRUN.",
+  "currentVerdict": "author ordinary167PASS only; independent F1 disposition PENDING",
+  "originalProbe": "reviewer/original/public-state-probe.ts.gz; lossless1970 bytes; also unchanged in committed runtime test",
+  "exactPattern": "Independent Flow recovery public flag reset must not clear or replace original File context$",
+  "reproduction": "official documented preflight and local FsusUI setup; original Vitest list before run; use existing runner/setup hooks and explicit topology env; run commands in records/f1-after.json and records/focused.json; no selector fallback/oracle change",
+  "reviewChecklist": [
+    "single factory registration + original same private state; no extra obligation/cache",
+    "original runtime captured by Flow before admission, before all replacement/capture paths",
+    "fresh diagnostic contains no mutable original error or payload",
+    "unknown/clone/proxy/inherited fail closed before property trap/capture",
+    "original154/F1/9/5 byte/fixture retention; full167 execution hooks and PID departure",
+    "postACK zeroabort; precomplete cancellation actual separate abortACK not receiver release",
+    "display flagfalse/true, fresh current anchor, secondFlow, options.runtime substitution, normal void/batch and reactive cancellation controls"
+  ],
+  "heldGates": "all product/server/native/browser/receipt/custody/cohort/race/security/migration/QA PAUSED/UNRUN; no whole-chain acceptance",
+  "qualification": false
+}

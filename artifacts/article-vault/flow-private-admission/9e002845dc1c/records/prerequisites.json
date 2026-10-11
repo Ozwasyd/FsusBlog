@@ -1,0 +1,18 @@
+{
+  "label": "prerequisites",
+  "command": [
+    "node",
+    "--test",
+    "tests/tools/execution-envelope-policy.test.mjs",
+    "tests/tools/local-production-profile-resources.test.mjs",
+    "tests/tools/matrix-fixture-profile.test.mjs",
+    "tests/tools/linux-cgroup-membership-locator.test.mjs"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T12:53:19.805772+00:00",
+  "head": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+  "runId": "chain1975-flow-private-prerequisites-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T12:53:22.939502+00:00"
+}

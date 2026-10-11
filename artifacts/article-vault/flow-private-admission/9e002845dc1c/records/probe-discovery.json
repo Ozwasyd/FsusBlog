@@ -1,0 +1,20 @@
+{
+  "label": "probe-discovery",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "list",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--json=/workspace/chain-1975-evidence/flow-private-recovery-20261011/probe-discovery-roster.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T12:17:16.250679+00:00",
+  "head": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "runId": "chain1975-flow-private-probe-discovery-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T12:17:23.848512+00:00"
+}

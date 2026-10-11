@@ -1,0 +1,20 @@
+{
+  "status": "FAIL",
+  "boundary": "actual original runner selection",
+  "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "preflight": "PASS0",
+  "discovery": "PASS155 exact original154 plus one probe",
+  "preRunLeafOnlySelectionClaim": "INADMISSIBLE: ignored original runner full-name matching",
+  "actualSelected": 0,
+  "actualOutsideSelector": 139,
+  "actualExitCode": 0,
+  "actualHookPairs": 0,
+  "behaviorResult": "UNRUN",
+  "initialPattern": "^Independent Flow recovery public flag reset must not clear or replace original File context$",
+  "cause": "Original Vitest4.1.11 getTaskFullName recursively includes suite/file names; ^leaf$ matches none.",
+  "originalRunnerSource": "@vitest/runner/dist/chunk-artifact.js:964,1006",
+  "affectedExecutionStopped": true,
+  "rerunOrFallback": false,
+  "portableFuturePatternNotExecuted": "Independent Flow recovery public flag reset must not clear or replace original File context$",
+  "noProductAssertionsChanged": true
+}

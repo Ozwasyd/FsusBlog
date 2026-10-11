@@ -1,0 +1,15 @@
+{
+  "productHead": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "productSource": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "master": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "probeSource": "original reviewer unexecuted F1",
+  "probeSha256": "e6f363c70dc2c02bc48c90b0c222459df456b2df4d24905d8daf0a6e8eb7a9de",
+  "probeBytes": 1970,
+  "exactOriginalProbeAssertionsUnchanged": true,
+  "original154BytesRetained": true,
+  "currentRuntimeTestSha256": "0f37e107ef2bfcd825e17dba5fe61d927a5c258d7a53f2509b41d93f94c8d854",
+  "reviewZipSha256": "2ebd1847308a3ddcd12a3e7bfaa637ec8a04177d5ed9f9aaed59c491f02a7fa1",
+  "previousSelector": "FAIL matched0; behavior UNRUN",
+  "newExplicitPattern": "Independent Flow recovery public flag reset must not clear or replace original File context$",
+  "qualification": false
+}

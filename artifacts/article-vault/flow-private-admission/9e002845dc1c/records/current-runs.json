@@ -1,0 +1,144 @@
+{
+  "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+  "tree": "9b8b0857444bccec3ab1a276385712843b75bd61",
+  "qualification": false,
+  "authorVerificationOnly": true,
+  "independentCurrentReview": "PENDING same original reviewer",
+  "runs": {
+    "focused": {
+      "passed": 167,
+      "failed": 0,
+      "outsideSelector": 0,
+      "actualStarts": 167,
+      "actualFinishes": 167,
+      "workerPids": [
+        136939,
+        137025
+      ],
+      "allWorkersExited": true,
+      "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+      "commandRecord": "focused.json"
+    },
+    "f1-after": {
+      "passed": 1,
+      "failed": 0,
+      "outsideSelector": 150,
+      "actualStarts": 1,
+      "actualFinishes": 1,
+      "workerPids": [
+        137339
+      ],
+      "allWorkersExited": true,
+      "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+      "commandRecord": "f1-after.json"
+    },
+    "nine-after": {
+      "passed": 9,
+      "failed": 0,
+      "outsideSelector": 142,
+      "actualStarts": 9,
+      "actualFinishes": 9,
+      "workerPids": [
+        137331
+      ],
+      "allWorkersExited": true,
+      "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+      "commandRecord": "nine-after.json"
+    },
+    "positive": {
+      "passed": 2,
+      "failed": 0,
+      "outsideSelector": 149,
+      "actualStarts": 2,
+      "actualFinishes": 2,
+      "workerPids": [
+        137337
+      ],
+      "allWorkersExited": true,
+      "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+      "commandRecord": "positive.json"
+    },
+    "f1-before": {
+      "passed": 0,
+      "failed": 1,
+      "outsideSelector": 138,
+      "actualStarts": 1,
+      "actualFinishes": 1,
+      "workerPids": [
+        113171
+      ],
+      "allWorkersExited": true,
+      "source": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "commandRecord": "f1-before.json"
+    },
+    "admission-before-correct": {
+      "passed": 1,
+      "failed": 5,
+      "outsideSelector": 139,
+      "actualStarts": 6,
+      "actualFinishes": 6,
+      "workerPids": [
+        116335
+      ],
+      "allWorkersExited": true,
+      "source": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "commandRecord": "admission-before-correct.json"
+    },
+    "baseline-composite": {
+      "passed": 155,
+      "failed": 6,
+      "outsideSelector": 0,
+      "actualStarts": 161,
+      "actualFinishes": 161,
+      "workerPids": [
+        117245,
+        117339
+      ],
+      "allWorkersExited": true,
+      "source": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "commandRecord": "baseline-composite.json"
+    }
+  },
+  "discovery": {
+    "unique": 167,
+    "exactExecutedRosterMatches": true,
+    "fallback": false
+  },
+  "original154": "byte-identical after removing only appended new blocks and approved import; passed before and after",
+  "original9And5": "unchanged assertions; current all PASS; original negative history retained at prior committed artifacts",
+  "originalF1": {
+    "sha256": "e6f363c70dc2c02bc48c90b0c222459df456b2df4d24905d8daf0a6e8eb7a9de",
+    "before": "actual 1FAIL: three context/File assertions fail; hard error-message assertion actual upload_attachment_input_invalid; capture remains1; later snapshot/cause/init/complete/zeroabort assertions UNRUN",
+    "after": "same unchanged oracle actual1PASS; all assertions reached",
+    "selector": "explicit suffix anchor selects exact1, old ^leaf$ selector0 is retained as FAIL/behavior UNRUN"
+  },
+  "freshCurrentAnchorControl": "separate new test: real original current canonical anchor; before actual capture1->2/local SDK source mutation, after no additional capture/source mutation; ordinary local unit environment only",
+  "approvedNewControls": {
+    "newAdmission": 6,
+    "newReader": 6,
+    "originalF1": 1,
+    "allCurrentPassed": true,
+    "draftSixOracleChange": "only six newly authored draft controls updated for parent-approved display-only flag and sanitized diagnostic; original154/F1/9/5 untouched; both drafts archived"
+  },
+  "preflight": "PASS actual producer outputs archived",
+  "prerequisites": "37PASS",
+  "style": "PASS",
+  "currentRange": "PASS d8..9e",
+  "fullApplicationTypes": {
+    "currentSource": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+    "baselineSource": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+    "currentCommandRecord": "types-current.json",
+    "baselineCommandRecord": "types-baseline.json",
+    "currentExit": 2,
+    "baselineExit": 2,
+    "currentCount": 244,
+    "baselineCount": 244,
+    "added": [],
+    "removed": [],
+    "fullTypecheckPassed": false,
+    "qualification": false
+  },
+  "wholeInheritedHistory": "FAIL old 9defbe367fc3ce869eef7a41aa29d9be3d1d5c37 missing Refs footer; no rewrite",
+  "setupAndExploratoryFailures": "admission-before wrong cwd launches no tests; exploratory-approved is unchanged-source repeated BEFORE after failed edit; initial finalize-prefix helper failed missing first reviewer manifest; all retained, not promoted",
+  "heldGates": "PAUSED/UNRUN: server/native/browser/product/receipt/custody/cohort/race/security/migration/QA; no canonical business receiver release or postACK abort"
+}

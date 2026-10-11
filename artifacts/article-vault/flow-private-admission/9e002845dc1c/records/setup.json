@@ -1,0 +1,19 @@
+{
+  "label": "setup",
+  "command": [
+    "node",
+    "src/frontend/scripts/prepare-local-fsusui-install.mjs",
+    "verify",
+    "--frontend-root",
+    "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+    "--fsusui-root",
+    "/workspace/chain1975-runtime-borrow-fsusui"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T12:15:14.670212+00:00",
+  "head": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "runId": "chain1975-flow-private-setup-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T12:15:14.722103+00:00"
+}

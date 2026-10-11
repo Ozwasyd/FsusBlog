@@ -1,0 +1,14 @@
+{
+  "collected": 155,
+  "selected": [
+    {
+      "name": "useImageUploadRuntime > Independent Flow recovery public flag reset must not clear or replace original File context",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    }
+  ],
+  "expectedCount": 1,
+  "pattern": "Independent Flow recovery public flag reset must not clear or replace original File context$",
+  "original154Present": true,
+  "noFallback": true,
+  "qualification": false
+}

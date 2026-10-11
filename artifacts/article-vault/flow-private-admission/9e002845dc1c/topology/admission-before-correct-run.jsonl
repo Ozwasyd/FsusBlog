@@ -1,0 +1,12 @@
+{"event":"start","workerProcessId":116335,"task":{"id":"-298466997_0_16","name":"Flow private recovery admission keeps the original context under public cleanup flag false"}}
+{"event":"finish","workerProcessId":116335,"task":{"id":"-298466997_0_16","name":"Flow private recovery admission keeps the original context under public cleanup flag false"}}
+{"event":"start","workerProcessId":116335,"task":{"id":"-298466997_0_17","name":"Flow private recovery admission keeps the original context under public cleanup flag true"}}
+{"event":"finish","workerProcessId":116335,"task":{"id":"-298466997_0_17","name":"Flow private recovery admission keeps the original context under public cleanup flag true"}}
+{"event":"start","workerProcessId":116335,"task":{"id":"-298466997_0_18","name":"Flow private recovery admission refuses fresh original anchor capture after public flag reset"}}
+{"event":"finish","workerProcessId":116335,"task":{"id":"-298466997_0_18","name":"Flow private recovery admission refuses fresh original anchor capture after public flag reset"}}
+{"event":"start","workerProcessId":116335,"task":{"id":"-298466997_0_19","name":"Flow private recovery admission refuses another Flow capture on the same original runtime"}}
+{"event":"finish","workerProcessId":116335,"task":{"id":"-298466997_0_19","name":"Flow private recovery admission refuses another Flow capture on the same original runtime"}}
+{"event":"start","workerProcessId":116335,"task":{"id":"-298466997_0_20","name":"Flow private recovery admission stays with its original runtime when the options object is replaced"}}
+{"event":"finish","workerProcessId":116335,"task":{"id":"-298466997_0_20","name":"Flow private recovery admission stays with its original runtime when the options object is replaced"}}
+{"event":"start","workerProcessId":116335,"task":{"id":"-298466997_0_21","name":"Flow private recovery admission preserves normal void observers and batch success after display flag reset"}}
+{"event":"finish","workerProcessId":116335,"task":{"id":"-298466997_0_21","name":"Flow private recovery admission preserves normal void observers and batch success after display flag reset"}}

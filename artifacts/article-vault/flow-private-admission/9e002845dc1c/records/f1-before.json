@@ -1,0 +1,22 @@
+{
+  "label": "f1-before",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "--testNamePattern",
+    "Independent Flow recovery public flag reset must not clear or replace original File context$",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/flow-private-recovery-20261011/f1-before-report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T12:18:11.110378+00:00",
+  "head": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "runId": "chain1975-flow-private-f1-before-20261011",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T12:18:18.837575+00:00"
+}

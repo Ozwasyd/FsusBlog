@@ -1,0 +1,16 @@
+{
+  "label": "whole-history",
+  "command": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "04195f8a0d2ad16d14c8d66a2f876c428e606f3e..HEAD"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T12:53:19.840191+00:00",
+  "head": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+  "runId": "chain1975-flow-private-whole-history-20261011",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T12:53:23.019867+00:00"
+}

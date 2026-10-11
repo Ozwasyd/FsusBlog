@@ -1,0 +1,78 @@
+{
+  "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+  "tree": "9b8b0857444bccec3ab1a276385712843b75bd61",
+  "before": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "beforeProductSource": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "masterAtStart": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "branch": "codex/chain-1975-runtime-attempt-borrow",
+  "fourPaths": [
+    {
+      "path": "docs/architecture/overview.md",
+      "pre": {
+        "bytes": 45941,
+        "sha256": "5654149da5014215778c98b774598ffbb8e571b7b05b4bfd8f12b13ae6d4068d",
+        "blob": "a245ac62506adb105c8c168ac20b150c0101fbe5"
+      },
+      "post": {
+        "bytes": 47505,
+        "sha256": "33dccfa9927ea4e7e9ae16dad38130e1f69b0993cdb2f204b12ab040a9f7b731",
+        "blob": "c2a1a0cb1e67f60e6cdc1509114f2097aadb4b05"
+      }
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "pre": {
+        "bytes": 15706,
+        "sha256": "89370019bafc4034854109bc137c3cd4f889f801eba1be4e651deef7918a0156",
+        "blob": "062f89848a6ba12bd13f9a6d9a036c3c5c6bbc6c"
+      },
+      "post": {
+        "bytes": 15872,
+        "sha256": "7e5f30bf75097354927ecc3a2bbf011708b7a0325684736f7bf16d0839333a31",
+        "blob": "f857f68237049443ff37dafbddd6f8cf71fcf8dc"
+      }
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "pre": {
+        "bytes": 44610,
+        "sha256": "269e5fb8e8248df6166572c62cca3b610f4400b906698d69d77227e183643cec",
+        "blob": "ddb415ff26a2b1abe8beaf91e448ef2a902245aa"
+      },
+      "post": {
+        "bytes": 47138,
+        "sha256": "a513885f85b600fb0683dc4b98ff5d9193bd11dc0ab2d75fe17091aa47ae832c",
+        "blob": "f6249ac20324a36dea7f8c68a91251b618eba79c"
+      }
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "pre": {
+        "bytes": 111662,
+        "sha256": "1b10603188171b217729fb281361ac536acb80482732ecf15757a1c7c010405d",
+        "blob": "d0a6dd305a7132291523f6e6753a66eee08f54f0"
+      },
+      "post": {
+        "bytes": 130035,
+        "sha256": "bcad64fb3b2a3e7a433572863eb74a21e69ee503b751307d11b8e9038d538ac7",
+        "blob": "ca1a96c91a90fc713a1126fbab8bb893d55bd6ff"
+      }
+    }
+  ],
+  "canonicalPathsUnchanged": {
+    "src/frontend/src/api/upload.ts": true,
+    "tests/frontend/unit/api/upload.test.ts": true,
+    "src/frontend/src/services/authoring/articleAttachmentContext.ts": true,
+    "src/frontend/src/services/authoring/articleDocumentContext.ts": true,
+    "src/frontend/src/composables/useAbortableTask.ts": true,
+    "src/frontend/package.json": true,
+    "src/frontend/package-lock.json": true
+  },
+  "approvedNewExport": "getImageUploadRuntimeAdmissionError(runtime: ReturnType<typeof useImageUploadRuntime>): ReturnType<typeof createAppError> | null",
+  "authority": "only original factory registers original instance -> original closure reader; no exported register/set/delete/release",
+  "privateStorage": "same original private holders, shallow reactive; no second obligation snapshot/flag/error cache in WeakMap",
+  "diagnostic": "fresh code/message only; no original token/ACK/File/callback payload/closure state",
+  "publicCleanupRef": "display only; not an admission input",
+  "qualification": false,
+  "productWorktreeClean": true
+}

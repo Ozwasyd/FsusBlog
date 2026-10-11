@@ -1,0 +1,20 @@
+{
+  "total": 167,
+  "unique": 167,
+  "counts": {
+    "F1": 1,
+    "nine": 9,
+    "oldFive": 5,
+    "newReader": 6,
+    "newAdmission": 6
+  },
+  "patterns": {
+    "F1": "Independent Flow recovery public flag reset must not clear or replace original File context$",
+    "nine": "Flow consumer recovery",
+    "oldFive": "Flow ACK handoff",
+    "newReader": "Flow private recovery reader",
+    "newAdmission": "Flow private recovery admission"
+  },
+  "noFallback": true,
+  "qualification": false
+}

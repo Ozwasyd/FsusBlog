@@ -1,0 +1,61 @@
+{
+  "priorReceipts": [
+    {
+      "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/records/preserved-history-binding.json",
+      "sha256": "e79b67fcbd310e7a92049e0e1e5d9143e09370992457953d798b6090c0b9e3e3",
+      "bytes": 2059,
+      "oldSourceRerunHere": false
+    },
+    {
+      "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/records/prefix-correct-setup.json",
+      "sha256": "cb52a5d19c311188640246cbabf0b910e5e20a47ce8d60103caec082108d19e5",
+      "bytes": 750,
+      "oldSourceRerunHere": false
+    },
+    {
+      "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/records/prefix-correct-setup-report.json",
+      "sha256": "b793ac534c08ce31f6ac73fbe7edda497262680bbb5ec2b00a2cf4bb29c39b06",
+      "bytes": 49612,
+      "oldSourceRerunHere": false
+    },
+    {
+      "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/records/prefix-five-proven-report.json",
+      "sha256": "9391418030b5fba43d2c3c500c2a2bd4d5362933fbeb200208d4555f5677ea14",
+      "bytes": 47070,
+      "oldSourceRerunHere": false
+    },
+    {
+      "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/records/negative-five-source-binding.json",
+      "sha256": "7079739bdecf69d3d45ba929dcbc9a7b9fbf9545421672458b4eaaa468b6b672",
+      "bytes": 849,
+      "oldSourceRerunHere": false
+    },
+    {
+      "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/records/prefix-five.json",
+      "sha256": "82ff05877a2f5895e87688d836066889734e9d27cb34e48ac24e1b595aa45492",
+      "bytes": 712,
+      "oldSourceRerunHere": false
+    },
+    {
+      "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+      "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/records/whole-history.json",
+      "sha256": "d94c02d7643c03b755afd31922ef1e57f23156426004e889a60b1bebdf008b12",
+      "bytes": 489,
+      "oldSourceRerunHere": false
+    }
+  ],
+  "priorManifest": {
+    "commit": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+    "path": "artifacts/article-vault/flow-ack-recovery/0324e7adb18f/manifest.json",
+    "sha256": "87f21ffa575b9342bcd0b4d2081e70a7c2baf2702c379d139b090b2d19ece97f"
+  },
+  "original28And17": "immutable prior source-bound receipts; all45 current ordinary controls PASS; not rerun old source here",
+  "original9And5": "immutable previous stage negative controls preserved, current all14 PASS",
+  "qualification": false
+}

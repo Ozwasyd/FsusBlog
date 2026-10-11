@@ -1,0 +1,10 @@
+{
+  "original154CompleteBytesRetained": true,
+  "original9And5ContainedUnchanged": true,
+  "originalF1ProbeExact": true,
+  "probeSha256": "e6f363c70dc2c02bc48c90b0c222459df456b2df4d24905d8daf0a6e8eb7a9de",
+  "newControlsSha256": "8d9012b172b9c2b68e6206bb9c1665a3a92f36e086635a0bad3ad15f45f216b2",
+  "compositeTestSha256": "45604d0af7b76840077a9026d70399dc099c954162296e50735a7a2e5ddf6029",
+  "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "qualification": false
+}

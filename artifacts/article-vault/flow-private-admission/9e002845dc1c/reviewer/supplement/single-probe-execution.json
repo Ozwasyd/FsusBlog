@@ -1,0 +1,31 @@
+{
+  "label": "single-probe-execution",
+  "cwd": "/workspace/runtime-flow-ack-public-state-probe/src/frontend",
+  "argv": [
+    "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "--testNamePattern",
+    "^useImageUploadRuntime Independent Flow recovery public flag reset must not clear or replace original File context$",
+    "--reporter=json",
+    "--outputFile=/workspace/runtime-flow-ack-probe-supplement-evidence/single-probe-report.json"
+  ],
+  "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "startUtc": "2026-10-11T12:15:46.578816+00:00",
+  "qualification": false,
+  "environment": {
+    "PATH": "/workspace/runtime-repair-review-evidence/node-setup/node-v24.16.0-linux-x64/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+    "FSUSBLOG_RUN_ID": "independent-flow-ack-supplement-single-probe-execution-0324e7adb18f",
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/runtime-borrow-ui",
+    "FSUSBLOG_VITEST_MAX_WORKERS": "1",
+    "FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT": "/workspace/runtime-flow-ack-probe-supplement-evidence/single-probe-execution",
+    "FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE": "/workspace/runtime-flow-ack-probe-supplement-evidence/single-probe-execution/topology.jsonl"
+  },
+  "pid": 84104,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T12:15:54.997225+00:00"
+}

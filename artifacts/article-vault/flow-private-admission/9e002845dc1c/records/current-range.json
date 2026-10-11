@@ -1,0 +1,16 @@
+{
+  "label": "current-range",
+  "command": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7..HEAD"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T12:53:19.797293+00:00",
+  "head": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+  "runId": "chain1975-flow-private-current-range-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T12:53:22.944191+00:00"
+}

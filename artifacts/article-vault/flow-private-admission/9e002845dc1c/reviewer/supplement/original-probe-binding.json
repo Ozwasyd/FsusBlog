@@ -1,0 +1,18 @@
+{
+  "productionSource": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "checkout": "/workspace/runtime-flow-ack-public-state-probe",
+  "testOriginalSource": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "testOriginalSha256": "1b10603188171b217729fb281361ac536acb80482732ecf15757a1c7c010405d",
+  "testCompositeSha256": "0f37e107ef2bfcd825e17dba5fe61d927a5c258d7a53f2509b41d93f94c8d854",
+  "probeSha256": "e6f363c70dc2c02bc48c90b0c222459df456b2df4d24905d8daf0a6e8eb7a9de",
+  "modifiedPaths": [
+    "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  ],
+  "allOriginal154CompleteCallsRetained": true,
+  "newFixturesOrMocks": false,
+  "usesOriginalFileOwnerDocumentIntentRegistryAndConfig": true,
+  "expectedCount": 1,
+  "name": "Independent Flow recovery public flag reset must not clear or replace original File context",
+  "scope": "bounded source probe, not original154 or server/Writer/receiver qualification",
+  "productSourceChanged": false
+}

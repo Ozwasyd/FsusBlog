@@ -1,0 +1,14 @@
+{
+  "source": "9e002845dc1c7f6b3b69219b02fed7e1fc0903a2",
+  "before": "d8d0e93f913ceecf9c4946df3ad9b0c0283ab8d7",
+  "patchSha256": "e3b3b7b92cabd7e28bb4a8c7d2143f45afade884a231e401fe757c12940ec213",
+  "command": [
+    "git",
+    "apply",
+    "--reverse",
+    "--check",
+    "-"
+  ],
+  "exitCode": 0,
+  "qualification": false
+}

@@ -1,0 +1,12 @@
+{
+  "sourceBefore": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "allOriginal154CompleteFileBytesAfterOnlyNewBlocksAndImportRemoval": true,
+  "original9And5AssertionsAndFixturesUnchanged": true,
+  "originalF1ProbeUnchanged": true,
+  "originalF1Sha256": "e6f363c70dc2c02bc48c90b0c222459df456b2df4d24905d8daf0a6e8eb7a9de",
+  "originalTestSha256": "1b10603188171b217729fb281361ac536acb80482732ecf15757a1c7c010405d",
+  "currentTestSha256": "bcad64fb3b2a3e7a433572863eb74a21e69ee503b751307d11b8e9038d538ac7",
+  "newCases": 13,
+  "original140And139Contained": true,
+  "qualification": false
+}
