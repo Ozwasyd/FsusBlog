@@ -779,14 +779,8 @@ public sealed class AuthoringDraftLifecycleService(
 
     private static ArticleStatus NormalizeArticleStatus(int? raw)
     {
-        return raw is (int)ArticleStatus.Draft
-            or (int)ArticleStatus.Scheduled
-            or (int)ArticleStatus.Published
-            or (int)ArticleStatus.Archived
-            or (int)ArticleStatus.Deleted
-            or (int)ArticleStatus.Inbox
-            ? (ArticleStatus)raw.Value
-            : ArticleStatus.Published;
+        // Preserve the omitted legacy default, but never turn an explicit unknown value into Published.
+        return raw.HasValue ? ArticleStatusProjection.Normalize(raw.Value) : ArticleStatus.Published;
     }
 
     private static string? NormalizePreviewUrl(string? raw)

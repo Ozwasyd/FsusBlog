@@ -50,9 +50,13 @@ qualify or activate that surface, supply missing slugs, or issue bulk receipts.
 The additive `20261011-post-article-inbox-editable-source` migration only defines
 the nullable provenance column. It performs no experiment-row backfill: no
 mechanically proven source-marker inventory exists in this source candidate.
-No Draft is inferred from title, time, tags or content. N-1 management readers
-reject unknown numeric state 5; public N-1 queries exclude it. Rollback after
-Inbox rows exist therefore requires retaining a reader that understands Inbox,
+No Draft is inferred from title, time, tags or content. The current draft reader
+rejects explicit unknown values through the shared projection; omitted status
+retains its existing default. The retained N-1 status projection rejects 5, but
+its draft normalizer falls back to Published for unknown values. Public N-1
+queries exclude persisted Inbox. Safe N-1 authoring compatibility is therefore
+unproven and rollout must remain closed. Rollback after Inbox rows exist requires
+retaining a reader that understands Inbox,
 or disabling affected authoring access; never rewrite those rows to Draft to
 make an old reader pass. The added column must precede compatible writer rollout.
 Migration execution and provider/backup-restore qualification remain separate.
