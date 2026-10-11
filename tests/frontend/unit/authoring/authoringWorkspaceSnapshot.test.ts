@@ -7,6 +7,8 @@ import { applyAuthoringWorkspaceSnapshotRestore, prepareAuthoringWorkspaceSnapsh
 import { migrateAuthoringWorkspaceSnapshotLegacy, workspaceSnapshotLegacyInventory } from '@/services/authoring/authoringWorkspaceSnapshotMigration';
 import { authoringWorkspaceSnapshotStatusModel, AuthoringWorkspaceSnapshotResetController } from '@/services/authoring/authoringWorkspaceSnapshotStatus';
 import { ArticleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
+import { AuthoringTabGroupRegistry } from '@/services/authoring/authoringTabGroupRegistry';
+import { authoringWorkspaceRatioOwner } from '@/services/authoring/authoringWorkspaceRatioOwner';
 const scope = { userId: 1, siteId: 'site:primary' };
 const sourceDigest = 'a'.repeat(64);
 const now = 1800000000000;
@@ -572,6 +574,21 @@ describe('server-only immutable restore planning and permission reconciliation',
         expect(router.getRegistry().listEntries()).toHaveLength(0);
         expect(commands.applyGroups).not.toHaveBeenCalled();
     });
+    it('a digest-only group callback cannot restore or create sessions', async () => {
+        const { api } = setup();
+        const observed = await api.read();
+        const port = { resolveBatch: async () => resolution(observed) };
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const open = vi.spyOn(router, 'openOrActivate');
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(),
+            applyGroups: vi.fn(async () => 'a'.repeat(64)), applyShell: vi.fn(), isCurrent: () => true };
+        await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('restore_group_receipt_capability_required');
+        expect(open).not.toHaveBeenCalled();
+        expect(commands.applyGroups).not.toHaveBeenCalled();
+        expect(commands.applyShell).not.toHaveBeenCalled();
+        expect(router.getRegistry().listEntries()).toHaveLength(0);
+    });
     it('late readiness after reset and operation epoch changes cannot reach group/shell restoration', async () => {
         // Synthetic command interleavings exercise consumer refusal, never actual FsusUI qualification or acceptance.
         const { api } = setup();
@@ -579,6 +596,12 @@ describe('server-only immutable restore planning and permission reconciliation',
         const port = { resolveBatch: async () => resolution(observed) };
         const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
         const router = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(router.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const adapter = groupOwner.createSnapshotAdapter(() => ({ commandId: 'restore:groups', idempotencyKey: 'restore:groups' }));
         const original = router.openOrActivate.bind(router);
         vi.spyOn(router, 'openOrActivate').mockImplementation(async (input) => {
             const receipt = await original(input);
@@ -586,15 +609,24 @@ describe('server-only immutable restore planning and permission reconciliation',
             router.reset();
             return receipt;
         });
-        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), applyGroups: vi.fn(), applyShell: vi.fn(), isCurrent: () => true };
-        await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('server_observation_required');
-        expect(commands.applyGroups).not.toHaveBeenCalled();
-        expect(commands.applyShell).not.toHaveBeenCalled();
-        const freshRouter = new ArticleWorkspaceTabRouter();
-        const freshObserved = await api.read();
-        const freshPlan = await prepareAuthoringWorkspaceSnapshotRestore(freshObserved, port, 0, new AbortController().signal);
-        await expect(applyAuthoringWorkspaceSnapshotRestore(freshPlan, { ...commands, router: freshRouter, isCurrent: () => false }, new AbortController().signal)).rejects.toThrow('restore_superseded');
-        expect(freshRouter.getRegistry().listEntries()).toHaveLength(0);
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), groupOwner,
+            applyGroups: vi.fn(adapter.applyGroups), applyGroupsWithReceipt: vi.fn(adapter.applyGroupsWithReceipt), applyShell: vi.fn(), isCurrent: () => true };
+        try
+        {
+            await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('server_observation_required');
+            expect(commands.applyGroups).not.toHaveBeenCalled();
+            expect(commands.applyGroupsWithReceipt).not.toHaveBeenCalled();
+            expect(commands.applyShell).not.toHaveBeenCalled();
+            const freshRouter = new ArticleWorkspaceTabRouter();
+            const freshObserved = await api.read();
+            const freshPlan = await prepareAuthoringWorkspaceSnapshotRestore(freshObserved, port, 0, new AbortController().signal);
+            await expect(applyAuthoringWorkspaceSnapshotRestore(freshPlan, { ...commands, router: freshRouter, isCurrent: () => false }, new AbortController().signal)).rejects.toThrow('restore_superseded');
+            expect(freshRouter.getRegistry().listEntries()).toHaveLength(0);
+        }
+        finally
+        {
+            authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+        }
     });
     it('existing/revoked sessions cannot be reopened through the dependency activated-existing branch', async () => {
         const { api } = setup();

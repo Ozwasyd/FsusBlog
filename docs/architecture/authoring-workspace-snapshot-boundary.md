@@ -211,7 +211,7 @@ The original group transaction must consume the real `readPrepared` result:
 `expectedRatioRef`, `ratioRef`, `revision` and `splitRatioPermille`. It must stage
 all fallible group/registry publication, then jointly publish synchronously
 without callbacks/await, or discard the proposed ratio on cancellation/refusal.
-This consumer does not call `commit`, `discard`, `applyGroups` or any runtime
+This ratio conversion module does not call `commit`, `discard`, `applyGroups` or any runtime
 factory and does not claim cross-owner atomicity or readiness. The original
 #2298 joint-publication contract remains a dependency to be supplied through
 root. At exact original head `4b19fca33b145a0c8af4b93a8ee20a1029be2721`,
@@ -233,3 +233,42 @@ trusting a ratio-only commit cannot substitute for it. Existing
 transport/factory/restore source is unchanged. All held behavioral/receipt/
 restore/DB/race/native qualification and the upstream declared controls remain
 UNRUN; static compilation is source-only.
+
+## Snapshot group receipt source composition
+
+The subsequent source composition consumes exact original group offer
+`68e4cdd4cdaa5c97f05d5323e88998397bf3dac7`, including the typed receipt interface
+first supplied by `f44c8196` and the unchanged corrected
+ratio issuer from `a4212c57`. It supersedes the missing opaque interface described
+at the earlier `4b19fca33` checkpoint above. The real group owner now supplies
+explicit one/two-group bootstrap, `createSnapshotAdapter`,
+`applyGroupsWithReceipt`, and `verifyCommittedTransition` against its own private
+committed cache. No original group, Registry, ratio or integration source is
+modified by this consumer.
+
+Snapshot restore retains the compatible digest callback field but never uses
+it to authorize group restoration. After the existing server provenance,
+operation guard, empty-workspace and refreshed permission/lifecycle checks,
+absence of the concrete original group owner or typed receipt callback blocks
+before any session creation. The typed callback returns the original command
+and genuine receipt; serializable receipt coordinates are copied once without
+copying any opaque handle. Restore binds the real owner's committed-cache
+verification and independent result verifier to Registry snapshots captured
+immediately before and after the call. It also checks the exact group revision,
+ordered requested groups/tabs/active refs, requested ratio, current owner result,
+and precisely one article Registry revision increment. Only that verified +1
+advances the local guard; a latest-revision read, replay, digest-only result or
+ratio-only commit cannot authorize it. Server provenance, operation epoch and
+abort guards remain active throughout the asynchronous boundary.
+
+This is source wiring, not restore readiness or a runtime receipt witness.
+Original group R6 eight-command transition binding, R7 viewport-collapse
+activation and R8 lint repairs are supplied in source by this exact dependency;
+their independent review and behavioral qualification remain pending. The
+concrete runtime capability gate is retained;
+shell commands/receipts and production bootstrap still require original-owner
+integration and qualification. All 21 ratio controls, original group/ownership
+controls, the added digest-only refusal source control and all held runtime,
+restore, DB, race, security/privacy and native execution remain UNRUN. The old
+57-case results and earlier 256-diagnostic comparison apply only to their old
+candidates and are not inherited by this composition.

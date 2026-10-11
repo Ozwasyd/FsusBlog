@@ -1,6 +1,7 @@
 import { AuthoringWorkspaceSnapshotError, defaultWorkspaceSnapshotLayout, freezeWorkspaceSnapshot, requireWorkspaceServerObservation, validateWorkspaceSnapshotLayout, workspaceSnapshotBytes, workspaceSnapshotDigest, workspaceSnapshotExact, workspaceSnapshotId, workspaceSnapshotInteger, type AuthoringWorkspaceServerObservation, type AuthoringWorkspaceSnapshotGroup, type AuthoringWorkspaceSnapshotLayout, type AuthoringWorkspaceSnapshotScope, type AuthoringWorkspaceSnapshotTab } from '@/api/authoringWorkspaceSnapshot';
 
 import { type ArticleWorkspaceTabRouter, verifyArticleWorkspaceRouterReceipt } from './articleWorkspaceTabRouter';
+import { AuthoringTabGroupRegistry, verifyAuthoringTabGroupResult, type AuthoringSnapshotGroupAdapter } from './authoringTabGroupRegistry';
 
 import type { ArticleDocumentContextRef, ArticleDocumentIdentity } from './openArticleDocumentRegistry';
 export const workspaceSnapshotRestorePolicy = Object.freeze({
@@ -237,8 +238,10 @@ export interface AuthoringWorkspaceSnapshotRestoreCommands {
     // The original session/factory owner must throw until its real public FsusUI runtime is qualified.
     assertRuntimeCapability(): void;
     // These adapters must invoke #2298/#2299 official ownership commands and shell commands.
-    // No default adapters are supplied while the two-group source capability is missing.
+    // Retained for compatible callers; a digest alone cannot authorize restore publication.
     applyGroups(groups: AuthoringWorkspaceSnapshotGroup[], activeGroupId: string, splitRatioPermille: number, signal: AbortSignal): Promise<string>;
+    groupOwner?: AuthoringTabGroupRegistry;
+    applyGroupsWithReceipt?: AuthoringSnapshotGroupAdapter['applyGroupsWithReceipt'];
     applyShell(shell: AuthoringWorkspaceSnapshotLayout['shell'], signal: AbortSignal): Promise<string>;
     isCurrent(guard: AuthoringWorkspaceSnapshotRestoreGuard): boolean;
 }
@@ -261,11 +264,19 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
     const guard: AuthoringWorkspaceSnapshotRestoreGuard = { scopeDigest: plan.scopeDigest, sourceDigest: plan.sourceDigest,
         serverRevision: plan.serverRevision, operationEpoch: plan.operationEpoch };
     let registryRevision = commands.router.getRevision();
-    const current = (): void =>
+    const currentAuthority = (): void =>
     {
         requireWorkspaceServerObservation(planObservations.get(plan)!);
         signal.throwIfAborted();
-        if (!commands.isCurrent(guard) || commands.router.getRevision() !== registryRevision)
+        if (!commands.isCurrent(guard))
+        {
+            throw new AuthoringWorkspaceSnapshotError('restore_superseded');
+        }
+    };
+    const current = (): void =>
+    {
+        currentAuthority();
+        if (commands.router.getRevision() !== registryRevision)
         {
             throw new AuthoringWorkspaceSnapshotError('restore_superseded');
         }
@@ -281,6 +292,12 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
     if (refreshed.contentDigest !== plan.contentDigest)
     {
         throw new AuthoringWorkspaceSnapshotError('restore_resolution_changed');
+    }
+    const groupOwner = commands.groupOwner;
+    const applyGroupsWithReceipt = commands.applyGroupsWithReceipt;
+    if (!(groupOwner instanceof AuthoringTabGroupRegistry) || typeof applyGroupsWithReceipt !== 'function')
+    {
+        throw new AuthoringWorkspaceSnapshotError('restore_group_receipt_capability_required');
     }
     const runtimeTabIds = new Map<string, string>();
     // Reuse the official router/session commands; saved tab IDs are translated to their current runtime refs.
@@ -313,8 +330,37 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
     const groups = plan.layout.groups.map(group => ({ groupId: group.groupId,
         tabIds: group.tabIds.map(tabId => runtimeTabIds.get(tabId)!), activeTabId: group.activeTabId ? runtimeTabIds.get(group.activeTabId)! : null }));
     current();
-    const groupReceiptDigest = await commands.applyGroups(groups, plan.layout.activeGroupId, plan.layout.splitRatioPermille, signal);
+    const articleBefore = commands.router.getRegistry().exportState();
+    const groupBefore = groupOwner.exportState();
+    const requestedGroupsDigest = workspaceSnapshotDigest(groups);
+    const expectedRegistryRevision = registryRevision + 1;
+    if (!Number.isSafeInteger(expectedRegistryRevision) || articleBefore.revision !== registryRevision
+        || groupBefore.articleRegistryRevision !== registryRevision)
+    {
+        throw new AuthoringWorkspaceSnapshotError('restore_superseded');
+    }
+    // Receipt coordinates contain no opaque handles; copy once before inspecting caller-owned data.
+    const transition = structuredClone(await applyGroupsWithReceipt(groups, plan.layout.activeGroupId, plan.layout.splitRatioPermille, signal));
+    // The old guard must not accept +1 until the real committed transition proves it.
+    currentAuthority();
+    const articleAfter = commands.router.getRegistry().exportState();
+    if (!groupOwner.verifyCommittedTransition(transition)
+        || !verifyAuthoringTabGroupResult(transition.receipt, articleBefore, articleAfter, transition.command)
+        || transition.command.kind !== 'apply-group-references'
+        || transition.command.expectedRevision !== groupBefore.revision
+        || transition.command.expectedArticleRegistryRevision !== registryRevision
+        || transition.command.activeGroupId !== plan.layout.activeGroupId
+        || transition.command.splitRatioPermille !== plan.layout.splitRatioPermille
+        || workspaceSnapshotDigest(transition.command.groups.map(group => ({ groupId: group.groupId,
+            tabIds: group.tabs.map(tab => tab.tabId), activeTabId: group.activeTabId }))) !== requestedGroupsDigest
+        || articleAfter.revision !== expectedRegistryRevision
+        || groupOwner.exportState().contentDigest !== transition.receipt.after.contentDigest)
+    {
+        throw new AuthoringWorkspaceSnapshotError('restore_group_transition_required');
+    }
+    registryRevision = expectedRegistryRevision;
     current();
+    const groupReceiptDigest = transition.receipt.contentDigest;
     const active = groups.find(group => group.groupId === plan.layout.activeGroupId)!.activeTabId;
     if (active)
     {
