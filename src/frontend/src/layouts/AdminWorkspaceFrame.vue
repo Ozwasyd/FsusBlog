@@ -33,7 +33,7 @@
             <p
                 v-if="isArticleWorkspaceRouteValue && workspaceStartupState !== 'started'"
                 role="status"
-            >{{ workspaceStartupState === 'starting' ? '正在启动文章工作区…' : '文章工作区启动尚未接入真实会话与恢复来源' }}</p>
+            >{{ workspaceStartupState === 'starting' ? '正在恢复文章工作区…' : '文章工作区恢复暂不可用' }}</p>
         </template>
     </AccountRouteFrame>
 </template>

@@ -102,7 +102,7 @@ const props = withDefaults(defineProps<{
     motionPolicy: AccountRouteMotionPolicy;
     /** Optional route-owned key; this frame keeps its original key policy for other consumers. */
     routeViewKey?: string;
-    /** Startup completion gates the article outlet; other frame consumers keep their existing behavior. */
+    /** An explicit restore may defer the article outlet; other consumers retain their existing behavior. */
     routeOutletEnabled?: boolean;
 }>(), {
     routeOutletEnabled: true
