@@ -1,11 +1,16 @@
+import { sha256 as digestSha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
+
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 import type {
     UploadCompleteViewModel,
+    UploadAssetPreviewViewModel,
     UploadInitViewModel,
     UploadPartMapViewModel,
     UploadPartAckViewModel,
     UploadStatusViewModel
 } from '@/contracts/binaryApi';
+import { createAppError, AppErrorCode } from '@/utils/appError';
 
 import { FrameType } from '@wasm/protocol/frame';
 
@@ -14,6 +19,7 @@ import { encodeAedsFrame, writeFixedUtf8 } from './binaryFrame';
 
 export type {
     UploadCompleteViewModel,
+    UploadAssetPreviewViewModel,
     UploadInitViewModel,
     UploadPartMapViewModel,
     UploadPartAckViewModel,
@@ -56,7 +62,7 @@ export function initUploadSession(payload: UploadSessionInitRequest, signal?: Ab
     });
 }
 
-export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
+export function getUploadStatus(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
 {
     return requestBinaryOnly<UploadStatusViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/status`,
@@ -65,7 +71,8 @@ export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise
         signal,
         requestOptions: {
             method: 'GET',
-            requiresPow: true
+            requiresPow: true,
+            headers: uploadToken ? { 'X-Fsus-Upload-Token': uploadToken } : undefined
         }
     });
 }
@@ -134,7 +141,7 @@ export function completeUpload(uploadId: string, uploadToken: string, sha256?: s
     });
 }
 
-export function abortUpload(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
+export function abortUpload(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
 {
     return requestBinaryOnly<UploadStatusViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}`,
@@ -143,7 +150,8 @@ export function abortUpload(uploadId: string, signal?: AbortSignal): Promise<Upl
         signal,
         requestOptions: {
             method: 'DELETE',
-            requiresPow: true
+            requiresPow: true,
+            headers: uploadToken ? { 'X-Fsus-Upload-Token': uploadToken } : undefined
         }
     });
 }
@@ -166,4 +174,30 @@ function encodeUploadCompleteRequest(sha256?: string): Uint8Array
     const bytes = new Uint8Array(64);
     writeFixedUtf8(bytes, 0, 64, sha256 ?? '');
     return bytes;
+}
+
+export async function readCommittedUploadPreview(uploadId: string, uploadToken: string, sha256: string, signal?: AbortSignal): Promise<UploadAssetPreviewViewModel>
+{
+    if (!/^[0-9a-f]{32}$/u.test(uploadId) || !/^[0-9a-f]{64}$/u.test(sha256) || !uploadToken)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_asset_preview_request_invalid');
+    }
+    const result = await requestBinaryOnly<UploadAssetPreviewViewModel>({
+        binaryRoute: { operationId: 'binary_post_upload_uploadId_preview', params: { uploadId } }, privateScope: 'admin',
+        frameType: FrameType.UploadAssetPreview, signal,
+        requestOptions: {
+            method: 'POST', requiresPow: true,
+            headers: { 'Content-Type': 'application/octet-stream', 'X-Fsus-Upload-Token': uploadToken },
+            body: encodeAedsFrame(FrameType.UploadCompleteRequest, encodeUploadCompleteRequest(sha256))
+        }
+    });
+    if (signal?.aborted)
+    {
+        throw signal.reason ?? new DOMException('Aborted', 'AbortError');
+    }
+    if (result.uploadId !== uploadId || result.sha256 !== sha256 || bytesToHex(digestSha256(result.bytes)) !== sha256)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_asset_preview_bytes_mismatch');
+    }
+    return result;
 }

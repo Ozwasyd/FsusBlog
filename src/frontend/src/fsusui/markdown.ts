@@ -14,6 +14,13 @@ import type {
 
 export type MarkdownRenderResult = MarkdownSafeRenderResult;
 
+export {
+    createMarkdownEditorProjection,
+    createMarkdownOutlineEntries,
+    resolveMarkdownSourceIdentity
+} from '@ozwasyd/element-plus/markdown-runtime';
+export type { MarkdownEditorProjectionResult } from '@ozwasyd/element-plus/markdown-runtime';
+
 type MarkdownRuntimeRenderer = (input: {
     source: string;
     mode: MarkdownRenderMode;
@@ -216,7 +223,6 @@ export type {
     MarkdownFeatureActivationKind,
     MarkdownFeatureActivationOptions,
     MarkdownFeatureActivationResult,
-    MarkdownFeatureAdapter,
     MarkdownRenderChunk,
     MarkdownRenderChunkKind,
     MarkdownRenderRequest,
