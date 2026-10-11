@@ -1011,7 +1011,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     });
     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
     let releaseEditorRuntime: (() => void) | null = null;
-    let originalMountedEditor: ArticleEditorContinuityPort | null = null;
+    // This slot retains only the original object identity; the mounted source validates its public ports.
+    let originalMountedEditor: object | null = null;
     let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
     const authoringEditorRuntime = Object.freeze({
         bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
@@ -3808,11 +3809,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             imageUploadFlow.clearPending();
         }
         clearDraftSaveTimer();
+        writerScope.stop();
         articleForm.title = '';
         articleForm.content = '';
         articleForm.summary = '';
         articleForm.rights = createDefaultArticleRightsForm();
-        writerScope.stop();
     };
     onUnmounted(() =>
     {
