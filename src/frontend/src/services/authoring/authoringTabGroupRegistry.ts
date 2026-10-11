@@ -358,6 +358,12 @@ export class AuthoringTabGroupRegistry
             splitRatioRef: this.#publicationCell.value.splitRatioRef });
     }
 
+    /** Exact canonical instance binding; matching revisions or digests cannot substitute it. */
+    public verifyBinding(articleRegistry: OpenArticleDocumentRegistry): boolean
+    {
+        return articleRegistry === this.#articleRegistry && owners.get(articleRegistry) === this;
+    }
+
     /** Confirms the typed transition came from this owner's actual committed cache. */
     public verifyCommittedTransition(transition: AuthoringSnapshotGroupTransition): boolean
     {
