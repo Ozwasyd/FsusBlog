@@ -6,10 +6,10 @@
         frame-class="admin-workspace-frame"
         :motion-policy="motionPolicy"
         :route-view-key="articleRouteViewKey"
-        :route-outlet-enabled="!isArticleWorkspaceRouteValue || workspaceStartupState === 'started'"
+        :route-outlet-enabled="!isArticleWorkspaceRouteValue || workspaceStartupState !== 'starting'"
     >
         <template #before-content="{ mobileNavigationActive }">
-            <ArticleWorkspaceTabStrip v-if="isArticleWorkspaceRouteValue && workspaceStartupState === 'started'" />
+            <ArticleWorkspaceTabStrip v-if="isArticleWorkspaceRouteValue && workspaceStartupState !== 'starting'" />
             <div
                 v-if="isArticleWorkspaceRouteValue"
                 class="admin-workspace-library"
@@ -340,7 +340,8 @@ async function openLibraryArticle(articleId: number): Promise<void>
 watch([() => route.fullPath, workspaceStartupState], () =>
 {
     libraryNavigationStatus.value = '';
-    if (!isArticleWorkspaceRouteValue.value || workspaceStartupState.value !== 'started')
+    // Missing/unsupported restore ports must not disable the existing route-owned editor flow.
+    if (!isArticleWorkspaceRouteValue.value || workspaceStartupState.value === 'starting')
     {
         return;
     }
