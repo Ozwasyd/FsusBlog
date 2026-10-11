@@ -310,3 +310,19 @@ Unknown legacy settlement and transitional-owner inspection errors propagate;
 scalar consumer network totals remain null and review/complete gates remain closed.
 This read exposes neither pause/recovery proof nor an extra service/mount owner.
 The original mount/session/document/context is revalidated after all source reads.
+
+The factory's lifecycle bridge re-reads the original mounted/document owner before
+inspect/pause/resume and disposal. A released or replaced Writer binding cannot
+operate on a previously captured native session. Resource operations return their
+actual upstream counts only after rechecking the same editor/session and original
+identity, epoch, source/draft coordinates and native revision; owner drift refuses
+the result rather than creating a successful lifecycle receipt. Disposal validates
+the original mounted binding before handing the real snapshot ref to upstream;
+it does not re-open a disposed session afterward or replace upstream failure
+semantics. Complete resource/full-snapshot admission remains unavailable.
+
+The corrected pipeline A candidate is
+`ef17179f8788a4bf69f0998e8635191460ad1db1` (PR927); its supplied cleanup P1 closure
+is source-only. The notification-watermark P2 remains under original-owner repair.
+Attachment311ffe5d remains unconsumed with final-jobs callback context and raw/proxy
+job findings under repair. These candidates never activate reviewed resource gates.

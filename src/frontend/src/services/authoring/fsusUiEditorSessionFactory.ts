@@ -204,6 +204,35 @@ export function createFsusUiEditorSessionFactory(
         createSession(entry): FsusUiPublicEditorSession
         {
             const { session } = resolveSession(entry);
+            function readCurrentBinding(): ArticleWorkspaceMountedEditorBinding
+            {
+                const current = resolveSession(entry);
+                if (current.session !== session)
+                {
+                    throw new Error('public-editor-session-owner-replaced');
+                }
+                return current.binding;
+            }
+
+            function observeResources(
+                action: () => ReturnType<MarkdownEditorSession['inspectResources']>
+            ): ReturnType<MarkdownEditorSession['inspectResources']>
+            {
+                const binding = readCurrentBinding();
+                const identity = Object.freeze({ ...binding.identity });
+                const context = Object.freeze({ ...binding.documentContext });
+                const editor = binding.editor;
+                const revision = binding.editorRevision;
+                const resources = action();
+                const current = readCurrentBinding();
+                assertBinding(current, identity, context);
+                if (current.editor !== editor || current.editorRevision !== revision)
+                {
+                    throw new Error('public-editor-resource-operation-owner-stale');
+                }
+                return resources;
+            }
+
             return {
                 editorSessionRef: session.editorSessionRef,
                 captureSnapshot(context)
@@ -215,9 +244,9 @@ export function createFsusUiEditorSessionFactory(
                     // Refuse before capture so an existing snapshot is preserved.
                     throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,crash-journal');
                 },
-                inspectResources: () => session.inspectResources(),
-                pauseResources: () => session.pauseResources(),
-                resumeResources: () => session.resumeResources(),
+                inspectResources: () => observeResources(() => session.inspectResources()),
+                pauseResources: () => observeResources(() => session.pauseResources()),
+                resumeResources: () => observeResources(() => session.resumeResources()),
                 restoreSnapshot(snapshot, context)
                 {
                     assertCurrent(entry, session, context);
@@ -230,7 +259,13 @@ export function createFsusUiEditorSessionFactory(
                         reason: 'public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,crash-journal'
                     };
                 },
-                disposeAfterSnapshot: snapshotRef => session.disposeAfterSnapshot(snapshotRef)
+                disposeAfterSnapshot(snapshotRef)
+                {
+                    // A released/replaced Writer binding cannot dispose the old
+                    // native editor. Upstream retains snapshot/disposal authority.
+                    readCurrentBinding();
+                    session.disposeAfterSnapshot(snapshotRef);
+                }
             };
         }
     };
