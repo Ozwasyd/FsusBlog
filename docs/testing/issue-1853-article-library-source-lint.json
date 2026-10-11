@@ -1,0 +1,904 @@
+{
+  "candidate_before_export": "a4b4aaa69773e0039ce1acdb525bb7aef3d8b330",
+  "ui_source": "cb115a49424e60a841a4c6744cea11c9d69e0ffd",
+  "producer": "original tools/frontend/check-frontend-style.mjs mode changed68-file source scope",
+  "owned_diagnostics": 0,
+  "count": 89,
+  "diagnostics": [
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 185,
+      "column": 11,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 187,
+      "column": 9,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 198,
+      "column": 16,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .uploadId on a type that cannot be resolved.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 198,
+      "column": 48,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .sha256 on a type that cannot be resolved.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 198,
+      "column": 93,
+      "rule": "eslint/@typescript-eslint/no-unsafe-argument",
+      "message": "Unsafe argument of type error typed assigned to a parameter of type `TArg<Uint8Array<ArrayBufferLike>>`.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "line": 198,
+      "column": 100,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .bytes on a type that cannot be resolved.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "line": 19,
+      "column": 11,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "line": 21,
+      "column": 32,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "line": 29,
+      "column": 16,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .uploadId on a type that cannot be resolved.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "line": 29,
+      "column": 48,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .sha256 on a type that cannot be resolved.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 89,
+      "column": 1,
+      "rule": "eslint/import-x/order",
+      "message": "There should be at least one empty line between import groups",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 127,
+      "column": 28,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 136,
+      "column": 39,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 137,
+      "column": 34,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 141,
+      "column": 80,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 142,
+      "column": 55,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 149,
+      "column": 65,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 150,
+      "column": 26,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 151,
+      "column": 13,
+      "rule": "eslint/@typescript-eslint/no-floating-promises",
+      "message": "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 157,
+      "column": 97,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 159,
+      "column": 47,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 163,
+      "column": 67,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 165,
+      "column": 103,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 169,
+      "column": 24,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 173,
+      "column": 32,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 192,
+      "column": 87,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 194,
+      "column": 21,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Closing curly brace appears on the same line as the subsequent block.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 194,
+      "column": 58,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 200,
+      "column": 86,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 202,
+      "column": 21,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Closing curly brace appears on the same line as the subsequent block.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 202,
+      "column": 28,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 276,
+      "column": 69,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 297,
+      "column": 25,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 298,
+      "column": 1,
+      "rule": "eslint/vue/script-indent",
+      "message": "Expected indentation of 20 spaces but found 12 spaces.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 350,
+      "column": 101,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 352,
+      "column": 72,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 353,
+      "column": 33,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 354,
+      "column": 43,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 369,
+      "column": 10,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 375,
+      "column": 42,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 385,
+      "column": 55,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 386,
+      "column": 40,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 387,
+      "column": 9,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 389,
+      "column": 5,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Closing curly brace appears on the same line as the subsequent block.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 389,
+      "column": 13,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 394,
+      "column": 43,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 395,
+      "column": 40,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 396,
+      "column": 9,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 399,
+      "column": 5,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Closing curly brace appears on the same line as the subsequent block.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 399,
+      "column": 13,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 404,
+      "column": 26,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 405,
+      "column": 18,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 408,
+      "column": 17,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 413,
+      "column": 35,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 414,
+      "column": 30,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 416,
+      "column": 25,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 417,
+      "column": 31,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 421,
+      "column": 98,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 429,
+      "column": 30,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 434,
+      "column": 34,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 435,
+      "column": 24,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 438,
+      "column": 27,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 441,
+      "column": 58,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 442,
+      "column": 18,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 449,
+      "column": 34,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 450,
+      "column": 26,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 453,
+      "column": 46,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 455,
+      "column": 27,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'if' condition.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 456,
+      "column": 10,
+      "rule": "eslint/curly",
+      "message": "Expected { after 'else'.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 460,
+      "column": 66,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 464,
+      "column": 64,
+      "rule": "eslint/@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement.",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 671,
+      "column": 8,
+      "rule": "stylelint/media-feature-range-notation",
+      "message": "Expected \"context\" media feature range notation (media-feature-range-notation)",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 677,
+      "column": 6,
+      "rule": "stylelint/@stylistic/indentation",
+      "message": "Expected indentation of 4 spaces (@stylistic/indentation)",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "line": 678,
+      "column": 2,
+      "rule": "stylelint/@stylistic/indentation",
+      "message": "Expected indentation of 0 spaces (@stylistic/indentation)",
+      "source": "de6df11110b5d060a001fad36bb604627323e32a",
+      "blob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/de-DE/admin.ts",
+      "line": 10,
+      "column": 64,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "898b7f15c2eef581168b0ed3ab5767512f422418",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/en-US/admin.ts",
+      "line": 10,
+      "column": 50,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "ed784be439a6714bb52e578c8c789a2e4d970bcb",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/es-419/admin.ts",
+      "line": 10,
+      "column": 65,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "b21aef4df9ce921011060ef4d9de088bf4523729",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/fr-FR/admin.ts",
+      "line": 10,
+      "column": 63,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "add6801ae7c3d3c53cc72ca6fda854724b0d39b8",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/ja-JP/admin.ts",
+      "line": 10,
+      "column": 30,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "ea72ab5f5ee4870ecf82b514e44f42131c34eda2",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/ko-KR/admin.ts",
+      "line": 10,
+      "column": 35,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "bca181db5c54e1fef993fc5ddf7888520f61138f",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/pt-BR/admin.ts",
+      "line": 10,
+      "column": 63,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "0d14b09f47d5dc86f314f9191d87d91d50d446fd",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/ru-RU/admin.ts",
+      "line": 10,
+      "column": 64,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "c9888af8a5c9676bf7476aa73789198e1082b90b",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/zh-CN/admin.ts",
+      "line": 7,
+      "column": 28,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "625eab6dcaa3d15f88e2bccd5f3c7fe770800042",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/locales/zh-Hant/admin.ts",
+      "line": 10,
+      "column": 28,
+      "rule": "eslint/@stylistic/comma-dangle",
+      "message": "Unexpected trailing comma.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "d5bcb7e710cd8c7479ee84712afae58e7ff9f5fc",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+      "line": 84,
+      "column": 23,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "d69ac837c70ebe97cae5061b9403aef631498606",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+      "line": 88,
+      "column": 31,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .sizeBytes on a type that cannot be resolved.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "d69ac837c70ebe97cae5061b9403aef631498606",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+      "line": 92,
+      "column": 65,
+      "rule": "eslint/@typescript-eslint/no-unsafe-argument",
+      "message": "Unsafe argument of type error typed assigned to a parameter of type `AttachmentAssetFacts`.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "d69ac837c70ebe97cae5061b9403aef631498606",
+      "current_status": "still-present"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "line": 1087,
+      "column": 9,
+      "rule": "eslint/@typescript-eslint/no-unsafe-argument",
+      "message": "Unsafe argument of type error typed assigned to a parameter of type `ArticleWorkspaceStatusSummary`.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "0d4306e49356d4faf5fe33cd30604952598995d8",
+      "current_status": "resolved"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "line": 1134,
+      "column": 72,
+      "rule": "eslint/@typescript-eslint/no-unsafe-argument",
+      "message": "Unsafe argument of type error typed assigned to a parameter of type `ArticleWorkspaceStatusSummary`.",
+      "source": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+      "blob": "0d4306e49356d4faf5fe33cd30604952598995d8",
+      "current_status": "resolved"
+    }
+  ],
+  "runtime": "UNRUN",
+  "current_remaining": 87,
+  "current_full_scope_findings": 95,
+  "extra_router_original_findings": 8,
+  "current_head": "eb36de79b0f77bb7ae7870f4780652ebaa7ba6b1"
+}
