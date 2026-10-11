@@ -80,6 +80,102 @@ function open(authority = new ArticleDocumentContextAuthority(), content = 'para
 
 describe('composed canonical editor lifecycle integration regressions', () =>
 {
+    it('borrows fresh backward native selection with the caller supplied capture options', () => {
+        const f = open();
+        const options = { ...capture, viewportOffset: 17, percentage: 0.25 };
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => options);
+        const before = f.owner.context;
+        expect(f.dispatch({ changes: [], history: 'skip', selection: { start: 2, end: 6, direction: 'backward' } }).accepted).toBe(true);
+        const first = caller.captureCurrent();
+        expect(first.document).toEqual(before);
+        expect(first.anchor.range).toEqual({ start: 2, end: 6 });
+        expect(first.anchor.direction).toBe('backward');
+        expect(first.anchor.viewportOffset).toBe(17);
+        expect(first.anchor.percentage).toBe(0.25);
+        expect(f.dispatch({ changes: [], history: 'skip', selection: { start: 1, end: 3, direction: 'forward' } }).accepted).toBe(true);
+        expect(caller.captureCurrent().anchor.range).toEqual({ start: 1, end: 3 });
+        expect(caller.captureCurrent().anchor.direction).toBe('forward');
+        caller.release();
+    });
+
+    it('preserves missing native observation failure without synthesizing a selection', () => {
+        const f = open(undefined, 'paragraph', false);
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        expect(() => caller.captureCurrent()).toThrow('continuity-observation-required');
+        caller.release();
+    });
+
+    it('cancels a repeated caller loan through the original compare task owner', () => {
+        const f = open();
+        const first = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        const second = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        expect(first.task.signal.aborted).toBe(true);
+        expect(first.task.signal.reason).toBe('task-superseded');
+        expect(first.task.envelope.abortReason).toBe('task-superseded');
+        expect(() => first.captureCurrent()).toThrow('article-editor-caller-context-stale');
+        expect(second.task.isCurrent()).toBe(true);
+        second.release();
+        second.release();
+        expect(second.task.envelope.abortReason).toBe('article-editor-caller-release');
+        expect(second.task.isCurrent()).toBe(false);
+        expect(f.owner.activeTaskRefs).toHaveLength(0);
+        expect(() => second.captureCurrent()).toThrow('article-editor-caller-context-stale');
+    });
+
+    it('cancels borrowed capture when a real native source transaction changes revision', () => {
+        const f = open();
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        expect(f.dispatch({ changes: [{ from: 0, to: 0, insert: 'X' }], history: 'separate' }).accepted).toBe(true);
+        expect(caller.task.signal.aborted).toBe(true);
+        expect(caller.task.signal.reason).toBe('source-revision-changed');
+        expect(() => caller.captureCurrent()).toThrow('article-editor-caller-context-stale');
+    });
+
+    it('rejects capture options callbacks that change the document draft context', () => {
+        const f = open();
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => {
+            f.owner.updateDraftRevision('draft:changed');
+            return capture;
+        });
+        expect(() => caller.captureCurrent()).toThrow('article-editor-caller-context-stale');
+        expect(caller.task.signal.aborted).toBe(true);
+        expect(caller.task.signal.reason).toBe('draft-revision-changed');
+    });
+
+    it('rejects capture after an article switch even when the next source bytes match', () => {
+        const f = open();
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        const previous = f.owner.context;
+        f.owner.switchDocument({ articleId: 2, draftId: 'article:2', content: f.source() });
+        expect(f.owner.context.documentId).not.toBe(previous.documentId);
+        expect(caller.task.signal.aborted).toBe(true);
+        expect(() => caller.captureCurrent()).toThrow('article-editor-caller-context-stale');
+    });
+
+    it('cancels caller capture on editor release and rejects late asynchronous reads', async () => {
+        const f = open();
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        caller.captureCurrent();
+        let resume!: () => void;
+        const late = new Promise<void>(resolve => { resume = resolve; }).then(() => caller.captureCurrent());
+        f.release();
+        expect(caller.task.signal.aborted).toBe(true);
+        expect(caller.task.envelope.abortReason).toBe('article-editor-caller-release');
+        resume();
+        await expect(late).rejects.toThrow('article-editor-runtime-binding-disposed');
+        caller.release();
+    });
+
+    it('rejects disposal during a caller capture options callback', () => {
+        const f = open();
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => {
+            f.binding.dispose();
+            return capture;
+        });
+        expect(() => caller.captureCurrent()).toThrow('article-editor-runtime-binding-disposed');
+        expect(caller.task.signal.aborted).toBe(true);
+    });
+
     it('denies new semantic binding reads after the canonical owner is disposed', () => {
         const f = open();
         const handle = f.insert()[0]!;

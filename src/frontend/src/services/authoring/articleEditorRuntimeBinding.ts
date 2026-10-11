@@ -7,9 +7,10 @@ import { ArticleRenderCache, type ArticleRenderCachePolicy, type ArticleRenderId
 import { evaluateArticleRenderRefreshPolicy } from './articleRenderRefreshPolicy';
 import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocumentRegistry';
 
-import type { ArticleAnchorContextAdapter, ArticleAnchorSurface } from './articleAnchorContext';
+import type { ArticleAnchorCaptureOptions, ArticleAnchorContextAdapter, ArticleAnchorSurface } from './articleAnchorContext';
 import type { ArticleAttachmentContextAdapter, ArticleAttachmentTransactionPort } from './articleAttachmentContext';
 import type { ArticleDocumentContext, ArticleDocumentContextAdapter, ArticleDocumentTaskLease } from './articleDocumentContext';
+import type { ArticleEditorContinuityContext } from './articleEditorContinuity';
 
 export interface ArticleEditorRuntimeBindingOptions
 {
@@ -17,6 +18,14 @@ export interface ArticleEditorRuntimeBindingOptions
     readonly configuration: ArticleFsusUiRenderConfiguration;
     readonly identity: Pick<ArticleRenderIdentity, 'themeDigest' | 'locale'>;
     readonly cachePolicy: ArticleRenderCachePolicy;
+}
+
+/** Borrowed native capture and cancellation only; permission and action execution remain with the caller's canonical owners. */
+export interface ArticleEditorCallerBinding
+{
+    readonly task: ArticleDocumentTaskLease;
+    captureCurrent(): ArticleEditorContinuityContext;
+    release(): void;
 }
 
 /** Compose existing owners on the writer binding; no second document, cache algorithm or body store. */
@@ -50,6 +59,7 @@ export function bindArticleEditorRuntime(
     const continuity = new ArticleEditorContinuityAdapter(owner, anchors, cache, editor, options.surface);
     let disposed = false;
     let toolLease: ArticleDocumentTaskLease | null = null;
+    const callerReleases = new Set<() => void>();
     const current = (): void =>
     {
         if (disposed)
@@ -81,6 +91,61 @@ export function bindArticleEditorRuntime(
         {
             current();
             return transactions.binding();
+        },
+        /** Keep this actual runtime binding with the loan; supplied options must describe the host's current surface/tool/viewport. */
+        borrowCompareTask: (producerRef: string, readCaptureOptions: () => ArticleAnchorCaptureOptions,
+            producerVersion?: string): ArticleEditorCallerBinding =>
+        {
+            current();
+            if (typeof readCaptureOptions !== 'function')
+            {
+                throw new Error('article-editor-caller-capture-options-required');
+            }
+            const task = owner.beginTask('compare', producerRef, producerVersion);
+            if (disposed || task.signal.aborted || !task.isCurrent())
+            {
+                task.cancel('article-editor-caller-binding-unavailable');
+                throw new Error('article-editor-caller-context-stale');
+            }
+            let released = false;
+            const release = (): void =>
+            {
+                if (released)
+                {
+                    return;
+                }
+                released = true;
+                task.signal.removeEventListener('abort', release);
+                callerReleases.delete(release);
+                if (!task.signal.aborted)
+                {
+                    task.cancel('article-editor-caller-release');
+                }
+            };
+            const requireCurrent = (): void =>
+            {
+                current();
+                if (released || task.signal.aborted || !task.isCurrent()
+                    || !owner.isCurrentContext(task.envelope.context))
+                {
+                    throw new Error('article-editor-caller-context-stale');
+                }
+            };
+            callerReleases.add(release);
+            task.signal.addEventListener('abort', release, { once: true });
+            return Object.freeze({
+                task,
+                captureCurrent: (): ArticleEditorContinuityContext =>
+                {
+                    requireCurrent();
+                    const captureOptions = readCaptureOptions();
+                    requireCurrent();
+                    const captured = continuity.capture(transactions.binding(), captureOptions);
+                    requireCurrent();
+                    return captured;
+                },
+                release
+            });
         },
         /** Borrowed commands must carry the exact current context and public native revision guard. */
         dispatchTransaction: (context: ArticleDocumentContext,
@@ -144,6 +209,10 @@ export function bindArticleEditorRuntime(
                 return;
             }
             disposed = true;
+            for (const release of Array.from(callerReleases))
+            {
+                release();
+            }
             toolLease?.cancel('article-editor-runtime-release');
             toolLease = null;
             continuity.dispose();
