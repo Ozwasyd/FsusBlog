@@ -132,6 +132,48 @@ describe('ArticleLibraryRail focus regressions (#1853)', () =>
 
             expect(document.activeElement).toBe(chosen.element);
         });
+
+        it('does not restore an old action after the host changes group and loading input together', async () =>
+        {
+            const wrapper = await openRail();
+            wrapper.get<HTMLButtonElement>(`[data-library-action="${action}"]`).element.focus();
+            await wrapper.setProps({
+                activeGroup: 'draft',
+                presentation: { state: 'loading', group: 'draft' }
+            });
+            await nextTick();
+            const fallback = wrapper.get<HTMLButtonElement>('[data-library-group="draft"]');
+            expect(document.activeElement).toBe(fallback.element);
+
+            await wrapper.setProps({ presentation: { ...displayPage(), group: 'draft' } });
+            await nextTick();
+            expect(document.activeElement).toBe(fallback.element);
+            expect(document.activeElement).not.toBe(wrapper.get(`[data-library-action="${action}"]`).element);
+        });
+
+        it('clears an existing pending action when the host changes group', async () =>
+        {
+            const wrapper = await openRail();
+            wrapper.get<HTMLButtonElement>(`[data-library-action="${action}"]`).element.focus();
+            await wrapper.setProps({ presentation: { state: 'loading', group: 'recent' } });
+            await nextTick();
+            const anchor = wrapper.get<HTMLButtonElement>('[data-library-group="recent"]');
+            expect(document.activeElement).toBe(anchor.element);
+
+            await wrapper.setProps({
+                activeGroup: 'draft',
+                presentation: { state: 'loading', group: 'draft' }
+            });
+            await nextTick();
+            await wrapper.setProps({ presentation: { ...displayPage(), group: 'draft' } });
+            await nextTick();
+            expect(document.activeElement).toBe(anchor.element);
+
+            await wrapper.setProps({ activeGroup: 'recent', presentation: displayPage() });
+            await nextTick();
+            expect(document.activeElement).toBe(anchor.element);
+            expect(document.activeElement).not.toBe(wrapper.get(`[data-library-action="${action}"]`).element);
+        });
     });
 
     it('does not move external editor focus when the page becomes unavailable', async () =>

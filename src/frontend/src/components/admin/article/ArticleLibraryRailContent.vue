@@ -243,8 +243,16 @@ function actionButton(action: ArticleLibraryAction): ArticleLibraryButtonHandle 
     }
 }
 
-watch([page, () => props.currentArticleId, () => props.active, () => props.group], async () =>
+watch([page, () => props.currentArticleId, () => props.active, () => props.group], async (values, oldValues, onCleanup) =>
 {
+    const group = values[3];
+    // Exposed button refs still belong to the previous render during this pre-flush watcher.
+    const originGroup = oldValues[3] ?? group;
+    let focusWorkCurrent = true;
+    onCleanup(() =>
+    {
+        focusWorkCurrent = false;
+    });
     if (!props.active)
     {
         pendingActionFocus = null;
@@ -260,12 +268,11 @@ watch([page, () => props.currentArticleId, () => props.active, () => props.group
     const actionOrigin = previousButton.value?.ref === activeElement ? 'previous'
         : nextButton.value?.ref === activeElement ? 'next'
             : revealButton.value?.ref === activeElement ? 'reveal-current' : null;
-    const losesActionFocus = actionOrigin !== null && !actionButton(actionOrigin);
+    const losesActionFocus = actionOrigin !== null && (originGroup !== group || !actionButton(actionOrigin));
     focusedId.value = currentOnPage.value ? props.currentArticleId : entries.value[0]?.id ?? null;
     await nextTick();
-    if (!mountedActive || !props.active)
+    if (!focusWorkCurrent || !mountedActive || !props.active || props.group !== group)
     {
-        pendingActionFocus = null;
         return;
     }
     if (pendingActionFocus && page.value)
@@ -297,9 +304,9 @@ watch([page, () => props.currentArticleId, () => props.active, () => props.group
     {
         focusInitial();
         const anchor = groupButtons.value.find((item) => item.ref?.dataset.libraryGroup === props.group)?.ref;
-        if (!page.value && actionOrigin && anchor && document.activeElement === anchor)
+        if (!page.value && actionOrigin && originGroup === group && anchor && document.activeElement === anchor)
         {
-            pendingActionFocus = { action: actionOrigin, anchor, group: props.group };
+            pendingActionFocus = { action: actionOrigin, anchor, group: originGroup };
         }
     }
     else if (currentOnPage.value)
