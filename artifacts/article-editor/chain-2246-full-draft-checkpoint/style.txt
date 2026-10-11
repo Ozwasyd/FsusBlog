@@ -1,0 +1,6 @@
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2144:58 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2145:16 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2214:34 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2221:17 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2292:26 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4042:128 eslint/preserve-caught-error: The symptom error is being thrown with an incorrect `cause`.

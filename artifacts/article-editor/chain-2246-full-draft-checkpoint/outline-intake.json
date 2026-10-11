@@ -1,0 +1,11 @@
+{
+  "donor": "e49fac435748c09ce2fca603008ac120a9b7c4f1",
+  "path": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+  "beforeBlob": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+  "afterBlob": "7779149d7a58a4879d00a015c9e118b50bedd516",
+  "applyCheck": 0,
+  "apply": 0,
+  "reverseCheck": 0,
+  "otherOwnerSourceChanged": false,
+  "ownerEvidence": "parent reports strict lint64\u21920 and AST/emit/CSS equivalence; source only"
+}
