@@ -12,6 +12,7 @@ import {
 
 import type {
     MarkdownEditorSession,
+    MarkdownEditorSessionAttachmentResourceSource,
     MarkdownEditorSessionExpose,
     MarkdownEditorSessionLastValidRender,
     MarkdownEditorSessionRenderRestoreProof,
@@ -35,6 +36,7 @@ export type ArticleWorkspaceMountedEditorResolver = (
 export interface ArticleWorkspaceEditorResourceSources {
     readonly census: ReturnType<MarkdownEditorSession['inspectResourceParticipants']>;
     readonly renderer: MarkdownEditorSessionRendererResourceSource | null;
+    readonly attachment: MarkdownEditorSessionAttachmentResourceSource | null;
 }
 
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
@@ -130,6 +132,7 @@ export function createFsusUiEditorSessionFactory(
             const { binding, session } = resolveSession(entry);
             const census = session.inspectResourceParticipants();
             const renderer = session.inspectRendererResourceSource();
+            const attachment = session.inspectAttachmentResourceSource();
             const current = resolveSession(entry);
             assertBinding(current.binding, binding.identity, binding.documentContext);
             if (current.session !== session
@@ -137,7 +140,7 @@ export function createFsusUiEditorSessionFactory(
             {
                 throw new Error('public-editor-resource-source-owner-stale');
             }
-            return Object.freeze({ census, renderer });
+            return Object.freeze({ census, renderer, attachment });
         },
         captureLastValidRender(entry)
         {

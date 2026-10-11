@@ -303,3 +303,10 @@ admitted and its review flag remains false. Writer supplies the original actual
 mount/document callbacks; layout4213 already has a consumer of the sole installer.
 Their files and production host placement remain outside this session lane.
 Full snapshot/refset and complete resource admission are still BLOCKED.
+
+The same factory resource observation now also forwards actual
+`session.inspectAttachmentResourceSource()` from the original upstream pipeline.
+Unknown legacy settlement and transitional-owner inspection errors propagate;
+scalar consumer network totals remain null and review/complete gates remain closed.
+This read exposes neither pause/recovery proof nor an extra service/mount owner.
+The original mount/session/document/context is revalidated after all source reads.
