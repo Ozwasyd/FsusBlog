@@ -2415,9 +2415,24 @@ DirectProjectionCache、facade/DI 继续是同一规范 owner，query 层不保�
 
 缺失 ID lookup 的旧 reader adapter 明确拒绝该 capability，不以全 corpus 前缀替代。Recent 与其他 buckets
 的 current ID union 超过原 1000-ID admission window 时返回 `SourceWindowUnavailable`；普通 corpus batch 的
-`HasMore` 仍只是内部观察，不表示完整 10000 文章的 ranked pagination。此 composition 不生成 candidate slug、
+`HasMore` 仍只是内部观察，不表示完整 10000 文章的 ranked pagination。原 `ReadCoordinatesAsync` 与
+`ReadCoordinatesAfterAsync(statuses, afterArticleId, cancellationToken)` 共用同一 ArticleService 实现；后者
+以 `id > @AfterArticleId`、`ORDER BY id`、最多 1000+1 行执行 keyset 读取，正常页最多保留 1000 坐标，
+仅有下一页时给出最后保留 ID 的 `NextAfterArticleId`。越界负值及非法状态在 ADO 前拒绝；ID 空洞不依赖
+offset，lookahead 行留给下一次按 ID 读取，不跳过、不产生持久化位置或第二 index。
+
+原 `AuthorArticleQuerySourceInspection.InspectPageAsync(request, afterArticleId, cancellationToken)` 对每个
+非 Recent corpus 页重新执行 live principal/site/session preflight、逐 ID project/write admission、字段坐标
+一致性及读后 permission digest 检查。坐标不严格前进、有重复或缺失版本、声称 HasMore 却未填满原窗口
+时丢弃全部观察；permission/source 拒绝不返回 continuation。旧 adapter 缺失 continuation capability 时
+明确 unavailable，不重放首页。原 `InspectAsync` 仍是 position=0 的入口，原 Archived/slug/query cursor
+拒绝不变。正 position 不能继续 Recent 或 mixed Recent union，保持 `SourceWindowUnavailable`，因为 corpus
+位置未绑定完整 history union。普通位置是内部 source 测量参数，不能作为公开/认证 query cursor、permission
+token、source digest 或 receipt；每页 current 坐标不证明跨页一致的完整 database snapshot。
+
+此 composition 不生成 candidate slug、
 ranked response、cursor binding、query receipt 或 verified query cache。真实 slug authority、Archived read grant、
-完整有界连续 corpus 读取及其 source/history/permission-bound cursor、sealed query response/AEDS route 和
+完整 corpus snapshot/fingerprint 及其 source/history/permission-bound cursor、sealed query response/AEDS route 和
 verified query-cache consumer 仍是 ArticleLibraryRail/Quick Switcher 的后续门禁；公开 `/article/{id}` 和
 Rights.CanonicalUrl 不能作为 entity slug authority。
 

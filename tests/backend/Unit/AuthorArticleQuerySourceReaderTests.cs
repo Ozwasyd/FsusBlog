@@ -261,6 +261,147 @@ public sealed class AuthorArticleQuerySourceReaderTests
         Assert.True(fixture.Reader!.IsClosed);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(1000)]
+    [InlineData(1001)]
+    [InlineData(10000)]
+    public async Task Continuation_TracesEverySparseIdInBoundedOrderedPages(int count)
+    {
+        var fixture = PagedFixture(count);
+        var ids = new List<int>();
+        int afterArticleId = 0;
+        int calls = 0;
+        AuthorArticleQuerySourceBatch page;
+        do
+        {
+            page = await fixture.Source.ReadCoordinatesAfterAsync([AuthorArticleQueryStatus.Draft], afterArticleId, default);
+            calls++;
+            Assert.InRange(page.Coordinates.Count, 0, AuthorArticleQuerySourceInspection.MaxBatchSize);
+            Assert.All(page.Coordinates, row => Assert.True(row.ArticleId > afterArticleId));
+            Assert.Equal(afterArticleId, Assert.IsType<int>(fixture.Parameter("@AfterArticleId").Value));
+            Assert.Contains("id > @AfterArticleId", fixture.CommandText, StringComparison.Ordinal);
+            Assert.Contains("isdeleted = false", fixture.CommandText, StringComparison.Ordinal);
+            Assert.Equal(AuthorArticleQuerySourceInspection.MaxBatchSize + 1,
+                Assert.IsType<int>(fixture.Parameter("@Limit").Value));
+            Assert.True(fixture.Reader!.IsClosed);
+            ids.AddRange(page.Coordinates.Select(static row => row.ArticleId));
+            if (page.HasMore)
+            {
+                int next = Assert.IsType<int>(page.NextAfterArticleId);
+                Assert.Equal(page.Coordinates[^1].ArticleId, next);
+                Assert.True(next > afterArticleId);
+                afterArticleId = next;
+            }
+            else
+            {
+                Assert.Null(page.NextAfterArticleId);
+            }
+        }
+        while (page.HasMore);
+
+        Assert.Equal(Enumerable.Range(1, count).Select(static id => id * 2), ids);
+        Assert.Equal(Math.Max(1, (count + AuthorArticleQuerySourceInspection.MaxBatchSize - 1)
+            / AuthorArticleQuerySourceInspection.MaxBatchSize), calls);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(int.MinValue)]
+    public async Task Continuation_RejectsNegativePositionBeforeAdo(int afterArticleId)
+    {
+        var fixture = new ReaderFixture(Coordinates());
+
+        ArgumentOutOfRangeException error = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            fixture.Source.ReadCoordinatesAfterAsync([AuthorArticleQueryStatus.Draft], afterArticleId, default));
+
+        Assert.Equal("afterArticleId", error.ParamName);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(42)]
+    public async Task Continuation_RejectsDeletedAndUnknownStatusBeforeAdo(int status)
+    {
+        var fixture = new ReaderFixture(Coordinates());
+
+        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(() =>
+            fixture.Source.ReadCoordinatesAfterAsync([(AuthorArticleQueryStatus)status], 2000, default));
+
+        Assert.Equal("statuses", error.ParamName);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public async Task Continuation_EmptyScopeDoesNotReadAdo()
+    {
+        var fixture = new ReaderFixture(Coordinates());
+
+        AuthorArticleQuerySourceBatch page = await fixture.Source.ReadCoordinatesAfterAsync([], 2000, default);
+
+        Assert.Empty(page.Coordinates);
+        Assert.False(page.HasMore);
+        Assert.Null(page.NextAfterArticleId);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public async Task Continuation_FirstPageUsesOriginalCoordinateOwner()
+    {
+        var fixture = PagedFixture(1);
+
+        AuthorArticleQuerySourceBatch first = await fixture.Source.ReadCoordinatesAsync([AuthorArticleQueryStatus.Draft], default);
+        AuthorArticleQuerySourceBatch explicitFirst = await fixture.Source.ReadCoordinatesAfterAsync([AuthorArticleQueryStatus.Draft], 0, default);
+
+        Assert.Equal(first.Coordinates, explicitFirst.Coordinates);
+        Assert.Equal(first.HasMore, explicitFirst.HasMore);
+        Assert.Equal(0, fixture.Parameter("@AfterArticleId").Value);
+    }
+
+    [Fact]
+    public async Task Continuation_InterruptedReadDisposesReaderAndCanResumeSamePosition()
+    {
+        var fixture = PagedFixture(1001);
+        AuthorArticleQuerySourceBatch first = await fixture.Source.ReadCoordinatesAsync([AuthorArticleQueryStatus.Draft], default);
+        int position = Assert.IsType<int>(first.NextAfterArticleId);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            fixture.Source.ReadCoordinatesAfterAsync([AuthorArticleQueryStatus.Draft], position, cancellation.Token));
+        Assert.True(fixture.Reader!.IsClosed);
+        AuthorArticleQuerySourceBatch resumed = await fixture.Source.ReadCoordinatesAfterAsync(
+            [AuthorArticleQueryStatus.Draft], position, default);
+
+        Assert.Equal(2002, Assert.Single(resumed.Coordinates).ArticleId);
+        Assert.False(resumed.HasMore);
+        Assert.Null(resumed.NextAfterArticleId);
+        Assert.True(fixture.Reader!.IsClosed);
+    }
+
+    private static ReaderFixture PagedFixture(int count)
+    {
+        var fixture = new ReaderFixture(Coordinates());
+        fixture.RowsForCommand = parameters =>
+        {
+            int after = Assert.IsType<int>(Assert.Single(parameters,
+                parameter => parameter.ParameterName == "@AfterArticleId").Value);
+            int limit = Assert.IsType<int>(Assert.Single(parameters,
+                parameter => parameter.ParameterName == "@Limit").Value);
+            DataTable rows = Coordinates();
+            foreach (int id in Enumerable.Range(1, count).Select(static id => id * 2).Where(id => id > after).Take(limit))
+            {
+                rows.Rows.Add(id, id * 10L, $"row-{id}", (int)ArticleStatus.Draft);
+            }
+            return rows;
+        };
+        return fixture;
+    }
+
     private static DataTable Coordinates()
     {
         var table = new DataTable();
@@ -289,6 +430,10 @@ public sealed class AuthorArticleQuerySourceReaderTests
         }
         public string CommandText { get; private set; } = string.Empty;
         public SugarParameter[] Parameters { get; private set; } = [];
+        public Func<SugarParameter[], DataTable>? RowsForCommand
+        {
+            get; set;
+        }
         public DataTableReader? Reader
         {
             get; private set;
@@ -302,7 +447,7 @@ public sealed class AuthorArticleQuerySourceReaderTests
             {
                 CommandText = call.ArgAt<string>(0);
                 Parameters = call.ArgAt<SugarParameter[]>(1);
-                Reader = rows.CreateDataReader();
+                Reader = (RowsForCommand?.Invoke(Parameters) ?? rows).CreateDataReader();
                 return Task.FromResult((IDataReader)Reader);
             });
             Source = new ArticleService(

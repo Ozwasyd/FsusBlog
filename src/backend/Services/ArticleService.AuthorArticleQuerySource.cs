@@ -9,10 +9,23 @@ namespace FsusBlog.Server.Services;
 
 public partial class ArticleService : IAuthorArticleQuerySourceReader
 {
-    async Task<AuthorArticleQuerySourceBatch> IAuthorArticleQuerySourceReader.ReadCoordinatesAsync(
+    Task<AuthorArticleQuerySourceBatch> IAuthorArticleQuerySourceReader.ReadCoordinatesAsync(
         IReadOnlyList<AuthorArticleQueryStatus> statuses,
         CancellationToken cancellationToken)
+        => ReadAuthorQueryCoordinatePageAsync(statuses, 0, cancellationToken);
+
+    Task<AuthorArticleQuerySourceBatch> IAuthorArticleQuerySourceReader.ReadCoordinatesAfterAsync(
+        IReadOnlyList<AuthorArticleQueryStatus> statuses,
+        int afterArticleId,
+        CancellationToken cancellationToken)
+        => ReadAuthorQueryCoordinatePageAsync(statuses, afterArticleId, cancellationToken);
+
+    private async Task<AuthorArticleQuerySourceBatch> ReadAuthorQueryCoordinatePageAsync(
+        IReadOnlyList<AuthorArticleQueryStatus> statuses,
+        int afterArticleId,
+        CancellationToken cancellationToken)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(afterArticleId);
         if (statuses.Count == 0)
         {
             return new([], false);
@@ -32,13 +45,15 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
                     """
                     SELECT id, current_revision_id, xmin::text AS row_version, status
                     FROM article
-                    WHERE isdeleted = false AND status = ANY(@Statuses)
+                    WHERE id > @AfterArticleId AND isdeleted = false AND status = ANY(@Statuses)
                     ORDER BY id
                     LIMIT @Limit;
                     """,
+                    new SugarParameter("@AfterArticleId", afterArticleId),
                     new SugarParameter("@Statuses", statuses.Select(static status => (int)status).ToArray()) { IsArray = true },
                     new SugarParameter("@Limit", AuthorArticleQuerySourceInspection.MaxBatchSize + 1)).ConfigureAwait(false);
-                while (await reader.ReadAsync(gateCt).ConfigureAwait(false))
+                while (coordinates.Count <= AuthorArticleQuerySourceInspection.MaxBatchSize
+                    && await reader.ReadAsync(gateCt).ConfigureAwait(false))
                 {
                     coordinates.Add(new(
                         reader.GetInt32(0),

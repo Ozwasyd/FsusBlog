@@ -19,7 +19,11 @@ public sealed record AuthorArticleQuerySourceFields(
 /// <summary>A bounded source measurement, independent of ranked query pagination.</summary>
 public sealed record AuthorArticleQuerySourceBatch(
     IReadOnlyList<AuthorArticleQuerySourceCoordinate> Coordinates,
-    bool HasMore);
+    bool HasMore)
+{
+    /// <summary>Raw internal read position; this is not a query cursor or an authority receipt.</summary>
+    public int? NextAfterArticleId => HasMore && Coordinates.Count > 0 ? Coordinates[^1].ArticleId : null;
+}
 
 /// <summary>Minimal projection on the canonical article owner; never a second article index.</summary>
 public interface IAuthorArticleQuerySourceReader
@@ -27,6 +31,13 @@ public interface IAuthorArticleQuerySourceReader
     Task<AuthorArticleQuerySourceBatch> ReadCoordinatesAsync(
         IReadOnlyList<AuthorArticleQueryStatus> statuses,
         CancellationToken cancellationToken);
+
+    Task<AuthorArticleQuerySourceBatch> ReadCoordinatesAfterAsync(
+        IReadOnlyList<AuthorArticleQueryStatus> statuses,
+        int afterArticleId,
+        CancellationToken cancellationToken)
+        => Task.FromException<AuthorArticleQuerySourceBatch>(
+            new NotSupportedException("author_article_query_source_continuation_unavailable"));
 
     Task<AuthorArticleQuerySourceBatch> ReadCoordinatesForIdsAsync(
         IReadOnlyList<AuthorArticleQueryStatus> statuses,
@@ -76,6 +87,11 @@ public sealed record AuthorArticleQuerySourceInspectionResult(
     }
     /// <summary>Only admitted live fields receive verified recent ordinals.</summary>
     public IReadOnlyList<AuthorArticleQueryRecentSourceBinding> RecentBindings { get; init; } = [];
+    /// <summary>Internal corpus read position; it cannot be sent as an authenticated query cursor.</summary>
+    public int? NextAfterArticleId
+    {
+        get; init;
+    }
 }
 
 /// <summary>
@@ -91,11 +107,20 @@ public sealed class AuthorArticleQuerySourceInspection(
     public const int MaxBatchSize = AuthorRecentArticleHistoryContract.MaxEntriesPerOwner;
 
     /// <summary>Measures available management fields while keeping the full query closed.</summary>
-    public async Task<AuthorArticleQuerySourceInspectionResult> InspectAsync(
+    public Task<AuthorArticleQuerySourceInspectionResult> InspectAsync(
         AuthorArticleQueryRequest request,
+        CancellationToken cancellationToken = default)
+        => InspectPageAsync(request, 0, cancellationToken);
+
+    /// <summary>Measures one bounded corpus page while retaining the original permission and refusal gates.</summary>
+    /// <remarks>The raw position does not bind a complete source/history identity or authorize a query cursor.</remarks>
+    public async Task<AuthorArticleQuerySourceInspectionResult> InspectPageAsync(
+        AuthorArticleQueryRequest request,
+        int afterArticleId,
         CancellationToken cancellationToken = default)
     {
         AuthorArticleQueryContract.ValidateRequest(request);
+        ArgumentOutOfRangeException.ThrowIfNegative(afterArticleId);
         cancellationToken.ThrowIfCancellationRequested();
         var owner = new AuthorRecentArticleHistoryOwner(request.Owner.AdminPrincipalId, request.Owner.SiteScope);
         AuthorRecentArticleHistoryPermissionSnapshot preflight = await permission.ResolveAsync(
@@ -112,6 +137,11 @@ public sealed class AuthorArticleQuerySourceInspection(
         if (request.Cursor is not null)
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.QueryCursorUnavailable);
+        }
+        if (afterArticleId > 0 && request.Buckets.Contains(AuthorArticleQueryBucket.Recent))
+        {
+            // A corpus position cannot stand in for continuation of the complete Recent union.
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceWindowUnavailable);
         }
 
         AuthorArticleQueryHistoryIdentity? historyIdentity = null;
@@ -141,10 +171,21 @@ public sealed class AuthorArticleQuerySourceInspection(
             AuthorArticleQueryStatus.Scheduled => AuthorArticleQueryBucket.Scheduled,
             _ => throw new InvalidOperationException("author_article_query_source_status_unavailable")
         })).ToArray();
-        AuthorArticleQuerySourceBatch batch = statuses.Length == 0
-            ? new([], false)
-            : await source.ReadCoordinatesAsync(statuses, cancellationToken).ConfigureAwait(false);
-        if (!ValidCoordinates(batch.Coordinates, statuses))
+        AuthorArticleQuerySourceBatch batch;
+        try
+        {
+            batch = statuses.Length == 0 ? new([], false)
+                : afterArticleId == 0
+                    ? await source.ReadCoordinatesAsync(statuses, cancellationToken).ConfigureAwait(false)
+                    : await source.ReadCoordinatesAfterAsync(statuses, afterArticleId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (NotSupportedException)
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceWindowUnavailable);
+        }
+        if (!ValidCoordinates(batch.Coordinates, statuses)
+            || batch.Coordinates.Any(coordinate => coordinate.ArticleId <= afterArticleId)
+            || (batch.HasMore && batch.Coordinates.Count != MaxBatchSize))
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceChanged);
         }
@@ -225,6 +266,7 @@ public sealed class AuthorArticleQuerySourceInspection(
         return new(AuthorArticleQuerySourceUnavailableReason.SlugUnavailable, fields, batch.HasMore)
         {
             HistoryIdentity = historyIdentity,
+            NextAfterArticleId = batch.NextAfterArticleId,
             RecentBindings = fields.Where(field => ordinals.ContainsKey(field.Coordinate.ArticleId))
                 .Select(field => new AuthorArticleQueryRecentSourceBinding(field.Coordinate,
                     ordinals[field.Coordinate.ArticleId].HistoryServerRevision,
