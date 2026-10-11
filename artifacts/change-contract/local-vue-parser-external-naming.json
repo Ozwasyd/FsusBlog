@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/style-toolchain/eslint.config.mjs"
+            ],
+            "reason": "Preserve the existing FSUSBLOG_STYLE_ROOT process interface while connecting the canonical local application parser to the installed Vue compiler; no environment spelling or configuration owner changes."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "Preserve caller-visible typecheck commands, SFC extension and component API spellings while documenting real local-source type resolution and the separate complete application check; no DOM selector or public API is renamed."
+        }
+    ]
+}
