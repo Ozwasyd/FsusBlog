@@ -8,6 +8,7 @@ import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort 
 import { ArticleDocumentContextAdapter, type ArticleDocumentTaskLease, type ArticleDocumentTaskRegistry } from '@/services/authoring/articleDocumentContext';
 import { showErrorToast } from '@/utils/errorPresentation';
 import { getErrorMessage, isAbortError } from '@/utils/errors';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 
 type UploadRuntime = ReturnType<typeof useImageUploadRuntime>;
 
@@ -100,8 +101,13 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         producerRef: options.taskProducerRef ?? 'image-upload'
     });
     const pendingContext = shallowRef<PendingUploadContext | null>(null);
+    // This identifies a still-awaited local execution, never a business receipt or release ACK.
+    const activeRun = shallowRef<object | null>(null);
 
-    const canResume = computed(() => pendingContext.value !== null);
+    const canResume = computed(() => pendingContext.value !== null && activeRun.value === null && !options.runtime.cleanupRequired);
+    const admissionError = (): ReturnType<typeof createAppError> | null => activeRun.value !== null
+        ? createAppError(AppErrorCode.Conflict, 'upload_flow_operation_pending')
+        : options.runtime.cleanupRequired ? createAppError(AppErrorCode.Conflict, 'upload_flow_recovery_blocked') : null;
 
     const notifyWarning = (message: string): void =>
     {
@@ -206,6 +212,14 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             return;
         }
 
+        const blocked = admissionError();
+        if (blocked)
+        {
+            await params.onError?.(blocked.message, blocked, { files: params.files });
+            return;
+        }
+        const run = Object.freeze({});
+        activeRun.value = run;
         pendingContext.value = {
             files: [...params.files],
             callbacks: {
@@ -281,6 +295,13 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 await params.onError?.(message, error, { files: params.files });
             }
         }
+        finally
+        {
+            if (activeRun.value === run)
+            {
+                activeRun.value = null;
+            }
+        }
     };
 
     const resumeUpload = async (overrides?: UploadCallbacks & { messages?: UploadMessages; }): Promise<void> =>
@@ -298,6 +319,14 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             onFileUploaded: overrides?.onFileUploaded ?? context.callbacks?.onFileUploaded
         };
 
+        const blocked = admissionError();
+        if (blocked)
+        {
+            await callbacks.onError?.(blocked.message, blocked, { files: context.files });
+            return;
+        }
+        const run = Object.freeze({});
+        activeRun.value = run;
         let runSignal: AbortSignal | null = null;
         try
         {
@@ -326,10 +355,21 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 await callbacks.onError?.(message, error, { files: context.files });
             }
         }
+        finally
+        {
+            if (activeRun.value === run)
+            {
+                activeRun.value = null;
+            }
+        }
     };
 
     const clearPending = (): void =>
     {
+        if (admissionError())
+        {
+            return;
+        }
         pendingContext.value = null;
     };
 

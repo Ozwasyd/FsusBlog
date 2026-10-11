@@ -190,6 +190,37 @@ describe('useImageUploadRuntime', () => {
     localStorage.clear()
   })
 
+  it('Flow execution guard retains the original File context while a cancelled consumer is still awaited', async () => {
+    const file = fileOf(73), host = attachmentHost(), runtime = useImageUploadRuntime(), gate = deferred<void>()
+    const capture = vi.spyOn(host.owner, 'capture'), onSuccess = vi.fn(), blocked = vi.fn(), resumed = vi.fn()
+    let original!: ImageUploadFileCompletion
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async completion => { original = completion; await gate.promise } })
+    const work = flow.startUpload({ files: [file], attachmentInput: { ...host, origin: 'pick' }, onSuccess })
+    await flushPromises()
+    expect(original.file).toBe(file)
+    const context = flow.pendingContext.value
+    expect(flow.canResume.value).toBe(false)
+    await flow.startUpload({ files: [fileOf(64, 'replacement.png')], attachmentInput: { ...host, origin: 'pick' }, onError: blocked })
+    await flow.resumeUpload({ onFileUploaded: resumed, onError: blocked })
+    expect(blocked).toHaveBeenCalledTimes(2)
+    expect(blocked.mock.calls.every(([, error]) => error.message === 'upload_flow_operation_pending')).toBe(true)
+    expect(flow.pendingContext.value).toBe(context)
+    expect(capture).toHaveBeenCalledOnce()
+    flow.cancel(); flow.clearPending()
+    expect(flow.pendingContext.value).toBe(context)
+    expect(flow.canResume.value).toBe(false)
+    await flow.startUpload({ files: [fileOf(64, 'cancel-replacement.png')], onError: blocked })
+    expect(blocked).toHaveBeenCalledTimes(3)
+    expect(flow.pendingContext.value?.files[0]).toBe(file)
+    expect(resumed).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    gate.resolve(); await work
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(original.borrow.signal.aborted).toBe(true)
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['reviewer-258-byte', 'é'.repeat(127) + '.png'],
     ['ascii-257-byte', 'a'.repeat(253) + '.png'],

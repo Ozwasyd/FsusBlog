@@ -133,7 +133,16 @@ before. Its successful callback is not a canonical recovery or asset-cleanup
 receipt. Only the current operation's generation, upload ID and actual ACK history
 remain privately until replacement or instance release; successful transport
 does not retain snapshot credentials. Later flow consumer failure is a separate
-recovery boundary whose integration remains open. Pre-ACK cancellation captures a private context from the actual original init
+recovery boundary whose integration remains open.
+
+The original Flow separately retains its File/context while its awaited execution
+is still pending, including after logical cancellation. Repeated start/resume and
+clearPending cannot replace that context while execution or runtime cleanup is
+blocked. This local admission guard is not an ACK handoff or receiver release:
+the post-transport `onFileUploaded` recovery gap described above remains open
+until the original callback contract is supplied and approved.
+
+Pre-ACK cancellation captures a private context from the actual original init
 promise before invalidating its generation. Cancellation before init ACK awaits
 that same promise; retries retain the same obligation and forward its token only
 to the original upload ID through the existing abort API. Public session or stored
