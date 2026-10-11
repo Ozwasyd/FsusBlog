@@ -325,3 +325,78 @@ untrusted refusal input, not a qualified runtime receipt. They explicitly do
 not fabricate rollback of already committed state. Both controls and all 21
 ratio controls remain UNRUN; the lifetime correction requires independent
 static review and actual admitted qualification.
+
+### Original-chain bootstrap source and remaining host ports
+
+Independent review statically closed the lifetime correction at exact
+`14d34f2e0aec3577af9665e6901d9fb2fedc5e32`, with no new P1/P2 in that reviewed
+scope. This does not qualify later bootstrap source or actual restoration.
+
+`authoringWorkspaceSnapshotBootstrap.ts` connects the existing sync/restore
+chain without another read pipeline or authority store.
+`prepareAuthoringWorkspaceSnapshotBootstrap` consumes only
+`sync.getServerObservation()`, rejects absent/offline/cache-only observations
+and dirty/resetting startup state, and delegates to the original immutable
+server-plan preparation. It rechecks exact observation identity and the
+original plan's provenance after the permission/lifecycle await.
+`bindAuthoringWorkspaceSnapshotBootstrapGroups` takes an already constructed
+original Group owner, verifies its exact router Registry binding and live
+projection, requires an empty workspace with the explicit reconciled one/two
+group IDs in order, and returns that owner's actual snapshot adapter. It does
+not create groups, ratio scopes, sessions, operation identities, shell state,
+receipts or success digests. The original caller still supplies its real
+operation identity source and runtime/epoch guard.
+
+Read-only upstream source checkpoints:
+
+- Session receiver `cb154e1001f4d45977e1529b6c72cc59d0d02049` supplies
+  `ArticleWorkspaceMountedEditorSource` and
+  `createArticleWorkspaceMountedEditorResolver` in
+  `articleWorkspaceMountedEditorResolver.ts`, and the sole
+  `installArticleWorkspaceEditorSessions` in
+  `articleWorkspaceEditorSessionComposition.ts`. Writer must supply actual
+  retained `readMountedEditor` / `readDocumentBinding`; no mount map is invented
+  here. `fsusUiEditorSessionFactory.ts` still throws at full capture and returns
+  blocked at full restoration for absent panel/renderer-restoration/draft/
+  crash-journal owners. Same-mounted renderer support is not full hydration.
+- Actual UI source `8afe8523b35f296a0131951b55b7e466a7a0f486` supplies public
+  `inspectDocumentState` from the original editor owner. It is read, not promoted
+  to factory readiness or used as replacement for the pinned static UI baseline.
+- Layout source `722b29f401226f5abf31ce6a541d37d27759bf74` supplies
+  `createAuthoringWorkspaceGroupLayoutPorts` in
+  `authoringWorkspaceGroupLayoutPorts.ts` using the actual Group/ratio. Its
+  `AdminWorkspaceFrame.vue` still has route/tab-strip composition without the
+  session installer or snapshot startup call. Those application-owned files
+  are not changed by this snapshot receiver.
+
+The minimum real shell dependency belongs to original host/Writer/layout:
+
+1. A live view owner bound to the exact workspace Registry/ratio scope and
+   active session, with bounded shell revision and readable current
+   `libraryOpen/libraryView/outlineOpen/inspectorOpen/inspectorView` state.
+2. A cancellable official shell command accepting the prepared plan's
+   scope/source/server revision/operation epoch plus the owner's expected
+   revision, returning the original command and its genuine committed shell
+   transition. It changes only product view/open state, without restoring
+   article selection/scroll/history or writing legacy preferences.
+3. Actual owner instance/cache verification and independent before/after
+   verification, followed by a live-owner check across loaders/render awaits.
+   A returned 64-character digest or `nextTick` alone is insufficient.
+
+These are required capabilities for the host owner to publish, not an invented
+implemented shell schema/API. Current `useArticleWriteInspector.ts` exposes
+local view refs plus `open/switchTo/close` with asynchronous loaders/scroll/focus
+effects, and `ArticleWriteInspectorShell.vue` exposes props/events. Neither
+provides this typed committed transition or view-owner revision/custody.
+`AccountRouteFrame.vue` has navigation sidebar composition, not an authoring
+library state owner. No direct ref/store/DOM hydration or success wrapper is
+added. The original backend also still must bind the production
+`AuthoringWorkspaceSnapshotResolutionPort.resolveBatch` to one current
+permission/lifecycle/draft query; no per-article body fetch substitutes for it.
+
+Production startup additionally requires the original authenticated user/site
+and current server source/build binding for the existing HTTP API factory,
+actual retained Writer mounts, the complete session factory and shell command
+owner. The new helpers are callable source composition, not an installed
+application bootstrap, restore-ready claim or a receipt witness. Their source
+controls and all runtime/list/native/receipt qualification remain UNRUN.

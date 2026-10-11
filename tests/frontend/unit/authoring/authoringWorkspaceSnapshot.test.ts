@@ -9,6 +9,7 @@ import { authoringWorkspaceSnapshotStatusModel, AuthoringWorkspaceSnapshotResetC
 import { ArticleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
 import { AuthoringTabGroupRegistry } from '@/services/authoring/authoringTabGroupRegistry';
 import { authoringWorkspaceRatioOwner } from '@/services/authoring/authoringWorkspaceRatioOwner';
+import { bindAuthoringWorkspaceSnapshotBootstrapGroups, prepareAuthoringWorkspaceSnapshotBootstrap } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
 const scope = { userId: 1, siteId: 'site:primary' };
 const sourceDigest = 'a'.repeat(64);
 const now = 1800000000000;
@@ -573,6 +574,49 @@ describe('server-only immutable restore planning and permission reconciliation',
         await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('restore_resolution_changed');
         expect(router.getRegistry().listEntries()).toHaveLength(0);
         expect(commands.applyGroups).not.toHaveBeenCalled();
+    });
+    it('startup cached/default memory and unsynced interactions cannot authorize a bootstrap plan', async () => {
+        const offline = setup();
+        await offline.sync.start(false);
+        const resolveBatch = vi.fn();
+        await expect(prepareAuthoringWorkspaceSnapshotBootstrap(offline.sync, { resolveBatch }, 0, new AbortController().signal))
+            .rejects.toThrow('current_server_read_required');
+        expect(resolveBatch).not.toHaveBeenCalled();
+        const current = setup();
+        await current.sync.start();
+        const changed = current.sync.getCurrentSessionLayout();
+        changed.shell.inspectorOpen = !changed.shell.inspectorOpen;
+        current.sync.onInteraction('shell', changed);
+        await expect(prepareAuthoringWorkspaceSnapshotBootstrap(current.sync, { resolveBatch }, 0, new AbortController().signal))
+            .rejects.toThrow('restore_superseded');
+        expect(resolveBatch).not.toHaveBeenCalled();
+    });
+    it('bootstrap binds the real empty owner with explicitly reconciled group IDs', async () => {
+        const { sync } = setup();
+        await sync.start();
+        const observed = sync.getServerObservation()!;
+        const plan = await prepareAuthoringWorkspaceSnapshotBootstrap(sync, { resolveBatch: async () => resolution(observed) }, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(router.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const before = router.getRegistry().exportState();
+        const identity = vi.fn(() => ({ commandId: 'bootstrap:groups', idempotencyKey: 'bootstrap:groups' }));
+        try
+        {
+            const bound = bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, router, groupOwner, identity);
+            expect(bound.groupOwner).toBe(groupOwner);
+            expect(identity).not.toHaveBeenCalled();
+            expect(router.getRegistry().exportState()).toEqual(before);
+            expect(() => bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, new ArticleWorkspaceTabRouter(), groupOwner, identity))
+                .toThrow('restore_registry_binding_changed');
+        }
+        finally
+        {
+            authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+        }
     });
     it('a digest-only group callback cannot restore or create sessions', async () => {
         const { api } = setup();
