@@ -164,6 +164,237 @@ public sealed class AuthorArticleQueryCursorCodecTests
         => new(1, new(7, "site-a"), Guid.CreateVersion7(), 1, "article", [AuthorArticleQueryStatus.Draft],
             [AuthorArticleQueryBucket.Draft], "zh-CN", AuthorArticleQueryContract.Collation, 10, null);
 
+    [Fact]
+    public void RequestCursor_PreservesOriginalPurposeAndCanonicalRequestIdentity()
+    {
+        var provider = new EphemeralDataProtectionProvider();
+        var codec = new AuthorArticleQueryCursorCodec(provider);
+        AuthorArticleQueryRequest request = Request() with
+        {
+            QueryText = " café ",
+            Statuses = [AuthorArticleQueryStatus.Draft, AuthorArticleQueryStatus.Published],
+            Buckets = [AuthorArticleQueryBucket.Draft, AuthorArticleQueryBucket.Published]
+        };
+        AuthorArticleQueryCursor cursor = BoundCursor(request);
+        string value = codec.EncodeForRequest(request, cursor);
+        byte[] payload = Convert.FromBase64String(value.Replace('-', '+').Replace('_', '/')
+            + new string('=', (4 - value.Length % 4) % 4));
+        AuthorArticleQueryCursor? original = System.Text.Json.JsonSerializer.Deserialize<AuthorArticleQueryCursor>(
+            provider.CreateProtector("FsusBlog.AuthorArticleQueryCursor.v1").Unprotect(payload));
+        Assert.Equal(cursor, original);
+        Assert.True(codec.TryDecode(value, cursor.Binding, out var anchor, out var reason));
+        Assert.Equal(cursor.Anchor, anchor);
+        Assert.Null(reason);
+        Assert.True(codec.TryDecodeForRequest(request with
+        {
+            QueryText = "CAFE\u0301",
+            Statuses = request.Statuses.Reverse().ToArray(),
+            Buckets = request.Buckets.Reverse().ToArray(),
+            Cursor = value
+        }, cursor.Binding, out anchor, out reason));
+        Assert.Equal(cursor.Anchor, anchor);
+        Assert.Null(reason);
+        Assert.True(codec.TryDecodeForRequest(request, cursor.Binding, out anchor, out reason));
+        Assert.Null(anchor);
+        Assert.Null(reason);
+    }
+
+    [Theory]
+    [InlineData("principal")]
+    [InlineData("site")]
+    [InlineData("request-id")]
+    [InlineData("sequence")]
+    [InlineData("query")]
+    [InlineData("diacritics")]
+    [InlineData("statuses")]
+    [InlineData("buckets")]
+    [InlineData("locale")]
+    [InlineData("limit")]
+    public void RequestCursor_RejectsTransplantedRequestBeforeIssuingOrReadingAnchor(string field)
+    {
+        var codec = new AuthorArticleQueryCursorCodec(new EphemeralDataProtectionProvider());
+        AuthorArticleQueryRequest request = Request() with
+        {
+            QueryText = "café"
+        };
+        AuthorArticleQueryCursor cursor = BoundCursor(request);
+        string value = codec.EncodeForRequest(request, cursor);
+        AuthorArticleQueryRequest changed = field switch
+        {
+            "principal" => request with { Owner = new(8, "site-a") },
+            "site" => request with { Owner = new(7, "site-b") },
+            "request-id" => request with { RequestId = Guid.CreateVersion7() },
+            "sequence" => request with { RequestSequence = 2 },
+            "query" => request with { QueryText = "other" },
+            "diacritics" => request with { QueryText = "cafe" },
+            "statuses" => request with { Statuses = [AuthorArticleQueryStatus.Published] },
+            "buckets" => request with { Buckets = [AuthorArticleQueryBucket.Published] },
+            "locale" => request with { Locale = "en-US" },
+            _ => request with { Limit = 20 }
+        };
+        Assert.Throws<ArgumentException>(() => codec.EncodeForRequest(changed, cursor));
+        foreach (string? supplied in new[] { value, null })
+        {
+            Assert.False(codec.TryDecodeForRequest(changed with
+            {
+                Cursor = supplied
+            }, cursor.Binding,
+                out var anchor, out var reason));
+            Assert.Null(anchor);
+            Assert.Equal("author_article_query_cursor_stale", reason);
+        }
+    }
+
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("request")]
+    [InlineData("source")]
+    [InlineData("history")]
+    [InlineData("permission-digest")]
+    [InlineData("permission-revision")]
+    [InlineData("site")]
+    [InlineData("session")]
+    public void RequestCursor_CurrentAuthorityDriftCannotExposeAnchor(string field)
+    {
+        var codec = new AuthorArticleQueryCursorCodec(new EphemeralDataProtectionProvider());
+        AuthorArticleQueryRequest request = Request();
+        AuthorArticleQueryCursor cursor = BoundCursor(request);
+        AuthorArticleQueryCursorBinding changed = field switch
+        {
+            "owner" => cursor.Binding with { Owner = new(7, "other-site") },
+            "request" => cursor.Binding with { RequestDigest = Hash("changed") },
+            "source" => cursor.Binding with { SourceDigest = Hash("changed") },
+            "history" => cursor.Binding with { HistoryProjectionDigest = Hash("changed") },
+            "permission-digest" => cursor.Binding with { PermissionDigest = Hash("changed") },
+            "permission-revision" => cursor.Binding with { PermissionRevision = Hash("changed") },
+            "site" => cursor.Binding with { SiteRevision = Hash("changed") },
+            _ => cursor.Binding with { SessionRevision = Hash("changed") }
+        };
+        Assert.False(codec.TryDecodeForRequest(request with
+        {
+            Cursor = codec.EncodeForRequest(request, cursor)
+        },
+            changed, out var anchor, out var reason));
+        Assert.Null(anchor);
+        Assert.Equal("author_article_query_cursor_stale", reason);
+    }
+
+    [Theory]
+    [InlineData("binding-null")]
+    [InlineData("owner-null")]
+    [InlineData("owner-invalid")]
+    [InlineData("request")]
+    [InlineData("source")]
+    [InlineData("history")]
+    [InlineData("permission-digest")]
+    [InlineData("permission-revision")]
+    [InlineData("site")]
+    [InlineData("session")]
+    public void RequestCursor_MalformedLiveBindingCannotAdmitFirstOrLaterPage(string field)
+    {
+        var codec = new AuthorArticleQueryCursorCodec(new EphemeralDataProtectionProvider());
+        AuthorArticleQueryRequest request = Request();
+        AuthorArticleQueryCursor cursor = BoundCursor(request);
+        string value = codec.EncodeForRequest(request, cursor);
+        AuthorArticleQueryCursorBinding invalid = field switch
+        {
+            "binding-null" => null!,
+            "owner-null" => cursor.Binding with { Owner = null! },
+            "owner-invalid" => cursor.Binding with { Owner = new(0, "site-a") },
+            "request" => cursor.Binding with { RequestDigest = "invalid" },
+            "source" => cursor.Binding with { SourceDigest = "invalid" },
+            "history" => cursor.Binding with { HistoryProjectionDigest = "invalid" },
+            "permission-digest" => cursor.Binding with { PermissionDigest = "invalid" },
+            "permission-revision" => cursor.Binding with { PermissionRevision = "invalid" },
+            "site" => cursor.Binding with { SiteRevision = "invalid" },
+            _ => cursor.Binding with { SessionRevision = "invalid" }
+        };
+        foreach (string? supplied in new[] { value, null })
+        {
+            Assert.False(codec.TryDecode(supplied, invalid, out var anchor, out var reason));
+            Assert.Null(anchor);
+            Assert.Equal("author_article_query_cursor_invalid", reason);
+            Assert.False(codec.TryDecodeForRequest(request with
+            {
+                Cursor = supplied
+            }, invalid,
+                out anchor, out reason));
+            Assert.Null(anchor);
+            Assert.Equal("author_article_query_cursor_invalid", reason);
+        }
+    }
+
+    [Fact]
+    public void RequestCursor_RejectsOriginalHistoryPurposeBeforeExposingAnchor()
+    {
+        var provider = new EphemeralDataProtectionProvider();
+        var codec = new AuthorArticleQueryCursorCodec(provider);
+        AuthorArticleQueryRequest request = Request();
+        AuthorArticleQueryCursor cursor = BoundCursor(request);
+        var history = new AuthorRecentArticleHistoryCursorCodec(provider);
+        string historyCursor = history.Encode(new(new(7, "site-a"), 1, Hash("collection"), Hash("permission"),
+            Hash("site"), Hash("session"), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), 1));
+        Assert.False(codec.TryDecodeForRequest(request with
+        {
+            Cursor = historyCursor
+        }, cursor.Binding,
+            out var anchor, out var reason));
+        Assert.Null(anchor);
+        Assert.Equal("author_article_query_cursor_invalid", reason);
+    }
+
+    [Theory]
+    [InlineData("schema")]
+    [InlineData("inbox")]
+    [InlineData("collation")]
+    [InlineData("limit")]
+    [InlineData("request-id")]
+    [InlineData("sequence")]
+    public void RequestCursor_PreservesOriginalRequestAndInboxRefusals(string field)
+    {
+        var codec = new AuthorArticleQueryCursorCodec(new EphemeralDataProtectionProvider());
+        AuthorArticleQueryRequest request = Request();
+        AuthorArticleQueryCursor cursor = BoundCursor(request);
+        AuthorArticleQueryRequest invalid = field switch
+        {
+            "schema" => request with { SchemaVersion = 2 },
+            "inbox" => request with { Buckets = [AuthorArticleQueryBucket.Inbox] },
+            "collation" => request with { Collation = "other" },
+            "limit" => request with { Limit = AuthorArticleQueryContract.MaxLimit + 1 },
+            "request-id" => request with { RequestId = Guid.Empty },
+            _ => request with { RequestSequence = 0 }
+        };
+        if (field == "inbox")
+        {
+            Assert.Throws<NotSupportedException>(() => codec.EncodeForRequest(invalid, cursor));
+            Assert.Throws<NotSupportedException>(() =>
+            {
+                codec.TryDecodeForRequest(invalid, cursor.Binding, out _, out _);
+            });
+        }
+        else
+        {
+            Assert.Throws<ArgumentException>(() => codec.EncodeForRequest(invalid, cursor));
+            Assert.Throws<ArgumentException>(() =>
+            {
+                codec.TryDecodeForRequest(invalid, cursor.Binding, out _, out _);
+            });
+        }
+    }
+
+    private static AuthorArticleQueryCursor BoundCursor(AuthorArticleQueryRequest request)
+    {
+        AuthorArticleQueryCursor cursor = Cursor();
+        return cursor with
+        {
+            Binding = cursor.Binding with
+            {
+                Owner = request.Owner,
+                RequestDigest = AuthorArticleQueryCursorCodec.ComputeRequestDigest(request)
+            }
+        };
+    }
+
     private static AuthorArticleQueryCursor Cursor()
         => new(1, AuthorArticleQueryRanking.RankingId,
             new(new(7, "site-a"), AuthorArticleQueryCursorCodec.ComputeRequestDigest(Request()), Hash("source"),

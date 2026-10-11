@@ -60,6 +60,48 @@ public sealed class AuthorArticleQueryCursorCodec(IDataProtectionProvider dataPr
         return encoded;
     }
 
+    /// <summary>Protects an anchor only when its binding describes this original v1 request.</summary>
+    /// <remarks>This checks request identity, not the provenance of source or permission bindings.</remarks>
+    public string EncodeForRequest(AuthorArticleQueryRequest request, AuthorArticleQueryCursor cursor)
+    {
+        AuthorArticleQueryContract.ValidateRequest(request);
+        Validate(cursor);
+        if (!MatchesRequest(cursor.Binding, request))
+        {
+            throw new ArgumentException("author_article_query_cursor_request_mismatch", nameof(cursor));
+        }
+        return Encode(cursor);
+    }
+
+    /// <summary>Reads this request's cursor only with matching request and current authority bindings.</summary>
+    /// <remarks>A first-page request still requires well-formed bindings; this does not admit a query response.</remarks>
+    public bool TryDecodeForRequest(
+        AuthorArticleQueryRequest request,
+        AuthorArticleQueryCursorBinding liveBinding,
+        out AuthorArticleQueryRank? anchor,
+        out string? unavailableReason)
+    {
+        anchor = null;
+        unavailableReason = null;
+        AuthorArticleQueryContract.ValidateRequest(request);
+        try
+        {
+            ValidateBinding(liveBinding);
+            if (!MatchesRequest(liveBinding, request))
+            {
+                unavailableReason = "author_article_query_cursor_stale";
+                return false;
+            }
+            return TryDecode(request.Cursor, liveBinding, out anchor, out unavailableReason);
+        }
+        catch (Exception exception) when (exception is ArgumentException
+            or AuthorRecentArticleHistoryValidationException)
+        {
+            unavailableReason = "author_article_query_cursor_invalid";
+            return false;
+        }
+    }
+
     /// <summary>Rejects tampering, foreign cursor purposes and any live binding mismatch.</summary>
     public bool TryDecode(
         string? value,
@@ -69,12 +111,13 @@ public sealed class AuthorArticleQueryCursorCodec(IDataProtectionProvider dataPr
     {
         anchor = null;
         unavailableReason = null;
-        if (value is null)
-        {
-            return true;
-        }
         try
         {
+            ValidateBinding(expectedBinding);
+            if (value is null)
+            {
+                return true;
+            }
             if (value.Length is < 1 or > 8192
                 || value.Any(static character => !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_')))
             {
@@ -112,17 +155,7 @@ public sealed class AuthorArticleQueryCursorCodec(IDataProtectionProvider dataPr
         ArgumentNullException.ThrowIfNull(cursor.Binding);
         ArgumentNullException.ThrowIfNull(cursor.Binding.Owner);
         ArgumentNullException.ThrowIfNull(cursor.Anchor);
-        AuthorRecentArticleHistoryContract.ValidateOwner(new(
-            cursor.Binding.Owner.AdminPrincipalId, cursor.Binding.Owner.SiteScope));
-        foreach (string digest in new[]
-        {
-            cursor.Binding.RequestDigest, cursor.Binding.SourceDigest, cursor.Binding.HistoryProjectionDigest,
-            cursor.Binding.PermissionDigest, cursor.Binding.PermissionRevision, cursor.Binding.SiteRevision,
-            cursor.Binding.SessionRevision
-        })
-        {
-            AuthorRecentArticleHistoryContract.ValidateDigest(digest);
-        }
+        ValidateBinding(cursor.Binding);
         AuthorArticleQueryRank anchor = cursor.Anchor;
         if (cursor.SchemaVersion != AuthorArticleQueryContract.SchemaVersion
             || cursor.RankingId != AuthorArticleQueryRanking.RankingId
@@ -135,6 +168,24 @@ public sealed class AuthorArticleQueryCursorCodec(IDataProtectionProvider dataPr
             || anchor.ArticleId <= 0)
         {
             throw new ArgumentException("author_article_query_cursor_anchor_invalid", nameof(cursor));
+        }
+    }
+
+    private static bool MatchesRequest(AuthorArticleQueryCursorBinding binding, AuthorArticleQueryRequest request)
+        => binding.Owner == request.Owner && binding.RequestDigest == ComputeRequestDigest(request);
+
+    private static void ValidateBinding(AuthorArticleQueryCursorBinding binding)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        ArgumentNullException.ThrowIfNull(binding.Owner);
+        AuthorRecentArticleHistoryContract.ValidateOwner(new(binding.Owner.AdminPrincipalId, binding.Owner.SiteScope));
+        foreach (string digest in new[]
+        {
+            binding.RequestDigest, binding.SourceDigest, binding.HistoryProjectionDigest, binding.PermissionDigest,
+            binding.PermissionRevision, binding.SiteRevision, binding.SessionRevision
+        })
+        {
+            AuthorRecentArticleHistoryContract.ValidateDigest(digest);
         }
     }
 

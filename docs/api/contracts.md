@@ -2441,6 +2441,15 @@ normalized query/status/bucket/locale/collation/limit identity、source/history/
 revisions 和完整 rank tuple。scope 或当前 authority 改变时返回 stale，篡改或其他 cursor purpose 返回 invalid。
 codec 不证明输入 binding 的来源；完整 source adapter 尚不能提供必需 slug，因此当前没有 query route 发行该 cursor。
 
+原 codec 的 `EncodeForRequest` / `TryDecodeForRequest` 从实际 v1 request 重算原 normalized request digest，
+核对 user/site、request ID/sequence 和原 query scopes 后再发行/读取 anchor。request-aware read 只消费该
+request 的 `Cursor`；first page 的空 cursor 同样校验 live binding 的 owner 与全部 digest/revision 格式，
+不以“没有 cursor”跳过 binding 门禁。request identity 或当前 authority 不一致为 stale，畸形 binding、
+外来 purpose 或篡改为 invalid；原 request validator 与 Inbox unavailable 拒绝保持不变。原 Data Protection
+purpose、v1 payload、request digest 算法、RankingId 和 rank tuple 均未改变，原基础 codec 入口继续存在。
+这些入口只核对调用方提供的 binding 与 request，不证明完整 corpus fingerprint、permission/history provenance
+或 Archived read grant；缺少 slug 时仍不得发行成功 query response、receipt 或写入 verified query cache。
+
 ### Author query request sequencing core (#2232)
 
 `AuthorQueryRequestCoordinator` 仅管理一个 in-flight slot，复用原 `privateRequestRuntime.open('admin')`
