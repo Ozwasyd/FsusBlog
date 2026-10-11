@@ -48,7 +48,7 @@ export interface AdminTaxonomyItemBase {
     canDelete: boolean;
 }
 
-export interface TaxonomyFormRules {
+export type TaxonomyFormRules = {
     name: {
         required?: boolean;
         min?: number;
@@ -67,7 +67,7 @@ export interface TaxonomyFormRules {
         trigger: string;
         validator?: (rule: unknown, value: unknown) => void | Promise<void>;
     }[];
-}
+};
 
 export interface TaxonomySchema<TItem extends AdminTaxonomyItemBase = AdminTaxonomyItemBase> {
     kind: string;
