@@ -72,30 +72,29 @@ async function host()
 }
 
 // This is the current actual Writer/runtime/flow, with controlled upload/compression endpoints only.
-// Missing owned-session input is reported as a prerequisite, never replaced by these fixture facts.
-describe('actual Writer upload provider input preflight', () =>
+// Cover transport uses its existing document lease; this does not qualify body attachment input.
+describe('actual Writer cover transport contracts', () =>
 {
-    it('runs a large upload through the real Writer but lends no committed owned session or asset receipt', async () =>
+    it('uploads a large cover through the real Writer and clears transport state without body attachment effects', async () =>
     {
         const f = await host();
         const source = f.owner.articleForm.content;
+        const coverBefore = f.owner.articleForm.coverImageUrl;
         const file = new File([new Uint8Array(20_971_520)], 'large-current.png', { type: 'image/png', lastModified: 1 });
         let finish!: (value: { url: string }) => void;
         upload.completeUpload.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-        const callback = vi.fn();
-        const onError = vi.fn();
-        const task = f.owner.handleUploadImg([file], callback, onError);
+        const task = f.owner.handleCoverUpload([file]);
         await vi.waitFor(() => expect(upload.completeUpload).toHaveBeenCalledOnce());
         expect(upload.initUploadSession.mock.calls[0]![0]).toMatchObject({ totalBytes: file.size, sha256: 'a'.repeat(64) });
         expect(upload.completeUpload).toHaveBeenCalledWith('0123456789abcdef0123456789abcdef',
             'ordinary-owned-session-token', 'a'.repeat(64));
         expect(Object.keys(f.owner.imageUploadRuntime.activeSession).sort()).toEqual(['fileName', 'resumeKey', 'uploadId']);
         expect(f.owner.imageUploadRuntime.activeSession.uploadId).toBe('0123456789abcdef0123456789abcdef');
-        expect(callback).not.toHaveBeenCalled();
+        expect(f.owner.articleForm.coverImageUrl).toBe(coverBefore);
         finish({ url: '/uploads/illustration/ordinary-complete.png' });
         await task;
-        expect(callback).toHaveBeenCalledWith(['/uploads/illustration/ordinary-complete.png']);
-        expect(onError).not.toHaveBeenCalled();
+        expect(f.owner.articleForm.coverImageUrl).toBe('/uploads/illustration/ordinary-complete.png');
+        expect(f.owner.taskFeedback.phase.value).toBe('success');
         expect(f.owner.imageUploadRuntime.phase).toBe('completed');
         expect(f.owner.imageUploadRuntime.activeSession).toMatchObject({ uploadId: '', resumeKey: '', fileName: '' });
         expect(localStorage.length).toBe(0);
@@ -105,20 +104,23 @@ describe('actual Writer upload provider input preflight', () =>
         expect(api.preview).not.toHaveBeenCalled();
     });
 
-    it('rejects the late Writer success callback after the actual host unmounts during completion', async () =>
+    it('preserves the cover sentinel and disposed source when completion arrives after Writer unmount', async () =>
     {
         const f = await host();
+        const coverSentinel = '/uploads/illustration/preserved-cover.png';
+        f.owner.articleForm.coverImageUrl = coverSentinel;
         let finish!: (value: { url: string }) => void;
         upload.completeUpload.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-        const callback = vi.fn();
-        const onError = vi.fn();
-        const task = f.owner.handleUploadImg([new File([new Uint8Array(3)], 'small-current.png',
-            { type: 'image/png', lastModified: 1 })], callback, onError);
+        const task = f.owner.handleCoverUpload([new File([new Uint8Array(3)], 'small-current.png',
+            { type: 'image/png', lastModified: 1 })]);
         await vi.waitFor(() => expect(upload.completeUpload).toHaveBeenCalledOnce());
         f.wrapper.unmount();
+        await flushPromises();
+        const disposedSource = f.owner.articleForm.content;
         finish({ url: '/uploads/illustration/ordinary-late.png' });
         await task;
-        expect(callback).not.toHaveBeenCalled();
+        expect(f.owner.articleForm.coverImageUrl).toBe(coverSentinel);
+        expect(f.owner.articleForm.content).toBe(disposedSource);
         expect(f.owner.authoringAttachmentRuntime.receipts).toEqual([]);
         expect(f.owner.privatePreview.value).toBeNull();
         expect(api.preview).not.toHaveBeenCalled();
