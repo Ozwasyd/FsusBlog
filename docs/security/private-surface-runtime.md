@@ -141,3 +141,8 @@ Actual invalid-row deletion also revokes any preparation still awaiting its earl
 completed read. A deleted original row cannot become a newly issued token when an
 old read later settles. This is authoritative mutation invalidation; an old list
 that preserves a valid replacement performs no deletion and cannot revoke it.
+
+Captured invalid custody is revoked before asynchronous cleanup, so cleanup failure
+cannot keep that observed invalid token admitted. The original helper settles its
+request and transaction failures and retains the primary failure; the read remains
+unavailable. Replacement custody remains protected by the captured-object fence.

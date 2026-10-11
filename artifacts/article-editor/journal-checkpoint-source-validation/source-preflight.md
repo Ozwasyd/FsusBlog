@@ -218,3 +218,20 @@ two-service style PASS (`cleanup-style.txt`). Whole original unit-source/private
 storage compiler remains RED with the same three complete master diagnostics
 (`cleanup-compiler.txt`). No testcase, listing, candidate import, storage or
 runtime execution is performed by this source audit.
+
+
+## Failed original cleanup audit completion
+
+Captured invalid custody is revoked before attempting asynchronous cleanup, using
+the same captured-object fence. If cleanup fails, the originally observed invalid
+token cannot remain admitted; replacement B remains protected from the earlier
+observation. The original helper settles both its failed request and transaction,
+then retains the primary failure. The original read returns unavailable.
+
+An abort control exercises that original helper path in regression source only,
+UNRUN. Initial cleanup-catch style reported Allman/empty-function findings; those
+are preserved in `cleanup-failure-initial-style.txt` and corrected. Final original
+two-service strict-full style PASS (`cleanup-failure-final-style.txt`); standalone
+owner compiler PASS. Whole original unit-source/private-storage compiler remains
+RED with exactly the three master diagnostics (`cleanup-failure-compiler.txt`).
+All original execution/admission/qualification holds remain intact.

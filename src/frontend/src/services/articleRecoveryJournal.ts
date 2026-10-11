@@ -632,21 +632,33 @@ async function deleteRecordIds(
     const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readwrite');
     const completed = transactionDone(transaction);
     const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
-    const current = await Promise.all(records.map(record => requestResult<unknown>(store.get(record.id))));
-    let removed = 0;
-    for (const [index, observed] of records.entries())
+    try
     {
-        const value = current[index];
-        // A valid replacement must not be deleted using an earlier read's invalid IDs.
-        if (value !== undefined && (normalizeStoredRecord(value, now) === null || sameStoredRecordSnapshot(observed.value, value)))
+        const current = await Promise.all(records.map(record => requestResult<unknown>(store.get(record.id))));
+        let removed = 0;
+        for (const [index, observed] of records.entries())
         {
-            onDeleting(observed.id);
-            store.delete(observed.id);
-            removed += 1;
+            const value = current[index];
+            // A valid replacement must not be deleted using an earlier read's invalid IDs.
+            if (value !== undefined && (normalizeStoredRecord(value, now) === null || sameStoredRecordSnapshot(observed.value, value)))
+            {
+                onDeleting(observed.id);
+                store.delete(observed.id);
+                removed += 1;
+            }
         }
+        await completed;
+        return removed;
     }
-    await completed;
-    return removed;
+    catch (error: unknown)
+    {
+        // Settle the original transaction as well as its failed request; retain the primary failure.
+        await completed.catch(() =>
+        {
+            // The primary request/cleanup error is thrown below.
+        });
+        throw error;
+    }
 }
 
 export class ArticleRecoveryJournal
@@ -1130,6 +1142,19 @@ export class ArticleRecoveryJournal
                     invalidRecords.push({ id: stored.id, value: raw });
                 }
             }
+            for (const { binding, custody } of checkpointCustodies)
+            {
+                if (!custody || binding.custody !== custody
+                    || custody.record.identityHash !== identityHash || custody.record.articleKey !== articleKey)
+                {
+                    continue;
+                }
+                const candidate = candidates.find(record => record.id === custody.record.id);
+                if (!candidate || Object.entries(custody.record).some(([key, value]) => candidate[key as keyof ArticleRecoveryJournalRecord] !== value))
+                {
+                    this.invalidateCheckpointBinding(binding);
+                }
+            }
             const removedInvalidRecords = await deleteRecordIds(database, invalidRecords, this.now(), (id) =>
             {
                 // This is an actual conditional storage deletion, not a stale read's observation.
@@ -1146,19 +1171,6 @@ export class ArticleRecoveryJournal
                     }
                 }
             });
-            for (const { binding, custody } of checkpointCustodies)
-            {
-                if (!custody || binding.custody !== custody
-                    || custody.record.identityHash !== identityHash || custody.record.articleKey !== articleKey)
-                {
-                    continue;
-                }
-                const candidate = candidates.find(record => record.id === custody.record.id);
-                if (!candidate || Object.entries(custody.record).some(([key, value]) => candidate[key as keyof ArticleRecoveryJournalRecord] !== value))
-                {
-                    this.invalidateCheckpointBinding(binding);
-                }
-            }
             candidates.sort((left, right) => right.updatedAt - left.updatedAt || left.tabId.localeCompare(right.tabId));
             return {
                 status: 'ready',

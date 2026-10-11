@@ -1430,3 +1430,40 @@ describe('original cleanup fences incomplete checkpoint issuance source control'
         }
     });
 });
+
+
+describe('original failed-cleanup custody observation source control', () =>
+{
+    it('revokes the captured invalid token even when its original cleanup transaction aborts', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        const raw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+        raw.sourceHash = '0'.repeat(64);
+        await rawPut(indexedDB, raw);
+        const originalGet = IDBObjectStore.prototype.get;
+        const abort = vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementationOnce(function (this: InstanceType<typeof IDBObjectStore>, ...args)
+        {
+            const request = originalGet.apply(this, args);
+            this.transaction.abort();
+            return request;
+        });
+        try
+        {
+            expect((await journal.list(source.identityId, source.articleId)).status).toBe('unavailable');
+            expect(binding.validate(token)).toBe(false);
+        }
+        finally
+        {
+            abort.mockRestore();
+            binding.release();
+        }
+    });
+});
