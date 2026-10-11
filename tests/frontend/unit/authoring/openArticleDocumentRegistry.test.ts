@@ -615,14 +615,15 @@ describe('OpenArticleDocumentRegistry contract (#2293)', () => {
     it('fails closed for route, title, hash, index, body, undo and unknown command fields', () => {
         const registry = new OpenArticleDocumentRegistry();
         const valid = openCommand(701, 0);
-        for (const [field, value] of [
+        const mutations: ReadonlyArray<readonly [string, unknown]> = [
             ['route', '/admin/article/write?id=701'],
             ['title', 'Identity by title'],
             ['sourceHash', 'identity-by-hash'],
             ['arrayIndex', 0],
             ['markdownBody', '# copied body'],
             ['undoStack', ['copied-history']]
-        ])
+        ];
+        for (const [field, value] of mutations)
         {
             const mutated = {
                 ...valid,

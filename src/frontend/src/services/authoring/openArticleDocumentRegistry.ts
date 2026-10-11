@@ -453,7 +453,10 @@ function isOwnershipTabSet(value: unknown, memberLimit: number, withTargets = fa
     const tabIds = new Set<string>();
     for (let index = 0; index < value.length; index += 1)
     {
-        if (!Object.prototype.hasOwnProperty.call(value, index)) return false;
+        if (!Object.prototype.hasOwnProperty.call(value, index))
+        {
+            return false;
+        }
         const tab: unknown = value[index];
         if (!hasExactKeys(tab, ['tabId', 'expectedOwningGroupId', 'editorSessionRef', 'documentEpoch', 'lifecycleRevision',
             ...(withTargets ? ['targetGroupId'] : [])])
@@ -1520,7 +1523,10 @@ export function verifyOpenArticleDocumentResult(result: OpenArticleDocumentComma
 
 function verifyResultAgainstCommand(result: OpenArticleDocumentCommandResult, originalCommand?: unknown): boolean
 {
-    if (!result || typeof result !== 'object') return false;
+    if (!result || typeof result !== 'object')
+    {
+        return false;
+    }
     if (!hasExactKeys(result, [
         'schema',
         'commandId',
@@ -1613,12 +1619,21 @@ function verifyResultAgainstCommand(result: OpenArticleDocumentCommandResult, or
         }
         for (let index = 0; index < changes.length; index += 1)
         {
-            if (!Object.prototype.hasOwnProperty.call(changes, index)) return false;
+            if (!Object.prototype.hasOwnProperty.call(changes, index))
+            {
+                return false;
+            }
             const change: unknown = changes[index];
             if (!hasExactKeys(change, ['entryBefore', 'entryAfter'])
-                || !isValidEntry(change.entryBefore) || !isValidEntry(change.entryAfter)) return false;
+                || !isValidEntry(change.entryBefore) || !isValidEntry(change.entryAfter))
+            {
+                return false;
+            }
         }
-        if (new Set(changes.map(change => change.entryBefore.tabId)).size !== changes.length) return false;
+        if (new Set(changes.map(change => change.entryBefore.tabId)).size !== changes.length)
+        {
+            return false;
+        }
         if (applied && (changes.length !== originalCommand.tabs.length
             || result.revisionBefore !== originalCommand.expectedRevision
             || result.revisionAfter !== originalCommand.expectedRevision + 1
@@ -1747,16 +1762,32 @@ function isValidEntry(entry: unknown): entry is OpenArticleDocumentEntry
         || !isStatus(entry.status)
         || !isNullableStableId(entry.lastActiveAnchorRef)
         || !isNullableStableId(entry.closeRequestRef)
+        || typeof entry.lifecycleRevision !== 'number'
         || !Number.isSafeInteger(entry.lifecycleRevision)
         || Number(entry.lifecycleRevision) < 1
-        || !digestPattern.test(String(entry.contentDigest))
+        || typeof entry.contentDigest !== 'string'
+        || !digestPattern.test(entry.contentDigest)
     )
     {
         return false;
     }
 
-    const { contentDigest, ...base } = entry;
-    return computeEntryDigest(base) === contentDigest;
+    const base: Omit<OpenArticleDocumentEntry, 'contentDigest'> = {
+        schema: entry.schema,
+        identity: entry.identity,
+        documentContext: entry.documentContext,
+        editorSessionRef: entry.editorSessionRef,
+        tabId: entry.tabId,
+        isPreview: entry.isPreview,
+        isPinned: entry.isPinned,
+        isActive: entry.isActive,
+        owningGroupId: entry.owningGroupId,
+        status: entry.status,
+        lastActiveAnchorRef: entry.lastActiveAnchorRef,
+        closeRequestRef: entry.closeRequestRef,
+        lifecycleRevision: entry.lifecycleRevision
+    };
+    return computeEntryDigest(base) === entry.contentDigest;
 }
 
 export interface OpenArticleDocumentReplayResult {
