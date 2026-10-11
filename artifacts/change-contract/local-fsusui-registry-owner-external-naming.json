@@ -7,6 +7,13 @@
                 "tests/governance/test-lifecycle-registry.json"
             ],
             "reason": "Remove only the redundant process:lifecycle registration. Preserve the original JSON key spellings, canonical test ID, complete temporary-repository owner, fixture and output identifiers, and machine contract; internal renaming would break existing JSON consumers. This ordinary metadata grants no execution or qualification authority."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "Document the existing caller-visible CLI flags, environment variables and source-copy paths with their original spellings. Renaming the documented interfaces would misdirect existing consumers. This ordinary metadata adds no exception ID, checker waiver or execution authority."
         }
     ]
 }
