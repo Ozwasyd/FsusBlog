@@ -369,7 +369,7 @@ Actual inspected checkpoint producers at the original039fd source:
   saveDraftNow starts genuine async journal/server work; a void return cannot be a
   settled snapshot. Writer/#2246 must expose the original settled draft/session
   custody bound to native owner, principal, documentId/epoch and source/draft refs.
-- `articleRecoveryJournal.ts` (#3413) owns ArticleRecoveryFlushOwner.stage/flush/
+- `articleRecoveryJournal.ts` (original checkpoint owner #1813; #3413 policy alignment) owns ArticleRecoveryFlushOwner.stage/flush/
   drain/markConfirmed/clear and ArticleRecoveryJournal.write/list/confirm. flush is
   async; pendingClientRevision is not storage confirmation. Record identity is
   principal-hash/article-key/recovery-tab and lacks editorSessionRef/documentId/
@@ -393,3 +393,61 @@ Existing native panel partial restore and actual server-draft/journal APIs are n
 replaced or executed. No independently usable full draft/journal/panel checkpoint
 adapter can be wired from these current producer APIs. Full factory refusal and
 reviewed gates remain; runtime/list/discovery/mount/native remain UNRUN.
+
+### Original journal checkpoint consumer handoff (#1813 / #2294 / #2295)
+
+Dedicated original journal owner: `01a12cb0-a264-7798-9ddb-2c2a2642d00b`.
+The following is a required producer/consumer join, not a declared implemented
+checkpoint API. It does not change existing persistence/privacy behavior.
+
+| Binding input | Actual current producer | Consumer requirement |
+| --- | --- | --- |
+| editorSessionRef | Original registry association plus native getSession | Match exact bound public session, never derive from route/title. |
+| articleId, draftId, documentId | Original Writer document owner and mounted resolver | Match all identity fields; articleId alone cannot identify an unsaved document. |
+| documentEpoch | Actual native inspectDocumentState and original document context | Match both original owners; same bytes under a new epoch invalidate. |
+| editorRevision | Actual native inspectDocumentState.revision | Number, distinct from nullable source/draft reference strings. |
+| sourceRevision, draftRevision | Original ArticleDocumentContextRef | Preserve actual nullable values; do not substitute server row revision or a digest. |
+| principal identityId | Original Writer recoveryIdentityId/admin principal | Factory currently has no principal source; Writer must bind/recheck it. permissionRef is not principal identity. |
+| recovery tabId | Original ArticleRecoveryCoordinator.tabId | Distinct from workspace entry.tabId; do not substitute one for the other. |
+| clientRevision, baseRevisionId, serverRevision, content | Original staged ArticleRecoveryJournalWriteInput | Preserve the exact real staged write/version; a pending revision is not durable confirmation. |
+
+The real journal owner prepares/persists asynchronously using the existing journal.
+Only the original owner's completed, immutable, genuinely held token may then be
+read synchronously by the Writer/factory. Factory capture must not start write,
+flush, SHA-256, IndexedDB read or a replacement Promise from the synchronous host
+captureSnapshot call. Full capture stays blocked if the original completed token
+is missing, superseded, invalidated, failed, not current or for another owner.
+
+Required producer surface semantics (names remain the original owner's choice):
+synchronous read of a previously completed bound checkpoint; synchronous inspection
+of the ORIGINAL token/ref and exact binding; synchronous validation against current
+owner/version; original invalidation on overwrite, confirmation, discard/clear,
+expiry, principal/source/draft/document/epoch changes and owner retirement. A ref
+must resolve actual original-owner custody; copyable metadata, a digest or mutable
+DB id is not custody. If physical restore/revalidation needs async I/O, it must be
+completed by the original owner before synchronous host restore, otherwise block.
+No full restore/dispose success is inferred from merely finding a stored record.
+
+Host crashJournalRef must be an actual producer-issued content-free stable ref
+matching the existing host pattern `[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}`. The token
+must validate binding and original durable write version (id/clientRevision/
+sourceHash), and its inspection must expose no content or raw principal to the
+workspace refset. Journal sourceHash is SHA-256 over its original schema-prefixed
+source; native editorContentDigest uses calculateOpenArticleDocumentDigest(source).
+They are different encodings and must not be equated. Writer may join actual write
+content/version to the native snapshot digest, but must not claim native custody
+from a callback echo; the factory independently captures/checks actual native
+identity/epoch/revision/digest and rechecks the original mounted/session owner.
+
+The existing journal is deleted after matching server confirmation. A confirmed
+clean/absent state is not automatically a valid crashJournalRef. Support for such
+state must be a genuine original producer capability; until then full capture
+blocks. The consumer must not postpone privacy-required deletion, create a dummy
+record, retain another body copy or mint a synthetic empty-success ref.
+
+Writer owns staging/flush, actual principal and recovery-tab binding plus current
+source/draft association. The journal task edits only articleRecoveryJournal and
+its narrow source tests/docs; it does not edit Writer/runtime/Write/factory. This
+factory lane will consume the published original concrete API after independent
+source review, with actual Writer current-owner rechecks and no second journal.
+All runtime/list/discovery/mount/native/storage/network qualification remains UNRUN.
