@@ -205,9 +205,20 @@ scope/ref; there is no browser/server storage or across-restart persistence in
 this owner. Existing signed snapshot storage is a separate authority and is not
 changed by this source offer.
 
+`read(scope)` observes the owner's current ref for bootstrap. Projection
+consumers use `resolve(scope, projection.ratioRef)` with a required exact ref;
+missing, cloned, foreign, revoked or staged refs fail closed. There is no optional
+projection ref that silently falls back to the owner's current value. Opaque
+handles must not be serialized as receipt coordinates; the group receipt binds
+the validated ratio policy/revision/value and original workspace coordinates
+while runtime admission separately checks the exact process-local handles.
+
 The original snapshot `applyGroups(..., splitRatioPermille, ...)` integration
 must stage the validated number with `prepare(scope, expectedRatioRef, value)`
 and pass the returned opaque `ratioRef` to the real group transaction. The
+group owner validates that proposal with `readPrepared(scope, change)` while
+both owners' current state remains unchanged; its observation includes the
+exact expected ref, staged ref, next revision and validated value. The
 staged ref is not readable as current until synchronous exact-ref CAS `commit`
 succeeds. Refusal/cancellation calls `discard`; neither action creates groups,
 moves tabs, focuses an editor or changes a session. All fallible group preparation
@@ -224,3 +235,51 @@ ownership port is not this group interface. Snapshot/group/layout consumption
 is blocked until that complete original source and the real host retention
 capability are available. No runtime/browser, race, tamper, security/privacy,
 IME or native qualification follows from source parsing or TypeScript checks.
+
+`authoringWorkspaceGeometryPolicy.ts` is an independent pure plan calculator,
+not a rendered layout owner or a registry projection. It accepts measured frame
+and visual viewport rectangles, current CSS viewport/zoom metadata, disjoint
+Rail/inspector/page chrome, safe-area/scrollbar and each group's editor-chrome
+footprints. All coordinates use the same current CSS-pixel space; actual browser
+zoom changes those measurements, so the policy does not divide them again.
+It intersects the unobscured visible rectangle and rejects invalid, zero-area,
+offscreen or unusably narrow observations. Group chrome is deducted before
+testing usable editing width, rather than calling an outer box usable content.
+
+The source offer chooses minimum usable widths of 384 CSS px per group in
+two-group mode and 128 CSS px for the focused single group. The 16 CSS px splitter
+footprint reserves a hit region and does not prescribe a large visible handle.
+These are reviewable product engineering choices based on the active FsusUI
+public `space.4` step (24, 8 and 1 multiples), not previously specified editor
+contracts or new FsusUI tokens. The canonical 1024 CSS px task tier gates two
+groups. Mobile, soft keyboard, narrow viewport and insufficient two-group space
+plan a focused single group; width below the single minimum is blocked. No font
+shrink, width animation, tab move, article switch or session reconstruction is
+performed. Effective ratio clamps round inward against both minima while
+preserving the owner's requested ratio/ref for later expansion.
+
+The exported required matrix includes 375/768/1024/1366/1440 viewports,
+100/150/200% browser zoom, Rail/inspector combinations, soft keyboard and
+appearance/input states. It records coverage requirements, not observations.
+`tools/frontend/check-authoring-workspace-layout-source.mjs` parses only the two
+delivered product modules without importing them. Its AST guard checks their
+closed layout vocabulary, absence of DOM/storage/editor/group-model dependencies,
+sole private ratio owner and exact-ref CAS source, and canonical snapshot bounds.
+It explicitly does not cover the not-yet-wired SFC, actual retention, public
+splitter, runtime receipt/verifier or geometry/tamper qualification.
+
+`tests/frontend/unit/authoring/authoringWorkspaceLayoutPolicy.test.ts` declares
+ratio/CAS/proposal controls and synthetic geometry/zoom controls. They remain
+UNRUN pending root's exact ordinary CLI approval. The original Vitest setup
+creates DOM/Wasm mocks and dynamically activates the real locale runtime/font
+graph; listing tests is not treated as harmless module inspection. The proposed
+ordinary command, after dependency and hook preflight, is:
+
+```sh
+cd src/frontend
+node_modules/.bin/vitest run ../../tests/frontend/unit/authoring/authoringWorkspaceLayoutPolicy.test.ts --maxWorkers=1
+```
+
+This command has not been executed. All actual browser geometry, hidden editor
+identity/restore, pointer/keyboard/screen reader, forced colors/reduced motion,
+receipt tamper/race/security/privacy/IME/native qualification remains UNRUN.

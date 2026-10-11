@@ -34,6 +34,11 @@ export interface AuthoringWorkspaceRatioObservation {
     readonly splitRatioPermille: number;
 }
 
+/** Pre-publication observation for the original group transaction; not a current ref. */
+export interface AuthoringWorkspacePreparedRatioObservation extends AuthoringWorkspaceRatioObservation {
+    readonly expectedRatioRef: AuthoringWorkspaceRatioRef;
+}
+
 interface RatioState {
     current: AuthoringWorkspaceRatioRef;
     revision: number;
@@ -51,11 +56,15 @@ interface PreparedRatioValue {
     readonly next: AuthoringWorkspaceRatioRef;
 }
 
-export class AuthoringWorkspaceRatioError extends Error {
-    public constructor(public readonly reason: 'invalid-scope' | 'invalid-ratio' | 'invalid-change' | 'stale-ratio' | 'revision-exhausted')
+export class AuthoringWorkspaceRatioError extends Error
+{
+    public readonly reason: 'invalid-scope' | 'invalid-ratio' | 'invalid-change' | 'stale-ratio' | 'revision-exhausted';
+
+    public constructor(reason: AuthoringWorkspaceRatioError['reason'])
     {
         super(reason);
         this.name = 'AuthoringWorkspaceRatioError';
+        this.reason = reason;
     }
 }
 
@@ -68,7 +77,8 @@ export function isAuthoringWorkspaceRatioPermille(value: unknown): value is numb
 }
 
 // The class is deliberately private: product composition imports the single owner below.
-class AuthoringWorkspaceRatioOwner {
+class AuthoringWorkspaceRatioOwner
+{
     readonly #scopes = new WeakMap<AuthoringWorkspaceRatioScope, RatioState>();
     readonly #ratios = new WeakMap<AuthoringWorkspaceRatioRef, RatioValue>();
     readonly #changes = new WeakMap<AuthoringWorkspaceRatioChange, PreparedRatioValue>();
@@ -82,17 +92,23 @@ class AuthoringWorkspaceRatioOwner {
         return scope;
     }
 
-    /** Resolves only a live current ref in its issuing workspace, including after collapse. */
-    public read(scope: AuthoringWorkspaceRatioScope, ratioRef?: AuthoringWorkspaceRatioRef): AuthoringWorkspaceRatioObservation
+    /** Retrieves the owner's current ref, for workspace bootstrap or an explicit source observation. */
+    public read(scope: AuthoringWorkspaceRatioScope): AuthoringWorkspaceRatioObservation
+    {
+        return this.resolve(scope, this.requireScope(scope).current);
+    }
+
+    /** Projection consumers must pass their exact ref; missing/foreign/staged refs fail closed. */
+    public resolve(scope: AuthoringWorkspaceRatioScope, ratioRef: AuthoringWorkspaceRatioRef): AuthoringWorkspaceRatioObservation
     {
         const state = this.requireScope(scope);
-        const current = ratioRef ?? state.current;
+        const current = ratioRef;
         if (current !== state.current)
         {
             throw new AuthoringWorkspaceRatioError('stale-ratio');
         }
         const value = this.#ratios.get(current);
-        if (!value || value.scope !== scope || value.revision !== state.revision)
+        if (value?.scope !== scope || value.revision !== state.revision)
         {
             throw new AuthoringWorkspaceRatioError('stale-ratio');
         }
@@ -105,7 +121,7 @@ class AuthoringWorkspaceRatioOwner {
      */
     public prepare(scope: AuthoringWorkspaceRatioScope, expected: AuthoringWorkspaceRatioRef, splitRatioPermille: number): AuthoringWorkspaceRatioChange
     {
-        const observation = this.read(scope, expected);
+        const observation = this.resolve(scope, expected);
         if (!isAuthoringWorkspaceRatioPermille(splitRatioPermille))
         {
             throw new AuthoringWorkspaceRatioError('invalid-ratio');
@@ -120,6 +136,21 @@ class AuthoringWorkspaceRatioOwner {
         return change;
     }
 
+    /** Lets the real group owner validate its staged ref/value while both current states remain unchanged. */
+    public readPrepared(scope: AuthoringWorkspaceRatioScope, change: AuthoringWorkspaceRatioChange): AuthoringWorkspacePreparedRatioObservation
+    {
+        this.requireScope(scope);
+        const prepared = this.#changes.get(change);
+        if (prepared?.scope !== scope || prepared.next !== change.ratioRef)
+        {
+            throw new AuthoringWorkspaceRatioError('invalid-change');
+        }
+        this.resolve(scope, prepared.expected);
+        const value = this.#ratios.get(prepared.next)!;
+        return Object.freeze({ expectedRatioRef: prepared.expected, ratioRef: prepared.next,
+            revision: value.revision, splitRatioPermille: value.splitRatioPermille });
+    }
+
     /**
      * Synchronous exact-ref CAS. The group integration must pre-stage all fallible work
      * and publish both owners without callbacks/await; that transaction is not supplied here.
@@ -128,7 +159,7 @@ class AuthoringWorkspaceRatioOwner {
     {
         const state = this.requireScope(scope);
         const prepared = this.#changes.get(change);
-        if (!prepared || prepared.scope !== scope || prepared.next !== change.ratioRef)
+        if (prepared?.scope !== scope || prepared.next !== change.ratioRef)
         {
             throw new AuthoringWorkspaceRatioError('invalid-change');
         }
@@ -149,7 +180,7 @@ class AuthoringWorkspaceRatioOwner {
     {
         this.requireScope(scope);
         const prepared = this.#changes.get(change);
-        if (!prepared || prepared.scope !== scope)
+        if (prepared?.scope !== scope)
         {
             throw new AuthoringWorkspaceRatioError('invalid-change');
         }
