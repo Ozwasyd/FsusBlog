@@ -43,7 +43,7 @@ public sealed class AuthorArticleQueryArchivedPermissionObservationTests
         AuthorRecentArticleHistoryContract.ValidateDigest(observed.SessionRevision);
         Assert.Equal(3, fixture.PermissionReads);
         Assert.Equal(2, fixture.ArticleReads);
-        Assert.All(fixture.Commands.Where(static command => command.Contains("row_version", StringComparison.Ordinal)), command =>
+        Assert.All(fixture.Commands.Where(static command => command.Contains("FROM article", StringComparison.Ordinal)), command =>
         {
             Assert.Contains("LIMIT @Limit", command);
             Assert.DoesNotContain("title", command, StringComparison.OrdinalIgnoreCase);
