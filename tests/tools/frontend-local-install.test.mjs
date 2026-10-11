@@ -394,10 +394,16 @@ test('source projection rejects owner-contained or redirected destinations and p
     const source = fs.readFileSync(path.join(copy, 'vue/packages/element-plus/index.ts'));
     assert.throws(() => prepareLocalFsusUiSourceCopy({ repositoryRoot: context.fsusui,
         sourceRoot: context.fsusui, frontend: context.frontend,
-        initialize() { assert.fail('source owner must never receive dependency writes'); } }), /outside the source owner/u);
+        initialize()
+        {
+            assert.fail('source owner must never receive dependency writes');
+        } }), /outside the source owner/u);
     assert.throws(() => prepareLocalFsusUiSourceCopy({ repositoryRoot: context.repositoryRoot,
         sourceRoot: context.fsusui, frontend: context.frontend,
-        initialize() { throw new Error('fixture preparation failure'); } }), /fixture preparation failure/u);
+        initialize()
+        {
+            throw new Error('fixture preparation failure');
+        } }), /fixture preparation failure/u);
     assert.deepEqual(fs.readFileSync(path.join(copy, '.fsusblog-source-copy.json')), marker);
     assert.deepEqual(fs.readFileSync(path.join(copy, 'vue/packages/element-plus/index.ts')), source);
     assert.equal(resolveLocalFsusUiRepositoryRoot({ override: context.fsusui,
