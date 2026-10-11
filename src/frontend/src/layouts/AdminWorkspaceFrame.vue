@@ -89,6 +89,12 @@ export interface AdminArticleWorkspaceStartupPorts {
 // One original router/Registry has one startup installation, independent of route remounts.
 let workspaceInstallation: {
     readonly ports: AdminArticleWorkspaceStartupPorts;
+    failed: boolean;
+    /** Preserve exact original objects for the original lifecycle owner's pending custody API. */
+    readonly resources: {
+        groups: AuthoringTabGroupRegistry | null;
+        sessions: AuthoringWorkspaceSessionSource | null;
+    };
     readonly task: Promise<{
         readonly plan: AuthoringWorkspaceSnapshotRestorePlan;
         readonly sessions: AuthoringWorkspaceSessionSource;
@@ -108,9 +114,13 @@ function requireCurrentStartup(ports: AdminArticleWorkspaceStartupPorts, plan: A
     {
         throw new Error('article-workspace-startup-current-source-unavailable');
     }
+    // The original current guard can synchronously cancel this operation.
+    ports.signal.throwIfAborted();
 }
 
-async function startArticleWorkspace(ports: AdminArticleWorkspaceStartupPorts)
+async function startArticleWorkspace(
+    ports: AdminArticleWorkspaceStartupPorts,
+    resources: NonNullable<typeof workspaceInstallation>['resources'])
 {
     const signal = ports.signal;
     signal.throwIfAborted();
@@ -129,8 +139,10 @@ async function startArticleWorkspace(ports: AdminArticleWorkspaceStartupPorts)
         initialGroupId: plan.layout.activeGroupId,
         initialGroupIds: plan.layout.groups.map((group: AuthoringWorkspaceSnapshotRestorePlan['layout']['groups'][number]) => group.groupId)
     });
+    resources.groups = groupOwner;
     const groupAdapter = bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, articleWorkspaceTabRouter, groupOwner, ports.createGroupIdentity);
     const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, createArticleWorkspaceMountedEditorResolver(ports.mountedEditors));
+    resources.sessions = sessions;
     await applyAuthoringWorkspaceSnapshotRestore(plan, {
         router: articleWorkspaceTabRouter,
         resolutionPort: ports.resolutionPort,
@@ -153,15 +165,33 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         {
             return Promise.reject(new Error('article-workspace-startup-owner-changed'));
         }
+        if (installed.failed)
+        {
+            return Promise.reject(new Error('article-workspace-startup-failed-custody-required'));
+        }
         return installed.task.then((result) =>
         {
             requireCurrentStartup(ports, result.plan);
             return result;
         });
     }
-    const task = startArticleWorkspace(ports);
-    workspaceInstallation = { ports, task };
+    const resources: NonNullable<typeof workspaceInstallation>['resources'] = { groups: null, sessions: null };
+    // Reserve the sole installation before any original capability callback can re-enter it.
+    const task = Promise.resolve().then(() => startArticleWorkspace(ports, resources)).catch((error: unknown) =>
+    {
+        markWorkspaceInstallationFailed(ports);
+        throw error;
+    });
+    workspaceInstallation = { ports, resources, failed: false, task };
     return task;
+}
+
+function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPorts): void
+{
+    if (workspaceInstallation?.ports === ports)
+    {
+        workspaceInstallation.failed = true;
+    }
 }
 </script>
 
@@ -183,25 +213,43 @@ const emit = defineEmits<{
 }>();
 const route = useRoute();
 const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
+const startupPorts = props.workspaceStartup;
 let mounted = true;
 function markWorkspaceStartupUnavailable(): void
 {
+    if (startupPorts)
+    {
+        markWorkspaceInstallationFailed(startupPorts);
+    }
     workspaceStartupState.value = 'unavailable';
 }
-if (props.workspaceStartup)
+if (startupPorts)
 {
     workspaceStartupState.value = 'starting';
-    props.workspaceStartup.signal.addEventListener('abort', markWorkspaceStartupUnavailable);
-    void installArticleWorkspaceStartup(props.workspaceStartup).then(({ sessions }) =>
+    startupPorts.signal.addEventListener('abort', markWorkspaceStartupUnavailable);
+    void installArticleWorkspaceStartup(startupPorts).then(({ plan, sessions }) =>
     {
-        if (mounted)
+        if (!mounted)
         {
-            workspaceStartupState.value = 'started';
-            // Hand the layout owner the same original group/host, never a reconstructed projection.
-            emit('workspaceStarted', sessions);
+            return;
         }
+        if (props.workspaceStartup !== startupPorts || workspaceInstallation?.ports !== startupPorts)
+        {
+            throw new Error('article-workspace-startup-owner-changed');
+        }
+        requireCurrentStartup(startupPorts, plan);
+        // Recheck after the original guard callback, immediately before local publication.
+        if (!mounted || props.workspaceStartup !== startupPorts || startupPorts.signal.aborted)
+        {
+            markWorkspaceStartupUnavailable();
+            return;
+        }
+        workspaceStartupState.value = 'started';
+        // Hand the layout owner the same original group/host, never a reconstructed projection.
+        emit('workspaceStarted', sessions);
     }).catch(() =>
     {
+        markWorkspaceInstallationFailed(startupPorts);
         if (mounted)
         {
             workspaceStartupState.value = 'unavailable';
@@ -211,7 +259,7 @@ if (props.workspaceStartup)
 onBeforeUnmount(() =>
 {
     mounted = false;
-    props.workspaceStartup?.signal.removeEventListener('abort', markWorkspaceStartupUnavailable);
+    startupPorts?.signal.removeEventListener('abort', markWorkspaceStartupUnavailable);
 });
 const { tabs, activateTab } = useArticleWorkspaceTabs();
 const libraryGroup = ref<ArticleLibraryGroup>('recent');
