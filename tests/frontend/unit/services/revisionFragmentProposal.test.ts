@@ -85,6 +85,10 @@ describe('unexecuted exact historical fragment proposal', () => {
         const input = await fixture();
         await expect(createRevisionFragmentProposal(input.presentation, { ...input.selection, articleId: 43 }, current)).rejects.toThrow('current_context_invalid');
         await expect(createRevisionFragmentProposal(input.presentation, { ...input.selection, actionId: '' }, current)).rejects.toThrow('selection_invalid');
+        for (const actionId of [undefined, null, 123, {}]) {
+            await expect(createRevisionFragmentProposal(input.presentation,
+                { ...input.selection, actionId } as unknown as RevisionFragmentSelection, current)).rejects.toThrow('selection_invalid');
+        }
         await expect(createRevisionFragmentProposal(input.presentation, input.selection,
             () => ({ ...current(), document: { ...current().document, sourceRevision: 9 } }))).rejects.toThrow('current_context_invalid');
     });
@@ -138,6 +142,18 @@ describe('unexecuted exact historical fragment proposal', () => {
         input.presentation.response.sourceDiff.chunks[0].hunks[0].kind = 3;
         input.presentation.response.planReceipt.comparePackageReference.sourceKind = 2;
         await expect(createRevisionFragmentProposal(input.presentation, input.selection, current)).rejects.toThrow('historical_package_invalid');
+    });
+
+    it('can select the base side only when it is an exact historical package', async () => {
+        const input = await fixture();
+        const reference = input.presentation.response.planReceipt.basePackageReference;
+        reference.sourceKind = 1;
+        const proposal = await createRevisionFragmentProposal(input.presentation, { ...input.selection, side: 'base',
+            packageDigest: reference.packageDigest, sourceIdentity: reference.sourceIdentity, sourceDigest: reference.sourceDigest,
+            range: range(0, input.presentation.baseBytes.length) }, current);
+        expect(proposal.fragmentText).toBe('current revision\n');
+        expect(proposal.historicalRevisionId).toBe(reference.revisionId);
+        expect(proposal.basePackageReference).toEqual(reference);
     });
 
     it.each([range(1, 2), range(0, 1), range(3, 3), { offset: 0, length: 3, end: 4 }])(

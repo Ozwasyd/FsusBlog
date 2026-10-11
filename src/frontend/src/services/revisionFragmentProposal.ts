@@ -73,8 +73,12 @@ function captureCurrent(readCurrent: () => RevisionFragmentCurrentSnapshot, arti
 
 function sourceSnapshot(presentation: RevisionSourcePresentation)
 {
-    return structuredClone({ plan: presentation.response.planReceipt, diff: presentation.response.sourceDiff,
-        baseBytes: presentation.baseBytes, compareBytes: presentation.compareBytes });
+    if (!(presentation.baseBytes instanceof Uint8Array) || !(presentation.compareBytes instanceof Uint8Array))
+    {
+        fail('source_stale');
+    }
+    return { ...structuredClone({ plan: presentation.response.planReceipt, diff: presentation.response.sourceDiff }),
+        baseBytes: Uint8Array.from(presentation.baseBytes), compareBytes: Uint8Array.from(presentation.compareBytes) };
 }
 
 function freezeTree(value: unknown): void
@@ -102,7 +106,7 @@ export async function createRevisionFragmentProposal(
     signal?.throwIfAborted();
     const selected = structuredClone(selection);
     if (!Number.isSafeInteger(selected.articleId) || selected.articleId <= 0
-        || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u.test(selected.actionId)
+        || typeof selected.actionId !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u.test(selected.actionId)
         || !['base', 'compare'].includes(selected.side)
         || !Number.isSafeInteger(selected.hunkIndex) || selected.hunkIndex < 0
         || ![selected.planDigest, selected.basePackageDigest, selected.comparePackageDigest,
@@ -114,7 +118,7 @@ export async function createRevisionFragmentProposal(
     const snapshot = sourceSnapshot(presentation);
     const { plan, diff, baseBytes, compareBytes } = snapshot;
     const receipt = diff.receipt;
-    if (plan.status !== 0 || diff.status !== 0 || !diff.isSuccess || receipt.status !== 0
+    if (plan.status !== 0 || diff.status !== 0 || diff.isSuccess !== true || receipt.status !== 0
         || diff.attemptReceipt.status !== 0 || plan.planDigest !== selected.planDigest
         || receipt.planDigest !== plan.planDigest || plan.admissionDigest !== receipt.admissionDigest
         || diff.attemptReceipt.semanticContentDigest !== receipt.contentDigest
@@ -138,7 +142,7 @@ export async function createRevisionFragmentProposal(
         readRevisionSourceRange(bytes, { offset: 0, length: bytes.length, end: bytes.length });
     }
     const reference = plan[`${selected.side}PackageReference`];
-    if (reference.sourceKind !== 1 || !reference.revisionId || !Number.isSafeInteger(reference.revisionNo)
+    if (reference.sourceKind !== 1 || typeof reference.revisionId !== 'string' || !reference.revisionId || !Number.isSafeInteger(reference.revisionNo)
         || reference.revisionNo! <= 0 || reference.serverRevision !== null || reference.documentEpoch !== null
         || reference.sourceIdentity !== `revision:${reference.revisionId}:${reference.revisionNo}`
         || reference.sourceIdentity !== selected.sourceIdentity || reference.sourceDigest !== selected.sourceDigest
