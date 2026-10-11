@@ -297,23 +297,38 @@ public sealed class AuthorArticleQuerySourceSnapshotTests
     }
 
     [Theory]
-    [InlineData("scope")]
-    [InlineData("read")]
-    public async Task Snapshot_EachReadPreservesBothCancellationOwners(string owner)
+    [InlineData("scope", false)]
+    [InlineData("read", false)]
+    [InlineData("scope", true)]
+    [InlineData("read", true)]
+    public async Task Snapshot_EachReadPreservesBothCancellationOwners(string owner, bool duringRead)
     {
-        var fixture = new Fixture();
+        var fixture = new Fixture { BlockReader = duringRead };
         using var scopeCancellation = new CancellationTokenSource();
         using var readCancellation = new CancellationTokenSource();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.ReadAsync(async (source, _) =>
+        void Cancel()
         {
             if (owner == "scope")
                 scopeCancellation.Cancel();
             else
                 readCancellation.Cancel();
-            _ = await source.ReadCoordinatesAsync([AuthorArticleQueryStatus.Draft], readCancellation.Token);
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.ReadAsync(async (source, token) =>
+        {
+            if (!duringRead)
+                Cancel();
+            Task<AuthorArticleQuerySourceBatch> pending = source.ReadCoordinatesAsync(
+                [AuthorArticleQueryStatus.Draft], readCancellation.Token);
+            if (duringRead)
+            {
+                await fixture.ReaderWaitStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Cancel();
+            }
+            _ = await pending;
             return 1;
         }, scopeCancellation.Token));
-        Assert.DoesNotContain("read", fixture.Events);
+        Assert.Equal(duringRead, fixture.Events.Contains("read"));
+        Assert.Equal(duringRead, fixture.ReaderWaitFinished);
         await fixture.AssertCleanAsync();
     }
 
@@ -559,6 +574,7 @@ public sealed class AuthorArticleQuerySourceSnapshotTests
             get; private set;
         }
         public TaskCompletionSource ReleaseReader { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReaderWaitStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public CancellationToken PreviousCancellation { get; } = new(true);
 
         public Fixture(IDbConcurrencyGate? gate = null)
@@ -605,6 +621,7 @@ public sealed class AuthorArticleQuerySourceSnapshotTests
                 BeforeReader?.Invoke();
                 if (BlockReader)
                 {
+                    ReaderWaitStarted.SetResult();
                     try
                     {
                         await ReleaseReader.Task.WaitAsync(SnapshotAdo.CancellationToken!.Value);

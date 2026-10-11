@@ -73,7 +73,7 @@ public partial class ArticleService
             scopeToken.ThrowIfCancellationRequested();
             // This is still the same ArticleService SQL owner, with the same bounded
             // projections and input validation. No second SQL/index/ranking path exists.
-            lease = new(CreateSnapshotSource(snapshotDb), scopeToken, () =>
+            lease = new(CreateSnapshotSource(snapshotDb), snapshotDb.Ado, scopeToken, () =>
             {
                 if (!ReferenceEquals(snapshotDb.Ado.Transaction, transaction)
                     || !ReferenceEquals(transaction.Connection, snapshotDb.Ado.Connection)
@@ -148,6 +148,7 @@ public partial class ArticleService
 
     private sealed class SnapshotReaderLease(
         IAuthorArticleQuerySourceReader source,
+        IAdo snapshotAdo,
         CancellationToken scopeToken,
         Action requireTransaction) : IAuthorArticleQuerySourceReader
     {
@@ -200,12 +201,21 @@ public partial class ArticleService
                 using CancellationTokenSource? linked = readToken.CanBeCanceled && readToken != scopeToken
                     ? CancellationTokenSource.CreateLinkedTokenSource(scopeToken, readToken) : null;
                 CancellationToken effective = linked?.Token ?? scopeToken;
-                effective.ThrowIfCancellationRequested();
-                requireTransaction();
-                TResult result = await read(effective).ConfigureAwait(false);
-                effective.ThrowIfCancellationRequested();
-                requireTransaction();
-                return result;
+                CancellationToken? previousCancellation = snapshotAdo.CancellationToken;
+                try
+                {
+                    snapshotAdo.CancellationToken = effective;
+                    effective.ThrowIfCancellationRequested();
+                    requireTransaction();
+                    TResult result = await read(effective).ConfigureAwait(false);
+                    effective.ThrowIfCancellationRequested();
+                    requireTransaction();
+                    return result;
+                }
+                finally
+                {
+                    snapshotAdo.CancellationToken = previousCancellation;
+                }
             }
             finally
             {
