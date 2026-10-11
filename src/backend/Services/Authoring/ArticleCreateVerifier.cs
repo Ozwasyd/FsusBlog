@@ -17,8 +17,9 @@ public static class ArticleCreateVerifier
 
         bool modeConsistent = receipt.CreateMode switch
         {
-            "blank" => receipt.TemplateId is null
+            "blank" or "inbox" => receipt.TemplateId is null
                 && receipt.TemplateVersionId is null
+                && receipt.TemplateVersionNumber is null
                 && receipt.PlanDigest is null
                 && receipt.DefaultsDigest is null
                 && receipt.ReferenceDigest is null,
@@ -34,14 +35,19 @@ public static class ArticleCreateVerifier
         {
             violations.Add(new("create_mode_set_invalid", "receipt template set does not match mode"));
         }
+        ArticleStatus expectedStatus = receipt.CreateMode == "inbox" ? ArticleStatus.Inbox : ArticleStatus.Draft;
+        if (!string.Equals(receipt.InitialStatus,
+                FsusBlog.Contracts.Articles.ArticleStatusValues.Token((int)expectedStatus), StringComparison.Ordinal))
+        {
+            violations.Add(new("create_initial_status_invalid", "receipt status does not match explicit create mode"));
+        }
         if (snapshot.ArticleId != receipt.ArticleId)
         {
             violations.Add(new("create_article_missing", "article row missing or mismatched"));
         }
-        if (snapshot.ArticleStatus is not null
-            && snapshot.ArticleStatus != (int)ArticleStatus.Draft)
+        if (snapshot.ArticleStatus != (int)expectedStatus)
         {
-            violations.Add(new("create_draft_only_violated", "article left draft status"));
+            violations.Add(new("create_draft_only_violated", "article left its declared editable create status"));
         }
         if (snapshot.ArticlePublishedAt is not null)
         {
@@ -55,6 +61,15 @@ public static class ArticleCreateVerifier
             || snapshot.DraftServerRevision != receipt.DraftServerRevision)
         {
             violations.Add(new("create_draft_missing", "draft row missing or mismatched"));
+        }
+        if (receipt.CreateMode == "inbox"
+            && (snapshot.DraftStatus != (int)ArticleStatus.Inbox
+                || snapshot.DraftArticleId != receipt.ArticleId
+                || snapshot.DraftBaseRevisionId != receipt.RevisionId
+                || snapshot.DraftOwnerAdminPrincipalId != receipt.OwnerAdminPrincipalId
+                || !string.Equals(snapshot.DraftKey, $"canonical-create:{receipt.RequestId:N}", StringComparison.Ordinal)))
+        {
+            violations.Add(new("create_inbox_draft_binding_invalid", "Inbox draft identity, owner or lifecycle drift"));
         }
         if (snapshot.RevisionId != receipt.RevisionId || snapshot.RevisionNo != 1)
         {

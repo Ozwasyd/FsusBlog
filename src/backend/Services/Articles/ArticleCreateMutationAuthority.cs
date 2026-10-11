@@ -37,8 +37,7 @@ public static class ArticleCreateMutationAuthority
         string TransitionKind,
         ArticleMutationScopeSnapshot? AfterScope,
         ArticleMutationIdentityWrite? MutationIdentity = null,
-        Func<int, ArticleRevisionWriteResult, CancellationToken, Task<ResponsibilityAttachResult?>>? AttachResponsibilityAsync = null,
-        ArticleStatusTransitionOperation Operation = ArticleStatusTransitionOperation.Create);
+        Func<int, ArticleRevisionWriteResult, CancellationToken, Task<ResponsibilityAttachResult?>>? AttachResponsibilityAsync = null);
 
     public readonly record struct ArticleMutationIdentityWrite(
         long AdminPrincipalId,
@@ -64,14 +63,8 @@ public static class ArticleCreateMutationAuthority
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(request);
-        if (request.Status == ArticleStatus.Inbox && db.Ado.Transaction is null)
-        {
-            throw new ArticleWriteValidationException("article_lifecycle_transaction_required",
-                "CreateInbox requires an ambient canonical transaction.");
-        }
-
         ArticleStatusTransitionValidation? admission = ArticleStatusTransitionPolicy.ValidateTransition(
-            (int)request.Status, (int)request.Status, request.ScheduledPublishAt, request.Now, request.Operation);
+            (int)request.Status, (int)request.Status, request.ScheduledPublishAt, request.Now, ArticleStatusTransitionOperation.Create);
         if (admission.HasValue)
         {
             throw new ArticleStatusTransitionValidationException(admission.Value);
@@ -221,7 +214,7 @@ public static class ArticleCreateMutationAuthority
                 request.ScheduledPublishAt,
                 request.Now,
                 request.TransitionKind,
-                request.Operation),
+                ArticleStatusTransitionOperation.Create),
             cancellationToken).ConfigureAwait(false);
 
         ArticleMutationScopeSnapshot afterScope = request.AfterScope

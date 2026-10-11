@@ -1,10 +1,13 @@
+using FsusBlog.Contracts.Articles;
+
 namespace FsusBlog.Server.Services.Authoring;
 
-/// <summary>Closed create modes: exactly one of blank or explicit template instantiation.</summary>
+/// <summary>Closed create modes: blank Draft, explicit template Draft, or explicit blank Inbox.</summary>
 public enum ArticleCreateMode
 {
     Blank = 0,
-    Template = 1
+    Template = 1,
+    Inbox = 2
 }
 
 /// <summary>
@@ -40,7 +43,7 @@ public sealed class ArticleCreateCommand
             || planDigest is not null;
         switch (mode)
         {
-            case ArticleCreateMode.Blank when anyTemplateField:
+            case ArticleCreateMode.Blank or ArticleCreateMode.Inbox when anyTemplateField:
                 throw new ArticleCreateValidationException("article_create_mode_invalid");
             case ArticleCreateMode.Template when !completeTemplateSet:
                 throw new ArticleCreateValidationException("article_create_mode_incomplete_template_set");
@@ -81,6 +84,13 @@ public sealed class ArticleCreateCommand
     {
         get;
     }
+    public string ModeToken => Mode switch
+    {
+        ArticleCreateMode.Blank => "blank",
+        ArticleCreateMode.Template => "template",
+        ArticleCreateMode.Inbox => ArticleStatusValues.Token(ArticleStatusValues.Inbox),
+        _ => throw new ArticleCreateValidationException("article_create_mode_invalid")
+    };
     public Guid? TemplateId
     {
         get;
@@ -123,7 +133,8 @@ public sealed record ArticleCreateReceipt(
     string? ReferenceDigest,
     string ContentDigest,
     DateTime OccurredAtUtc,
-    bool IsIdempotentReplay = false);
+    bool IsIdempotentReplay = false,
+    string InitialStatus = "draft");
 
 public sealed record ArticleCreateVerificationSnapshot(
     ArticleCreateReceipt Receipt,
@@ -138,10 +149,20 @@ public sealed record ArticleCreateVerificationSnapshot(
     int? RevisionNo,
     long AssetReferenceCount,
     bool OutboxEventPresent,
-    ArticleTemplateAuditLink? AuditLink);
+    ArticleTemplateAuditLink? AuditLink,
+    int? DraftStatus = null,
+    int? DraftArticleId = null,
+    long? DraftBaseRevisionId = null,
+    long? DraftOwnerAdminPrincipalId = null,
+    string? DraftKey = null);
 
 public interface IArticleCreateStore
 {
+    Task<ArticleCreateReceipt> CreateInboxAsync(
+        ArticleTemplateActor actor,
+        Guid requestId,
+        CancellationToken cancellationToken = default);
+
     Task<ArticleCreateReceipt> CreateAsync(
         ArticleCreateCommand command,
         CancellationToken cancellationToken = default);

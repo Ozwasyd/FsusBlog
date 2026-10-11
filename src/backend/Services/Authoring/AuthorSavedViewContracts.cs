@@ -93,9 +93,9 @@ public static class AuthorSavedViewContract
                     AuthorSavedViewFieldKind.ContentCheckState),
                 AuthorSavedViewValueKind.StableIdentity,
                 AuthorSavedViewOperatorCardinality.Single,
-                AuthorSavedViewNullSemantics.NullNeverMatches,
-                AuthorSavedViewDefaultSemantics.NotApplicable,
-                AuthorSavedViewCaseSemantics.StableIdentityOrdinal,
+                AuthorSavedViewNullSemantic.NullNeverMatches,
+                AuthorSavedViewDefaultSemantic.NotApplicable,
+                AuthorSavedViewCaseSemantic.StableIdentityOrdinal,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
                 "canonical-article-query"),
@@ -109,9 +109,9 @@ public static class AuthorSavedViewContract
                     AuthorSavedViewFieldKind.ContentCheckState),
                 AuthorSavedViewValueKind.StableIdentity,
                 AuthorSavedViewOperatorCardinality.MultipleSet,
-                AuthorSavedViewNullSemantics.NullNeverMatches,
-                AuthorSavedViewDefaultSemantics.NotApplicable,
-                AuthorSavedViewCaseSemantics.StableIdentityOrdinal,
+                AuthorSavedViewNullSemantic.NullNeverMatches,
+                AuthorSavedViewDefaultSemantic.NotApplicable,
+                AuthorSavedViewCaseSemantic.StableIdentityOrdinal,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
                 "canonical-article-query"),
@@ -120,9 +120,9 @@ public static class AuthorSavedViewContract
                 FieldKinds(AuthorSavedViewFieldKind.Property, AuthorSavedViewFieldKind.Date),
                 AuthorSavedViewValueKind.None,
                 AuthorSavedViewOperatorCardinality.None,
-                AuthorSavedViewNullSemantics.MissingOnly,
-                AuthorSavedViewDefaultSemantics.DistinctFromMissing,
-                AuthorSavedViewCaseSemantics.NotApplicable,
+                AuthorSavedViewNullSemantic.MissingOnly,
+                AuthorSavedViewDefaultSemantic.DistinctFromMissing,
+                AuthorSavedViewCaseSemantic.NotApplicable,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
                 "canonical-article-query"),
@@ -131,9 +131,9 @@ public static class AuthorSavedViewContract
                 FieldKinds(AuthorSavedViewFieldKind.Property, AuthorSavedViewFieldKind.Date),
                 AuthorSavedViewValueKind.None,
                 AuthorSavedViewOperatorCardinality.None,
-                AuthorSavedViewNullSemantics.PresentOnly,
-                AuthorSavedViewDefaultSemantics.DistinctFromMissing,
-                AuthorSavedViewCaseSemantics.NotApplicable,
+                AuthorSavedViewNullSemantic.PresentOnly,
+                AuthorSavedViewDefaultSemantic.DistinctFromMissing,
+                AuthorSavedViewCaseSemantic.NotApplicable,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
                 "canonical-article-query"),
@@ -152,9 +152,9 @@ public static class AuthorSavedViewContract
                 FieldKinds(AuthorSavedViewFieldKind.FullText),
                 AuthorSavedViewValueKind.Text,
                 AuthorSavedViewOperatorCardinality.Single,
-                AuthorSavedViewNullSemantics.NullNeverMatches,
-                AuthorSavedViewDefaultSemantics.NotApplicable,
-                AuthorSavedViewCaseSemantics.AuthorSearchOwned,
+                AuthorSavedViewNullSemantic.NullNeverMatches,
+                AuthorSavedViewDefaultSemantic.NotApplicable,
+                AuthorSavedViewCaseSemantic.AuthorSearchOwned,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "author-search-contract",
                 "author-search-query"),
@@ -372,9 +372,9 @@ public static class AuthorSavedViewContract
             FieldKinds(AuthorSavedViewFieldKind.Date),
             AuthorSavedViewValueKind.LocalDate,
             cardinality,
-            AuthorSavedViewNullSemantics.NullNeverMatches,
-            AuthorSavedViewDefaultSemantics.NotApplicable,
-            AuthorSavedViewCaseSemantics.NotApplicable,
+            AuthorSavedViewNullSemantic.NullNeverMatches,
+            AuthorSavedViewDefaultSemantic.NotApplicable,
+            AuthorSavedViewCaseSemantic.NotApplicable,
             boundary,
             "article-date-contract",
             "canonical-article-query");
@@ -387,9 +387,9 @@ public static class AuthorSavedViewContract
             FieldKinds(AuthorSavedViewFieldKind.Property),
             AuthorSavedViewValueKind.AuthorityOwned,
             cardinality,
-            AuthorSavedViewNullSemantics.AuthorityOwned,
-            AuthorSavedViewDefaultSemantics.AuthorityOwned,
-            AuthorSavedViewCaseSemantics.AuthorityOwned,
+            AuthorSavedViewNullSemantic.AuthorityOwned,
+            AuthorSavedViewDefaultSemantic.AuthorityOwned,
+            AuthorSavedViewCaseSemantic.AuthorityOwned,
             AuthorSavedViewDateBoundary.AuthorityOwned,
             "typed-property-authority",
             "author-search-query");
@@ -1066,9 +1066,9 @@ public sealed class AuthorSavedViewDependencyCatalog(
                 [field.Kind],
                 AuthorSavedViewValueKind.None,
                 AuthorSavedViewOperatorCardinality.None,
-                AuthorSavedViewNullSemantics.AuthorityOwned,
-                AuthorSavedViewDefaultSemantics.AuthorityOwned,
-                AuthorSavedViewCaseSemantics.AuthorityOwned,
+                AuthorSavedViewNullSemantic.AuthorityOwned,
+                AuthorSavedViewDefaultSemantic.AuthorityOwned,
+                AuthorSavedViewCaseSemantic.AuthorityOwned,
                 AuthorSavedViewDateBoundary.AuthorityOwned,
                 "owning-domain",
                 "canonical-article-query"),
@@ -1173,7 +1173,7 @@ public enum AuthorSavedViewOperatorCardinality
     OrderedPair = 3
 }
 
-public enum AuthorSavedViewNullSemantics
+public enum AuthorSavedViewNullSemantic
 {
     NullNeverMatches = 0,
     MissingOnly = 1,
@@ -1181,14 +1181,14 @@ public enum AuthorSavedViewNullSemantics
     AuthorityOwned = 3
 }
 
-public enum AuthorSavedViewDefaultSemantics
+public enum AuthorSavedViewDefaultSemantic
 {
     NotApplicable = 0,
     DistinctFromMissing = 1,
     AuthorityOwned = 2
 }
 
-public enum AuthorSavedViewCaseSemantics
+public enum AuthorSavedViewCaseSemantic
 {
     NotApplicable = 0,
     StableIdentityOrdinal = 1,
@@ -1281,9 +1281,9 @@ public sealed record AuthorSavedViewOperatorDescriptor(
     IReadOnlyList<AuthorSavedViewFieldKind> FieldKinds,
     AuthorSavedViewValueKind ValueKind,
     AuthorSavedViewOperatorCardinality Cardinality,
-    AuthorSavedViewNullSemantics NullSemantics,
-    AuthorSavedViewDefaultSemantics DefaultSemantics,
-    AuthorSavedViewCaseSemantics CaseSemantics,
+    AuthorSavedViewNullSemantic NullSemantics,
+    AuthorSavedViewDefaultSemantic DefaultSemantics,
+    AuthorSavedViewCaseSemantic CaseSemantics,
     AuthorSavedViewDateBoundary DateBoundary,
     string PermissionOwner,
     string QueryOwner);

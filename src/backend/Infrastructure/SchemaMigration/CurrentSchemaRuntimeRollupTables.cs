@@ -357,7 +357,7 @@ internal static class CurrentSchemaRuntimeRollupTables
                     REFERENCES article_create_request(owner_admin_principal_id, request_id)
                     ON DELETE RESTRICT,
                 CONSTRAINT ck_article_create_receipt_mode CHECK (
-                    create_mode IN ('blank', 'template')),
+                    create_mode IN ('blank', 'template', 'inbox')),
                 CONSTRAINT ck_article_create_receipt_template_set CHECK (
                     (create_mode = 'template'
                         AND template_id IS NOT NULL
@@ -366,14 +366,16 @@ internal static class CurrentSchemaRuntimeRollupTables
                         AND plan_digest IS NOT NULL
                         AND defaults_digest IS NOT NULL
                         AND reference_digest IS NOT NULL)
-                    OR (create_mode = 'blank'
+                    OR (create_mode IN ('blank', 'inbox')
                         AND template_id IS NULL
                         AND template_version_id IS NULL
                         AND template_version_number IS NULL
                         AND plan_digest IS NULL
                         AND defaults_digest IS NULL
                         AND reference_digest IS NULL)),
-                CONSTRAINT ck_article_create_receipt_draft_only CHECK (status = 'draft'),
+                CONSTRAINT ck_article_create_receipt_draft_only CHECK (
+                    (create_mode IN ('blank', 'template') AND status = 'draft')
+                    OR (create_mode = 'inbox' AND status = 'inbox')),
                 CONSTRAINT ck_article_create_receipt_identity CHECK (
                     article_id > 0 AND draft_id > 0 AND revision_id > 0
                     AND revision_no = 1 AND draft_server_revision >= 1),

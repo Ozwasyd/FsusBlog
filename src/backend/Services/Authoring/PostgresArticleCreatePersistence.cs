@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Text;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -18,8 +19,8 @@ namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
 /// The single canonical article create transaction. Blank and explicit-template creates share
-/// this writer, which atomically persists the full article graph — article (draft only),
-/// body, taxonomy, initial revision + content block, draft row, rights policy and snapshot,
+/// this writer, which atomically persists the full article graph — article (Draft or Inbox),
+/// body, taxonomy, initial revision + content block, draft row, rights policy,
 /// asset references, outbox event, signed audit link, idempotency record, and receipt. Any
 /// failure or cancellation rolls the whole graph back: zero partial writes.
 /// </summary>
@@ -45,6 +46,15 @@ public sealed class PostgresArticleCreatePersistence(
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(payload);
+        ArticleStatus initialStatus = command.Mode == ArticleCreateMode.Inbox ? ArticleStatus.Inbox : ArticleStatus.Draft;
+        ArticleStatusTransitionOperation operation = command.Mode == ArticleCreateMode.Inbox
+            ? ArticleStatusTransitionOperation.CreateInbox : ArticleStatusTransitionOperation.Create;
+        ArticleStatusTransitionValidation? admission = ArticleStatusTransitionPolicy.ValidateTransition(
+            (int)initialStatus, (int)initialStatus, null, DateTime.UtcNow, operation);
+        if (admission.HasValue)
+        {
+            throw new ArticleStatusTransitionValidationException(admission.Value);
+        }
         ArticleCreateReceipt? replayed = await TryReplayAsync(
             command.Actor.AdminPrincipalId, command.RequestId, requestDigest, cancellationToken)
             .ConfigureAwait(false);
@@ -67,7 +77,7 @@ public sealed class PostgresArticleCreatePersistence(
                 CategoryId = payload.CategoryId,
                 CreateTime = now,
                 MetadataUpdatedAt = now,
-                Status = ArticleStatus.Draft,
+                Status = initialStatus,
                 ScheduledPublishAt = null,
                 PublishedAt = null,
                 LastPublishedAt = null,
@@ -155,7 +165,7 @@ public sealed class PostgresArticleCreatePersistence(
                 VALUES (
                     @Owner, @ArticleId, @BaseRevisionId, @DraftKey,
                     @Title, @Summary, NULL, @CategoryId, @TagIds,
-                    @MarkdownContent, NULL, 0, NULL,
+                    @MarkdownContent, NULL, @InitialStatus, NULL,
                     NULL, 1, @Now, @Now)
                 RETURNING id;
                 """,
@@ -168,6 +178,7 @@ public sealed class PostgresArticleCreatePersistence(
                 new SugarParameter("@CategoryId", payload.CategoryId),
                 new SugarParameter("@TagIds", string.Join(',', payload.TagIds.Order())),
                 new SugarParameter("@MarkdownContent", payload.MarkdownContent),
+                new SugarParameter("@InitialStatus", (int)initialStatus),
                 new SugarParameter("@Now", now))
                 .ConfigureAwait(false))
             {
@@ -192,7 +203,7 @@ public sealed class PostgresArticleCreatePersistence(
                     command.Actor.AdminPrincipalId, draftKey, articleId, writes, cancellationToken)
                 .ConfigureAwait(false);
 
-            // Draft-only outbox event: no rights/responsibility/publication snapshot
+            // Editable-only outbox event: no rights/responsibility/publication snapshot
             // coordinates exist until the first publication transition.
             var outbox = new ArticleMutationOutboxEvent
             {
@@ -208,7 +219,7 @@ public sealed class PostgresArticleCreatePersistence(
                 ArticlePublicationId = null,
                 PublicationNo = null,
                 EventType = ArticleMutationEventTypes.Created,
-                PayloadJson = BuildDraftCreateOutboxPayload(articleId, revisionId, payload, now),
+                PayloadJson = BuildEditableCreateOutboxPayload(articleId, revisionId, payload, now, initialStatus),
                 Status = "pending",
                 RetryCount = 0,
                 NextRetryAt = now,
@@ -237,7 +248,7 @@ public sealed class PostgresArticleCreatePersistence(
                         TargetType: "article-create-receipt",
                         TargetId: auditReference.ToString("N"),
                         IsHighValue: true,
-                        ReasonCode: command.Mode == ArticleCreateMode.Template ? "template" : "blank"),
+                        ReasonCode: command.ModeToken),
                     cancellationToken)
                 .ConfigureAwait(false);
             pendingChainIds.Add(auditWrite.ChainId);
@@ -259,7 +270,7 @@ public sealed class PostgresArticleCreatePersistence(
                 receiptId,
                 command.RequestId,
                 command.Actor.AdminPrincipalId,
-                command.Mode == ArticleCreateMode.Template ? "template" : "blank",
+                command.ModeToken,
                 command.TemplateId,
                 command.TemplateVersionId,
                 command.Plan?.VersionNumber,
@@ -276,7 +287,8 @@ public sealed class PostgresArticleCreatePersistence(
                 payload.DefaultsDigest,
                 payload.ReferenceDigest,
                 ContentDigest: ComputeReceiptContentDigest(command, payload, articleId, draftId, revisionId, outbox.EventId),
-                now);
+                now,
+                InitialStatus: ArticleStatusValues.Token((int)initialStatus));
             await db.Ado.ExecuteCommandAsync(
                 """
                 INSERT INTO article_create_receipt(
@@ -292,7 +304,7 @@ public sealed class PostgresArticleCreatePersistence(
                     CAST(@TemplateVersionNumber AS integer), @PlanDigest,
                     @ArticleId, @DraftId, @DraftServerRevision, @RevisionId, @RevisionNo,
                     @OutboxEventId, CAST(@AuditReference AS uuid), @AuditDigest,
-                    @SourceDigest, @DefaultsDigest, @ReferenceDigest, 'draft',
+                    @SourceDigest, @DefaultsDigest, @ReferenceDigest, @InitialStatus,
                     @ContentDigest, @OccurredAtUtc);
                 """,
                 new SugarParameter("@ReceiptId", receipt.ReceiptId),
@@ -314,6 +326,7 @@ public sealed class PostgresArticleCreatePersistence(
                 new SugarParameter("@SourceDigest", receipt.SourceDigest),
                 new SugarParameter("@DefaultsDigest", (object?)receipt.DefaultsDigest ?? DBNull.Value),
                 new SugarParameter("@ReferenceDigest", (object?)receipt.ReferenceDigest ?? DBNull.Value),
+                new SugarParameter("@InitialStatus", receipt.InitialStatus),
                 new SugarParameter("@ContentDigest", receipt.ContentDigest),
                 new SugarParameter("@OccurredAtUtc", receipt.OccurredAtUtc))
                 .ConfigureAwait(false);
@@ -422,7 +435,8 @@ public sealed class PostgresArticleCreatePersistence(
             reader.IsDBNull(17) ? null : reader.GetString(17),
             reader.IsDBNull(18) ? null : reader.GetString(18),
             reader.GetString(20),
-            DateTime.SpecifyKind(reader.GetDateTime(21), DateTimeKind.Utc));
+            DateTime.SpecifyKind(reader.GetDateTime(21), DateTimeKind.Utc),
+            InitialStatus: reader.GetString(19));
     }
 
     public async Task<ArticleCreateVerificationSnapshot?> ReadVerificationSnapshotAsync(
@@ -467,7 +481,8 @@ public sealed class PostgresArticleCreatePersistence(
             reader.IsDBNull(17) ? null : reader.GetString(17),
             reader.IsDBNull(18) ? null : reader.GetString(18),
             reader.GetString(20),
-            DateTime.SpecifyKind(reader.GetDateTime(21), DateTimeKind.Utc));
+            DateTime.SpecifyKind(reader.GetDateTime(21), DateTimeKind.Utc),
+            InitialStatus: reader.GetString(19));
         await reader.DisposeAsync().ConfigureAwait(false);
 
         using DbDataReader articleReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
@@ -493,18 +508,30 @@ public sealed class PostgresArticleCreatePersistence(
 
         using DbDataReader draftReader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            SELECT server_revision, title FROM article_draft WHERE id = @DraftId;
+            SELECT server_revision, title, status, article_id, base_revision_id,
+                   owner_admin_principal_id, draft_key
+            FROM article_draft WHERE id = @DraftId;
             """,
             new SugarParameter("@DraftId", receipt.DraftId))
             .ConfigureAwait(false);
         long? draftRevision = null;
         string? draftTitle = null;
         bool draftPresent = false;
+        int? draftStatus = null;
+        int? draftArticleId = null;
+        long? draftBaseRevisionId = null;
+        long? draftOwner = null;
+        string? draftKey = null;
         if (await draftReader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             draftPresent = true;
             draftRevision = draftReader.GetInt64(0);
             draftTitle = draftReader.GetString(1);
+            draftStatus = draftReader.IsDBNull(2) ? null : draftReader.GetInt32(2);
+            draftArticleId = draftReader.IsDBNull(3) ? null : draftReader.GetInt32(3);
+            draftBaseRevisionId = draftReader.IsDBNull(4) ? null : draftReader.GetInt64(4);
+            draftOwner = draftReader.GetInt64(5);
+            draftKey = draftReader.GetString(6);
         }
         await draftReader.DisposeAsync().ConfigureAwait(false);
 
@@ -553,7 +580,12 @@ public sealed class PostgresArticleCreatePersistence(
             revisionNo,
             assetReferenceCount,
             outboxCount == 1,
-            auditLink);
+            auditLink,
+            draftStatus,
+            draftArticleId,
+            draftBaseRevisionId,
+            draftOwner,
+            draftKey);
     }
 
     private async Task<ArticleTemplateAuditLink?> ReadAuditLinkAsync(
@@ -659,11 +691,12 @@ public sealed class PostgresArticleCreatePersistence(
             payload.DefaultsDigest,
             payload.ReferenceDigest);
 
-    private static string BuildDraftCreateOutboxPayload(
+    private static string BuildEditableCreateOutboxPayload(
         int articleId,
         long revisionId,
         ArticleCreatePayload payload,
-        DateTime occurredAt)
+        DateTime occurredAt,
+        ArticleStatus initialStatus)
         => System.Text.Json.JsonSerializer.Serialize(new
         {
             schemaVersion = ArticleMutationOutboxEnvelopeCodec.CurrentSchemaVersion,
@@ -683,7 +716,7 @@ public sealed class PostgresArticleCreatePersistence(
             {
                 categoryId = payload.CategoryId,
                 tagIds = payload.TagIds,
-                visibility = ArticleMutationVisibility.From(ArticleStatus.Draft)
+                visibility = ArticleMutationVisibility.From(initialStatus)
             }
         }, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
 

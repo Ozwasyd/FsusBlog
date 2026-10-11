@@ -13,6 +13,12 @@ public sealed class ArticleCreateStore(
     IArticleCreatePersistence persistence,
     IArticleTemplateExpansionVerifier expansionVerifier) : IArticleCreateStore
 {
+    public Task<ArticleCreateReceipt> CreateInboxAsync(
+        ArticleTemplateActor actor,
+        Guid requestId,
+        CancellationToken cancellationToken = default)
+        => CreateAsync(new ArticleCreateCommand(actor, requestId, ArticleCreateMode.Inbox), cancellationToken);
+
     public async Task<ArticleCreateReceipt> CreateAsync(
         ArticleCreateCommand command,
         CancellationToken cancellationToken = default)
@@ -35,7 +41,7 @@ public sealed class ArticleCreateStore(
 
         ArticleCreatePayload payload = command.Mode switch
         {
-            ArticleCreateMode.Blank => new ArticleCreatePayload(
+            ArticleCreateMode.Blank or ArticleCreateMode.Inbox => new ArticleCreatePayload(
                 Title: string.Empty,
                 Summary: null,
                 CategoryId: 0,

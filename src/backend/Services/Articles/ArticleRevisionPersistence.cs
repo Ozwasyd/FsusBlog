@@ -19,7 +19,7 @@ public static class ArticleRevisionPersistence
 {
     public const int MaxInsertAttempts = 3;
 
-    public static async Task<ArticleRevisionWriteResult> SaveAsync(
+    public static Task<ArticleRevisionWriteResult> SaveAsync(
         ISqlSugarClient db,
         int articleId,
         string title,
@@ -35,9 +35,44 @@ public static class ArticleRevisionPersistence
         string? rollbackReason = null,
         ILogger? logger = null,
         CancellationToken cancellationToken = default)
+        => SaveCoreAsync(db, articleId, title, content, summary, coverImageUrl, categoryId,
+            tagIds, diffSummary, createdAt, createdByAdminPrincipalId, rollbackSourceRevisionId,
+            rollbackReason, logger, cancellationToken, allowUntitledEditableRevision: false);
+
+    // Only the lifecycle writer may carry an existing blank editable article through a
+    // status-only command. Ordinary content/publication writes retain the title guard.
+    internal static Task<ArticleRevisionWriteResult> SaveEditableLifecycleAsync(
+        ISqlSugarClient db, int articleId, string title, string content, string? summary,
+        string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, string diffSummary,
+        DateTime createdAt, long createdByAdminPrincipalId, CancellationToken cancellationToken)
+        => SaveCoreAsync(db, articleId, title, content, summary, coverImageUrl, categoryId,
+            tagIds, diffSummary, createdAt, createdByAdminPrincipalId, null, null, null,
+            cancellationToken, allowUntitledEditableRevision: true);
+
+    private static async Task<ArticleRevisionWriteResult> SaveCoreAsync(
+        ISqlSugarClient db,
+        int articleId,
+        string title,
+        string content,
+        string? summary,
+        string? coverImageUrl,
+        int categoryId,
+        IReadOnlyList<int> tagIds,
+        string diffSummary,
+        DateTime createdAt,
+        long createdByAdminPrincipalId,
+        long? rollbackSourceRevisionId,
+        string? rollbackReason,
+        ILogger? logger,
+        CancellationToken cancellationToken,
+        bool allowUntitledEditableRevision)
     {
         ArgumentNullException.ThrowIfNull(db);
-        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentNullException.ThrowIfNull(title);
+        if (!allowUntitledEditableRevision)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        }
         ArgumentNullException.ThrowIfNull(content);
         ArgumentException.ThrowIfNullOrWhiteSpace(diffSummary);
 

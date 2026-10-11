@@ -73,10 +73,10 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
                 using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
                     """
                     SELECT a.id, a.current_revision_id, a.xmin::text AS row_version, a.status,
-                           a.title, c.name AS category_name,
+                           a.title, COALESCE(c.name, '') AS category_name,
                            COALESCE(tags.names, ARRAY[]::text[]) AS tag_names
                     FROM article a
-                    JOIN category c ON c.id = a.categoryid
+                    LEFT JOIN category c ON c.id = a.categoryid
                     LEFT JOIN LATERAL (
                         SELECT array_agg(t.name ORDER BY t.id) AS names
                         FROM article_tag at JOIN tag t ON t.id = at.tagid

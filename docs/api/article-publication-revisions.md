@@ -19,7 +19,9 @@ All writes go through `ArticlePublicationTransitionWriter`. The [API contracts](
 
 The shared `ArticleStatusValues` authority appends `Inbox=5` and the stable token
 `inbox`; persisted Draft/Scheduled/Published/Archived/Deleted values remain 0–4.
-The canonical lifecycle writer exposes `CreateInboxAsync`, `MoveToInboxAsync`
+The existing `ArticleCreateStore.CreateInboxAsync` delegates explicit blank Inbox creation
+to `PostgresArticleCreatePersistence`; ordinary Blank/Template creation remains Draft.
+The canonical lifecycle writer exposes `MoveToInboxAsync`
 (Draft → Inbox), `TriageInboxAsync` (Inbox → Draft), `ArchiveInboxAsync`
 (Inbox → Archived), and `RestoreArchivedAsync`. These commands require an ambient
 caller transaction and current revision CAS, retain active-admin/article-write
@@ -48,7 +50,13 @@ query/projection and downstream executor evidence. This source change does not
 qualify or activate that surface, supply missing slugs, or issue bulk receipts.
 
 The additive `20261011-post-article-inbox-editable-source` migration only defines
-the nullable provenance column. It performs no experiment-row backfill: no
+the nullable provenance column. The separate source definition
+`20261011-post-article-inbox-create-receipt` replaces the exact mode/template/status
+CHECK set to admit only explicit `inbox` + `inbox`; Blank/Template still require
+Draft, and all immutable triggers and identity/digest constraints remain unchanged.
+This CHECK replacement is not registered or admitted as Expand: its controlled
+Contract release/retention/backup coordinates remain an explicit blocker. The
+current-schema table source records the target CHECK set, never applied-state evidence. It performs no experiment-row backfill: no
 mechanically proven source-marker inventory exists in this source candidate.
 No Draft is inferred from title, time, tags or content. The current draft reader
 rejects explicit unknown values through the shared projection; omitted status
@@ -61,11 +69,39 @@ or disabling affected authoring access; never rewrite those rows to Draft to
 make an old reader pass. The added column must precede compatible writer rollout.
 Migration execution and provider/backup-restore qualification remain separate.
 
-The existing lifecycle create path supplies article/revision/snapshot identity;
-the independent `PostgresArticleCreatePersistence` currently supplies the formal
-Blank/Template draft/document identity. Its convergence with CreateInbox is still
-required before claiming the complete product create contract. A lifecycle result
-alone is not a draft/document creation receipt or permission/site qualification.
+Inbox creation now uses the existing full ArticleCreate transaction, including actual
+Article/Draft/Revision/content-block IDs, draft owner/base revision/server revision,
+asset ledgers, nonpublic outbox, signed audit, exact-once request and immutable
+receipt. Create mode values 0/1 remain unchanged and explicit Inbox appends 2;
+its request digest cannot replay a Blank request. Receipt replay reads the stored
+initial status rather than deriving it, and verification checks the Inbox draft's
+actual owner/article/base revision/key/status binding. This source is not a durable
+receipt or database qualification. The earlier article/revision-only Inbox creation
+entry was removed; no second creation writer was added.
+
+Document identity continues to belong to the existing editor/workspace authority
+(`Write.vue` workspace identity and `articleDocumentContextAuthority`). The backend
+create ledger has no independent DocumentId column or document row. It does not
+invent a DocumentId or claim that backend creation alone binds a current document
+context. That composition remains owned by the existing document authority.
+
+Explicit editable commands retain blank titles/category 0 and absent responsibility
+snapshots from canonical blank creation. They create the next revision through the
+existing revision owner, preserve available rights/responsibility facts and leave
+missing responsibility missing. Ordinary content/publication paths retain their
+existing validation and prepublish obligations.
+
+`PrepareEditableTransitionAsync` locks and checks the actual article/revision,
+active actor/write permission, exact transition/provenance, current source admission
+and asset resolution without business writes. Its opaque plan exposes real before
+coordinates/digest and stable operation/transition identity. Commit is allowed only
+in the original caller transaction, reuses the sole writer, rechecks authority/CAS
+and produces its actual revision/outbox/signed-audit result; neither method commits
+per item. This is a single-article prepare boundary, not a complete bulk admission.
+Current site/policy admission, exact draft/document context, full frozen-set and
+side-effect feasibility composition with the downstream executor remain unproven;
+no bulk readiness or permission/site receipt is fabricated. All rollout gates remain
+closed and DB/native/race/backup-restore/security/receipt qualification is UNRUN.
 
 ## Historical packages and rollback
 
