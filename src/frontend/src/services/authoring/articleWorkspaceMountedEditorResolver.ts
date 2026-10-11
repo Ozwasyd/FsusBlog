@@ -1,6 +1,6 @@
-import type { MarkdownEditorSessionExpose } from '@ozwasyd/element-plus';
-import type { ArticleDocumentContextRef, ArticleDocumentIdentity } from './openArticleDocumentRegistry';
 import type { ArticleWorkspaceMountedEditorResolver } from './fsusUiEditorSessionFactory';
+import type { ArticleDocumentContextRef, ArticleDocumentIdentity } from './openArticleDocumentRegistry';
+import type { MarkdownEditorSessionExpose } from '@ozwasyd/element-plus';
 
 /** Read the original Writer's retained mounts and document owner; do not echo router entries. */
 export interface ArticleWorkspaceMountedEditorSource {
@@ -35,9 +35,12 @@ export function createArticleWorkspaceMountedEditorResolver(
             throw new Error('article-workspace-mounted-editor-document-owner-mismatch');
         }
         const currentOwner = source.readDocumentBinding(sessionRef);
+        if (!currentOwner)
+        {
+            throw new Error('article-workspace-mounted-editor-binding-changed');
+        }
         if (source.readMountedEditor(sessionRef) !== editor
             || editor.getSession(sessionRef) !== session
-            || !currentOwner
             || currentOwner.identity.articleId !== identity.articleId
             || currentOwner.identity.draftId !== identity.draftId
             || currentOwner.identity.documentId !== identity.documentId
