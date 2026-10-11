@@ -1042,3 +1042,24 @@ export interface UploadCompleteViewModel {
     mimeType: string;
     totalBytes: number;
 }
+
+/** Current session-authorized facts and bytes. Does not authorize article/Vault operations. */
+export interface UploadAssetPreviewViewModel {
+    schema: 'fsusblog.upload-asset-preview.v1';
+    uploadId: string;
+    assetId: string;
+    publicUrl: string;
+    mimeType: string;
+    extension: string;
+    sizeBytes: number;
+    width: number;
+    height: number;
+    sha256: string;
+    assetVersionSha256: string;
+    referenceLedgerSha256: string;
+    referenceRowCount: number;
+    bytes: Uint8Array;
+}
+
+/** Current session-authorized facts without image bytes; grants no reference operation receipt. */
+export type UploadAssetFactsViewModel = Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'> & { schema: 'fsusblog.upload-asset-facts.v1'; };

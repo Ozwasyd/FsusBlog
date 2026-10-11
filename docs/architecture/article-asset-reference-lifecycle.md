@@ -44,6 +44,14 @@ rights and bind the actual plan, operation and revision through their canonical
 authority. The observation grants no rights, seals no caller-supplied plan and
 does not authorize historical re-use after its observed versions change.
 
+The original frontend producer models `UploadAssetPreviewViewModel` and
+`UploadAssetFactsViewModel` live in `src/frontend/src/contracts/binaryApi.ts`.
+They declare the closed observation data decoded by the upload adapter; the
+facts model omits image bytes. Neither model is a verified intent, article right
+or reference receipt. Frame allocation, decoder registration and endpoint-route
+projection remain separate canonical producer joins; restoring these type
+declarations does not activate a missing endpoint or qualify those joins.
+
 ## Delete and cleanup protocol
 
 Permanent article deletion and trash clearing load affected AssetIds from `content_asset_reference` and remove the applicable current article/draft sources inside the article transaction. An AssetId is inserted into `content_asset_cleanup_queue` only when the ledger has no remaining row, with a 24-hour grace period. Restoring any source reference cancels that queue row and returns the asset to `active`.
