@@ -2150,7 +2150,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             return null;
         }
         const retained = retainedPrimaryBinding.value?.inspect();
-        if (retained && (retained.registry.state !== 'live' || retained.invalidationFailed
+        if (retained && (retained.admissionClosed || retained.registry.state !== 'live' || retained.invalidationFailed
             || retained.context.contextDigest !== document.contextDigest || !retained.registryRevisionMatchesDocument))
         {
             return null;
@@ -3854,7 +3854,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         const observation = retained.inspect();
         if (!active || !writerScope.active || retainedPrimaryBinding.value !== retained
             || retained.adapter !== articleDocumentContextAdapter || observation.registry.state !== 'live'
-            || observation.invalidationFailed || !articleDocumentContextAdapter.isCurrentContext(observation.context)
+            || observation.admissionClosed || observation.invalidationFailed || !articleDocumentContextAdapter.isCurrentContext(observation.context)
             || (requirePublication && !observation.registryRevisionMatchesDocument))
         {
             throw new Error('article-writer-retained-primary-unavailable');
