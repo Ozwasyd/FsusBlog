@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -104,6 +105,84 @@ export function resolveLocalFsusUiApplicationProject({ repositoryRoot, env = pro
         return null;
     }
     return prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication: true });
+}
+
+/** Resolve imported SFCs with the same compiler and Vue language plugin as vue-tsc. */
+export function createLocalFsusUiEslintParser({ repositoryRoot, project, parser })
+{
+    const require = createRequire(path.join(repositoryRoot, 'src/frontend/package.json'));
+    const ts = require('typescript');
+    const core = require('@vue/language-core');
+    const { proxyCreateProgram } = require('@volar/typescript/lib/node/proxyCreateProgram');
+    const { vueOptions } = core.createParsedCommandLine(ts, ts.sys, project.replaceAll(path.sep, '/'));
+    const parsed = ts.parseJsonSourceFileConfigFileContent(
+        ts.readJsonConfigFile(project, ts.sys.readFile), ts.sys, path.dirname(project), {}, project,
+        undefined, core.getAllExtensions(vueOptions).map((extension) => ({
+            extension, isMixedContent: true, scriptKind: ts.ScriptKind.Deferred
+        }))
+    );
+    if (parsed.errors.length > 0)
+    {
+        throw new Error(ts.formatDiagnosticsWithColorAndContext(parsed.errors, {
+            getCurrentDirectory: () => path.dirname(project),
+            getCanonicalFileName: (file) => file,
+            getNewLine: () => '\n'
+        }));
+    }
+    // vue-tsc registers SFC extensions in tsc. Its compiler-host API instead needs
+    // this flag so unimported SFC roots remain in the complete application program.
+    parsed.options.allowNonTsExtensions = true;
+    const host = ts.createCompilerHost(parsed.options, true);
+    const readSourceFile = host.getSourceFile.bind(host);
+    const sourceFiles = new Map();
+    let lintFile = null;
+    let lintCode = null;
+    let program;
+    host.getSourceFile = (file, languageVersion, onError, shouldCreateNewSourceFile) =>
+    {
+        if (file === lintFile)
+        {
+            return ts.createSourceFile(file, lintCode, languageVersion, true);
+        }
+        if (!sourceFiles.has(file) || shouldCreateNewSourceFile)
+        {
+            sourceFiles.set(file, readSourceFile(file, languageVersion, onError, shouldCreateNewSourceFile));
+        }
+        return sourceFiles.get(file);
+    };
+    const createProgram = proxyCreateProgram(ts, ts.createProgram, () =>
+    {
+        const plugin = core.createVueLanguagePlugin(ts, parsed.options, vueOptions, (id) => id);
+        return [{
+            ...plugin,
+            getLanguageId: (id) => id === lintFile ? 'typescript' : plugin.getLanguageId(id)
+        }];
+    });
+    return {
+        ...parser,
+        parseForESLint(code, options)
+        {
+            // vue-eslint-parser also requests syntax-only parses for setup/style fragments.
+            if (!options.project)
+            {
+                return parser.parseForESLint(code, options);
+            }
+            // Keep its original script AST/locations for linting. Only this script text is
+            // supplied by the parser; every imported SFC uses real Vue compiler output.
+            lintFile = options.filePath;
+            lintCode = code;
+            // A fixer can supply newer source before ESLint writes it to disk.
+            sourceFiles.delete(lintFile);
+            program = createProgram({ rootNames: parsed.fileNames, options: parsed.options, host, oldProgram: program });
+            return parser.parseForESLint(code, {
+                ...options,
+                project: false,
+                projectService: false,
+                programs: [program],
+                disallowAutomaticSingleRunInference: true
+            });
+        }
+    };
 }
 
 function main(args)
