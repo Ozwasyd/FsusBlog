@@ -20,15 +20,7 @@
                 "src/backend/Services/Authoring/AuthorSavedViewPropertyInputAdapter.cs",
                 "src/backend/Services/Authoring/AuthorSearchPropertyValueProjection.cs",
                 "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
-                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
-                "tests/backend/Unit/AuthorFullTextSearchContractsTests.cs",
-                "tests/backend/Unit/AuthorFullTextSearchCursorTests.cs",
-                "tests/backend/Unit/AuthorFullTextSearchIndexTests.cs",
-                "tests/backend/Unit/AuthorFullTextSearchQueryGrammarTests.cs",
-                "tests/backend/Unit/AuthorFullTextSearchTokenizerTests.cs",
-                "tests/backend/Unit/AuthorFullTextSearchVerifierTests.cs",
-                "tests/backend/Unit/AuthorSavedViewExecutionPreparationTests.cs",
-                "tests/backend/Unit/AuthorSearchPropertyValueProjectionTests.cs"
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs"
             ],
             "reason": "The unchanged trusted environment-variable registry covers these C# paths. This candidate consumes exact author-search/typed-value/preparation source and adds one pure Saved View input adapter; it introduces no environment keys, changes no naming policy and preserves all existing external names. Complete inherited path coverage is recorded without editing the upstream naming manifest."
         }
