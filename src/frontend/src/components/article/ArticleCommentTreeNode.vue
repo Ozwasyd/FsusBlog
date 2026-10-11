@@ -110,7 +110,7 @@
                 :owned-comment-ids="ownedCommentIds"
                 :loading-replies="loadingReplies"
                 @reply="$emit('reply', $event)"
-                @load-more="$emit('load-more', $event)"
+                @load-more="$emit('loadMore', $event)"
                 @edit="$emit('edit', $event)"
                 @delete="$emit('delete', $event)"
             />
@@ -119,7 +119,7 @@
                 type="button"
                 class="fsus-comment-tree-node__action fsus-comment-tree-node__load-more"
                 :disabled="loadingReplies[node.id] === true"
-                @click="$emit('load-more', node.id)"
+                @click="$emit('loadMore', node.id)"
             >
                 {{ loadingReplies[node.id] === true ? '加载中…' : '加载本分支更多回复' }}
             </button>
