@@ -28,6 +28,7 @@
                 :group="activeGroup"
                 :presentation="presentation"
                 :current-article-id="currentArticleId"
+                :active="expanded"
                 @group="selectGroup"
                 @page="emit('page', activeGroup, $event)"
                 @open-article="emit('openArticle', $event)"
@@ -39,6 +40,7 @@
             v-else-if="expanded"
             class="article-library-rail__panel"
             aria-label="文章库"
+            @keydown.esc.stop.prevent="close"
         >
             <ElButton
                 text
@@ -49,6 +51,7 @@
                 :group="activeGroup"
                 :presentation="presentation"
                 :current-article-id="currentArticleId"
+                :active="expanded"
                 @group="selectGroup"
                 @page="emit('page', activeGroup, $event)"
                 @open-article="emit('openArticle', $event)"

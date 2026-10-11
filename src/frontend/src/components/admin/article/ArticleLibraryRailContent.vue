@@ -3,6 +3,7 @@
         class="article-library-content"
         aria-label="文章库"
         @keydown.esc.stop.prevent="emit('close')"
+        @focusout="pendingActionFocus = null"
     >
         <ul
             class="article-library-content__groups"
@@ -70,7 +71,9 @@
         </ul>
         <ElButton
             v-if="currentArticleId !== null && page && !currentOnPage"
+            ref="revealButton"
             text
+            data-library-action="reveal-current"
             @click="emit('revealCurrent', currentArticleId)"
         >定位当前文章</ElButton>
         <div
@@ -79,12 +82,16 @@
             aria-label="文章分页"
         >
             <ElButton
+                ref="previousButton"
                 text
+                data-library-action="previous"
                 :disabled="!page.hasPrevious"
                 @click="emit('page', 'previous')"
             >上一页</ElButton>
             <ElButton
+                ref="nextButton"
                 text
+                data-library-action="next"
                 :disabled="!page.hasNext"
                 @click="emit('page', 'next')"
             >下一页</ElButton>
@@ -93,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { FsusUiButton as ElButton } from '@/fsusui/button';
 import { TimeUtils } from '@/utils/time';
@@ -115,6 +122,7 @@ const props = defineProps<{
     group: ArticleLibraryGroup;
     presentation: ArticleLibraryPresentation;
     currentArticleId: number | null;
+    active: boolean;
 }>();
 const emit = defineEmits<{
     group: [group: ArticleLibraryGroup];
@@ -126,7 +134,13 @@ const emit = defineEmits<{
 
 const rowButtons = ref<ArticleLibraryButtonHandle[]>([]);
 const groupButtons = ref<ArticleLibraryButtonHandle[]>([]);
+const previousButton = ref<ArticleLibraryButtonHandle>();
+const nextButton = ref<ArticleLibraryButtonHandle>();
+const revealButton = ref<ArticleLibraryButtonHandle>();
 const focusedId = ref<number | null>(null);
+type ArticleLibraryAction = 'previous' | 'next' | 'reveal-current';
+let pendingActionFocus: { action: ArticleLibraryAction; anchor: HTMLButtonElement; group: ArticleLibraryGroup; } | null = null;
+let mountedActive = true;
 const page = computed(() => props.presentation.group === props.group
     && isArticleLibraryPageValid(props.presentation) && props.presentation.state === 'ready'
     ? props.presentation : null);
@@ -218,19 +232,75 @@ function handleGroupKeydown(event: KeyboardEvent, group: ArticleLibraryGroup): v
     groupButtons.value.find((item) => item.ref?.dataset.libraryGroup === nextGroup?.key)?.ref?.focus();
 }
 
-watch([entries, () => props.currentArticleId], async () =>
+function actionButton(action: ArticleLibraryAction): ArticleLibraryButtonHandle | undefined
 {
-    const hadRowFocus = typeof document !== 'undefined'
-        && rowButtons.value.some((item) => item.ref === document.activeElement);
+    switch (action)
+    {
+        case 'previous': return page.value?.hasPrevious ? previousButton.value : undefined;
+        case 'next': return page.value?.hasNext ? nextButton.value : undefined;
+        case 'reveal-current': return page.value && props.currentArticleId !== null && !currentOnPage.value
+            ? revealButton.value : undefined;
+    }
+}
+
+watch([page, () => props.currentArticleId, () => props.active, () => props.group], async () =>
+{
+    if (!props.active)
+    {
+        pendingActionFocus = null;
+        return;
+    }
+    if (pendingActionFocus?.group !== props.group)
+    {
+        pendingActionFocus = null;
+    }
+    const activeElement = typeof document === 'undefined' ? null : document.activeElement;
+    const hadRowFocus = rowButtons.value.some((item) => item.ref === activeElement);
+    // Capture exposed refs before rendering removes or disables a focused page/reveal action.
+    const actionOrigin = previousButton.value?.ref === activeElement ? 'previous'
+        : nextButton.value?.ref === activeElement ? 'next'
+            : revealButton.value?.ref === activeElement ? 'reveal-current' : null;
+    const losesActionFocus = actionOrigin !== null && !actionButton(actionOrigin);
     focusedId.value = currentOnPage.value ? props.currentArticleId : entries.value[0]?.id ?? null;
     await nextTick();
-    if (hadRowFocus && focusedId.value !== null)
+    if (!mountedActive || !props.active)
+    {
+        pendingActionFocus = null;
+        return;
+    }
+    if (pendingActionFocus && page.value)
+    {
+        const pending = pendingActionFocus;
+        pendingActionFocus = null;
+        if (document.activeElement === pending.anchor && pending.group === props.group)
+        {
+            const button = actionButton(pending.action)?.ref;
+            if (button)
+            {
+                button.focus();
+            }
+            else
+            {
+                focusInitial();
+            }
+            return;
+        }
+    }
+    const shouldRestoreFocus = (hadRowFocus || losesActionFocus)
+        && typeof document !== 'undefined'
+        && (document.activeElement === activeElement || document.activeElement === document.body);
+    if (shouldRestoreFocus && focusedId.value !== null)
     {
         focusArticle(focusedId.value);
     }
-    else if (hadRowFocus)
+    else if (shouldRestoreFocus)
     {
         focusInitial();
+        const anchor = groupButtons.value.find((item) => item.ref?.dataset.libraryGroup === props.group)?.ref;
+        if (!page.value && actionOrigin && anchor && document.activeElement === anchor)
+        {
+            pendingActionFocus = { action: actionOrigin, anchor, group: props.group };
+        }
     }
     else if (currentOnPage.value)
     {
@@ -242,6 +312,10 @@ watch([entries, () => props.currentArticleId], async () =>
 /** Drawer lazy content calls this after open; desktop opening calls it after mount. */
 function focusInitial(): void
 {
+    if (!props.active || !mountedActive)
+    {
+        return;
+    }
     if (focusedId.value !== null)
     {
         focusArticle(focusedId.value);
@@ -251,6 +325,12 @@ function focusInitial(): void
         groupButtons.value.find((item) => item.ref?.dataset.libraryGroup === props.group)?.ref?.focus();
     }
 }
+
+onBeforeUnmount(() =>
+{
+    mountedActive = false;
+    pendingActionFocus = null;
+});
 
 defineExpose({ focusInitial } satisfies ArticleLibraryContentHandle);
 </script>
