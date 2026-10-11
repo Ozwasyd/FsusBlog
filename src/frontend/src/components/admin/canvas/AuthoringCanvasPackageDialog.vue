@@ -115,7 +115,7 @@
                     <ElButton
                         native-type="button"
                         class="btn primary"
-                        :disabled="!canExecuteImport"
+                        :disabled="!canExecutePlannedImport"
                         @click="handleExecuteImport"
                     >
                         {{ t('admin.canvas.importUnavailable') }}
@@ -128,7 +128,7 @@
 
 <script setup lang="ts">
 import { ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import { useI18nText } from '@/composables/useI18nText';
@@ -152,7 +152,11 @@ const { t } = useI18nText();
 const importInput = ref('');
 const importError = ref<string | null>(null);
 const importPlan = ref<AuthoringCanvasImportPlan | null>(null);
-const unresolvedDecisions = ref<Record<string, UnresolvedDecisionAction>>({});
+const unresolvedDecisions = ref<Record<string, UnresolvedDecisionAction | null>>({});
+const canExecutePlannedImport = computed(() => props.canExecuteImport && importPlan.value !== null
+    && importPlan.value.reResolutionItems.every(item => item.status === 'resolved'
+        || unresolvedDecisions.value[item.nodeId] === 'leave-broken'
+        || unresolvedDecisions.value[item.nodeId] === 'remove-node'));
 let planGeneration = 0;
 watch(() => [props.visible, props.mode], () =>
 {
@@ -185,13 +189,13 @@ async function handleValidateAndPlan()
             return;
         }
         importPlan.value = plan;
-        // Default decisions for unresolved items
-        const decisions: Record<string, UnresolvedDecisionAction> = {};
+        // Unresolved references require an explicit user choice.
+        const decisions: Record<string, UnresolvedDecisionAction | null> = {};
         for (const item of plan.reResolutionItems)
         {
             if (item.status !== 'resolved')
             {
-                decisions[item.nodeId] = 'leave-broken';
+                decisions[item.nodeId] = null;
             }
         }
         unresolvedDecisions.value = decisions;
@@ -203,7 +207,7 @@ async function handleValidateAndPlan()
 }
 function handleExecuteImport()
 {
-    if (!importPlan.value || !props.canExecuteImport)
+    if (!importPlan.value || !canExecutePlannedImport.value)
     {
         return;
     }
@@ -212,7 +216,10 @@ function handleExecuteImport()
     }> = {};
     for (const [nodeId, action] of Object.entries(unresolvedDecisions.value))
     {
-        decisions[nodeId] = { action };
+        if (action !== null)
+        {
+            decisions[nodeId] = { action };
+        }
     }
     emit('execute-import', importPlan.value, decisions);
     importPlan.value = null;
