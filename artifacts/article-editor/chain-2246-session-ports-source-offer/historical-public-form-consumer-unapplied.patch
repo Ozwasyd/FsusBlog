@@ -10,7 +10,7 @@
      handleCoverUpload,
 @@ -1232,8 +1233,15 @@
      }
- 
+
      await nextTick();
 -    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
 -    focusFirstArticleValidationError(firstErrorField?.$el);
@@ -24,5 +24,5 @@
 +    );
 +    focusFirstArticleValidationError(invalidFieldRoot);
  };
- 
+
  const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>

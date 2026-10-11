@@ -1,0 +1,381 @@
+{
+  "kind": "Complete enumerated consumer source dependency offer; integration BLOCKED at canonical shared contracts and exact intended UI; not a qualified runnable closure",
+  "targetSha": "f39140f8ecccd4cbe2193c1a2525b6bfb5b6c362",
+  "sourceSha": "5b6b905a9458caec2fde8c8046c7357fa75d71f5",
+  "sourcePriorCanonicalUploadCommit": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+  "sourcePostimages": [
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+      "targetBlob": "cc721848ccf442e27af6f196379282ba4de3713b",
+      "sourceBlob": "34a10e91b3addde0c27ec585966de1e9a9aaaa01",
+      "postimageSha256": "4ca2fc35b049aac8582f95d502a5f5428c240f4f8ee10b925b0df41a21f3b7a1",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/components/ui/MarkdownTextEditor.vue",
+      "targetBlob": "d1afbf6a1dc053820a2344586463929c5cc22643",
+      "sourceBlob": "84bf1661e4092b8f49854e7ecb7c61993c8addf1",
+      "postimageSha256": "6ed06348e7b7aa30bc9fe2f41abcb7227a88988245bcc113eea1db77bcbdfd55",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/components/ui/MarkdownEditorAdapter.vue",
+      "targetBlob": "35b144e13e1b3d9d5217998a113c13f1b494393b",
+      "sourceBlob": "413d91568d0b3aacbead28e60035429732515420",
+      "postimageSha256": "960086283bf810201fa5fcaed9d7f2f8987ee976bbbdc1cc15df5fd40745281f",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "targetBlob": "10f83cc16aaa0770bb95a9c15462b8dda9a02c01",
+      "sourceBlob": "9bea980196cfd0907912d642af04ef2701a4b265",
+      "postimageSha256": "bbf9485cccb786c43bd7eff47017645bdb1106ce11a8afa346d9a5a80aa3e0df",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/fsusui/articlePositionMaps.ts",
+      "targetBlob": null,
+      "sourceBlob": "54eac37845267ba3a693e7457656ee7e9c7cdfca",
+      "postimageSha256": "ae441b7fba6a1337ae21f4a4ff7b703107839308a2c94f404ebfca3ebfe7fa33",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "targetBlob": "734104e53f9efa1dc4342277bfd6e5e9e6794c04",
+      "sourceBlob": "04d25daab8bfba75181bcfddee6602e44bfcc49f",
+      "postimageSha256": "52e09e95e8b2dbc19ba15e67c73fe891e72c879a15aa32e5675b245fc15d6602",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts",
+      "targetBlob": null,
+      "sourceBlob": "5f7b1f7bc57c0c6721412e3b8ef8b317e6f44a45",
+      "postimageSha256": "f8ef5bc56641824fb1e3382cfa61b3ae1d04dabda77e43304d87b63f6648c72e",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "targetBlob": null,
+      "sourceBlob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "postimageSha256": "71fa46399352fb4854ee5db21b5ffaec46a489f70fa439c19cc432fb111ad76b",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/fsusui/articleAttachments.ts",
+      "targetBlob": null,
+      "sourceBlob": "ccdc3c054ef029d72519eac4c6ee85d4c0ca93bc",
+      "postimageSha256": "7f72f28707066e0f57714903f969a6e371444236edd1dbbefe1b42af228f26e5",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAnchorContext.ts",
+      "targetBlob": null,
+      "sourceBlob": "b9f3e7f06d78b7569cc87f8fa243f97376559f2d",
+      "postimageSha256": "8c2d682677ed570bf80072efc3dd2a98a788b93394038e31ec9964d0721d6532",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentBusinessIntentReader.ts",
+      "targetBlob": null,
+      "sourceBlob": "8d610dfaf775a82a454ad02197948a016137cecd",
+      "postimageSha256": "f9022d9428e0af601e88dfc0666f6cee95a35547b52996d91cbc44b5d0f4ed76",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+      "targetBlob": null,
+      "sourceBlob": "ad71f632573a3b8e49d656759e2c69e02c4d8441",
+      "postimageSha256": "12368b577a4cb0acbd03043e7ec72df386280407724757ed047e228e8e4ad8e3",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+      "targetBlob": null,
+      "sourceBlob": "d69ac837c70ebe97cae5061b9403aef631498606",
+      "postimageSha256": "6d91ab7771ec312f6960d658ca724d09e437c76bb73d5eca01ac93d542bcea1e",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+      "targetBlob": null,
+      "sourceBlob": "17a87141339580777f597bc99754c26d109576ea",
+      "postimageSha256": "4551f8721a7396e0cf4f9eef2747bd3589e578dc774e74828677c97a4b417218",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+      "targetBlob": null,
+      "sourceBlob": "30a37cf0b430e577b0f3edc8cca168a167cb2c75",
+      "postimageSha256": "76d7a4c8ea174bef05c8efb10fa223ec0ae8b232d078636ccfed5fe00c818330",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorSearchRuntime.ts",
+      "targetBlob": null,
+      "sourceBlob": "06f11d47206b5a3718df862be10563e83bfde4a9",
+      "postimageSha256": "b32205da7467b948c86eedec20b244e6acf3efa7aee0207b5e314a9a5bc7f896",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorSurface.ts",
+      "targetBlob": null,
+      "sourceBlob": "23c8b378d682637c9dca43483176c83066ab3be7",
+      "postimageSha256": "b5717243e709ea97a807733f6ab3f73c4cf870a4e7005e05345e1aafd09ffcf7",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorSurfaceRuntime.ts",
+      "targetBlob": null,
+      "sourceBlob": "307457046942051eb82b065e26c031216758b19a",
+      "postimageSha256": "ce4e2ce6370cd678b0533ba1f76197a7f7e90807f85fc9fe4a7282dc09e9b95a",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "targetBlob": null,
+      "sourceBlob": "aa9900dd2c607b62bf47ee24a1d23b831a00293f",
+      "postimageSha256": "ae6d021ef4e626a9867f9786819a08324da18d170b65efd839d8adbac7596336",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleLiveCapability.ts",
+      "targetBlob": null,
+      "sourceBlob": "528cb0e68a542a12d77c7fccd3ec1a819d8ca38d",
+      "postimageSha256": "3b1f9bbe627509f0caa62f17c18d4ef4fdb6c49d70a3e2f8749606c4dc0d39b2",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articlePreviewAttachments.ts",
+      "targetBlob": null,
+      "sourceBlob": "73a25f8ce549b09b7c721900d0712374dc6362fe",
+      "postimageSha256": "1370b365134d6dfe3e6359878674a152458bc348d8bda75914a1e25d0788966c",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articlePreviewCurrentAuthorities.ts",
+      "targetBlob": null,
+      "sourceBlob": "0d470924746fcaafd051dc64df4312a8984ec031",
+      "postimageSha256": "acc7935e40121e778fb36330633d14c93e2e0b09ae1e23263e41806fa1a846af",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articlePreviewSourceAdmission.ts",
+      "targetBlob": null,
+      "sourceBlob": "1abd4f339f5e93b07f7b5e87511fce4f3dae8368",
+      "postimageSha256": "f65e62668a278de015549791c0f72151a610c57f696ed5b9472482ebd56309ae",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
+      "targetBlob": null,
+      "sourceBlob": "05d02b431d2f93de4ee70d1d3e5179169cf44c34",
+      "postimageSha256": "41e15b03b39c8983d531fefdcd81b567a3ac0d49dba3ef69dd36103339a0b62f",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderRefreshPolicy.ts",
+      "targetBlob": null,
+      "sourceBlob": "1383a4c29dca48f58c1f1e2aceaed5252d49b0c4",
+      "postimageSha256": "e5c3ecc82681b09f0dde66028cca735641eddcba51102df692deea4e53a91865",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleSearchRevealPresentation.ts",
+      "targetBlob": null,
+      "sourceBlob": "28aa96f75cc9e62822593b3eebd351718753521e",
+      "postimageSha256": "bca22431c77b855b7ac141f5a9b7527822748a9f615aa3a14020adc2bcb030f5",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/view-contracts/articleDraftResponsibility.ts",
+      "targetBlob": null,
+      "sourceBlob": "b3ec18f10b61039438f6fb487b41db8423723ddb",
+      "postimageSha256": "e0b13636ff80d6429707efd95cfd2636798fa3591c637c104e6c51fecf47a1ca",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/composables/articlePreviewGeneration.ts",
+      "targetBlob": "70c0c96e841dbdeee3a3ca332eeb67142e8c60a0",
+      "sourceBlob": "dc6b82bd4a46c9226e589493c1238303fec842a5",
+      "postimageSha256": "c00e6b15a8c4150155a393f3a63c3b122d6b971fa4492bc2f2cd23f0c77f33a7",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/fsusui/markdown.ts",
+      "targetBlob": "531c81d4379f6273ff07282eaf46dc539afeb98b",
+      "sourceBlob": "6e6badd98f0d0a9d6a17bbeb1296f6d869f0e037",
+      "postimageSha256": "ae13ba275b4c32c26fa8eecb9eab8f1c21e8e7468b4f4f46221c4367763bd289",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "targetBlob": "97f4056b52a4d6ed6958038898b82c53160bf9f3",
+      "sourceBlob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "postimageSha256": "bf3d61d97578206e0fa9273dcbc5cd72010c3713f5e708e51df04a8a4837a080",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "targetBlob": "829f0a98b74fa8515c0af6173748eea27fd2313c",
+      "sourceBlob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb",
+      "postimageSha256": "1881e7ec6dcc2ab5618599bf5552602349bec03c53e1a5fe83a3aaf03c84c944",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "targetBlob": "6c79721eee32a1c86cc816cd547f4a2a9643ab29",
+      "sourceBlob": "ebe292ab80707afd97ccdc6b6eb1c8271c89d3a2",
+      "postimageSha256": "1d6bec6a812447d0020339724f11287348a4573317528a30e839d5e1bf351144",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "targetBlob": "347e5c8dae647276ddaba3466688d004d8d3d4c1",
+      "sourceBlob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+      "postimageSha256": "343481a69ff4112a5d78fa2b97592b5809722e580e66f00b73d7e8d804b138f9",
+      "postimageMatchesSourceCommit": true,
+      "purpose": "Canonical owner source; no substitute port"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/index.ts",
+      "targetBlob": "28787f83203663d5fa1761e4cc8df74236591d18",
+      "sourceBlob": "0310fb13b85a4cafcce1fc0df19310d52d94864c",
+      "postimageSha256": "52586c25860006446cfa5051b9af17510abffbfb99f68226764ba0ed3d04e670",
+      "postimageMatchesSourceCommit": false,
+      "purpose": "Add only original preview export to retained target index"
+    }
+  ],
+  "preservedOwners": [
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "blob": "cc1e76ae2f612101dfb60718ba79e56830a700d1",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "blob": "fb6e62729a44e7eeb00bd315bfe92d460f59256c",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringSessionHost.ts",
+      "blob": "3a59ddfd6763130b3e637eddc91b3f614def65b0",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts",
+      "blob": "27cb10f09a7328ff867fceba0997a88a5651204e",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts",
+      "blob": "425f2221d1da49ddee4e9d44314ce190205a62c6",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "blob": "7d70543f9593cd2d3b29f504bea94107d43cd26c",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts",
+      "blob": "8569eb9c798e2bb1a87df06d8289765e040eb032",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceGeometryPolicy.ts",
+      "blob": "4fe2eff81d628eb67470ff0887de1ddfdd2f54a8",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceGroupLayoutPorts.ts",
+      "blob": "0001382635fddeba0fcba1c3151f4c333b24adcc",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceRatioOwner.ts",
+      "blob": "16261cbd3d0cf1b9ab519eec18b934e29e87c288",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts",
+      "blob": "f68a886b6aa03a359befa41ac9a6e7b485fea437",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts",
+      "blob": "7b78e7cdb9b7bf299f83af96937b132d1d8cecaa",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
+      "blob": "99e1391a1c32bb751b5fdefac219fd482ebf6de0",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotMigration.ts",
+      "blob": "95f6b686cb4f360d99b84f50576cf73c4085e364",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRestore.ts",
+      "blob": "1cb705df24b7c05e4883cc026cb6082510ead498",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotStatus.ts",
+      "blob": "da0ba0e9957b3f7cbd477f195d6a8d7cf1e772f1",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts",
+      "blob": "06711151e0f1ed27d0331b9495246d017f71a31b",
+      "unchanged": true
+    }
+  ],
+  "sharedReferenceDoNotApplyWholesale": [
+    "src/frontend/src/contracts/binaryApi.ts",
+    "src/frontend/src/composition/binaryDecoderRegistry.ts",
+    "src/frontend/src/generated/fsusBinaryRoutes.ts",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "src/shared/Contracts/Validation/fsusblog.openapi.json",
+    "src/shared/Contracts/Validation/aeds-protocol.json"
+  ],
+  "testsListMountNative": "NOT RUN / HELD",
+  "installerAdded": false,
+  "wholeAncestorHistoryIncluded": false,
+  "registryAssociationCorrection": "8177888765dfdd9bed132e29abfd4f0317d1c6fd",
+  "erasableConstructorCorrection": "5b6b905a9458caec2fde8c8046c7357fa75d71f5",
+  "sourcePatchSha256": "6a60b8af2c9c272647ebbbbf48ab7a1994f0a3121468c8d503d20dc735383485"
+}

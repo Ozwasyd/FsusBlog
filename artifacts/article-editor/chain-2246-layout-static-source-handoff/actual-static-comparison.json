@@ -1,0 +1,214 @@
+{
+  "kind": "Actual original compile and strict-style comparison with exact canonical configuration source overlays",
+  "baselineSourceSha": "9595e4edabb482768fcc93c844f87301f55fc75d",
+  "initialSourceSha": "c8087a02ca1ffa8d809382122aa69530d4bc51ef",
+  "correctedSourceSha": "5b6b905a9458caec2fde8c8046c7357fa75d71f5",
+  "parserSourceSha": "69992a0769a896434028d2b16776423f31c6c7d0",
+  "uiSourceSha": "8afe8523b35f296a0131951b55b7e466a7a0f486",
+  "node": "24.16.0",
+  "typecheck": {
+    "baseExit": 2,
+    "candidateExit": 2,
+    "baseDiagnostics": 238,
+    "candidateDiagnostics": 229,
+    "orderedDiagnosticsIdentical": false,
+    "newDiagnostics": [],
+    "removedDiagnostics": [
+      "src/services/authoring/articleEditorSurfaceRuntime.ts(34,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleEditorSurfaceRuntime.ts(35,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleEditorSurfaceRuntime.ts(36,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleEditorSurfaceRuntime.ts(37,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleLiveCapability.ts(99,24): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleRenderCache.ts(255,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleRenderCache.ts(257,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleRenderCache.ts(258,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+      "src/services/authoring/articleRenderCache.ts(259,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled."
+    ],
+    "baselineLog": "base-type-before-erasable-correction.log",
+    "candidateLog": "candidate-type.log"
+  },
+  "strictStyle": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseSelectedFiles": 13,
+    "candidateSelectedFiles": 17,
+    "baseFindings": 7,
+    "candidateFindings": 5,
+    "newNormalizedFindings": [],
+    "removedNormalizedFindings": [
+      "[frontend-style] src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts:LINE:COLUMN eslint/import-x/no-duplicates: './articleEditorContinuity' imported multiple times."
+    ],
+    "remaining": [
+      "[frontend-style] src/frontend/src/components/admin/article/ArticleWriteEditor.vue:161:78 eslint/@typescript-eslint/no-redundant-type-constituents: 'MarkdownAttachmentCaptureObservation' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+      "[frontend-style] src/frontend/src/components/ui/MarkdownEditorAdapter.vue:129:78 eslint/@typescript-eslint/no-redundant-type-constituents: 'MarkdownAttachmentCaptureObservation' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+      "[frontend-style] src/frontend/src/components/ui/MarkdownTextEditor.vue:201:78 eslint/@typescript-eslint/no-redundant-type-constituents: 'MarkdownAttachmentCaptureObservation' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+      "[frontend-style] src/frontend/src/views/admin/article/Write.vue:1167:58 eslint/@typescript-eslint/no-redundant-type-constituents: 'MarkdownAttachmentCaptureObservation' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+      "[frontend-style] src/frontend/src/views/admin/article/Write.vue:1169:79 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value."
+    ]
+  },
+  "setupFailuresRetained": [
+    "base/candidate style attempt1 exit1 EISDIR from task-created toolchain root symlink; corrected to ordinary ignored dependency directory",
+    "Before locked UI type-fest setup both type programs exit2 with241 identical diagnostics; after real locked4.41.0 dependency both238",
+    "Initial layout source-check invocation used main cwd; retained as setup attempt and not layout evidence"
+  ],
+  "publicBoundaryFailures": [
+    "MarkdownAttachmentCaptureObservation",
+    "MarkdownAttachmentFileConsumer"
+  ],
+  "requestedIntended06dUi": "Exact complete SHA/evidence pending; not guessed or consumed",
+  "newRegistryControl": "Source written, NOT RUN",
+  "held": [
+    "tests",
+    "listing",
+    "collection",
+    "mount",
+    "native",
+    "browser",
+    "server",
+    "security",
+    "database",
+    "receipt",
+    "business",
+    "geometry"
+  ],
+  "whitespaceCurrentComparisonExit": 0,
+  "registryAssociationCorrectionSha": "8177888765dfdd9bed132e29abfd4f0317d1c6fd",
+  "originalEntryCommands": {
+    "baseType": {
+      "name": "base",
+      "kind": "type",
+      "cwd": "/workspace/FsusBlog-static-base-c808-2246",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "environment": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-static-8afe-2246"
+      },
+      "exitCode": 2,
+      "seconds": 31.362,
+      "log": "/workspace/.tmp/chain2246-static-c808/base-type.log"
+    },
+    "candidateType": {
+      "name": "candidate",
+      "kind": "type",
+      "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "environment": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-static-8afe-2246"
+      },
+      "exitCode": 2,
+      "seconds": 35.788,
+      "log": "/workspace/.tmp/chain2246-static-c808/candidate-type.log",
+      "sourceSha": "5b6b905a9458caec2fde8c8046c7357fa75d71f5",
+      "sourceProjection": "Exact candidate source plus identical canonical699 configuration overlay; corrected owned classes in original source paths"
+    },
+    "baseStyle": {
+      "name": "base",
+      "kind": "style",
+      "cwd": "/workspace/FsusBlog-static-base-c808-2246",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+        "--file",
+        "src/frontend/src/components/ui/MarkdownEditorAdapter.vue",
+        "--file",
+        "src/frontend/src/components/ui/MarkdownTextEditor.vue",
+        "--file",
+        "src/frontend/src/composables/useAdminArticleWrite.ts",
+        "--file",
+        "src/frontend/src/fsusui/articlePositionMaps.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleDocumentContext.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+        "--file",
+        "src/frontend/src/views/admin/article/Write.vue",
+        "--file",
+        "src/frontend/src/public-renderers/pageAssemblies.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleEditorSurfaceRuntime.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleLiveCapability.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleRenderCache.ts"
+      ],
+      "environment": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-static-8afe-2246"
+      },
+      "exitCode": 1,
+      "seconds": 23.11,
+      "log": "/workspace/.tmp/chain2246-static-c808/base-style.log"
+    },
+    "candidateStyle": {
+      "name": "candidate",
+      "kind": "style",
+      "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+        "--file",
+        "src/frontend/src/components/ui/MarkdownEditorAdapter.vue",
+        "--file",
+        "src/frontend/src/components/ui/MarkdownTextEditor.vue",
+        "--file",
+        "src/frontend/src/composables/useAdminArticleWrite.ts",
+        "--file",
+        "src/frontend/src/fsusui/articlePositionMaps.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleDocumentContext.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts",
+        "--file",
+        "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+        "--file",
+        "src/frontend/src/views/admin/article/Write.vue",
+        "--file",
+        "src/frontend/src/public-renderers/pageAssemblies.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleEditorSurfaceRuntime.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleLiveCapability.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleRenderCache.ts"
+      ],
+      "environment": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-static-8afe-2246"
+      },
+      "exitCode": 1,
+      "seconds": 22.511,
+      "log": "/workspace/.tmp/chain2246-static-c808/candidate-style.log",
+      "sourceSha": "5b6b905a9458caec2fde8c8046c7357fa75d71f5",
+      "sourceProjection": "Exact candidate source plus identical canonical699 configuration overlay; corrected owned classes in original source paths"
+    }
+  },
+  "sourceCorrectionsNoCastsOrStubsAdded": true,
+  "existingDeclarationCasts": "No new assertions added; retained canonical document validators are not qualified by this result."
+}

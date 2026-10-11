@@ -1,0 +1,11 @@
+{
+  "layoutSha": "f39140f8ecccd4cbe2193c1a2525b6bfb5b6c362",
+  "sourceSha": "5b6b905a9458caec2fde8c8046c7357fa75d71f5",
+  "targetBlob": "cc1e76ae2f612101dfb60718ba79e56830a700d1",
+  "beforeSha256": "d14758416724eff576a61d7bdfa400060813d1afb8cfd4c6edc6bfd70bf98f4d",
+  "afterSha256": "1cbfb321b114b087066b6a964145d3c66fb511bc6a7cf809ca00bfec00347872",
+  "patchSha256": "fa2a44dea25f6055ddf773410d2c48b6a8aabce2f1d064cbf846d6274503a491",
+  "applied": false,
+  "installerAdded": false,
+  "targetOwner": "01a12bf3-5b8d-7153-be7b-e374d6ce1008"
+}

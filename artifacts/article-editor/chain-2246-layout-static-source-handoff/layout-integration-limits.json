@@ -1,0 +1,64 @@
+{
+  "kind": "Partial real-source integration compile; not runnable prerequisite qualification",
+  "layoutSha": "f39140f8ecccd4cbe2193c1a2525b6bfb5b6c362",
+  "sourceSha": "5b6b905a9458caec2fde8c8046c7357fa75d71f5",
+  "uiSha": "8afe8523b35f296a0131951b55b7e466a7a0f486",
+  "parserSha": "69992a0769a896434028d2b16776423f31c6c7d0",
+  "baselineExit": 2,
+  "sourceClosureExit": 2,
+  "baselineDiagnostics": 262,
+  "sourceClosureDiagnostics": 267,
+  "addedExactMessages": [
+    "src/adapters/binary/uploadAdapter.ts(4,5): error TS2305: Module '\"@/contracts/binaryApi\"' has no exported member 'UploadAssetPreviewViewModel'.",
+    "src/adapters/binary/uploadAdapter.ts(5,5): error TS2724: '\"@/contracts/binaryApi\"' has no exported member named 'UploadAssetFactsViewModel'. Did you mean 'UploadStatusViewModel'?",
+    "src/api/upload.ts(7,5): error TS2305: Module '\"@/contracts/binaryApi\"' has no exported member 'UploadAssetPreviewViewModel'.",
+    "src/api/upload.ts(22,5): error TS2305: Module '\"@/contracts/binaryApi\"' has no exported member 'UploadAssetPreviewViewModel'.",
+    "src/api/upload.ts(186,24): error TS2820: Type '\"binary_post_upload_uploadId_preview\"' is not assignable to type '\"binary_delete_admin_article_id_int\" | \"binary_delete_admin_article_permanent_id_int\" | \"binary_delete_admin_article_trash\" | \"binary_delete_admin_security_anti_crawler_allowlist_id\" | ... 286 more ... | \"binary_put_upload_uploadId_part\"'. Did you mean '\"binary_post_upload_uploadId_complete\"'?",
+    "src/api/uploadFacts.ts(2,15): error TS2724: '\"@/contracts/binaryApi\"' has no exported member named 'UploadAssetFactsViewModel'. Did you mean 'UploadStatusViewModel'?",
+    "src/api/uploadFacts.ts(20,24): error TS2820: Type '\"binary_post_upload_uploadId_facts\"' is not assignable to type '\"binary_delete_admin_article_id_int\" | \"binary_delete_admin_article_permanent_id_int\" | \"binary_delete_admin_article_trash\" | \"binary_delete_admin_security_anti_crawler_allowlist_id\" | ... 286 more ... | \"binary_put_upload_uploadId_part\"'. Did you mean '\"binary_put_upload_uploadId_part\"'?",
+    "src/api/uploadFacts.ts(21,53): error TS2551: Property 'UploadAssetFacts' does not exist on type '{ readonly Unknown: 0; readonly ArticleList: 1; readonly ArticleDetail: 2; readonly ArticleHot: 3; readonly ArticleSearch: 4; readonly CommentArticleCursor: 5; readonly CommentUserCursor: 6; ... 265 more ...; readonly DocumentExportPageResponse: 281; }'. Did you mean 'UploadStatus'?",
+    "src/fsusui/articleAttachments.ts(13,5): error TS2724: '\"@ozwasyd/element-plus\"' has no exported member named 'MarkdownAttachmentCaptureObservation'. Did you mean 'MarkdownAttachmentCaptureSession'?",
+    "src/fsusui/articleAttachments.ts(14,5): error TS2724: '\"@ozwasyd/element-plus\"' has no exported member named 'MarkdownAttachmentFileConsumer'. Did you mean 'MarkdownAttachmentAnchor'?",
+    "src/services/authoring/articleAttachmentContext.ts(573,68): error TS7006: Parameter 'file' implicitly has an 'any' type.",
+    "src/services/authoring/articleAttachmentContext.ts(573,74): error TS7006: Parameter 'observation' implicitly has an 'any' type.",
+    "src/services/authoring/articleAttachmentContext.ts(606,59): error TS7006: Parameter 'change' implicitly has an 'any' type.",
+    "src/services/authoring/articleAttachmentContext.ts(606,67): error TS7006: Parameter 'index' implicitly has an 'any' type.",
+    "src/views/admin/article/Write.vue(1195,44): error TS2339: Property 'fields' does not exist on type '{ validate: (callback?: FormValidateCallback | undefined) => FormValidationResult; scrollToField: (prop: FormItemProp) => void; }'."
+  ],
+  "removedExactMessages": [
+    "src/composables/useAdminArticleWrite.ts(1388,41): error TS2322: Type 'ArticleDocumentTaskEnvelope' is not assignable to type 'void'.",
+    "src/composables/useAdminArticleWrite.ts(1823,41): error TS2322: Type 'ArticleDocumentTaskEnvelope' is not assignable to type 'void'.",
+    "src/fsusui/markdown.ts(219,5): error TS2305: Module '\"@ozwasyd/element-plus/markdown-runtime\"' has no exported member 'MarkdownFeatureAdapter'.",
+    "src/services/authoring/articleDocumentContext.ts(391,21): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentContext' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
+    "src/services/authoring/articleDocumentContext.ts(454,22): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentTaskEnvelope' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
+    "src/services/authoring/articleDocumentContext.ts(497,21): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentEpochReceipt' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
+    "src/services/authoring/articleDocumentContext.ts(557,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/services/authoring/articleDocumentContext.ts(558,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/services/authoring/articleDocumentContext.ts(559,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/views/admin/article/Write.vue(1195,44): error TS2339: Property 'fields' does not exist on type '{ $: ComponentInternalInstance; $data: {}; $props: Partial<{ readonly inline: boolean; readonly disabled: boolean; readonly labelWidth: EpPropMergeType<readonly [StringConstructor, NumberConstructor], unknown, unknown>; ... 8 more ...; readonly scrollToError: boolean; }> & Omit<...>; ... 11 more ...; $watch<T extend...'."
+  ],
+  "fieldsDiagnosticNote": "Existing TS2339 private fields access remains in untouched layout Write; narrowed genuine form type changes its error text, not its status. Unapplied patch uses public validate callback plus scrollToField.",
+  "unappliedWriterPatchSourceCompilation": {
+    "parseErrors": 0,
+    "compileScriptErrors": 0,
+    "typeOrLintOfPatchedWrite": false
+  },
+  "sourcePostimages": 34,
+  "sharedConflictPaths": [
+    "src/frontend/src/contracts/binaryApi.ts",
+    "src/frontend/src/composition/binaryDecoderRegistry.ts",
+    "src/frontend/src/generated/fsusBinaryRoutes.ts",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "src/shared/Contracts/Validation/fsusblog.openapi.json",
+    "src/shared/Contracts/Validation/aeds-protocol.json"
+  ],
+  "requiredOriginalOwnerOutput": [
+    "UploadAssetPreviewViewModel and UploadAssetFactsViewModel",
+    "Original UploadAssetFacts frame285, route/security records, codec/decoder registrations and real server handlers; no receipt substitute",
+    "Complete exact intended UI06d SHA/evidence with existing native attachment and session APIs"
+  ],
+  "prerequisiteAndWriterPatchesApplyCheckExit": 0,
+  "preservedGroupRegistrySessionPaths": 17,
+  "installerAdded": false,
+  "testsMountNative": "NOT RUN / HELD"
+}
