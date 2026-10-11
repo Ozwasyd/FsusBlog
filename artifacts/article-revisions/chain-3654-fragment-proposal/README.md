@@ -298,3 +298,22 @@ claimed as a full typecheck pass. No existing test entry/setup/guard/config was
 changed. The old matrix identity/provenance FAIL and original evidence.json
 remain at their original identities. New source prechecks, not unit/native
 runtime execution, are the only new verification.
+
+Source verification identity: the new preflight/15-control increment is
+`c2d3d55b85db1762e09613d1e73797f06f28c8a3`, exact range
+`10ce06e610c048bcbd3657043f46f3dc73c56e28..c2d3d55b85db1762e09613d1e73797f06f28c8a3`.
+At that source, module style, revision authority, incremental change-contract and
+diff checks each exit 0. Syntax inspection of both new files has zero diagnostics.
+The expanded prior scoped TypeScript program exits 1 with 30 dependency
+diagnostics and zero in either new file. This binds only those source checks;
+32 old and 15 new cases remain UNRUN/unlisted. The d21c independent source review
+covers the original proposal correction, not this new preflight source.
+
+Subsequent coordinator review of upstream handoff 9595e4ed reports two P2 source
+findings: abort-listener reentrancy can create a stale but unaborted loan, and
+there is a duplicate import. The original Writer owner owns the repair; no exact
+repair SHA has been supplied. This fragment consumer continues to use the real
+loan's signal/currentness and `finally release`; it adds no cancellation owner,
+secondary task registry or compensating native write. Upstream source remains
+unaccepted, and every runtime/qualification hold remains in force. Await the
+coordinator's exact upstream correction for another source-only interface check.
