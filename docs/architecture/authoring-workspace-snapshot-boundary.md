@@ -289,3 +289,29 @@ node_modules/.bin/vitest run ../../tests/frontend/unit/authoring/authoringWorksp
 This command has not been executed. All actual browser geometry, hidden editor
 identity/restore, pointer/keyboard/screen reader, forced colors/reduced motion,
 receipt tamper/race/security/privacy/IME/native qualification remains UNRUN.
+
+## Snapshot ratio conversion source
+
+The independent snapshot consumer imports the actual sole ratio owner from
+`c1141febceb4547d4e785f7b7c378695ea5e7b08` without modifying its source.
+`projectAuthoringWorkspaceSnapshotRatio(scope, ratioRef)` resolves the exact
+current ref and returns only its requested `splitRatioPermille`. Missing,
+foreign, staged or disposed refs never fall back to current/default or an
+effective geometry clamp. No opaque scope/ref/change is serialized to the server.
+
+`prepareAuthoringWorkspaceSnapshotRatio(plan, scope, expectedRatioRef)` requires
+the original prepared server-plan provenance before delegating the scalar to
+the real owner's `prepare`. It returns that owner's change directly: no new
+ratio owner/ref, wrapper receipt or local/cache restore authority is created.
+Workspace lifecycle still owns opening and releasing the genuine ratio scope.
+
+The original group transaction must consume the real `readPrepared` result:
+`expectedRatioRef`, `ratioRef`, `revision` and `splitRatioPermille`. It must stage
+all fallible group/registry publication, then jointly publish synchronously
+without callbacks/await, or discard the proposed ratio on cancellation/refusal.
+This consumer does not call `commit`, `discard`, `applyGroups` or any runtime
+factory and does not claim cross-owner atomicity or readiness. The original
+#2298 contract, including its replay-before-count repair, remains a dependency
+to be supplied through root. Existing transport/factory/restore source is
+unchanged. All held behavioral/receipt/restore/DB/race/native qualification and
+the upstream declared controls remain UNRUN; static compilation is source-only.
