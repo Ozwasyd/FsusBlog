@@ -1,0 +1,11 @@
+{
+  "kind": "unapplied-source-handoff",
+  "sourceBase": "7b407c3fef5a501b84b659892d7f2b7831c94f3d",
+  "targetPath": "src/frontend/src/views/admin/article/Write.vue",
+  "targetBlob": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48",
+  "patchSha256": "b45e7b40b692789afa455f4668d4e3c2d309060851636594b7767bc229e33851",
+  "actualTargetUnchanged": true,
+  "owner": "layout owner 01a12bf3-5b8d-7153-be7b-e374d6ce1008",
+  "status": "PREPARED ONLY; actual owner must integrate with its existing Write changes and installer/factory admission; no editor-ready grant",
+  "initialGenerationAttempt": "FAIL: generic reset anchor appeared twice; no patch produced or applied; corrected with unique releaseEditorRuntime anchor"
+}

@@ -1,0 +1,19 @@
+{
+  "kind": "historical-typography-source-comparison",
+  "comment": "https://github.com/Ozwasyd/FsusBlog/pull/4173#issuecomment-6112795941",
+  "historicalWriterBlob": "64b0d962c4d1b072c2cc1591735519a4aa27c3ba",
+  "currentWriterBlob": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48",
+  "historicalPrivateFieldsAccess": 1,
+  "currentPrivateFieldsAccess": 0,
+  "currentPublicValidation": "original composable validate(callback), firstInvalidFormProperty and public scrollToField",
+  "historicalChildBlob": "cac90e4f5d61f8a97822b4c826b872f94d509130",
+  "alreadyCorrectedChildBaseBlob": "b1d2805dd7084802a69e1ec6b39c837416f003dc",
+  "currentChildBlob": "34a10e91b3addde0c27ec585966de1e9a9aaaa01",
+  "oldTwelveMechanicalHunks": "already represented in original current source; not reapplied",
+  "oldAbortCallbacks": "already use void block bodies; not reapplied",
+  "relationTestChanges": "owned by shared lane; not applied",
+  "parserReadOnlyHead": "69992a0769a896434028d2b16776423f31c6c7d0",
+  "parserIngested": false,
+  "reportedParserComparison": "historical exact8545/UIe609 only; 31->23 style and246 typesFAIL; not currentWriter verification",
+  "historicalFormPatchStatus": "UNAPPLIED; for layout owner only if its Write still uses exact historical handler, with current canonical composable prerequisite"
+}

@@ -1,0 +1,90 @@
+--- a/src/frontend/src/views/admin/article/Write.vue
++++ b/src/frontend/src/views/admin/article/Write.vue
+@@ -814,7 +814,9 @@
+ import { activeLocale, translate } from '@/locales';
+ import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
+ import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
+-import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
++import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
++import type { ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
++import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
+ import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
+ import {
+     articleWorkspaceTabRouter,
+@@ -975,35 +977,11 @@
+     const parsed = Number(value);
+     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+ });
+-const workspaceIdentity = computed<ArticleDocumentIdentity>(() =>
+-{
+-    const articleId = workspaceArticleId.value;
+-    const documentRef = authoringDocumentIdentity.value.id;
+-    return articleId === null
+-        ? {
+-            articleId: null,
+-            draftId: `draft:${documentRef}`,
+-            documentId: `document:${documentRef}`
+-        }
+-        : {
+-            articleId,
+-            draftId: `draft:article:${articleId}`,
+-            documentId: `document:article:${articleId}`
+-        };
+-});
+-const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => ({
+-    documentEpoch: authoringDocumentIdentity.value.epoch,
+-    sourceRevision: workspaceArticleId.value === null
+-        ? null
+-        : currentRevisionId.value?.trim()
+-            ? `revision:source:${currentRevisionId.value.trim()}`
+-            : `source:article:${workspaceArticleId.value}`,
+-    draftRevision: workspaceArticleId.value === null
+-        ? `draft:${authoringDocumentIdentity.value.id}`
+-        : typeof currentRevisionNo.value === 'number'
+-            ? `revision:article:${workspaceArticleId.value}:${currentRevisionNo.value}`
+-            : `draft:article:${workspaceArticleId.value}`
+-}));
++const workspaceDocument = computed(() => projectArticleWriterWorkspaceDocument(authoringDocumentContext.value));
++const workspaceIdentity = computed<ArticleDocumentIdentity>(() => workspaceDocument.value.identity);
++const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => workspaceDocument.value.documentContext);
++const workspaceMountedSource = shallowRef<ArticleWorkspaceMountedEditorSource | null>(null);
++defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value });
+ const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
+     dirty: requiresLeaveConfirm.value && !pageLoading.value,
+     saving: submitting.value,
+@@ -1108,6 +1086,7 @@
+ const coverInputRef = ref<HTMLInputElement | null>(null);
+ const articleEditorRef = ref<{
+     getAuthoringEditorPort: () => ArticleEditorContinuityPort | null;
++    getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
+     insertMarkdownAtCursor?: (markdown: string) => boolean;
+     openCommandPalette: () => void;
+ } | null>(null);
+@@ -1129,6 +1108,7 @@
+     releaseEditorRuntime?.();
+     releaseEditorRuntime = null;
+     editorRuntimeBinding.value = null;
++    workspaceMountedSource.value = null;
+     boundEditorPort = null;
+     void nextTick().then(() =>
+     {
+@@ -1148,9 +1128,10 @@
+             identity: { themeDigest: calculateOpenArticleDocumentDigest({ theme: authoringTheme.resolvedTheme.value }),
+                         locale: activeLocale.value },
+             cachePolicy: { maxEntryBytes: 4 * 1024 * 1024, maxAgeMs: 60_000, maxReceipts: 64 }
+-        });
++        }, () => generation === editorBindingGeneration ? articleEditorRef.value?.getAuthoringSessionPort?.() ?? null : null);
+         boundEditorPort = port;
+         editorRuntimeBinding.value = bound.binding;
++        workspaceMountedSource.value = bound.mountedSource;
+         releaseEditorRuntime = bound.release;
+         // Observe actual editor events; initialization dispatch would steal initial title focus.
+     });
+@@ -1160,6 +1141,7 @@
+     editorBindingGeneration += 1;
+     releaseEditorRuntime?.();
+     editorRuntimeBinding.value = null;
++    workspaceMountedSource.value = null;
+     boundEditorPort = null;
+ });
+ 

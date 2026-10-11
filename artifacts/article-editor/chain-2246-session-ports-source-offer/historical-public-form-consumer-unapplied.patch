@@ -1,0 +1,28 @@
+--- a/src/frontend/src/views/admin/article/Write.vue
++++ b/src/frontend/src/views/admin/article/Write.vue
+@@ -864,6 +864,7 @@
+     rules,
+     validateBeforeSubmit,
+     formRef,
++    firstInvalidFormProperty,
+     saveDraftNow,
+     handleUploadImg,
+     handleCoverUpload,
+@@ -1232,8 +1233,15 @@
+     }
+ 
+     await nextTick();
+-    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
+-    focusFirstArticleValidationError(firstErrorField?.$el);
++    const invalidProperty = firstInvalidFormProperty.value;
++    if (invalidProperty !== null)
++    {
++        formRef.value?.scrollToField(invalidProperty);
++    }
++    const invalidFieldRoot = invalidProperty === null ? null : document.querySelector<HTMLElement>(
++        `.write-validation-form [data-article-form-property="${CSS.escape(invalidProperty)}"]`
++    );
++    focusFirstArticleValidationError(invalidFieldRoot);
+ };
+ 
+ const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>
