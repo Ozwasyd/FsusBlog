@@ -1,0 +1,78 @@
+{
+  "observedSource": "de6df11110b5d060a001fad36bb604627323e32a",
+  "verifiedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "sourceBindings": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "04d25daab8bfba75181bcfddee6602e44bfcc49f",
+      "sha256": "52e09e95e8b2dbc19ba15e67c73fe891e72c879a15aa32e5675b245fc15d6602"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "blob": "f7ca5f60bb517e6c3252deaa88d97db8c5e53134",
+      "sha256": "0ce75d8ec3933f2933255a7e6d8bac7b7acc61bb33ed181b5518b936db26e96a"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts",
+      "blob": "425f2221d1da49ddee4e9d44314ce190205a62c6",
+      "sha256": "b24a3d5bc1f1c71caf9f1cdfe690330e430292cac676bc7a8accc4d26a7be247"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts",
+      "blob": "5f7b1f7bc57c0c6721412e3b8ef8b317e6f44a45",
+      "sha256": "f8ef5bc56641824fb1e3382cfa61b3ae1d04dabda77e43304d87b63f6648c72e"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringSessionHost.ts",
+      "blob": "222454163175d0d700434fb9f8f9e40f365b327e",
+      "sha256": "6902592448013cf8a051739943063a408db64e7591bda95b53ddbe512e9fbdd3"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceTabRouter.ts",
+      "blob": "57bd14cdc6e13a6efac7cd6585feeaa378769468",
+      "sha256": "7f9aa68cc312551dc84b3092206af49cbb2e72746db1c0b993436e754cd11d48"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "blob": "7d70543f9593cd2d3b29f504bea94107d43cd26c",
+      "sha256": "5553fd87dbc83e4a704de7719cc82e935f32ec0281a5bedc2a754734cf3ee657"
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "0ce0923ed8b1467bb3201f087ceb761d655fda27",
+      "sha256": "aa247606daecc3540c7e7ead5d61b3a25fd2fffd22d61c32aa0b313decd0ae21"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
+      "blob": "05d02b431d2f93de4ee70d1d3e5179169cf44c34",
+      "sha256": "41e15b03b39c8983d531fefdcd81b567a3ac0d49dba3ef69dd36103339a0b62f"
+    }
+  ],
+  "renderOwnerSuppliedHead": "9b4d90773384373e005e788e76184bb10b5823dc",
+  "renderOwnerAcceptance": "WIP; no accepted evidence per coordinating parent",
+  "renderOwnerScope": "identity-bound last-valid render cache and cancellable refresh, not document/draft/session issuance",
+  "existingIssuer": "ArticleDocumentContextAuthority/ArticleDocumentContextAdapter",
+  "existingIssuerCapabilities": [
+    "opaque draftId for new document",
+    "opaque editorSessionId",
+    "opaque documentId",
+    "document epochs and task cancellation"
+  ],
+  "missingProducer": [
+    "retained original owner handle per actual canonical editorSessionRef",
+    "association of original document owner and actual native session/registry owner",
+    "original form/loading/saving views and mutations bound to that handle",
+    "multiple create-draft persistence/recovery lifetime semantics",
+    "close/evict/scope-managed original Vue effect/task/form lifetime"
+  ],
+  "requestedFacadeNamesNotImplemented": [
+    "listRetainedBindings",
+    "isCurrentBinding",
+    "readView",
+    "bindMountedEditor"
+  ],
+  "authorityChanges": false,
+  "productionSourceChanges": false,
+  "testsOrRuntimeRun": false,
+  "runtimeQualification": false
+}
