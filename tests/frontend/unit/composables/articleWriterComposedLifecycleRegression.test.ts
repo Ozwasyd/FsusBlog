@@ -11,11 +11,15 @@ import { defineComponent, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
+import { articleRecoveryJournal } from '@/services/articleRecoveryJournal';
 import {
     createArticleEditorContinuityAcknowledgement,
-    type ArticleEditorContinuityReceipt
+    type ArticleEditorContinuityReceipt,
+    type ArticleEditorMountedSessionPort
 } from '@/services/authoring/articleEditorContinuity';
-import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry';
+import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
+import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
+import { calculateOpenArticleDocumentDigest as digest, openArticleDocumentCommandSchema } from '@/services/authoring/openArticleDocumentRegistry';
 
 // Only network/bootstrap dependencies are replaced. The writer, document,
 // attachment, continuity, cache, render producer and public editor are real.
@@ -100,8 +104,7 @@ async function openWriter()
     }, { timeout: 3000 });
 
     type Session = ReturnType<typeof authoring.authoringEditorRuntime.bindEditor>;
-    type Commands = {
-        dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult;
+    type Commands = ArticleEditorMountedSessionPort & {
         undo(): MarkdownEditorDispatchResult;
         redo(): MarkdownEditorDispatchResult;
     };
@@ -130,7 +133,11 @@ async function openWriter()
         }
     });
     const commands = editor.vm as unknown as Commands;
-    session = authoring.authoringEditorRuntime.bindEditor(commands, bindingOptions);
+    let mountedRead: (() => void) | null = null;
+    session = authoring.authoringEditorRuntime.bindEditor(commands, bindingOptions, () => {
+        mountedRead?.();
+        return commands;
+    });
     const runtime = session.binding;
     const focusIn = () => runtime.consumeFocus('focusin');
     const focusOut = () => runtime.consumeFocus('focusout');
@@ -187,6 +194,31 @@ async function openWriter()
     };
     return { authoring, editor, commands, runtime, attachment, dispatch, insert, changed, consumed, observe, acknowledge,
         release: () => session!.release(),
+        readMount: (callback: (() => void) | null) => { mountedRead = callback; },
+        checkpoint: (ref: string) => session!.bindRecoveryCheckpoint(ref),
+        associate: () => {
+            const registry = articleWorkspaceTabRouter.getRegistry();
+            const tabId = `tab:writer-journal-${principalSequence}`;
+            const editorSessionRef = `session:writer-journal-${principalSequence}`;
+            const id = `writer-journal-${principalSequence}`;
+            registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'open-or-activate',
+                commandId: `command:open-${id}`, idempotencyKey: `idempotency:open-${id}`,
+                expectedRevision: registry.getRevision(), intent: 'workspace', entrypoint: 'direct-route',
+                ...projectArticleWriterWorkspaceDocument(authoring.authoringDocumentContextAdapter.context),
+                editorSessionRef, tabId, targetGroupId: 'group:primary', tabKind: 'pinned',
+                status: { dirty: true, saving: false, conflict: false, recovery: false, pendingAttachments: false,
+                    permission: 'allowed', lifecycle: 'current', statusRef: `status:${id}` }, lastActiveAnchorRef: null });
+            expect(registry.getEntry(tabId)?.editorSessionRef).toBe(editorSessionRef);
+            cleanups.push(() => {
+                registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'request-close',
+                    commandId: `command:close-${id}`, idempotencyKey: `idempotency:close-${id}`,
+                    expectedRevision: registry.getRevision(), tabId });
+                registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'detach-on-final-close',
+                    commandId: `command:detach-${id}`, idempotencyKey: `idempotency:detach-${id}`,
+                    expectedRevision: registry.getRevision(), tabId, closeDecisionRef: `decision:${id}` });
+            });
+            return editorSessionRef;
+        },
         rebind: () => {
             session = authoring.authoringEditorRuntime.bindEditor(commands, bindingOptions);
             return session.binding;
@@ -194,6 +226,69 @@ async function openWriter()
 }
 
 describe('Writer composed attachment/tool/owner lifecycle regression', () => {
+    // Source controls only: NOT RUN under the current product/mount/native holds.
+    // Real Writer/mounted editor/registry/journal binding; no token/persistence result is fabricated.
+    it('reserves checkpoint creation before the first mounted callback and releases only real issued custody once', async () => {
+        const f = await openWriter();
+        f.dispatch({ changes: [{ from: 0, to: 0, insert: 'Journal source' }], history: 'separate', origin: 'programmatic' });
+        const ref = f.associate();
+        const original = articleRecoveryJournal.bindCheckpointSource.bind(articleRecoveryJournal);
+        let releases = 0;
+        const issued = vi.spyOn(articleRecoveryJournal, 'bindCheckpointSource').mockImplementation(reader => {
+            const port = original(reader);
+            return { ...port, release: () => { releases += 1; port.release(); } };
+        });
+        let reentries = 0;
+        f.readMount(() => {
+            f.readMount(null);
+            reentries += 1;
+            expect(() => f.checkpoint(ref)).toThrow('article-recovery-checkpoint-mounted-owner-unavailable');
+        });
+        const port = f.checkpoint(ref);
+        expect(reentries).toBe(1);
+        expect(issued).toHaveBeenCalledOnce();
+        f.release();
+        port.release();
+        expect(releases).toBe(1);
+    });
+
+    it('reclaims a failed mounted read reservation so a later real binding can be created and released', async () => {
+        const f = await openWriter();
+        f.dispatch({ changes: [{ from: 0, to: 0, insert: 'Journal source' }], history: 'separate', origin: 'programmatic' });
+        const ref = f.associate();
+        f.readMount(() => { throw new Error('caller-mount-read-failed'); });
+        expect(() => f.checkpoint(ref)).toThrow('caller-mount-read-failed');
+        f.readMount(null);
+        const port = f.checkpoint(ref);
+        port.release();
+        const successor = f.checkpoint(ref);
+        port.release();
+        // An already-released port must not clear or release its live successor.
+        expect(() => f.checkpoint(ref)).toThrow('article-recovery-checkpoint-mounted-owner-unavailable');
+        successor.release();
+        f.release();
+    });
+
+    it('releases original issued custody when subscription fails after allocation, then allows a clean retry', async () => {
+        const f = await openWriter();
+        f.dispatch({ changes: [{ from: 0, to: 0, insert: 'Journal source' }], history: 'separate', origin: 'programmatic' });
+        const ref = f.associate();
+        const original = articleRecoveryJournal.bindCheckpointSource.bind(articleRecoveryJournal);
+        let releases = 0;
+        vi.spyOn(articleRecoveryJournal, 'bindCheckpointSource').mockImplementation(reader => {
+            const port = original(reader);
+            return { ...port, release: () => { releases += 1; port.release(); } };
+        });
+        const subscribe = vi.spyOn(f.authoring.authoringDocumentContextAdapter, 'subscribeContext');
+        subscribe.mockImplementationOnce(() => { throw new Error('context-subscription-failed'); });
+        expect(() => f.checkpoint(ref)).toThrow('context-subscription-failed');
+        expect(releases).toBe(1);
+        const port = f.checkpoint(ref);
+        f.release();
+        port.release();
+        expect(releases).toBe(2);
+    });
+
     it('invalidates an admitted tool restore when another real provider completion commits, preserving undo/redo', async () => {
         const f = await openWriter();
         f.dispatch({ changes: [{ from: 0, to: 0, insert: 'Body abcdef' }], history: 'separate', origin: 'programmatic' });
