@@ -1,0 +1,22 @@
+{
+  "testedSource": "3732cf612987aa7c36d4db21b218f2fb1396c423",
+  "baselineSource": "cb965c6f3f5cc67b14600db7213be9ce8c851b70",
+  "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+  "node": "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+  "env": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-static-06d-2246"
+  },
+  "type": {
+    "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+    "exit": 2,
+    "diagnostics": 234
+  },
+  "style": {
+    "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/components/admin/article/ArticleWriteEditor.vue --file src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+    "exit": 1,
+    "diagnostics": 65
+  },
+  "runtimeQualification": false,
+  "tests": "NOT RUN; discovery, collection, mount, native and backend remain held"
+}
