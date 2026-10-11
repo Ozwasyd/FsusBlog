@@ -122,7 +122,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     'request-read': [context: VaultReviewDisplayContext, reference: VaultStoredReviewReference, requestIdentity: string];
     'request-return': [context: VaultReviewDisplayContext, reference: VaultStoredReviewReference, requestIdentity: string];
-    'request-action': [intent: ConflictActionIntent, requestIdentity: string];
+    'request-action': [intent: ConflictActionIntent, requestIdentity: string, context: VaultReviewDisplayContext, reference: VaultStoredReviewReference];
 }>();
 const sectionId = useId();
 const conflictId = useId();
@@ -148,7 +148,7 @@ function requestAction(intent: ConflictActionIntent): void
     if (bound?.evidenceSha256 === intent.evidenceSha256 && bound.operationIdentity === intent.operationIdentity
         && bound.portableArticleIdentity === intent.portableArticleIdentity)
     {
-        emit('request-action', bound, props.requestIdentity);
+        emit('request-action', bound, props.requestIdentity, props.context, props.reference);
     }
 }
 </script>

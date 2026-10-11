@@ -155,7 +155,7 @@ describe('stored conflict review consumer', () => {
         expect(wrapper.emitted('request-action')).toEqual([[{
             evidenceSha256: '7'.repeat(64), operationIdentity: 'item-one', portableArticleIdentity: 'article-one',
             type: 'metadata-disjoint', action: 'prepare-metadata-candidate'
-        }, 'read-one']]);
+        }, 'read-one', context, reference]]);
         expect(JSON.stringify(response)).toBe(before);
     });
 
@@ -172,7 +172,7 @@ describe('stored conflict review consumer', () => {
         expect(wrapper.emitted('request-action')).toEqual([[{
             evidenceSha256: '7'.repeat(64), operationIdentity: 'item-one', portableArticleIdentity: 'article-one',
             type: 'metadata-disjoint', action: 'prepare-metadata-candidate'
-        }, 'read-two']]);
+        }, 'read-two', context, reference]]);
     });
 
     it('uses real local fragment targets for comparison/review navigation without inventing routes', () => {
