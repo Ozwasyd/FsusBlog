@@ -166,29 +166,39 @@
                             :secondary-label="translate('admin.workspaceLayout.trailing')"
                             :separator-label="translate('admin.workspaceLayout.resize')"
                         >
-                            <ElFormItem
-                                prop="content"
-                                data-article-form-property="content"
-                            >
-                                <ArticleWriteEditor
-                                    ref="articleEditorRef"
-                                    v-model="articleForm.content"
-                                    :command-surfaces="authoringCommandSurfaces"
-                                    :article-identity="authoringDocumentIdentity.id"
-                                    :document-identity="authoringDocumentIdentity"
-                                    :document-context="authoringDocumentContext"
-                                    :loading="pageLoading"
-                                    :saving="submitting"
-                                    @save="saveDraftNow"
-                                    @draft-save="saveDraftNow"
-                                    @submit="requestSubmit"
-                                    @upload-img="handleUploadImg"
-                                    @attachment-capture="consumeAcceptedAttachmentCapture"
-                                    @transaction="consumeAuthoringTransaction"
-                                    @selection-change="consumeAuthoringSelection"
-                                    @editor-focus="consumeAuthoringFocus"
-                                />
-                            </ElFormItem>
+                            <template #retained="{ projection, leadingRegion, trailingRegion }">
+                                <AuthoringWorkspaceSessionOutlet
+                                    :projection="projection"
+                                    :leading-region="leadingRegion"
+                                    :trailing-region="trailingRegion"
+                                    :read-entry="readPrimaryWorkspaceEntry"
+                                    :primary="true"
+                                >
+                                    <ElFormItem
+                                        prop="content"
+                                        data-article-form-property="content"
+                                    >
+                                        <ArticleWriteEditor
+                                            ref="articleEditorRef"
+                                            v-model="articleForm.content"
+                                            :command-surfaces="authoringCommandSurfaces"
+                                            :article-identity="authoringDocumentIdentity.id"
+                                            :document-identity="authoringDocumentIdentity"
+                                            :document-context="authoringDocumentContext"
+                                            :loading="pageLoading"
+                                            :saving="submitting"
+                                            @save="saveDraftNow"
+                                            @draft-save="saveDraftNow"
+                                            @submit="requestSubmit"
+                                            @upload-img="handleUploadImg"
+                                            @attachment-capture="consumeAcceptedAttachmentCapture"
+                                            @transaction="consumeAuthoringTransaction"
+                                            @selection-change="consumeAuthoringSelection"
+                                            @editor-focus="consumeAuthoringFocus"
+                                        />
+                                    </ElFormItem>
+                                </AuthoringWorkspaceSessionOutlet>
+                            </template>
                         </AuthoringWorkspaceLayout>
                     </div>
                 </section>
@@ -788,6 +798,7 @@ import ArticleWriteInspectorShell from '@/components/admin/article/ArticleWriteI
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue';
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue';
 import AuthoringWorkspaceLayout from '@/components/admin/article/AuthoringWorkspaceLayout.vue';
+import AuthoringWorkspaceSessionOutlet from '@/components/admin/article/AuthoringWorkspaceSessionOutlet.vue';
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
@@ -814,7 +825,8 @@ import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort } 
 import {
     calculateOpenArticleDocumentDigest,
     type ArticleDocumentContextRef,
-    type ArticleDocumentIdentity
+    type ArticleDocumentIdentity,
+    type OpenArticleDocumentEntry
 } from '@/services/authoring/openArticleDocumentRegistry';
 import { useThemeRuntime } from '@/services/themeRuntime';
 import { showErrorToast } from '@/utils/errorPresentation';
@@ -984,7 +996,37 @@ const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
             : 'current',
     statusRef: `workspace-status:${workspaceIdentity.value.documentId}`
 }));
-let workspaceTabId: string | null = null;
+const workspaceTabId = shallowRef<string | null>(null);
+/** Read only the original entry associated with this actual bound primary native editor. */
+function readPrimaryWorkspaceEntry(): OpenArticleDocumentEntry | null
+{
+    const tabId = workspaceTabId.value;
+    const source = workspaceMountedSource.value;
+    if (!tabId || !source)
+    {
+        return null;
+    }
+    const registry = articleWorkspaceTabRouter.getRegistry();
+    const revision = registry.getRevision();
+    const entry = registry.getEntry(tabId);
+    if (!entry)
+    {
+        return null;
+    }
+    const owner = source.readDocumentBinding(entry.editorSessionRef);
+    const identity = workspaceIdentity.value;
+    const context = workspaceDocumentContext.value;
+    if (workspaceMountedSource.value !== source || workspaceTabId.value !== tabId
+        || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== revision
+        || owner?.identity.articleId !== identity.articleId || owner.identity.draftId !== identity.draftId
+        || owner.identity.documentId !== identity.documentId || owner.documentContext.documentEpoch !== context.documentEpoch
+        || owner.documentContext.sourceRevision !== context.sourceRevision || owner.documentContext.draftRevision !== context.draftRevision)
+    {
+        return null;
+    }
+    return entry;
+}
+
 let workspaceSyncToken = 0;
 let lastWorkspaceStatusDigest = '';
 
@@ -1019,13 +1061,13 @@ const syncWorkspaceTab = async (): Promise<void> =>
         return;
     }
 
-    workspaceTabId = receipt.tabId;
-    if (!workspaceTabId)
+    workspaceTabId.value = receipt.tabId;
+    if (!workspaceTabId.value)
     {
         return;
     }
 
-    articleWorkspaceTabRouter.updatePresentation(workspaceTabId, {
+    articleWorkspaceTabRouter.updatePresentation(workspaceTabId.value, {
         title: articleForm.title.trim() || pageTitle.value
     });
     lastWorkspaceStatusDigest = JSON.stringify(workspaceStatus.value);
@@ -1043,18 +1085,18 @@ watch(
     [() => articleForm.title, workspaceStatus],
     ([title, status]) =>
     {
-        if (!workspaceTabId)
+        if (!workspaceTabId.value)
         {
             return;
         }
 
-        articleWorkspaceTabRouter.updatePresentation(workspaceTabId, {
+        articleWorkspaceTabRouter.updatePresentation(workspaceTabId.value, {
             title: title.trim() || pageTitle.value
         });
         const statusDigest = JSON.stringify(status);
         if (statusDigest !== lastWorkspaceStatusDigest)
         {
-            articleWorkspaceTabRouter.markStatus(workspaceTabId, status);
+            articleWorkspaceTabRouter.markStatus(workspaceTabId.value, status);
             lastWorkspaceStatusDigest = statusDigest;
         }
     },
@@ -1063,7 +1105,7 @@ watch(
 onUnmounted(() =>
 {
     workspaceSyncToken += 1;
-    workspaceTabId = null;
+    workspaceTabId.value = null;
 });
 const quickCreateCategoryDialog = ref(false);
 const quickCreateTagDialog = ref(false);

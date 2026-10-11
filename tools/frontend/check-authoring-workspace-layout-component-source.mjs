@@ -18,19 +18,23 @@ const componentPath = 'src/frontend/src/components/admin/article/AuthoringWorksp
 const controllerPath = 'src/frontend/src/services/authoring/authoringWorkspaceLayoutController.ts';
 const writerPath = 'src/frontend/src/views/admin/article/Write.vue';
 const contextPath = 'src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts';
+const outletPath = 'src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue';
 const component = readFileSync(path.join(root, componentPath), 'utf8');
 const controller = readFileSync(path.join(root, controllerPath), 'utf8');
 const writer = readFileSync(path.join(root, writerPath), 'utf8');
+const outlet = readFileSync(path.join(root, outletPath), 'utf8');
+const outletDescriptor = sfc.parse(outlet, { filename: outletPath });
 const { descriptor, errors } = sfc.parse(component, { filename: componentPath });
-const failures = errors.map(error => String(error));
+const failures = [...errors, ...outletDescriptor.errors].map(error => String(error));
 const script = ts.createSourceFile(componentPath, descriptor.scriptSetup?.content ?? '', ts.ScriptTarget.Latest, true);
 const controllerTree = ts.createSourceFile(controllerPath, controller, ts.ScriptTarget.Latest, true);
+const outletTree = ts.createSourceFile(outletPath, outletDescriptor.descriptor.scriptSetup?.content ?? '', ts.ScriptTarget.Latest, true);
 function visit(tree, callback)
 {
     callback(tree);
     ts.forEachChild(tree, node => visit(node, callback));
 }
-for (const tree of [script, controllerTree])
+for (const tree of [script, controllerTree, outletTree])
 {
     if (tree.parseDiagnostics.length)
     {
@@ -70,6 +74,22 @@ for (const tree of [script, controllerTree])
             failures.push('fabricated-ready-state');
         }
     });
+}
+for (const required of ['<Teleport', ':to="placement.target"', ':hidden="!placement.visible"',
+    'props.readEntry()', 'tab.editorSessionRef === entry.editorSessionRef', 'tab.documentEpoch === entry.documentContext.documentEpoch',
+    'tab.lifecycleRevision === entry.lifecycleRevision'])
+{
+    if (!outlet.includes(required))
+    {
+        failures.push(`missing-real-persistent-outlet:${required}`);
+    }
+}
+if (/\bv-if\b|\bv-for\b|:key=|\bnew Map\b|\bnew WeakMap\b/u.test(outlet)
+    || !writer.includes(':read-entry="readPrimaryWorkspaceEntry"')
+    || !writer.includes('source.readDocumentBinding(entry.editorSessionRef)')
+    || !writer.includes('articleWorkspaceTabRouter.getRegistry() !== registry'))
+{
+    failures.push('recreated-session-subtree-or-parallel-mount-authority');
 }
 const template = dom.parse(descriptor.template?.content ?? '');
 let groups = 0;
@@ -153,11 +173,14 @@ for (const required of ['verifyAuthoringSessionHostState(host)', 'record.registr
 try
 {
     sfc.registerTS(() => ts);
-    const compiled = sfc.compileScript(descriptor, { id: '2299-source-only',
-        fs: { fileExists: ts.sys.fileExists, readFile: ts.sys.readFile } });
-    const result = sfc.compileTemplate({ source: descriptor.template?.content ?? '', filename: componentPath,
-        id: '2299-source-only', compilerOptions: { bindingMetadata: compiled.bindings } });
-    failures.push(...result.errors.map(error => String(error)));
+    for (const [file, candidate] of [[componentPath, descriptor], [outletPath, outletDescriptor.descriptor]])
+    {
+        const compiled = sfc.compileScript(candidate, { id: '2299-source-only',
+            fs: { fileExists: ts.sys.fileExists, readFile: ts.sys.readFile } });
+        const result = sfc.compileTemplate({ source: candidate.template?.content ?? '', filename: file,
+            id: '2299-source-only', compilerOptions: { bindingMetadata: compiled.bindings } });
+        failures.push(...result.errors.map(error => String(error)));
+    }
 }
 catch (error)
 {
@@ -165,7 +188,7 @@ catch (error)
 }
 console.log(JSON.stringify({ schema: 'fsusblog.authoring-workspace-layout-component-source.v1',
     status: failures.length ? 'source-check-fail' : 'source-check-pass',
-    source: [componentPath, controllerPath, writerPath, contextPath].map(file => ({ path: file,
+    source: [componentPath, controllerPath, writerPath, contextPath, outletPath].map(file => ({ path: file,
         sha256: createHash('sha256').update(readFileSync(path.join(root, file))).digest('hex') })),
     stableGroupRegions: groups, publicSeparators: separator, failures,
     notCovered: ['actual-host-mounting', 'retention-restore-provenance', 'repository-wide-second-layout-owner',

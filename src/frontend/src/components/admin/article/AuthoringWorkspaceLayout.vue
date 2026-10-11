@@ -10,6 +10,7 @@
             :style="regionStyle"
         >
             <section
+                ref="leadingRegion"
                 :id="primaryRegionId"
                 class="authoring-workspace-layout__group"
                 :aria-label="primaryLabel"
@@ -48,6 +49,7 @@
                 />
             </div>
             <section
+                ref="trailingRegion"
                 :id="secondaryRegionId"
                 class="authoring-workspace-layout__group"
                 :aria-label="secondaryLabel"
@@ -65,6 +67,12 @@
                 />
             </section>
         </div>
+        <slot
+            name="retained"
+            :projection="slotProjection"
+            :leading-region="leadingRegion"
+            :trailing-region="trailingRegion"
+        />
         <slot
             name="unavailable"
             :reason="observation.reason"
@@ -99,6 +107,8 @@ const emit = defineEmits<{
     observation: [value: AuthoringWorkspaceLayoutObservation];
 }>();
 const frameElement = shallowRef<HTMLElement | null>(null);
+const leadingRegion = shallowRef<HTMLElement | null>(null);
+const trailingRegion = shallowRef<HTMLElement | null>(null);
 const separatorRegion = shallowRef<HTMLElement | null>(null);
 const separatorHandle = shallowRef<unknown>(null);
 type RenderState = Readonly<{

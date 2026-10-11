@@ -647,17 +647,15 @@ own current frame/separator observations and revoke synchronously through this
 public ref, without child DOM discovery or a substitute measurement callback.
 The port neither stores a geometry result nor certifies readiness/retention.
 
-The second retained group outlet remains blocked by actual source capabilities.
+The actual persistent outlet owners are Write.vue for the component host and
+useAdminArticleWrite.authoringEditorRuntime for document/runtime binding.
 ArticleWorkspaceMountedEditorSource reads an already mounted native editor and
 document binding; createArticleWriterMountedEditorSource borrows one existing
 Writer mount. AuthoringSessionHost getSession/listSessions/exportState returns
-record snapshots, not Vue mounts or renderable outlets. Its factory resolves
-an already mounted editor and refuses absence. The original Write composable
-acquires one document binding and allows only one runtime bind; another Write or
-ArticleWriteEditor would acquire/bind another owner rather than render the same
-retained session. No new mount map, editor state copy, factory or synthetic outlet
-contract is introduced. The original mounted-owner must supply its genuine
-persistent host/outlet source before the trailing slot can be connected.
+record snapshots, not Vue mounts. Its factory resolves an already mounted editor.
+The original composable currently acquires one document binding and permits one
+runtime bind. Those are concrete Writer producer limits, not an undiscovered
+external host. Another Write acquisition must not stand in for retained sessions.
 
 The independent review of 76850 found two new presentation defects, now corrected
 in source. P1 counterexample: collapse to focused trailing B, then replace/revoke
@@ -682,3 +680,43 @@ issue no model, owner, command, CAS capability, ready flag or receipt. The geome
 and separator graphs already consist of frozen records. Both counterexamples are
 source-reasoned, not executed regressions or qualification results; all 30 cases
 and runtime qualifications remain UNRUN.
+
+The owned host now includes AuthoringWorkspaceSessionOutlet.vue. Write mounts its
+existing ArticleWriteEditor once under this stable slot subtree, outside group
+region ownership. Public Vue Teleport places its DOM into either actual owned
+region, without group-dependent keys, conditional child destruction or rebinding.
+The layout's retained slot supplies frozen render projection and the actual
+leading/trailing region elements. Placement reads a fresh original registry entry
+through the existing native mounted-source/document owner, checks canonical
+registry identity/revision and unchanged mount/tab/context, then matches real
+group/tab/session/epoch/lifecycle association. Inactive tabs stay hidden/inert;
+revoked/unavailable projection restores the existing primary leading fallback.
+Missing or rejected native reads do not invent another association. This is a
+host source increment, not executed Teleport/selection/IME/focus retention proof.
+No parallel mount map, editor content/history copy, session factory, capture,
+pause/resume, move/open/focus command or readiness issuer is introduced.
+
+Writer must supply stable per-session bindings from its actual ownership, so the
+same host can render a second editor and retain hidden tabs. The consumer needs
+an original owner-held binding identity with its real editorSessionRef and
+documentContext; direct original content/loading/saving accessors; native
+transaction/selection/focus/attachment/save callbacks bound to that same owner;
+one-time actual mounted editor binding returning the original runtime and mounted
+source; original-custody current checks; and explicit close/evict/scope release.
+The existing primary binding must be adopted, not reacquired/rebound. Listing is
+the original Writer owner's retained binding list, never a layout-side session
+index. Group moves/active/focused changes only alter placement and visibility;
+they cannot change document/native editor/binding identity or release ownership.
+
+Precise lifecycle blockers remain. AccountRouteFrame article-ID keys currently
+destroy Write. Removing the key alone is insufficient: useAdminArticleWrite's
+articleId watcher calls switchDocument, clears form state and reloads; its
+unmount releases runtime/document binding and clears source. The Writer owner
+must preserve retained per-session ownership and let route changes select a
+binding rather than overwrite it. The Rail owner controls frame placement and
+route destruction. ArticleWriteEditor currently hardcodes textareaId
+article-content and outline panel article-write-outline-panel; its owner must
+offer unique public per-session IDs before rendering two actual wrappers.
+No missing producer API or DOM-ID prop is assumed available. The current actual
+mount is one primary editor; second binding/IDs/lifecycle remain blocked and all
+runtime qualification stays UNRUN.
