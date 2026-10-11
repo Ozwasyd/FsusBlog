@@ -80,6 +80,7 @@ interface RetainedArticleDocumentCell {
     readonly tabId: string;
     readonly initial: OpenArticleDocumentEntry;
     readonly read: () => RetainedArticleDocumentInspection;
+    readonly notify: () => void;
     readonly listeners: Set<() => void>;
     reason: RetainedArticleDocumentRevocation | null;
     notificationFailed: boolean;
@@ -122,13 +123,29 @@ export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDo
 /** Only scope retirement is an explicit revocation; close follows canonical removal. */
 export function revokeRetainedArticleDocumentScope(handle: RetainedArticleDocumentHandle): void
 {
-    const cell = retainedArticleDocumentCells.get(handle);
-    if (!cell)
+    revokeRetainedArticleDocumentScopeSet([handle]);
+}
+
+/** Mark all original scoped custody before notifying any possibly reentrant consumer. */
+export function revokeRetainedArticleDocumentScopeSet(handles: readonly RetainedArticleDocumentHandle[]): void
+{
+    const cells = handles.map(handle =>
     {
-        throw new Error('retained-article-document-handle-invalid');
+        const cell = retainedArticleDocumentCells.get(handle);
+        if (!cell)
+        {
+            throw new Error('retained-article-document-handle-invalid');
+        }
+        return cell;
+    });
+    for (const cell of cells)
+    {
+        cell.reason ??= 'scope-revoked';
     }
-    cell.reason ??= 'scope-revoked';
-    notifyRetainedArticleDocumentCell(cell);
+    for (const cell of cells)
+    {
+        cell.notify();
+    }
 }
 
 function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): void
@@ -777,6 +794,7 @@ export class OpenArticleDocumentRegistry
             notifiedRevision: this.revision,
             notifiedReason: null,
             listeners: new Set(),
+            notify: () => this.notifyRetainedDocuments(),
             read: () =>
             {
                 const current = this.entriesByTabId.get(tabId);
@@ -812,7 +830,7 @@ export class OpenArticleDocumentRegistry
 
     private notifyRetainedDocuments(): void
     {
-        if (this.retainedNotificationPending)
+        if (this.retainedNotificationPending || this.#ownershipTransactionPending)
         {
             return;
         }

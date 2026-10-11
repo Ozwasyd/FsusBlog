@@ -18,10 +18,71 @@ notification in inspection; it cannot turn a committed command into a rejected
 receipt. Reentrant notification commands refuse. Handles are not permission,
 snapshot-restore or safe-eviction grants. No body/history/cache, second article
 index, Host, persistence or server DocumentId contract is introduced here.
-Document-authority acquisition and primary Writer adoption remain source WIP
-until their genuine original-owner implementation is supplied. Runtime, original
+
+The original singleton `ArticleDocumentContextAuthority` owns the retained
+adapters. `prepareRetainedDocument(registry, input, scopeReaders)` issues original
+document/draft/editor-session identities and returns only a provenance-bound
+preparation/context. Open that context through the canonical Registry, obtain
+its issued handle, then call `acquireRetainedDocument(handle, preparation)`.
+For an already open article, acquire its original handle without supplying a new
+preparation; `discardRetainedPreparation` retires an unused offer. Caller strings
+cannot replace the original issuer. Same-source articles and unsaved drafts have
+separate adapters and task/epoch/source-revision ownership. No retained adapter
+can be switched through the legacy route-owned binding.
+
+The already mounted primary Writer calls
+`adoptPrimaryRetainedDocument(registry, handle, originalBinding, scopeReaders)`.
+This validates the actual previously issued binding, original Registry provenance,
+identity/epoch and source/draft coordinates, and preserves the SAME adapter,
+native document identity, original tasks and epoch. It never reacquires the
+primary. The Registry's session reference and the original opaque editor session
+ID remain their existing association; neither is reconstructed from a route.
+Raw principal/site readers are reread on admission and use. Principal/site drift
+and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission for
+the original owners and notify their consumers. Scope-revocation callbacks cannot
+admit new owners reentrantly.
+
+The returned binding exposes `adapter`, `handle`, `inspect()`,
+`subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
+attaches its actual existing form/effects/runtime object once, using one stable
+factory callback. Repeat use returns that SAME consumer, never a cloned form or
+another Writer composable. A different factory or reentrant attachment refuses.
+Layout borrows the original Writer's commands and view/mount ports. The authority
+retains actual consumer references on final invalidation or cleanup failure;
+permission/delete/archive blocking does not invoke final consumer release.
+Original `adapter.subscribeContext` remains the context-change subscription.
+
+`inspect().registry` reads canonical membership and permission/lifecycle facts;
+`registryRevisionMatchesDocument` separately reports whether the canonical
+source/draft reference coordinates match the original adapter. Ordinary source
+updates advance the adapter's original numeric revision without changing its
+identity/epoch. This seam does not add a Registry revision command: the original
+Writer/Registry revision-publication owner must refresh those references before
+Host restoration/readiness can succeed. A mismatching reference is reported,
+never rewritten as current readiness.
+
+Canceled leases stay in their original adapter's `pendingTaskRefs` until the
+actual producer calls `lease.settle()` after its real work/cleanup has settled.
+Running work cannot be settled. Real completion/late-result delivery settles its
+lease while keeping the original acceptance/stale result rules. An abort or
+aborted envelope is not completion. Final close, identity replacement and scope
+revocation disable old admission and notify consumers while retaining canceled
+work and recovery references; they do not prove native disposal or zero resources.
+No explicit safe-eviction grant is supplied: the original Host's full snapshot/
+recovery/disposal capability must satisfy its original preconditions first.
+
+Multiple unsaved draft IDs have real process-local lifetime here. Persistence and
+journal coordinates remain the original Writer/storage owners' obligation. The
+shared literal create key cannot be used to overwrite another retained draft;
+this authority adds no body/journal store, storage namespace or persistence-policy
+change, and makes no multi-draft persistence or cross-restart claim.
+
+Dedicated source controls are `retainedArticleDocumentHandle.test.ts` and
+`articleDocumentRetainedAuthority.test.ts`, using the original unit configuration
+and actual original Registry/authority source. These and all existing runtime,
 test/list/discovery/import, browser/native, security, receipt, race and database
-qualification remain unrun in this lane.
+qualifications remain unrun/HOLD in this lane. Pure compiler/style evidence does
+not establish product or full Host lifecycle acceptance.
 
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
