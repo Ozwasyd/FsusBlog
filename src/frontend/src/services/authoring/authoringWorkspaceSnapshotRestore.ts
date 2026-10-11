@@ -392,7 +392,7 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
         || workspaceSnapshotDigest(transition.command.groups.map(group => ({ groupId: group.groupId,
             tabIds: group.tabs.map(tab => tab.tabId), activeTabId: group.activeTabId }))) !== requestedGroupsDigest
         || articleAfter.revision !== expectedRegistryRevision
-        || !groupAfter || groupAfter.state.contentDigest !== transition.receipt.after.contentDigest
+        || groupAfter?.state.contentDigest !== transition.receipt.after.contentDigest
         || groupAfter.splitRatioRef === expectedRatioRef)
     {
         throw new AuthoringWorkspaceSnapshotError('restore_group_transition_required');

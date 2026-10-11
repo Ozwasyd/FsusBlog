@@ -2,9 +2,9 @@ import { AuthoringWorkspaceSnapshotError } from '@/api/authoringWorkspaceSnapsho
 
 import { AuthoringTabGroupRegistry, type AuthoringGroupCommandIdentity, type AuthoringSnapshotGroupAdapter } from './authoringTabGroupRegistry';
 import { prepareAuthoringWorkspaceSnapshotRestore, requirePreparedWorkspaceSnapshotRestorePlan, type AuthoringWorkspaceSnapshotResolutionPort, type AuthoringWorkspaceSnapshotRestorePlan } from './authoringWorkspaceSnapshotRestore';
-import type { AuthoringWorkspaceSnapshotSync } from './authoringWorkspaceSnapshotSync';
 
 import type { ArticleWorkspaceTabRouter } from './articleWorkspaceTabRouter';
+import type { AuthoringWorkspaceSnapshotSync } from './authoringWorkspaceSnapshotSync';
 
 /** Consume the existing startup sync's server observation, never its cached or local layout. */
 export async function prepareAuthoringWorkspaceSnapshotBootstrap(
