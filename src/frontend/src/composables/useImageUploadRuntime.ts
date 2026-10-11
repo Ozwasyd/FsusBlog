@@ -176,7 +176,7 @@ function clearSnapshot(resumeKey: string): void
 
 function validUploadId(uploadId: unknown): uploadId is string
 {
-    return typeof uploadId === 'string' && /^[0-9a-f]{32}$/.test(uploadId);
+    return typeof uploadId === 'string' && /^[0-9a-f]{32}$/.test(uploadId) && uploadId !== '0'.repeat(32);
 }
 
 function assertUploadGeometry(totalBytes: number, chunkSize: number, totalParts: number, expectedBytes: number): void
@@ -565,6 +565,17 @@ export function useImageUploadRuntime()
             : await compressImageFileWithRuntime(file, options, { wasmOnly });
         ensureCurrentAttempt();
         preview.value = uploadPayload.preview;
+
+        // The original UploadInitRequest filename is a zero-padded 256-byte UTF-8 field.
+        // Refuse truncation or replacement before creating a server session or cleanup obligation.
+        const encodedFileName = new TextEncoder().encode(uploadPayload.file.name);
+        if (encodedFileName.byteLength > 256 || uploadPayload.file.name.includes('\0')
+            || new TextDecoder().decode(encodedFileName) !== uploadPayload.file.name)
+        {
+            phase.value = 'error';
+            errorMessage.value = 'upload_file_name_not_representable';
+            throw createAppError(AppErrorCode.Validation, errorMessage.value);
+        }
 
         const resumeKey = buildResumeKey(file, options, runtimeOptions);
         const fullHash = await sha256Hex(uploadPayload.file);

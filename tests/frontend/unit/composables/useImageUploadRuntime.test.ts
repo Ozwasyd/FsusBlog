@@ -190,6 +190,107 @@ describe('useImageUploadRuntime', () => {
     localStorage.clear()
   })
 
+  it.each([
+    ['reviewer-258-byte', 'é'.repeat(127) + '.png'],
+    ['ascii-257-byte', 'a'.repeat(253) + '.png'],
+    ['split-codepoint', 'a'.repeat(255) + 'é'],
+    ['four-byte-overflow', '😀'.repeat(64) + '.png'],
+    ['unpaired-surrogate', 'a\uD800.png'],
+    ['embedded-nul', 'a\0.png']
+  ])('refuses unrepresentable upload filename %s before init and leaves no cancellation obligation', async (_label, name) => {
+    const runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(fileOf(128, name), options, { bypassCompression: true, targetFormat: 'png' }))
+      .rejects.toThrow('upload_file_name_not_representable')
+    expect(api.initUploadSession).not.toHaveBeenCalled()
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(0)
+    expect(runtime.cleanupRequired).toBe(false)
+    await runtime.abandon(); await runtime.abandon()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    await expect(runtime.uploadFile(fileOf(128, 'replacement.png'), options)).resolves.toBe('/uploads/complete.webp')
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['ascii', 'a'.repeat(252) + '.png'],
+    ['two-byte', 'é'.repeat(126) + '.png'],
+    ['four-byte', '😀'.repeat(63) + '.png']
+  ])('accepts a lossless 256-byte upload filename %s without changing its identity', async (_label, name) => {
+    expect(new TextEncoder().encode(name)).toHaveLength(256)
+    const runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(fileOf(128, name), options, { bypassCompression: true, targetFormat: 'png' }))
+      .resolves.toBe('/uploads/complete.webp')
+    expect(originalInitRequest().fileName).toBe(name)
+    expect(api.uploadPart).toHaveBeenCalledWith(uploadIds.old, 'token-old', 0, 0, expect.any(Blob), 'sha256-128')
+    expect(api.completeUpload).toHaveBeenCalledWith(uploadIds.old, 'token-old', 'sha256-128')
+  })
+
+  it('checks the actual compressed filename before creating an init obligation', async () => {
+    compression.compressImageFileWithRuntime.mockResolvedValueOnce({ file: fileOf(128, 'é'.repeat(127) + '.png'), preview })
+    const runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(fileOf(128, 'source.png'), options)).rejects.toThrow('upload_file_name_not_representable')
+    expect(api.initUploadSession).not.toHaveBeenCalled()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('cancels a lossless boundary filename using only the original late init ID and token', async () => {
+    const file = fileOf(128, 'é'.repeat(126) + '.png')
+    const init = deferred<ReturnType<typeof initReply>>()
+    api.initUploadSession.mockReturnValueOnce(init.promise)
+    const runtime = useImageUploadRuntime()
+    const upload = runtime.uploadFile(file, options, { bypassCompression: true, targetFormat: 'png' })
+    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
+    await vi.waitFor(() => expect(api.initUploadSession).toHaveBeenCalledOnce())
+    const request = originalInitRequest()
+    const cancellation = runtime.abandon()
+    const repeated = runtime.abandon()
+    runtime.activeSession.uploadId = uploadIds.new
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    api.abortUpload.mockResolvedValueOnce({ uploadId: uploadIds.originalLate, status: 'aborted' })
+    init.resolve(initReply(request, uploadIds.originalLate, 'boundary-original-token'))
+    await cancellation; await repeated; await rejected
+    expect(api.abortUpload).toHaveBeenCalledOnce()
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.originalLate, undefined, 'boundary-original-token')
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(runtime.cleanupRequired).toBe(false)
+    expect(runtime.phase).toBe('idle')
+    expect(localStorage.length).toBe(0)
+    await runtime.abandon()
+    expect(api.abortUpload).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a zero GUID init before snapshot or part IO and cannot grant cancellation authority', async () => {
+    api.initUploadSession.mockImplementationOnce(async request => initReply(request, '0'.repeat(32)))
+    const runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(fileOf(128), options)).rejects.toThrow('upload_init_response_mismatch')
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(0)
+    expect(runtime.cleanupRequired).toBe(true)
+    await expect(runtime.abandon()).rejects.toThrow('upload_init_response_mismatch')
+    await expect(runtime.abandon()).rejects.toThrow('upload_init_response_mismatch')
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('rejects a zero GUID stored identity without status lookup or replacement init', async () => {
+    const file = fileOf(128)
+    await exhaustPartRetries(useImageUploadRuntime(), file)
+    const stored = storedSnapshot()
+    localStorage.setItem(stored.key, encodePublicAotPayload({ ...stored.snapshot, uploadId: '0'.repeat(32) }))
+    const original = localStorage.getItem(stored.key)
+    const runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(file, options)).rejects.toThrow('upload_resume_snapshot_mismatch')
+    expect(api.getUploadStatus).not.toHaveBeenCalled()
+    expect(api.getUploadPartMap).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(localStorage.getItem(stored.key)).toBe(original)
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
   it('runs compression and hashing before init, uploads every required part, then completes once', async () => {
     const events: string[] = []
     const file = fileOf(600_000)

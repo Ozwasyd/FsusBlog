@@ -54,6 +54,23 @@ describe('upload API requests', () => {
     expect(readFixedUtf8(frame.payload, 364, 64)).toBe('0123456789abcdef')
   })
 
+  it.each([
+    ['ascii-boundary', 'a'.repeat(252) + '.png', 'a'.repeat(252) + '.png', false],
+    ['unicode-boundary', 'é'.repeat(126) + '.png', 'é'.repeat(126) + '.png', false],
+    ['reviewer-258-byte', 'é'.repeat(127) + '.png', 'é'.repeat(127) + '.p', false],
+    ['split-codepoint', 'a'.repeat(255) + 'é', 'a'.repeat(255) + '\uFFFD', true]
+  ])('encodes the actual 256-byte init filename field for %s', async (_label, fileName, decodedName, split) => {
+    await initUploadSession({ fileName, mimeType: 'image/png', targetFormat: 'png', totalBytes: 128, chunkSize: 524_288 })
+    const frame = readAedsFrame(mockBinary.mock.calls[0][0].requestOptions?.body)
+    const field = frame.payload.slice(0, 256)
+    expect(field).toEqual(new TextEncoder().encode(fileName).slice(0, 256))
+    expect(new TextDecoder().decode(field)).toBe(decodedName)
+    if (split) expect(() => new TextDecoder('utf-8', { fatal: true }).decode(field)).toThrow()
+    else expect(new TextDecoder('utf-8', { fatal: true }).decode(field)).toBe(decodedName)
+    expect(readFixedUtf8(frame.payload, 256, 64)).toBe('image/png')
+    expect(frame.payload).toHaveLength(428)
+  })
+
   it('uploadPart sends raw bytes with binary metadata headers', async () => {
     const chunk = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/png' })
 

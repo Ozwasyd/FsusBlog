@@ -145,6 +145,11 @@ cannot authorize abort here. Authenticated status and part-map queries carry the
 original snapshot token; obscured 404, failed lookup and malformed stored identity
 retain the original obligation and cannot initialize a replacement. The runtime
 validates canonical init identity and requested file/geometry, status/map identity,
+with an explicit refusal of the empty GUID. Before init, the actual compressed
+filename must fit the original 256-byte UTF-8 field without truncation, embedded
+NUL or surrogate replacement. Unrepresentable names fail locally and create no
+server session or cancellation obligation; valid boundary names retain exact
+response-name correlation and original ID/token cancellation authority. It validates
 bounded ordered ranges, exact counts/bytes/next-part hint, and each part ACK's
 identity/index/offset/size/progress before changing progress. Complete ACK must
 match the original ID, bytes and media type and supply its result URLs before
