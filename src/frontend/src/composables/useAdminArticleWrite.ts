@@ -1198,8 +1198,8 @@ export function useAdminArticleWrite()
                             const source = readSource();
                             const mounted = mountedSource.readMountedEditor(editorSessionRef);
                             const info = issued.inspectReference(reference);
-                            if (released || !source || !mounted || source.mountedEditor !== mounted || !info
-                                || info.editorSessionRef !== editorSessionRef || info.documentId !== source.documentId
+                            if (released || !source || !mounted || source.mountedEditor !== mounted
+                                || info?.editorSessionRef !== editorSessionRef || info.documentId !== source.documentId
                                 || info.documentEpoch !== source.documentEpoch || info.editorRevision !== source.editorRevision)
                             {
                                 throw new Error('article-recovery-native-snapshot-owner-unavailable');

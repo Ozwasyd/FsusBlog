@@ -1,6 +1,6 @@
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentFileConsumer, MarkdownAttachmentItemIntent } from '@/fsusui/articleAttachments';
 import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection, MarkdownEditorSessionExpose } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringCommand } from '@/fsusui/authoringCommands';
-import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentFileConsumer, MarkdownAttachmentItemIntent } from '@/fsusui/articleAttachments';
 
 import {
     validateArticleAnchorCommand,
