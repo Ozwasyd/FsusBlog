@@ -2399,6 +2399,16 @@ Recent 仅在原 verified history reader 已接入且身份稳定时进行内部
 `ArchivedReadGrantUnavailable`、slug/cursor 限制及权限检查保持不变。ArticleLibraryRail 仍须消费后续
 实际 permission-safe query response；不得直接把 reader fields 当作已授权响应或可写 verified cache。
 
+`IAuthorArticleQueryArchivedPermissionObservationReader` 是原
+`SqlAuthorRecentArticleHistoryPermissionAuthority` 同一 scoped 实例的 readonly 管理读观察。
+它复用现有 admin ArticleWrite + `canReadPrivate` 管理读语义，并在读取前、中、后核验原 principal、
+配置 site、持久权限和 live session；两次真实 article 读取必须保持 lifecycle、deleted、revision、row version
+一致。仅可确认的非删除 Archived 管理读返回坐标；missing、Deleted、未知状态或缺失版本均返回同样的
+false/null decision，不带 title/category/tag、count 或替代 slug。取消与 drift 不返回观察。
+这是绑定 request/owner 的当次观察，不是原子全语料 snapshot、Archived query grant、permission token
+或 receipt。原 history provider 仍拒绝 Archived 的 project/write；原 source inspection 仍返回
+`ArchivedReadGrantUnavailable`。不得把该观察转成成功 query response、cursor binding 或 verified cache 写入。
+
 `AuthorArticleQueryHistoryIdentityReader` 独立消费原规范 history projection，最多 1000 entries、每页 100。
 全部页面必须绑定同一 user/site、collection revision、permission/site/session identity、projection/cache references
 和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；

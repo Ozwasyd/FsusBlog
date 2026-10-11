@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Services.Authoring;
 /// site and the current article lifecycle. Missing, archived and deleted articles all become the
 /// same non-projectable decision; no article metadata is returned to the projection layer.
 /// </summary>
-public sealed class SqlAuthorRecentArticleHistoryPermissionAuthority(
+public sealed partial class SqlAuthorRecentArticleHistoryPermissionAuthority(
     ISqlSugarClient db,
     IHttpContextAccessor httpContextAccessor,
     IConfiguration configuration,
