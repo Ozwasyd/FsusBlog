@@ -326,3 +326,20 @@ The corrected pipeline A candidate is
 is source-only. The notification-watermark P2 remains under original-owner repair.
 Attachment311ffe5d remains unconsumed with final-jobs callback context and raw/proxy
 job findings under repair. These candidates never activate reviewed resource gates.
+
+The real partial factory also exposes `restoreRetainedSnapshot(entry, snapshot)`
+paired with its existing actual retained capture. It sends the original opaque
+checkpoint directly to the same public session, using the actual mounted document
+identity/epoch/native revision as the expected context. Upstream alone decides
+custody, copied-token, revision and partial view/history/selection restore proof.
+The factory rechecks the original editor/session and document/source/draft context
+after the restore callback, including blocked results. No checkpoint cache or
+second history exists here. The returned proof is only the original same-owner,
+same-revision retained restore; it supplies no complete panel/draft/journal refset,
+renderer hydration, resource suspension, disposal recovery or host-ready receipt.
+Full `FsusUiPublicEditorSession.restoreSnapshot` stays explicitly blocked.
+
+Composition exposes paired `captureArticleWorkspaceRetainedEditorSnapshot` and
+`restoreArticleWorkspaceRetainedEditorSnapshot` calls through its SAME installed
+factory. Both refuse before installation. They never install a fallback factory,
+retain another checkpoint/history slot or modify the original session-port receipt.

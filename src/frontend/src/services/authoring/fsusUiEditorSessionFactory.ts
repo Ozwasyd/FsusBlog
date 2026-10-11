@@ -16,6 +16,7 @@ import type {
     MarkdownEditorSessionExpose,
     MarkdownEditorSessionLastValidRender,
     MarkdownEditorSessionRenderRestoreProof,
+    MarkdownEditorSessionRestoreProof,
     MarkdownEditorSessionRendererResourceSource,
     MarkdownEditorSessionSnapshot
 } from '@ozwasyd/element-plus';
@@ -42,6 +43,7 @@ export interface ArticleWorkspaceEditorResourceSources {
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
     inspectResourceSources(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorResourceSources;
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
+    restoreRetainedSnapshot(entry: OpenArticleDocumentEntry, snapshot: MarkdownEditorSessionSnapshot): MarkdownEditorSessionRestoreProof;
     captureLastValidRender(entry: OpenArticleDocumentEntry): MarkdownEditorSessionLastValidRender | null;
     restoreLastValidRender(entry: OpenArticleDocumentEntry, render: MarkdownEditorSessionLastValidRender): Promise<MarkdownEditorSessionRenderRestoreProof>;
 }
@@ -200,6 +202,30 @@ export function createFsusUiEditorSessionFactory(
                 throw new Error('public-editor-retained-snapshot-stale');
             }
             return snapshot;
+        },
+        restoreRetainedSnapshot(entry, snapshot)
+        {
+            const { binding, session } = resolveSession(entry);
+            const identity = Object.freeze({ ...binding.identity });
+            const context = Object.freeze({ ...binding.documentContext });
+            const revision = binding.editorRevision;
+            const editor = binding.editor;
+            const proof = session.restoreSnapshot(snapshot, {
+                documentIdentity: {
+                    id: identity.documentId,
+                    epoch: context.documentEpoch
+                },
+                revision
+            });
+            const current = resolveSession(entry);
+            assertBinding(current.binding, identity, context);
+            if (current.session !== session
+                || current.binding.editor !== editor
+                || current.binding.editorRevision !== revision)
+            {
+                throw new Error('public-editor-retained-restore-owner-stale');
+            }
+            return proof;
         },
         createSession(entry): FsusUiPublicEditorSession
         {
