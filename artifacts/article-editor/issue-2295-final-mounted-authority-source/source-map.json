@@ -1,0 +1,45 @@
+{
+  "sourceHead": "75fec0866f5846339261847f88a421ed207fd31c",
+  "parent": "86b4f2954701792ca8b1711751fa7852131859bf",
+  "paths": [
+    {
+      "path": "docs/architecture/authoring-workspace-snapshot-boundary.md",
+      "baseBlob": "d4a5133de983394042055d330dd15cd80d35a9cc",
+      "sourceBlob": "00cb26aece475f067a6c5f66dc5cb15c8b38fadd",
+      "sha256": "d547d8b410febb46ecb036ff84070652acc870f74d2f927d48fa043c489a7da4",
+      "bytes": 50165
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "baseBlob": "d1d53f9ba505c4fd6e9640c406cd7eff58d7cf7f",
+      "sourceBlob": "4f3bf3cc2cf1721aa8aae94622c7e5292e70c993",
+      "sha256": "21cc7ba97e6ffae541a1db0ea7baf79884be542c99cc5d05a34a02b278c03f5e",
+      "bytes": 150558
+    },
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "baseBlob": "bcea5a14ecd76362e4da73081fc2ea253d516cf9",
+      "sourceBlob": "1edfc1ecc6ebb73ee0213f25a2dba395616f9a4e",
+      "sha256": "6c5c953a68c1774e62d69253d47fdd98493fb6ed499f6aaf402779acc5e51d6a",
+      "bytes": 60654
+    },
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "baseBlob": "779f6ca0540bc8dc1ada34fe0a3ef207cf8ca247",
+      "sourceBlob": "ed13cd345919ad08c3477778018e2758a5486897",
+      "sha256": "f6a3d1259091dc81f7176c392bad49e98b32864bcf2c6e09557f05188a037e63",
+      "bytes": 23382
+    },
+    {
+      "path": "tests/frontend/unit/services/articleRecoveryJournal.test.ts",
+      "baseBlob": "7517fa5f9427d99d619950389b65a20ecb88cc9a",
+      "sourceBlob": "cea860b99ddd968a598bf1cfadc032a592557e9a",
+      "sha256": "3ceb7ea40696f0d7b3a34f1cdbd4679924705415d2be0864aec8ec268cf56037",
+      "bytes": 58535
+    }
+  ],
+  "count": 5,
+  "rootIndependentReview": "P1 SOURCE CLOSED; P2 remains CLOSED; no newP1/P2 reported",
+  "consumer": "original Layout/Rail apply this exact original source increment; preserve their own current router/type and caller updates",
+  "runtime": "UNRUN"
+}
