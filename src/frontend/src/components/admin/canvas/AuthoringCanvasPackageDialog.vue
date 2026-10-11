@@ -90,8 +90,9 @@
                         <span v-if="item.status !== 'resolved'">
                             Node {{ item.nodeId }} (Article #{{ item.targetArticleId }}):
                             <ElSelect
-                                v-model="unresolvedDecisions[item.nodeId]"
+                                :model-value="unresolvedDecisions[item.nodeId] ?? undefined"
                                 class="decision-select"
+                                @update:model-value="handleUnresolvedDecision(item.nodeId, $event)"
                             >
                                 <ElOption
                                     value="leave-broken"
@@ -153,8 +154,8 @@ const importInput = ref('');
 const importError = ref<string | null>(null);
 const importPlan = ref<AuthoringCanvasImportPlan | null>(null);
 const unresolvedDecisions = ref<Record<string, UnresolvedDecisionAction | null>>({});
-const canExecutePlannedImport = computed(() => props.canExecuteImport && importPlan.value !== null
-    && importPlan.value.reResolutionItems.every(item => item.status === 'resolved'
+const canExecutePlannedImport = computed(() => props.canExecuteImport
+    && importPlan.value?.reResolutionItems.every(item => item.status === 'resolved'
         || unresolvedDecisions.value[item.nodeId] === 'leave-broken'
         || unresolvedDecisions.value[item.nodeId] === 'remove-node'));
 let planGeneration = 0;
@@ -204,6 +205,10 @@ async function handleValidateAndPlan()
     {
         importError.value = t('admin.canvas.unavailable');
     }
+}
+function handleUnresolvedDecision(nodeId: string, action: unknown)
+{
+    unresolvedDecisions.value[nodeId] = action === 'leave-broken' || action === 'remove-node' ? action : null;
 }
 function handleExecuteImport()
 {
