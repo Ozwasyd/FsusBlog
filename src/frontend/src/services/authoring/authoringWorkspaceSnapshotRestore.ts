@@ -327,12 +327,17 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
         }
         runtimeTabIds.set(target.savedTabId, receipt.tabId);
     }
-    const groups = plan.layout.groups.map(group => ({ groupId: group.groupId,
-        tabIds: group.tabIds.map(tabId => runtimeTabIds.get(tabId)!), activeTabId: group.activeTabId ? runtimeTabIds.get(group.activeTabId)! : null }));
+    // The callback receives a separate deep-frozen request; activation consumes this same binding.
+    const groupRequest = freezeWorkspaceSnapshot(structuredClone({
+        groups: plan.layout.groups.map(group => ({ groupId: group.groupId,
+            tabIds: group.tabIds.map(tabId => runtimeTabIds.get(tabId)!), activeTabId: group.activeTabId ? runtimeTabIds.get(group.activeTabId)! : null })),
+        activeGroupId: plan.layout.activeGroupId,
+        splitRatioPermille: plan.layout.splitRatioPermille
+    }));
     current();
     const articleBefore = commands.router.getRegistry().exportState();
     const groupBefore = groupOwner.exportState();
-    const requestedGroupsDigest = workspaceSnapshotDigest(groups);
+    const requestedGroupsDigest = workspaceSnapshotDigest(groupRequest.groups);
     const expectedRegistryRevision = registryRevision + 1;
     if (!Number.isSafeInteger(expectedRegistryRevision) || articleBefore.revision !== registryRevision
         || groupBefore.articleRegistryRevision !== registryRevision)
@@ -340,7 +345,7 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
         throw new AuthoringWorkspaceSnapshotError('restore_superseded');
     }
     // Receipt coordinates contain no opaque handles; copy once before inspecting caller-owned data.
-    const transition = structuredClone(await applyGroupsWithReceipt(groups, plan.layout.activeGroupId, plan.layout.splitRatioPermille, signal));
+    const transition = structuredClone(await applyGroupsWithReceipt(groupRequest.groups, groupRequest.activeGroupId, groupRequest.splitRatioPermille, signal));
     // The old guard must not accept +1 until the real committed transition proves it.
     currentAuthority();
     const articleAfter = commands.router.getRegistry().exportState();
@@ -349,8 +354,8 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
         || transition.command.kind !== 'apply-group-references'
         || transition.command.expectedRevision !== groupBefore.revision
         || transition.command.expectedArticleRegistryRevision !== registryRevision
-        || transition.command.activeGroupId !== plan.layout.activeGroupId
-        || transition.command.splitRatioPermille !== plan.layout.splitRatioPermille
+        || transition.command.activeGroupId !== groupRequest.activeGroupId
+        || transition.command.splitRatioPermille !== groupRequest.splitRatioPermille
         || workspaceSnapshotDigest(transition.command.groups.map(group => ({ groupId: group.groupId,
             tabIds: group.tabs.map(tab => tab.tabId), activeTabId: group.activeTabId }))) !== requestedGroupsDigest
         || articleAfter.revision !== expectedRegistryRevision
@@ -361,7 +366,7 @@ export async function applyAuthoringWorkspaceSnapshotRestore(plan: AuthoringWork
     registryRevision = expectedRegistryRevision;
     current();
     const groupReceiptDigest = transition.receipt.contentDigest;
-    const active = groups.find(group => group.groupId === plan.layout.activeGroupId)!.activeTabId;
+    const active = groupRequest.groups.find(group => group.groupId === groupRequest.activeGroupId)!.activeTabId;
     if (active)
     {
         const entry = commands.router.getRegistry().getEntry(active);

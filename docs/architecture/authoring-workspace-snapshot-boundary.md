@@ -261,10 +261,24 @@ advances the local guard; a latest-revision read, replay, digest-only result or
 ratio-only commit cannot authorize it. Server provenance, operation epoch and
 abort guards remain active throughout the asynchronous boundary.
 
+The callback receives a copied, recursively frozen group request, including
+ordered tab arrays and active refs. Digest verification and subsequent
+activation both consume this same request; callback code cannot substitute an
+activation target after the receipt has been verified. No callback-owned
+mutable group projection is read again for activation.
+
 This is source wiring, not restore readiness or a runtime receipt witness.
-Original group R6 eight-command transition binding, R7 viewport-collapse
-activation and R8 lint repairs are supplied in source by this exact dependency;
-their independent review and behavioral qualification remain pending. The
+Original group R5/R6/R7/R8 repairs are independently statically closed for this
+exact dependency; behavioral qualification remains UNRUN. Independent review
+of snapshot `2d6c15d5` closed the old +1 guard P1 and found two consumer P2s:
+callback request mutation (addressed by the frozen copy above) and Registry
+instance binding (still open). `instanceof`, identical snapshots and a genuine
+foreign owner's cached receipt do not prove that the owner belongs to the
+router's Registry instance. The original group owner must publish a method
+that checks its private Registry reference and canonical owner registration
+against the actual supplied instance; this consumer may not invent that
+capability or replace it with a string/digest. No such public identity method
+exists at `68e4cdd4`; that dependency remains explicit WIP. The
 concrete runtime capability gate is retained;
 shell commands/receipts and production bootstrap still require original-owner
 integration and qualification. All 21 ratio controls, original group/ownership
