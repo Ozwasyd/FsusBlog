@@ -107,7 +107,8 @@ function requireCurrentStartup(ports: AdminArticleWorkspaceStartupPorts, plan: A
 {
     ports.signal.throwIfAborted();
     const state = ports.sync.getState();
-    if (!ports.sync.getServerObservation() || state.dirty || state.resetting || !ports.isCurrent({
+    const observation = ports.sync.getServerObservation();
+    if (!observation || state.dirty || state.resetting || !ports.isCurrent({
         scopeDigest: plan.scopeDigest,
         sourceDigest: plan.sourceDigest,
         serverRevision: plan.serverRevision,
@@ -118,6 +119,11 @@ function requireCurrentStartup(ports: AdminArticleWorkspaceStartupPorts, plan: A
     }
     // The original current guard can synchronously cancel this operation.
     ports.signal.throwIfAborted();
+    const current = ports.sync.getState();
+    if (ports.sync.getServerObservation() !== observation || current.dirty || current.resetting)
+    {
+        throw new Error('article-workspace-startup-current-source-unavailable');
+    }
 }
 
 async function startArticleWorkspace(
@@ -256,13 +262,15 @@ if (startupPorts)
         {
             return;
         }
-        if (props.workspaceStartup !== startupPorts || workspaceInstallation?.ports !== startupPorts)
+        if (props.workspaceStartup !== startupPorts || workspaceInstallation?.ports !== startupPorts
+            || workspaceInstallation.failed)
         {
             throw new Error('article-workspace-startup-owner-changed');
         }
         requireCurrentStartup(startupPorts, plan);
         // Recheck after the original guard callback, immediately before local publication.
-        if (!mounted || props.workspaceStartup !== startupPorts || startupPorts.signal.aborted)
+        if (!mounted || props.workspaceStartup !== startupPorts || startupPorts.signal.aborted
+            || workspaceInstallation.failed)
         {
             markWorkspaceStartupUnavailable();
             return;
