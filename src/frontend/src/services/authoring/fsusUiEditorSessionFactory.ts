@@ -129,7 +129,13 @@ export function createFsusUiEditorSessionFactory(
         captureRetainedSnapshot(entry)
         {
             const { binding, session } = resolveSession(entry);
-            const snapshot = session.captureSnapshot(calculateOpenArticleDocumentDigest);
+            const snapshot = session.captureSnapshot(calculateOpenArticleDocumentDigest, {
+                documentIdentity: {
+                    id: binding.identity.documentId,
+                    epoch: binding.documentContext.documentEpoch
+                },
+                revision: binding.editorRevision
+            });
             // Re-resolve after the digest callback; a document replacement must
             // not be silently accepted as the requested registry session.
             const current = resolveSession(entry);

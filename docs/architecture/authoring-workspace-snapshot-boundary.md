@@ -248,3 +248,10 @@ refuse before replacing the retained checkpoint. Production composition remains
 UNWIRED, immediate receipt behavior is unchanged, and all qualification holds
 remain in force. The controller-only language/search and partial renderer source
 increments do not qualify total lifecycle usage or recoverable eviction.
+
+
+The receiver also passes mounted-owner document identity/epoch/editor revision
+into public retained capture. Upstream checks the actual transaction owner before
+digest or checkpoint mutation, so a stale binding cannot replace the prior valid
+checkpoint before the receiver's post-capture validation rejects it. Full snapshot
+and disposal failures continue to preserve the original retained state.
