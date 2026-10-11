@@ -668,6 +668,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     private readonly receiptsLog: ArticleDocumentEpochReceipt[] = [];
     private readonly completedTaskEnvelopeLog: ArticleDocumentTaskEnvelope[] = [];
     private taskSequence = 0;
+    private taskCancellationDepth = 0;
     private receiptSequence = 0;
     private disposed = false;
     private readonly contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
@@ -750,9 +751,26 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-context-disposed');
         }
+        if (this.taskCancellationDepth > 0)
+        {
+            throw new Error('article-document-task-cancellation-in-progress');
+        }
         assertTaskInput(kind, producerRef, producerVersion);
         const taskKey = `${kind}\u0000${producerRef}`;
-        this.activeTasks.get(taskKey)?.cancel('task-superseded');
+        const startedContext = this.current;
+        this.taskCancellationDepth += 1;
+        try
+        {
+            this.activeTasks.get(taskKey)?.cancel('task-superseded');
+        }
+        finally
+        {
+            this.taskCancellationDepth -= 1;
+        }
+        if (this.disposed || !this.isCurrentContext(startedContext))
+        {
+            throw new Error('article-document-task-start-context-changed');
+        }
         this.taskSequence += 1;
         const taskRef = `task:${this.taskSequence.toString(36)}`;
         const requestId = `request:${this.taskSequence.toString(36)}`;
@@ -921,9 +939,18 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     {
         assertAbortReason(reason);
         const refs = [...this.activeTasks.values()].map(task => task.taskRef).sort();
-        for (const task of [...this.activeTasks.values()])
+        // Synchronous abort listeners must not register work outside this cancellation snapshot.
+        this.taskCancellationDepth += 1;
+        try
         {
-            task.cancel(reason);
+            for (const task of [...this.activeTasks.values()])
+            {
+                task.cancel(reason);
+            }
+        }
+        finally
+        {
+            this.taskCancellationDepth -= 1;
         }
         return refs;
     }

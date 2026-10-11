@@ -1,7 +1,7 @@
 import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection } from '@/fsusui/articlePositionMaps';
 import { MARKDOWN_RENDERER_VERSION } from '@/fsusui/markdown';
 
-import { ArticleEditorContinuityAdapter, type ArticleEditorContinuityPort } from './articleEditorContinuity';
+import { ArticleEditorContinuityAdapter, type ArticleEditorContinuityContext, type ArticleEditorContinuityPort } from './articleEditorContinuity';
 import { ArticleFsusUiRenderProducer, type ArticleFsusUiRenderConfiguration } from './articleFsusUiRenderProducer';
 import { ArticleRenderCache, type ArticleRenderCachePolicy, type ArticleRenderIdentity } from './articleRenderCache';
 import { evaluateArticleRenderRefreshPolicy } from './articleRenderRefreshPolicy';
@@ -10,7 +10,6 @@ import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocum
 import type { ArticleAnchorCaptureOptions, ArticleAnchorContextAdapter, ArticleAnchorSurface } from './articleAnchorContext';
 import type { ArticleAttachmentContextAdapter, ArticleAttachmentTransactionPort } from './articleAttachmentContext';
 import type { ArticleDocumentContext, ArticleDocumentContextAdapter, ArticleDocumentTaskLease } from './articleDocumentContext';
-import type { ArticleEditorContinuityContext } from './articleEditorContinuity';
 
 export interface ArticleEditorRuntimeBindingOptions
 {

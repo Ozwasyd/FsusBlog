@@ -176,6 +176,56 @@ describe('composed canonical editor lifecycle integration regressions', () =>
         expect(caller.task.signal.aborted).toBe(true);
     });
 
+    it.each(['source', 'draft', 'document', 'dispose'] as const)('rejects synchronous loan registration during %s cancellation', transition => {
+        const f = open();
+        const caller = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        let registered = false;
+        let rejection: unknown = null;
+        caller.task.signal.addEventListener('abort', () => {
+            try {
+                f.binding.borrowCompareTask('fragment:reentered', () => capture);
+                registered = true;
+            } catch (error) {
+                rejection = error;
+            }
+        }, { once: true });
+        if (transition === 'source') f.owner.updateSource('changed');
+        else if (transition === 'draft') f.owner.updateDraftRevision('draft:changed');
+        else if (transition === 'document') f.owner.switchDocument({ articleId: 2, draftId: 'article:2', content: f.source() });
+        else f.owner.dispose();
+        expect(registered).toBe(false);
+        expect(rejection instanceof Error && rejection.message).toBe('article-document-task-cancellation-in-progress');
+        expect(caller.task.signal.aborted).toBe(true);
+        expect(caller.task.isCurrent()).toBe(false);
+        expect(f.owner.activeTaskRefs).toHaveLength(0);
+        if (transition !== 'dispose') {
+            const next = f.binding.borrowCompareTask('fragment:after-transition', () => capture);
+            expect(next.task.isCurrent()).toBe(true);
+            next.release();
+        }
+    });
+
+    it('rejects synchronous replacement-loan reentry before the outer superseding task is registered', () => {
+        const f = open();
+        const first = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        let rejection: unknown = null;
+        first.task.signal.addEventListener('abort', () => {
+            try {
+                f.binding.borrowCompareTask('fragment:prepare', () => capture);
+            } catch (error) {
+                rejection = error;
+            }
+        }, { once: true });
+        const replacement = f.binding.borrowCompareTask('fragment:prepare', () => capture);
+        expect(rejection instanceof Error && rejection.message).toBe('article-document-task-cancellation-in-progress');
+        expect(first.task.signal.aborted).toBe(true);
+        expect(first.task.signal.reason).toBe('task-superseded');
+        expect(replacement.task.isCurrent()).toBe(true);
+        expect(f.owner.activeTaskRefs).toHaveLength(1);
+        replacement.release();
+        expect(f.owner.activeTaskRefs).toHaveLength(0);
+    });
+
     it('denies new semantic binding reads after the canonical owner is disposed', () => {
         const f = open();
         const handle = f.insert()[0]!;
