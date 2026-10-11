@@ -189,3 +189,38 @@ Slot/layout admission, model/command composition, production read grants, full
 resource/UI/scale qualification and snapshot reference reconciliation remain
 open. Local fixture provenance and test admission are not production or terminal
 acceptance evidence.
+
+## Workspace ratio source boundary
+
+The sole `authoringWorkspaceRatioOwner` in
+`src/frontend/src/services/authoring/authoringWorkspaceRatioOwner.ts` issues
+process-local workspace scopes, ratio refs and staged changes. Its closed
+200–800 permille bounds and default 500 match the existing Shared snapshot
+validator/default. Scope and ref authority use exact object identity and private
+WeakMap membership; copying symbol properties, serializing a ref or inventing a
+string cannot reconstruct that authority. Revision CAS cannot accept an old ref
+after a ratio changes back to the same number. Disposing the workspace scope
+revokes its current and pending refs. Collapse/re-expand must keep that same
+scope/ref; there is no browser/server storage or across-restart persistence in
+this owner. Existing signed snapshot storage is a separate authority and is not
+changed by this source offer.
+
+The original snapshot `applyGroups(..., splitRatioPermille, ...)` integration
+must stage the validated number with `prepare(scope, expectedRatioRef, value)`
+and pass the returned opaque `ratioRef` to the real group transaction. The
+staged ref is not readable as current until synchronous exact-ref CAS `commit`
+succeeds. Refusal/cancellation calls `discard`; neither action creates groups,
+moves tabs, focuses an editor or changes a session. All fallible group preparation
+must finish before a callback-free synchronous joint publication. This source
+does not supply that cross-owner transaction or a fabricated group receipt.
+
+The group owner must supply its exact versioned projection/export path and
+source SHA: registry revision/content digest, at most two ordered exact group
+IDs, focused group and bounded focus history, active tab refs, real tab/session/
+document-epoch/restore refs, and this owner's opaque ratio scope/ref. An admitted
+effective-state CAS must change only the viewport projection and preserve group,
+tab, focus-history and session identities. The earlier single-target article
+ownership port is not this group interface. Snapshot/group/layout consumption
+is blocked until that complete original source and the real host retention
+capability are available. No runtime/browser, race, tamper, security/privacy,
+IME or native qualification follows from source parsing or TypeScript checks.
