@@ -51,18 +51,18 @@
                     </div>
                 </ElUpload>
                 <p
-                    v-if="previewFailed"
-                    class="brand-asset-upload-field__status"
-                    role="status"
-                >
-                    预览加载失败，可重新上传
-                </p>
-                <p
-                    v-else-if="uploading"
+                    v-if="uploading"
                     class="brand-asset-upload-field__status"
                     role="status"
                 >
                     正在上传
+                </p>
+                <p
+                    v-else-if="previewFailed"
+                    class="brand-asset-upload-field__status"
+                    role="status"
+                >
+                    预览加载失败，可重新上传
                 </p>
             </div>
             <ElInput
