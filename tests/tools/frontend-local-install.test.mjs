@@ -11,6 +11,10 @@ const {
     verifyLocalFsusUiInstall
 } = await import(new URL('../../src/frontend/scripts/prepare-local-fsusui-install.mjs', import.meta.url));
 const {
+    prepareLocalFsusUiSourceCopy,
+    resolveLocalFsusUiRepositoryRoot
+} = await import(new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url));
+const {
     buildStaticGovernanceExecutionPlan,
     loadStaticGovernanceRegistry
 } = await import(new URL('../../tools/test/static-governance-host.mjs', import.meta.url));
@@ -72,7 +76,8 @@ function fixture(t)
 {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-install-'));
     t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
-    const frontend = path.join(temporary, 'frontend');
+    const repositoryRoot = path.join(temporary, 'FsusBlog');
+    const frontend = path.join(repositoryRoot, 'src/frontend');
     const fsusui = path.join(temporary, 'FsusUI');
     const output = path.join(temporary, 'install');
     const write = (file, value) =>
@@ -98,7 +103,7 @@ function fixture(t)
     write(path.join(frontend, 'node_modules/vue/package.json'), JSON.stringify({ name: 'vue', version: '3.5.33' }));
     write(path.join(frontend, 'node_modules/katex/package.json'), JSON.stringify({ name: 'katex', version: '0.16.45' }));
     write(path.join(frontend, 'node_modules/fsusui-local-katex/package.json'), JSON.stringify({ name: 'katex', version: '0.17.0' }));
-    return { frontend, fsusui, output, write, manifest, lockfile };
+    return { repositoryRoot, frontend, fsusui, output, write, manifest, lockfile };
 }
 
 test('local projection removes only the exact package and keeps every other lock record and integrity', () =>
@@ -315,12 +320,117 @@ test('prepare rejects missing source, missing dist, empty dist and escaped asset
 test('installed source dependencies preserve the nested locked version without creating a fake FsusUI package', (t) =>
 {
     const context = fixture(t);
-    verifyLocalFsusUiInstall(context);
-    const nested = path.join(context.fsusui, 'vue/packages/node_modules');
+    const manifest = fs.readFileSync(path.join(context.frontend, 'package.json'));
+    const lock = fs.readFileSync(path.join(context.frontend, 'package-lock.json'));
+    const source = fs.readFileSync(path.join(context.fsusui, 'vue/packages/element-plus/index.ts'));
+    const copy = verifyLocalFsusUiInstall(context);
+    const nested = path.join(copy, 'vue/packages/node_modules');
+    assert.notEqual(copy, context.fsusui);
+    assert.ok(copy.startsWith(`${context.repositoryRoot}${path.sep}.tmp${path.sep}fsusui-source${path.sep}`));
+    assert.equal(fs.lstatSync(copy).isSymbolicLink(), false);
+    assert.deepEqual(fs.readFileSync(path.join(copy, 'vue/packages/element-plus/index.ts')), source);
     assert.equal(fs.realpathSync(path.join(nested, 'katex')), fs.realpathSync(path.join(context.frontend, 'node_modules/fsusui-local-katex')));
     assert.equal(JSON.parse(fs.readFileSync(path.join(nested, 'katex/package.json'))).version, '0.17.0');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(context.frontend, 'node_modules/katex/package.json'))).version, '0.16.45');
+    assert.equal(fs.realpathSync(path.join(copy, 'node_modules')), fs.realpathSync(path.join(context.frontend, 'node_modules')));
+    assert.equal(resolveLocalFsusUiRepositoryRoot({ override: context.fsusui, repositoryRoot: context.repositoryRoot }), copy);
+    assert.equal(resolveLocalFsusUiRepositoryRoot({ override: copy, repositoryRoot: context.repositoryRoot }), copy);
+    assert.equal(resolveLocalFsusUiRepositoryRoot({ repositoryRoot: context.repositoryRoot,
+        gitCommonDirectory: path.join(context.repositoryRoot, '.git') }), copy);
+    assert.deepEqual(fs.readFileSync(path.join(context.frontend, 'package.json')), manifest);
+    assert.deepEqual(fs.readFileSync(path.join(context.frontend, 'package-lock.json')), lock);
+    assert.deepEqual(fs.readFileSync(path.join(context.fsusui, 'vue/packages/element-plus/index.ts')), source);
     assert.equal(fs.existsSync(path.join(context.frontend, location, 'package.json')), false);
     assert.equal(fs.existsSync(path.join(context.fsusui, 'node_modules')), false);
+    assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+});
+
+test('consumer source copy leaves existing owner dependencies intact and gives declarations and packages one Vue', (t) =>
+{
+    const context = fixture(t);
+    const ownerVue = path.join(context.fsusui, 'node_modules/vue/package.json');
+    context.write(ownerVue, JSON.stringify({ name: 'vue', version: '3.5.32' }));
+    const originalOwnerVue = fs.readFileSync(ownerVue);
+    const ownerPackages = path.join(context.fsusui, 'vue/packages/node_modules');
+    fs.mkdirSync(ownerPackages, { recursive: true });
+    fs.symlinkSync(path.join(context.frontend, 'node_modules/vue'), path.join(ownerPackages, 'vue'), 'dir');
+    const originalOwnerLink = fs.readlinkSync(path.join(ownerPackages, 'vue'));
+    const copy = verifyLocalFsusUiInstall(context);
+    assert.deepEqual(fs.readFileSync(ownerVue), originalOwnerVue);
+    assert.equal(fs.readlinkSync(path.join(ownerPackages, 'vue')), originalOwnerLink);
+    // Resolve package metadata from both source scopes without loading Vue.
+    const declarationRequire = createRequire(path.join(copy, 'vue/typings/env.d.ts'));
+    const packageRequire = createRequire(path.join(copy, 'vue/packages/element-plus/index.ts'));
+    assert.equal(declarationRequire.resolve('vue/package.json'), packageRequire.resolve('vue/package.json'));
+    assert.equal(JSON.parse(fs.readFileSync(declarationRequire.resolve('vue/package.json'))).version, '3.5.33');
+});
+
+test('consumer source selection rejects source and copy drift and genuine initialization refreshes its owned copy', (t) =>
+{
+    const context = fixture(t);
+    const copy = verifyLocalFsusUiInstall(context);
+    const select = () => resolveLocalFsusUiRepositoryRoot({ override: context.fsusui, repositoryRoot: context.repositoryRoot });
+    const source = path.join(context.fsusui, 'vue/packages/element-plus/index.ts');
+    const copiedSource = path.join(copy, 'vue/packages/element-plus/index.ts');
+    const copiedBytes = fs.readFileSync(copiedSource);
+    fs.appendFileSync(copiedSource, '\n// copied fixture drift\n');
+    assert.throws(select, /stale/u);
+    fs.writeFileSync(copiedSource, copiedBytes);
+    assert.equal(select(), copy);
+    fs.appendFileSync(source, '\n// updated owner fixture\n');
+    assert.throws(select, /stale/u);
+    assert.equal(verifyLocalFsusUiInstall({ ...context, fsusui: copy }), copy);
+    assert.equal(select(), copy);
+    assert.deepEqual(fs.readFileSync(copiedSource), fs.readFileSync(source));
+    assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+});
+
+test('source projection rejects owner-contained or redirected destinations and preserves a copy after failed preparation', (t) =>
+{
+    const context = fixture(t);
+    const copy = verifyLocalFsusUiInstall(context);
+    const marker = fs.readFileSync(path.join(copy, '.fsusblog-source-copy.json'));
+    const source = fs.readFileSync(path.join(copy, 'vue/packages/element-plus/index.ts'));
+    assert.throws(() => prepareLocalFsusUiSourceCopy({ repositoryRoot: context.fsusui,
+        sourceRoot: context.fsusui, frontend: context.frontend,
+        initialize() { assert.fail('source owner must never receive dependency writes'); } }), /outside the source owner/u);
+    assert.throws(() => prepareLocalFsusUiSourceCopy({ repositoryRoot: context.repositoryRoot,
+        sourceRoot: context.fsusui, frontend: context.frontend,
+        initialize() { throw new Error('fixture preparation failure'); } }), /fixture preparation failure/u);
+    assert.deepEqual(fs.readFileSync(path.join(copy, '.fsusblog-source-copy.json')), marker);
+    assert.deepEqual(fs.readFileSync(path.join(copy, 'vue/packages/element-plus/index.ts')), source);
+    assert.equal(resolveLocalFsusUiRepositoryRoot({ override: context.fsusui,
+        repositoryRoot: context.repositoryRoot }), copy);
+    const saved = `${copy}.saved`;
+    fs.renameSync(copy, saved);
+    fs.symlinkSync(context.fsusui, copy, 'dir');
+    assert.throws(() => verifyLocalFsusUiInstall(context), /dedicated real directory/u);
+    fs.unlinkSync(copy);
+    fs.renameSync(saved, copy);
+    const dependencyRoot = path.join(copy, 'node_modules');
+    fs.unlinkSync(dependencyRoot);
+    fs.symlinkSync(context.fsusui, dependencyRoot, 'dir');
+    assert.throws(() => resolveLocalFsusUiRepositoryRoot({ override: context.fsusui,
+        repositoryRoot: context.repositoryRoot }), /consumer Vue identity/u);
+    assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+});
+
+test('linked consumers keep independent initialized copies of the same source owner', (t) =>
+{
+    const context = fixture(t);
+    const copy = verifyLocalFsusUiInstall(context);
+    const linked = path.join(path.dirname(context.repositoryRoot), 'FsusBlog-worktrees/issue');
+    const frontend = path.join(linked, 'src/frontend');
+    for (const file of ['package.json', 'package-lock.json'])
+    {
+        context.write(path.join(frontend, file), fs.readFileSync(path.join(context.frontend, file)));
+    }
+    fs.symlinkSync(path.join(context.frontend, 'node_modules'), path.join(frontend, 'node_modules'), 'dir');
+    const linkedCopy = verifyLocalFsusUiInstall({ frontend, fsusui: context.fsusui });
+    assert.notEqual(linkedCopy, copy);
+    assert.equal(resolveLocalFsusUiRepositoryRoot({ repositoryRoot: linked,
+        gitCommonDirectory: path.join(context.repositoryRoot, '.git') }), linkedCopy);
+    assert.equal(resolveLocalFsusUiRepositoryRoot({ override: context.fsusui, repositoryRoot: context.repositoryRoot }), copy);
 });
 
 test('verify rejects absent nested packages, version drift, already installed private package and source dependency drift', (t) =>
