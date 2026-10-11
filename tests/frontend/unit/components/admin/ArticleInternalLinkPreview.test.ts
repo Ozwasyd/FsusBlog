@@ -40,12 +40,18 @@ const admittedDisplay = (
 const mountPreview = (
     request: ArticleInternalLinkPreviewRequest | null,
     presentation: ArticleInternalLinkPreviewPresentation | null,
-    targetKey: string | null = request?.targetKey ?? 'opaque-a'
+    targetKey: string | null = request?.targetKey ?? 'opaque-a',
+    registerPublicControls = true,
+    warnings: string[] | null = null
 ) =>
 {
     const wrapper = mount(ArticleInternalLinkPreview, {
         props: { targetKey, request, presentation },
-        attachTo: document.body
+        attachTo: document.body,
+        global: {
+            components: registerPublicControls ? { ElButton, ElPopover } : {},
+            ...(warnings ? { config: { warnHandler: (message: string) => warnings.push(message) } } : {})
+        }
     });
     wrappers.push(wrapper);
     return wrapper;
@@ -66,6 +72,27 @@ afterEach(() =>
 
 describe('ArticleInternalLinkPreview real public primitives', () =>
 {
+    it('preview-test: missing public control registration cannot masquerade as a real preview', async () =>
+    {
+        const { request } = requestToken('opaque-a');
+        const warnings: string[] = [];
+        const action = vi.fn();
+        const wrapper = mountPreview(
+            request, admittedDisplay(request, '调用方提供的标题', { openInNewTab: action }),
+            'opaque-a', false, warnings
+        );
+        await nextTick();
+        expect(wrapper.findComponent(ElButton).exists()).toBe(false);
+        expect(wrapper.findComponent(ElPopover).exists()).toBe(false);
+        expect(wrapper.find('button').exists()).toBe(false);
+        expect(warnings.some((message) => message.includes('Failed to resolve component: ElButton'))).toBe(true);
+        expect(warnings.some((message) => message.includes('Failed to resolve component: ElPopover'))).toBe(true);
+        expect(action).not.toHaveBeenCalled();
+        expect(wrapper.emitted('request')).toBeUndefined();
+        expect(wrapper.emitted('open')).toBeUndefined();
+        expect(wrapper.emitted('dismiss')).toBeUndefined();
+    });
+
     it('preview-test: explicit hover focus and touch action only request through caller', async () =>
     {
         const { request } = requestToken('opaque-a');

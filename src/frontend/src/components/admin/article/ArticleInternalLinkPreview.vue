@@ -72,7 +72,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElPopover } from '@ozwasyd/element-plus';
 import { computed, onBeforeUnmount, shallowRef, useId, watch } from 'vue';
 
 import type {
