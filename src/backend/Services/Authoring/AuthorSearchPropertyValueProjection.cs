@@ -139,11 +139,20 @@ public static class AuthorSearchPropertyValueProjection
         }
         if (entry.DefaultApplied)
         {
+            ArticlePropertyDefaultValue? defaultValue = definition.DefaultValue;
+            bool defaultIsNull = defaultValue is not null && (defaultValue.Kind == ArticlePropertyDefaultKind.Null
+                || definition.Presence.Empty == ArticlePropertyEmptyBehavior.TreatAsNull && (defaultValue.Kind switch
+                {
+                    ArticlePropertyDefaultKind.Scalar => defaultValue.Scalar == string.Empty,
+                    ArticlePropertyDefaultKind.OptionIds => defaultValue.OptionIds.Count == 0,
+                    ArticlePropertyDefaultKind.ArticleIds => defaultValue.ArticleIds.Count == 0,
+                    _ => false
+                }));
             Require(definition.Presence.Missing == ArticlePropertyMissingBehavior.ApplyDefault
-                && definition.DefaultValue is not null
-                && (entry.Value is null ? definition.DefaultValue.Kind == ArticlePropertyDefaultKind.Null
+                && defaultValue is not null
+                && (entry.Value is null ? defaultIsNull
                     : ArticlePropertyDefinitionContract.ComputeDefaultDigest(Payload(entry.Value))
-                        == ArticlePropertyDefinitionContract.ComputeDefaultDigest(definition.DefaultValue)),
+                        == ArticlePropertyDefinitionContract.ComputeDefaultDigest(defaultValue)),
                 "author_search_property_default_origin_invalid");
         }
         var input = new ArticlePropertyValueInput(entry.DefinitionId, entry.DefinitionSchemaRevision,
@@ -152,7 +161,8 @@ public static class AuthorSearchPropertyValueProjection
             "author_search_property_value_digest_invalid");
     }
 
-    internal static void ValidateTypedShape(ArticlePropertyDefinition definition, ArticlePropertyTypedValue value)
+    internal static void ValidateTypedShape(ArticlePropertyDefinition definition, ArticlePropertyTypedValue value,
+        bool allowReferenceAlternatives = false)
     {
         bool valid = (definition.ValueType, value) switch
         {
@@ -169,7 +179,8 @@ public static class AuthorSearchPropertyValueProjection
             (ArticlePropertyValueType.ArticleReference, ArticlePropertyArticleReferenceValue references) =>
                 ValidSet(references.ArticleIds, ArticlePropertyDefinitionContract.MaxReferenceIdsPerDefault)
                 && references.ArticleIds.All(static id => id > 0)
-                && (definition.Cardinality == ArticlePropertyCardinality.Multiple || references.ArticleIds.Count == 1),
+                && (allowReferenceAlternatives || definition.Cardinality == ArticlePropertyCardinality.Multiple
+                    || references.ArticleIds.Count == 1),
             (ArticlePropertyValueType.Url, ArticlePropertyUrlValue url) => url.Url is not null
                 && url.Url == ArticlePropertyDefinitionContract.NormalizeUrl(url.Url, definition.UrlPolicy!),
             _ => false

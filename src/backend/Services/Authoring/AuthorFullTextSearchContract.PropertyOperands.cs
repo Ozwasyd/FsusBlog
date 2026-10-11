@@ -27,7 +27,10 @@ public static partial class AuthorFullTextSearchContract
             definition.DefinitionId, definition.SchemaRevision, definition.ContentDigest,
             definition.ValueType, operatorId, held, string.Empty);
         ValidatePropertyOperandShape(operand, definition);
-        return operand with { ContentDigest = PropertyOperandDigest(operand) };
+        return operand with
+        {
+            ContentDigest = PropertyOperandDigest(operand)
+        };
     }
 
     /// <summary>Pure identity/shape/digest validation, including ordered numeric/UTC pairs.</summary>
@@ -73,7 +76,8 @@ public static partial class AuthorFullTextSearchContract
         foreach (ArticlePropertyTypedValue value in operand.Values)
         {
             Require(value is not null, "author_search_property_operand_missing");
-            AuthorSearchPropertyValueProjection.ValidateTypedShape(definition, value);
+            AuthorSearchPropertyValueProjection.ValidateTypedShape(definition, value,
+                allowReferenceAlternatives: operand.OperatorId == "reference.any-of");
         }
         if (operand.OperatorId == "select.any-of" && definition.ValueType == ArticlePropertyValueType.SingleSelect)
         {

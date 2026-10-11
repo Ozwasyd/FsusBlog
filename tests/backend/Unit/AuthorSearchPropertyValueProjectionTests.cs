@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleProperties;
 
@@ -105,10 +103,15 @@ public sealed class AuthorSearchPropertyValueProjectionTests
         ArticlePropertyDefinition single = Seal(definition with
         {
             Cardinality = ArticlePropertyCardinality.Single,
-            ReferencePolicy = definition.ReferencePolicy! with { Cardinality = ArticlePropertyCardinality.Single }
+            ReferencePolicy = definition.ReferencePolicy! with
+            {
+                Cardinality = ArticlePropertyCardinality.Single
+            }
         });
         Assert.True(Match(single, new ArticlePropertyArticleReferenceValue([7]), "reference.equals",
             new ArticlePropertyArticleReferenceValue([7])));
+        Assert.True(Match(single, new ArticlePropertyArticleReferenceValue([7]), "reference.any-of",
+            new ArticlePropertyArticleReferenceValue([7, 9])));
     }
 
     [Theory]
@@ -156,6 +159,53 @@ public sealed class AuthorSearchPropertyValueProjectionTests
         Assert.True(AuthorSearchPropertyValueProjection.Project(definition, defaultValue).Entry.DefaultApplied);
         Assert.Throws<AuthorSearchContractException>(() => AuthorSearchPropertyValueProjection.Project(definition,
             Entry(definition, null, ArticlePropertyValuePresence.Missing)));
+    }
+
+    [Fact]
+    public void EmptyDefaultAlreadyNormalizedToNullRetainsOrigin()
+    {
+        var definition = Seal(Definition(ArticlePropertyValueType.Text) with
+        {
+            Presence = new(ArticlePropertyMissingBehavior.ApplyDefault, ArticlePropertyNullBehavior.AllowNull,
+                ArticlePropertyEmptyBehavior.TreatAsNull),
+            DefaultValue = new(ArticlePropertyDefaultKind.Scalar, Scalar: "")
+        });
+        var entry = Entry(definition, null, ArticlePropertyValuePresence.Null, defaultApplied: true);
+        Assert.Same(entry, AuthorSearchPropertyValueProjection.Project(definition, entry).Entry);
+        Assert.Throws<AuthorSearchContractException>(() => AuthorSearchPropertyValueProjection.Project(definition,
+            Entry(definition, new ArticlePropertyTextValue(""), defaultApplied: true)));
+    }
+
+    [Fact]
+    public void CurrentConstraintsOptionsAndFilterFlagRejectStaleOrIneligibleCandidates()
+    {
+        var definition = Seal(Definition(ArticlePropertyValueType.Number) with
+        {
+            Constraints = new(MinNumber: 0, MaxNumber: 10)
+        });
+        Assert.Throws<ArticlePropertyDefinitionValidationException>(() => AuthorSearchPropertyValueProjection.Project(
+            definition, Entry(definition, new ArticlePropertyNumberValue(-1))));
+        var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.less-than", [new ArticlePropertyNumberValue(100)]);
+        var projection = AuthorSearchPropertyValueProjection.Project(definition, Entry(definition, new ArticlePropertyNumberValue(0)));
+        Assert.True(AuthorSearchPropertyValueProjection.Matches(definition, projection, operand));
+        Assert.Throws<AuthorSearchContractException>(() => AuthorSearchPropertyValueProjection.Matches(definition,
+            projection with
+            {
+                Sortable = true
+            }, operand));
+        var unfilterable = Seal(definition with
+        {
+            Filterable = false
+        });
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.CreatePropertyOperand(unfilterable,
+            "number.equals", [new ArticlePropertyNumberValue(0)]));
+        var select = Definition(ArticlePropertyValueType.SingleSelect);
+        var retired = Seal(select with
+        {
+            Options = [select.Options[0] with { Status = ArticlePropertyOptionStatus.Deleted }, select.Options[1]]
+        });
+        Assert.Throws<AuthorSearchContractException>(() => AuthorSearchPropertyValueProjection.Project(retired,
+            Entry(retired, new ArticlePropertySingleSelectValue(s_firstOption))));
     }
 
     [Fact]
@@ -252,9 +302,15 @@ public sealed class AuthorSearchPropertyValueProjectionTests
         }
         ArticlePropertyValueEntry entry = Entry(definition, new ArticlePropertyNumberValue(0));
         Assert.Throws<AuthorSearchContractException>(() => AuthorSearchPropertyValueProjection.Project(definition,
-            entry with { Value = new ArticlePropertyNumberValue(1) }));
+            entry with
+            {
+                Value = new ArticlePropertyNumberValue(1)
+            }));
         Assert.Throws<AuthorSearchContractException>(() => AuthorSearchPropertyValueProjection.Project(definition,
-            entry with { DefinitionDigest = new string('a', 64) }));
+            entry with
+            {
+                DefinitionDigest = new string('a', 64)
+            }));
     }
 
     [Fact]
@@ -336,5 +392,8 @@ public sealed class AuthorSearchPropertyValueProjectionTests
     }
 
     private static ArticlePropertyDefinition Seal(ArticlePropertyDefinition definition)
-        => definition with { ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition) };
+        => definition with
+        {
+            ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition)
+        };
 }
