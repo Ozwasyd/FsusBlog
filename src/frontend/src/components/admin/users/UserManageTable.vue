@@ -237,12 +237,12 @@
 </template>
 
 <script setup lang="ts">
-import { TableV2FixedDir } from '@ozwasyd/element-plus';
 import { computed, ref, watch } from 'vue';
 
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import SemanticTime from '@/components/ui/SemanticTime.vue';
 import type { UserListViewItem } from '@/composables/useAdminUserManage';
+import { FsusUiTableV2FixedDir as TableV2FixedDir } from '@/fsusui/tableV2';
 
 import type { Column } from '@ozwasyd/element-plus';
 
