@@ -255,3 +255,14 @@ into public retained capture. Upstream checks the actual transaction owner befor
 digest or checkpoint mutation, so a stale binding cannot replace the prior valid
 checkpoint before the receiver's post-capture validation rejects it. Full snapshot
 and disposal failures continue to preserve the original retained state.
+
+
+The factory's `restoreLastValidRender(entry, render)` now forwards to the actual
+public FsusUI mounted-renderer projection restoration and re-resolves the existing
+mounted editor binding after the await. It rejects replaced editor/document/revision
+owners. This partial renderer operation does not issue or restore a complete
+#2294 snapshot, prove resource quiescence, or install the production composition.
+UI916 source `21c9e8769c005ffbc1fbd0a09a7ccc463211984e` remains WIP with
+`complete:false`; full lifecycle admission and all runtime holds remain unchanged.
+The legacy upload event/callback path supplies no actual service Promise to the UI
+attachment owner; no Promise is fabricated from the event or terminal label.

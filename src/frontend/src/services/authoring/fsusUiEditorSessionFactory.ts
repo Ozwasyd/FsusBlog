@@ -14,6 +14,7 @@ import type {
     MarkdownEditorSession,
     MarkdownEditorSessionExpose,
     MarkdownEditorSessionLastValidRender,
+    MarkdownEditorSessionRenderRestoreProof,
     MarkdownEditorSessionSnapshot
 } from '@ozwasyd/element-plus';
 
@@ -32,6 +33,7 @@ export type ArticleWorkspaceMountedEditorResolver = (
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
     captureLastValidRender(entry: OpenArticleDocumentEntry): MarkdownEditorSessionLastValidRender | null;
+    restoreLastValidRender(entry: OpenArticleDocumentEntry, render: MarkdownEditorSessionLastValidRender): Promise<MarkdownEditorSessionRenderRestoreProof>;
 }
 
 function assertBinding(
@@ -126,6 +128,24 @@ export function createFsusUiEditorSessionFactory(
             }
             return capture;
         },
+        async restoreLastValidRender(entry, render)
+        {
+            const { binding, session } = resolveSession(entry);
+            const proof = await session.restoreLastValidRender(render, {
+                documentIdentity: {
+                    id: binding.identity.documentId,
+                    epoch: binding.documentContext.documentEpoch
+                },
+                revision: binding.editorRevision
+            });
+            const current = resolveSession(entry);
+            if (current.session !== session
+                || current.binding.editorRevision !== binding.editorRevision)
+            {
+                throw new Error('public-editor-last-valid-render-restore-owner-stale');
+            }
+            return proof;
+        },
         captureRetainedSnapshot(entry)
         {
             const { binding, session } = resolveSession(entry);
@@ -158,7 +178,7 @@ export function createFsusUiEditorSessionFactory(
                 {
                     assertCurrent(entry, session, context);
                     // Upstream exposes an actual nullable full-document render
-                    // ref, but complete panel state, renderer restoration and
+                    // ref and same-mounted projection restoration, but complete panel state and
                     // application draft/journal checkpoint owners remain absent.
                     // Refuse before capture so an existing snapshot is preserved.
                     throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,crash-journal');
