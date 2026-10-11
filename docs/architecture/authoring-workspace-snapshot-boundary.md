@@ -198,7 +198,13 @@ process-local workspace scopes, ratio refs and staged changes. Its closed
 200–800 permille bounds and default 500 match the existing Shared snapshot
 validator/default. Scope and ref authority use exact object identity and private
 WeakMap membership; copying symbol properties, serializing a ref or inventing a
-string cannot reconstruct that authority. Revision CAS cannot accept an old ref
+string cannot reconstruct that authority. State lookup and ref issuance use
+ECMAScript `#requireScope`/`#issue` methods, not erased TypeScript `private`
+methods; callers cannot reflectively obtain the mutable internal ratio state.
+The earlier `c1141feb` source offer had this runtime-private boundary defect and
+must not be accepted as a closed issuer. The correction adds ordinary reflection/
+observation/staged-CAS source controls; they remain UNRUN until root approves
+the exact ordinary CLI. Revision CAS cannot accept an old ref
 after a ratio changes back to the same number. Disposing the workspace scope
 revokes its current and pending refs. Collapse/re-expand must keep that same
 scope/ref; there is no browser/server storage or across-restart persistence in

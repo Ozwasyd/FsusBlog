@@ -106,6 +106,28 @@ for (const name of ['#scopes', '#ratios', '#changes'])
         failures.push(`ratio-owner: missing-private-provenance-map:${name}`);
     }
 }
+for (const name of ['#requireScope', '#issue'])
+{
+    const member = ownerClasses[0]?.members.find(node => ts.isMethodDeclaration(node)
+        && ts.isPrivateIdentifier(node.name) && node.name.getText(ownerTree) === name);
+    if (!member)
+    {
+        failures.push(`ratio-owner: missing-runtime-private-helper:${name}`);
+    }
+}
+for (const member of ownerClasses[0]?.members ?? [])
+{
+    if (member.modifiers?.some(modifier => [ts.SyntaxKind.PrivateKeyword, ts.SyntaxKind.ProtectedKeyword].includes(modifier.kind))
+        && (!member.name || !ts.isPrivateIdentifier(member.name)))
+    {
+        failures.push('ratio-owner: erased-privacy-modifier-leaks-runtime-member');
+    }
+    if (ts.isMethodDeclaration(member) && !ts.isPrivateIdentifier(member.name)
+        && member.type?.getText(ownerTree) === 'RatioState')
+    {
+        failures.push('ratio-owner: public-mutable-state-return');
+    }
+}
 
 const ratioValues = {};
 visit(ownerTree, node =>

@@ -76,7 +76,7 @@ export function isAuthoringWorkspaceRatioPermille(value: unknown): value is numb
         && value <= authoringWorkspaceRatioPolicy.maximumPermille;
 }
 
-// The class is deliberately private: product composition imports the single owner below.
+// The class is not exported; ECMAScript # members seal the actual state/issuance boundary.
 class AuthoringWorkspaceRatioOwner
 {
     readonly #scopes = new WeakMap<AuthoringWorkspaceRatioScope, RatioState>();
@@ -87,7 +87,7 @@ class AuthoringWorkspaceRatioOwner
     public openWorkspace(): AuthoringWorkspaceRatioScope
     {
         const scope = Object.freeze({ [scopeBrand]: true as const });
-        const current = this.issue(scope, 0, authoringWorkspaceRatioPolicy.defaultPermille);
+        const current = this.#issue(scope, 0, authoringWorkspaceRatioPolicy.defaultPermille);
         this.#scopes.set(scope, { current, revision: 0 });
         return scope;
     }
@@ -95,13 +95,13 @@ class AuthoringWorkspaceRatioOwner
     /** Retrieves the owner's current ref, for workspace bootstrap or an explicit source observation. */
     public read(scope: AuthoringWorkspaceRatioScope): AuthoringWorkspaceRatioObservation
     {
-        return this.resolve(scope, this.requireScope(scope).current);
+        return this.resolve(scope, this.#requireScope(scope).current);
     }
 
     /** Projection consumers must pass their exact ref; missing/foreign/staged refs fail closed. */
     public resolve(scope: AuthoringWorkspaceRatioScope, ratioRef: AuthoringWorkspaceRatioRef): AuthoringWorkspaceRatioObservation
     {
-        const state = this.requireScope(scope);
+        const state = this.#requireScope(scope);
         const current = ratioRef;
         if (current !== state.current)
         {
@@ -130,7 +130,7 @@ class AuthoringWorkspaceRatioOwner
         {
             throw new AuthoringWorkspaceRatioError('revision-exhausted');
         }
-        const next = this.issue(scope, observation.revision + 1, splitRatioPermille);
+        const next = this.#issue(scope, observation.revision + 1, splitRatioPermille);
         const change = Object.freeze({ [changeBrand]: true as const, ratioRef: next });
         this.#changes.set(change, Object.freeze({ scope, expected, next }));
         return change;
@@ -139,7 +139,7 @@ class AuthoringWorkspaceRatioOwner
     /** Lets the real group owner validate its staged ref/value while both current states remain unchanged. */
     public readPrepared(scope: AuthoringWorkspaceRatioScope, change: AuthoringWorkspaceRatioChange): AuthoringWorkspacePreparedRatioObservation
     {
-        this.requireScope(scope);
+        this.#requireScope(scope);
         const prepared = this.#changes.get(change);
         if (prepared?.scope !== scope || prepared.next !== change.ratioRef)
         {
@@ -157,7 +157,7 @@ class AuthoringWorkspaceRatioOwner
      */
     public commit(scope: AuthoringWorkspaceRatioScope, change: AuthoringWorkspaceRatioChange): AuthoringWorkspaceRatioObservation
     {
-        const state = this.requireScope(scope);
+        const state = this.#requireScope(scope);
         const prepared = this.#changes.get(change);
         if (prepared?.scope !== scope || prepared.next !== change.ratioRef)
         {
@@ -178,7 +178,7 @@ class AuthoringWorkspaceRatioOwner
     /** A refused/cancelled group transaction discards its proposal without changing current ratio. */
     public discard(scope: AuthoringWorkspaceRatioScope, change: AuthoringWorkspaceRatioChange): void
     {
-        this.requireScope(scope);
+        this.#requireScope(scope);
         const prepared = this.#changes.get(change);
         if (prepared?.scope !== scope)
         {
@@ -190,11 +190,11 @@ class AuthoringWorkspaceRatioOwner
     /** Logout/site switch/workspace disposal revokes all refs and pending changes in this scope. */
     public releaseWorkspace(scope: AuthoringWorkspaceRatioScope): void
     {
-        this.requireScope(scope);
+        this.#requireScope(scope);
         this.#scopes.delete(scope);
     }
 
-    private requireScope(scope: AuthoringWorkspaceRatioScope): RatioState
+    #requireScope(scope: AuthoringWorkspaceRatioScope): RatioState
     {
         const state = this.#scopes.get(scope);
         if (!state)
@@ -204,7 +204,7 @@ class AuthoringWorkspaceRatioOwner
         return state;
     }
 
-    private issue(scope: AuthoringWorkspaceRatioScope, revision: number, splitRatioPermille: number): AuthoringWorkspaceRatioRef
+    #issue(scope: AuthoringWorkspaceRatioScope, revision: number, splitRatioPermille: number): AuthoringWorkspaceRatioRef
     {
         const ratioRef = Object.freeze({ [ratioBrand]: true as const });
         this.#ratios.set(ratioRef, Object.freeze({ scope, revision, splitRatioPermille }));

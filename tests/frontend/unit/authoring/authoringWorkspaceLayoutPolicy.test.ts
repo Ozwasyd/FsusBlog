@@ -59,6 +59,55 @@ function measurements(overrides: Partial<AuthoringWorkspaceGeometryInput> = {}):
 
 describe('workspace ratio owner source controls', () =>
 {
+    it('keeps state and issuance helpers absent from runtime reflection', () =>
+    {
+        const prototype = Object.getPrototypeOf(authoringWorkspaceRatioOwner) as object;
+        expect(Reflect.ownKeys(authoringWorkspaceRatioOwner)).toEqual([]);
+        expect(Reflect.ownKeys(prototype).sort()).toEqual([
+            'constructor', 'openWorkspace', 'read', 'resolve', 'prepare', 'readPrepared',
+            'commit', 'discard', 'releaseWorkspace'
+        ].sort());
+        for (const name of ['requireScope', 'issue', '#requireScope', '#issue', '#scopes', '#ratios', '#changes'])
+        {
+            expect(Reflect.get(authoringWorkspaceRatioOwner, name)).toBeUndefined();
+        }
+    });
+
+    it('exposes frozen observations without mutable internal state aliases', () =>
+    {
+        const scope = workspace();
+        const before = authoringWorkspaceRatioOwner.read(scope);
+        const change = authoringWorkspaceRatioOwner.prepare(scope, before.ratioRef, 600);
+        const staged = authoringWorkspaceRatioOwner.readPrepared(scope, change);
+        expect(Object.isFrozen(before)).toBe(true);
+        expect(Object.isFrozen(staged)).toBe(true);
+        expect(Reflect.ownKeys(before).sort()).toEqual(['ratioRef', 'revision', 'splitRatioPermille'].sort());
+        expect(Reflect.ownKeys(staged).sort()).toEqual(['expectedRatioRef', 'ratioRef', 'revision', 'splitRatioPermille'].sort());
+        expect(Reflect.set(before, 'ratioRef', change.ratioRef)).toBe(false);
+        expect(Reflect.set(before, 'revision', staged.revision)).toBe(false);
+        expect(Reflect.set(staged, 'expectedRatioRef', change.ratioRef)).toBe(false);
+        expect(authoringWorkspaceRatioOwner.read(scope)).toEqual(before);
+        expect(() => authoringWorkspaceRatioOwner.resolve(scope, change.ratioRef)).toThrow('stale-ratio');
+    });
+
+    it('rejects reflected helper calls without publishing staged refs or issuing outside-bound values', () =>
+    {
+        const scope = workspace();
+        const before = authoringWorkspaceRatioOwner.read(scope);
+        const change = authoringWorkspaceRatioOwner.prepare(scope, before.ratioRef, 600);
+        const stateGetter = Reflect.get(authoringWorkspaceRatioOwner, 'requireScope') as (...args: unknown[]) => unknown;
+        const issuer = Reflect.get(authoringWorkspaceRatioOwner, 'issue') as (...args: unknown[]) => unknown;
+        expect(() => Reflect.apply(stateGetter, authoringWorkspaceRatioOwner, [scope])).toThrow(TypeError);
+        expect(() => Reflect.apply(issuer, authoringWorkspaceRatioOwner, [scope, 1, 0])).toThrow(TypeError);
+        expect(authoringWorkspaceRatioOwner.read(scope)).toEqual(before);
+        expect(() => authoringWorkspaceRatioOwner.resolve(scope, change.ratioRef)).toThrow('stale-ratio');
+        const after = authoringWorkspaceRatioOwner.commit(scope, change);
+        expect(after.ratioRef).toBe(change.ratioRef);
+        expect(after.splitRatioPermille).toBe(600);
+        expect(() => authoringWorkspaceRatioOwner.prepare(scope, before.ratioRef, 700)).toThrow('stale-ratio');
+        expect(() => authoringWorkspaceRatioOwner.prepare(scope, after.ratioRef, 0)).toThrow('invalid-ratio');
+    });
+
     it('starts each real workspace with the canonical default and a distinct ref', () =>
     {
         const first = authoringWorkspaceRatioOwner.read(workspace());
