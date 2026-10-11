@@ -29,7 +29,7 @@ function heading(id: string, overrides: Partial<InternalLinkPickerHeading> = {})
     return { id, revision: `revision:${id}`, title: '重复章节', unavailableText: null, selectAction: { command: `select:${id}` }, ...overrides };
 }
 
-async function openPicker()
+async function openPicker(registerPublicControls = true, warnings: string[] | null = null)
 {
     const wrapper = mount(ArticleInternalLinkPicker, {
         attachTo: document.body,
@@ -41,7 +41,11 @@ async function openPicker()
                 void wrapper.setProps({ modelValue: value });
             }
         },
-        global: { stubs: { transition: false } }
+        global: {
+            components: registerPublicControls ? { ElButton, ElInput } : {},
+            stubs: { transition: false },
+            ...(warnings ? { config: { warnHandler: (message: string) => warnings.push(message) } } : {})
+        }
     });
     wrappers.push(wrapper);
     await flushPromises();
@@ -293,4 +297,19 @@ describe('ArticleInternalLinkPicker #1807', () =>
         expect(wrapper.emitted('cancel')).toHaveLength(1);
         await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
     });
+    it('rejects missing real public control registration when the unit resolver is absent', async () =>
+    {
+        const warnings: string[] = [];
+        const wrapper = await openPicker(false, warnings);
+        await results(wrapper, [article('unresolved')]);
+        expect(wrapper.findComponent(FsusUiDialog).exists()).toBe(true);
+        expect(wrapper.findComponent(ElInput).exists()).toBe(false);
+        expect(wrapper.findComponent(ElButton).exists()).toBe(false);
+        expect(document.querySelector('input')).toBeNull();
+        expect(document.querySelector('button[data-picker-target]')).toBeNull();
+        expect(warnings.some((message) => message.includes('Failed to resolve component: ElInput'))).toBe(true);
+        expect(warnings.some((message) => message.includes('Failed to resolve component: ElButton'))).toBe(true);
+        expect(wrapper.emitted('select')).toBeUndefined();
+    });
+
 });

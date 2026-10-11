@@ -124,7 +124,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElInput } from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 
 import { FsusUiDialog, fsusDialogWidths } from '@/fsusui/dialog';
