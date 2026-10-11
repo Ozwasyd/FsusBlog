@@ -1,0 +1,430 @@
+{
+  "kind": "historical-owner-source-offer",
+  "sourceCommit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+  "sourceTree": "05d73c971441323ddd0c54bfeb53e983494f4f81",
+  "parent": "8f3811352120d907fd4cd88eb465284ed2de415e",
+  "observedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "ingestedMaster": false,
+  "draftPR": "https://github.com/Ozwasyd/FsusBlog/pull/4153",
+  "branch": "codex/chain-2246-preack-runtime-intake",
+  "ownedIncrementPaths": [
+    "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+    "tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts"
+  ],
+  "sourceFiles": [
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "d17589f25d9faa62b835ef8e4fd593fa34dc7f73",
+      "bytes": 39118,
+      "sha256": "b2bd3f3efa3b8b2590f4ef799499e7a6419b597f1a84e3064178e59f506252c9"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "0a64be20425a5e34fcbf83e6ae1bffbdd1acd172",
+      "bytes": 10237,
+      "sha256": "1a353e02c3996ae753c73bbfb9f2a68199f44fed3cc385d30b248734f8034b39"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "15e7f9473d15127ed52e484d468232de2cf6cdd7",
+      "bytes": 38650,
+      "sha256": "da85d82a91c8a436db42a5e6719484d7c6eefb6f617a7a5c88fbee8d846f299d"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/services/authoring/articleAnchorContext.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "b9f3e7f06d78b7569cc87f8fa243f97376559f2d",
+      "bytes": 23517,
+      "sha256": "8c2d682677ed570bf80072efc3dd2a98a788b93394038e31ec9964d0721d6532"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "ad71f632573a3b8e49d656759e2c69e02c4d8441",
+      "bytes": 57751,
+      "sha256": "12368b577a4cb0acbd03043e7ec72df386280407724757ed047e228e8e4ad8e3"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "10399165d15fe65e31cc1a14c5b983548f142275",
+      "bytes": 139384,
+      "sha256": "6c6a56ff62026c71296741af28570dbedc73aa98b4c365051a260eaa18f021d7"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48",
+      "bytes": 70630,
+      "sha256": "99a9c9380c50ab76ad85c0335d8f84e51f1592a9daa895ff457f3fc13d094659"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "b1d2805dd7084802a69e1ec6b39c837416f003dc",
+      "bytes": 15077,
+      "sha256": "c79a110ba734be4c5f12cb99bfa2af9168aa5aaa67921c9172029f03b7f23c07"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/public-renderers/pageAssemblies.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "8ece9e5a8d79e320ce849143bc51ac73a7cb5634",
+      "bytes": 6307,
+      "sha256": "381e2d3b772f8c313333f0c2fd083d94e7b5d87e22ac50a106fd3b2318ee7894"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/frontend/src/api/authoring.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "efd294dc989bb7eacb4e6db5fc941d6215674614",
+      "bytes": 67396,
+      "sha256": "1701a61217b559feb1360668e3d8dd9772908e325311e474bd5da505af1c9531"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "deec2571dbfee789af874061aaae1cdff317dfe3",
+      "bytes": 26520,
+      "sha256": "feaae169d641bde96508c8d374b57e976f84d70d553595c0fa7bab1ca4ab4915"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "3130b80b71be500433ca0cd9625913abccd022cb",
+      "bytes": 36513,
+      "sha256": "d7ce663b2bd72cbc73a061b45df33a6fb7260660577c0f38318c08ff8c4b79d0"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Services/Authoring/AuthoringUseCasePorts.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "4949260cd3e0bc30778dc542a1776c1860531c03",
+      "bytes": 3990,
+      "sha256": "965da488e63cc5e7dd230e51a4714db9541cce98a5c2f1373582f9521f3cd08d"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Models/Dtos/AuthoringDtos.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "21cf281c077d6d53d5ec8074b9020bac078ac0bd",
+      "bytes": 16120,
+      "sha256": "c50d0cae82b202ac4d8f88b2c1357a720adcaa265569bdf8533581cb2d9aed04"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "afe14b0cbe1d41f4da677466cda536ec1f1d29a5",
+      "bytes": 51196,
+      "sha256": "84c466d8876986a362a11242f24ddadf072af04ea44ec8840fc8386dded69dac"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "34ed2ff156b9fbe056ace1bc524b5767a0f66e3f",
+      "bytes": 13280,
+      "sha256": "3be50ceae52eb69698325df7e19737f239226f14cb9c1bc103a7b9f892634652"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Entities/Article.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "46ff5bf70ab67351ff0eb7fc0f5b63a692693309",
+      "bytes": 40304,
+      "sha256": "12f51b27621347070b9d639decd499eb30026194f6e5fad5b5fcfa24a1468f97"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "967ee0028fa7f1d6c0bd3e92094fe79e8fc0ebe4",
+      "bytes": 20958,
+      "sha256": "008900c635f309ebb2827f0916f35b86b360bcaa1e1a64144465443e95653a24"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "63c6d8ef501274265c2c22ea7df8960735634514",
+      "bytes": 51659,
+      "sha256": "2761617ad713d2841e33a2bbd35fe9687222b430b480e96f3bec45458493cefb"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionWorkerSandbox.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "11b57b726f7b984a5fd034f8609ba07b600dbbf1",
+      "bytes": 17010,
+      "sha256": "88bacfdb495a910a1308a9c36b7cf9cd2e9fbf6362cb9025a6c3cfb34af8e02b"
+    },
+    {
+      "commit": "4d3ee43721b2fae113ffb86338e85a951335138c",
+      "path": "tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "2126ac089bc92b065fb0c50eafa7cabd7d7df622",
+      "bytes": 19084,
+      "sha256": "1bf7bc5f66fe3696ce5c3132e9a575493fc990f0b9293683247d84f18f082a6d"
+    }
+  ],
+  "baseMasterComparison": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "d17589f25d9faa62b835ef8e4fd593fa34dc7f73",
+      "masterBlob": "c710d66c2a757039175de95854a24f54cf5e1d10",
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+      "baseExists": true,
+      "masterExists": false,
+      "baseBlob": "5434967ea9d022614f3845eadeb1625ee36dd29b",
+      "masterBlob": null,
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+      "baseExists": true,
+      "masterExists": false,
+      "baseBlob": "15e7f9473d15127ed52e484d468232de2cf6cdd7",
+      "masterBlob": null,
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAnchorContext.ts",
+      "baseExists": true,
+      "masterExists": false,
+      "baseBlob": "b9f3e7f06d78b7569cc87f8fa243f97376559f2d",
+      "masterBlob": null,
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+      "baseExists": true,
+      "masterExists": false,
+      "baseBlob": "ad71f632573a3b8e49d656759e2c69e02c4d8441",
+      "masterBlob": null,
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "10399165d15fe65e31cc1a14c5b983548f142275",
+      "masterBlob": "10f83cc16aaa0770bb95a9c15462b8dda9a02c01",
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48",
+      "masterBlob": "cc1e76ae2f612101dfb60718ba79e56830a700d1",
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "b1d2805dd7084802a69e1ec6b39c837416f003dc",
+      "masterBlob": "cc721848ccf442e27af6f196379282ba4de3713b",
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/public-renderers/pageAssemblies.ts",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "8ece9e5a8d79e320ce849143bc51ac73a7cb5634",
+      "masterBlob": "78b5e7b57e1fa676ca1957c1cbe0627f07f3bae9",
+      "same": false
+    },
+    {
+      "path": "src/frontend/src/api/authoring.ts",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "efd294dc989bb7eacb4e6db5fc941d6215674614",
+      "masterBlob": "efd294dc989bb7eacb4e6db5fc941d6215674614",
+      "same": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "deec2571dbfee789af874061aaae1cdff317dfe3",
+      "masterBlob": "deec2571dbfee789af874061aaae1cdff317dfe3",
+      "same": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "3130b80b71be500433ca0cd9625913abccd022cb",
+      "masterBlob": "6f36ed2600b5170ac30a3e4f40468bf2c62b0ec3",
+      "same": false
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringUseCasePorts.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "4949260cd3e0bc30778dc542a1776c1860531c03",
+      "masterBlob": "4949260cd3e0bc30778dc542a1776c1860531c03",
+      "same": true
+    },
+    {
+      "path": "src/backend/Models/Dtos/AuthoringDtos.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "21cf281c077d6d53d5ec8074b9020bac078ac0bd",
+      "masterBlob": "21cf281c077d6d53d5ec8074b9020bac078ac0bd",
+      "same": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "afe14b0cbe1d41f4da677466cda536ec1f1d29a5",
+      "masterBlob": "aa7c0c69ca6910cd864e4e3f904a45e24401952e",
+      "same": false
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "34ed2ff156b9fbe056ace1bc524b5767a0f66e3f",
+      "masterBlob": "34ed2ff156b9fbe056ace1bc524b5767a0f66e3f",
+      "same": true
+    },
+    {
+      "path": "src/backend/Entities/Article.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "46ff5bf70ab67351ff0eb7fc0f5b63a692693309",
+      "masterBlob": "46ff5bf70ab67351ff0eb7fc0f5b63a692693309",
+      "same": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "967ee0028fa7f1d6c0bd3e92094fe79e8fc0ebe4",
+      "masterBlob": "6138f3b208d98d1392d6511abfff1985630a5f88",
+      "same": false
+    },
+    {
+      "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "63c6d8ef501274265c2c22ea7df8960735634514",
+      "masterBlob": "63c6d8ef501274265c2c22ea7df8960735634514",
+      "same": true
+    },
+    {
+      "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionWorkerSandbox.cs",
+      "baseExists": true,
+      "masterExists": true,
+      "baseBlob": "11b57b726f7b984a5fd034f8609ba07b600dbbf1",
+      "masterBlob": "11b57b726f7b984a5fd034f8609ba07b600dbbf1",
+      "same": true
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts",
+      "baseExists": true,
+      "masterExists": false,
+      "baseBlob": "b509d76bb576b88f0eaa6479805afbf5a7b1b02d",
+      "masterBlob": null,
+      "same": false
+    }
+  ],
+  "donorInspectedOnly": [
+    {
+      "commit": "d21c9328703c2387c33f7b8e672316734aa45269",
+      "path": "src/frontend/src/services/revisionFragmentProposal.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "028e1f1d8f1118a47fee052372c4b2f7e429c830",
+      "bytes": 10622,
+      "sha256": "df8da82cdcc2f3854f35362ba7803c42934ef29ce2965e6583d410304524ed90"
+    },
+    {
+      "commit": "d21c9328703c2387c33f7b8e672316734aa45269",
+      "path": "src/frontend/src/api/articleRevisionCompare.ts",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "529a253d562208592d1cb6df60b28dbf23c43015",
+      "bytes": 14743,
+      "sha256": "3306b5587083b09e85cfef34672d262cbc2897f6407245bfedc3d17c0ce8e818"
+    },
+    {
+      "commit": "d21c9328703c2387c33f7b8e672316734aa45269",
+      "path": "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "92d6f8036fd4c9cd0d05005785651fda56211ac0",
+      "bytes": 26929,
+      "sha256": "9a477a22e84ec56e537a455cc1da7f488460dc3811bbe44d5a87f245abfc025e"
+    },
+    {
+      "commit": "d21c9328703c2387c33f7b8e672316734aa45269",
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs",
+      "exists": true,
+      "mode": "100644",
+      "gitBlob": "11db7daa37039b276b4385733ebb1bb3208206d7",
+      "bytes": 23912,
+      "sha256": "091dec4e2a55107570d2f904dd5cc7febeb2b0effc5df5e2cb0a82079dd7d31d"
+    }
+  ],
+  "verification": {
+    "syntaxOnly": "zero parse diagnostics; TypeScript6.0.3/Node24.16; exit0",
+    "gitDiffWhitespace": "exit0",
+    "tests": "NOT RUN",
+    "testListing": "NOT RUN",
+    "typecheck": "NOT RUN",
+    "lint": "NOT RUN",
+    "runtime": "HELD",
+    "serverDocumentBinding": "BLOCKED: issuer/lifetime/API contract missing"
+  },
+  "styleHandoff": {
+    "status": "WAITING: exact4173 inspected SHA/blobs or unapplied patch needed",
+    "currentArticleWriteEditorBlob": "b1d2805dd7084802a69e1ec6b39c837416f003dc",
+    "currentUseAdminArticleWriteBlob": "10399165d15fe65e31cc1a14c5b983548f142275",
+    "sourceObservation": "Current parent abort callbacks use block bodies and do not return TaskEnvelope; reported line coordinates differ. Vue import typing remains config-owner work; no casts/stubs/rule changes."
+  },
+  "acceptance": "all ten original assigned issues OPEN/unaccepted; no server/native/business/permission/DB/receipt qualification"
+}
