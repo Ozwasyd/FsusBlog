@@ -30,11 +30,21 @@ export type AuthoringWorkspaceLayoutBlockReason =
     | 'component-measurement-unavailable'
     | 'session-source-unavailable' | 'session-retention-unavailable' | 'mounted-session-unavailable';
 
+type LayoutReadonly<Value> = Value extends object
+    ? { readonly [Key in keyof Value]: LayoutReadonly<Value[Key]>; } : Value;
+
+/** Readonly presentation of the original state; opaque owner handles are preserved exactly. */
+export type AuthoringWorkspaceLayoutProjection = Readonly<{
+    state: LayoutReadonly<AuthoringTabGroupProjection['state']>;
+    ratioScope: AuthoringTabGroupProjection['ratioScope'];
+    splitRatioRef: AuthoringTabGroupProjection['splitRatioRef'];
+}>;
+
 export type AuthoringWorkspaceLayoutObservation = Readonly<{
     status: 'planned' | 'blocked';
     reason: AuthoringWorkspaceLayoutBlockReason | null;
     /** Exact original observation; never an independently mutable group model. */
-    projection: AuthoringTabGroupProjection | null;
+    projection: AuthoringWorkspaceLayoutProjection | null;
     geometry: AuthoringWorkspaceGeometryPlan | null;
     separator: AuthoringWorkspaceSeparatorBinding;
 }>;
@@ -42,6 +52,44 @@ export type AuthoringWorkspaceLayoutObservation = Readonly<{
 const noSeparator: AuthoringWorkspaceSeparatorBinding = Object.freeze({ status: 'blocked' });
 // One live visual owner per genuine workspace; stores no group/article/session model.
 const layoutOwners = new WeakMap<AuthoringTabGroupRegistry, object>();
+
+/** exportProjection already owns a cloned state. Freeze every mutable member before lending it. */
+function freezeProjection<Projection extends AuthoringWorkspaceLayoutProjection>(projection: Projection): Projection
+{
+    const state = projection.state;
+    for (const group of state.groups)
+    {
+        for (const tab of group.tabs)
+        {
+            Object.freeze(tab);
+        }
+        Object.freeze(group.tabs);
+        Object.freeze(group);
+    }
+    for (const activation of state.activationHistory)
+    {
+        Object.freeze(activation);
+    }
+    Object.freeze(state.groups);
+    Object.freeze(state.focusHistory);
+    Object.freeze(state.activationHistory);
+    Object.freeze(state.splitRatio);
+    Object.freeze(state);
+    return Object.freeze(projection);
+}
+
+/** Isolate external render consumers. Clone only value state, never owner-issued capabilities. */
+export function copyAuthoringWorkspaceLayoutProjection(projection: AuthoringWorkspaceLayoutProjection): AuthoringWorkspaceLayoutProjection
+{
+    return freezeProjection({ state: structuredClone(projection.state),
+        ratioScope: projection.ratioScope, splitRatioRef: projection.splitRatioRef });
+}
+
+export function copyAuthoringWorkspaceLayoutObservation(observation: AuthoringWorkspaceLayoutObservation): AuthoringWorkspaceLayoutObservation
+{
+    return Object.freeze({ ...observation,
+        projection: observation.projection ? copyAuthoringWorkspaceLayoutProjection(observation.projection) : null });
+}
 
 export function unavailableAuthoringWorkspaceLayout(): AuthoringWorkspaceLayoutObservation
 {
@@ -193,7 +241,7 @@ export function createAuthoringWorkspaceLayoutController(source: AuthoringWorksp
     };
     const refresh = (): AuthoringWorkspaceLayoutObservation => run(unavailableAuthoringWorkspaceLayout(), () =>
     {
-        let projection = checked(() => groups.exportProjection());
+        let projection = checked(() => freezeProjection(groups.exportProjection()));
         const block = (reason: AuthoringWorkspaceLayoutBlockReason, geometry: AuthoringWorkspaceGeometryPlan | null = null): AuthoringWorkspaceLayoutObservation =>
         {
             adapter.invalidate();
@@ -252,7 +300,7 @@ export function createAuthoringWorkspaceLayoutController(source: AuthoringWorksp
             {
                 return block('effective-layout-publication-required', geometry);
             }
-            const next = groups.exportProjection();
+            const next = freezeProjection(groups.exportProjection());
             if (next.ratioScope !== projection.ratioScope || next.splitRatioRef !== projection.splitRatioRef
                 || next.state.revision !== projection.state.revision + 1
                 || next.state.articleRegistryRevision !== projection.state.articleRegistryRevision + 1
