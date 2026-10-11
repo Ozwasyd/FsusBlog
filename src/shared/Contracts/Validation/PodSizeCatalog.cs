@@ -177,6 +177,7 @@ public static class PodSizeCatalog
     public static readonly int UploadPartRangePod = PodContractValidation.SizeOf<UploadPartRangePod>();
     public static readonly int UploadPartAckPod = PodContractValidation.SizeOf<UploadPartAckPod>();
     public static readonly int UploadCompletePod = PodContractValidation.SizeOf<UploadCompletePod>();
+    public static readonly int UploadAssetPreviewPod = PodContractValidation.SizeOf<UploadAssetPreviewPod>();
     public static readonly int UploadInitRequestPod = PodContractValidation.SizeOf<UploadInitRequestPod>();
     public static readonly int UploadCompleteRequestPod = PodContractValidation.SizeOf<UploadCompleteRequestPod>();
     public static readonly int PowChallengePod = PodContractValidation.SizeOf<PowChallengePod>();

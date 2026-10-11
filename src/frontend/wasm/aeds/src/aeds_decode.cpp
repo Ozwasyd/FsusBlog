@@ -5,6 +5,7 @@
 #include "authoring_canvas_wire.generated.hpp"
 #include "article_canvas_link_wire.generated.hpp"
 #include "property_value_read.generated.hpp"
+#include "upload_asset_preview_pod.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -69,6 +70,10 @@ const char* ToErrorString(ErrorCode errorCode)
             return "frame_type_unsupported";
         case ErrorCode::FrameTypeRetired:
             return "frame_type_retired";
+        case ErrorCode::UploadAssetPreviewPayloadInvalid:
+            return "upload_asset_preview_payload_invalid";
+        case ErrorCode::UploadAssetFactsPayloadInvalid:
+            return "upload_asset_facts_payload_invalid";
         case ErrorCode::FontThemePayloadInvalid:
             return "font_theme_payload_invalid";
         default:
@@ -120,6 +125,12 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         return MakeError(ErrorCode::FrameTypeUnsupported);
     }
 
+    if (FrameType == static_cast<std::uint16_t>(FrameType::UploadAssetFacts)
+        && (PayloadLength != sizeof(FsusBlog::Pod::UploadPreview::Header) || ReadU16Le(frame + 6) != 0))
+    {
+        return MakeError(ErrorCode::UploadAssetFactsPayloadInvalid);
+    }
+
     const std::uint8_t* payload = frame + kHeaderSize;
     const std::uint16_t PayloadCrc = ComputeCrc16(payload, PayloadLength);
     if (PayloadCrc != PayloadCrc16)
@@ -157,6 +168,17 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
     if (FrameType == 269 && !ValidateArticlePropertyValueReadPayload(FrameType, payload, PayloadLength))
     {
         return MakeError(ErrorCode::ArticlePropertyValueReadPayloadInvalid);
+    }
+
+    if (FrameType == static_cast<std::uint16_t>(FrameType::UploadAssetFacts)
+        && !FsusBlog::Pod::UploadPreview::ParseFacts(payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::UploadAssetFactsPayloadInvalid);
+    }
+
+    if (FrameType == 275 && !FsusBlog::Pod::UploadPreview::Parse(payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::UploadAssetPreviewPayloadInvalid);
     }
 
     DecodeResult ok{};

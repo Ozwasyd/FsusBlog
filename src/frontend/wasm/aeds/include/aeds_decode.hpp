@@ -21,6 +21,8 @@ enum class ErrorCode : std::uint8_t
     AuthoringCanvasPayloadInvalid = 11,
     ArticleCanvasLinkPayloadInvalid = 12,
     ArticlePropertyValueReadPayloadInvalid = 13,
+    UploadAssetPreviewPayloadInvalid = 16,
+    UploadAssetFactsPayloadInvalid = 20,
     FontThemePayloadInvalid = 10
 };
 

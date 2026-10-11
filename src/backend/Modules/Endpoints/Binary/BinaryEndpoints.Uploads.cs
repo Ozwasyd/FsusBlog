@@ -38,6 +38,8 @@ public static partial class BinaryEndpoints
             .RequireAdminPermission(AdminPermissions.ArticleWrite)
             .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
+        MapBinaryUploadAssetFactsEndpoints(uploadGroup);
+
         uploadGroup.MapPost("/init", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IFileService fileService,
@@ -116,6 +118,15 @@ public static partial class BinaryEndpoints
             return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadComplete, static (value, writer) => PodBinaryCodec.WriteUploadComplete(value, writer));
         });
 
+        uploadGroup.MapPost("/{uploadId}/preview", static (
+            string uploadId,
+            HttpContext httpContext,
+            IFileService fileService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+            HandleUploadAssetPreviewAsync(uploadId, httpContext, fileService, aeds, cancellationToken))
+            .WithMetadata(new FsusOpenApiAedsContractMetadata(AedsFrameType.UploadCompleteRequest, AedsFrameType.UploadAssetPreview));
+
         uploadGroup.MapDelete("/{uploadId}", static async Task<BinaryFrameResult> (
             string uploadId,
             HttpContext httpContext,
@@ -133,6 +144,51 @@ public static partial class BinaryEndpoints
                         writer))
                 : BinaryResults.FromError(result.Error, aeds);
         });
+    }
+
+    internal static async Task<BinaryFrameResult> HandleUploadAssetPreviewAsync(
+        string uploadId,
+        HttpContext httpContext,
+        IFileService fileService,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken)
+    {
+        httpContext.Response.Headers.CacheControl = "private, no-store";
+        if (httpContext.User.Identity?.IsAuthenticated != true || !httpContext.User.IsAdminPrincipal()
+            || !httpContext.User.TryGetAdminPrincipalId(out _))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), aeds);
+        }
+        if (!httpContext.User.HasAdminPermission(AdminPermissions.ArticleWrite))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "FORBIDDEN"), aeds);
+        }
+        using var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds,
+            AedsFrameType.UploadCompleteRequest, cancellationToken, AedsFrameHeader.Size + 64);
+        if (!payload.IsSuccess)
+            return BinaryResults.FromError(payload.Error, aeds);
+        if (!PodBinaryCodec.TryDecodeUploadCompleteRequest(payload.Payload, out var dto))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "upload_asset_preview_request_invalid"), aeds);
+        }
+        var result = await fileService.ReadCommittedUploadPreviewAsync(CreateUploadAccess(uploadId, httpContext),
+            dto.Sha256!, cancellationToken);
+        return BinaryResults.FromResult(result.Map(static preview => new UploadAssetPreviewDto
+        {
+            UploadId = preview.Observation.UploadId,
+            AssetId = preview.Observation.Asset.Id.ToString(),
+            PublicUrl = preview.Observation.PublicUrl,
+            MimeType = preview.Observation.Asset.MimeType,
+            Extension = preview.Observation.Asset.Extension,
+            SizeBytes = preview.Observation.Asset.SizeBytes,
+            Width = preview.Observation.Asset.WidthPixels ?? 0,
+            Height = preview.Observation.Asset.HeightPixels ?? 0,
+            Sha256 = preview.Observation.Asset.Sha256!,
+            AssetVersionSha256 = preview.Observation.AssetVersionSha256,
+            ReferenceLedgerSha256 = preview.Observation.ReferenceLedgerSha256,
+            ReferenceRowCount = preview.Observation.References.Count,
+            Bytes = preview.Bytes
+        }), aeds, AedsFrameType.UploadAssetPreview, static (value, writer) => PodBinaryCodec.WriteUploadAssetPreview(value, writer));
     }
 
     internal static async Task<BinaryFrameResult> HandleUploadPartAsync(

@@ -8,6 +8,7 @@ using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,13 +24,27 @@ public sealed partial class FileService
         UploadSessionAccess access,
         string sha256,
         CancellationToken cancellationToken = default)
+        => (await ReadCommittedUploadObservationAsync(access, sha256, MaxUploadBytes, cancellationToken).ConfigureAwait(false))
+            .Map(static preview => preview.Observation);
+
+    public Task<Result<UploadAssetPreview>> ReadCommittedUploadPreviewAsync(
+        UploadSessionAccess access,
+        string sha256,
+        CancellationToken cancellationToken = default)
+        => ReadCommittedUploadObservationAsync(access, sha256, UploadAssetPreviewDto.MaxPreviewBytes, cancellationToken);
+
+    private async Task<Result<UploadAssetPreview>> ReadCommittedUploadObservationAsync(
+        UploadSessionAccess access,
+        string sha256,
+        long maxObservedBytes,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!TryNormalizeUploadId(access.UploadId, out string uploadId)
             || sha256 is null || sha256.Length != 64
             || sha256.Any(static character => !char.IsAsciiHexDigit(character)))
         {
-            return Result<UploadAssetObservation>.Failure(ErrorCode.Validation, "upload_asset_observation_input_invalid");
+            return Result<UploadAssetPreview>.Failure(ErrorCode.Validation, "upload_asset_observation_input_invalid");
         }
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(uploadId, cancellationToken);
         UploadSessionRecord? session = await LoadAuthorizedSessionAsync(access with
@@ -38,15 +53,15 @@ public sealed partial class FileService
         }, cancellationToken);
         if (session is null || session.ExpiresAt <= DateTime.UtcNow)
         {
-            return Result<UploadAssetObservation>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
+            return Result<UploadAssetPreview>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
         }
         if (session.Status != "completed")
         {
-            return Result<UploadAssetObservation>.Failure(ErrorCode.Conflict, "upload_asset_not_completed");
+            return Result<UploadAssetPreview>.Failure(ErrorCode.Conflict, "upload_asset_not_completed");
         }
         if (_scopeFactory is null)
         {
-            return Result<UploadAssetObservation>.Failure(ErrorCode.InfraFailure, "upload_asset_ledger_unavailable");
+            return Result<UploadAssetPreview>.Failure(ErrorCode.InfraFailure, "upload_asset_ledger_unavailable");
         }
 
         AssetId assetId = AssetId.FromGuid(Guid.ParseExact(uploadId, "N"));
@@ -72,13 +87,20 @@ public sealed partial class FileService
                 || (!string.IsNullOrEmpty(session.Sha256)
                     && !string.Equals(session.Sha256, sha256, StringComparison.OrdinalIgnoreCase)))
             {
-                return Result<UploadAssetObservation>.Failure(ErrorCode.Conflict, "upload_asset_ledger_mismatch");
+                return Result<UploadAssetPreview>.Failure(ErrorCode.Conflict, "upload_asset_ledger_mismatch");
+            }
+
+            // The transport is bounded separately from the original upload and ledger observer.
+            // Refuse before opening or allocating the image; never return a truncated preview.
+            if (row.SizeBytes > maxObservedBytes)
+            {
+                return Result<UploadAssetPreview>.Failure(ErrorCode.Validation, "upload_asset_preview_too_large");
             }
 
             if (!OperatingSystem.IsLinux()
                 || RuntimeInformation.ProcessArchitecture is not (Architecture.X64 or Architecture.Arm64))
             {
-                return Result<UploadAssetObservation>.Failure(ErrorCode.InfraFailure, "upload_asset_native_observer_unavailable");
+                return Result<UploadAssetPreview>.Failure(ErrorCode.InfraFailure, "upload_asset_native_observer_unavailable");
             }
             byte[] bytes = new byte[checked((int)row.SizeBytes)];
             try
@@ -94,13 +116,13 @@ public sealed partial class FileService
                     || !ContentAssetMediaInspector.TryInspect(extension, bytes, out ContentAssetMediaMetadata media)
                     || media.MediaType != row.MimeType || media.Width != row.WidthPixels || media.Height != row.HeightPixels)
                 {
-                    return Result<UploadAssetObservation>.Failure(ErrorCode.Conflict, "upload_asset_bytes_mismatch");
+                    return Result<UploadAssetPreview>.Failure(ErrorCode.Conflict, "upload_asset_bytes_mismatch");
                 }
                 NativeRegularFileGuard.ValidateOriginalRegularFileUnchanged(path, handle, identity, cancellationToken);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
-                return Result<UploadAssetObservation>.Failure(ErrorCode.Conflict, "upload_asset_bytes_unavailable");
+                return Result<UploadAssetPreview>.Failure(ErrorCode.Conflict, "upload_asset_bytes_unavailable");
             }
 
             List<ContentAssetReference> references = await db.Queryable<ContentAssetReference>()
@@ -113,7 +135,7 @@ public sealed partial class FileService
                 || references.Any(static reference => !ContentAssetSourceKinds.IsValid(reference.SourceKind)
                     || string.IsNullOrWhiteSpace(reference.SourceKey) || reference.ReferenceCount <= 0))
             {
-                return Result<UploadAssetObservation>.Failure(ErrorCode.Conflict, "upload_asset_reference_observation_unavailable");
+                return Result<UploadAssetPreview>.Failure(ErrorCode.Conflict, "upload_asset_reference_observation_unavailable");
             }
             AssetRecord asset = new(
                 assetId, row.StorageClass, AssetStorageKey.Parse(row.StorageKey), row.MimeType,
@@ -122,7 +144,7 @@ public sealed partial class FileService
             IReadOnlyList<AssetReference> observedReferences = Array.AsReadOnly(references.Select(reference => new AssetReference(
                 assetId, reference.SourceKind, reference.SourceKey, reference.ArticleId,
                 reference.ReferenceCount, reference.AltText, AsUtc(reference.UpdatedAtUtc))).ToArray());
-            return Result<UploadAssetObservation>.Success(new UploadAssetObservation(
+            return Result<UploadAssetPreview>.Success(new UploadAssetPreview(new UploadAssetObservation(
                 "fsusblog.upload-asset-observation.v1", uploadId, asset,
                 _publicAssetUrlCodec.ToPublicPath(asset.StorageKey), observedReferences,
                 HashObservation(writer =>
@@ -160,12 +182,12 @@ public sealed partial class FileService
                         }
                         writer.Write(reference.UpdatedAtUtc.UtcTicks);
                     }
-                })));
+                })), bytes));
         }).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!transaction.IsSuccess)
         {
-            return Result<UploadAssetObservation>.Failure(ErrorCode.InfraFailure, "upload_asset_observation_failed");
+            return Result<UploadAssetPreview>.Failure(ErrorCode.InfraFailure, "upload_asset_observation_failed");
         }
         return transaction.Data;
     }
