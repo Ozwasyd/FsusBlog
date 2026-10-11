@@ -229,6 +229,7 @@ interface ArticleDocumentRetainedOwner {
     readonly adapter: ArticleDocumentContextAdapter;
     readonly scope: ArticleDocumentRetainedScopeReaders;
     readonly principalIdentityId: string;
+    scopeRetired: boolean;
     handle: RetainedArticleDocumentHandle | null;
     binding: ArticleDocumentRetainedBinding | null;
     consumer: ArticleDocumentRetainedConsumer | null;
@@ -239,6 +240,13 @@ interface ArticleDocumentRetainedOwner {
     pendingConsumerInvalidation: Promise<void> | null;
     lastState: RetainedArticleDocumentInspection['state'];
     readonly listeners: Set<(observation: ArticleDocumentRetainedInspection) => void>;
+}
+
+interface ArticleDocumentOwnerAdmission {
+    readonly handle: RetainedArticleDocumentHandle;
+    readonly adapter: ArticleDocumentContextAdapter;
+    readonly context: ArticleDocumentContext;
+    readonly scopeRetirementSequence: number;
 }
 
 // An adapter guard belongs to its original handle custody, never an article index.
@@ -616,168 +624,168 @@ export function validateArticleDocumentEpochReceipt(value: unknown): value is Ar
 
 export const verifyArticleDocumentEpochReceipt = validateArticleDocumentEpochReceipt;
 
+const taskFinalizationTokens = new WeakMap<ArticleDocumentTaskLeaseImpl, object>();
+
 class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
 {
-    private currentEnvelope: ArticleDocumentTaskEnvelope;
-    private finished = false;
-    private readonly owner: ArticleDocumentContextAdapter;
-    private readonly controller: AbortController;
-    private readonly taskKey: string;
+    #currentEnvelope: ArticleDocumentTaskEnvelope;
+    #finished = false;
+    #finishing = false;
+    #cancelReason: string | null = null;
+    #owner: ArticleDocumentContextAdapter;
+    #controller: AbortController;
+    #taskKey: string;
 
-    public constructor(
-        owner: ArticleDocumentContextAdapter,
-        controller: AbortController,
-        taskKey: string,
-        envelope: ArticleDocumentTaskEnvelope
-    )
+    public constructor(owner: ArticleDocumentContextAdapter, controller: AbortController,
+        taskKey: string, envelope: ArticleDocumentTaskEnvelope)
     {
-        this.owner = owner;
-        this.controller = controller;
-        this.taskKey = taskKey;
-        this.currentEnvelope = envelope;
+        this.#owner = owner;
+        this.#controller = controller;
+        this.#taskKey = taskKey;
+        this.#currentEnvelope = envelope;
     }
 
     public get taskRef(): string
     {
-        return this.currentEnvelope.taskRef;
+        return this.#currentEnvelope.taskRef;
     }
 
     public get signal(): AbortSignal
     {
-        return this.controller.signal;
+        return this.#controller.signal;
     }
 
     public get envelope(): ArticleDocumentTaskEnvelope
     {
-        return this.currentEnvelope;
+        return this.#currentEnvelope;
     }
 
     public isCurrent(): boolean
     {
-        return !this.finished && this.owner.isTaskCurrent(this);
+        return !this.#finished && this.#owner.isTaskCurrent(this);
     }
 
     public cancel(reason = 'task-canceled'): ArticleDocumentTaskEnvelope
     {
         assertAbortReason(reason);
-        if (!this.finished)
+        if (this.#finished)
         {
-            this.finished = true;
-            this.currentEnvelope = this.owner.finishTask(this, 'aborted', null, null, reason);
-            this.controller.abort(reason);
+            return this.#currentEnvelope;
         }
-        return this.currentEnvelope;
+        if (this.#finishing)
+        {
+            this.#cancelReason ??= reason;
+            this.#controller.abort(reason);
+            return this.#currentEnvelope;
+        }
+        this.#finalize('aborted', null, null, reason);
+        this.#controller.abort(reason);
+        return this.#currentEnvelope;
     }
 
     public complete(completedRevision?: number, value?: unknown): ArticleDocumentTaskEnvelope
     {
-        if (this.finished)
+        if (this.#finished || this.#finishing)
         {
-            return this.currentEnvelope;
+            return this.#currentEnvelope;
         }
-        const accepted = this.isCurrent()
-            && (completedRevision === undefined || completedRevision === this.owner.context.sourceRevision);
-        if (this.finished)
-        {
-            return this.currentEnvelope;
-        }
-        this.finished = true;
-        this.currentEnvelope = this.owner.finishTask(
-            this,
-            accepted ? 'completed' : (this.signal.aborted ? 'aborted' : 'stale'),
-            accepted ? (completedRevision ?? this.owner.context.sourceRevision) : this.owner.context.sourceRevision,
-            accepted ? value : null,
-            accepted ? null : (this.signal.aborted ? 'task-aborted' : 'task-stale')
-        );
-        return this.currentEnvelope;
+        return this.#finishResult(value, completedRevision);
     }
 
     public accept<T>(value: T, completedRevision?: number): ArticleDocumentTaskAcceptance<T>
     {
-        if (this.finished)
+        if (this.#finished || this.#finishing)
         {
-            return {
-                accepted: false,
-                value: null,
-                reason: 'task-finished',
-                envelope: this.currentEnvelope
-            };
+            return { accepted: false, value: null, reason: 'task-finished', envelope: this.#currentEnvelope };
         }
-        const accepted = this.isCurrent()
-            && (completedRevision === undefined || completedRevision === this.owner.context.sourceRevision);
-        if (this.finished)
+        const envelope = this.#finishResult(value, completedRevision);
+        const accepted = envelope.status === 'completed';
+        return { accepted, value: accepted ? value : null,
+            reason: accepted ? null : envelope.status === 'aborted' ? 'task-aborted'
+                : completedRevision !== undefined && completedRevision !== this.#owner.context.sourceRevision
+                    ? 'completed-revision-stale' : 'task-stale', envelope };
+    }
+
+    #finishResult(value: unknown, completedRevision?: number): ArticleDocumentTaskEnvelope
+    {
+        return this.#finalize('completed', completedRevision ?? this.#owner.context.sourceRevision, value, null);
+    }
+
+    #finalize(status: Exclude<ArticleDocumentTaskStatus, 'running'>, completedRevision: number | null,
+        value: unknown, reason: string | null): ArticleDocumentTaskEnvelope
+    {
+        const token = Object.freeze({});
+        this.#finishing = true;
+        taskFinalizationTokens.set(this, token);
+        try
         {
-            return this.accept(value, completedRevision);
+            const envelope = this.#owner.finishTask(this, status, completedRevision, value, reason, token);
+            this.#currentEnvelope = envelope;
+            this.#finished = true;
+            return envelope;
         }
-        this.finished = true;
-        this.currentEnvelope = this.owner.finishTask(
-            this,
-            accepted ? 'completed' : (this.signal.aborted ? 'aborted' : 'stale'),
-            accepted ? (completedRevision ?? this.owner.context.sourceRevision) : this.owner.context.sourceRevision,
-            accepted ? value : null,
-            accepted ? null : (this.signal.aborted ? 'task-aborted' : 'task-stale')
-        );
-        return {
-            accepted,
-            value: accepted ? value : null,
-            reason: accepted
-                ? null
-                : this.signal.aborted
-                    ? 'task-aborted'
-                    : completedRevision !== undefined && completedRevision !== this.owner.context.sourceRevision
-                        ? 'completed-revision-stale'
-                        : 'task-stale',
-            envelope: this.currentEnvelope
-        };
+        finally
+        {
+            taskFinalizationTokens.delete(this);
+            this.#finishing = false;
+            // A failing result getter must leave recoverable custody. If a real
+            // cancellation arrived during it, publish that terminal after failure.
+            if (!this.#finished && this.#cancelReason)
+            {
+                this.cancel(this.#cancelReason);
+            }
+        }
     }
 
     public get registryKey(): string
     {
-        return this.taskKey;
+        return this.#taskKey;
     }
 
     public settle(): void
     {
-        if (!this.finished)
+        if (!this.#finished)
         {
             throw new Error('article-document-task-not-terminal');
         }
-        this.owner.settleTask(this);
+        this.#owner.settleTask(this);
     }
 }
 
 export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistry
 {
-    private current: ArticleDocumentContext;
-    private readonly activeTasks = new Map<string, ArticleDocumentTaskLeaseImpl>();
-    private readonly pendingTasks = new Set<ArticleDocumentTaskLeaseImpl>();
-    private readonly receiptsLog: ArticleDocumentEpochReceipt[] = [];
-    private readonly completedTaskEnvelopeLog: ArticleDocumentTaskEnvelope[] = [];
-    private taskSequence = 0;
-    private taskCancellationDepth = 0;
-    private receiptSequence = 0;
-    private disposed = false;
-    private readonly contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
+    #current: ArticleDocumentContext;
+    #activeTasks = new Map<string, ArticleDocumentTaskLeaseImpl>();
+    #pendingTasks = new Set<ArticleDocumentTaskLeaseImpl>();
+    #receiptsLog: ArticleDocumentEpochReceipt[] = [];
+    #completedTaskEnvelopeLog: ArticleDocumentTaskEnvelope[] = [];
+    #taskSequence = 0;
+    #taskStartsPending = new Set<string>();
+    #contextMutationPending = false;
+    #taskCancellationDepth = 0;
+    #receiptSequence = 0;
+    #disposed = false;
+    #contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
 
     public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): () => void
     {
-        if (this.disposed)
+        if (this.#disposed)
         {
             listener(null);
             return () => undefined;
         }
-        this.contextListeners.add(listener);
+        this.#contextListeners.add(listener);
         return () =>
         {
-            this.contextListeners.delete(listener);
+            this.#contextListeners.delete(listener);
         };
     }
 
-    private notifyContext(): void
+    #notifyContext(): void
     {
-        for (const listener of this.contextListeners)
+        for (const listener of this.#contextListeners)
         {
-            listener(this.disposed ? null : this.current);
+            listener(this.#disposed ? null : this.#current);
         }
     }
 
@@ -795,44 +803,44 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             userScope: options.userScope,
             content: options.content ?? ''
         });
-        this.current = initialContext;
-        this.receiptsLog.push(this.createReceipt('initialize', 'initial', null, []));
+        this.#current = initialContext;
+        this.#receiptsLog.push(this.#createReceipt('initialize', 'initial', null, []));
     }
 
     public get context(): ArticleDocumentContext
     {
-        return this.current;
+        return this.#current;
     }
 
     public get documentIdentity(): ArticleDocumentOpaqueIdentity
     {
         return Object.freeze({
-            id: this.current.documentId,
-            epoch: this.current.documentEpoch
+            id: this.#current.documentId,
+            epoch: this.#current.documentEpoch
         });
     }
 
     public get receipts(): readonly ArticleDocumentEpochReceipt[]
     {
-        return this.receiptsLog.map(clone);
+        return this.#receiptsLog.map(clone);
     }
 
     public get completedTaskEnvelopes(): readonly ArticleDocumentTaskEnvelope[]
     {
-        return this.completedTaskEnvelopeLog.map(clone);
+        return this.#completedTaskEnvelopeLog.map(clone);
     }
 
     public get activeTaskRefs(): readonly string[]
     {
-        return [...this.activeTasks.keys()].sort();
+        return [...this.#activeTasks.keys()].sort();
     }
 
     public get pendingTaskRefs(): readonly string[]
     {
-        return [...this.pendingTasks].map(task => task.taskRef).sort();
+        return [...this.#pendingTasks].map(task => task.taskRef).sort();
     }
 
-    private assertRetainedAdmission(): void
+    #assertRetainedAdmission(): void
     {
         const guard = retainedAdapterGuards.get(this);
         if (guard && guard().state !== 'live')
@@ -841,14 +849,14 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
     }
 
-    private assertContextMutation(): void
+    #assertContextMutation(): void
     {
-        this.assertRetainedAdmission();
-        if (this.disposed)
+        this.#assertRetainedAdmission();
+        if (this.#disposed)
         {
             throw new Error('article-document-context-disposed');
         }
-        if (this.taskCancellationDepth > 0)
+        if (this.#taskCancellationDepth > 0)
         {
             throw new Error('article-document-context-cancellation-in-progress');
         }
@@ -860,189 +868,246 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         producerVersion = 'v1.0'
     ): ArticleDocumentTaskLease
     {
-        this.assertRetainedAdmission();
-        if (this.disposed)
-        {
-            throw new Error('article-document-context-disposed');
-        }
-        if (this.taskCancellationDepth > 0)
-        {
-            throw new Error('article-document-task-cancellation-in-progress');
-        }
         assertTaskInput(kind, producerRef, producerVersion);
         const taskKey = `${kind}\u0000${producerRef}`;
-        const startedContext = this.current;
-        this.taskCancellationDepth += 1;
+        const startedContext = this.#current;
+        if (this.#taskStartsPending.has(taskKey))
+        {
+            throw new Error('article-document-task-start-in-progress');
+        }
+        this.#taskStartsPending.add(taskKey);
         try
         {
-            this.activeTasks.get(taskKey)?.cancel('task-superseded');
+            this.#assertRetainedAdmission();
+            if (this.#disposed)
+            {
+                throw new Error('article-document-context-disposed');
+            }
+            if (this.#taskCancellationDepth > 0)
+            {
+                throw new Error('article-document-task-cancellation-in-progress');
+            }
+            this.#taskCancellationDepth += 1;
+            try
+            {
+                this.#activeTasks.get(taskKey)?.cancel('task-superseded');
+            }
+            finally
+            {
+                this.#taskCancellationDepth -= 1;
+            }
+            const contextCurrent = this.isCurrentContext(startedContext);
+            if (this.#disposed || !contextCurrent || this.#current !== startedContext || this.#activeTasks.has(taskKey))
+            {
+                throw new Error('article-document-task-start-context-changed');
+            }
+            this.#taskSequence += 1;
+            const taskRef = `task:${this.#taskSequence.toString(36)}`;
+            const requestId = `request:${this.#taskSequence.toString(36)}`;
+            const controller = new AbortController();
+            const envelope = sealTaskEnvelope({
+                taskRef,
+                kind,
+                context: this.#current,
+                requestId,
+                producerRef,
+                producerVersion,
+                startedRevision: this.#current.sourceRevision,
+                completedRevision: null,
+                status: 'running',
+                abortReason: null,
+                resultDigest: null
+            });
+            const lease = new ArticleDocumentTaskLeaseImpl(this, controller, taskKey, envelope);
+            this.#activeTasks.set(taskKey, lease);
+            this.#pendingTasks.add(lease);
+            return Object.freeze(lease);
         }
         finally
         {
-            this.taskCancellationDepth -= 1;
+            this.#taskStartsPending.delete(taskKey);
         }
-        if (this.disposed || !this.isCurrentContext(startedContext))
-        {
-            throw new Error('article-document-task-start-context-changed');
-        }
-        this.taskSequence += 1;
-        const taskRef = `task:${this.taskSequence.toString(36)}`;
-        const requestId = `request:${this.taskSequence.toString(36)}`;
-        const controller = new AbortController();
-        const envelope = sealTaskEnvelope({
-            taskRef,
-            kind,
-            context: this.current,
-            requestId,
-            producerRef,
-            producerVersion,
-            startedRevision: this.current.sourceRevision,
-            completedRevision: null,
-            status: 'running',
-            abortReason: null,
-            resultDigest: null
-        });
-        const lease = new ArticleDocumentTaskLeaseImpl(this, controller, taskKey, envelope);
-        this.activeTasks.set(taskKey, lease);
-        this.pendingTasks.add(lease);
-        return lease;
+
     }
 
     public switchDocument(input: ArticleDocumentSwitchInput): ArticleDocumentEpochReceipt | null
     {
-        if (retainedAdapterGuards.has(this))
+        if (this.#contextMutationPending)
         {
-            throw new Error('article-document-retained-switch-requires-registry');
+            throw new Error('article-document-context-mutation-in-progress');
         }
-        this.assertContextMutation();
-        if (this.disposed)
+        this.#contextMutationPending = true;
+        try
         {
-            throw new Error('article-document-context-disposed');
+            if (retainedAdapterGuards.has(this))
+            {
+                throw new Error('article-document-retained-switch-requires-registry');
+            }
+            this.#assertContextMutation();
+            if (this.#disposed)
+            {
+                throw new Error('article-document-context-disposed');
+            }
+            if (!isArticleId(input.articleId) || !isStableRef(input.draftId))
+            {
+                throw new Error('article-document-switch-input-invalid');
+            }
+            if (input.reason !== undefined && !isArticleDocumentSwitchReason(input.reason))
+            {
+                throw new Error('article-document-switch-reason-invalid');
+            }
+            const siteScope = input.siteScope ?? this.#current.siteScope;
+            const userScope = input.userScope ?? this.#current.userScope;
+            if (!isStableRef(siteScope) || !isStableRef(userScope))
+            {
+                throw new Error('article-document-switch-scope-invalid');
+            }
+            if (this.#current.articleId === input.articleId
+                && this.#current.draftId === input.draftId
+                && this.#current.siteScope === siteScope
+                && this.#current.userScope === userScope)
+            {
+                return null;
+            }
+            const previous = this.#current;
+            const canceledTaskRefs = this.cancelAll('document-switch');
+            const nextEpoch = previous.documentEpoch + 1;
+            if (!Number.isSafeInteger(nextEpoch))
+            {
+                throw new Error('article-document-epoch-exhausted');
+            }
+            this.#current = createArticleDocumentContext({
+                articleId: input.articleId,
+                draftId: input.draftId,
+                documentId: nextOpaqueDocumentId(),
+                documentEpoch: nextEpoch,
+                sourceRevision: input.sourceRevision ?? 0,
+                draftRevision: input.draftRevision ?? null,
+                editorSessionId: previous.editorSessionId,
+                siteScope,
+                userScope,
+                content: input.content ?? ''
+            });
+            const receipt = this.#createReceipt('switch', input.reason ?? 'entity-switch', previous, canceledTaskRefs);
+            this.#receiptsLog.push(receipt);
+            this.#contextMutationPending = false;
+            this.#notifyContext();
+            return clone(receipt);
         }
-        if (!isArticleId(input.articleId) || !isStableRef(input.draftId))
+        finally
         {
-            throw new Error('article-document-switch-input-invalid');
+            this.#contextMutationPending = false;
         }
-        if (input.reason !== undefined && !isArticleDocumentSwitchReason(input.reason))
-        {
-            throw new Error('article-document-switch-reason-invalid');
-        }
-        const siteScope = input.siteScope ?? this.current.siteScope;
-        const userScope = input.userScope ?? this.current.userScope;
-        if (!isStableRef(siteScope) || !isStableRef(userScope))
-        {
-            throw new Error('article-document-switch-scope-invalid');
-        }
-        if (this.current.articleId === input.articleId
-            && this.current.draftId === input.draftId
-            && this.current.siteScope === siteScope
-            && this.current.userScope === userScope)
-        {
-            return null;
-        }
-        const previous = this.current;
-        const canceledTaskRefs = this.cancelAll('document-switch');
-        const nextEpoch = previous.documentEpoch + 1;
-        if (!Number.isSafeInteger(nextEpoch))
-        {
-            throw new Error('article-document-epoch-exhausted');
-        }
-        this.current = createArticleDocumentContext({
-            articleId: input.articleId,
-            draftId: input.draftId,
-            documentId: nextOpaqueDocumentId(),
-            documentEpoch: nextEpoch,
-            sourceRevision: input.sourceRevision ?? 0,
-            draftRevision: input.draftRevision ?? null,
-            editorSessionId: previous.editorSessionId,
-            siteScope,
-            userScope,
-            content: input.content ?? ''
-        });
-        const receipt = this.createReceipt('switch', input.reason ?? 'entity-switch', previous, canceledTaskRefs);
-        this.receiptsLog.push(receipt);
-        this.notifyContext();
-        return clone(receipt);
+
     }
 
     public updateSource(content: string, sourceRevision?: number): ArticleDocumentContext
     {
-        this.assertContextMutation();
-        if (this.disposed)
+        if (this.#contextMutationPending)
         {
-            throw new Error('article-document-context-disposed');
+            throw new Error('article-document-context-mutation-in-progress');
         }
-        if (typeof content !== 'string')
+        this.#contextMutationPending = true;
+        try
         {
-            throw new Error('article-document-source-invalid');
+            this.#assertContextMutation();
+            if (this.#disposed)
+            {
+                throw new Error('article-document-context-disposed');
+            }
+            if (typeof content !== 'string')
+            {
+                throw new Error('article-document-source-invalid');
+            }
+            const nextContentDigest = contentDigestFor(content);
+            if (nextContentDigest === this.#current.contentDigest && sourceRevision === undefined)
+            {
+                return this.#current;
+            }
+            const nextRevision = sourceRevision ?? this.#current.sourceRevision + 1;
+            if (!isSourceRevision(nextRevision) || nextRevision <= this.#current.sourceRevision)
+            {
+                throw new Error('article-document-source-revision-must-advance');
+            }
+            this.cancelAll('source-revision-changed');
+            this.#assertContextMutation();
+            this.#current = createArticleDocumentContext({
+                articleId: this.#current.articleId,
+                draftId: this.#current.draftId,
+                documentId: this.#current.documentId,
+                documentEpoch: this.#current.documentEpoch,
+                sourceRevision: nextRevision,
+                draftRevision: this.#current.draftRevision,
+                editorSessionId: this.#current.editorSessionId,
+                siteScope: this.#current.siteScope,
+                userScope: this.#current.userScope,
+                content
+            });
+            this.#contextMutationPending = false;
+            this.#notifyContext();
+            return this.#current;
         }
-        const nextContentDigest = contentDigestFor(content);
-        if (nextContentDigest === this.current.contentDigest && sourceRevision === undefined)
+        finally
         {
-            return this.current;
+            this.#contextMutationPending = false;
         }
-        const nextRevision = sourceRevision ?? this.current.sourceRevision + 1;
-        if (!isSourceRevision(nextRevision) || nextRevision <= this.current.sourceRevision)
-        {
-            throw new Error('article-document-source-revision-must-advance');
-        }
-        this.cancelAll('source-revision-changed');
-        this.assertContextMutation();
-        this.current = createArticleDocumentContext({
-            articleId: this.current.articleId,
-            draftId: this.current.draftId,
-            documentId: this.current.documentId,
-            documentEpoch: this.current.documentEpoch,
-            sourceRevision: nextRevision,
-            draftRevision: this.current.draftRevision,
-            editorSessionId: this.current.editorSessionId,
-            siteScope: this.current.siteScope,
-            userScope: this.current.userScope,
-            content
-        });
-        this.notifyContext();
-        return this.current;
+
     }
 
     public updateDraftRevision(draftRevision: string | null): ArticleDocumentContext
     {
-        this.assertContextMutation();
-        if (this.disposed)
+        if (this.#contextMutationPending)
         {
-            throw new Error('article-document-context-disposed');
+            throw new Error('article-document-context-mutation-in-progress');
         }
-        if (!isDraftRevision(draftRevision))
+        this.#contextMutationPending = true;
+        try
         {
-            throw new Error('article-document-draft-revision-invalid');
+            this.#assertContextMutation();
+            if (this.#disposed)
+            {
+                throw new Error('article-document-context-disposed');
+            }
+            if (!isDraftRevision(draftRevision))
+            {
+                throw new Error('article-document-draft-revision-invalid');
+            }
+            if (draftRevision === this.#current.draftRevision)
+            {
+                return this.#current;
+            }
+            this.cancelAll('draft-revision-changed');
+            this.#assertContextMutation();
+            this.#current = createArticleDocumentContext({
+                articleId: this.#current.articleId,
+                draftId: this.#current.draftId,
+                documentId: this.#current.documentId,
+                documentEpoch: this.#current.documentEpoch,
+                sourceRevision: this.#current.sourceRevision,
+                draftRevision,
+                editorSessionId: this.#current.editorSessionId,
+                siteScope: this.#current.siteScope,
+                userScope: this.#current.userScope,
+                contentDigest: this.#current.contentDigest
+            });
+            this.#contextMutationPending = false;
+            this.#notifyContext();
+            return this.#current;
         }
-        if (draftRevision === this.current.draftRevision)
+        finally
         {
-            return this.current;
+            this.#contextMutationPending = false;
         }
-        this.cancelAll('draft-revision-changed');
-        this.assertContextMutation();
-        this.current = createArticleDocumentContext({
-            articleId: this.current.articleId,
-            draftId: this.current.draftId,
-            documentId: this.current.documentId,
-            documentEpoch: this.current.documentEpoch,
-            sourceRevision: this.current.sourceRevision,
-            draftRevision,
-            editorSessionId: this.current.editorSessionId,
-            siteScope: this.current.siteScope,
-            userScope: this.current.userScope,
-            contentDigest: this.current.contentDigest
-        });
-        this.notifyContext();
-        return this.current;
+
     }
 
     public isCurrentContext(context: ArticleDocumentContext): boolean
     {
-        return !this.disposed
-            && (!retainedAdapterGuards.has(this) || retainedAdapterGuards.get(this)?.().state === 'live')
+        const retained = !retainedAdapterGuards.has(this) || retainedAdapterGuards.get(this)?.().state === 'live';
+        return !this.#disposed
+            && retained
             && validateArticleDocumentContext(context)
-            && context.contextDigest === this.current.contextDigest;
+            && context.contextDigest === this.#current.contextDigest;
     }
 
     public acceptTaskResult<T>(
@@ -1051,7 +1116,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         completedRevision?: number
     ): ArticleDocumentTaskAcceptance<T>
     {
-        if (!(lease instanceof ArticleDocumentTaskLeaseImpl) || !this.activeTasksHas(lease))
+        if (!(lease instanceof ArticleDocumentTaskLeaseImpl) || !this.#activeTasksHas(lease))
         {
             const envelope = lease.envelope;
             return {
@@ -1067,19 +1132,19 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     public cancelAll(reason = 'task-canceled'): readonly string[]
     {
         assertAbortReason(reason);
-        const refs = [...this.activeTasks.values()].map(task => task.taskRef).sort();
+        const refs = [...this.#activeTasks.values()].map(task => task.taskRef).sort();
         // Synchronous abort listeners must not register work outside this cancellation snapshot.
-        this.taskCancellationDepth += 1;
+        this.#taskCancellationDepth += 1;
         try
         {
-            for (const task of [...this.activeTasks.values()])
+            for (const task of [...this.#activeTasks.values()])
             {
                 task.cancel(reason);
             }
         }
         finally
         {
-            this.taskCancellationDepth -= 1;
+            this.#taskCancellationDepth -= 1;
         }
         return refs;
     }
@@ -1090,26 +1155,27 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-retained-dispose-requires-revocation');
         }
-        if (this.disposed)
+        if (this.#disposed)
         {
             return null;
         }
         const canceledTaskRefs = this.cancelAll('dispose');
-        this.disposed = true;
-        this.notifyContext();
-        this.contextListeners.clear();
-        const receipt = this.createReceipt('dispose', 'dispose', this.current, canceledTaskRefs);
-        this.receiptsLog.push(receipt);
+        this.#disposed = true;
+        this.#notifyContext();
+        this.#contextListeners.clear();
+        const receipt = this.#createReceipt('dispose', 'dispose', this.#current, canceledTaskRefs);
+        this.#receiptsLog.push(receipt);
         return clone(receipt);
     }
 
     public isTaskCurrent(task: ArticleDocumentTaskLeaseImpl): boolean
     {
-        return !this.disposed
-            && (!retainedAdapterGuards.has(this) || retainedAdapterGuards.get(this)?.().state === 'live')
-            && this.activeTasksHas(task)
+        const retained = !retainedAdapterGuards.has(this) || retainedAdapterGuards.get(this)?.().state === 'live';
+        return !this.#disposed
+            && retained
+            && this.#activeTasksHas(task)
             && !task.signal.aborted
-            && task.envelope.context.contextDigest === this.current.contextDigest;
+            && task.envelope.context.contextDigest === this.#current.contextDigest;
     }
 
     public finishTask(
@@ -1117,14 +1183,21 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         status: Exclude<ArticleDocumentTaskStatus, 'running'>,
         completedRevision: number | null,
         value: unknown,
-        abortReason: string | null
+        abortReason: string | null,
+        operationToken?: object
     ): ArticleDocumentTaskEnvelope
     {
-        const current = this.activeTasks.get(task.registryKey);
-        if (current === task)
+        if (!operationToken || taskFinalizationTokens.get(task) !== operationToken || !this.#pendingTasks.has(task))
         {
-            this.activeTasks.delete(task.registryKey);
+            throw new Error('article-document-task-finalization-invalid');
         }
+        const eligible = status === 'completed' && this.isTaskCurrent(task) && completedRevision === this.#current.sourceRevision;
+        const resultDigest = eligible && value !== null && value !== undefined
+            ? calculateOpenArticleDocumentDigest(value) : null;
+        const current = status === 'completed' && this.isTaskCurrent(task);
+        const accepted = status === 'completed' && current && completedRevision === this.#current.sourceRevision;
+        const finalStatus = status === 'completed' && !accepted ? task.signal.aborted ? 'aborted' : 'stale' : status;
+        const cancellationReason = task.signal.aborted && isStableRef(task.signal.reason) ? task.signal.reason : null;
         const envelope = sealTaskEnvelope({
             taskRef: task.envelope.taskRef,
             kind: task.envelope.kind,
@@ -1133,20 +1206,23 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             producerRef: task.envelope.producerRef,
             producerVersion: task.envelope.producerVersion,
             startedRevision: task.envelope.startedRevision,
-            completedRevision: completedRevision ?? task.envelope.context.sourceRevision,
-            status,
-            abortReason,
-            resultDigest: status === 'completed' && value !== null && value !== undefined
-                ? calculateOpenArticleDocumentDigest(value)
-                : null
+            completedRevision: finalStatus === 'completed' ? completedRevision ?? task.envelope.context.sourceRevision
+                : status === 'completed' ? this.#current.sourceRevision : completedRevision ?? task.envelope.context.sourceRevision,
+            status: finalStatus,
+            abortReason: accepted ? null : abortReason ?? cancellationReason ?? (task.signal.aborted ? 'task-aborted' : 'task-stale'),
+            resultDigest: accepted ? resultDigest : null
         });
-        this.completedTaskEnvelopeLog.push(envelope);
+        if (this.#activeTasks.get(task.registryKey) === task)
+        {
+            this.#activeTasks.delete(task.registryKey);
+        }
+        this.#completedTaskEnvelopeLog.push(envelope);
         return envelope;
     }
 
-    private activeTasksHas(task: ArticleDocumentTaskLeaseImpl): boolean
+    #activeTasksHas(task: ArticleDocumentTaskLeaseImpl): boolean
     {
-        return this.activeTasks.get(task.registryKey) === task;
+        return this.#activeTasks.get(task.registryKey) === task;
     }
 
     public settleTask(task: ArticleDocumentTaskLeaseImpl): void
@@ -1155,33 +1231,33 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-task-not-terminal');
         }
-        this.pendingTasks.delete(task);
+        this.#pendingTasks.delete(task);
     }
 
-    private createReceipt(
+    #createReceipt(
         action: ArticleDocumentEpochReceipt['action'],
         reason: ArticleDocumentEpochReason,
         previous: ArticleDocumentContext | null,
         canceledTaskRefs: readonly string[]
     ): ArticleDocumentEpochReceipt
     {
-        this.receiptSequence += 1;
+        this.#receiptSequence += 1;
         const base = {
             schema: articleDocumentEpochReceiptSchema,
-            receiptRef: `epoch-receipt:${this.receiptSequence.toString(36)}`,
-            receiptSequence: this.receiptSequence,
+            receiptRef: `epoch-receipt:${this.#receiptSequence.toString(36)}`,
+            receiptSequence: this.#receiptSequence,
             action,
             reason,
             previousArticleId: previous?.articleId ?? null,
             previousDraftId: previous?.draftId ?? null,
             previousDocumentId: previous?.documentId ?? null,
             previousDocumentEpoch: previous?.documentEpoch ?? null,
-            articleId: this.current.articleId,
-            draftId: this.current.draftId,
-            documentId: this.current.documentId,
-            documentEpoch: this.current.documentEpoch,
+            articleId: this.#current.articleId,
+            draftId: this.#current.draftId,
+            documentId: this.#current.documentId,
+            documentEpoch: this.#current.documentEpoch,
             canceledTaskRefs: [...canceledTaskRefs].sort(),
-            contentDigest: this.current.contentDigest
+            contentDigest: this.#current.contentDigest
         };
         return Object.freeze({
             ...base,
@@ -1204,64 +1280,70 @@ export function createArticleDocumentContextAdapter(
  */
 export class ArticleDocumentContextAuthority
 {
-    private adapter: ArticleDocumentContextAdapter | null = null;
-    private readonly bindings = new Set<number>();
-    private bindingSequence = 0;
-    private readonly bindingCustody = new WeakMap<ArticleDocumentContextBinding, {
+    #adapter: ArticleDocumentContextAdapter | null = null;
+    #bindings = new Set<number>();
+    #bindingSequence = 0;
+    #bindingCustody = new WeakMap<ArticleDocumentContextBinding, {
         readonly adapter: ArticleDocumentContextAdapter;
         readonly isReleased: () => boolean;
     }>();
-    private readonly preparations = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentRetainedOwner>();
-    private readonly retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
-    private readonly ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
-    private readonly scopedOwners = new Set<ArticleDocumentRetainedOwner>();
-    private scopeRevocationPending = false;
-    private retainedRegistry: OpenArticleDocumentRegistry | null = null;
+    #preparations = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentRetainedOwner>();
+    #retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
+    #ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
+    #scopedOwners = new Set<ArticleDocumentRetainedOwner>();
+    #scopeRevocationPending = false;
+    #retainedRegistry: OpenArticleDocumentRegistry | null = null;
+    #pendingHandleAdmissions = new WeakSet<RetainedArticleDocumentHandle>();
+    #pendingAdapterAdmissions = new WeakSet<ArticleDocumentContextAdapter>();
+    #preparedOwners = new Set<ArticleDocumentRetainedOwner>();
+    #scopeRetirementSequence = 0;
+    #scopeRetirementQueue: { siteScope: string; principalIdentityId: string; }[] = [];
+    #currentScopeRetirement: { siteScope: string; principalIdentityId: string; } | null = null;
 
     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
     {
-        this.assertAuthorityInput(input);
-        if (this.adapter && this.ownersByAdapter.has(this.adapter))
+        this.#assertAuthorityInput(input);
+        if (this.#adapter && (this.#ownersByAdapter.has(this.#adapter) || this.#pendingAdapterAdmissions.has(this.#adapter)))
         {
             throw new Error('article-document-retained-acquire-requires-handle');
         }
-        if (!this.adapter)
+        if (!this.#adapter)
         {
-            this.adapter = createArticleDocumentContextAdapter({
+            this.#adapter = createArticleDocumentContextAdapter({
                 articleId: input.articleId,
-                draftId: this.draftIdFor(input.articleId),
+                draftId: this.#draftIdFor(input.articleId),
                 editorSessionId: nextOpaqueEditorSessionId(),
                 siteScope: input.siteScope,
                 userScope: input.userScope,
                 content: input.content
             });
         }
-        else if (this.adapter.context.articleId !== input.articleId
-            || this.adapter.context.siteScope !== input.siteScope
-            || this.adapter.context.userScope !== input.userScope)
+        else if (this.#adapter.context.articleId !== input.articleId
+            || this.#adapter.context.siteScope !== input.siteScope
+            || this.#adapter.context.userScope !== input.userScope)
         {
-            this.switchAdapterDocument(this.adapter, {
+            this.#switchAdapterDocument(this.#adapter, {
                 articleId: input.articleId,
                 content: input.content,
                 reason: 'entity-switch'
             }, input.siteScope, input.userScope);
         }
 
-        this.bindingSequence += 1;
-        const bindingId = this.bindingSequence;
-        const adapter = this.adapter;
-        this.bindings.add(bindingId);
+        this.#bindingSequence += 1;
+        const bindingId = this.#bindingSequence;
+        const adapter = this.#adapter;
+        this.#bindings.add(bindingId);
         let released = false;
 
         const binding: ArticleDocumentContextBinding = Object.freeze({
             adapter,
             switchDocument: (switchInput: ArticleDocumentAuthoritySwitchInput) =>
             {
-                if (released || this.adapter !== adapter)
+                if (released || this.#adapter !== adapter)
                 {
                     throw new Error('article-document-context-binding-released');
                 }
-                return this.switchAdapterDocument(
+                return this.#switchAdapterDocument(
                     adapter,
                     switchInput,
                     adapter.context.siteScope,
@@ -1275,14 +1357,14 @@ export class ArticleDocumentContextAuthority
                     return;
                 }
                 released = true;
-                this.bindings.delete(bindingId);
-                if (this.bindings.size === 0 && this.adapter === adapter && !this.ownersByAdapter.has(adapter))
+                this.#bindings.delete(bindingId);
+                if (this.#bindings.size === 0 && this.#adapter === adapter && !this.#ownersByAdapter.has(adapter))
                 {
                     adapter.cancelAll('component-unmounted');
                 }
             }
         });
-        this.bindingCustody.set(binding, { adapter, isReleased: () => released });
+        this.#bindingCustody.set(binding, { adapter, isReleased: () => released });
         return binding;
     }
 
@@ -1290,13 +1372,14 @@ export class ArticleDocumentContextAuthority
     public prepareRetainedDocument(registry: OpenArticleDocumentRegistry, input: ArticleDocumentAuthorityInput,
         scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedPreparation
     {
-        this.assertRetainedOwnerAdmission();
-        this.assertAuthorityInput(input);
+        this.#assertRetainedOwnerAdmission();
+        this.#assertAuthorityInput(input);
         const adapter = createArticleDocumentContextAdapter({ ...input,
-            draftId: this.draftIdFor(input.articleId), editorSessionId: nextOpaqueEditorSessionId() });
-        const owner = this.createRetainedOwner(registry, adapter, scope);
+            draftId: this.#draftIdFor(input.articleId), editorSessionId: nextOpaqueEditorSessionId() });
+        const owner = this.#createRetainedOwner(registry, adapter, scope);
         const preparation = Object.freeze({ context: adapter.context }) as ArticleDocumentRetainedPreparation;
-        this.preparations.set(preparation, owner);
+        this.#preparations.set(preparation, owner);
+        this.#preparedOwners.add(owner);
         return preparation;
     }
 
@@ -1304,13 +1387,21 @@ export class ArticleDocumentContextAuthority
     public adoptPrimaryRetainedDocument(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
         primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedBinding
     {
-        this.assertRetainedOwnerAdmission();
-        const custody = this.bindingCustody.get(primary);
+        this.#assertRetainedOwnerAdmission();
+        const custody = this.#bindingCustody.get(primary);
         if (!custody || custody.isReleased() || primary.adapter !== custody.adapter)
         {
             throw new Error('article-document-primary-binding-invalid');
         }
-        const previous = this.ownersByAdapter.get(custody.adapter);
+        if (!retainedArticleDocumentHandleBelongsTo(handle, registry))
+        {
+            throw new Error('article-document-retained-association-invalid');
+        }
+        if (this.#pendingHandleAdmissions.has(handle) || this.#pendingAdapterAdmissions.has(custody.adapter))
+        {
+            throw new Error('article-document-retained-admission-in-progress');
+        }
+        const previous = this.#ownersByAdapter.get(custody.adapter);
         if (previous)
         {
             if (previous.handle !== handle || previous.registry !== registry || !previous.binding)
@@ -1323,17 +1414,30 @@ export class ArticleDocumentContextAuthority
             }
             return previous.binding;
         }
-        return this.bindRetainedOwner(handle, this.createRetainedOwner(registry, custody.adapter, scope));
+        const admission = this.#reserveRetainedOwner(handle, custody.adapter);
+        try
+        {
+            return this.#bindRetainedOwner(handle, this.#createRetainedOwner(registry, custody.adapter, scope), admission,
+                () => !custody.isReleased() && primary.adapter === custody.adapter);
+        }
+        finally
+        {
+            this.#releaseRetainedOwnerAdmission(admission);
+        }
     }
 
     public acquireRetainedDocument(handle: RetainedArticleDocumentHandle,
         preparation?: ArticleDocumentRetainedPreparation): ArticleDocumentRetainedBinding
     {
-        this.assertRetainedOwnerAdmission();
-        const existing = this.retainedOwners.get(handle);
+        this.#assertRetainedOwnerAdmission();
+        if (this.#pendingHandleAdmissions.has(handle))
+        {
+            throw new Error('article-document-retained-admission-in-progress');
+        }
+        const existing = this.#retainedOwners.get(handle);
         if (existing?.binding)
         {
-            if (preparation && this.preparations.get(preparation) !== existing)
+            if (preparation && this.#preparations.get(preparation) !== existing)
             {
                 throw new Error('article-document-retained-preparation-conflict');
             }
@@ -1344,86 +1448,128 @@ export class ArticleDocumentContextAuthority
             }
             return existing.binding;
         }
-        const owner = preparation ? this.preparations.get(preparation) : null;
-        if (!owner || owner.handle)
+        const owner = preparation ? this.#preparations.get(preparation) : null;
+        if (!owner || owner.handle || owner.scopeRetired)
         {
             throw new Error('article-document-retained-preparation-invalid');
         }
-        return this.bindRetainedOwner(handle, owner);
+        const admission = this.#reserveRetainedOwner(handle, owner.adapter);
+        try
+        {
+            return this.#bindRetainedOwner(handle, owner, admission);
+        }
+        finally
+        {
+            this.#releaseRetainedOwnerAdmission(admission);
+        }
     }
 
     public discardRetainedPreparation(preparation: ArticleDocumentRetainedPreparation): void
     {
-        const owner = this.preparations.get(preparation);
-        if (!owner || owner.handle)
+        const owner = this.#preparations.get(preparation);
+        if (!owner || owner.handle || this.#pendingAdapterAdmissions.has(owner.adapter))
         {
             throw new Error('article-document-retained-preparation-not-unused');
         }
         owner.adapter.dispose();
-        this.preparations.delete(preparation);
+        this.#preparations.delete(preparation);
+        this.#preparedOwners.delete(owner);
     }
 
     /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
     public revokeRetainedScope(siteScope: string, principalIdentityId: string): void
     {
-        if (this.scopeRevocationPending)
+        const target = { siteScope, principalIdentityId };
+        const isSame = (entry: typeof target): boolean => entry.siteScope === siteScope && entry.principalIdentityId === principalIdentityId;
+        if ((this.#currentScopeRetirement && isSame(this.#currentScopeRetirement)) || this.#scopeRetirementQueue.some(isSame))
         {
             return;
         }
-        this.scopeRevocationPending = true;
+        this.#scopeRetirementSequence += 1;
+        this.#scopeRetirementQueue.push(target);
+        if (this.#scopeRevocationPending)
+        {
+            return;
+        }
+        this.#scopeRevocationPending = true;
         try
         {
-            const handles: RetainedArticleDocumentHandle[] = [];
-            for (const owner of [...this.scopedOwners])
+            while (this.#scopeRetirementQueue.length > 0)
             {
-                if (owner.adapter.context.siteScope === siteScope && owner.principalIdentityId === principalIdentityId && owner.handle)
+                const current = this.#scopeRetirementQueue.shift();
+                if (!current)
                 {
-                    handles.push(owner.handle);
+                    break;
+                }
+                this.#currentScopeRetirement = current;
+                const targets = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
+                    owner.adapter.context.siteScope === current.siteScope && owner.principalIdentityId === current.principalIdentityId);
+                const handles: RetainedArticleDocumentHandle[] = [];
+                for (const owner of targets)
+                {
+                    owner.scopeRetired = true;
+                    if (owner.handle)
+                    {
+                        handles.push(owner.handle);
+                    }
+                }
+                revokeRetainedArticleDocumentScopeSet(handles);
+                for (const owner of targets)
+                {
+                    if (!owner.handle)
+                    {
+                        owner.adapter.dispose();
+                    }
                 }
             }
-            revokeRetainedArticleDocumentScopeSet(handles);
         }
         finally
         {
-            this.scopeRevocationPending = false;
+            this.#scopeRevocationPending = false;
+            this.#currentScopeRetirement = null;
         }
     }
 
-    private assertRetainedOwnerAdmission(): void
+    #assertRetainedOwnerAdmission(): void
     {
-        if (this.scopeRevocationPending)
+        if (this.#scopeRevocationPending)
         {
             throw new Error('article-document-scope-revocation-in-progress');
         }
     }
 
-    private createRetainedOwner(registry: OpenArticleDocumentRegistry, adapter: ArticleDocumentContextAdapter,
+    #createRetainedOwner(registry: OpenArticleDocumentRegistry, adapter: ArticleDocumentContextAdapter,
         scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedOwner
     {
+        const scopeRetirementSequence = this.#scopeRetirementSequence;
         const principalIdentityId = scope.readPrincipalIdentityId();
         if (!principalIdentityId?.trim() || scope.readSiteScope() !== adapter.context.siteScope
             || adapter.context.userScope !== `user:${principalIdentityId}`.replace(/[^a-zA-Z0-9._:-]/gu, '-'))
         {
             throw new Error('article-document-retained-scope-invalid');
         }
-        if (this.retainedRegistry && this.retainedRegistry !== registry)
+        if (scopeRetirementSequence !== this.#scopeRetirementSequence)
+        {
+            throw new Error('article-document-retained-scope-retired-during-admission');
+        }
+        if (this.#retainedRegistry && this.#retainedRegistry !== registry)
         {
             throw new Error('article-document-retained-registry-owner-mismatch');
         }
-        this.retainedRegistry = registry;
-        return { registry, adapter, scope, principalIdentityId, handle: null, binding: null,
+        this.#retainedRegistry = registry;
+        return { registry, adapter, scope, principalIdentityId, scopeRetired: false, handle: null, binding: null,
             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
             lastState: 'live', listeners: new Set() };
     }
 
-    private readRetainedRegistry(owner: ArticleDocumentRetainedOwner): RetainedArticleDocumentInspection
+    #readRetainedRegistry(owner: ArticleDocumentRetainedOwner): RetainedArticleDocumentInspection
     {
         if (!owner.handle)
         {
             throw new Error('article-document-retained-owner-not-bound');
         }
-        if (owner.scope.readPrincipalIdentityId() !== owner.principalIdentityId
+        if (owner.scopeRetired || owner.scope.readPrincipalIdentityId() !== owner.principalIdentityId
             || owner.scope.readSiteScope() !== owner.adapter.context.siteScope)
         {
             revokeRetainedArticleDocumentScope(owner.handle);
@@ -1431,9 +1577,9 @@ export class ArticleDocumentContextAuthority
         return inspectRetainedArticleDocumentHandle(owner.handle);
     }
 
-    private inspectRetainedOwner(owner: ArticleDocumentRetainedOwner): ArticleDocumentRetainedInspection
+    #inspectRetainedOwner(owner: ArticleDocumentRetainedOwner): ArticleDocumentRetainedInspection
     {
-        const registry = this.readRetainedRegistry(owner);
+        const registry = this.#readRetainedRegistry(owner);
         const context = owner.adapter.context;
         return Object.freeze({ registry, context, principalIdentityId: owner.principalIdentityId,
             registryRevisionMatchesDocument: registry.entry?.documentContext.sourceRevision === `source-revision:${context.sourceRevision}`
@@ -1442,17 +1588,36 @@ export class ArticleDocumentContextAuthority
             consumerInvalidationState: owner.consumerInvalidationState });
     }
 
-    private bindRetainedOwner(handle: RetainedArticleDocumentHandle, owner: ArticleDocumentRetainedOwner): ArticleDocumentRetainedBinding
+    #reserveRetainedOwner(handle: RetainedArticleDocumentHandle, adapter: ArticleDocumentContextAdapter): ArticleDocumentOwnerAdmission
     {
-        if (!retainedArticleDocumentHandleBelongsTo(handle, owner.registry) || this.retainedOwners.has(handle)
-            || this.ownersByAdapter.has(owner.adapter))
+        if (this.#pendingHandleAdmissions.has(handle) || this.#pendingAdapterAdmissions.has(adapter)
+            || this.#retainedOwners.has(handle) || this.#ownersByAdapter.has(adapter))
+        {
+            throw new Error('article-document-retained-admission-in-progress');
+        }
+        this.#pendingHandleAdmissions.add(handle);
+        this.#pendingAdapterAdmissions.add(adapter);
+        return { handle, adapter, context: adapter.context, scopeRetirementSequence: this.#scopeRetirementSequence };
+    }
+
+    #releaseRetainedOwnerAdmission(admission: ArticleDocumentOwnerAdmission): void
+    {
+        this.#pendingHandleAdmissions.delete(admission.handle);
+        this.#pendingAdapterAdmissions.delete(admission.adapter);
+    }
+
+    #bindRetainedOwner(handle: RetainedArticleDocumentHandle, owner: ArticleDocumentRetainedOwner,
+        admission: ArticleDocumentOwnerAdmission, validatePrimary?: () => boolean): ArticleDocumentRetainedBinding
+    {
+        if (!retainedArticleDocumentHandleBelongsTo(handle, owner.registry) || this.#retainedOwners.has(handle)
+            || this.#ownersByAdapter.has(owner.adapter))
         {
             throw new Error('article-document-retained-association-invalid');
         }
         const initial = inspectRetainedArticleDocumentHandle(handle);
         const context = owner.adapter.context;
         const entry = initial.entry;
-        if (initial.state !== 'live' || entry?.identity.articleId !== context.articleId
+        if (owner.scopeRetired || context !== admission.context || initial.state !== 'live' || entry?.identity.articleId !== context.articleId
             || entry.identity.draftId !== context.draftId || entry.identity.documentId !== context.documentId
             || entry.documentContext.documentEpoch !== context.documentEpoch
             || entry.documentContext.sourceRevision !== `source-revision:${context.sourceRevision}`
@@ -1461,15 +1626,20 @@ export class ArticleDocumentContextAuthority
             throw new Error('article-document-retained-context-mismatch');
         }
         // Reread original principal/site sources before installing ownership.
-        if (owner.scope.readPrincipalIdentityId() !== owner.principalIdentityId || owner.scope.readSiteScope() !== context.siteScope
-            || inspectRetainedArticleDocumentHandle(handle).registryRevision !== initial.registryRevision
-            || !owner.adapter.isCurrentContext(context))
+        const principal = owner.scope.readPrincipalIdentityId();
+        const site = owner.scope.readSiteScope();
+        const current = inspectRetainedArticleDocumentHandle(handle);
+        if (principal !== owner.principalIdentityId || site !== context.siteScope || current.state !== 'live'
+            || current.registryRevision !== initial.registryRevision || current.entry?.contentDigest !== entry.contentDigest
+            || owner.scopeRetired || admission.scopeRetirementSequence !== this.#scopeRetirementSequence
+            || owner.adapter.context !== admission.context || !owner.adapter.isCurrentContext(context)
+            || (validatePrimary && !validatePrimary()) || this.#retainedOwners.has(handle) || this.#ownersByAdapter.has(owner.adapter))
         {
             throw new Error('article-document-retained-admission-changed');
         }
         owner.handle = handle;
         const binding: ArticleDocumentRetainedBinding = Object.freeze({ handle, adapter: owner.adapter,
-            inspect: () => this.inspectRetainedOwner(owner),
+            inspect: () => this.#inspectRetainedOwner(owner),
             subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
             {
                 owner.listeners.add(listener);
@@ -1480,7 +1650,7 @@ export class ArticleDocumentContextAuthority
             },
             attachConsumer: <T extends ArticleDocumentRetainedConsumer>(create: (retained: ArticleDocumentRetainedBinding) => T): T =>
             {
-                if (this.readRetainedRegistry(owner).state !== 'live' || owner.attachingConsumer)
+                if (this.#readRetainedRegistry(owner).state !== 'live' || owner.attachingConsumer)
                 {
                     throw new Error('article-document-retained-consumer-unavailable');
                 }
@@ -1509,11 +1679,11 @@ export class ArticleDocumentContextAuthority
                     {
                         throw new Error('article-document-retained-consumer-invalid');
                     }
-                    if (this.readRetainedRegistry(owner).state !== 'live')
+                    if (this.#readRetainedRegistry(owner).state !== 'live')
                     {
-                        if (this.readRetainedRegistry(owner).state === 'revoked')
+                        if (this.#readRetainedRegistry(owner).state === 'revoked')
                         {
-                            this.invalidateRetainedConsumer(owner);
+                            this.#invalidateRetainedConsumer(owner);
                         }
                         throw new Error('article-document-retained-consumer-admission-changed');
                     }
@@ -1531,21 +1701,52 @@ export class ArticleDocumentContextAuthority
             }
         });
         owner.binding = binding;
-        this.retainedOwners.set(handle, owner);
-        this.ownersByAdapter.set(owner.adapter, owner);
-        this.scopedOwners.add(owner);
+        this.#retainedOwners.set(handle, owner);
+        this.#ownersByAdapter.set(owner.adapter, owner);
+        this.#scopedOwners.add(owner);
         retainedAdapterGuards.set(owner.adapter, () =>
         {
-            const current = this.readRetainedRegistry(owner);
+            const current = this.#readRetainedRegistry(owner);
             return owner.invalidationFailed && current.state === 'live' ? { ...current, state: 'blocked' } : current;
         });
-        subscribeRetainedArticleDocumentHandle(handle, () => this.notifyRetainedOwner(owner));
+        const stopSubscription = subscribeRetainedArticleDocumentHandle(handle, () => this.#notifyRetainedOwner(owner));
+        // Subscription is installed before the final external readers. A revoke in
+        // this window is observed and its real pending resources remain retained.
+        try
+        {
+            if (this.#readRetainedRegistry(owner).state !== 'live' || owner.adapter.context !== admission.context
+                || (validatePrimary && !validatePrimary()))
+            {
+                this.#notifyRetainedOwner(owner);
+                throw new Error('article-document-retained-admission-changed');
+            }
+        }
+        catch (error)
+        {
+            // No binding/consumer escaped the still-held reservation. Roll back
+            // unpublished live admission; actual revocation keeps recovery custody.
+            if (inspectRetainedArticleDocumentHandle(handle).state !== 'revoked')
+            {
+                stopSubscription();
+                this.#retainedOwners.delete(handle);
+                this.#ownersByAdapter.delete(owner.adapter);
+                this.#scopedOwners.delete(owner);
+                retainedAdapterGuards.delete(owner.adapter);
+                owner.handle = null;
+                owner.binding = null;
+                if (this.#bindings.size === 0 && this.#adapter === owner.adapter)
+                {
+                    owner.adapter.cancelAll('component-unmounted');
+                }
+            }
+            throw error;
+        }
         return binding;
     }
 
-    private notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
+    #notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
     {
-        const observation = this.inspectRetainedOwner(owner);
+        const observation = this.#inspectRetainedOwner(owner);
         const state = observation.registry.state;
         const changedState = state !== owner.lastState;
         owner.lastState = state;
@@ -1565,14 +1766,14 @@ export class ArticleDocumentContextAuthority
             }
             if (state === 'revoked' && changedState && owner.consumer)
             {
-                this.invalidateRetainedConsumer(owner);
+                this.#invalidateRetainedConsumer(owner);
             }
         }
         for (const listener of [...owner.listeners])
         {
             try
             {
-                listener(this.inspectRetainedOwner(owner));
+                listener(this.#inspectRetainedOwner(owner));
             }
             catch
             {
@@ -1581,7 +1782,7 @@ export class ArticleDocumentContextAuthority
         }
     }
 
-    private invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
+    #invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
     {
         if (!owner.consumer || owner.consumerInvalidationState !== 'not-requested')
         {
@@ -1590,7 +1791,7 @@ export class ArticleDocumentContextAuthority
         owner.consumerInvalidationState = 'pending';
         try
         {
-            const pending = owner.consumer.invalidateDocument(this.inspectRetainedOwner(owner));
+            const pending = owner.consumer.invalidateDocument(this.#inspectRetainedOwner(owner));
             if (!pending)
             {
                 owner.consumerInvalidationState = 'settled';
@@ -1618,16 +1819,20 @@ export class ArticleDocumentContextAuthority
 
     public get context(): ArticleDocumentContext | null
     {
-        return this.adapter?.context ?? null;
+        return this.#adapter?.context ?? null;
     }
 
-    private switchAdapterDocument(
+    #switchAdapterDocument(
         adapter: ArticleDocumentContextAdapter,
         input: ArticleDocumentAuthoritySwitchInput,
         siteScope: string,
         userScope: string
     ): ArticleDocumentEpochReceipt | null
     {
+        if (this.#pendingAdapterAdmissions.has(adapter))
+        {
+            throw new Error('article-document-retained-admission-in-progress');
+        }
         const retainsCurrentDraft = input.articleId === null
             && adapter.context.articleId === null
             && input.reason !== 'draft-switch'
@@ -1635,7 +1840,7 @@ export class ArticleDocumentContextAuthority
             && adapter.context.userScope === userScope;
         const draftId = retainsCurrentDraft
             ? adapter.context.draftId
-            : this.draftIdFor(input.articleId);
+            : this.#draftIdFor(input.articleId);
         return adapter.switchDocument({
             ...input,
             draftId,
@@ -1644,12 +1849,12 @@ export class ArticleDocumentContextAuthority
         });
     }
 
-    private draftIdFor(articleId: number | null): string
+    #draftIdFor(articleId: number | null): string
     {
         return articleId === null ? nextOpaqueDraftId() : `article:${articleId}`;
     }
 
-    private assertAuthorityInput(input: ArticleDocumentAuthorityInput): void
+    #assertAuthorityInput(input: ArticleDocumentAuthorityInput): void
     {
         if (!isArticleId(input.articleId)
             || !isStableRef(input.siteScope)

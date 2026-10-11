@@ -71,7 +71,7 @@ publication and native mount/restoration remain original-owner integration work.
 ## Original complete test entrances: UNRUN / HOLD
 
 Existing original document-context source file has 14 cases. New Registry handle
-source file has 7 cases; new retained-authority source file has 14 cases. Counts
+source file has 10 cases; new retained-authority source file has 23 cases. Counts
 come from source inspection, not Vitest list/discovery. Existing original cases
 are unchanged. All files remain complete; no `-t`, skip, mock/config replacement,
 timeout increase, worker override, coverage threshold or runner substitution is
@@ -168,5 +168,44 @@ Latest compiler-only and four-file AST results are retained separately in the
 task-owned `.tmp/retained-document-authority/` directory. Complete original full
 application RED is not waived; previous fixed-baseline comparison is 255 versus
 249 diagnostics with no added complete headline messages. No test/qualification
-was run. Source tests are 14 retained-authority and 7 Registry-handle controls,
+was run. Source tests are 23 retained-authority and 10 Registry-handle controls,
 counted by pure TypeScript AST reading. Original context/Registry tests unchanged.
+
+## Independent review repair source increment
+
+Original Registry and Document reviewers inspected8769. Their overlapping
+adoption finding is repaired once, including primary release rereading. New
+cell/owner/preparation/lease/adapter custody and internal helpers use runtime
+private fields; shadow public properties cannot reach the actual records.
+Admission reserves the actual handle/adapter before any scope-reader call,
+validates current handle state and full context/scope facts afterward, and closes
+the subscription window. Failed unpublished live admission rolls back; actual
+revocation retains recovery custody. Canonical close marks an actual incarnation
+ended even after scope retirement, so equal-ID reopening issues a new token and
+never resurrects the old one. Notification and cross-scope retirement obligations
+are drained after reentrancy. Unbound preparations participate in retirement,
+including equal-value ABA and retirement during admission.
+
+Original source mutation and task slots reserve before external guards. Result
+digest/getter exceptions retain an active recoverable lease rather than a finished
+running envelope; queued cancellation can publish a terminal, and real producer
+settlement remains explicit. Source反例 are written only:23 authority +10 Registry
+cases, no tests/list/discovery or candidate module execution.
+
+Writer160913cf40242f7ad603e080bb49871f584d1ce4's four canonical API constructor
+diagnostics were identified exactly in original api/authoringWorkspaceSnapshot.
+Only explicit fields/assignments replace parameter properties. Whole emitted
+ES2022 JavaScript is byte-identical before/after under erasableSyntaxOnly=true;
+no transport/source/scope/clock/wire/DB/storage behavior changes. No compiler
+configuration or cast hides these findings.
+
+Original strict-full style checks both owners plus this API:3 files,0 violations.
+Original full application compiler remains RED exit2, fixed8769 baseline249 versus
+repair245 diagnostics:0 added complete headline messages, precisely4 canonical
+API TS1294 findings removed. Versus original a27a baseline255,10 original findings
+are removed,6 already belonging to de6df repairs. Own production diagnostics0.
+Raw current results and initial failures remain in task-owned review evidence.
+Original Group startup cell/guard, joint ownership/ratio publication, ownership-set
+and exact projection method texts were compared byte-for-byte with8769 and are
+unchanged; a27a is the original source they preserve. Runtime and full acceptance
+remain HOLD; exact repaired-head independent review is required anew.

@@ -91,6 +91,30 @@ test/list/discovery/import, browser/native, security, receipt, race and database
 qualifications remain unrun/HOLD in this lane. Pure compiler/style evidence does
 not establish product or full Host lifecycle acceptance.
 
+Retained cell/owner/preparation/task custody and the helpers that reach it use
+runtime `#private` state, rather than erased TypeScript privacy. Admission reserves
+the actual handle and adapter before scope-reader calls, verifies primary release,
+scope lifetime, complete current handle observation and unchanged context afterward,
+and subscribes before the final read window. Unpublished live admission rolls back
+on failure; actual revocation keeps its pending recovery custody. A scope tombstone
+lasts for that original member: formal detach ends its incarnation, and an equal-ID
+new canonical member may issue a new handle while the old handle remains revoked.
+
+Notification and scope-retirement requests are deferred and drained during
+reentrancy. All actual target owners retire before consumer notifications; unbound
+preparations also retire. Retirement during preparation/adoption prevents
+equal-value scope ABA admission. Another scope request from a consumer cannot be
+dropped. These are ownership/lifetime facts, not strings used as permission grants.
+
+Context mutation and task-slot publication reserve their real original state
+before external guards. Failed result hashing/getters keep a recoverable lease
+and active slot; cancellation can publish a genuine terminal afterward. Digest
+preparation precedes ledger removal, terminal commits recheck current ownership,
+and cancellation during preparation is retained. Only explicit actual producer
+settlement removes pending work. Original Group cell/startup guard/ratio publication,
+CAS/idempotency/history, public issuer and server/persistence contracts remain.
+These repairs still require independent exact-head review and held qualification.
+
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.

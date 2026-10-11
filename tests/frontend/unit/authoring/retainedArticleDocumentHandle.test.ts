@@ -151,4 +151,59 @@ describe('original Registry retained document handle source controls', () =>
         expect(registry.listEntries()).toHaveLength(2);
         expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
     });
+
+    it('keeps actual runtime custody hidden when shadow properties are injected', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        expect(Object.getOwnPropertyNames(registry)).not.toContain('retainedDocumentCells');
+        Object.defineProperty(registry, 'retainedDocumentCells', { value: new Set([{ handle, reason: null, registry: new OpenArticleDocumentRegistry() }]) });
+        revokeRetainedArticleDocumentScope(handle);
+        expect(inspectRetainedArticleDocumentHandle(handle).reason).toBe('scope-revoked');
+        expect(retainedArticleDocumentHandleBelongsTo(handle, registry)).toBe(true);
+        expect(retainedArticleDocumentHandleBelongsTo(handle, new OpenArticleDocumentRegistry())).toBe(false);
+    });
+
+    it('permits a new incarnation after scope retirement and formal detach with equal public IDs', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const original = registry.issueRetainedDocumentHandle('tab:1');
+        revokeRetainedArticleDocumentScope(original);
+        for (const mutation of [
+            { kind: 'request-close', tabId: 'tab:1' },
+            { kind: 'detach-on-final-close', tabId: 'tab:1', closeDecisionRef: 'close:formal' }
+        ])
+        {
+            const revision = registry.getRevision();
+            registry.execute({ schema: openArticleDocumentCommandSchema, commandId: `close:${revision}`,
+                idempotencyKey: `close:${revision}`, expectedRevision: revision, ...mutation });
+        }
+        registry.execute(open(registry));
+        const current = registry.issueRetainedDocumentHandle('tab:1');
+        expect(current).not.toBe(original);
+        expect(inspectRetainedArticleDocumentHandle(current).state).toBe('live');
+        expect(inspectRetainedArticleDocumentHandle(original).state).toBe('revoked');
+        expect(inspectRetainedArticleDocumentHandle(original).entry).toBeNull();
+    });
+
+    it('drains terminal scope notification requested from inside a live notification', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const observed: string[] = [];
+        subscribeRetainedArticleDocumentHandle(handle, () =>
+        {
+            const state = inspectRetainedArticleDocumentHandle(handle).state;
+            observed.push(state);
+            if (state === 'live')
+            {
+                revokeRetainedArticleDocumentScope(handle);
+            }
+        });
+        registry.execute(open(registry, 2));
+        expect(observed).toEqual(['live', 'revoked']);
+    });
 });
