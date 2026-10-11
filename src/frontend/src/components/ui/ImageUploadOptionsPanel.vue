@@ -100,14 +100,21 @@
             </div>
         </div>
 
+        <span
+            class="sr-only"
+            :role="announceStatus ? 'status' : undefined"
+        >{{ announceStatus ? statusText : '' }}</span>
+
         <!-- 状态与预览 -->
         <footer class="mt-12 space-y-6">
             <div
                 v-if="statusText"
-                role="status"
                 class="flex items-center gap-4 py-3 px-4 bg-[var(--fsusblog-page-bg)] border border-[var(--fsusblog-panel-border-strong)] rounded-[var(--fsus-radius-control)]"
             >
-                <span class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">{{ statusText }}</span>
+                <span
+                    :aria-hidden="announceStatus || undefined"
+                    class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal"
+                >{{ statusText }}</span>
                 <ElButton
                     v-if="canResume"
                     link
@@ -170,15 +177,16 @@ import { computed } from 'vue';
 import type { ImageCompressionOptions } from '@/api/upload';
 import type { ImageCompressionPreview } from '@/utils/imageCompression';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     options: ImageCompressionOptions;
     statusText?: string;
+    announceStatus?: boolean;
     canAbort?: boolean;
     canResume?: boolean;
     preview?: ImageCompressionPreview | null;
     wasmOnly?: boolean;
     wasmSupportedFormats?: string[];
-}>();
+}>(), { announceStatus: true });
 
 const emit = defineEmits<{
     (e: 'update:options', value: Partial<ImageCompressionOptions>): void;

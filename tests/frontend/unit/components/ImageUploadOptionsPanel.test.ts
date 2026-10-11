@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { readFileSync } from 'node:fs'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { ElButton, ElFormItem, ElOption, ElSelect, ElSlider, ElSwitch } from '@ozwasyd/element-plus'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -123,27 +124,58 @@ describe('ImageUploadOptionsPanel', () => {
     expect(panel.emitted('update:wasm-only')).toBeUndefined()
   })
 
-  it('updates status text in one implicit polite live region without duplicate announcements', async () => {
+  it('updates a pre-existing text-only status region with recovery buttons outside it', async () => {
     const panel = mountPanel()
-    expect(panel.find('[role="status"]').exists()).toBe(false)
-
-    await panel.setProps({ statusText: '已暂停', canResume: true, canAbort: true })
     const status = panel.get('[role="status"]')
     const statusElement = status.element
-    expect(status.text()).toContain('已暂停')
-    expect(status.findAllComponents(ElButton).map(button => button.text())).toEqual(['继续上传', '中止上传'])
+    expect(status.text()).toBe('')
+    expect(status.findAllComponents(ElButton)).toHaveLength(0)
+
+    await panel.setProps({ statusText: '已暂停', canResume: true, canAbort: true })
+    expect(panel.get('[role="status"]').element).toBe(statusElement)
+    expect(status.text()).toBe('已暂停')
+    expect(status.findAllComponents(ElButton)).toHaveLength(0)
+    expect(panel.findAllComponents(ElButton).map(button => button.text())).toEqual(['重置', '继续上传', '中止上传'])
 
     await panel.setProps({ statusText: '正在上传' })
     expect(panel.findAll('[role="status"]')).toHaveLength(1)
     expect(panel.get('[role="status"]').element).toBe(statusElement)
-    expect(panel.get('[role="status"]').text()).toContain('正在上传')
+    expect(panel.get('[role="status"]').text()).toBe('正在上传')
     expect(panel.findAll('[aria-live], [role="alert"]')).toHaveLength(0)
-    expect(status.find('[role="status"]').exists()).toBe(false)
+    expect(status.element.querySelector('[role="status"]')).toBeNull()
     expect(panel.emitted('update:options')).toBeUndefined()
     expect(panel.emitted('update:wasm-only')).toBeUndefined()
 
     await panel.setProps({ statusText: '' })
-    expect(panel.find('[role="status"]').exists()).toBe(false)
+    expect(panel.get('[role="status"]').element).toBe(statusElement)
+    expect(status.text()).toBe('')
+  })
+
+  it('defers announcements to the consumer without hiding visible status or recovery controls', async () => {
+    const panel = mountPanel({ announceStatus: false, statusText: '已暂停', canResume: true, canAbort: true })
+    expect(panel.findAll('[role="status"], [aria-live]')).toHaveLength(0)
+    expect(panel.text()).toContain('已暂停')
+    expect(panel.findAllComponents(ElButton).map(button => button.text())).toEqual(['重置', '继续上传', '中止上传'])
+
+    await panel.setProps({ statusText: '正在上传' })
+    expect(panel.findAll('[role="status"], [aria-live]')).toHaveLength(0)
+    expect(panel.text()).toContain('正在上传')
+    expect(panel.get('footer > div > span').attributes('aria-hidden')).toBeUndefined()
+  })
+
+  it('keeps Write summary as the sole upload announcement owner and Settings on the panel default', () => {
+    const write = readFileSync(new URL('../../../../src/frontend/src/views/admin/article/Write.vue', import.meta.url), 'utf8')
+    const settings = readFileSync(new URL('../../../../src/frontend/src/views/admin/Settings.vue', import.meta.url), 'utf8')
+    const writePanels = write.match(/<ImageUploadOptionsPanel\b[^>]*>/g) ?? []
+    const settingsPanels = settings.match(/<ImageUploadOptionsPanel\b[^>]*>/g) ?? []
+
+    expect(writePanels).toHaveLength(1)
+    expect(writePanels[0]).toContain(':announce-status="false"')
+    expect(writePanels[0]).toContain(':status-text="imageUploadRuntime.statusText"')
+    expect(write.match(/<span\b[^>]*aria-live="polite"[^>]*>\s*\{\{\s*imageUploadRuntime\.statusText\s*\}\}/g)).toHaveLength(1)
+    expect(settingsPanels).toHaveLength(1)
+    expect(settingsPanels[0]).not.toContain('announce-status')
+    expect(settingsPanels[0]).toContain(':status-text="imageUploadRuntime.statusText"')
   })
 
   it('preserves supported format updates and rejects other formats', async () => {

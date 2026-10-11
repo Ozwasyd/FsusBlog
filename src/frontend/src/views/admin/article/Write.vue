@@ -529,6 +529,7 @@
                                 <ImageUploadOptionsPanel
                                     :options="imageUploadOptions"
                                     :status-text="imageUploadRuntime.statusText"
+                                    :announce-status="false"
                                     :can-abort="Boolean(imageUploadRuntime.activeSession.uploadId)"
                                     :can-resume="imageUploadRuntime.canResume"
                                     :preview="imageUploadRuntime.preview"
