@@ -134,7 +134,8 @@ export function prepareLocalFsusUiSourceCopy({ repositoryRoot, sourceRoot, front
     const consumer = fs.realpathSync(repositoryRoot);
     const owner = fs.realpathSync(sourceRoot);
     const destination = sourceCopyRoot(consumer, owner);
-    if (!path.relative(owner, destination).startsWith(`..${path.sep}`))
+    const relative = path.relative(owner, destination);
+    if (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
     {
         throw new Error('local FsusUI dependency projection must be outside the source owner');
     }
