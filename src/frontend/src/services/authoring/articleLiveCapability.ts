@@ -96,8 +96,11 @@ export class ArticleLiveCapabilitySession
     private lease: ArticleDocumentTaskLease | null = null;
     private decision: { document: ArticleDocumentContext; environment: ArticleLiveCapabilityEnvironment; result: MarkdownLiveCapabilityResult | null; invalid: boolean; } | null = null;
 
-    public constructor(private readonly owner: ArticleDocumentContextAdapter)
+    private readonly owner: ArticleDocumentContextAdapter;
+
+    public constructor(owner: ArticleDocumentContextAdapter)
     {
+        this.owner = owner;
     }
 
     public begin(environment: ArticleLiveCapabilityEnvironment): ArticleLiveCapabilityRequest

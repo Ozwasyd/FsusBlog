@@ -250,15 +250,23 @@ export class ArticleRenderCache
     private readonly receiptLog: ArticleRenderReceipt[] = [];
     private readonly unsubscribe: () => void;
     private disposed = false;
+    private readonly adapter: ArticleDocumentContextAdapter;
+    private readonly producer: ArticleRenderProducer;
+    private readonly policy: ArticleRenderCachePolicy;
+    private readonly clock: () => number;
 
     public constructor(
-        private readonly adapter: ArticleDocumentContextAdapter,
+        adapter: ArticleDocumentContextAdapter,
         identity: ArticleRenderIdentity,
-        private readonly producer: ArticleRenderProducer,
-        private readonly policy: ArticleRenderCachePolicy,
-        private readonly clock: () => number = Date.now
+        producer: ArticleRenderProducer,
+        policy: ArticleRenderCachePolicy,
+        clock: () => number = Date.now
     )
     {
+        this.adapter = adapter;
+        this.producer = producer;
+        this.policy = policy;
+        this.clock = clock;
         if (!identityValid(identity) || !Number.isSafeInteger(policy.maxEntryBytes) || policy.maxEntryBytes < 1
             || !isTime(policy.maxAgeMs) || policy.maxAgeMs === 0
             || !Number.isSafeInteger(policy.maxReceipts) || policy.maxReceipts < 1 || policy.maxReceipts > 256)

@@ -29,14 +29,22 @@ export class ArticleEditorSurfaceRuntime
     private pendingRef: string | null = null;
     private disposed = false;
     private readonly unsubscribe: () => void;
+    private readonly owner: ArticleDocumentContextAdapter;
+    private readonly binding: ArticleEditorRuntimeBinding;
+    private readonly capabilities: ArticleLiveCapabilitySession;
+    private readonly readPreference: () => unknown;
 
     public constructor(
-        private readonly owner: ArticleDocumentContextAdapter,
-        private readonly binding: ArticleEditorRuntimeBinding,
-        private readonly capabilities: ArticleLiveCapabilitySession,
-        private readonly readPreference: () => unknown
+        owner: ArticleDocumentContextAdapter,
+        binding: ArticleEditorRuntimeBinding,
+        capabilities: ArticleLiveCapabilitySession,
+        readPreference: () => unknown
     )
     {
+        this.owner = owner;
+        this.binding = binding;
+        this.capabilities = capabilities;
+        this.readPreference = readPreference;
         this.assertCurrent();
         let document = owner.context;
         this.unsubscribe = owner.subscribeContext(current =>
