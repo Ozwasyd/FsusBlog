@@ -58,6 +58,8 @@ public static partial class AuthorFullTextSearchContract
             && operand.ValueType == definition.ValueType,
             "author_search_property_operand_definition_stale");
         ArticlePropertyDefinitionContract.ValidateOperator(operand.OperatorId, definition.ValueType);
+        Require(operand.OperatorId is not "url.host" and not "url.scheme",
+            "author_search_property_operand_semantics_unavailable");
         Require(!operand.Values.IsDefault, "author_search_property_operand_shape_invalid");
         int count = operand.OperatorId switch
         {
@@ -65,11 +67,18 @@ public static partial class AuthorFullTextSearchContract
             "number.between" or "date.between" => 2,
             _ => 1
         };
-        Require(operand.Values.Length == count, "author_search_property_operand_arity_invalid");
+        Require(operand.OperatorId == "select.any-of" && definition.ValueType == ArticlePropertyValueType.SingleSelect
+            ? operand.Values.Length is >= 1 and <= MaxQueryClauses
+            : operand.Values.Length == count, "author_search_property_operand_arity_invalid");
         foreach (ArticlePropertyTypedValue value in operand.Values)
         {
             Require(value is not null, "author_search_property_operand_missing");
             AuthorSearchPropertyValueProjection.ValidateTypedShape(definition, value);
+        }
+        if (operand.OperatorId == "select.any-of" && definition.ValueType == ArticlePropertyValueType.SingleSelect)
+        {
+            Require(operand.Values.Select(static value => ((ArticlePropertySingleSelectValue)value).OptionId)
+                .Distinct().Count() == operand.Values.Length, "author_search_property_operand_set_invalid");
         }
         if (operand.OperatorId == "number.between")
         {
@@ -105,8 +114,9 @@ public static partial class AuthorFullTextSearchContract
 /// <summary>
 /// Immutable typed input owned by AuthorFullTextSearchContract, using the existing eight sealed
 /// payloads and sole definition-owned operator table. A valid operand is not an executable query.
-/// Presence operators have zero payloads; between has two ordered values; all others have one
-/// typed scalar or typed ID set. Comparison semantics absent from the authority stay unsupported.
+/// Presence operators have zero payloads; between has two ordered values; single-select any-of
+/// accepts bounded distinct option values; other operators have one typed scalar or typed ID set.
+/// Comparison semantics absent from the authority stay unsupported.
 /// </summary>
 public sealed record AuthorSearchPropertyOperand(
     string Schema,

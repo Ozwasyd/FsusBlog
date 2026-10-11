@@ -73,11 +73,14 @@ public static class AuthorSearchPropertyValueProjection
             "select.equals" when entry.Value is ArticlePropertySingleSelectValue single =>
                 single.OptionId == ((ArticlePropertySingleSelectValue)expected).OptionId,
             "select.any-of" when entry.Value is ArticlePropertySingleSelectValue single =>
-                ((ArticlePropertySingleSelectValue)expected).OptionId == single.OptionId,
+                operand.Values.Any(value => ((ArticlePropertySingleSelectValue)value).OptionId == single.OptionId),
             "select.any-of" => Intersects(((ArticlePropertyMultiSelectValue)entry.Value!).OptionIds,
                 ((ArticlePropertyMultiSelectValue)expected).OptionIds),
             "reference.any-of" => Intersects(((ArticlePropertyArticleReferenceValue)entry.Value!).ArticleIds,
                 ((ArticlePropertyArticleReferenceValue)expected).ArticleIds),
+            "reference.equals" when definition.Cardinality == ArticlePropertyCardinality.Single =>
+                ((ArticlePropertyArticleReferenceValue)entry.Value!).ArticleIds[0]
+                    == ((ArticlePropertyArticleReferenceValue)expected).ArticleIds[0],
             "url.equals" => string.Equals(((ArticlePropertyUrlValue)entry.Value!).Url,
                 ((ArticlePropertyUrlValue)expected).Url, StringComparison.Ordinal),
             _ => throw new AuthorSearchContractException("author_search_property_comparison_semantics_unavailable")
@@ -185,7 +188,7 @@ public static class AuthorSearchPropertyValueProjection
         => value switch
         {
             ArticlePropertyTextValue text => Scalar(text.Text),
-            ArticlePropertyNumberValue number => Scalar(number.Number.ToString(CultureInfo.InvariantCulture)),
+            ArticlePropertyNumberValue number => Scalar(number.Number.ToString("0.############################", CultureInfo.InvariantCulture)),
             ArticlePropertyBooleanValue boolean => Scalar(boolean.Boolean ? "true" : "false"),
             ArticlePropertyDateValue date => Scalar(date.Utc.ToString("O", CultureInfo.InvariantCulture)),
             ArticlePropertySingleSelectValue single => new(ArticlePropertyDefaultKind.OptionIds, OptionIds: [single.OptionId]),
