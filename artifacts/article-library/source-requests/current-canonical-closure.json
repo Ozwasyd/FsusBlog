@@ -1,0 +1,158 @@
+{
+  "schema": "fsusblog.article-library-canonical-source-request.v1",
+  "kind": "historical-source-intake-not-protocol-allocation-or-runtime-evidence",
+  "consumer_before": "4f1011ce0d5d1cbcdc9438a6f2cc6219d675d13c",
+  "shared_owner": {
+    "pr": 4155,
+    "source_of_truth": "src/shared/Contracts/Validation/aeds-protocol.json",
+    "current_blob": "983a35bd57ff8da6a0718bc2282ea9b764432402",
+    "current_frame_count": 244,
+    "join_policy": "Preserve all existing244 rows and numeric oracle; original Shared owner coordinates one allocation/join for both feature families. No consumer allocation or generated/golden mutation."
+  },
+  "requests": [
+    {
+      "id": "snapshot-request-frame",
+      "purpose": "reference-only workspace snapshot write/reset request; not article content or query response",
+      "owner": {
+        "snapshot_pr": 4219,
+        "issue": 2304,
+        "source": "1df8314c8000130448d798e7bf5d38f50e7f1ecd"
+      },
+      "original_name": "AuthoringWorkspaceSnapshotRequest",
+      "original_numeric_id": 270,
+      "original_golden_family": "authoring-workspace-snapshot",
+      "original_golden_order": 261,
+      "current_status": "NOT_IN_CURRENT_CANONICAL_ROSTER",
+      "consumer_symbol": "FrameType.AuthoringWorkspaceSnapshotRequest",
+      "needed": "Original current-master canonical source join and owner-produced enum/native/typed registration closure; no whole273 roster transplant"
+    },
+    {
+      "id": "snapshot-response-frame",
+      "purpose": "reference-only workspace snapshot read/mutate response and server receipt; not query metadata",
+      "owner": {
+        "snapshot_pr": 4219,
+        "issue": 2304,
+        "source": "1df8314c8000130448d798e7bf5d38f50e7f1ecd"
+      },
+      "original_name": "AuthoringWorkspaceSnapshotResponse",
+      "original_numeric_id": 271,
+      "original_golden_family": "authoring-workspace-snapshot",
+      "original_golden_order": 262,
+      "current_status": "NOT_IN_CURRENT_CANONICAL_ROSTER",
+      "consumer_symbol": "FrameType.AuthoringWorkspaceSnapshotResponse",
+      "needed": "Same coordinated canonical join, original decoder registry join and actual endpoint/DI registration"
+    },
+    {
+      "id": "upload-preview-frame",
+      "purpose": "original upload preview payload; distinct from snapshot request/response",
+      "owner": {
+        "source_offer_pr": 4226,
+        "source_offer": "d020d72cd16885471b7168c9e41c49c285707d4e",
+        "original_norm_source": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9"
+      },
+      "original_name": "UploadAssetPreview",
+      "original_numeric_id": 275,
+      "original_golden_family": "upload-response",
+      "original_golden_order": 261,
+      "current_status": "NOT_IN_CURRENT_CANONICAL_ROSTER",
+      "consumer_symbol": "BinarySchemaId.UploadAssetPreview",
+      "consumer_location": "src/frontend/src/api/upload.ts:187",
+      "needed": "Original Shared canonical source join and actual generated enum projections; original inactive244 proposal is not an accepted allocation"
+    },
+    {
+      "id": "upload-facts-frame",
+      "purpose": "original upload facts payload; distinct from snapshot request/response",
+      "owner": {
+        "source_offer_pr": 4226,
+        "source_offer": "d020d72cd16885471b7168c9e41c49c285707d4e",
+        "original_norm_source": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9"
+      },
+      "original_name": "UploadAssetFacts",
+      "original_numeric_id": 285,
+      "original_golden_family": "upload-response",
+      "original_golden_order": 262,
+      "current_status": "NOT_IN_CURRENT_CANONICAL_ROSTER",
+      "consumer_symbol": "BinarySchemaId.UploadAssetFacts",
+      "consumer_location": "src/frontend/src/api/uploadFacts.ts:21",
+      "needed": "Same coordinated Shared source join; no old266/267, whole Writer roster or golden261/262 transplant"
+    },
+    {
+      "id": "upload-preview-route",
+      "purpose": "original authenticated preview endpoint operation",
+      "owner": "original2258 upload endpoint producer and canonical compiled OpenAPI/Shared route producer",
+      "consumer_symbol": "binary_post_upload_uploadId_preview",
+      "consumer_location": "src/frontend/src/api/upload.ts:186",
+      "current_status": "NOT_IN_CURRENT_GENERATED_ROUTES",
+      "needed": "Real joined endpoint compiled observation -> original OpenAPI -> original generated fsusBinaryRoutes.ts; no hand-written operation alias"
+    },
+    {
+      "id": "upload-facts-route",
+      "purpose": "original authenticated facts endpoint operation",
+      "owner": "original2258 upload endpoint producer and canonical compiled OpenAPI/Shared route producer",
+      "consumer_symbol": "binary_post_upload_uploadId_facts",
+      "consumer_location": "src/frontend/src/api/uploadFacts.ts:20",
+      "current_status": "NOT_IN_CURRENT_GENERATED_ROUTES",
+      "needed": "Same real producer chain; preserve unrelated current operations"
+    }
+  ],
+  "original_order_conflict": {
+    "orders": [
+      261,
+      262
+    ],
+    "families": [
+      "authoring-workspace-snapshot",
+      "upload-response"
+    ],
+    "status": "Both original branch families use these historical orders; original Shared owner must reconcile together against current244. Consumer assigns no new goldenOrder."
+  },
+  "snapshot_payload_consumption": {
+    "source": "1df8314c8000130448d798e7bf5d38f50e7f1ecd",
+    "consumer_paths": [
+      "src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts",
+      "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts",
+      "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json"
+    ],
+    "typed_owner_hash": "93ae288e1f9de0dead5b89faa4695d4d4a58b6a7b8fce55837d1cfb2b81a9fba",
+    "upstream_generator": "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs",
+    "upstream_owner_blobs": [
+      {
+        "path": "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs",
+        "blob": "4f2c7856fc43b2485cdb14d8a112d6d99aa19836",
+        "sha256": "cbd1ec184edf1b462b8b24566e6ef4a48be4dc65439ea65356aa0dea5dca56a8"
+      },
+      {
+        "path": "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs",
+        "blob": "f88a1dcc67cb2f76f301458cd2f3b773943261d0",
+        "sha256": "a5712cdf92ea22fa007719365d14083e61cbf1e21ccea1132bd3fe46bc7f58bd"
+      },
+      {
+        "path": "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
+        "blob": "d3c9b20c9c2e0e87067c352d6ecd7f013c11ffd7",
+        "sha256": "da6541b734ded6b23b06bd567a729e8073c664dac5f808024e4055f30fb12405"
+      }
+    ],
+    "scope": "Exact already-produced TS payload bytes and original typed HTTP source/schema consumed only. No generator execution, regenerated output, frame/decoder/endpoint activation or full producer reproduction."
+  },
+  "required_protocol_source_outputs": [
+    "src/core/Algorithms/AedsFrameType.cs",
+    "src/shared/AedsFrameHeader.cs",
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+    "src/frontend/wasm/web/protocol/frame.ts"
+  ],
+  "held_outputs_and_actions": [
+    "tests/backend/Fixtures/aeds-golden-catalog.json",
+    "protocol generator execution",
+    "compiled endpoint/OpenAPI authority refresh",
+    "auth/security/runtime/native/receipt/qualification"
+  ],
+  "additional_production_gaps": [
+    "Original authenticated admin/site scope and server-artifact SourceDigest caller, explicitly WIP in4219",
+    "Original snapshot permission/lifecycle/draft resolveBatch",
+    "Original retained mount-before-restore and full session factory",
+    "Original committed shell command/lifetime binding",
+    "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged"
+  ],
+  "qualification": false,
+  "activation": false
+}

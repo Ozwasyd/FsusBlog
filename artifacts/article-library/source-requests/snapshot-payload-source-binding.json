@@ -1,0 +1,12 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json"
+  ],
+  "outputs": [
+    {
+      "path": "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts",
+      "sha256": "c4096d199dcebcbe12c03fcc4fe78c8e32dd20ac0de056d3156229ae9bf18579"
+    }
+  ]
+}
