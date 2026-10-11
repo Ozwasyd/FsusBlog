@@ -28,6 +28,13 @@ public interface IAuthorArticleQuerySourceReader
         IReadOnlyList<AuthorArticleQueryStatus> statuses,
         CancellationToken cancellationToken);
 
+    Task<AuthorArticleQuerySourceBatch> ReadCoordinatesForIdsAsync(
+        IReadOnlyList<AuthorArticleQueryStatus> statuses,
+        IReadOnlyList<int> articleIds,
+        CancellationToken cancellationToken)
+        => Task.FromException<AuthorArticleQuerySourceBatch>(
+            new NotSupportedException("author_article_query_history_coordinate_source_unavailable"));
+
     Task<IReadOnlyList<AuthorArticleQuerySourceFields>> ReadFieldsAsync(
         IReadOnlyList<int> admittedArticleIds,
         CancellationToken cancellationToken);
@@ -42,8 +49,16 @@ public enum AuthorArticleQuerySourceUnavailableReason
     SlugUnavailable = 3,
     ArchivedReadGrantUnavailable = 4,
     VerifiedRecentSourceUnavailable = 5,
-    QueryCursorUnavailable = 6
+    QueryCursorUnavailable = 6,
+    SourceWindowUnavailable = 7
 }
+
+/// <summary>A verified history ordinal joined by article identity to a live source coordinate.</summary>
+/// <remarks>The history server revision is a recorded fact, not the live article version.</remarks>
+public sealed record AuthorArticleQueryRecentSourceBinding(
+    AuthorArticleQuerySourceCoordinate Coordinate,
+    long HistoryServerRevision,
+    int Ordinal);
 
 /// <summary>
 /// Internal observation only. Fields are not ranked candidates, a product response, a history
@@ -52,7 +67,16 @@ public enum AuthorArticleQuerySourceUnavailableReason
 public sealed record AuthorArticleQuerySourceInspectionResult(
     AuthorArticleQuerySourceUnavailableReason UnavailableReason,
     IReadOnlyList<AuthorArticleQuerySourceFields> ObservedFields,
-    bool HasMore);
+    bool HasMore)
+{
+    /// <summary>The identity returned by the original verified projection reader, if consulted.</summary>
+    public AuthorArticleQueryHistoryIdentity? HistoryIdentity
+    {
+        get; init;
+    }
+    /// <summary>Only admitted live fields receive verified recent ordinals.</summary>
+    public IReadOnlyList<AuthorArticleQueryRecentSourceBinding> RecentBindings { get; init; } = [];
+}
 
 /// <summary>
 /// Reuses the real principal/site/session authority before source enumeration and each metadata
@@ -60,7 +84,8 @@ public sealed record AuthorArticleQuerySourceInspectionResult(
 /// </summary>
 public sealed class AuthorArticleQuerySourceInspection(
     IAuthorRecentArticleHistoryPermissionProjectionProvider permission,
-    IAuthorArticleQuerySourceReader source)
+    IAuthorArticleQuerySourceReader source,
+    AuthorArticleQueryHistoryIdentityReader? history = null)
 {
     /// <summary>The existing permission authority admits at most this many IDs per read.</summary>
     public const int MaxBatchSize = AuthorRecentArticleHistoryContract.MaxEntriesPerOwner;
@@ -84,13 +109,29 @@ public sealed class AuthorArticleQuerySourceInspection(
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.ArchivedReadGrantUnavailable);
         }
-        if (request.Buckets.Contains(AuthorArticleQueryBucket.Recent))
-        {
-            return Unavailable(AuthorArticleQuerySourceUnavailableReason.VerifiedRecentSourceUnavailable);
-        }
         if (request.Cursor is not null)
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.QueryCursorUnavailable);
+        }
+
+        AuthorArticleQueryHistoryIdentity? historyIdentity = null;
+        if (request.Buckets.Contains(AuthorArticleQueryBucket.Recent))
+        {
+            if (history is null)
+            {
+                return Unavailable(AuthorArticleQuerySourceUnavailableReason.VerifiedRecentSourceUnavailable);
+            }
+            AuthorArticleQueryHistoryIdentityResult identity = await history.ReadAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            if (identity.Identity is null)
+            {
+                return Unavailable(AuthorArticleQuerySourceUnavailableReason.VerifiedRecentSourceUnavailable);
+            }
+            historyIdentity = identity.Identity;
+            if (!SameHistoryAuthority(historyIdentity, preflight))
+            {
+                return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
+            }
         }
 
         AuthorArticleQueryStatus[] statuses = request.Statuses.Where(status => request.Buckets.Contains(status switch
@@ -100,19 +141,48 @@ public sealed class AuthorArticleQuerySourceInspection(
             AuthorArticleQueryStatus.Scheduled => AuthorArticleQueryBucket.Scheduled,
             _ => throw new InvalidOperationException("author_article_query_source_status_unavailable")
         })).ToArray();
-        AuthorArticleQuerySourceBatch batch = await source.ReadCoordinatesAsync(statuses, cancellationToken)
-            .ConfigureAwait(false);
-        AuthorArticleQuerySourceCoordinate[] coordinates = [.. batch.Coordinates];
-        int[] ids = coordinates.Select(static coordinate => coordinate.ArticleId).ToArray();
-        if (coordinates.Length > MaxBatchSize
-            || !ids.SequenceEqual(ids.Distinct().Order())
-            || coordinates.Any(coordinate => coordinate.ArticleId <= 0
-                || coordinate.ServerRevision <= 0
-                || string.IsNullOrWhiteSpace(coordinate.RowVersion)
-                || !statuses.Contains(coordinate.Status)))
+        AuthorArticleQuerySourceBatch batch = statuses.Length == 0
+            ? new([], false)
+            : await source.ReadCoordinatesAsync(statuses, cancellationToken).ConfigureAwait(false);
+        if (!ValidCoordinates(batch.Coordinates, statuses))
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceChanged);
         }
+        var coordinatesById = batch.Coordinates.ToDictionary(static coordinate => coordinate.ArticleId);
+        if (historyIdentity is not null && historyIdentity.Ordinals.Count > 0)
+        {
+            int[] historyIds = historyIdentity.Ordinals.Select(static ordinal => ordinal.ArticleId).Order().ToArray();
+            AuthorArticleQuerySourceBatch recent;
+            try
+            {
+                recent = await source.ReadCoordinatesForIdsAsync(
+                    request.Statuses, historyIds, cancellationToken).ConfigureAwait(false);
+            }
+            catch (NotSupportedException)
+            {
+                return Unavailable(AuthorArticleQuerySourceUnavailableReason.VerifiedRecentSourceUnavailable);
+            }
+            if (recent.HasMore || !ValidCoordinates(recent.Coordinates, request.Statuses)
+                || recent.Coordinates.Any(coordinate => !historyIds.Contains(coordinate.ArticleId)))
+            {
+                return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceChanged);
+            }
+            foreach (AuthorArticleQuerySourceCoordinate coordinate in recent.Coordinates)
+            {
+                if (coordinatesById.TryGetValue(coordinate.ArticleId, out var existing) && existing != coordinate)
+                {
+                    return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceChanged);
+                }
+                coordinatesById[coordinate.ArticleId] = coordinate;
+            }
+        }
+        if (coordinatesById.Count > MaxBatchSize)
+        {
+            return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceWindowUnavailable);
+        }
+        AuthorArticleQuerySourceCoordinate[] coordinates = coordinatesById.Values.OrderBy(
+            static coordinate => coordinate.ArticleId).ToArray();
+        int[] ids = coordinates.Select(static coordinate => coordinate.ArticleId).ToArray();
         AuthorRecentArticleHistoryPermissionSnapshot admitted = await permission.ResolveAsync(
             new(owner, request.RequestId, ids), cancellationToken).ConfigureAwait(false);
         if (!ValidPermission(admitted, owner, ids) || !SameAuthority(preflight, admitted))
@@ -140,9 +210,51 @@ public sealed class AuthorArticleQuerySourceInspection(
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
         }
+        if (historyIdentity is not null && history is not null)
+        {
+            AuthorArticleQueryHistoryIdentityResult afterHistory = await history.ReadAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            if (afterHistory.Identity is null || !SameHistoryIdentity(historyIdentity, afterHistory.Identity))
+            {
+                return Unavailable(AuthorArticleQuerySourceUnavailableReason.VerifiedRecentSourceUnavailable);
+            }
+        }
         cancellationToken.ThrowIfCancellationRequested();
-        return new(AuthorArticleQuerySourceUnavailableReason.SlugUnavailable, fields, batch.HasMore);
+        Dictionary<int, AuthorArticleQueryHistoryOrdinal> ordinals = historyIdentity?.Ordinals.ToDictionary(
+            static ordinal => ordinal.ArticleId) ?? [];
+        return new(AuthorArticleQuerySourceUnavailableReason.SlugUnavailable, fields, batch.HasMore)
+        {
+            HistoryIdentity = historyIdentity,
+            RecentBindings = fields.Where(field => ordinals.ContainsKey(field.Coordinate.ArticleId))
+                .Select(field => new AuthorArticleQueryRecentSourceBinding(field.Coordinate,
+                    ordinals[field.Coordinate.ArticleId].HistoryServerRevision,
+                    ordinals[field.Coordinate.ArticleId].Ordinal))
+                .OrderBy(static binding => binding.Ordinal).ToArray()
+        };
     }
+
+    private static bool ValidCoordinates(
+        IReadOnlyList<AuthorArticleQuerySourceCoordinate> coordinates,
+        IReadOnlyList<AuthorArticleQueryStatus> statuses)
+        => coordinates.Count <= MaxBatchSize
+            && coordinates.Select(static coordinate => coordinate.ArticleId)
+                .SequenceEqual(coordinates.Select(static coordinate => coordinate.ArticleId).Distinct().Order())
+            && coordinates.All(coordinate => coordinate.ArticleId > 0 && coordinate.ServerRevision > 0
+                && !string.IsNullOrWhiteSpace(coordinate.RowVersion) && statuses.Contains(coordinate.Status));
+
+    private static bool SameHistoryAuthority(
+        AuthorArticleQueryHistoryIdentity identity,
+        AuthorRecentArticleHistoryPermissionSnapshot snapshot)
+        => identity.Owner == snapshot.Owner && identity.PermissionRevision == snapshot.PermissionRevision
+            && identity.SiteRevision == snapshot.SiteRevision && identity.SessionRevision == snapshot.SessionRevision;
+
+    private static bool SameHistoryIdentity(
+        AuthorArticleQueryHistoryIdentity left,
+        AuthorArticleQueryHistoryIdentity right)
+        => left.Owner == right.Owner && left.CollectionRevision == right.CollectionRevision
+            && left.ProjectionDigest == right.ProjectionDigest && left.PermissionDigest == right.PermissionDigest
+            && left.PermissionRevision == right.PermissionRevision && left.SiteRevision == right.SiteRevision
+            && left.SessionRevision == right.SessionRevision && left.Ordinals.SequenceEqual(right.Ordinals);
 
     private static bool SameAuthority(
         AuthorRecentArticleHistoryPermissionSnapshot left,

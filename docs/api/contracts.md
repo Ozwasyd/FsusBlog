@@ -2378,7 +2378,7 @@ Draft/Published/Scheduled/Archived priority、stable article ID 升序比较；e
 比较不消费 updatedAt、views、local history、AI 或 embedding。重复 title/slug 仍保留各自 article ID。
 
 当前交付包含 input/ranking core 和独立的内部 permission-first source measurement；candidate construction
-不证明 permission/history admission。完整 query source adapter、verified history 接入、sealed response/receipt、
+不证明 permission/history admission。完整 query source adapter、sealed response/receipt、
 authenticated cursor、selection revalidation 和 AEDS route/compiled observation 尚未接入。此 core 不能作为
 可用 query API、完整 scale/cancel/privacy 验收，
 或 #2232 cache 可写入的 verified response。前端不得据此开启本地全量查询或 authority fallback。
@@ -2387,21 +2387,39 @@ authenticated cursor、selection revalidation 和 AEDS route/compiled observatio
 authority，并在管理元数据读取前只允许当前可 project 且可 write 的 ID。权限 digest 或 source coordinates
 变化时丢弃全部观察字段。规范 `ArticleService` projection 每批上限 1000；该内部测量不建立 ranked pagination、
 authorized query response、verified history projection 或 receipt，也不暴露 route。当前模型缺少 slug authority，
-空 corpus 同样明确为 `SlugUnavailable`；Archived read grant、verified Recent source wiring 和 query cursor
-分别保持 unavailable。内部观察不能作为成功响应写入 verified query cache 或 UI。
+空 corpus 同样明确为 `SlugUnavailable`；Archived read grant 和完整 query cursor 保持 unavailable。
+Recent 仅在原 verified history reader 已接入且身份稳定时进行内部观察；缺失 reader 或不可用 projection
+仍返回 `VerifiedRecentSourceUnavailable`。内部观察不能作为成功响应写入 verified query cache 或 UI。
 
 `IAuthorArticleQuerySourceReader` 的原 `ArticleService` 数据投影接受既有 Draft、Scheduled、Published、Archived
 四种状态。Archived 使用真实 lifecycle `status=3`，与 Deleted/逻辑删除区分；coordinates 和 admitted-ID fields
 均保留原 article ID、current revision、row version，fields 复用原 title/category/tags，不创建归档索引或替代身份。
 两段 SQL 继续排除 `isdeleted=true`；fields 的 status allowlist 使用既有枚举参数，包含 Archived、排除 Deleted
 及未知状态。该 reader 是内部原始投影，不提供 Archived read grant：`AuthorArticleQuerySourceInspection` 的
-`ArchivedReadGrantUnavailable`、slug/history/cursor 限制及权限检查保持不变。ArticleLibraryRail 仍须消费后续
+`ArchivedReadGrantUnavailable`、slug/cursor 限制及权限检查保持不变。ArticleLibraryRail 仍须消费后续
 实际 permission-safe query response；不得直接把 reader fields 当作已授权响应或可写 verified cache。
 
 `AuthorArticleQueryHistoryIdentityReader` 独立消费原规范 history projection，最多 1000 entries、每页 100。
 全部页面必须绑定同一 user/site、collection revision、permission/site/session identity、projection/cache references
 和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；
 成功仅交付 server history identity/ordinal，不签发 query receipt，也不把 history server revision 冒充当前文章 revision。
+
+原 `AuthorArticleQuerySourceInspection` 消费该 reader 的实际 identity，先与 live preflight 的 user/site、
+permission/site/session revisions 一致，再由原 ArticleService 的 `ReadCoordinatesForIdsAsync` 按 history
+ArticleId 定向读取现有文章的 current revision/row version/status。此 ID lookup 每批最多 1000，SQL 仍排除
+逻辑删除和不符合 request status 的文章；不依赖全 corpus 的前 1000 个 ID。历史 revision 不与当前文章
+revision 混用，`RecentBindings` 只为经原 permission authority 允许 project 且 write、并通过字段坐标一致性检查
+的 current metadata 记录附带原 ordinal。完成字段读取后再次消费原 verified history，owner/revision/digests、
+permission/site/session 或 ordinals 变化即丢弃全部 fields/bindings。原 history ProjectionService、
+DirectProjectionCache、facade/DI 继续是同一规范 owner，query 层不保存第二份 history 或 index。
+
+缺失 ID lookup 的旧 reader adapter 明确拒绝该 capability，不以全 corpus 前缀替代。Recent 与其他 buckets
+的 current ID union 超过原 1000-ID admission window 时返回 `SourceWindowUnavailable`；普通 corpus batch 的
+`HasMore` 仍只是内部观察，不表示完整 10000 文章的 ranked pagination。此 composition 不生成 candidate slug、
+ranked response、cursor binding、query receipt 或 verified query cache。真实 slug authority、Archived read grant、
+完整有界连续 corpus 读取及其 source/history/permission-bound cursor、sealed query response/AEDS route 和
+verified query-cache consumer 仍是 ArticleLibraryRail/Quick Switcher 的后续门禁；公开 `/article/{id}` 和
+Rights.CanonicalUrl 不能作为 entity slug authority。
 
 独立 `AuthorArticleQueryCursorCodec` 使用专属 Data Protection purpose，绑定原 request ID/sequence、user/site、
 normalized query/status/bucket/locale/collation/limit identity、source/history/permission digests、permission/site/session

@@ -55,6 +55,56 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
             ResolveCancellationToken(cancellationToken)).ConfigureAwait(false);
     }
 
+    async Task<AuthorArticleQuerySourceBatch> IAuthorArticleQuerySourceReader.ReadCoordinatesForIdsAsync(
+        IReadOnlyList<AuthorArticleQueryStatus> statuses,
+        IReadOnlyList<int> articleIds,
+        CancellationToken cancellationToken)
+    {
+        if (articleIds.Count is < 1 or > AuthorArticleQuerySourceInspection.MaxBatchSize
+            || articleIds.Any(static id => id <= 0) || articleIds.Distinct().Count() != articleIds.Count)
+        {
+            throw new ArgumentException("author_article_query_source_ids_invalid", nameof(articleIds));
+        }
+        if (statuses.Any(static status => status is not (AuthorArticleQueryStatus.Draft
+                or AuthorArticleQueryStatus.Scheduled or AuthorArticleQueryStatus.Published
+                or AuthorArticleQueryStatus.Archived)))
+        {
+            throw new ArgumentException("author_article_query_source_status_invalid", nameof(statuses));
+        }
+        if (statuses.Count == 0)
+        {
+            return new([], false);
+        }
+        return await _dbConcurrencyGate.ExecuteAsync(
+            "author-article-query-source-history-coordinates",
+            async gateCt =>
+            {
+                var coordinates = new List<AuthorArticleQuerySourceCoordinate>();
+                using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                    """
+                    SELECT id, current_revision_id, xmin::text AS row_version, status
+                    FROM article
+                    WHERE id = ANY(@ArticleIds) AND isdeleted = false AND status = ANY(@Statuses)
+                    ORDER BY id
+                    LIMIT @Limit;
+                    """,
+                    new SugarParameter("@ArticleIds", articleIds.ToArray()) { IsArray = true },
+                    new SugarParameter("@Statuses", statuses.Select(static status => (int)status).ToArray()) { IsArray = true },
+                    new SugarParameter("@Limit", AuthorArticleQuerySourceInspection.MaxBatchSize + 1)).ConfigureAwait(false);
+                while (await reader.ReadAsync(gateCt).ConfigureAwait(false))
+                {
+                    coordinates.Add(new(reader.GetInt32(0), reader.IsDBNull(1) ? 0 : reader.GetInt64(1),
+                        reader.GetString(2), (AuthorArticleQueryStatus)reader.GetInt32(3)));
+                }
+                bool hasMore = coordinates.Count > AuthorArticleQuerySourceInspection.MaxBatchSize;
+                return new AuthorArticleQuerySourceBatch(
+                    coordinates.Take(AuthorArticleQuerySourceInspection.MaxBatchSize).ToArray(), hasMore);
+            },
+            _ => Task.FromException<AuthorArticleQuerySourceBatch>(
+                new TimeoutException("db-gate-timeout:author-article-query-source-history-coordinates")),
+            ResolveCancellationToken(cancellationToken)).ConfigureAwait(false);
+    }
+
     async Task<IReadOnlyList<AuthorArticleQuerySourceFields>> IAuthorArticleQuerySourceReader.ReadFieldsAsync(
         IReadOnlyList<int> admittedArticleIds,
         CancellationToken cancellationToken)

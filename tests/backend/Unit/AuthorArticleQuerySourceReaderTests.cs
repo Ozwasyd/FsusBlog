@@ -174,6 +174,93 @@ public sealed class AuthorArticleQuerySourceReaderTests
         Assert.True(fixture.Reader!.IsClosed);
     }
 
+    [Fact]
+    public async Task HistoryCoordinates_PreserveExactRequestedIdsAndLiveRevisions()
+    {
+        DataTable rows = Coordinates();
+        rows.Rows.Add(2001, 901L, "row-2001", (int)ArticleStatus.Published);
+        var fixture = new ReaderFixture(rows);
+
+        AuthorArticleQuerySourceBatch batch = await fixture.Source.ReadCoordinatesForIdsAsync(
+            [AuthorArticleQueryStatus.Published], [2001, 3001], default);
+
+        Assert.Equal(new AuthorArticleQuerySourceCoordinate(2001, 901, "row-2001", AuthorArticleQueryStatus.Published),
+            Assert.Single(batch.Coordinates));
+        Assert.False(batch.HasMore);
+        Assert.Equal(new[] { 2001, 3001 }, Assert.IsType<int[]>(fixture.Parameter("@ArticleIds").Value));
+        Assert.Equal(new[] { (int)ArticleStatus.Published }, fixture.Statuses());
+        Assert.Contains("id = ANY(@ArticleIds)", fixture.CommandText, StringComparison.Ordinal);
+        Assert.Contains("isdeleted = false", fixture.CommandText, StringComparison.Ordinal);
+        Assert.True(fixture.Reader!.IsClosed);
+    }
+
+    [Theory]
+    [InlineData("empty")]
+    [InlineData("zero")]
+    [InlineData("negative")]
+    [InlineData("duplicate")]
+    [InlineData("oversized")]
+    public async Task HistoryCoordinates_RejectInvalidIdsBeforeAdo(string fault)
+    {
+        int[] ids = fault switch
+        {
+            "empty" => [],
+            "zero" => [0],
+            "negative" => [-1],
+            "duplicate" => [71, 71],
+            "oversized" => Enumerable.Range(1, AuthorArticleQuerySourceInspection.MaxBatchSize + 1).ToArray(),
+            _ => throw new ArgumentException(nameof(fault))
+        };
+        var fixture = new ReaderFixture(Coordinates());
+
+        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(() =>
+            fixture.Source.ReadCoordinatesForIdsAsync([AuthorArticleQueryStatus.Draft], ids, default));
+
+        Assert.Equal("articleIds", error.ParamName);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(42)]
+    public async Task HistoryCoordinates_RejectDeletedAndUnknownStatusesBeforeAdo(int status)
+    {
+        var fixture = new ReaderFixture(Coordinates());
+
+        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(() =>
+            fixture.Source.ReadCoordinatesForIdsAsync([(AuthorArticleQueryStatus)status], [71], default));
+
+        Assert.Equal("statuses", error.ParamName);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public async Task HistoryCoordinates_EmptyScopeDoesNotReadAdo()
+    {
+        var fixture = new ReaderFixture(Coordinates());
+
+        AuthorArticleQuerySourceBatch batch = await fixture.Source.ReadCoordinatesForIdsAsync([], [71], default);
+
+        Assert.Empty(batch.Coordinates);
+        Assert.False(batch.HasMore);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public async Task HistoryCoordinates_CancellationDisposesReader()
+    {
+        var fixture = new ReaderFixture(Coordinates());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Source.ReadCoordinatesForIdsAsync(
+            [AuthorArticleQueryStatus.Draft], [71], cancellation.Token));
+
+        Assert.True(fixture.Reader!.IsClosed);
+    }
+
     private static DataTable Coordinates()
     {
         var table = new DataTable();
