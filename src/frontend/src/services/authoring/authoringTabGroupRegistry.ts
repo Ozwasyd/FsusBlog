@@ -442,18 +442,16 @@ export class AuthoringTabGroupRegistry
                 return this.#requireStartupCustody();
             }
         });
-        const registryRevision = this.#articleRegistry.getRevision();
-        const registryEntries = this.#articleRegistry.listEntries();
         if (this.#startupCustody !== null)
         {
             throw new Error('authoring-tab-group-startup-already-claimed');
         }
-        // All public reads, validation and allocation precede this private publication fence.
-        // A real joint commit during any of them must keep its resources/history and refuse
-        // the stale startup claim; no callback follows this fence before custody publication.
+        // All public reads, validation and allocation precede the original Registry's
+        // immutable lifetime guard. Public snapshots cannot prove that it was unused,
+        // especially after an open/close/detach ABA with no Group publication change.
         if (this.#publicationCell.value !== expectedPublication || this.#pending || this.#recoveryRequired
             || expectedPublication.state.revision !== 0 || expectedPublication.commandHistory.size !== 0
-            || registryRevision !== 0 || registryEntries.length !== 0 || owners.get(this.#articleRegistry) !== this)
+            || owners.get(this.#articleRegistry) !== this || !this.#publicationCell.isUnusedForStartup(expectedPublication))
         {
             throw new Error('authoring-tab-group-startup-requires-unstarted-owner');
         }

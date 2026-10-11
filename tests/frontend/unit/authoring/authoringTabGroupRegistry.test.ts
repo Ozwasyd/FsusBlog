@@ -18,7 +18,7 @@ import {
 import { authoringWorkspaceRatioOwner } from '@/services/authoring/authoringWorkspaceRatioOwner';
 
 import type { AuthoringTabGroupCommand, AuthoringTabGroupRegistryState } from '@/services/authoring/authoringTabGroupRegistry';
-import type { OpenOrActivateArticleCommand } from '@/services/authoring/openArticleDocumentRegistry';
+import type { ArticleGroupOwnershipCell, OpenOrActivateArticleCommand } from '@/services/authoring/openArticleDocumentRegistry';
 
 function open(articleId: number, revision: number): OpenOrActivateArticleCommand
 {
@@ -213,6 +213,103 @@ describe('AuthoringTabGroupRegistry ordinary source controls (#2298)', () => {
         expect(addSecond(groups).status).toBe('applied');
         expect(articles.exportState().entries).toEqual(committedRegistry.entries);
         expect(groups.exportProjection().splitRatioRef).toBe(committedRatioRef);
+    });
+
+    it.each([
+        ['revision-read', 'open'], ['revision-read', 'empty-aba'],
+        ['entry-snapshot', 'open'], ['entry-snapshot', 'empty-aba'],
+        ['binding-validation', 'open'], ['binding-validation', 'empty-aba'],
+        ['pending-allocation', 'open'], ['pending-allocation', 'empty-aba'],
+        ['handle-allocation', 'open'], ['handle-allocation', 'empty-aba']
+    ] as const)('uses canonical lifetime authority after %s reenters %s despite stale public snapshots', (window, flow) => {
+        const articles = new OpenArticleDocumentRegistry();
+        const registration = vi.spyOn(articles, 'createGroupOwnershipCell');
+        let groups: AuthoringTabGroupRegistry;
+        let cell: ArticleGroupOwnershipCell;
+        try
+        {
+            groups = new AuthoringTabGroupRegistry(articles, ratioOptions());
+            cell = registration.mock.results[0].value;
+        }
+        finally { registration.mockRestore(); }
+        const publication = cell.value;
+        const guard = cell.isUnusedForStartup;
+        expect(Object.getOwnPropertyDescriptor(cell, 'isUnusedForStartup')).toMatchObject({
+            writable: false, configurable: false, enumerable: false });
+        expect(guard(publication)).toBe(true);
+        const initial = groups.exportProjection();
+        const readRevision = articles.getRevision.bind(articles);
+        const unusedRevision = readRevision();
+        const unusedEntries = articles.listEntries();
+        const freeze = Object.freeze;
+        const verifyBinding = groups.verifyBinding.bind(groups);
+        const opening = open(1, unusedRevision);
+        let used = false;
+        const useCanonicalOwner = () => {
+            if (used) return;
+            used = true;
+            expect(articles.execute(opening).status).toBe('applied');
+            if (flow === 'empty-aba')
+            {
+                const base = (id: string) => ({ schema: openArticleDocumentCommandSchema,
+                    commandId: id, idempotencyKey: id, expectedRevision: readRevision() });
+                expect(articles.execute({ ...base('startup-aba-close-request'), kind: 'request-close', tabId: 'tab-1' }).status).toBe('applied');
+                expect(articles.execute({ ...base('startup-aba-final-close'), kind: 'detach-on-final-close',
+                    tabId: 'tab-1', closeDecisionRef: 'startup-aba-close-decision' }).status).toBe('applied');
+            }
+        };
+        // Negative observers deliberately retain genuine pre-use snapshots. Only the
+        // original owner's revision/history authority can reject their stale R0/empty view.
+        const revisionObservation = vi.spyOn(articles, 'getRevision').mockImplementation(() => {
+            if (window === 'revision-read') useCanonicalOwner();
+            return unusedRevision;
+        });
+        const entriesObservation = vi.spyOn(articles, 'listEntries').mockImplementation(() => {
+            if (window === 'entry-snapshot') useCanonicalOwner();
+            return unusedEntries;
+        });
+        const bindingObservation = vi.spyOn(groups, 'verifyBinding').mockImplementation(registry => {
+            const bound = verifyBinding(registry);
+            if (window === 'binding-validation') useCanonicalOwner();
+            return bound;
+        });
+        let freezes = 0;
+        const allocationObservation = vi.spyOn(Object, 'freeze').mockImplementation(value => {
+            const result = freeze(value);
+            freezes += 1;
+            if ((window === 'pending-allocation' && freezes === 1)
+                || (window === 'handle-allocation' && freezes === 2)) useCanonicalOwner();
+            return result;
+        });
+        try
+        {
+            expect(() => groups.beginStartupCustody()).toThrow('startup-requires-unstarted-owner');
+        }
+        finally
+        {
+            allocationObservation.mockRestore();
+            bindingObservation.mockRestore();
+            entriesObservation.mockRestore();
+            revisionObservation.mockRestore();
+        }
+        expect(used).toBe(true);
+        expect(cell.value).toBe(publication);
+        expect(guard(publication)).toBe(false);
+        const canonicalAfter = articles.exportState();
+        const usedRevision = flow === 'open' ? 1 : 3;
+        expect(canonicalAfter.revision).toBe(usedRevision);
+        expect(canonicalAfter.processedCommandDigests).toHaveLength(usedRevision);
+        expect(canonicalAfter.entries).toHaveLength(flow === 'open' ? 1 : 0);
+        expect(groups.exportState().revision).toBe(0);
+        expect(groups.verifyBinding(articles)).toBe(true);
+        expect(groups.exportProjection().ratioScope).toBe(initial.ratioScope);
+        expect(groups.exportProjection().splitRatioRef).toBe(initial.splitRatioRef);
+        expect(() => groups.beginStartupCustody()).toThrow('startup-requires-unstarted-owner');
+        expect(articles.execute(opening).status).toBe('replayed');
+        expect(articles.exportState()).toEqual(canonicalAfter);
+        expect(addSecond(groups).status).toBe('applied');
+        expect(articles.exportState().entries).toEqual(canonicalAfter.entries);
+        expect(groups.exportProjection().splitRatioRef).toBe(initial.splitRatioRef);
     });
 
     it('collapses active A and focused B to visual B while preserving canonical entries and replay', () => {

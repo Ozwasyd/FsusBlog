@@ -181,6 +181,8 @@ export interface ArticleGroupOwnershipPublication {
 /** Created by the canonical owner, retained privately by the unique group owner. */
 export interface ArticleGroupOwnershipCell {
     value: ArticleGroupOwnershipPublication;
+    /** Immutable owner-issued guard; reads canonical lifetime authority, never public snapshots. */
+    readonly isUnusedForStartup: (expected: ArticleGroupOwnershipPublication) => boolean;
 }
 
 export interface ArticleGroupOwnershipChange {
@@ -660,7 +662,13 @@ export class OpenArticleDocumentRegistry
         {
             throw new Error('article-group-initial-ratio-invalid');
         }
-        const cell = { value: this.cloneGroupPublication(initial) };
+        const cell: ArticleGroupOwnershipCell = { value: this.cloneGroupPublication(initial),
+            isUnusedForStartup: (expected: ArticleGroupOwnershipPublication) =>
+                this.#groupOwnershipCell === cell && cell.value === expected && !this.#ownershipTransactionPending
+                && this.revision === 0 && this.entriesByTabId.size === 0 && this.processedCommands.size === 0 };
+        // This original-owner closure observes the real monotonic revision, including
+        // open/close/detach back to empty. It introduces no separate usage ledger.
+        Object.defineProperty(cell, 'isUnusedForStartup', { writable: false, configurable: false, enumerable: false });
         this.#groupOwnershipCell = cell;
         return cell;
     }
