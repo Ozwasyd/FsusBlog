@@ -857,6 +857,12 @@ export class ArticleAttachmentContextAdapter
         port: ArticleAttachmentTransactionPort): ArticleAttachmentLifecycleSnapshot
     {
         const entry = this.findPending(handle);
+        // Generic dispatch cannot carry FsusUI's authentic native job authority.
+        // Refuse before mutation until that public completion composition is bound.
+        if (entry.nativeCapture)
+        {
+            return this.finish(entry, 'failed', 'attachment-native-completion-unavailable');
+        }
         if (result.batchId !== entry.request.batchId || result.itemId !== entry.request.itemId
             || result.documentIdentity?.id !== entry.request.documentIdentity.id
             || result.documentIdentity.epoch !== entry.request.documentIdentity.epoch || result.revision !== entry.request.revision)
@@ -894,6 +900,11 @@ export class ArticleAttachmentContextAdapter
         {
             this.ownedOperations.delete(entry.intent.task.taskRef);
         }
+        // Dispatch and binding callbacks may synchronously revoke this exact handle.
+        if (this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted)
+        {
+            return entry.snapshot;
+        }
         if (!dispatched.accepted)
         {
             return this.finish(entry, 'failed', 'attachment-completion-transaction-rejected');
@@ -914,6 +925,10 @@ export class ArticleAttachmentContextAdapter
         catch
         {
             return this.finish(entry, 'stale', 'attachment-completion-binding-invalid');
+        }
+        if (this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted)
+        {
+            return entry.snapshot;
         }
         const anchor = this.anchors!.capture(binding, { ...job.range!, direction: entry.snapshot.anchor.direction },
             { affinity: entry.snapshot.anchor.affinity, viewportOffset: entry.snapshot.anchor.viewportOffset,
@@ -1069,15 +1084,17 @@ export class ArticleAttachmentContextAdapter
 
     private finish(entry: PendingInput, state: 'cancelled' | 'stale' | 'removed' | 'failed', reason: string): ArticleAttachmentLifecycleSnapshot
     {
+        if (this.pending.get(entry.intent.task.taskRef) !== entry)
+        {
+            return entry.snapshot;
+        }
+        this.pending.delete(entry.intent.task.taskRef);
         entry.releaseFile?.();
-        entry.controller.abort(reason);
         entry.lease.cancel(reason);
         entry.awaitingMap = false;
         entry.snapshot = this.sealLifecycle({ ...entry.snapshot, state, reason, task: entry.lease.envelope });
-        if (this.pending.get(entry.intent.task.taskRef) === entry)
-        {
-            this.pending.delete(entry.intent.task.taskRef);
-        }
+        // Publish terminal ownership before synchronous abort listeners can reenter.
+        entry.controller.abort(reason);
         this.record(entry.snapshot);
         return entry.snapshot;
     }

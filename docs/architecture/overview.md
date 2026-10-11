@@ -694,3 +694,23 @@ precompletion borrow. Observed facts remain transport observations; they do not
 resolve the placeholder, create asset/reference grants, authorize cleanup, or
 constitute native/HTTP/ledger/product acceptance. Final runtime lifetime policy
 and upstream reentry repairs require their original owners' source and acceptance.
+
+
+Writer attachment upload consumption is single-use for each genuine pending
+handle. Its original owner retains the exact settled observation or interrupted
+attempt; neither the busy marker's release nor a later File call resets that
+consumption. Noncommitted outcomes retain the original flow context and an
+explicit Writer obligation. They refuse reupload, resume, replacement, completion,
+and retry until a genuine recovery handoff exists; no clear API, session token,
+cleanup receipt or asset/reference authority is synthesized. Normal committed
+transport observations leave distinct file handles independent. The actual Write
+handler surfaces noncommitted observations and stops the admitted batch rather
+than silently advancing. This source-level refusal is not a completed recovery
+handoff or product qualification.
+
+Native completion through generic transaction dispatch is explicitly refused
+before mutation: that port does not carry FsusUI's authentic native placement
+ownership. The older explicit capture/commitCreated completion route remains;
+synchronous terminal cancellation during dispatch or binding callbacks cannot
+be overwritten by a successor committed lease. Cancellation is published before
+notifying abort listeners, and repeated terminalization preserves its snapshot.

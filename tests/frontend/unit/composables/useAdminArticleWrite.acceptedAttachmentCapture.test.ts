@@ -1,5 +1,9 @@
 // @vitest-environment happy-dom
 
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, h, ref, toRaw } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -108,6 +112,88 @@ async function captured(files: File[] = [new File(['same'], 'native.png', { type
 }
 
 describe('real mounted Writer consumes authentic native attachment captures', () => {
+    it.each(['pending', 'failed', 'recovery-required'] as const)('the actual Write handler surfaces and stops on %s instead of dropping the result', async status => {
+        const f = await captured([new File(['one'], 'one.png', { type: 'image/png' }), new File(['two'], 'two.png', { type: 'image/png' })]);
+        // Execute the actual page handler source, not a copied implementation or full-page/browser qualification.
+        const page = readFileSync(resolve(process.cwd(), 'src/views/admin/article/Write.vue'), 'utf8');
+        const start = page.indexOf('async function consumeAcceptedAttachmentCapture(');
+        const end = page.indexOf('function consumeAuthoringTransaction(', start);
+        expect(start).toBeGreaterThan(0); expect(end).toBeGreaterThan(start);
+        const ts = createRequire(resolve(process.cwd(), 'package.json'))('typescript');
+        const script = ts.transpileModule(page.slice(start, end), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+        const observeUpload = vi.fn().mockResolvedValue(status === 'pending'
+            ? { status, uploadedBytes: 0, totalBytes: 3 } : { status, reason: 'original-observation-obligation' });
+        const notify = vi.fn();
+        const consume = new Function('authoringAttachmentRuntime', 'showErrorToast',
+            script + '; return consumeAcceptedAttachmentCapture;')({ ...f.runtime, observeUpload }, notify);
+        await consume(f.batch, f.capture, f.anchorOptions);
+        expect(observeUpload).toHaveBeenCalledOnce(); expect(notify).toHaveBeenCalledOnce();
+        expect(f.native.emitted('transaction')).toHaveLength(1); expect(upload.initUploadSession).not.toHaveBeenCalled();
+    });
+
+    it('retains the genuine pending observation and refuses a new upload handle while its outcome is unconfirmed', async () => {
+        const f = await captured([new File(['one'], 'one.png', { type: 'image/png' }), new File(['two'], 'two.png', { type: 'image/png' })]);
+        const admitted = f.admit(); if (admitted.status !== 'admitted') throw new Error(admitted.reason);
+        upload.getUploadStatus.mockResolvedValueOnce({ uploadId: '0123456789abcdef0123456789abcdef', totalBytes: 3, uploadedBytes: 0, status: 'pending' });
+        const first = admitted.items[0]!; const second = admitted.items[1]!;
+        const result = await f.runtime.observeUpload(first.handle, first.file);
+        expect(result).toEqual({ status: 'pending', uploadedBytes: 0, totalBytes: 3 });
+        expect(f.runtime.uploadObligations[0]!.observation).toBe(result);
+        await expect(f.runtime.observeUpload(second.handle, second.file)).rejects.toThrow('article-attachment-upload-recovery-required');
+        expect(f.runtime.readUploadObservation(second.handle)).toBeNull();
+        expect(upload.initUploadSession).toHaveBeenCalledOnce(); expect(upload.abortUpload).not.toHaveBeenCalled();
+    });
+    it('retains interrupted observation ownership after cancellation without inventing an abort acknowledgement', async () => {
+        const f = await captured(); const admitted = f.admit(); if (admitted.status !== 'admitted') throw new Error(admitted.reason);
+        const item = admitted.items[0]!; let finish!: (value: unknown) => void;
+        upload.getUploadStatus.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const controller = new AbortController(); const task = f.runtime.observeUpload(item.handle, item.file, controller.signal);
+        const rejected = expect(task).rejects.toThrow();
+        await vi.waitFor(() => expect(upload.getUploadStatus).toHaveBeenCalledOnce());
+        controller.abort(new DOMException('Caller cancelled', 'AbortError'));
+        finish({ uploadId: '0123456789abcdef0123456789abcdef', totalBytes: 4, uploadedBytes: 4, status: 'completed' });
+        await rejected;
+        expect(f.runtime.readUploadObservation(item.handle)?.status).toBe('interrupted');
+        expect(f.runtime.uploadObligations[0]!.handle).toBe(item.handle);
+        expect(f.runtime.uploadObligations[0]!.observation).toBeNull();
+        expect(() => f.runtime.retry(item.handle)).toThrow('article-attachment-upload-recovery-required');
+        expect(upload.abortUpload).not.toHaveBeenCalled();
+    });
+    it('refuses unsupported native completion without dispatching or claiming committed ownership', async () => {
+        const f = await captured(); const admitted = f.admit(); if (admitted.status !== 'admitted') throw new Error(admitted.reason);
+        const handle = admitted.items[0]!.handle; const source = f.owner.articleForm.content;
+        const result = f.runtime.complete(handle, { ...handle.request, status: 'resolved',
+            payload: { markdownKind: 'image', href: '/native-completed.png', alt: 'native.png', mimeType: 'image/png' } });
+        expect(result).toMatchObject({ state: 'failed', reason: 'attachment-native-completion-unavailable' });
+        expect(f.owner.articleForm.content).toBe(source);
+        expect(f.native.emitted('transaction')).toHaveLength(1);
+        expect(f.runtime.receipts.some(receipt => receipt.state === 'transaction-committed')).toBe(false);
+    });
+    it.each(['committed', 'recovery-required'] as const)('consumes a genuine handle once after a %s observation', async status => {
+        const f = await captured(); const admitted = f.admit(); if (admitted.status !== 'admitted') throw new Error(admitted.reason);
+        const item = admitted.items[0]!;
+        if (status === 'recovery-required') upload.getUploadStatus.mockRejectedValueOnce(new Error('unreadable acknowledged upload'));
+        const result = await f.runtime.observeUpload(item.handle, item.file);
+        expect(result.status).toBe(status);
+        expect(f.runtime.readUploadObservation(item.handle)?.observation).toBe(result);
+        expect(f.runtime.readUploadObservation({ ...item.handle })).toBeNull();
+        if (status === 'recovery-required')
+        {
+            expect(f.runtime.uploadObligations).toHaveLength(1);
+            expect(f.runtime.uploadObligations[0]!.handle).toBe(item.handle);
+            expect(f.runtime.uploadObligations[0]!.observation).toBe(result);
+            expect(() => f.runtime.retry(item.handle)).toThrow('article-attachment-upload-recovery-required');
+            expect(() => f.runtime.replace(item.handle, { name: 'replacement.png', mimeType: 'image/png', byteLength: 3 }))
+                .toThrow('article-attachment-upload-recovery-required');
+            await expect(f.owner.resumeImageUpload()).rejects.toThrow('article-attachment-upload-recovery-required');
+            await expect(f.owner.handleCoverUpload([item.file])).rejects.toThrow('article-attachment-upload-recovery-required');
+        }
+        else expect(f.runtime.uploadObligations).toHaveLength(0);
+        await expect(f.runtime.observeUpload(item.handle, item.file)).rejects.toThrow('article-attachment-upload-consumed');
+        expect(upload.initUploadSession).toHaveBeenCalledOnce(); expect(upload.completeUpload).toHaveBeenCalledOnce();
+        expect(upload.abortUpload).not.toHaveBeenCalled();
+    });
+
     it('preserves the actual event and File identities through the product wrappers and uploads once', async () => {
         const f = await captured(); const result = f.admit();
         expect(result.status).toBe('admitted'); if (result.status !== 'admitted') throw new Error(result.reason);

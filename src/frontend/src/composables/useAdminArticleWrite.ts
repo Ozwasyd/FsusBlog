@@ -900,7 +900,25 @@ export function useAdminArticleWrite()
     };
     // Only the caller-held original handle and this invocation's loan survive an await.
     let attachmentUploadAttempt: { handle: ArticleAttachmentPendingHandle; file: File; } | null = null;
+    type UploadAttemptObservation = Readonly<{ status: 'observing' | 'settled' | 'interrupted';
+        observation: AttachmentUploadObservation | null; reason: string | null; }>;
+    // One consumption per genuine handle, without retaining the File or session credentials.
+    const consumedAttachmentUploads = new WeakMap<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
+    const attachmentUploadObligations = new Map<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
+    const assertUploadObligationAbsent = (handle?: ArticleAttachmentPendingHandle): void =>
+    {
+        if (handle ? attachmentUploadObligations.has(handle) : attachmentUploadObligations.size > 0)
+        {
+            throw new Error('article-attachment-upload-recovery-required');
+        }
+    };
     const authoringAttachmentRuntime = Object.freeze({
+        readUploadObservation: (handle: ArticleAttachmentPendingHandle) => consumedAttachmentUploads.get(handle) ?? null,
+        get uploadObligations()
+        {
+            return Object.freeze(Array.from(attachmentUploadObligations, ([handle, observation]) =>
+                Object.freeze({ handle, ...observation })));
+        },
         observeUpload: (handle: ArticleAttachmentPendingHandle, file: File, signal?: AbortSignal) =>
             observeOwnedImageUpload(handle, file, signal),
         captureAnchor: (selection: Parameters<ArticleAnchorContextAdapter['capture']>[1],
@@ -912,11 +930,21 @@ export function useAdminArticleWrite()
         commitCreated: (capture: Parameters<ArticleAttachmentContextAdapter['commitCreated']>[0]) =>
             authoringAttachments.commitCreated(capture, attachmentPort),
         complete: (handle: Parameters<ArticleAttachmentContextAdapter['complete']>[0], result: Parameters<ArticleAttachmentContextAdapter['complete']>[1]) =>
-            authoringAttachments.complete(handle, result, attachmentPort),
+        {
+            assertUploadObligationAbsent(handle);
+            return authoringAttachments.complete(handle, result, attachmentPort);
+        },
         remove: (handle: Parameters<ArticleAttachmentContextAdapter['remove']>[0]) => authoringAttachments.remove(handle, attachmentPort),
         replace: (handle: Parameters<ArticleAttachmentContextAdapter['replace']>[0], file: Parameters<ArticleAttachmentContextAdapter['replace']>[1]) =>
-            authoringAttachments.replace(handle, file, attachmentPort),
-        retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) => authoringAttachments.retry(handle),
+        {
+            assertUploadObligationAbsent(handle);
+            return authoringAttachments.replace(handle, file, attachmentPort);
+        },
+        retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) =>
+        {
+            assertUploadObligationAbsent(handle);
+            return authoringAttachments.retry(handle);
+        },
         readOwnedIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
             authoringAttachments.readOwnedIntent(handle, attachmentPort.binding()),
         // Borrow one actual caller-held capability; the original adapter validates membership.
@@ -1131,10 +1159,22 @@ export function useAdminArticleWrite()
         {
             throw new Error('article-attachment-upload-intent-invalid');
         }
-        if (attachmentUploadAttempt || imageUploadFlow.pendingContext.value)
+        if (attachmentUploadAttempt)
         {
             throw new Error('article-attachment-upload-busy');
         }
+        if (consumedAttachmentUploads.has(handle))
+        {
+            throw new Error('article-attachment-upload-consumed');
+        }
+        assertUploadObligationAbsent();
+        if (imageUploadFlow.pendingContext.value)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
+        const reservation: UploadAttemptObservation = Object.freeze({ status: 'observing', observation: null, reason: null });
+        consumedAttachmentUploads.set(handle, reservation);
+        attachmentUploadObligations.set(handle, reservation);
         const attempt = { handle, file };
         attachmentUploadAttempt = attempt;
         const outcome: { value: AttachmentUploadObservation | null; error: Error | null; } = { value: null, error: null };
@@ -1179,13 +1219,36 @@ export function useAdminArticleWrite()
             }
             // Facts are transport observations. A later business-authorized document
             // transaction must run outside the loan callback and own its own grants.
+            Object.freeze(outcome.value);
+            const settled: UploadAttemptObservation = Object.freeze({ status: 'settled', observation: outcome.value, reason: null });
+            consumedAttachmentUploads.set(handle, settled);
+            if (outcome.value.status === 'committed' || outcome.value.status === 'cancelled')
+            {
+                attachmentUploadObligations.delete(handle);
+            }
+            else
+            {
+                attachmentUploadObligations.set(handle, settled);
+            }
             return outcome.value;
+        }
+        catch (error)
+        {
+            const interrupted: UploadAttemptObservation = Object.freeze({ status: 'interrupted', observation: outcome.value,
+                reason: error instanceof Error ? error.message : 'article-attachment-upload-observation-unavailable' });
+            consumedAttachmentUploads.set(handle, interrupted);
+            attachmentUploadObligations.set(handle, interrupted);
+            throw error;
         }
         finally
         {
             signal?.removeEventListener('abort', cancel);
             attachmentUploadAttempt = null;
-            imageUploadFlow.clearPending();
+            // An unconfirmed attempt retains the original flow context and Writer obligation.
+            if (!attachmentUploadObligations.has(handle))
+            {
+                imageUploadFlow.clearPending();
+            }
         }
     };
 
@@ -1206,6 +1269,7 @@ export function useAdminArticleWrite()
         {
             throw new Error('article-attachment-upload-busy');
         }
+        assertUploadObligationAbsent();
         await imageUploadFlow.resumeUpload({
             messages: {
                 resumeMissing: '没有可恢复的上传任务',
@@ -1220,6 +1284,7 @@ export function useAdminArticleWrite()
         {
             throw new Error('article-attachment-upload-busy');
         }
+        assertUploadObligationAbsent();
         if (files.length === 0)
         {
             return;

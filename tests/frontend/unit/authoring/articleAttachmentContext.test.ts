@@ -148,6 +148,26 @@ function lifecycle()
 
 describe('Article attachment anchored provider lifecycle (#2256) actual public dispatch', () =>
 {
+    it.each(['dispatch', 'binding'] as const)('preserves terminal cancellation during completion %s callbacks', stage =>
+    {
+        const editor = lifecycle(); const handle = editor.insert().handles[0]!;
+        const port = { ...editor.port,
+            dispatch: (transaction: MarkdownEditorTransaction) => {
+                const result = editor.port.dispatch(transaction);
+                if (stage === 'dispatch') handle.cancel();
+                return result;
+            },
+            commitSource: (result: MarkdownEditorDispatchResult) => {
+                editor.port.commitSource(result);
+                if (stage === 'binding') handle.cancel();
+            }
+        };
+        const result = editor.adapter.complete(handle, editor.resolved(handle), port);
+        expect(result.state).toBe('cancelled'); expect(handle.snapshot.state).toBe('cancelled');
+        expect(editor.adapter.lifecycleReceipts.some(receipt => receipt.state === 'transaction-committed')).toBe(false);
+        expect(editor.adapter.currentTaskLeases).toHaveLength(0);
+    });
+
     it('cancels created leases after an interrupted controlled dispatch without admitting pending work', () =>
     {
         const editor = lifecycle();
