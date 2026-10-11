@@ -210,7 +210,7 @@ function expandUploadedRanges(ranges: readonly { start: number; end: number; }[]
         throw createAppError(AppErrorCode.ProtocolFailure, 'upload_part_map_invalid');
     }
     let previousEnd = -1;
-    for (const range of ranges)
+    for (const range of ranges as readonly { start: number; end: number; }[])
     {
         if (!Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end)
             || range.start <= previousEnd || range.end < range.start || range.end >= totalParts)
@@ -569,7 +569,7 @@ export function useImageUploadRuntime()
         const resumeKey = buildResumeKey(file, options, runtimeOptions);
         const fullHash = await sha256Hex(uploadPayload.file);
         ensureCurrentAttempt();
-        let snapshot: ResumeSessionSnapshot | null = null;
+        let snapshot: ResumeSessionSnapshot | null;
         let uploadId = '';
         let uploadToken = '';
         let initializedByThisAttempt = false;
