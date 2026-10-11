@@ -1090,7 +1090,7 @@ export function useAdminArticleWrite()
                 : null;
             const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding & {
                 /** Native retained snapshot only; complete application factory custody remains unavailable. */
-                captureRetainedSnapshot(reference: string): MarkdownEditorSessionSnapshot;
+                captureRetainedSnapshot(reference: string, assertAdmission?: () => void): MarkdownEditorSessionSnapshot;
             } =>
             {
                 const identityId = recoveryIdentityId();
@@ -1193,7 +1193,7 @@ export function useAdminArticleWrite()
                         inspectReference: reference => issued.inspectReference(reference),
                         validateReference: (reference, content) => issued.validateReference(reference, content),
                         restoreReference: reference => issued.restoreReference(reference),
-                        captureRetainedSnapshot: reference =>
+                        captureRetainedSnapshot: (reference, assertAdmission?: () => void) =>
                         {
                             const source = readSource();
                             const mounted = mountedSource.readMountedEditor(editorSessionRef);
@@ -1212,7 +1212,7 @@ export function useAdminArticleWrite()
                                     throw new Error('article-recovery-native-source-checkpoint-mismatch');
                                 }
                                 return calculateOpenArticleDocumentDigest(nativeSource);
-                            }, { documentIdentity: { id: source.documentId, epoch: source.documentEpoch }, revision: source.editorRevision });
+                            }, { documentIdentity: { id: source.documentId, epoch: source.documentEpoch }, revision: source.editorRevision, assertAdmission });
                             if (mountedSource.readMountedEditor(editorSessionRef) !== mounted
                                 || mounted.getSession(editorSessionRef) !== session || !issued.inspectReference(reference)
                                 || snapshot.documentIdentity.id !== source.documentId
