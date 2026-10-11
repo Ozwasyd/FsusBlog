@@ -840,3 +840,40 @@ Write/factory repository ESLint, source AST/SFC and owned SCSS checks pass.
 Original API/codec/route failures, inherited source findings and missing type-fest
 remain visible; every tests/list/browser/native/security/privacy/race/IME/geometry
 qualification remains UNRUN.
+
+The actual Layout caller tree now consumes the original Main75 increment
+75fec0866f5846339261847f88a421ed207fd31c with UI9f92 source. Parent reports its
+bounded factory P1 rereview independently SOURCE CLOSED with no new P1/P2.
+Capture/restore finish original reference/source/expiry callbacks before reading
+the real current mounted editor, session and document coordinates. After that
+final mounted read, the original journal issuer's hasReferenceCustody method
+checks exact original inspected-info identity in existing private custody without
+calling the source or clock. Native admission guards retain the original fresh
+inspectReference before this private continuity check; neither a copied proof nor
+an equal locator supplies authority. The original Writer forwards that issued
+method. Existing native mutation and original readonly transaction-store custody
+remain under the same owners. Write/placement/ratio code is unchanged.
+
+The journal file combines only the original Main75 custody addition with original
+e788d215448c417c214d2c3399352ea173004159's explicit flush-writer field/constructor
+assignment. privateStorageRegistry retains the same owner's runtime-medium type
+narrowing. Neither type correction is overwritten by an older journal postimage.
+The original Main75 new journal source case is transplanted verbatim with its
+original checkpointSource fixture and type import; the current test file otherwise
+stays intact, without copying 814 lines of unrelated ancestor test history. This
+case and fixture are source/AST only, never executed tests or custody qualification.
+Complete recovery refset, second retained owner, resource/lifetime admission and
+every tests/list/runtime/browser/native/security/privacy/race/IME/geometry gate
+remain open and UNRUN. The partial getter does not become a complete host receipt.
+
+Current actual static vue-tsc using the same UI9f92+a775 source reports 209
+diagnostics versus the prior211: zero added, with only the two original journal /
+private-storage type findings removed. Write/layout/factory/journal/private-storage
+have zero diagnostics; the original Writer retains its two inherited timer-type
+findings. Runtime source ESLint and existing layout AST/SFC guards pass. The new
+original case parses with zero AST errors and no local hooks; its real imports
+remain fake-indexeddb, vitest and the original articleRecoveryJournal. The original
+Vitest config/shared setup/hooks are unchanged. Its shared beforeAll still reaches
+locale/auth/private transport/font and happy-dom/WASM globals; source parsing
+does not qualify import side effects. The exact targeted journal CLI is pending
+parent confirmation and has not run or listed tests.

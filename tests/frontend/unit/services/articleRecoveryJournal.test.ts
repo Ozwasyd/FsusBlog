@@ -18,6 +18,7 @@ import {
   bindArticleRecoveryLifecycleFlush,
   createArticleRecoveryOperationRunner,
   summarizeArticleRecoveryComparison,
+  type ArticleRecoveryJournalCheckpointSource,
   type ArticleRecoveryJournalWriteInput,
   type ArticleRecoveryJournalRecord
 } from '@/services/articleRecoveryJournal'
@@ -654,3 +655,61 @@ describe('article recovery tab coordination', () => {
     second.dispose()
   })
 })
+
+
+function checkpointSource(): ArticleRecoveryJournalCheckpointSource
+{
+    return {
+        ...baseInput,
+        owner: {},
+        mountedEditor: {},
+        siteScope: 'primary',
+        draftKey: 'draft-key-1813',
+        registryRevision: 4,
+        associationRevision: 2,
+        editorSessionRef: 'session-2295',
+        documentId: 'document-2295',
+        draftId: 'draft-2295',
+        documentEpoch: 3,
+        editorRevision: 11,
+        sourceRevision: '9001',
+        draftRevision: '7'
+    };
+}
+
+describe('original journal stable reference and native digest source controls', () =>
+{
+    it('checks exact issuer-held proof without another reentrant source or clock read', async () =>
+    {
+        const source = checkpointSource();
+        let sourceReads = 0;
+        let clockReads = 0;
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory(), now: () =>
+        {
+            clockReads += 1;
+            return Date.now();
+        } }).bindCheckpointSource(() =>
+        {
+            sourceReads += 1;
+            return source;
+        });
+        try
+        {
+            const token = await binding.prepare();
+            if (!token) throw new Error('checkpoint_not_issued');
+            const info = binding.inspect(token)!;
+            const before = { sourceReads, clockReads };
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+            expect(binding.hasReferenceCustody(info.checkpointRef, { ...info })).toBe(false);
+            expect(binding.hasReferenceCustody(`${info.checkpointRef}:forged`, info)).toBe(false);
+            expect({ sourceReads, clockReads }).toEqual(before);
+            binding.invalidate();
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(false);
+            expect({ sourceReads, clockReads }).toEqual(before);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+});
