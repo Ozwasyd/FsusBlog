@@ -279,6 +279,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AdminAssetsView' });
 import { computed, onMounted, ref, shallowRef } from 'vue';
 
 import {
