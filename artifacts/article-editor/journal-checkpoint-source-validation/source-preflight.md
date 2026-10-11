@@ -27,7 +27,7 @@ git diff --check
 All three PASS at the final source. The initial style check found two unused body
 destructuring bindings; the owner now compares the original input and persisted
 round-trip body before custody issuance. The initial failure is retained in
-`style-initial.log`; `style-final.log` has two files, zero violations.
+`style-initial.txt`; `style-final.txt` has two files, zero violations.
 
 Compiler-only checking also included the **whole original**
 `tests/frontend/unit/services/articleRecoveryJournal.test.ts` and
@@ -44,8 +44,8 @@ node src/frontend/node_modules/typescript/bin/tsc -p /tmp/journal-checkpoint-bas
 
 Both compiler checks are RED (exit 2), with the same three complete diagnostics:
 original private-storage TS2345 narrowing, original test TS6133 unused input,
-and original test TS2349 never-callable callback. `compiler-master.log` comes from
-a detached worktree at the exact verified master; `compiler-head.log` comes from
+and original test TS2349 never-callable callback. `compiler-master.txt` comes from
+a detached worktree at the exact verified master; `compiler-head.txt` comes from
 this candidate. Their complete diagnostic text is identical after only baseline
 worktree prefix and the known +5 registry / +1 test import line shifts. No new
 journal or regression-source diagnostic appears. This comparison does not waive

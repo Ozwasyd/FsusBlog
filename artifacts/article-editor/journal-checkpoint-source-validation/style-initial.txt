@@ -1,0 +1,2 @@
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:752:30 eslint/@typescript-eslint/no-unused-vars: 'sourceContent' is assigned a value but never used.
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:753:30 eslint/@typescript-eslint/no-unused-vars: 'recordContent' is assigned a value but never used.
