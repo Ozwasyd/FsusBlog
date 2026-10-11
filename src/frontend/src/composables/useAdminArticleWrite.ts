@@ -2141,8 +2141,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         const entry = registry.getEntryByIdentity({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId });
         if (!active || !writerScope.active || !componentAttached || !identityId || identityId !== documentPrincipalIdentityId
             || document.siteScope !== documentSiteScope || document.userScope !== documentUserScope
-            || articleId.value !== document.articleId || !runtime || runtime.binding !== editorRuntimeBinding
-            || !entry || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
+            || articleId.value !== document.articleId || runtime?.binding !== editorRuntimeBinding
+            || entry?.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
             || entry.documentContext.documentEpoch !== document.documentEpoch
             || entry.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
             || entry.documentContext.draftRevision !== document.draftRevision)
@@ -2211,14 +2211,14 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     {
         const custody = fullDraftCustody;
         const generation = fullDraftGeneration;
-        if (fullDraftReleased || !custody || custody.info.draftStateRef !== reference)
+        if (fullDraftReleased || typeof reference !== 'string' || custody?.info.draftStateRef !== reference)
         {
             return null;
         }
         try
         {
             const current = readFullDraftOwner();
-            if (!current || current.runtime !== custody.owner.runtime || current.mounted !== custody.owner.mounted
+            if (current?.runtime !== custody.owner.runtime || current.mounted !== custody.owner.mounted
                 || current.session !== custody.owner.session || current.identityId !== custody.owner.identityId
                 || current.document.contextDigest !== custody.owner.document.contextDigest
                 || current.semanticIdentity !== custody.owner.semanticIdentity || current.draftKey !== custody.owner.draftKey
@@ -2289,7 +2289,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             const info = inspectDraftReference(reference);
             const custody = fullDraftCustody;
-            if (!info || !custody || custody.info !== info)
+            if (!info || custody?.info !== info)
             {
                 return null;
             }
@@ -2299,7 +2299,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         },
         releaseDraftCheckpoint: (reference: string): boolean =>
         {
-            if (fullDraftCustody?.info.draftStateRef !== reference)
+            if (typeof reference !== 'string' || fullDraftCustody?.info.draftStateRef !== reference)
             {
                 return false;
             }
