@@ -1,0 +1,10 @@
+{
+  "unpublishedSupersededHead": "991200a6deb58353a75022a63ada64b2e99d10a6",
+  "unpublishedStyle": "baf355a7b02621565ab532b2e09fc65f49006149",
+  "unchangedPublishedRemote": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+  "reason": "Consolidate unpublished import-order repair with the actual nullable-reference type fix; no formatter receipt is fabricated and no published history is changed",
+  "tree": "96e10c9bc5bf430c01098ade86c1d7e517a57566",
+  "qualification": false,
+  "currentHead": "3aa3b57f782e2ebd4d898ab7e6a3d68ece72da79",
+  "exactTreeUnchanged": true
+}

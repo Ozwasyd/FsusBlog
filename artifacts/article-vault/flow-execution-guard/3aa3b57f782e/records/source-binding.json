@@ -1,0 +1,50 @@
+{
+  "source": "3aa3b57f782e2ebd4d898ab7e6a3d68ece72da79",
+  "tree": "96e10c9bc5bf430c01098ade86c1d7e517a57566",
+  "pre": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+  "paths": [
+    {
+      "path": "docs/architecture/overview.md",
+      "pre": {
+        "sha256": "deb7066b9bd255cf6ebf19438b1476279bec8610ba61b7ee30d04bf5d72e8d3c",
+        "bytes": 44963,
+        "blob": "5a3a13b08f7bfb9f6f636e96985a01b160cc070d"
+      },
+      "post": {
+        "sha256": "142da8a8b992bed3ef3eae030a6f96ff2b4056cb860100f596618b8747e577ad",
+        "bytes": 45428,
+        "blob": "86182dd76e52011ab7f3d7b1180ec6577c1df318"
+      }
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "pre": {
+        "sha256": "1881e7ec6dcc2ab5618599bf5552602349bec03c53e1a5fe83a3aaf03c84c944",
+        "bytes": 13846,
+        "blob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb"
+      },
+      "post": {
+        "sha256": "b706c5a382bd20ff0e857892e80671d352d80581f14e6da5d521911ae45fe834",
+        "bytes": 15358,
+        "blob": "0f6ba72723ad81ed3a6321f5f4853075e1a78249"
+      }
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "pre": {
+        "sha256": "46d33aa014baaed9cc94755faa635831e1ff6ddb3f4362f53ec5d4aecfc2113d",
+        "bytes": 92171,
+        "blob": "f414a741194a4351215d26c48b511177cd42cc7a"
+      },
+      "post": {
+        "sha256": "bb33e9d866a2ed9bab33c24f8e3463deb04b97c7d1e6f9ab8cf3df722162fce1",
+        "bytes": 94137,
+        "blob": "484a5f3e8ae680f3a20524762cc1b20daa8e5d0f"
+      }
+    }
+  ],
+  "coreHandoffImplemented": false,
+  "publicInterfacesExpanded": false,
+  "qualification": false,
+  "previousUnpublishedTestedSource": "991200a6deb58353a75022a63ada64b2e99d10a6"
+}

@@ -1,0 +1,10 @@
+{
+  "signature": "onSessionReady?: (borrow: ImageUploadSessionBorrow, completionUrl: string) => void | Promise<void>",
+  "caller": "Only actual runtime complete ACK supplies second argument; original Flow composes and awaits original per-file consumer",
+  "transition": "validated complete ACK -> original callback consumer -> either ordinary transport completion or original generation-bound recovery-required ACK/snapshot/error; no canonical receive/release claim",
+  "approval": "PENDING; required by parent latest explicit public-interface boundary",
+  "currentImplementation": "Internal original Flow admission/context guards only; core consumer/ACK handoff NOT IMPLEMENTED",
+  "prefixProbe": "9 failed under unchanged0c1576/c93 product source; original123 runtime outside selector",
+  "original139": "unchanged test content retained; one new execution guard is candidate",
+  "qualification": false
+}

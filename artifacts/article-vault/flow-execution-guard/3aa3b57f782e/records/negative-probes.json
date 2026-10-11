@@ -1,0 +1,26 @@
+{
+  "source": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+  "coreHandoffUnimplemented": true,
+  "qualification": false,
+  "runs": [
+    {
+      "report": "prefix-corrected-report.json",
+      "counts": {
+        "failed": 9,
+        "skipped": 123
+      },
+      "originalHooksMatched": true,
+      "workersRemaining": false
+    },
+    {
+      "report": "prefix-guard-report.json",
+      "counts": {
+        "failed": 1,
+        "skipped": 123
+      },
+      "originalHooksMatched": true,
+      "workersRemaining": false
+    }
+  ],
+  "initialProbe": "prefix-report initial9 failures includes invalid Storage.prototype observation; corrected probe uses original window.localStorage, same safety assertions; initial receipt retained"
+}

@@ -1,0 +1,22 @@
+{
+  "label": "prefix-recovery",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "--testNamePattern",
+    "Flow consumer recovery",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/flow-consumer-recovery-20261011/prefix-report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T11:03:33.233214+00:00",
+  "head": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+  "runId": "chain1975-flow-recovery-prefix-20261011",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T11:03:41.579986+00:00"
+}

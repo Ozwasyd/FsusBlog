@@ -1,0 +1,7 @@
+{
+  "original139TestBytesRetained": true,
+  "oneNewFlowGuardInserted": true,
+  "pending9CoreRegressionProbeSeparateAndNotEnabledOnGuardCandidate": true,
+  "apiTestsAndSourceUntouched": true,
+  "qualification": false
+}

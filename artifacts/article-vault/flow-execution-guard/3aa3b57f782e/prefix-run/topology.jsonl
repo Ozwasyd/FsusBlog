@@ -1,0 +1,18 @@
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_0","name":"Flow consumer recovery retains the original ACK snapshot error and File when the consumer fails"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_0","name":"Flow consumer recovery retains the original ACK snapshot error and File when the consumer fails"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_1","name":"Flow consumer recovery refuses duplicate start resume and reupload while the original consumer is pending"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_1","name":"Flow consumer recovery refuses duplicate start resume and reupload while the original consumer is pending"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_2","name":"Flow consumer recovery keeps the original obligation after cancel-resolve and rejects late completion"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_2","name":"Flow consumer recovery keeps the original obligation after cancel-resolve and rejects late completion"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_3","name":"Flow consumer recovery keeps the original obligation after cancel-reject and rejects late completion"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_3","name":"Flow consumer recovery keeps the original obligation after cancel-reject and rejects late completion"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_4","name":"Flow consumer recovery keeps the original obligation after intent-cancel and rejects late completion"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_4","name":"Flow consumer recovery keeps the original obligation after intent-cancel and rejects late completion"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_5","name":"Flow consumer recovery keeps the original obligation after dispose and rejects late completion"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_5","name":"Flow consumer recovery keeps the original obligation after dispose and rejects late completion"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_6","name":"Flow consumer recovery keeps the original obligation after abandon and rejects late completion"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_6","name":"Flow consumer recovery keeps the original obligation after abandon and rejects late completion"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_7","name":"Flow consumer recovery keeps the ACK when a consumer settles after the original loan deadline"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_7","name":"Flow consumer recovery keeps the ACK when a consumer settles after the original loan deadline"}}
+{"event":"start","workerProcessId":62763,"task":{"id":"-298466997_0_8","name":"Flow consumer recovery does not persist a new token or accept mutable public state as release acknowledgement"}}
+{"event":"finish","workerProcessId":62763,"task":{"id":"-298466997_0_8","name":"Flow consumer recovery does not persist a new token or accept mutable public state as release acknowledgement"}}

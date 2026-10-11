@@ -1,0 +1,21 @@
+{
+  "label": "publish-focused",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/flow-consumer-recovery-20261011/publish-focused-report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T11:18:24.366732+00:00",
+  "head": "3aa3b57f782e2ebd4d898ab7e6a3d68ece72da79",
+  "runId": "chain1975-flow-guard-publish-focused-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T11:18:36.004264+00:00"
+}

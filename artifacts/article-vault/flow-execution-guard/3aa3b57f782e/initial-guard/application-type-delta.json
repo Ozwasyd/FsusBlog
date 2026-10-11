@@ -1,0 +1,17 @@
+{
+  "currentSource": "0c394c666087740162505b90918d04e113babe04",
+  "baselineSource": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+  "currentCommandRecord": "types-current.json",
+  "baselineCommandRecord": "types-baseline.json",
+  "currentExit": 2,
+  "baselineExit": 2,
+  "currentCount": 246,
+  "baselineCount": 244,
+  "added": [
+    "src/composables/useImageUploadFlow.ts: TS2322: Type 'null' is not assignable to type 'object'.",
+    "src/composables/useImageUploadFlow.ts: TS2322: Type 'null' is not assignable to type 'object'."
+  ],
+  "removed": [],
+  "fullTypecheckPassed": false,
+  "qualification": false
+}

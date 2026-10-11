@@ -1,0 +1,18 @@
+{
+  "label": "publish-prerequisites",
+  "command": [
+    "node",
+    "--test",
+    "tests/tools/execution-envelope-policy.test.mjs",
+    "tests/tools/local-production-profile-resources.test.mjs",
+    "tests/tools/matrix-fixture-profile.test.mjs",
+    "tests/tools/linux-cgroup-membership-locator.test.mjs"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T11:16:20.360108+00:00",
+  "head": "3aa3b57f782e2ebd4d898ab7e6a3d68ece72da79",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T11:16:22.095551+00:00"
+}

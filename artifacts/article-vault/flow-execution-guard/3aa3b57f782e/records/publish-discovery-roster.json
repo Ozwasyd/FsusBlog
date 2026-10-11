@@ -1,0 +1,562 @@
+[
+  {
+    "name": "useImageUploadRuntime > Flow execution guard retains the original File context while a cancelled consumer is still awaited",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses unrepresentable upload filename reviewer-258-byte before init and leaves no cancellation obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses unrepresentable upload filename ascii-257-byte before init and leaves no cancellation obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses unrepresentable upload filename split-codepoint before init and leaves no cancellation obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses unrepresentable upload filename four-byte-overflow before init and leaves no cancellation obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses unrepresentable upload filename unpaired-surrogate before init and leaves no cancellation obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses unrepresentable upload filename embedded-nul before init and leaves no cancellation obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > accepts a lossless 256-byte upload filename ascii without changing its identity",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > accepts a lossless 256-byte upload filename two-byte without changing its identity",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > accepts a lossless 256-byte upload filename four-byte without changing its identity",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > checks the actual compressed filename before creating an init obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > cancels a lossless boundary filename using only the original late init ID and token",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects a zero GUID init before snapshot or part IO and cannot grant cancellation authority",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects a zero GUID stored identity without status lookup or replacement init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > runs compression and hashing before init, uploads every required part, then completes once",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > resumes the same file and options with the stored identity and uploads only missing parts",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > initializes a new identity when a stored snapshot is tampered",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > initializes a new identity when stored-session status lookup fails",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > clears local state and calls abort once even when abort fails",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > a late part failure cannot resurrect a cancelled recovery snapshot",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not call the API when abandoning without an active session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not let a late part acknowledgement overwrite a new upload attempt",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > borrows actual compressed facts and retains a bound handle after public session and original lease clear",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a clone pending handle before creating a session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a foreign pending handle before creating a session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a clone document lease through the real original registry",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a foreign document lease through the real original registry",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses to mint a borrow from a localStorage-only resumed session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > expires a completed borrow without refreshing it from public state or storage",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > waits for a cancelled original initialization and real cleanup acknowledgement before replacement",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains true completion history and unknown cleanup after a cancelled completion without deleting it",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > uses the existing flow original lease and caller cancellation without creating a second upload",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > grants no loan on scope disposal and waits for the original part before settling",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rereads original document and intent ownership after an asynchronous borrow callback",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not grant a legacy attempt a new deletion action on scope disposal",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > invalidates a completed original borrow when a new attempt starts",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > revokes returned and captured access immediately after each callback settles",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > revokes concurrent access scopes independently while awaited use remains valid",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > bounds a completed callback and aborts its access signal at the fixed loan deadline",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > grants no loan after raw part failure and cannot mint one from retained state",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > grants no loan after raw complete failure and cannot mint one from retained state",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not remint an explicitly released loan during the active completed operation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > revokes a newly acquired loan when the original completion callback fails",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > captures real per-file handles and consumes slow same-name batch files before advancing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > grants no loan during original compression, initialization, part or pending completion",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > cannot acquire a first loan after the original successful operation is inactive",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not refresh the acquisition deadline when a later access scope starts",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > revokes a granted completion loan when its active original lease is cancelled",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > releases the per-file loan and stops a batch when its completion consumer fails",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > keeps ACK recovery after disposal of the callback operation without aborting",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > keeps ACK recovery after disposal of the returned operation without aborting",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains ACK history after original intent invalidation and repeated abandon",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains ACK history after original document invalidation and repeated abandon",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects a cloned capture owner before capture or upload IO",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the genuine cancellation obligation on invalid ACK 'other-generation'/'aborted'",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/'uploading'",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/undefined",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > ignores public session and copied snapshot authority while retaining the original cleanup retry",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains actual original init authority across a genuine resume generation without reminting it",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains an original init with missing credentials instead of sending an unbound abort",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > keeps old cancellation references from acquiring a replacement generation token",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > awaits only the original unbound init and authenticates cancellation before its ACK",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses abort for an unbound in-flight completion and retains its unknown obligation",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains a rejected completion with bound=false before any cancellation or replacement",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains a rejected completion with bound=true before any cancellation or replacement",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > uses the actual abort transport for api-error and retains failure evidence until genuine ACK",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > uses the actual abort transport for network and retains failure evidence until genuine ACK",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > uses the actual abort transport for same-id-aborted and retains failure evidence until genuine ACK",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init id before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init empty-id before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init file before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init mime before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init format before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init bytes before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init chunk before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init parts before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init fraction before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated init token before part IO or completion access",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status id without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status status without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status bytes without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status chunk without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status parts without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status negative without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status overflow without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status count without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status fraction without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status hint without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains the original session on uncorrelated status state without fresh init",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map id before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map negative before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map fraction before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map unbounded before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map reversed before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map out-of-bounds before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map overlap before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map unsorted before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map missing before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map wrong-count before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map wrong-bytes before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects invalid part-map absent-ranges before skipping any part or minting a new session",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated part ACK id without publishing progress or completing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated part ACK index without publishing progress or completing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated part ACK offset without publishing progress or completing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated part ACK size without publishing progress or completing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated part ACK bytes without publishing progress or completing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated part ACK count without publishing progress or completing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rejects uncorrelated part ACK fraction without publishing progress or completing",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains unknown completion on uncorrelated complete ACK id without a loan or abort",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains unknown completion on uncorrelated complete ACK bytes without a loan or abort",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains unknown completion on uncorrelated complete ACK mime without a loan or abort",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains unknown completion on uncorrelated complete ACK url without a loan or abort",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains unknown completion on uncorrelated complete ACK relative-url without a loan or abort",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses abort when an authenticated resumed status reports completion without the original complete ACK",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > keeps malformed cold storage unresolved after public fields are erased and repeated abandon",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains original obligations through the actual status transport on 404",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains original obligations through the actual status transport on network",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains original obligations through the actual map transport on 404",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains original obligations through the actual map transport on network",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "ImageUploadOptionsPanel upload controls > shows resume and abandon only for the corresponding runtime state and wires both actions",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "upload API requests > initUploadSession sends an UploadInitRequest AEDS frame",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > encodes the actual 256-byte init filename field for ascii-boundary",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > encodes the actual 256-byte init filename field for unicode-boundary",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > encodes the actual 256-byte init filename field for reviewer-258-byte",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > encodes the actual 256-byte init filename field for split-codepoint",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > uploadPart sends raw bytes with binary metadata headers",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > abort forwards the optional third token without changing its existing signal contract",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > forwards the original token and existing signal for status",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > forwards the original token and existing signal for status/parts",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > completeUpload sends an UploadCompleteRequest AEDS frame",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "abort API through the actual binary transport and intercepted fetch > forwards the original token to DELETE and decodes the actual aborted response",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "abort API through the actual binary transport and intercepted fetch > forwards the original token to DELETE and decodes the actual uploading response",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "abort API through the actual binary transport and intercepted fetch > carries the original token through the real GET status transport and decoder",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "abort API through the actual binary transport and intercepted fetch > carries the original token through the real GET status/parts transport and decoder",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "abort API through the actual binary transport and intercepted fetch > propagates a genuinely decoded ApiError instead of an abort acknowledgement",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "abort API through the actual binary transport and intercepted fetch > propagates an actual intercepted DELETE network failure",
+    "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/api/upload.test.ts"
+  }
+]

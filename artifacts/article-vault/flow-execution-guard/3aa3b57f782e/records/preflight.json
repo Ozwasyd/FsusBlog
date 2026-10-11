@@ -1,0 +1,15 @@
+{
+  "label": "preflight",
+  "command": [
+    "node",
+    "tools/run-test-matrix.mjs",
+    "preflight"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T11:07:52.854273+00:00",
+  "head": "148001d39228ec194826b7036faeb9b18977f0fb",
+  "runId": "chain1975-flow-guard-preflight-20261011",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T11:09:22.808582+00:00"
+}

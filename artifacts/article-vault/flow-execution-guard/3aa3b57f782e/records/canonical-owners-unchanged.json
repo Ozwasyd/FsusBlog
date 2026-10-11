@@ -1,0 +1,77 @@
+{
+  "source": "991200a6deb58353a75022a63ada64b2e99d10a6",
+  "comparedTo": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+  "paths": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "sha256": "4199012d17729718730ed0b7f28d7c0145b24aa1b82988b5dec6220deec9eb8a",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "sha256": "f466e9c6dea9b104bd4832d591d248e0fe8525df8d87a7280569ba16730d0f38",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/composables/useAbortableTask.ts",
+      "sha256": "c14a45de7c0682cbf6d52a76ff0095a0e38d006f36e2c4830fc81c576105addf",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "sha256": "d7255b1419eaf086041fcedec645cc35017a95813b74867a30baf3952513f0e4",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/composition/binaryTransport.ts",
+      "sha256": "19634006e8e2a36bd61887aec463f4799a53a56189806314823bc96c88660abf",
+      "unchanged": true
+    },
+    {
+      "path": "tests/frontend/unit/api/upload.test.ts",
+      "sha256": "5e59fa40efbd664bafa9e0219c0ee2edc226bed719f4e17aac3bbaa85a603c19",
+      "unchanged": true
+    },
+    {
+      "path": "tests/frontend/support/unit/setup.ts",
+      "sha256": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/vitest.config.ts",
+      "sha256": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/vitest.shared.mjs",
+      "sha256": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/package.json",
+      "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/package-lock.json",
+      "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Services/FileService.cs",
+      "sha256": "e63a5a6e0cc348e2c747caf9dc63ae6cd4b2cff5d6b57c281606bd2c21571e09",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+      "sha256": "a2e9ba9e6910e843a79c64b65f777a1f0e39f2b6757202cab248d47e7a4de3df",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentBusinessIntentReader.ts",
+      "sha256": "f9022d9428e0af601e88dfc0666f6cee95a35547b52996d91cbc44b5d0f4ed76",
+      "unchanged": true
+    }
+  ],
+  "qualifiedAdmission": false
+}

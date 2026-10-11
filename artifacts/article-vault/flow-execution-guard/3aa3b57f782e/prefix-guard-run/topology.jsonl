@@ -1,0 +1,2 @@
+{"event":"start","workerProcessId":70259,"task":{"id":"-298466997_0_0","name":"Flow execution guard retains the original File context while a cancelled consumer is still awaited"}}
+{"event":"finish","workerProcessId":70259,"task":{"id":"-298466997_0_0","name":"Flow execution guard retains the original File context while a cancelled consumer is still awaited"}}
