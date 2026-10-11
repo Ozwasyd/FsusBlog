@@ -1,11 +1,16 @@
 import { encodeAedsFrame } from '@/api/binaryFrame';
-import type { AuthoringWorkspaceSnapshotTransport } from '@/api/authoringWorkspaceSnapshot';
+import { AuthoringWorkspaceSnapshotApi, type AuthoringWorkspaceSnapshotScope, type AuthoringWorkspaceSnapshotTransport } from '@/api/authoringWorkspaceSnapshot';
 import { encodeAuthoringWorkspaceSnapshotRequest } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
+import { fsusBinaryRoutes } from '@/generated/fsusBinaryRoutes';
 
 import { FrameType } from '@wasm/protocol/frame';
 
-const endpoint = '/api/binary/author/workspace/default';
+/** Composes the sole snapshot API with the registered transport; construction does not read, restore or grant readiness. */
+export function createAuthoringWorkspaceSnapshotHttpApi(scope: AuthoringWorkspaceSnapshotScope, sourceDigest: string): AuthoringWorkspaceSnapshotApi
+{
+    return new AuthoringWorkspaceSnapshotApi(createAuthoringWorkspaceSnapshotHttpTransport(sourceDigest), scope, sourceDigest);
+}
 
 /** Binds the existing verified-observation API to its private typed HTTP boundary. */
 export function createAuthoringWorkspaceSnapshotHttpTransport(sourceDigest: string): AuthoringWorkspaceSnapshotTransport
@@ -19,7 +24,7 @@ export function createAuthoringWorkspaceSnapshotHttpTransport(sourceDigest: stri
         read(signal)
         {
             return requestBinaryOnly({
-                binaryUrl: endpoint,
+                binaryUrl: fsusBinaryRoutes.binary_author_workspace_snapshot_read,
                 privateScope: 'admin',
                 frameType: FrameType.AuthoringWorkspaceSnapshotResponse,
                 signal,
@@ -29,7 +34,7 @@ export function createAuthoringWorkspaceSnapshotHttpTransport(sourceDigest: stri
         write(command, signal)
         {
             return requestBinaryOnly({
-                binaryUrl: endpoint,
+                binaryUrl: fsusBinaryRoutes.binary_author_workspace_snapshot_mutate,
                 privateScope: 'admin',
                 frameType: FrameType.AuthoringWorkspaceSnapshotResponse,
                 signal,
@@ -46,7 +51,7 @@ export function createAuthoringWorkspaceSnapshotHttpTransport(sourceDigest: stri
         reset(command, signal)
         {
             return requestBinaryOnly({
-                binaryUrl: endpoint,
+                binaryUrl: fsusBinaryRoutes.binary_author_workspace_snapshot_mutate,
                 privateScope: 'admin',
                 frameType: FrameType.AuthoringWorkspaceSnapshotResponse,
                 signal,
