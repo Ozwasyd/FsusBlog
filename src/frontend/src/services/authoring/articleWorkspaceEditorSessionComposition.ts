@@ -11,7 +11,6 @@ import {
 } from './fsusUiEditorSessionFactory';
 
 import type { OpenArticleDocumentEntry } from './openArticleDocumentRegistry';
-
 import type { MarkdownEditorSessionRestoreProof, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
 
 let installed: {
