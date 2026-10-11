@@ -101,6 +101,7 @@ export interface AdminArticleWorkspaceStartupPorts {
 let workspaceInstallation: {
     readonly ports: AdminArticleWorkspaceStartupPorts;
     failed: boolean;
+    revoking: boolean;
     retirementFailure?: unknown;
     groupRetirementFailure?: unknown;
     layoutInvalidationFailure?: unknown;
@@ -236,7 +237,7 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         markWorkspaceInstallationFailed(ports);
         throw error;
     });
-    workspaceInstallation = { ports, resources, failed: false, task };
+    workspaceInstallation = { ports, resources, failed: false, revoking: false, task };
     // Observe the original operation lifetime even after its current view unmounts.
     const onCancellation = () => markWorkspaceInstallationFailed(ports);
     ports.signal.addEventListener('abort', onCancellation, { once: true });
@@ -250,10 +251,21 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
 
 function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPorts): void
 {
-    if (workspaceInstallation?.ports === ports)
+    const installation = workspaceInstallation;
+    if (installation?.ports !== ports)
     {
-        // Revoke visual consumers synchronously before original Group/Host retirement.
-        for (const invalidate of [...workspaceInstallation.resources.invalidateLayouts])
+        return;
+    }
+    // Close admission before any subscriber can re-enter this installation.
+    installation.failed = true;
+    if (installation.revoking)
+    {
+        return;
+    }
+    installation.revoking = true;
+    try
+    {
+        for (const invalidate of [...installation.resources.invalidateLayouts])
         {
             try
             {
@@ -261,11 +273,10 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
             }
             catch (error: unknown)
             {
-                workspaceInstallation.layoutInvalidationFailure = error;
+                installation.layoutInvalidationFailure = error;
             }
         }
-        workspaceInstallation.failed = true;
-        const custody = workspaceInstallation.resources.custody;
+        const custody = installation.resources.custody;
         if (custody?.inspect().status === 'handed-off')
         {
             // Successful startup transferred admission custody; do not retire its ongoing owner.
@@ -279,10 +290,10 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
             }
             catch (error: unknown)
             {
-                workspaceInstallation.groupRetirementFailure = error;
+                installation.groupRetirementFailure = error;
             }
         }
-        const sessions = workspaceInstallation.resources.sessions;
+        const sessions = installation.resources.sessions;
         if (sessions)
         {
             // The original owner revokes admission and retains its actual Host/factory; no disposal claim.
@@ -292,12 +303,16 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
             }
             catch (error: unknown)
             {
-                // Keep failure/resources observable in this installation; never reopen admission.
-                workspaceInstallation.retirementFailure = error;
+                installation.retirementFailure = error;
             }
         }
     }
+    finally
+    {
+        installation.revoking = false;
+    }
 }
+
 </script>
 
 <script setup lang="ts">
@@ -326,6 +341,9 @@ provide(authoringWorkspaceLayoutSourceKey, shallowReadonly(workspaceLayoutSource
 const layoutInvalidationListeners = new Set<() => void>();
 const routeOutletInstance = shallowRef<unknown>(null);
 let mounted = true;
+let layoutRevoking = false;
+let layoutRevoked = false;
+let layoutEpoch = 0;
 function notifyWorkspaceLayoutInvalidation(): void
 {
     // These are visual revocation subscribers only, never another group/session authority.
@@ -347,19 +365,54 @@ function notifyWorkspaceLayoutInvalidation(): void
 }
 function invalidateWorkspaceLayout(): void
 {
-    notifyWorkspaceLayoutInvalidation();
-    workspaceLayoutSource.value = null;
-    notifyWorkspaceLayoutInvalidation();
+    layoutRevoked = true;
+    layoutEpoch++;
+    if (layoutRevoking)
+    {
+        // Reentrant revocation may clear the ref, but never recursively notifies subscribers.
+        workspaceLayoutSource.value = null;
+        return;
+    }
+    layoutRevoking = true;
+    try
+    {
+        notifyWorkspaceLayoutInvalidation();
+        workspaceLayoutSource.value = null;
+        notifyWorkspaceLayoutInvalidation();
+    }
+    finally
+    {
+        layoutRevoking = false;
+    }
 }
 function captureRouteOutlet(instance: unknown): void
 {
-    if (routeOutletInstance.value !== instance)
+    if (routeOutletInstance.value === instance)
+    {
+        return;
+    }
+    const capturedEpoch = ++layoutEpoch;
+    if (layoutRevoking)
+    {
+        routeOutletInstance.value = instance;
+        return;
+    }
+    layoutRevoking = true;
+    try
     {
         notifyWorkspaceLayoutInvalidation();
-        routeOutletInstance.value = instance;
+        if (layoutEpoch === capturedEpoch)
+        {
+            routeOutletInstance.value = instance;
+        }
         notifyWorkspaceLayoutInvalidation();
     }
+    finally
+    {
+        layoutRevoking = false;
+    }
 }
+
 function hasPublicWorkspaceLayout(value: unknown): value is { getAuthoringWorkspaceLayoutPort(): unknown; }
 {
     return !!value && typeof value === 'object' && 'getAuthoringWorkspaceLayoutPort' in value
@@ -390,10 +443,11 @@ function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource):
     }
     const ports = startupPorts;
     const layout = layoutPorts;
-    const requireOwner = (): void =>
+    const requireOwner = (expectedEpoch: number): void =>
     {
         ports.signal.throwIfAborted();
-        if (!mounted || props.workspaceStartup !== ports || ports.layout !== layout
+        if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== expectedEpoch
+            || props.workspaceStartup !== ports || ports.layout !== layout
             || workspaceInstallation?.ports !== ports || workspaceInstallation.failed
             || workspaceInstallation.resources.sessions !== sessions)
         {
@@ -406,19 +460,21 @@ function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource):
         mountedEditors: ports.mountedEditors,
         reserveOperationIdentity: (projection) =>
         {
-            requireOwner();
+            const expectedEpoch = layoutEpoch;
+            requireOwner(expectedEpoch);
             const identity = layout.reserveOperationIdentity(projection);
-            requireOwner();
+            requireOwner(expectedEpoch);
             return identity;
         },
         measure: (projection) =>
         {
-            requireOwner();
+            const expectedEpoch = layoutEpoch;
+            requireOwner(expectedEpoch);
             const port = readMountedWorkspaceLayout();
             const frame = port.readFrameRect();
             const separator = port.readSeparatorRect();
             const measured = layout.measure(projection, port);
-            requireOwner();
+            requireOwner(expectedEpoch);
             const currentFrame = port.readFrameRect();
             const currentSeparator = port.readSeparatorRect();
             if (readMountedWorkspaceLayout() !== port || !frame || !separator || !currentFrame || !currentSeparator
@@ -432,19 +488,20 @@ function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource):
             {
                 throw new Error('article-workspace-layout-current-measurement-unavailable');
             }
-            requireOwner();
+            requireOwner(expectedEpoch);
             return measured;
         },
         subscribeInvalidation: (listener) =>
         {
-            requireOwner();
+            const expectedEpoch = layoutEpoch;
+            requireOwner(expectedEpoch);
             layoutInvalidationListeners.add(listener);
             let release: (() => void) | undefined;
             try
             {
                 // The original owner must notify before mutations and again after publication.
                 release = layout.subscribeInvalidation(listener);
-                requireOwner();
+                requireOwner(expectedEpoch);
             }
             catch (error: unknown)
             {
@@ -463,12 +520,12 @@ function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource):
 }
 function markWorkspaceStartupUnavailable(): void
 {
-    invalidateWorkspaceLayout();
-    workspaceStartupState.value = 'unavailable';
     if (startupPorts)
     {
         markWorkspaceInstallationFailed(startupPorts);
     }
+    invalidateWorkspaceLayout();
+    workspaceStartupState.value = 'unavailable';
 }
 if (startupPorts)
 {
@@ -485,6 +542,7 @@ if (startupPorts)
         {
             throw new Error('article-workspace-startup-owner-changed');
         }
+        const publicationEpoch = layoutEpoch;
         const layoutSource = createWorkspaceLayoutSource(sessions);
         requireCurrentStartup(startupPorts, plan);
         startupPorts.assertRuntimeCapability();
@@ -497,8 +555,8 @@ if (startupPorts)
         }
         requireCurrentStartup(startupPorts, plan);
         // Recheck after the original guard callback, immediately before local publication.
-        if (!mounted || props.workspaceStartup !== startupPorts || startupPorts.signal.aborted
-            || workspaceInstallation.failed)
+        if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== publicationEpoch
+            || props.workspaceStartup !== startupPorts || startupPorts.signal.aborted || workspaceInstallation.failed)
         {
             markWorkspaceStartupUnavailable();
             return;
@@ -506,13 +564,32 @@ if (startupPorts)
         resources.custody.sealHandoff();
         workspaceInstallation.stopObservingCancellation?.();
         workspaceLayoutSource.value = layoutSource;
+        const requirePublishedSource = (): void =>
+        {
+            const requireLocalPublication = (): void =>
+            {
+                if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== publicationEpoch
+                    || startupPorts.signal.aborted || props.workspaceStartup !== startupPorts
+                    || workspaceInstallation?.ports !== startupPorts || workspaceInstallation.failed
+                    || workspaceLayoutSource.value !== layoutSource)
+                {
+                    throw new Error('article-workspace-startup-publication-revoked');
+                }
+            };
+            requireLocalPublication();
+            requireCurrentStartup(startupPorts, plan);
+            requireLocalPublication();
+        };
+        // Both ref setters can synchronously invoke original consumers and cancel/revoke this operation.
+        requirePublishedSource();
         workspaceStartupState.value = 'started';
+        requirePublishedSource();
         // Hand the layout owner the same original group/host, never a reconstructed projection.
         emit('workspaceStarted', sessions);
     }).catch(() =>
     {
-        invalidateWorkspaceLayout();
         markWorkspaceInstallationFailed(startupPorts);
+        invalidateWorkspaceLayout();
         if (mounted)
         {
             workspaceStartupState.value = 'unavailable';
@@ -529,9 +606,9 @@ watch(() => props.workspaceStartup, () =>
 }, { flush: 'sync' });
 onBeforeUnmount(() =>
 {
+    mounted = false;
     invalidateWorkspaceLayout();
     workspaceInstallation?.resources.invalidateLayouts.delete(invalidateWorkspaceLayout);
-    mounted = false;
     startupPorts?.signal.removeEventListener('abort', markWorkspaceStartupUnavailable);
 });
 const { tabs, activateTab } = useArticleWorkspaceTabs();
