@@ -185,6 +185,10 @@
                                         <ArticleWriteEditor
                                             ref="articleEditorRef"
                                             v-model="articleForm.content"
+                                            textarea-id="article-content"
+                                            labelled-by="article-body-heading"
+                                            outline-panel-id="article-write-outline-panel"
+                                            outline-title-id="article-write-outline-title"
                                             :command-surfaces="authoringCommandSurfaces"
                                             :article-identity="authoringDocumentIdentity.id"
                                             :document-identity="authoringDocumentIdentity"
@@ -985,7 +989,8 @@ const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => works
 const workspaceMountedSource = shallowRef<ArticleWorkspaceMountedEditorSource | null>(null);
 const workspaceLayoutRef = shallowRef<AuthoringWorkspaceLayoutPort | null>(null);
 defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value,
-               getAuthoringWorkspaceLayoutPort: () => workspaceLayoutRef.value });
+               getAuthoringWorkspaceLayoutPort: () => workspaceLayoutRef.value,
+               getArticleWorkspaceRecoveryCheckpoint });
 const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
     dirty: requiresLeaveConfirm.value && !pageLoading.value,
     saving: submitting.value,
@@ -1151,13 +1156,116 @@ const articleEditorRef = ref<{
 } | null>(null);
 const authoringTheme = useThemeRuntime();
 const editorRuntimeBinding = shallowRef<ArticleEditorRuntimeBinding | null>(null);
+type MountedWriterBinding = ReturnType<typeof authoringEditorRuntime.bindEditor>;
+type WriterRecoveryCheckpoint = ReturnType<MountedWriterBinding['bindRecoveryCheckpoint']>;
+let mountedWriterBinding: MountedWriterBinding | null = null;
+let recoveryCheckpoint: WriterRecoveryCheckpoint | null = null;
+let recoveryCheckpointSessionRef: string | null = null;
 let boundEditorPort: ArticleEditorContinuityPort | null = null;
 let releaseEditorRuntime: (() => void) | null = null;
 let editorBindingGeneration = 0;
 
+function releaseRecoveryCheckpoint(): void
+{
+    const checkpoint = recoveryCheckpoint;
+    recoveryCheckpoint = null;
+    recoveryCheckpointSessionRef = null;
+    checkpoint?.release();
+}
+
+/** This returns original journal custody; a nullable host port is not snapshot readiness. */
+function getArticleWorkspaceRecoveryCheckpoint(): WriterRecoveryCheckpoint | null
+{
+    const checkpoint = recoveryCheckpoint;
+    const source = workspaceMountedSource.value;
+    const bound = mountedWriterBinding;
+    const tabId = workspaceTabId.value;
+    if (!checkpoint || !source || bound?.mountedSource !== source || !tabId)
+    {
+        return null;
+    }
+    const registry = articleWorkspaceTabRouter.getRegistry();
+    const revision = registry.getRevision();
+    const entry = registry.getEntry(tabId);
+    if (entry?.editorSessionRef !== recoveryCheckpointSessionRef)
+    {
+        return null;
+    }
+    const observed = source.readDocumentBinding(entry.editorSessionRef);
+    if (recoveryCheckpoint !== checkpoint || mountedWriterBinding !== bound || workspaceMountedSource.value !== source
+        || workspaceTabId.value !== tabId || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== revision
+        || observed?.identity.articleId !== entry.identity.articleId || observed.identity.draftId !== entry.identity.draftId
+        || observed.identity.documentId !== entry.identity.documentId
+        || observed.documentContext.documentEpoch !== entry.documentContext.documentEpoch
+        || observed.documentContext.sourceRevision !== entry.documentContext.sourceRevision
+        || observed.documentContext.draftRevision !== entry.documentContext.draftRevision)
+    {
+        return null;
+    }
+    return checkpoint;
+}
+
+function bindWorkspaceRecoveryCheckpoint(): void
+{
+    const bound = mountedWriterBinding;
+    const source = workspaceMountedSource.value;
+    const tabId = workspaceTabId.value;
+    const generation = editorBindingGeneration;
+    const registry = articleWorkspaceTabRouter.getRegistry();
+    const registryRevision = registry.getRevision();
+    const entry = tabId ? registry.getEntry(tabId) : null;
+    if (!bound || !source || bound.mountedSource !== source || !entry)
+    {
+        releaseRecoveryCheckpoint();
+        return;
+    }
+    // Registry public reads clone values; object equality would always reject a genuine entry.
+    const entryDigest = calculateOpenArticleDocumentDigest(entry);
+    const isCurrentBinding = (): boolean => mountedWriterBinding === bound && workspaceMountedSource.value === source
+        && workspaceTabId.value === tabId && editorBindingGeneration === generation
+        && articleWorkspaceTabRouter.getRegistry() === registry && registry.getRevision() === registryRevision
+        && calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) === entryDigest;
+    const observed = source.readDocumentBinding(entry.editorSessionRef);
+    if (!isCurrentBinding() || observed?.identity.articleId !== entry.identity.articleId
+        || observed.identity.draftId !== entry.identity.draftId || observed.identity.documentId !== entry.identity.documentId
+        || observed.documentContext.documentEpoch !== entry.documentContext.documentEpoch
+        || observed.documentContext.sourceRevision !== entry.documentContext.sourceRevision
+        || observed.documentContext.draftRevision !== entry.documentContext.draftRevision)
+    {
+        releaseRecoveryCheckpoint();
+        return;
+    }
+    if (recoveryCheckpoint && recoveryCheckpointSessionRef === entry.editorSessionRef)
+    {
+        return;
+    }
+    releaseRecoveryCheckpoint();
+    let checkpoint: WriterRecoveryCheckpoint;
+    try
+    {
+        checkpoint = bound.bindRecoveryCheckpoint(entry.editorSessionRef);
+    }
+    catch
+    {
+        // The original owner refuses unloaded draft/auth/native custody. Keep the port unavailable.
+        return;
+    }
+    if (!isCurrentBinding())
+    {
+        checkpoint.release();
+        return;
+    }
+    recoveryCheckpoint = checkpoint;
+    recoveryCheckpointSessionRef = entry.editorSessionRef;
+}
+
+watch([workspaceMountedSource, workspaceTabId, workspaceDocumentContext], bindWorkspaceRecoveryCheckpoint, { flush: 'post' });
+
 watch(articleEditorRef, () =>
 {
     const generation = ++editorBindingGeneration;
+    releaseRecoveryCheckpoint();
+    mountedWriterBinding = null;
     releaseEditorRuntime?.();
     releaseEditorRuntime = null;
     editorRuntimeBinding.value = null;
@@ -1185,6 +1293,7 @@ watch(articleEditorRef, () =>
             ? articleEditorRef.value?.getAuthoringSessionPort?.() ?? null : null);
         boundEditorPort = port;
         editorRuntimeBinding.value = bound.binding;
+        mountedWriterBinding = bound;
         workspaceMountedSource.value = bound.mountedSource;
         releaseEditorRuntime = bound.release;
         // Observe actual editor events; initialization dispatch would steal initial title focus.
@@ -1193,6 +1302,8 @@ watch(articleEditorRef, () =>
 onUnmounted(() =>
 {
     editorBindingGeneration += 1;
+    releaseRecoveryCheckpoint();
+    mountedWriterBinding = null;
     releaseEditorRuntime?.();
     editorRuntimeBinding.value = null;
     workspaceMountedSource.value = null;

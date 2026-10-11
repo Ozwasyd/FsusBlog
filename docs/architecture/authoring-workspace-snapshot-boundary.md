@@ -594,7 +594,7 @@ or full PR acceptance is borrowed. Both group/Registry files remain byte-identic
 to that owner. The old focused-collapse mismatch is superseded, not a current
 blocked finding.
 
-Original Writer package f34b0d3ad4c7b919a5a21f228d5540610b627a0d was actually
+The initial original Writer package f34b0d3ad4c7b919a5a21f228d5540610b627a0d was actually
 applied to this candidate: 34 complete supplied source postimages and the adapted
 Write consumer patch. Thirty-three files match original source
 5b6b905a9458caec2fde8c8046c7357fa75d71f5 byte-for-byte; the supplied index patch
@@ -714,12 +714,12 @@ articleId watcher calls switchDocument, clears form state and reloads; its
 unmount releases runtime/document binding and clears source. The Writer owner
 must preserve retained per-session ownership and let route changes select a
 binding rather than overwrite it. The Rail owner controls frame placement and
-route destruction. ArticleWriteEditor currently hardcodes textareaId
-article-content and outline panel article-write-outline-panel; its owner must
-offer unique public per-session IDs before rendering two actual wrappers.
-No missing producer API or DOM-ID prop is assumed available. The current actual
-mount is one primary editor; second binding/IDs/lifecycle remain blocked and all
-runtime qualification stays UNRUN.
+route destruction. The original Writer de6 source now offers public textarea,
+labelled-by and outline panel/title ID props through the real native wrapper.
+Write supplies its existing primary IDs explicitly; another wrapper still needs
+IDs from its genuine separately issued binding. Parameterized IDs do not issue
+that binding. The actual mount remains one primary editor; second binding and
+retained route lifetime remain blocked and all runtime qualification stays UNRUN.
 
 The independent 3cd15 outlet review found three new source defects. Their
 counterexamples are source-reasoned only, never executed qualification:
@@ -748,6 +748,50 @@ counterexamples are source-reasoned only, never executed qualification:
 
 These guards issue no ownership, permission, session, native retention or geometry
 receipt. The existing 57b3 frozen state and cross-authority fallback remain intact.
-The second genuine Writer binding, wrapper public IDs and original frame/route
-lifetime are still producer blockers. All 30 controls/tests/list/browser/selection/
+The second genuine Writer binding and original frame/route lifetime are still
+producer blockers. All 30 controls/tests/list/browser/selection/
 IME/native/race/privacy/security qualifications remain UNRUN.
+
+The later Writer increment de6df11110b5d060a001fad36bb604627323e32a is consumed
+as eight exact original postimages: ArticleWriteEditor, ArticleWriteOutlineRail,
+MarkdownEditorAdapter, MarkdownTextEditor, useAdminArticleWrite,
+articleEditorContinuity, articleRecoveryJournal and privateStorageRegistry.
+The original journal checkpoint implementation and its private-state invalidation
+are dependencies, not a second layout journal or a local repair. SourceCompare's
+unrelated constructor increment is outside the supplied minimal graph and is not
+copied. The public upload-image observation and optional original withAttachmentFile
+loan now travel through the real wrappers. The active source SDK still lacks the
+attachment observation/file-consumer exports; no declaration facade supplies them.
+
+Write retains the actual return value from its existing authoringEditorRuntime
+bindEditor call. A host watcher calls that original binding's
+bindRecoveryCheckpoint(entry.editorSessionRef) only after the actual mounted
+document coordinates match the canonical entry, with exact registry revision,
+entry digest, mount/tab/binding and generation checks across external reads and
+allocation. Public getArticleWorkspaceRecoveryCheckpoint returns that same
+original checkpoint port or null and independently rechecks current native/entry
+coordinates. The host releases original checkpoint custody on native replacement,
+session reassociation or unmount; hiding or moving the retained subtree does not
+release it. Unloaded draft/auth/native custody stays unavailable. There is no
+automatic prepare/persistence on layout, document or geometry updates.
+
+The checkpoint port's original prepare/inspect/validate/restore and reference
+operations retain original journal authority. Its captureRetainedSnapshot(reference)
+validates the actual native digest callback body against that same binding's
+journal reference, passes actual expected document identity/epoch/revision to the
+public native capture, and rechecks mounted/session/reference custody afterward.
+This is native retained capture source only. No complete application factory
+checkpoint, panel/renderer/draft custody, session suspend/retain readiness or
+accepted journal/native/security proof is issued; the original factory refusals
+remain unchanged.
+
+Actual strict vue-tsc against the same UI673+a775 source reports 217 diagnostics,
+with no added diagnostic versus the 218-diagnostic pre-join candidate and no
+owned layout/Write diagnostics. Original OutlineRail removed one type finding.
+Repository source AST/SFC and owned layout/static style checks pass. Verbatim
+Writer dependencies retain their original style findings and missing public SDK
+type findings; they are not repaired or waived here. These are static source
+results, not import-side-effect or product acceptance. All tests/list and native,
+geometry, browser, receipt tamper, race, privacy, security, selection and IME
+qualification remain UNRUN; independent rereview of the three outlet corrections
+and this host journal increment remains open.

@@ -24,8 +24,9 @@ const controller = readFileSync(path.join(root, controllerPath), 'utf8');
 const writer = readFileSync(path.join(root, writerPath), 'utf8');
 const outlet = readFileSync(path.join(root, outletPath), 'utf8');
 const outletDescriptor = sfc.parse(outlet, { filename: outletPath });
+const writerDescriptor = sfc.parse(writer, { filename: writerPath });
 const { descriptor, errors } = sfc.parse(component, { filename: componentPath });
-const failures = [...errors, ...outletDescriptor.errors].map(error => String(error));
+const failures = [...errors, ...outletDescriptor.errors, ...writerDescriptor.errors].map(error => String(error));
 const script = ts.createSourceFile(componentPath, descriptor.scriptSetup?.content ?? '', ts.ScriptTarget.Latest, true);
 const controllerTree = ts.createSourceFile(controllerPath, controller, ts.ScriptTarget.Latest, true);
 const outletTree = ts.createSourceFile(outletPath, outletDescriptor.descriptor.scriptSetup?.content ?? '', ts.ScriptTarget.Latest, true);
@@ -106,6 +107,19 @@ if (/\bv-if\b|\bv-for\b|:key=|\bnew Map\b|\bnew WeakMap\b/u.test(outlet)
     || !writer.includes('articleWorkspaceTabRouter.getRegistry() !== registry'))
 {
     failures.push('recreated-session-subtree-or-parallel-mount-authority');
+}
+for (const required of ['getArticleWorkspaceRecoveryCheckpoint', 'checkpoint = bound.bindRecoveryCheckpoint(entry.editorSessionRef)',
+    'registry.getRevision() === registryRevision', 'calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) === entryDigest',
+    'recoveryCheckpoint = checkpoint', 'checkpoint.release()', 'releaseRecoveryCheckpoint();'])
+{
+    if (!writer.includes(required))
+    {
+        failures.push(`missing-original-journal-host-binding:${required}`);
+    }
+}
+if (/new\s+(?:ArticleRecoveryJournal|Map|WeakMap)\b/u.test(writer))
+{
+    failures.push('parallel-journal-or-host-owner-store');
 }
 const template = dom.parse(descriptor.template?.content ?? '');
 let groups = 0;
@@ -189,7 +203,7 @@ for (const required of ['verifyAuthoringSessionHostState(host)', 'record.registr
 try
 {
     sfc.registerTS(() => ts);
-    for (const [file, candidate] of [[componentPath, descriptor], [outletPath, outletDescriptor.descriptor]])
+    for (const [file, candidate] of [[componentPath, descriptor], [outletPath, outletDescriptor.descriptor], [writerPath, writerDescriptor.descriptor]])
     {
         const compiled = sfc.compileScript(candidate, { id: '2299-source-only',
             fs: { fileExists: ts.sys.fileExists, readFile: ts.sys.readFile } });
