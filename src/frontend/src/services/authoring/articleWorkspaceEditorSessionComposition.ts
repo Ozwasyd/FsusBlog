@@ -57,7 +57,10 @@ export function installArticleWorkspaceEditorSessions(
         return binding;
     });
     const host = new AuthoringSessionHost(factory);
-    const retire = (): void => { retired = true; };
+    const retire = (): void =>
+    {
+        retired = true;
+    };
     installed = { resolveMountedEditor, host, factory, assertActive, retire };
     try
     {
@@ -80,7 +83,7 @@ export function installArticleWorkspaceEditorSessions(
 /** Revoke admission and retain actual owner custody; this does not dispose resources. */
 export function retireArticleWorkspaceEditorSessions(host: AuthoringSessionHost): void
 {
-    if (!installed || installed.host !== host)
+    if (installed?.host !== host)
     {
         throw new Error('article-workspace-session-composition-owner-mismatch');
     }
