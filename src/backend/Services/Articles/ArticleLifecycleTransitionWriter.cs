@@ -550,7 +550,12 @@ public static class ArticleLifecycleTransitionWriter
                 .ConfigureAwait(false);
             responsibilityVersion = 1;
         }
-        else if (!editableCommand || before.ResponsibilitySnapshotId.HasValue)
+        // Presentation coordinates may retain an older publication snapshot. Only
+        // the actual source revision can prove that an editable command has facts to clone.
+        else if (!editableCommand || await db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(item => item.ArticleId == request.ArticleId
+                && item.ArticleRevisionId == sourceResponsibilityRevisionId)
+            .AnyAsync(cancellationToken).ConfigureAwait(false))
         {
             (responsibilitySnapshotId, responsibilityVersion) = await CloneResponsibilitySnapshotAsync(
                 db,

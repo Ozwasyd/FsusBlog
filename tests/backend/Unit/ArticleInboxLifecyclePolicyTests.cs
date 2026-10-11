@@ -1,6 +1,10 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
+
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -92,4 +96,30 @@ public sealed class ArticleInboxLifecyclePolicyTests
         => Assert.Equal(ArticleStatusTransitionErrorCodes.ScheduledAtNotAllowed,
             ArticleStatusTransitionPolicy.ValidateTransition(ArticleStatusValues.Inbox, ArticleStatusValues.Inbox,
                 s_now.AddHours(1), s_now, ArticleStatusTransitionOperation.CreateInbox)?.Code);
+
+    [Fact]
+    public void EditableTransitions_CheckActualRevisionResponsibilityBeforeCloning()
+    {
+        Type stateMachine = typeof(ArticleLifecycleTransitionWriter)
+            .GetMethod(nameof(ArticleLifecycleTransitionWriter.UpdateAsync))!
+            .GetCustomAttribute<AsyncStateMachineAttribute>()!.StateMachineType;
+        IReadOnlyList<string> references = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferencesInOrderContaining(stateMachine,
+                "AnyAsync", "CloneResponsibilitySnapshotAsync");
+        int existenceCheck = references.ToList().FindIndex(static reference =>
+            reference.Contains("AnyAsync", StringComparison.Ordinal));
+        int clone = references.ToList().FindIndex(static reference =>
+            reference.Contains("CloneResponsibilitySnapshotAsync", StringComparison.Ordinal));
+        Assert.True(existenceCheck >= 0 && existenceCheck < clone);
+        Assert.Contains(references.Take(existenceCheck), static reference =>
+            reference.Contains("ArticleResponsibilitySnapshot.get_ArticleId", StringComparison.Ordinal));
+        Assert.Contains(references.Take(existenceCheck), static reference =>
+            reference.Contains("ArticleResponsibilitySnapshot.get_ArticleRevisionId", StringComparison.Ordinal));
+        Assert.Contains(references.Take(existenceCheck), static reference =>
+            reference.Contains("sourceResponsibilityRevisionId", StringComparison.Ordinal));
+        // One reference remains for the existing explicit-responsibility builder.
+        // A second reference would reuse the potentially historical presentation ID as a clone guard.
+        Assert.Single(references, static reference =>
+            reference.Contains("ArticleLifecycleCoordinates.get_ResponsibilitySnapshotId", StringComparison.Ordinal));
+    }
 }
