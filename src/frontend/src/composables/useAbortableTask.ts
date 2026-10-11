@@ -80,6 +80,9 @@ export function useAbortableTask(options: UseAbortableTaskOptions = {})
             {
                 localController = null;
             }
+            // Only the actual awaited executor and this cleanup have finished here.
+            // cancel()/logical complete()/scope disposal alone never settle its work.
+            lease?.settle();
         }
     };
 
