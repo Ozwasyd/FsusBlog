@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
@@ -431,6 +432,72 @@ test('linked consumers keep independent initialized copies of the same source ow
     assert.equal(resolveLocalFsusUiRepositoryRoot({ repositoryRoot: linked,
         gitCommonDirectory: path.join(context.repositoryRoot, '.git') }), linkedCopy);
     assert.equal(resolveLocalFsusUiRepositoryRoot({ override: context.fsusui, repositoryRoot: context.repositoryRoot }), copy);
+});
+
+test('redirected consumer ancestors fail before the source owner receives any directory writes', (t) =>
+{
+    for (const relative of ['.tmp', '.tmp/fsusui-source'])
+    {
+        const context = fixture(t);
+        const before = fs.readdirSync(context.fsusui, { recursive: true }).sort();
+        const source = fs.readFileSync(path.join(context.fsusui, 'vue/packages/element-plus/index.ts'));
+        const redirected = path.join(context.repositoryRoot, relative);
+        fs.mkdirSync(path.dirname(redirected), { recursive: true });
+        fs.symlinkSync(context.fsusui, redirected, 'dir');
+        assert.throws(() => verifyLocalFsusUiInstall(context), /parent must be a real consumer directory/u);
+        assert.deepEqual(fs.readdirSync(context.fsusui, { recursive: true }).sort(), before);
+        assert.deepEqual(fs.readFileSync(path.join(context.fsusui, 'vue/packages/element-plus/index.ts')), source);
+        assert.equal(fs.readlinkSync(redirected), context.fsusui);
+    }
+});
+
+test('external root CLI preserves owner identity while internal source consumption selects the copy', (t) =>
+{
+    const context = fixture(t);
+    const copy = verifyLocalFsusUiInstall(context);
+    const cli = path.join(root, 'src/frontend/scripts/fsusui-root.mjs');
+    const common = ['--repository-root', context.repositoryRoot, '--git-common-directory', path.join(context.repositoryRoot, '.git')];
+    const env = { ...process.env };
+    delete env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
+    for (const options of [common, [...common, '--override', context.fsusui], [...common, '--override', copy]])
+    {
+        assert.equal(execFileSync(process.execPath, [cli, ...options], { encoding: 'utf8', env }).trim(), context.fsusui);
+    }
+    assert.equal(resolveLocalFsusUiRepositoryRoot({ override: context.fsusui, repositoryRoot: context.repositoryRoot }), copy);
+    assert.notEqual(copy, context.fsusui);
+});
+
+test('copy selection rejects every nearer dependency directory and changed locked alias identity', (t) =>
+{
+    const context = fixture(t);
+    const copy = verifyLocalFsusUiInstall(context);
+    const select = () => resolveLocalFsusUiRepositoryRoot({ override: context.fsusui, repositoryRoot: context.repositoryRoot });
+    context.write(path.join(context.fsusui, 'node_modules/vue/package.json'), JSON.stringify({ name: 'vue', version: '3.5.32' }));
+    for (const relative of ['vue/node_modules', 'vue/packages/element-plus/node_modules'])
+    {
+        const nearer = path.join(copy, relative);
+        fs.symlinkSync(path.join(context.fsusui, 'node_modules'), nearer, 'dir');
+        assert.throws(select, /unexpected local FsusUI source dependency directory/u);
+        fs.unlinkSync(nearer);
+    }
+    const katex = path.join(copy, 'vue/packages/node_modules/katex');
+    const original = fs.readlinkSync(katex);
+    fs.unlinkSync(katex);
+    fs.symlinkSync(path.join(context.frontend, 'node_modules/katex'), katex, 'dir');
+    assert.throws(select, /dependency binding differs: katex/u);
+    fs.unlinkSync(katex);
+    fs.symlinkSync(original, katex, 'dir');
+    const metadata = path.join(context.frontend, 'node_modules/fsusui-local-katex/package.json');
+    const bytes = fs.readFileSync(metadata);
+    context.write(metadata, JSON.stringify({ name: 'katex', version: '0.16.45' }));
+    assert.throws(select, /locked dependency identity differs: katex/u);
+    fs.writeFileSync(metadata, bytes);
+    const unexpected = path.join(copy, 'vue/packages/node_modules/unexpected');
+    fs.symlinkSync(path.join(context.frontend, 'node_modules/vue'), unexpected, 'dir');
+    assert.throws(select, /dependency bindings differ from the original lock/u);
+    fs.unlinkSync(unexpected);
+    assert.equal(select(), copy);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(context.fsusui, 'node_modules/vue/package.json'))).version, '3.5.32');
 });
 
 test('verify rejects absent nested packages, version drift, already installed private package and source dependency drift', (t) =>

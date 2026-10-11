@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -16,6 +17,141 @@ function sourceCopyRoot(repositoryRoot, sourceRoot)
 {
     const identity = createHash('sha256').update(fs.realpathSync(sourceRoot)).digest('hex');
     return path.join(repositoryRoot, '.tmp', 'fsusui-source', identity);
+}
+
+/** Keep initialization and later copy selection bound to the same original lock. */
+export function localFsusUiDependencyBindings({ manifest, lockfile })
+{
+    const packageLocation = 'node_modules/@ozwasyd/element-plus';
+    const dependencies = { ...lockfile.packages[packageLocation].dependencies, ...lockfile.packages[packageLocation].peerDependencies };
+    const installNames = new Set();
+    const validateName = (name) => assert.ok(typeof name === 'string' && name.length <= 214
+        && /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u.test(name), 'invalid source package name');
+    return Object.keys(dependencies).map(name =>
+    {
+        validateName(name);
+        const nestedLocation = `${packageLocation}/node_modules/${name}`;
+        const lockedLocation = Object.hasOwn(lockfile.packages, nestedLocation) ? nestedLocation : `node_modules/${name}`;
+        const locked = lockfile.packages[lockedLocation];
+        assert.ok(locked, `source dependency is not locked: ${name}`);
+        validateName(locked.name ?? name);
+        assert.match(locked.version ?? '', /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?$/u, 'locked source version must be exact');
+        const nested = lockedLocation !== `node_modules/${name}`;
+        const installName = nested ? `fsusui-local-${name.replaceAll(/[^a-z0-9-]/gu, '-')}` : name;
+        validateName(installName);
+        assert.equal(installNames.has(installName), false, 'source dependency alias collision');
+        installNames.add(installName);
+        if (nested)
+        {
+            assert.equal(lockfile.packages[`node_modules/${installName}`], undefined, 'source dependency alias collides with a locked package');
+            for (const section of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'])
+            {
+                assert.equal(manifest[section]?.[installName], undefined, 'source dependency alias collides with a declared package');
+            }
+        }
+        return { name, lockedLocation, locked, installName, location: `node_modules/${installName}`, nested };
+    });
+}
+
+function validateSourceCopyAncestors(repositoryRoot)
+{
+    for (const relative of ['.tmp', path.join('.tmp', 'fsusui-source')])
+    {
+        const directory = path.join(repositoryRoot, relative);
+        let stat;
+        try
+        {
+            stat = fs.lstatSync(directory);
+        }
+        catch (error)
+        {
+            if (error.code === 'ENOENT')
+            {
+                return;
+            }
+            throw error;
+        }
+        if (!stat.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(directory) !== directory)
+        {
+            throw new Error('local FsusUI source copy parent must be a real consumer directory');
+        }
+    }
+}
+
+function verifySourceCopyDependencies(root, frontend)
+{
+    const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+    const bindings = localFsusUiDependencyBindings({
+        manifest: readJson(path.join(frontend, 'package.json')),
+        lockfile: readJson(path.join(frontend, 'package-lock.json'))
+    });
+    const dependencies = path.join(root, 'node_modules');
+    const consumerDependencies = path.join(frontend, 'node_modules');
+    const packages = path.join(root, 'vue/packages/node_modules');
+    if (!fs.lstatSync(dependencies).isSymbolicLink()
+        || fs.realpathSync(dependencies) !== fs.realpathSync(consumerDependencies)
+        || !fs.lstatSync(packages).isDirectory() || fs.lstatSync(packages).isSymbolicLink())
+    {
+        throw new Error('local FsusUI source copy must use the consumer Vue identity throughout');
+    }
+    const expected = new Set(bindings.map(binding => binding.name));
+    const entries = fs.readdirSync(packages).flatMap(name =>
+    {
+        if (!name.startsWith('@'))
+        {
+            return [name];
+        }
+        const scope = path.join(packages, name);
+        if (!fs.lstatSync(scope).isDirectory() || fs.lstatSync(scope).isSymbolicLink())
+        {
+            throw new Error('local FsusUI source copy dependency scope must be a real directory');
+        }
+        return fs.readdirSync(scope).map(child => `${name}/${child}`);
+    });
+    if (entries.length !== expected.size || entries.some(name => !expected.has(name)))
+    {
+        throw new Error('local FsusUI source copy dependency bindings differ from the original lock');
+    }
+    for (const binding of bindings)
+    {
+        const link = path.join(packages, binding.name);
+        const target = path.join(frontend, binding.location);
+        if (!fs.lstatSync(link).isSymbolicLink() || fs.realpathSync(link) !== fs.realpathSync(target))
+        {
+            throw new Error(`local FsusUI source copy dependency binding differs: ${binding.name}`);
+        }
+        const installed = readJson(path.join(target, 'package.json'));
+        if (installed.name !== (binding.locked.name ?? binding.name) || installed.version !== binding.locked.version)
+        {
+            throw new Error(`local FsusUI source copy locked dependency identity differs: ${binding.name}`);
+        }
+    }
+    if (fs.realpathSync(path.join(packages, 'vue')) !== fs.realpathSync(path.join(consumerDependencies, 'vue')))
+    {
+        throw new Error('local FsusUI source copy must use the consumer Vue identity throughout');
+    }
+    // Every copied source scope may look upward through node_modules. Only the
+    // verified package projection and consumer root are allowed lookup roots.
+    const visit = (directory) =>
+    {
+        for (const name of fs.readdirSync(directory))
+        {
+            const file = path.join(directory, name);
+            if (name === 'node_modules')
+            {
+                if (file !== packages)
+                {
+                    throw new Error(`unexpected local FsusUI source dependency directory: ${path.relative(root, file)}`);
+                }
+                continue;
+            }
+            if (fs.lstatSync(file).isDirectory())
+            {
+                visit(file);
+            }
+        }
+    };
+    visit(path.join(root, 'vue'));
 }
 
 function localSourceSnapshot(root)
@@ -87,14 +223,9 @@ function readSourceCopy(root, repositoryRoot, sourceRoot, verifyDependencies = t
     {
         throw new Error('local FsusUI source copy belongs to a different consumer or source');
     }
-    const dependencies = path.join(root, 'node_modules');
-    const consumerDependencies = path.join(marker.frontendRoot, 'node_modules');
-    if (verifyDependencies && (!fs.lstatSync(dependencies).isSymbolicLink()
-        || fs.realpathSync(dependencies) !== fs.realpathSync(consumerDependencies)
-        || fs.realpathSync(path.join(root, 'vue/packages/node_modules/vue'))
-            !== fs.realpathSync(path.join(consumerDependencies, 'vue'))))
+    if (verifyDependencies)
     {
-        throw new Error('local FsusUI source copy must use the consumer Vue identity throughout');
+        verifySourceCopyDependencies(root, marker.frontendRoot);
     }
     return marker;
 }
@@ -114,6 +245,7 @@ function sourceOwnerRoot(root, repositoryRoot)
 function selectSourceCopy(root, repositoryRoot)
 {
     const sourceRoot = fs.realpathSync(sourceOwnerRoot(root, repositoryRoot));
+    validateSourceCopyAncestors(repositoryRoot);
     const copy = sourceCopyRoot(repositoryRoot, sourceRoot);
     if (!fs.existsSync(copy))
     {
@@ -140,6 +272,8 @@ export function prepareLocalFsusUiSourceCopy({ repositoryRoot, sourceRoot, front
         throw new Error('local FsusUI dependency projection must be outside the source owner');
     }
     const parent = path.dirname(destination);
+    // Read every existing ancestor before mkdir can follow a redirected .tmp.
+    validateSourceCopyAncestors(consumer);
     fs.mkdirSync(parent, { recursive: true });
     if (fs.realpathSync(parent) !== parent)
     {
@@ -172,11 +306,7 @@ export function prepareLocalFsusUiSourceCopy({ repositoryRoot, sourceRoot, front
         }
         fs.symlinkSync(path.join(fs.realpathSync(frontend), 'node_modules'), path.join(temporary, 'node_modules'), 'dir');
         initialize(temporary);
-        if (fs.realpathSync(path.join(temporary, 'vue/packages/node_modules/vue'))
-            !== fs.realpathSync(path.join(frontend, 'node_modules/vue')))
-        {
-            throw new Error('local FsusUI source copy must use the consumer Vue identity throughout');
-        }
+        verifySourceCopyDependencies(temporary, frontend);
         fs.writeFileSync(path.join(temporary, sourceCopyMarker), `${JSON.stringify({
             schema: 'fsusblog.local-fsusui-source-copy.v1',
             sourceRoot: owner,
@@ -313,6 +443,9 @@ if (isMain)
         const localRoot = resolveLocalFsusUiRepositoryRoot({
             override: options.override ?? process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
             repositoryRoot: options.repositoryRoot,
+            // External identity always names the owner Git worktree. Internal
+            // source consumers select the verified copy through the API.
+            preferSourceCopy: false,
             ...(options.gitCommonDirectory
                 ? { gitCommonDirectory: options.gitCommonDirectory }
                 : {})
