@@ -81,13 +81,58 @@ coordination or an ownership/context change, and release on original owner relea
 Other-tab changes remain asynchronously observed by the original coordination/list
 mechanisms; synchronous cross-tab storage existence is not supplied by IndexedDB.
 
-Blog #4210's `crashJournalRef` is currently a string in the frozen aggregate
-snapshot contract. This primitive returns an opaque object capability, not a
-fabricated string ref. The original session owner must define and review the real
-custody join and any contract change; until then full aggregate capture/restore
-remains blocked. Server-authorized DocumentId binding, complete draft/panel
-checkpoints and disposed-session hydration are also independent prerequisites.
+The frozen aggregate `crashJournalRef` remains a string. The original journal now
+issues `info.checkpointRef` only with completed private token custody, using native
+cryptographic UUID issuance plus a monotonic owner sequence. It is a stable locator
+into that same binding's existing custody slot, not a body/record digest or caller-
+generated identity. No separate reference map or durable token ledger is added.
+The locator inherits the token's exact invalidation/release/expiry lifetime and is
+never reused in that owner. It does not independently authenticate persistence.
+`inspectReference(ref)`, `validateReference(ref, nativeSource)` and
+`restoreReference(ref)` resolve the actual private token only in the issuing
+original binding and use its original validation/restore path.
+
+`bindCheckpointSource` returns the additive
+`ArticleRecoveryJournalCheckpointReferenceBinding`. The original six-method
+`ArticleRecoveryJournalCheckpointBinding` remains source-compatible. Inspect also
+synchronously checks the independently read Writer body against the completed
+original record's SHA-256 source hash; canonical UTF-8 round-trip and size checks
+prevent a lossy string from passing as equal source bytes. `validateContent(token,
+nativeSource)` and `validateReference(ref, nativeSource)` additionally check the
+actual original native digest callback's source with the same bounded source-hash
+domain. They still require live same-owner, epoch, native/client/base/server and
+all other revision facts, plus previously completed persistence. They cannot
+synchronously query storage or certify unseen other-tab writes.
+
+The exact Blog session contract inspected is
+`f92031afab06dbf73e7de085418545504c2e5f89`, with real public UI source
+`c3fa0d377702f41d3a9131ae04012ad52cf5f34e`. Its native `captureSnapshot` supplies the
+actual transaction-store body to `digestSource` and rechecks document/revision/body
+afterward. The original session caller must validate the issued locator and that
+body before returning its **original** `calculateOpenArticleDocumentDigest(body)`;
+the journal's namespaced `sourceHash` is not the native canonical JSON digest.
+No caller may infer readiness from a syntactically valid locator alone.
+
+The actual Writer reader and six-method wrapper were inspected at
+`dc98ae399932efa5445b6d4b4781e6ca17b37cd7` (caller implementation
+`54ef3efee2ec7f2fff8e6dbcdfa6385a79e933ab`). Its mounted source verifies public native
+revision against the original document source revision. That reader directly
+supplies the required original scope fields and its six-method wrapper remains
+compatible. Writer owns forwarding the four additive methods on the SAME journal
+binding and exposing the extended port; those methods are not present in its
+current wrapper. Session owns the actual callback/refset join. Both remain
+unwired here; full aggregate capture/restore stays blocked. Server-authorized
+DocumentId binding, complete draft/panel checkpoints and disposed-session hydration
+remain independent prerequisites.
 The original plaintext policy, 168-hour TTL, principal/article/recovery-tab storage
 key, payload integrity/capacity checks and server-confirmation deletion semantics
 are unchanged. No second journal, body cache, storage fallback, coordinator or
 factory is introduced.
+
+
+Asynchronous observation invalidation is fenced to the custody captured when the
+original read began. An old A restore/list result cannot revoke a newer B token.
+Invalid-record cleanup rereads within its original readwrite transaction; a valid
+replacement is preserved, while actual invalid-row deletion revokes the custody
+of the row being deleted. Retired database callbacks cannot revoke a current
+connection's custody. Original authoritative mutation invalidation remains intact.

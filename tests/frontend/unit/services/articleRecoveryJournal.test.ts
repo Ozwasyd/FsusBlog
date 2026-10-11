@@ -1206,3 +1206,178 @@ describe('original journal asynchronous custody replacement source controls', ()
         }
     });
 });
+
+
+describe('original journal stable reference and native digest source controls', () =>
+{
+    it('issues an owner locator for the completed token and resolves it only in the same binding', async () =>
+    {
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        const foreign = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            const foreignToken = await foreign.prepare();
+            if (!token || !foreignToken)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            const info = binding.inspect(token)!;
+            const foreignInfo = foreign.inspect(foreignToken)!;
+            expect(info.checkpointRef).toMatch(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u);
+            expect(info.checkpointRef).not.toBe(foreignInfo.checkpointRef);
+            expect(binding.inspectReference(info.checkpointRef)).toBe(info);
+            expect(binding.validateReference(info.checkpointRef, source.content)).toBe(true);
+            expect(binding.validateContent(token, source.content)).toBe(true);
+            expect((await binding.restoreReference(info.checkpointRef))?.content).toBe(source.content);
+            expect(foreign.inspectReference(info.checkpointRef)).toBeNull();
+            expect(await foreign.restoreReference(info.checkpointRef)).toBeNull();
+            expect(binding.inspectReference(foreignInfo.checkpointRef)).toBeNull();
+            expect(binding.validateReference(`${info.checkpointRef}:forged`, source.content)).toBe(false);
+            expect(binding.validate({ ...token })).toBe(false);
+            expect(binding.validate(token)).toBe(true);
+        }
+        finally
+        {
+            binding.release();
+            foreign.release();
+        }
+    });
+
+    it('rejects native digest input differing from the completed body and retires its locator', async () =>
+    {
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            const ref = binding.inspect(token)!.checkpointRef;
+            expect(binding.validateReference(ref, `${source.content} unsaved native input`)).toBe(false);
+            expect(binding.inspectReference(ref)).toBeNull();
+            expect(binding.validate(token)).toBe(false);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('detects changed actual Writer content even when its revision fields were incorrectly unchanged', async () =>
+    {
+        const original = checkpointSource();
+        let source = original;
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            const ref = binding.inspect(token)!.checkpointRef;
+            source = { ...original, content: 'changed actual body at unchanged numeric revision' };
+            expect(binding.inspectReference(ref)).toBeNull();
+            source = original;
+            expect(binding.validateReference(ref, source.content)).toBe(false);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('does not treat equal UTF-8 replacement bytes as equal actual native source text', async () =>
+    {
+        const source = { ...checkpointSource(), content: '\uFFFD' };
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            expect(binding.validateContent(token, '\uD800')).toBe(false);
+            expect(binding.validate(token)).toBe(false);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('does not reuse a retired locator even if the UUID provider repeats a value', async () =>
+    {
+        const uuid = vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('00000000-0000-4000-8000-000000000000');
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const tokenA = await binding.prepare();
+            if (!tokenA)
+            {
+                throw new Error('checkpoint_A_not_issued');
+            }
+            const refA = binding.inspect(tokenA)!.checkpointRef;
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            const refB = binding.inspect(tokenB)!.checkpointRef;
+            expect(refB).not.toBe(refA);
+            expect(binding.inspectReference(refA)).toBeNull();
+            expect(binding.validateReference(refA, source.content)).toBe(false);
+            expect(await binding.restoreReference(refA)).toBeNull();
+            expect(binding.validateReference(refB, source.content)).toBe(true);
+            binding.invalidate();
+            expect(binding.inspectReference(refB)).toBeNull();
+        }
+        finally
+        {
+            uuid.mockRestore();
+            binding.release();
+        }
+    });
+
+    it('issues no locator when cryptographic locator issuance fails after real persistence', async () =>
+    {
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const uuid = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() =>
+        {
+            throw new Error('random_uuid_unavailable');
+        });
+        try
+        {
+            expect(await binding.prepare()).toBeNull();
+            expect((await journal.list(source.identityId, source.articleId)).records).toHaveLength(1);
+        }
+        finally
+        {
+            uuid.mockRestore();
+            binding.release();
+        }
+    });
+
+    it('refuses a locator after its actual owner reader is released', async () =>
+    {
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        const ref = binding.inspect(token)!.checkpointRef;
+        binding.release();
+        expect(binding.validateReference(ref, source.content)).toBe(false);
+        expect(await binding.restoreReference(ref)).toBeNull();
+    });
+});

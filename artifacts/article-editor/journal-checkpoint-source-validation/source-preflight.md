@@ -94,10 +94,11 @@ staging/context/external changes and releases on original owner release. See the
 maintained `docs/security/private-surface-runtime.md` contract. Journal metadata
 is not an identity source, backend DocumentId binding or saved draft checkpoint.
 
-The original session aggregate currently has string `crashJournalRef`; this owner
-issues an opaque object token. Session must review the real custody join/contract
-instead of converting a record ID or digest into a ref. Complete draft/panel
-custody, server-authorized DocumentId and disposed-session hydration remain
+The initial source offered only an opaque object token for the aggregate's string
+`crashJournalRef`. The additive owner-issued locator/content join described below
+now supports that original string shape through the same private custody. Actual
+Writer forwarding and session wiring remain with their owners. Complete draft/
+panel custody, server-authorized DocumentId and disposed-session hydration remain
 independent dependencies. Full factory capture/restore stays blocked.
 
 Synchronous inspect proves earlier completed persistence plus current local
@@ -132,3 +133,69 @@ must preserve B. These cases are UNRUN. P2 scoped compiler/style results remain
 PASS for the service / two original services, respectively; whole-file compiler
 remains RED with the same three master diagnostics (`P2-compiler.txt`). This is a
 source correction awaiting independent re-review, not accepted runtime closure.
+
+
+## Actual original stable-ref and native-digest join
+
+Read actual Blog `f92031afab06dbf73e7de085418545504c2e5f89` aggregate/factory/digest
+source and UI `c3fa0d377702f41d3a9131ae04012ad52cf5f34e` public native session source.
+The aggregate requires a stable string ref, while the public native digest
+callback receives its transaction-store source before native snapshot custody is
+replaced. Native document identity, revision and body are rechecked after callback.
+
+The journal now issues a stable `info.checkpointRef` when its completed token is
+issued. It uses native cryptographic UUID issuance plus a monotonic owner sequence,
+with no record ID/hash/caller identity as the locator and no second index/table.
+The locator resolves the original private token in the SAME binding's custody
+slot; invalidation, replacement, expiry and release retire both together. A string
+alone never authenticates completed persistence or product readiness.
+
+The new additive `ArticleRecoveryJournalCheckpointReferenceBinding` extends the
+unchanged six-method base interface. The actual owner returns the extension from
+`bindCheckpointSource` and provides:
+
+- `validateContent(token, actualNativeSource)`;
+- `inspectReference(checkpointRef)`;
+- `validateReference(checkpointRef, actualNativeSource)`;
+- `restoreReference(checkpointRef)`.
+
+Inspect checks the current independent Writer body as well as all actual owner/
+version coordinates. Content validation checks the real native callback body
+against the completed original source hash, with size/canonical UTF-8 guards.
+No body is retained in a new cache. Native canonical content digest remains the
+original `calculateOpenArticleDocumentDigest(source)` **after** owner validation;
+the journal source hash uses its original namespaced domain and cannot replace it.
+The synchronous checks attest local custody/earlier completed persistence only;
+unobserved cross-tab storage mutation still requires original async observation.
+
+The actual Writer was read at `dc98ae399932efa5445b6d4b4781e6ca17b37cd7`, including
+its source offer README, actual caller `54ef3efee2ec7f2fff8e6dbcdfa6385a79e933ab`,
+`articleWriterMountedEditorSource` and mounted resolver. Its reader verifies native
+revision against actual document source revision and supplies the original scope,
+including distinct registry and browser recovery tab coordinates. Its exact six-
+method Object.freeze wrapper was extracted unchanged into a temporary ambient type
+projection, using the real journal return type and declared original closure
+bindings. Compiler-only projection PASS, exit 0, no diagnostics:
+
+```bash
+node src/frontend/node_modules/typescript/bin/tsc --noEmit --strict --noUnusedLocals --noUnusedParameters --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM --skipLibCheck /tmp/journal-actual-writer-wrapper-contract.ts
+```
+
+This checks that precise original wrapper contract, not the entire Writer graph,
+installed composition or product behavior. The wrapper currently forwards only
+six base methods. Writer must forward the four listed extension methods to the
+SAME `journal` returned by `bindCheckpointSource`, retain its original release/
+watch cleanup, and expose the extended return type. No caller-generated ref map,
+secondary reader, body copy or alternative service is required. These Writer-owned
+files remain untouched here. Main session owns passing the actual native callback
+source and pairing locator validation with its original expected document state.
+Full factory remains blocked on the other original owners and real wiring.
+
+Latest standalone owner compiler with `--moduleResolution Bundler` PASS; scoped
+strict-full style PASS (two files, zero violations, `reference-style.txt`). Whole
+original unit-source/private-storage compiler remains RED with the exact same
+three master diagnostics (`reference-compiler.txt`). Added ref/digest source cases
+cover positive same-binding lookup/restore, foreign locators, fake copied tokens,
+changed native/Writer body, canonical Unicode, retired refs despite repeated UUID,
+issuance failure and released owner. All these cases and P2 interleavings remain
+UNRUN; no original runner/list/product/native/storage execution was performed.

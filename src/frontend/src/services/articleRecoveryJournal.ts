@@ -1,3 +1,6 @@
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex as synchronousBytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+
 export const ARTICLE_RECOVERY_JOURNAL_DATABASE = 'fsusblog-article-recovery-journal';
 export const ARTICLE_RECOVERY_JOURNAL_STORE = 'entries';
 export const ARTICLE_RECOVERY_JOURNAL_SCHEMA = 'fsusblog.article-recovery-journal.v2';
@@ -133,6 +136,7 @@ export interface ArticleRecoveryJournalCheckpoint {
 export type ArticleRecoveryJournalCheckpointInfo = Readonly<Omit<
     ArticleRecoveryJournalCheckpointSource, 'owner' | 'mountedEditor' | 'content' | 'identityId'
 > & {
+    checkpointRef: string;
     identityHash: string;
     sourceHash: string;
     expiresAt: number;
@@ -149,6 +153,17 @@ export interface ArticleRecoveryJournalCheckpointBinding {
     restore(token: ArticleRecoveryJournalCheckpoint): Promise<Readonly<ArticleRecoveryJournalRecord> | null>;
     invalidate(): void;
     release(): void;
+}
+
+/** Additive native-digest/reference join; existing six-method Writer bindings remain compatible. */
+export interface ArticleRecoveryJournalCheckpointReferenceBinding extends ArticleRecoveryJournalCheckpointBinding {
+    /** Also verifies the actual native source passed to its synchronous digest callback. */
+    validateContent(token: ArticleRecoveryJournalCheckpoint, content: string): boolean;
+    /** Resolves only the current locator in this SAME original binding's private custody. */
+    inspectReference(reference: string): ArticleRecoveryJournalCheckpointInfo | null;
+    /** A locator alone is not persistence authentication; live custody and native source must match. */
+    validateReference(reference: string, content: string): boolean;
+    restoreReference(reference: string): Promise<Readonly<ArticleRecoveryJournalRecord> | null>;
 }
 
 interface ArticleRecoveryCheckpointCustody {
@@ -198,6 +213,8 @@ function validCheckpointSource(source: ArticleRecoveryJournalCheckpointSource): 
         && source.draftKey.trim().length > 0
         && Number.isSafeInteger(source.registryRevision) && source.registryRevision >= 0
         && Number.isSafeInteger(source.associationRevision) && source.associationRevision >= 0
+        && typeof source.content === 'string'
+        && canonicalRecoveryContent(source.content)
         && source.identityId.trim().length > 0
         && (source.articleId === null || (Number.isSafeInteger(source.articleId) && source.articleId > 0))
         && TAB_ID_PATTERN.test(source.tabId)
@@ -322,6 +339,18 @@ export function createArticleRecoveryClientRevision(): string
 export async function articleRecoverySourceHash(content: string): Promise<string>
 {
     return sha256Hex(`${ARTICLE_RECOVERY_JOURNAL_SCHEMA}:source:${content}`);
+}
+
+function synchronousRecoverySourceHash(content: string): string
+{
+    return synchronousBytesToHex(sha256(utf8ToBytes(`${ARTICLE_RECOVERY_JOURNAL_SCHEMA}:source:${content}`)));
+}
+
+function canonicalRecoveryContent(content: string): boolean
+{
+    const bytes = new TextEncoder().encode(content);
+    return bytes.byteLength <= ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES
+        && new TextDecoder('utf-8', { fatal: true }).decode(bytes) === content;
 }
 
 export async function articleRecoveryIdentityHash(identityId: string): Promise<string>
@@ -627,6 +656,7 @@ export class ArticleRecoveryJournal
     readonly #checkpointBindings = new Set<ArticleRecoveryCheckpointBindingState>();
     #checkpointDatabase: IDBDatabase | null = null;
     #preparingCheckpoint = false;
+    #checkpointSequence = 0;
 
     constructor(options: ArticleRecoveryJournalOptions = {})
     {
@@ -646,7 +676,7 @@ export class ArticleRecoveryJournal
      */
     bindCheckpointSource(
         readSource: () => ArticleRecoveryJournalCheckpointSource | null
-    ): ArticleRecoveryJournalCheckpointBinding
+    ): ArticleRecoveryJournalCheckpointReferenceBinding
     {
         if (this.#checkpointBindings.size >= ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_ENTRIES)
         {
@@ -658,6 +688,22 @@ export class ArticleRecoveryJournal
             prepare: (signal?: AbortSignal) => this.prepareCheckpoint(state, signal),
             inspect: (token: ArticleRecoveryJournalCheckpoint) => this.inspectCheckpoint(state, token),
             validate: (token: ArticleRecoveryJournalCheckpoint) => this.inspectCheckpoint(state, token) !== null,
+            validateContent: (token: ArticleRecoveryJournalCheckpoint, content: string) => this.validateCheckpointContent(state, token, content),
+            inspectReference: (reference: string) =>
+            {
+                const token = this.checkpointReferenceToken(state, reference);
+                return token ? this.inspectCheckpoint(state, token) : null;
+            },
+            validateReference: (reference: string, content: string) =>
+            {
+                const token = this.checkpointReferenceToken(state, reference);
+                return token !== null && this.validateCheckpointContent(state, token, content);
+            },
+            restoreReference: (reference: string) =>
+            {
+                const token = this.checkpointReferenceToken(state, reference);
+                return token ? this.restoreCheckpoint(state, token) : Promise.resolve(null);
+            },
             restore: (token: ArticleRecoveryJournalCheckpoint) => this.restoreCheckpoint(state, token),
             invalidate: () => this.invalidateCheckpointBinding(state),
             release: () =>
@@ -719,6 +765,7 @@ export class ArticleRecoveryJournal
         const source = this.readCheckpointSource(state);
         if (!custody || state.custody !== custody || custody.token !== token || !source
             || !sameCheckpointSource(custody.source, source)
+            || synchronousRecoverySourceHash(source.content) !== custody.record.sourceHash
             || custody.record.expiresAt <= now)
         {
             // A foreign token must not revoke the legitimate token as a side effect.
@@ -729,6 +776,39 @@ export class ArticleRecoveryJournal
             return null;
         }
         return custody.info;
+    }
+
+    private checkpointReferenceToken(
+        state: ArticleRecoveryCheckpointBindingState,
+        reference: string
+    ): ArticleRecoveryJournalCheckpoint | null
+    {
+        const custody = state.custody;
+        return this.#checkpointBindings.has(state) && custody?.info.checkpointRef === reference ? custody.token : null;
+    }
+
+    private validateCheckpointContent(
+        state: ArticleRecoveryCheckpointBindingState,
+        token: ArticleRecoveryJournalCheckpoint,
+        content: string
+    ): boolean
+    {
+        const info = this.inspectCheckpoint(state, token);
+        if (!info)
+        {
+            return false;
+        }
+        if (typeof content !== 'string'
+            || !canonicalRecoveryContent(content)
+            || synchronousRecoverySourceHash(content) !== info.sourceHash)
+        {
+            if (state.custody?.token === token)
+            {
+                this.invalidateCheckpointBinding(state);
+            }
+            return false;
+        }
+        return true;
     }
 
     private async prepareCheckpoint(
@@ -810,6 +890,19 @@ export class ArticleRecoveryJournal
             {
                 return null;
             }
+            if (typeof globalThis.crypto.randomUUID !== 'function'
+                || this.#checkpointSequence >= Number.MAX_SAFE_INTEGER)
+            {
+                return null;
+            }
+            // The locator is issued here, never derived from record ID, body or caller identity.
+            const checkpointRef = `article-recovery:${globalThis.crypto.randomUUID()}:${++this.#checkpointSequence}`;
+            const issuedSource = this.readCheckpointSource(state);
+            if (!issuedSource || !sameCheckpointSource(source, issuedSource) || source.content !== issuedSource.content
+                || state.generation !== generation || !this.#checkpointBindings.has(state) || signal?.aborted)
+            {
+                return null;
+            }
             // Only scalar custody survives prepare; body restoration stays in IndexedDB.
             const token = Object.freeze({}) as ArticleRecoveryJournalCheckpoint;
             state.custody = {
@@ -818,6 +911,7 @@ export class ArticleRecoveryJournal
                 record: Object.freeze(recordMetadata),
                 info: Object.freeze({
                     ...publicSource,
+                    checkpointRef,
                     identityHash: record.identityHash,
                     sourceHash: record.sourceHash,
                     expiresAt: record.expiresAt
