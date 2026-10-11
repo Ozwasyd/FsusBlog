@@ -57,7 +57,6 @@ import {
     type AccountContentMode,
     type AccountPageKind
 } from '@/router/accountRouteMeta';
-import { installArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
 import { createArticleWorkspaceMountedEditorResolver, type ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
     articleWorkspaceTabRouter,
@@ -67,6 +66,7 @@ import {
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { AuthoringTabGroupRegistry, type AuthoringTabGroupOptions, type AuthoringGroupCommandIdentity } from '@/services/authoring/authoringTabGroupRegistry';
+import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
 import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestoreCommands, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
 import type { AuthoringWorkspaceSnapshotSync } from '@/services/authoring/authoringWorkspaceSnapshotSync';
@@ -89,7 +89,10 @@ export interface AdminArticleWorkspaceStartupPorts {
 // One original router/Registry has one startup installation, independent of route remounts.
 let workspaceInstallation: {
     readonly ports: AdminArticleWorkspaceStartupPorts;
-    readonly task: Promise<AuthoringWorkspaceSnapshotRestorePlan>;
+    readonly task: Promise<{
+        readonly plan: AuthoringWorkspaceSnapshotRestorePlan;
+        readonly sessions: AuthoringWorkspaceSessionSource;
+    }>;
 } | undefined;
 
 function requireCurrentStartup(ports: AdminArticleWorkspaceStartupPorts, plan: AuthoringWorkspaceSnapshotRestorePlan): void
@@ -107,7 +110,7 @@ function requireCurrentStartup(ports: AdminArticleWorkspaceStartupPorts, plan: A
     }
 }
 
-async function startArticleWorkspace(ports: AdminArticleWorkspaceStartupPorts): Promise<AuthoringWorkspaceSnapshotRestorePlan>
+async function startArticleWorkspace(ports: AdminArticleWorkspaceStartupPorts)
 {
     const signal = ports.signal;
     signal.throwIfAborted();
@@ -127,7 +130,7 @@ async function startArticleWorkspace(ports: AdminArticleWorkspaceStartupPorts): 
         initialGroupIds: plan.layout.groups.map((group: AuthoringWorkspaceSnapshotRestorePlan['layout']['groups'][number]) => group.groupId)
     });
     const groupAdapter = bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, articleWorkspaceTabRouter, groupOwner, ports.createGroupIdentity);
-    installArticleWorkspaceEditorSessions(createArticleWorkspaceMountedEditorResolver(ports.mountedEditors));
+    const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, createArticleWorkspaceMountedEditorResolver(ports.mountedEditors));
     await applyAuthoringWorkspaceSnapshotRestore(plan, {
         router: articleWorkspaceTabRouter,
         resolutionPort: ports.resolutionPort,
@@ -137,11 +140,11 @@ async function startArticleWorkspace(ports: AdminArticleWorkspaceStartupPorts): 
         isCurrent: ports.isCurrent
     }, signal);
     requireCurrentStartup(ports, plan);
-    return plan;
+    return { plan, sessions };
 }
 
 /** Sole host installer: failed/partial startup cannot be retried against a now-started Registry. */
-function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts): Promise<AuthoringWorkspaceSnapshotRestorePlan>
+function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts): NonNullable<typeof workspaceInstallation>['task']
 {
     const installed = workspaceInstallation;
     if (installed)
@@ -150,10 +153,10 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         {
             return Promise.reject(new Error('article-workspace-startup-owner-changed'));
         }
-        return installed.task.then((plan) =>
+        return installed.task.then((result) =>
         {
-            requireCurrentStartup(ports, plan);
-            return plan;
+            requireCurrentStartup(ports, result.plan);
+            return result;
         });
     }
     const task = startArticleWorkspace(ports);
@@ -176,6 +179,7 @@ const emit = defineEmits<{
     revealCurrent: [articleId: number];
     expanded: [expanded: boolean];
     navigation: [receipt: ArticleWorkspaceRouterReceipt];
+    workspaceStarted: [source: AuthoringWorkspaceSessionSource];
 }>();
 const route = useRoute();
 const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
@@ -188,11 +192,13 @@ if (props.workspaceStartup)
 {
     workspaceStartupState.value = 'starting';
     props.workspaceStartup.signal.addEventListener('abort', markWorkspaceStartupUnavailable);
-    void installArticleWorkspaceStartup(props.workspaceStartup).then(() =>
+    void installArticleWorkspaceStartup(props.workspaceStartup).then(({ sessions }) =>
     {
         if (mounted)
         {
             workspaceStartupState.value = 'started';
+            // Hand the layout owner the same original group/host, never a reconstructed projection.
+            emit('workspaceStarted', sessions);
         }
     }).catch(() =>
     {
