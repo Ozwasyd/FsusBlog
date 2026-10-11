@@ -2390,6 +2390,14 @@ authorized query response、verified history projection 或 receipt，也不暴�
 空 corpus 同样明确为 `SlugUnavailable`；Archived read grant、verified Recent source wiring 和 query cursor
 分别保持 unavailable。内部观察不能作为成功响应写入 verified query cache 或 UI。
 
+`IAuthorArticleQuerySourceReader` 的原 `ArticleService` 数据投影接受既有 Draft、Scheduled、Published、Archived
+四种状态。Archived 使用真实 lifecycle `status=3`，与 Deleted/逻辑删除区分；coordinates 和 admitted-ID fields
+均保留原 article ID、current revision、row version，fields 复用原 title/category/tags，不创建归档索引或替代身份。
+两段 SQL 继续排除 `isdeleted=true`；fields 的 status allowlist 使用既有枚举参数，包含 Archived、排除 Deleted
+及未知状态。该 reader 是内部原始投影，不提供 Archived read grant：`AuthorArticleQuerySourceInspection` 的
+`ArchivedReadGrantUnavailable`、slug/history/cursor 限制及权限检查保持不变。ArticleLibraryRail 仍须消费后续
+实际 permission-safe query response；不得直接把 reader fields 当作已授权响应或可写 verified cache。
+
 `AuthorArticleQueryHistoryIdentityReader` 独立消费原规范 history projection，最多 1000 entries、每页 100。
 全部页面必须绑定同一 user/site、collection revision、permission/site/session identity、projection/cache references
 和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；

@@ -1,0 +1,253 @@
+using System.Data;
+
+using FsusBlog.Contracts.Articles;
+using FsusBlog.Core.Services.Articles;
+using FsusBlog.Core.Services.Gateways;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Background;
+
+using Microsoft.Extensions.Logging.Abstractions;
+
+using NSubstitute;
+
+using SqlSugar;
+
+namespace FsusBlog.Server.Tests.Unit;
+
+/// <summary>Exercises the original source reader with ADO rows; no database or admission qualification.</summary>
+[Trait("Category", "Unit")]
+public sealed class AuthorArticleQuerySourceReaderTests
+{
+    [Theory]
+    [InlineData(AuthorArticleQueryStatus.Draft)]
+    [InlineData(AuthorArticleQueryStatus.Scheduled)]
+    [InlineData(AuthorArticleQueryStatus.Published)]
+    [InlineData(AuthorArticleQueryStatus.Archived)]
+    public async Task Coordinates_PreserveExistingLifecycleAndVersion(AuthorArticleQueryStatus status)
+    {
+        DataTable rows = Coordinates();
+        rows.Rows.Add(71, 901L, "row-71", (int)status);
+        var fixture = new ReaderFixture(rows);
+
+        AuthorArticleQuerySourceBatch batch = await fixture.Source.ReadCoordinatesAsync([status], default);
+
+        Assert.Equal(new AuthorArticleQuerySourceCoordinate(71, 901, "row-71", status),
+            Assert.Single(batch.Coordinates));
+        Assert.False(batch.HasMore);
+        Assert.Equal(new[] { (int)status }, fixture.Statuses());
+        Assert.Contains("isdeleted = false", fixture.CommandText, StringComparison.Ordinal);
+        Assert.Equal(AuthorArticleQuerySourceInspection.MaxBatchSize + 1,
+            Assert.IsType<int>(fixture.Parameter("@Limit").Value));
+        Assert.True(fixture.Reader!.IsClosed);
+    }
+
+    [Fact]
+    public async Task Fields_PreserveDistinctArchivedIdsAndRealMetadata()
+    {
+        DataTable rows = Fields();
+        rows.Rows.Add(71, 901L, "row-71", (int)ArticleStatus.Archived,
+            "same title", "category-a", new[] { "tag-a", "tag-b" });
+        rows.Rows.Add(72, 902L, "row-72", (int)ArticleStatus.Archived,
+            "same title", "category-b", Array.Empty<string>());
+        var fixture = new ReaderFixture(rows);
+
+        IReadOnlyList<AuthorArticleQuerySourceFields> fields = await fixture.Source.ReadFieldsAsync([71, 72], default);
+
+        Assert.Equal(new[] { 71, 72 }, fields.Select(static field => field.Coordinate.ArticleId));
+        Assert.Equal(new AuthorArticleQuerySourceCoordinate(71, 901, "row-71", AuthorArticleQueryStatus.Archived),
+            fields[0].Coordinate);
+        Assert.Equal(new AuthorArticleQuerySourceCoordinate(72, 902, "row-72", AuthorArticleQueryStatus.Archived),
+            fields[1].Coordinate);
+        Assert.All(fields, static field => Assert.Equal("same title", field.Title));
+        Assert.Equal("category-a", fields[0].Category);
+        Assert.Equal(new[] { "tag-a", "tag-b" }, fields[0].Tags);
+        Assert.Equal("category-b", fields[1].Category);
+        Assert.Empty(fields[1].Tags);
+        Assert.Equal(new[] { 71, 72 }, Assert.IsType<int[]>(fixture.Parameter("@ArticleIds").Value));
+        Assert.Equal(new[]
+        {
+            (int)ArticleStatus.Draft, (int)ArticleStatus.Scheduled,
+            (int)ArticleStatus.Published, (int)ArticleStatus.Archived
+        }, fixture.Statuses());
+        Assert.DoesNotContain((int)ArticleStatus.Deleted, fixture.Statuses());
+        Assert.Contains("a.isdeleted = false", fixture.CommandText, StringComparison.Ordinal);
+        Assert.True(fixture.Reader!.IsClosed);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(42)]
+    public async Task Coordinates_RejectDeletedAndUnknownStatusesBeforeAdo(int status)
+    {
+        var fixture = new ReaderFixture(Coordinates());
+
+        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(() =>
+            fixture.Source.ReadCoordinatesAsync([(AuthorArticleQueryStatus)status], default));
+
+        Assert.Equal("statuses", error.ParamName);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Theory]
+    [InlineData("empty")]
+    [InlineData("zero")]
+    [InlineData("negative")]
+    [InlineData("duplicate")]
+    [InlineData("oversized")]
+    public async Task Fields_RejectInvalidAdmittedIdsBeforeAdo(string fault)
+    {
+        int[] ids = fault switch
+        {
+            "empty" => [],
+            "zero" => [0],
+            "negative" => [-1],
+            "duplicate" => [71, 71],
+            "oversized" => Enumerable.Range(1, AuthorArticleQuerySourceInspection.MaxBatchSize + 1).ToArray(),
+            _ => throw new ArgumentException(nameof(fault))
+        };
+        var fixture = new ReaderFixture(Fields());
+
+        ArgumentException error = await Assert.ThrowsAsync<ArgumentException>(() =>
+            fixture.Source.ReadFieldsAsync(ids, default));
+
+        Assert.Equal("admittedArticleIds", error.ParamName);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public async Task Coordinates_ArchivedOverflowRemainsBounded()
+    {
+        DataTable rows = Coordinates();
+        for (int id = 1; id <= AuthorArticleQuerySourceInspection.MaxBatchSize + 1; id++)
+        {
+            rows.Rows.Add(id, id * 10L, $"row-{id}", (int)ArticleStatus.Archived);
+        }
+        var fixture = new ReaderFixture(rows);
+
+        AuthorArticleQuerySourceBatch batch = await fixture.Source.ReadCoordinatesAsync(
+            [AuthorArticleQueryStatus.Archived], default);
+
+        Assert.True(batch.HasMore);
+        Assert.Equal(AuthorArticleQuerySourceInspection.MaxBatchSize, batch.Coordinates.Count);
+        Assert.Equal(AuthorArticleQuerySourceInspection.MaxBatchSize, batch.Coordinates[^1].ArticleId);
+        Assert.All(batch.Coordinates, static row => Assert.Equal(AuthorArticleQueryStatus.Archived, row.Status));
+        Assert.True(fixture.Reader!.IsClosed);
+    }
+
+    [Fact]
+    public async Task Coordinates_EmptyScopeDoesNotReadAdo()
+    {
+        var fixture = new ReaderFixture(Coordinates());
+
+        AuthorArticleQuerySourceBatch batch = await fixture.Source.ReadCoordinatesAsync([], default);
+
+        Assert.Empty(batch.Coordinates);
+        Assert.False(batch.HasMore);
+        await fixture.Ado.DidNotReceive().GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CanceledProjection_DisposesAdoReaderWithoutReturningRows(bool fields)
+    {
+        var fixture = new ReaderFixture(fields ? Fields() : Coordinates());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        if (fields)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                fixture.Source.ReadFieldsAsync([71], cancellation.Token));
+        }
+        else
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                fixture.Source.ReadCoordinatesAsync([AuthorArticleQueryStatus.Archived], cancellation.Token));
+        }
+        Assert.True(fixture.Reader!.IsClosed);
+    }
+
+    private static DataTable Coordinates()
+    {
+        var table = new DataTable();
+        table.Columns.Add("id", typeof(int));
+        table.Columns.Add("current_revision_id", typeof(long));
+        table.Columns.Add("row_version", typeof(string));
+        table.Columns.Add("status", typeof(int));
+        return table;
+    }
+
+    private static DataTable Fields()
+    {
+        DataTable table = Coordinates();
+        table.Columns.Add("title", typeof(string));
+        table.Columns.Add("category_name", typeof(string));
+        table.Columns.Add("tag_names", typeof(string[]));
+        return table;
+    }
+
+    private sealed class ReaderFixture
+    {
+        public IAdo Ado { get; } = Substitute.For<IAdo>();
+        public IAuthorArticleQuerySourceReader Source
+        {
+            get;
+        }
+        public string CommandText { get; private set; } = string.Empty;
+        public SugarParameter[] Parameters { get; private set; } = [];
+        public DataTableReader? Reader
+        {
+            get; private set;
+        }
+
+        public ReaderFixture(DataTable rows)
+        {
+            var db = Substitute.For<ISqlSugarClient>();
+            db.Ado.Returns(Ado);
+            Ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+            {
+                CommandText = call.ArgAt<string>(0);
+                Parameters = call.ArgAt<SugarParameter[]>(1);
+                Reader = rows.CreateDataReader();
+                return Task.FromResult((IDataReader)Reader);
+            });
+            Source = new ArticleService(
+                _db: db,
+                _searchIndex: Substitute.For<ISearchIndexService>(),
+                _redisOperations: Substitute.For<IRedisOperationExecutor>(),
+                _cacheReader: Substitute.For<ICacheTypedReader>(),
+                _cacheWriter: Substitute.For<ICacheRawWriter>(),
+                _stringReader: Substitute.For<ICacheStringReader>(),
+                _stringWriter: Substitute.For<ICacheStringWriter>(),
+                _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
+                _dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+                _runtimeKeyScope: Substitute.For<IRuntimeKeyScope>(),
+                _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
+                _logger: NullLogger<ArticleService>.Instance,
+                _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
+                _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
+                _mutationFence: Substitute.For<IArticlePublicMutationFence>(),
+                _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+                _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
+                _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing(),
+                _articleBodyRepairQueue: new ArticleBodyRepairQueue());
+        }
+
+        public SugarParameter Parameter(string name)
+            => Assert.Single(Parameters, parameter => parameter.ParameterName == name);
+
+        public int[] Statuses()
+        {
+            SugarParameter parameter = Parameter("@Statuses");
+            Assert.True(parameter.IsArray);
+            return Assert.IsType<int[]>(parameter.Value);
+        }
+    }
+}
