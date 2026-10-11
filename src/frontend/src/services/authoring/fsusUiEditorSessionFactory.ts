@@ -15,7 +15,7 @@ import {
     type OpenArticleDocumentEntry
 } from './openArticleDocumentRegistry';
 
-import type { ArticleRecoveryJournalCheckpointReferenceBinding } from '../articleRecoveryJournal';
+import type { ArticleRecoveryJournalCheckpointInfo, ArticleRecoveryJournalCheckpointReferenceBinding } from '../articleRecoveryJournal';
 import type {
     MarkdownEditorSession,
     MarkdownEditorSessionAttachmentResourceSource,
@@ -144,7 +144,7 @@ export function createFsusUiEditorSessionFactory(
         binding: ArticleWorkspaceMountedEditorBinding,
         inspectReference: ArticleRecoveryJournalCheckpointReferenceBinding['inspectReference'],
         checkpointRef: string
-    ): void
+    ): ArticleRecoveryJournalCheckpointInfo
     {
         const info = inspectReference(checkpointRef);
         if (info?.checkpointRef !== checkpointRef
@@ -161,12 +161,14 @@ export function createFsusUiEditorSessionFactory(
             throw new Error('public-editor-recovery-reference-owner-mismatch');
         }
         assertAdmission();
+        return info;
     }
 
     return {
         captureRetainedRecoverySnapshot(entry, recoveryCheckpoint, checkpointRef)
         {
             const inspectReference = recoveryCheckpoint.inspectReference.bind(recoveryCheckpoint);
+            const hasReferenceCustody = recoveryCheckpoint.hasReferenceCustody.bind(recoveryCheckpoint);
             const captureNative = recoveryCheckpoint.captureRetainedSnapshot.bind(recoveryCheckpoint);
             const { binding, session } = resolveSession(entry);
             const identity = Object.freeze({ ...binding.identity });
@@ -175,6 +177,8 @@ export function createFsusUiEditorSessionFactory(
             const editor = binding.editor;
             const assertOwner = (): void =>
             {
+                // Reference/source readers can revoke the mounted resolver. Finish THEM first.
+                const info = assertRecoveryReference(entry, binding, inspectReference, checkpointRef);
                 const current = resolveSession(entry);
                 assertBinding(current.binding, identity, documentContext);
                 if (current.session !== session || current.binding.editor !== editor
@@ -182,7 +186,12 @@ export function createFsusUiEditorSessionFactory(
                 {
                     throw new Error('public-editor-recovery-snapshot-owner-stale');
                 }
-                assertRecoveryReference(entry, current.binding, inspectReference, checkpointRef);
+                // Resolve can in turn revoke issuer custody. This ORIGINAL private check has no callbacks.
+                if (!hasReferenceCustody(checkpointRef, info))
+                {
+                    throw new Error('public-editor-recovery-reference-custody-revoked');
+                }
+                assertAdmission();
             };
             assertOwner();
             // Original Writer supplies expected native context and validates the actual body
@@ -232,6 +241,7 @@ export function createFsusUiEditorSessionFactory(
                 refsDigest: snapshot.refsDigest
             });
             const inspectReference = recoveryCheckpoint.inspectReference.bind(recoveryCheckpoint);
+            const hasReferenceCustody = recoveryCheckpoint.hasReferenceCustody.bind(recoveryCheckpoint);
             const restoreReference = recoveryCheckpoint.restoreReference.bind(recoveryCheckpoint);
             const validateReference = recoveryCheckpoint.validateReference.bind(recoveryCheckpoint);
             assertAdmission();
@@ -248,6 +258,7 @@ export function createFsusUiEditorSessionFactory(
             });
             const assertOwner = (): void =>
             {
+                const info = assertRecoveryReference(entry, binding, inspectReference, pinned.crashJournalRef);
                 const current = resolveSession(entry);
                 assertBinding(current.binding, identity, context);
                 assertBinding(current.binding, pinned.identity, pinned.documentContext);
@@ -262,7 +273,11 @@ export function createFsusUiEditorSessionFactory(
                 {
                     throw new Error('public-editor-recovery-restore-owner-stale');
                 }
-                assertRecoveryReference(entry, current.binding, inspectReference, pinned.crashJournalRef);
+                if (!hasReferenceCustody(pinned.crashJournalRef, info))
+                {
+                    throw new Error('public-editor-recovery-reference-custody-revoked');
+                }
+                assertAdmission();
             };
             assertOwner();
             if (!validateNative(nativeSnapshot, expected))
