@@ -1,0 +1,242 @@
+{
+  "schema": "fsusblog.chain-3654.fragment-proposal-source-handoff.v1",
+  "status": "SOURCE_WIP_NOT_ACCEPTED",
+  "sourceBase": "d1f8a4e95348039d9db4cbcefce57d406399dc21",
+  "sourceCommits": [
+    "fc949d97a9bdad49ceab55705c26c7ca0ebb3d41",
+    "24b351cee936e681a18016efe8925b334a547ce0"
+  ],
+  "observedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "pr3828Head": "d1f8a4e95348039d9db4cbcefce57d406399dc21",
+  "branch": "task/3654-revision-fragment-proposal",
+  "newSourcePaths": [
+    {
+      "path": "src/frontend/src/services/revisionFragmentProposal.ts",
+      "blob": "99199b5c286dc7be8b29ee4d4da4cb1980dbc811"
+    },
+    {
+      "path": "tests/frontend/unit/services/revisionFragmentProposal.test.ts",
+      "blob": "2959550796d99e69001e57428308ca3e42daf212"
+    }
+  ],
+  "otherWritersAtStart": "No other live agent/writer found; original PR3828 worktree clean and unchanged at d1f8a4e.",
+  "runtimeInterfaceReadOnlyReference": {
+    "pr": 4153,
+    "head": "8f3811352120d907fd4cd88eb465284ed2de415e",
+    "consumed": false,
+    "paths": [
+      {
+        "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+        "blob": "5434967ea9d022614f3845eadeb1625ee36dd29b"
+      },
+      {
+        "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+        "blob": "15e7f9473d15127ed52e484d468232de2cf6cdd7"
+      }
+    ]
+  },
+  "downstreamInterface": "createRevisionFragmentProposal(presentation, selection, readCurrent, signal?) => Promise<RevisionFragmentProposal>",
+  "authorityPrecondition": "Presentation must be the already authorized original article compare read for selection.articleId. This module joins identities; it cannot derive fresh permission or package authority from a digest or source bytes.",
+  "executionMissing": [
+    "current permission recheck",
+    "historical package recheck including article association and deletion/revocation",
+    "current document/epoch/source revision/native selection and fragment recheck",
+    "actual host composition using canonical FsusUI transaction and position map",
+    "execution deduplication and action receipts",
+    "undo/redo, dirty/autosave/conflict, continuity and immutable rollback runtime verification"
+  ],
+  "checks": [
+    {
+      "argv": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "src/frontend/src/services/revisionFragmentProposal.ts",
+        "--file",
+        "tests/frontend/unit/services/revisionFragmentProposal.test.ts"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740357.9365685,
+      "endedUnix": 1791740361.1710918,
+      "runtimeCasesExecuted": false,
+      "result": "[frontend-style] ok files=1 eslint=1 stylelint=0 violations=0 new=0"
+    },
+    {
+      "argv": [
+        "node",
+        "/workspace/3654-revision-fragment-proposal-evidence/scoped-typecheck.cjs"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 1,
+      "startedUnix": 1791740361.1714447,
+      "endedUnix": 1791740363.2974687,
+      "runtimeCasesExecuted": false,
+      "result": "FAILED: 30 dependency diagnostics; zero diagnostics in the two new source files",
+      "summary": {
+        "schema": "fsusblog.chain-3654.scoped-typescript-source-check.v1",
+        "typesVersion": "6.0.3",
+        "rootFiles": [
+          "src/frontend/src/services/revisionFragmentProposal.ts",
+          "tests/frontend/unit/services/revisionFragmentProposal.test.ts"
+        ],
+        "noEmit": true,
+        "diagnostics": 30
+      },
+      "baselineDiagnosticsExactlyEqual": true,
+      "normalizedDiagnosticSHA256": "9af00048fc90d3d010c7db36ee4e999fbb8d5e6a1857371304ef092a63d94a54",
+      "baselineDependencyRootFiles": [
+        "src/frontend/src/services/revisionComparePresentation.ts",
+        "src/frontend/src/services/authoring/articleDocumentContext.ts"
+      ],
+      "diagnosticSourceFiles": [
+        {
+          "path": "src/frontend/src/adapters/binary/fontThemeAdminAdapter.ts",
+          "baselineBlob": "f625508ba348de59f88a964214b1341f9137fb51",
+          "sourceBlob": "f625508ba348de59f88a964214b1341f9137fb51",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/api/binaryApiClient.ts",
+          "baselineBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+          "sourceBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/fsusui/markdown.ts",
+          "baselineBlob": "531c81d4379f6273ff07282eaf46dc539afeb98b",
+          "sourceBlob": "531c81d4379f6273ff07282eaf46dc539afeb98b",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/fsusui/result.ts",
+          "baselineBlob": "86ef6c7b20cfc3d2708c6d06a782b6a02792b162",
+          "sourceBlob": "86ef6c7b20cfc3d2708c6d06a782b6a02792b162",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/public-renderers/publicRouteRegistry.ts",
+          "baselineBlob": "058aab3f0a3bb30f1319dc4b76a9497531562452",
+          "sourceBlob": "058aab3f0a3bb30f1319dc4b76a9497531562452",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+          "baselineBlob": "734104e53f9efa1dc4342277bfd6e5e9e6794c04",
+          "sourceBlob": "734104e53f9efa1dc4342277bfd6e5e9e6794c04",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+          "baselineBlob": "ff768260127e37fae43f5f5e7703e0acaca3a236",
+          "sourceBlob": "ff768260127e37fae43f5f5e7703e0acaca3a236",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/services/binaryTransport.ts",
+          "baselineBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+          "sourceBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "argv": [
+        "node",
+        "tools/governance/check-revision-compare-authority.mjs"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740363.297864,
+      "endedUnix": 1791740363.54714,
+      "runtimeCasesExecuted": false,
+      "result": "[revision-compare-authority] ok"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "d1f8a4e95348039d9db4cbcefce57d406399dc21..HEAD"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740363.5475159,
+      "endedUnix": 1791740364.6694672,
+      "runtimeCasesExecuted": false,
+      "result": "[change-contract] ok commit-range=d1f8a4e95348039d9db4cbcefce57d406399dc21..HEAD"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "d1f8a4e95348039d9db4cbcefce57d406399dc21..HEAD"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740364.6697075,
+      "endedUnix": 1791740364.6729238,
+      "runtimeCasesExecuted": false,
+      "result": "PASS"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 1,
+      "startedUnix": 1791740364.6730638,
+      "endedUnix": 1791740459.1821978,
+      "runtimeCasesExecuted": false,
+      "result": "FAILED before matrix parse completed; runtime cases not started",
+      "rejections": [
+        "execution target authority: independent release-final Node parser identity drifted",
+        "execution target authority owner, content, or dependency closure drifted: expected sha256:204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a; got sha256:48ce477b4d4a716774734eca3bbe255208f326f8d495500c89ec4b61977d8e88"
+      ]
+    }
+  ],
+  "typescriptRecipe": {
+    "compiler": "src/frontend/node_modules/typescript (6.0.3)",
+    "config": "src/frontend/tsconfig.app.json",
+    "rootFiles": [
+      "src/frontend/src/services/revisionFragmentProposal.ts",
+      "tests/frontend/unit/services/revisionFragmentProposal.test.ts",
+      "src/frontend/src/vite-env.d.ts",
+      "src/frontend/node_modules/vite/client.d.ts"
+    ],
+    "optionOverrides": {
+      "noEmit": true,
+      "composite": false,
+      "incremental": false,
+      "types": [],
+      "paths.vitest": "src/frontend/node_modules/vitest"
+    },
+    "exitPolicy": "Every config/program diagnostic causes exit 1; no filtered green result."
+  },
+  "lifecyclePrecheck": {
+    "command": [
+      "systemctl",
+      "is-system-running"
+    ],
+    "exitCode": 1,
+    "output": "offline",
+    "qualification": "UNAVAILABLE: no durable canonical runtime process containment/zero-members receipt established; no runtime tests launched."
+  },
+  "originalTestEntry": "./tools/test.sh frontend-unit-shard",
+  "originalPhysicalCommand": "tools/test/lanes/frontend-unit-shard.sh",
+  "originalVitestScript": "src/frontend/package.json:test:unit:fast",
+  "unitSource": "tests/frontend/unit/services/revisionFragmentProposal.test.ts",
+  "unitExecution": "NOT RUN; original matrix/lifecycle admission has not passed",
+  "newRuntimeWriter": false,
+  "inspectorOrRuntimeChanged": false,
+  "permissionOrExecutionReceiptGranted": false,
+  "historyChanged": false,
+  "historicalPassInherited": false,
+  "all15IssueAcceptances": "OPEN",
+  "draftReviewScope": "New source increment is d1f8a4e..24b351ce; a master-targeted draft inherits 93 existing PR3828 paths. Do not treat inherited diff or WIP source as runtime acceptance."
+}
