@@ -78,7 +78,7 @@ public sealed class AuthorArticleQuerySelectionRevalidator(
             return coordinate.ArticleId == articleId && coordinate.ServerRevision == serverRevision
                 && !string.IsNullOrWhiteSpace(coordinate.RowVersion)
                 && coordinate.Status is AuthorArticleQueryStatus.Draft or AuthorArticleQueryStatus.Published
-                    or AuthorArticleQueryStatus.Scheduled
+                    or AuthorArticleQueryStatus.Scheduled or AuthorArticleQueryStatus.Inbox
                 ? coordinate
                 : null;
         }

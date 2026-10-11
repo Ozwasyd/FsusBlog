@@ -49,6 +49,17 @@ the public Inbox request/bucket gate stays unavailable pending current available
 query/projection and downstream executor evidence. This source change does not
 qualify or activate that surface, supply missing slugs, or issue bulk receipts.
 
+The existing `AuthorArticleQuerySelectionRevalidator.RevalidateAsync` can also
+revalidate one Inbox article through the same current permission and source owners.
+The application facade derives its principal and configured site from the
+authenticated request. Three permission observations must admit the exact selected
+ID and supplied permission token; two source reads must agree on article/revision,
+row version and lifecycle. Permission, source or cancellation drift returns no
+current token. This bounded selected-ID capability neither enumerates candidates
+nor returns title/count metadata or a query/transition receipt. The public Inbox
+request/bucket gate still refuses before permission or source enumeration. Missing
+slug/cursor and full query/Rail/Saved View composition remain separate obligations.
+
 The additive `20261011-post-article-inbox-editable-source` migration only defines
 the nullable provenance column. The separate source definition
 `20261011-post-article-inbox-create-receipt` replaces the exact mode/template/status
