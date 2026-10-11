@@ -190,6 +190,13 @@ export function createFsusUiEditorSessionFactory(
             {
                 throw new Error('public-editor-recovery-snapshot-context-mismatch');
             }
+            if (!session.validateRetainedSnapshot(nativeSnapshot, {
+                documentIdentity: { id: identity.documentId, epoch: documentContext.documentEpoch }, revision
+            }))
+            {
+                throw new Error('public-editor-recovery-native-custody-mismatch');
+            }
+            assertOwner();
             const refs = {
                 schema: 'fsusblog.article-workspace-retained-recovery.v1' as const,
                 identity,
@@ -226,6 +233,13 @@ export function createFsusUiEditorSessionFactory(
                 assertRecoveryReference(entry, current.binding, snapshot.recoveryCheckpoint, snapshot.crashJournalRef);
             };
             assertOwner();
+            if (!session.validateRetainedSnapshot(snapshot.nativeSnapshot, {
+                documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision
+            }))
+            {
+                throw new Error('public-editor-recovery-native-custody-mismatch');
+            }
+            assertOwner();
             // Original async storage integrity check never applies content or replaces native custody.
             const record = await snapshot.recoveryCheckpoint.restoreReference(snapshot.crashJournalRef);
             assertOwner();
@@ -233,6 +247,13 @@ export function createFsusUiEditorSessionFactory(
                 || calculateOpenArticleDocumentDigest(record.content) !== snapshot.nativeSnapshot.editorContentDigest)
             {
                 throw new Error('public-editor-recovery-restore-content-mismatch');
+            }
+            assertOwner();
+            if (!session.validateRetainedSnapshot(snapshot.nativeSnapshot, {
+                documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision
+            }))
+            {
+                throw new Error('public-editor-recovery-native-custody-mismatch');
             }
             assertOwner();
             const proof = session.restoreSnapshot(snapshot.nativeSnapshot, {

@@ -627,6 +627,12 @@ history, checkpoint producer, host or session index. The ref string alone grants
 no authority; original binding invalidation, replacement, expiry and release revoke
 the bundle's admission.
 
+Native `validateRetainedSnapshot(snapshot, expected)` also checks the EXACT
+original retained object in the factory's same native session before issuing the
+bundle and before/after asynchronous journal restore. Same strings/document/revision
+from another native instance cannot satisfy this check. It reads existing native
+custody without replacing/restoring it and certifies no view/resource restoration.
+
 `restoreArticleWorkspaceRetainedRecoverySnapshot(entry, bundle)` awaits original
 `restoreReference`, rechecks the same installed native/session/document owners and
 composition admission across the await, validates original journal content and
