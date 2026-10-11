@@ -1111,7 +1111,8 @@ export function useAdminArticleWrite()
                     const mountedEditor = mountedSource.readMountedEditor(editorSessionRef);
                     const observed = mountedSource.readDocumentBinding(editorSessionRef);
                     const current = registry.getEntry(entry.tabId);
-                    if (mountedEditor !== editor || !observed || !active || editorRuntimeBinding !== binding
+                    // The original mounted source already checks object equality with this editor.
+                    if (!mountedEditor || !observed || !active || editorRuntimeBinding !== binding
                         || recoveryIdentityId() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
                         || activeRecoveryClientRevision !== clientRevision || registry.getRevision() !== registryRevision
                         || current?.lifecycleRevision !== entry.lifecycleRevision
