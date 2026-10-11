@@ -4,7 +4,7 @@ export const admin = {
     workspaceLayout: {
         leading: '第一编辑区',
         trailing: '第二编辑区',
-        resize: '调整第一编辑区宽度',
+        resize: '调整第一编辑区宽度'
     },
     canvas: {
         retry: '重试未决操作',

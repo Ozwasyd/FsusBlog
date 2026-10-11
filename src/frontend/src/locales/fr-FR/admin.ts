@@ -7,7 +7,7 @@ export const admin = {
     workspaceLayout: {
         leading: 'Première zone de rédaction',
         trailing: 'Deuxième zone de rédaction',
-        resize: 'Redimensionner la première zone de rédaction',
+        resize: 'Redimensionner la première zone de rédaction'
     },
     canvas: {
         retry: 'Réessayer l’opération en attente',

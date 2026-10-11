@@ -7,7 +7,7 @@ export const admin = {
     workspaceLayout: {
         leading: '첫 번째 편집 영역',
         trailing: '두 번째 편집 영역',
-        resize: '첫 번째 편집 영역 너비 조절',
+        resize: '첫 번째 편집 영역 너비 조절'
     },
     canvas: {
         retry: '대기 중인 작업 재시도',

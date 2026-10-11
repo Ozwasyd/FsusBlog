@@ -7,7 +7,7 @@ export const admin = {
     workspaceLayout: {
         leading: '第1編集領域',
         trailing: '第2編集領域',
-        resize: '第1編集領域の幅を調整',
+        resize: '第1編集領域の幅を調整'
     },
     canvas: {
         retry: '保留中の操作を再試行',
