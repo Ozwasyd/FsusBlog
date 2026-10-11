@@ -7,7 +7,7 @@ export const admin = {
     workspaceLayout: {
         leading: 'Primeira área de edição',
         trailing: 'Segunda área de edição',
-        resize: 'Ajustar a largura da primeira área de edição',
+        resize: 'Ajustar a largura da primeira área de edição'
     },
     canvas: {
         retry: 'Tentar novamente a operação pendente',
