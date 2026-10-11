@@ -50,6 +50,22 @@ describe('original Writer mounted instance and document source', () =>
         expect(f.reads()).toBe(0);
     });
 
+    it('revalidates the original association after the caller read before binding a native session', () => {
+        const f = open();
+        const source = createArticleWriterMountedEditorSource(f.owner, f.registry, f.editor, () => {
+            f.registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'request-close', commandId: 'command:close',
+                idempotencyKey: 'idempotency:close', expectedRevision: f.registry.getRevision(), tabId: 'tab:workspace' });
+            f.registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'detach-on-final-close', commandId: 'command:detach',
+                idempotencyKey: 'idempotency:detach', expectedRevision: f.registry.getRevision(), tabId: 'tab:workspace',
+                closeDecisionRef: 'decision:close' });
+            expect(f.registry.getEntry('tab:workspace')).toBeNull();
+            return f.editor;
+        }, () => true);
+        expect(source.readDocumentBinding('session:workspace')).toBeNull();
+        // A wrong getSession call above would permanently bind session:workspace and make this throw.
+        expect(f.editor.getSession('session:actual-owner').inspectDocumentState().documentIdentity).toEqual(f.owner.documentIdentity);
+    });
+
     it('stops reads after the original binding release', () => {
         const f = open();
         f.release();

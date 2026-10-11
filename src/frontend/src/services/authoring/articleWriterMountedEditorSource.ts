@@ -5,7 +5,7 @@ import type { OpenArticleDocumentRegistry } from './openArticleDocumentRegistry'
 
 /** Project the original context into the existing workspace reference vocabulary; this is not an identity or permission issuer. */
 export function projectArticleWriterWorkspaceDocument(document: ArticleDocumentContext):
-    NonNullable<ReturnType<ArticleWorkspaceMountedEditorSource['readDocumentBinding']>>
+NonNullable<ReturnType<ArticleWorkspaceMountedEditorSource['readDocumentBinding']>>
 {
     return Object.freeze({
         identity: Object.freeze({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId }),
@@ -30,14 +30,26 @@ export function createArticleWriterMountedEditorSource(
             return null;
         }
         const document = owner.context;
-        if (!owner.isCurrentContext(document) || !registry.listEntries().some(entry =>
+        const association = registry.listEntries().find(entry =>
             entry.editorSessionRef === editorSessionRef && entry.identity.articleId === document.articleId
-            && entry.identity.draftId === document.draftId && entry.identity.documentId === document.documentId))
+            && entry.identity.draftId === document.draftId && entry.identity.documentId === document.documentId);
+        if (!owner.isCurrentContext(document) || !association)
         {
             return null;
         }
+        const registryRevision = registry.getRevision();
         const mounted = readMountedEditor();
-        return mounted === editor && isActive() && owner.isCurrentContext(document) ? mounted : null;
+        if (mounted !== editor || !isActive() || !owner.isCurrentContext(document))
+        {
+            return null;
+        }
+        // The caller's mounted read may synchronously change the original association.
+        // Refuse it before getSession can bind this native editor to the borrowed ref.
+        const currentAssociation = registry.getEntry(association.tabId);
+        return registry.getRevision() === registryRevision && currentAssociation?.editorSessionRef === editorSessionRef
+            && currentAssociation.identity.articleId === document.articleId
+            && currentAssociation.identity.draftId === document.draftId
+            && currentAssociation.identity.documentId === document.documentId ? mounted : null;
     };
     return Object.freeze({
         readMountedEditor: readMounted,
