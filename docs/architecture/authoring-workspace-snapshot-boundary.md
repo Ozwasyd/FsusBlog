@@ -555,3 +555,38 @@ replacement/release, unresolved async continuations, IME and real restore failur
 must retain the original refusal semantics. Typography and shared expose remain
 with their coordinated owners. Full factory stays blocked until the real owners
 and caller join exist; all runtime and qualification work remains UNRUN.
+
+
+### Actual native File observation source available to the original Writer
+
+Local UI #914 source `6a73ad6312091ca782f99393140efc8df0fb4fb6` now integrates the
+original public producer971e File bridge onto the same session/attachment owner.
+The public `MarkdownAttachmentCaptureObservation` and `MarkdownAttachmentFileConsumer`
+types, `upload-image(batch, capture?)`, and
+`withAttachmentFile(originalBatch, originalItem, consumer)` are actual source.
+The loan returns the identical original File only for the original current job,
+batch/item and first-attempt signals. It never performs capture/placeholder dispatch.
+The optional observation contains the identical emitted accepted transaction and
+original plan/placements. The original Writer must admit THAT already accepted
+native transaction into its genuine pending-handle boundary; calling an existing
+commitCreated path that dispatches another placeholder would duplicate the edit.
+Write/wrapper/runtime changes remain with their original owners, not this factory.
+
+The integration retains real future/attempt/terminal-result proof, unknown legacy
+settlement and per-item File revocation. The actual future hook obtains File from
+the revocable original record, and its progress/awaited terminal/finally remain with
+the same resource owner. It does not emit a duplicate legacy event. Private job
+proof reconciles copied job document identity without accepting matching IDs alone.
+Public dispatch strips private observer/job arguments. Actual cleanup-stack depth
+blocks public resource inspections/controls until the cleanup frame exits; an empty
+Map is not release proof. Attachment reviewed=false/full roster excluded remains.
+This File/transaction observation is not attachmentStateRef or a recoverable panel,
+draft/journal, full snapshot, native receipt or eviction capability.
+
+Same original Web/Vitest projects compile at this source with installed tools and
+AST/SFC checks pass. Runtime and all original/incoming File source cases are UNRUN.
+Original donor assertions are preserved, including a legacy cancel/retry case whose
+positive retry expectation conflicts with current unknown-settlement refusal.
+That case needs original actor alignment before execution; no retry gate is relaxed
+and historical135/16 PASS evidence is not integrated-head acceptance. Full factory
+continues to refuse the absent original panel/draft/journal/full renderer refset.
