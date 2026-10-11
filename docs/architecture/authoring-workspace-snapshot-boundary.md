@@ -237,7 +237,8 @@ UNRUN; static compilation is source-only.
 ## Snapshot group receipt source composition
 
 The subsequent source composition consumes exact original group offer
-`68e4cdd4cdaa5c97f05d5323e88998397bf3dac7`, including the typed receipt interface
+`418611fa6bedf623823b33c415b491215b746c7d`, including the original
+`68e4cdd4` R5/R6/R7/R8 source repairs, instance `verifyBinding`, and typed receipt interface
 first supplied by `f44c8196` and the unchanged corrected
 ratio issuer from `a4212c57`. It supersedes the missing opaque interface described
 at the earlier `4b19fca33` checkpoint above. The real group owner now supplies
@@ -272,17 +273,23 @@ Original group R5/R6/R7/R8 repairs are independently statically closed for this
 exact dependency; behavioral qualification remains UNRUN. Independent review
 of snapshot `2d6c15d5` closed the old +1 guard P1 and found two consumer P2s:
 callback request mutation (addressed by the frozen copy above) and Registry
-instance binding (still open). `instanceof`, identical snapshots and a genuine
+instance binding (addressed in source by the original `418611fa` capability).
+Both consumer corrections still require independent re-review. `instanceof`, identical snapshots and a genuine
 foreign owner's cached receipt do not prove that the owner belongs to the
-router's Registry instance. The original group owner must publish a method
-that checks its private Registry reference and canonical owner registration
-against the actual supplied instance; this consumer may not invent that
-capability or replace it with a string/digest. No such public identity method
-exists at `68e4cdd4`; that dependency remains explicit WIP. The
+router's Registry instance. Restore captures the actual router and Registry
+after the runtime capability gate and uses that instance for all entry/state
+reads. The authority guard rejects router/Registry replacement and invokes
+the actual owner's `verifyBinding` against that captured instance before any
+restore mutation and after callbacks, including the typed group transition.
+This original method compares private object identity and the canonical unique
+owner registration, returning false for a foreign instance; no string, digest,
+getter reconstruction or local owner map substitutes for it. The earlier
+missing-API checkpoint at `68e4cdd4` is superseded without introducing the
+proposed duplicate `isBoundToArticleRegistry` method. The
 concrete runtime capability gate is retained;
 shell commands/receipts and production bootstrap still require original-owner
 integration and qualification. All 21 ratio controls, original group/ownership
-controls, the added digest-only refusal source control and all held runtime,
+controls, the added digest-only/foreign-owner refusal source controls and all held runtime,
 restore, DB, race, security/privacy and native execution remain UNRUN. The old
 57-case results and earlier 256-diagnostic comparison apply only to their old
 candidates and are not inherited by this composition.

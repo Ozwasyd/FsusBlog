@@ -589,6 +589,39 @@ describe('server-only immutable restore planning and permission reconciliation',
         expect(commands.applyShell).not.toHaveBeenCalled();
         expect(router.getRegistry().listEntries()).toHaveLength(0);
     });
+    it('a genuine foreign group owner is refused before session creation or group publication', async () => {
+        const { api } = setup();
+        const observed = await api.read();
+        const port = { resolveBatch: async () => resolution(observed) };
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const foreignRouter = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(foreignRouter.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const adapter = groupOwner.createSnapshotAdapter(() => ({ commandId: 'restore:foreign', idempotencyKey: 'restore:foreign' }));
+        const open = vi.spyOn(router, 'openOrActivate');
+        const before = router.getRegistry().exportState();
+        const foreignBefore = foreignRouter.getRegistry().exportState();
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), groupOwner,
+            applyGroups: vi.fn(adapter.applyGroups), applyGroupsWithReceipt: vi.fn(adapter.applyGroupsWithReceipt),
+            applyShell: vi.fn(), isCurrent: () => true };
+        try
+        {
+            await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('restore_registry_binding_changed');
+            expect(open).not.toHaveBeenCalled();
+            expect(commands.applyGroupsWithReceipt).not.toHaveBeenCalled();
+            expect(commands.applyShell).not.toHaveBeenCalled();
+            expect(router.getRegistry().exportState()).toEqual(before);
+            expect(foreignRouter.getRegistry().exportState()).toEqual(foreignBefore);
+        }
+        finally
+        {
+            authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+        }
+    });
     it('late readiness after reset and operation epoch changes cannot reach group/shell restoration', async () => {
         // Synthetic command interleavings exercise consumer refusal, never actual FsusUI qualification or acceptance.
         const { api } = setup();
