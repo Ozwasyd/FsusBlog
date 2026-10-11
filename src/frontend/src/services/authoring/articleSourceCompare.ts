@@ -90,12 +90,16 @@ export class ArticleSourceCompareSession
     private identity: ArticleRenderIdentity | null = null;
     private syncEnabled = false;
     private unsubscribe: (() => void) | null = null;
+    private readonly owner: ArticleDocumentContextAdapter;
+    private readonly runtime: ArticleEditorRuntimeBinding;
 
     public constructor(
-        private readonly owner: ArticleDocumentContextAdapter,
-        private readonly runtime: ArticleEditorRuntimeBinding
+        owner: ArticleDocumentContextAdapter,
+        runtime: ArticleEditorRuntimeBinding
     )
     {
+        this.owner = owner;
+        this.runtime = runtime;
         if (runtime.context.contextDigest !== owner.context.contextDigest)
         {
             throw new Error('article-source-compare-runtime-context-invalid');
