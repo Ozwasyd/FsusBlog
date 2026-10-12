@@ -1,0 +1,12 @@
+{
+  "baselineDiagnostics": 162,
+  "reviewedDiagnostics": 161,
+  "candidateDiagnostics": 161,
+  "addedVsReviewed": [],
+  "removedVsReviewed": [],
+  "addedVsBaseline": [],
+  "removedVsBaseline": [
+    "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read."
+  ],
+  "normalization": "Header source position only; full continuation text and multiplicity retained"
+}

@@ -1,0 +1,99 @@
+{
+    "kind": "source-static-observations",
+    "qualification": false,
+    "reviewedDeliveryHead": "dcd6ef8e078256170dfbf488d3fe2ff36d726634",
+    "reviewedSourceCommit": "69c1a0082dd7ee0a3967a259faf98bbfbc92702c",
+    "originalBaseCommit": "29051db2a80db7770dfe78a1db6e4c6998337324",
+    "repairSourceCommit": "7169dfe07832bc4dfec6c26d3756cd192d916e33",
+    "sourceBindings": {
+        "src/frontend/src/services/binaryTransport.ts": {
+            "gitBlob": "ab0b0651949239b696c3c9d22eb2170ff2e47d30",
+            "sha256": "e27ba54e482df155c5a2941f68e2c18b376be0a34288c0d67ffe96e0f1653f86"
+        },
+        "tests/frontend/unit/services/binaryTransport.test.ts": {
+            "gitBlob": "6c9f714ec1f52170fb1b55ee4bcd8d8a94efb761",
+            "sha256": "4aead3143f1a69074b1c4adbe94a9b3f497e7a0d1fdf5f93099ce2daee33259d"
+        },
+        "docs/architecture/overview.md": {
+            "gitBlob": "579b740781c2509af02ee704fe06eab91b7c9715",
+            "sha256": "01c831247311b13030c8209e0769a8606bda63bcc4a3b9be2be998da809b621d"
+        },
+        "src/frontend/src/composition/binaryTransport.ts": {
+            "gitBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded",
+            "sha256": "19634006e8e2a36bd61887aec463f4799a53a56189806314823bc96c88660abf"
+        },
+        "tests/frontend/checks/runtime/check-worker-contracts.mjs": {
+            "gitBlob": "29d6ea1dcca8be7194a2063a56920632e5c71a83",
+            "sha256": "37a92f3dc4b38fb37097c4888df79f2bbaa3b97ea7eb9d7ddd78b2ce870107c5"
+        }
+    },
+    "parentReviewNotice": "Both original P2 closed on dcd6 delivery; one further cleanup retry reentry P2 remained. This new source awaits independent re-review.",
+    "repair": [
+        "Per-holder caller and original decode in-progress guards entered before removal callback",
+        "Original holder remains visible throughout reentry; no recursive invocation or fabricated cleanup failure",
+        "Only successful same-holder outer removal clears custody; failure retains callback/cause and finally restores real retry eligibility",
+        "Initial caller cleanup and retry use same guarded path; once dispatch cannot erase in-progress holder",
+        "Nested queue pump stops at in-progress holder without inventing failure",
+        "Accepted unposted-terminal and post-worker-acquisition abort admission remain intact"
+    ],
+    "compiler": {
+        "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "cwd": "/workspace/FsusBlog",
+        "exit": 2,
+        "baselineLog": "artifacts/binary-transport-local-terminal/20261012/baseline-typecheck.log",
+        "reviewedLog": "artifacts/binary-transport-local-terminal/20261012-p2-repair/candidate-typecheck.log",
+        "candidateLog": "artifacts/binary-transport-local-terminal/20261012-retry-reentry/candidate-typecheck.log",
+        "comparison": {
+            "baselineDiagnostics": 162,
+            "reviewedDiagnostics": 161,
+            "candidateDiagnostics": 161,
+            "addedVsReviewed": [],
+            "removedVsReviewed": [],
+            "addedVsBaseline": [],
+            "removedVsBaseline": [
+                "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read."
+            ],
+            "normalization": "Header source position only; full continuation text and multiplicity retained"
+        },
+        "newOrReducedConfig": false
+    },
+    "syntax": {
+        "commands": [
+            "node --check src/frontend/src/services/binaryTransport.ts",
+            "node --check tests/frontend/unit/services/binaryTransport.test.ts"
+        ],
+        "exits": [
+            0,
+            0
+        ],
+        "execution": "Parse only; no import/collection/runtime"
+    },
+    "diff": {
+        "command": "git diff --check dcd6ef8e078256170dfbf488d3fe2ff36d726634 7169dfe07832bc4dfec6c26d3756cd192d916e33",
+        "exit": 0
+    },
+    "lint": {
+        "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/binaryTransport.ts",
+        "exit": 1,
+        "status": "BLOCKED",
+        "reason": "Configured ESLint/Stylelint executable paths remain missing; no install/fallback"
+    },
+    "control": "Existing native partial-registration/removal negative control enhanced to assert bounded reentrant failed/successful cleanup attempts, visible custody during nested cancel, original first/latest causes and successful later native retry. Five newly authored original controls remain HOLD/UNRUN; control typecheck UNRUN (original app excludes tests). No worker mock/runner/config added.",
+    "composition": "Unchanged original blob380e4e934ce0ce87eeccdc10cf9be1c4c226bded; owner3735 awaits accepted producer",
+    "oldTimeoutQualification": "Unmodified and UNRUN; separate owner reconciliation remains. No gate weakened or passed.",
+    "unavailable": [
+        "networkTerminal",
+        "sharedWasmInitialization"
+    ],
+    "holds": "All runtime/tests/discovery/list/collection/import/setup/native/browser/worker/network/security/receipt/backuprestore/qualification HOLD",
+    "sourceAcceptance": "PENDING independent re-review",
+    "localFsusUI": {
+        "commit": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+        "clean": true
+    },
+    "rawArtifacts": {
+        "artifacts/binary-transport-local-terminal/20261012-retry-reentry/typecheck-comparison.json": "5ecf062b4a112f5debd485cec0e5fad1d1ffae9629387c9886e6abd6080eda5e",
+        "artifacts/binary-transport-local-terminal/20261012-retry-reentry/configured-style.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+        "artifacts/binary-transport-local-terminal/20261012-retry-reentry/candidate-typecheck.log": "a1192af8b0248c2f6248ae6d7a268ef5f74c4b294b30b5359e48b715105cba76"
+    }
+}
