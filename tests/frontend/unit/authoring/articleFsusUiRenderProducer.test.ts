@@ -32,6 +32,64 @@ const setup = (initialSource = '# Article\n\nBody', maxResultBytes = 65536) =>
 };
 
 describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
+    // Source controls only: actual source/derived Promises, never executed under holds.
+    it.each(['discard-fulfillment', 'derived-replay'] as const)(
+        'retains observer custody for %s and a then getter that throws on its second read', async mode => {
+            const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
+                editorSessionId: `session:observer-assimilation:${mode}`, siteScope: 'site:consumer', userScope: 'user:consumer', content: '# Article' });
+            let actualRequest: ArticleRenderRequest | null = null;
+            let fulfil!: (value: unknown) => void;
+            let finishFailure!: () => void;
+            let thenReads = 0;
+            const sourceFuture = new Promise<unknown>(resolve => { fulfil = resolve; });
+            const failureFuture = new Promise<void>(resolve => { finishFailure = resolve; });
+            const value = Object.defineProperty({}, 'then', { get: () => {
+                thenReads += 1;
+                if (thenReads === 1) return undefined;
+                throw failureFuture;
+            } });
+            let actualDerived: Promise<unknown> | null = null;
+            if (mode === 'derived-replay') {
+                // A real species capability replays the fulfilled object into a native
+                // derived Promise, forcing asynchronous assimilation despite the no-op.
+                Object.defineProperty(sourceFuture, 'constructor', { value: {
+                    [Symbol.species]: function (executor: (resolve: (value: unknown) => void, reject: (cause: unknown) => void) => void) {
+                        const derived = new Promise<unknown>((resolve, reject) => executor(() => resolve(value), reject));
+                        actualDerived = derived;
+                        return derived;
+                    }
+                } });
+            }
+            const producer = new ArticleFsusUiRenderProducer(request => {
+                actualRequest = request;
+                throw sourceFuture;
+            }, configuration, 65536);
+            const cache = new ArticleRenderCache(adapter, identity, producer,
+                { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 8 });
+            const cacheWork = cache.startRefresh(); await cacheWork.receipt;
+            if (!actualRequest) throw new Error('original-producer-request-missing');
+            const work = producer.getRequestWork(actualRequest)!;
+            await expect(work.terminal).rejects.toThrow('article-fsusui-source-cleanup-unconfirmed');
+            fulfil(value);
+            if (mode === 'derived-replay') {
+                if (!actualDerived) throw new Error('actual-observer-derived-promise-missing');
+                await expect(actualDerived).rejects.toBe(failureFuture);
+                expect(work.cleanupFailure?.cause).toMatchObject({ endpointFailure: { cause: sourceFuture },
+                    observerPromise: actualDerived, observationFailure: failureFuture });
+                expect(thenReads).toBe(2);
+            } else {
+                await Promise.resolve(); await Promise.resolve();
+                expect(thenReads).toBe(1);
+                expect(work.cleanupFailure?.cause).toBe(sourceFuture);
+            }
+            expect(work.producerFailure?.cause).toBe(sourceFuture);
+            await expect(work.terminal).rejects.toThrow();
+            await expect(cacheWork.terminal).rejects.toThrow('article-render-producer-terminal-unconfirmed');
+            finishFailure(); await failureFuture;
+            expect(adapter.pendingTaskRefs).toContain(cacheWork.taskRef);
+            cache.dispose(); adapter.dispose();
+        });
+
     // Original public callback can legally throw a future (never return type); all UNRUN.
     it.each(['promise', 'thenable', 'then-getter', 'error-with-future', 'observer-failure',
         'null', 'undefined', 'string', 'number', 'symbol'] as const)(
