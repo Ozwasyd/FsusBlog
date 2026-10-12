@@ -1,6 +1,6 @@
 {
   "sourceOnly": true,
-  "checkedSourcePreimage": "4913812bdf5aa6e48c3eaedf393cfde0ebb5c6db",
+  "checkedSourcePreimage": "3600adc6906a3b296357c3bc5cfb8ed1844be9ae",
   "executedCandidateModules": false,
   "files": [
     {
@@ -9,8 +9,18 @@
       "parseDiagnostics": []
     },
     {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "sha256": "95e5f09a5e65dcec1f738bba1ed8a52115cfa65d68f26f14aca4953dd6332151",
+      "parseDiagnostics": []
+    },
+    {
       "path": "tests/frontend/unit/authoring/articleRenderCache.test.ts",
       "sha256": "3f0a58369934f3d669e62d546c7a4af4e24136adb52be15d0cd5b72a2df22749",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts",
+      "sha256": "b22d6617f2dcf7cf241203062b3150642b7107f3cec3ee9da0cc8d869d1d7e65",
       "parseDiagnostics": []
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "recordedAtUtc": "2026-10-12T02:45:02.596016+00:00",
+  "recordedAtUtc": "2026-10-12T03:03:51.741402+00:00",
   "sourceOnly": true,
   "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
   "lastVerifiedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
@@ -69,7 +69,7 @@
       "ownedDiagnostics": 0
     },
     {
-      "command": "TypeScript createSourceFile on the two final changed TS files; candidate modules not imported",
+      "command": "TypeScript createSourceFile on cache/producer and both control source files; no candidate imports",
       "exitCode": 0
     },
     {
@@ -77,7 +77,7 @@
       "exitCode": 0
     }
   ],
-  "sourceControls": "21 appended source blocks, all UNRUN/HOLD; latest block is the canceled-late cleanup verifier mutation/revalidation exception matrix",
+  "sourceControls": "Cache21 source blocks unchanged, UNRUN/HOLD; upstream two additional observer source controls separately UNRUN; no collection/test-list or runtime executed",
   "holds": [
     "runtime",
     "test",
@@ -90,47 +90,56 @@
     "migration/ProjectXML/Git replacement QA"
   ],
   "qualification": false,
-  "remainingProducerGap": "NEW OPEN supplier P2: original producer intrinsic-then derived observer Promise asynchronous rejection custody, sent to original Writer owner. Supplied7cd9 postimages unchanged here; composition is not fully source closed. Opaque native cleanup and all independent/runtime qualifications remain held.",
+  "remainingProducerGap": "Observer P2 original source repair is consumed, not independently accepted here. Cache3e40 and producer3c5e3f19 original independent reviews and the latest intake/composition remain pending; opaque native cleanup and all runtime/product qualification remain HOLD.",
   "remainingCallerGap": "Same-work continuity/runtime/source-compare exact supplier source consumed. Original product mounts, separate tool/preview/native restoration futures and full-session factory/cleanup acceptance remain open.",
   "contentApiWrites": "Only explicitly authorized own draft PR creation/update; no issue/other PR/comment/label writes",
   "newPr": "https://github.com/Ozwasyd/FsusBlog/pull/4230",
   "oldDraftPrUpdated": false,
-  "checkedSourcePreimage": "4913812bdf5aa6e48c3eaedf393cfde0ebb5c6db",
-  "reviewRepair": "Reviewed cleanup verifier P2: classify the same late output after the real future; snapshot ref/digest before callback; fully revalidate after return; latch actual failure and block physical release/settle even if producer terminal fulfilled. No second authority or store.",
-  "currentStackedSupplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
-  "supplierActualRepair": "3916a5ea219238d0ebb57a2e4a58dd61980fc867",
+  "checkedSourcePreimage": "3600adc6906a3b296357c3bc5cfb8ed1844be9ae",
+  "reviewRepair": "Exact original producer observer repair consumed from3c5e3f19/efec36c9; explicit fulfillment discard and original derived Promise/completion/async cause custody. Own cache3e40 and same-request/work/Promise consumer source unchanged. No second authority or widened implementation.",
+  "currentStackedSupplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
+  "supplierActualRepair": "3c5e3f19b0f9cf1a6aafc6b308a76f43f9a03b0e",
   "supersededKnownDefectSupplier": "79da045da19a57b6a73ce4ec735d68120cd49d5f",
   "publishedOwnP2": "b605f2f1137fa8d7342769c9182ae24601ae996c",
   "exactConsumedPostimages": {
     "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": {
-      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
-      "blob": "37cdcf9f48faf5ded73d3b5fbcc1c2240870c60c",
+      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
+      "blob": "b4e4aadb472005bdf34826cbae60cbab111a4d13",
       "matchesSupplier": true
     },
     "src/frontend/src/services/authoring/articleEditorContinuity.ts": {
-      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
       "blob": "510177ab2d41949f16cd7214dab5d2fab67e0214",
       "matchesSupplier": true
     },
     "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts": {
-      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
       "blob": "d8132a6701d34214e8a87ad7b4bbf08fd6d62a01",
       "matchesSupplier": true
     },
     "src/frontend/src/services/authoring/articleSourceCompare.ts": {
-      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
       "blob": "323127c16880f130f01abace6711b1e6f625b6a4",
       "matchesSupplier": true
     },
     "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts": {
-      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
-      "blob": "076d219101e7e96f4ddbb54f4c2355dd7822fd30",
+      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
+      "blob": "16c3716c39a7cc4dace1a7a28367f0ba14e640f0",
       "matchesSupplier": true
     },
     "tests/frontend/unit/authoring/articleEditorContinuity.test.ts": {
-      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
       "blob": "de79562f03a9a08edf281e1973a20fe8be4c66bf",
       "matchesSupplier": true
+    }
+  },
+  "preservedOwnCleanupVerifierRepair": "3e40f95b108e5609fa2b4d6c720f3b4c3b0817f8",
+  "preservedOwnSourceBlobs": {
+    "src/frontend/src/services/authoring/articleRenderCache.ts": {
+      "matches3e40": true
+    },
+    "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
+      "matches3e40": true
     }
   }
 }
