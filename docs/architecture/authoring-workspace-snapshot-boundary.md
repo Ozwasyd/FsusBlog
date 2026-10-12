@@ -42,6 +42,63 @@ and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission fo
 the original owners and notify their consumers. Scope-revocation callbacks cannot
 admit new owners reentrantly.
 
+A loaded primary whose original identity differs from an existing canonical
+member may call `preparePrimaryRetainedHandover(registry, handle, originalBinding,
+scopeReaders)`, then consume that SAME preparation with
+`acquireRetainedDocument(handle, preparation)`. The authority authenticates both
+issued objects and reserves the actual handle/adapter before external readers.
+Only one live primary binding, with no retained owner or other preparation, may
+enter. Article/draft identity and numeric source/draft revision must already match
+that canonical member. Its genuine handle supplies only document identity/epoch;
+the original mounted adapter, editor-session identity and content digest remain.
+Preparation does not mutate the primary; an unused preparation can be discarded
+without disposing its borrowed adapter. Ordinary source edits invalidate the offer.
+
+Consumption reserves context mutation, revalidates the actual primary/scope/member,
+cancels the old context's tasks, revalidates again after their synchronous abort
+callbacks, and publishes one switch receipt before the original retained binding.
+Canceled work remains pending until its producer actually settles. Original context
+listeners receive the new context; a post-publication refusal retires document
+admission and retains actual custody instead of rolling back notified context or
+claiming native completion. The actual Writer still registers its original consumer
+through `attachConsumer`; a consumer already owned by any other retained owner
+cannot be moved or duplicated. This is not an API to switch an existing retained
+adapter or transfer a registered consumer's form/history/native resources.
+
+The preparation installs an actual borrowed-primary admission guard before it
+escapes. Scope retirement closes that guard synchronously, including nested
+retirement whose canonical cleanup remains queued; task/source admission refuses
+while real pending work and cleanup stay in the drain. The original owner's scope
+is pinned independently of later edits to its borrowed adapter. Discard cannot
+remove a retired owner from pending cleanup or reopen admission. A live unused
+handover may still be edited; rejecting its now-stale offer does not dispose that
+adapter or mark an identity publication. Explicit discard releases that unused pin
+and preserves the actual edited context and pending work.
+
+The sole-binding constraint is revalidated at consumption, after cancellation and
+other external reads, and after publication/notification. A second genuine legacy
+binding acquired since preparation prevents publication; after its real release,
+the original unused offer can retry if all original context facts still match.
+An explicit module-private marker records ONLY actual target context publication.
+That marker, not any context difference, determines failed-publication custody and
+discard refusal. Strict adoption cannot bypass an unbound handover pin. These
+facts do not settle tasks or prove native/full-ref restoration. If a borrowed
+primary's real disposal listener fails, its failure custody remains retained while
+the original drain processes the remaining queued scopes. Only afterward does
+revocation report the aggregate actual cleanup failures; no failed cleanup is
+recorded as settled or silently discarded.
+
+This handover does not validate a loaded body against a snapshot, grant full native
+restore or label arbitrary source as current. A different article/draft, unmatched
+source/draft revision, or unsupported Registry source reference refuses. Restored
+unsaved drafts need their original draft/body producer's genuine identity/revision
+handover; a new create-draft issuer cannot stand in for it. The original Writer/body
+loader and Registry source-publication owner must establish those coordinates
+before this API, and the original native/session owner must validate physical
+binding, actual snapshot/body authority and resource lifetime afterward. No
+revision renumbering, body store, new document ID issuer or native settlement is
+introduced by this seam. All corresponding runtime qualifications remain HOLD.
+
 The returned binding exposes `adapter`, `handle`, `inspect()`,
 `subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
 attaches its actual existing form/effects/runtime object once, using one stable

@@ -1,0 +1,33 @@
+{
+  "base": "5ac6fb13de329ed36efcb782c7b1d5028c632416",
+  "offer_base": "17c2e83ea1747baa1ca2f8de366ad7e249b2c23f",
+  "source": "26f5d8eb84b163e7b2cb4e94e3f829ec9b270f9e",
+  "supplied_head": "da0e8f0cd11ca2bfbe9d7e8e393c113717e8756e",
+  "git_apply_check": 0,
+  "git_apply_index": 0,
+  "diff_check": 0,
+  "exact_postimages": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "postimage": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+      "matches": true
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "postimage": "a6122c83a7d06e8694b6487f72ecce066d96dd24",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/authoring-workspace-snapshot-boundary.md",
+      "postimage": "351df3df787155840ca55172763800a458fa988e",
+      "matches": true
+    },
+    {
+      "path": "artifacts/article-editor/retained-document-authority/preflight.md",
+      "postimage": "61b87b90539ffa370d5daf0d1480c97e727d0bda",
+      "matches": true
+    }
+  ],
+  "runtime": "HOLD/UNRUN",
+  "independent_source_closure": "parent supplied; no new review or runtime acceptance"
+}
