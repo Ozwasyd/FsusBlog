@@ -909,6 +909,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     let writerResourceControlFailure: { readonly failure: unknown; } | null = null;
     let writerResourceJobFailure: { readonly failure: unknown; } | null = null;
     const writerTaskLeases = new Set<ArticleDocumentTaskLease>();
+    let writerLeaseIssuanceReservations = 0;
     const writerUndispatchedLeases = new Set<ArticleDocumentTaskLease>();
     const writerPendingWork = new Set<{ readonly kind: string; promise: Promise<unknown> | null; }>();
     const writerResourceReentrancyFailure = new Error('article-writer-resource-control-reentrant');
@@ -935,29 +936,45 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 throw new Error('article-writer-resource-admission-paused');
             }
             pruneSettledWriterLeases();
-            if (writerTaskLeases.size >= writerResourceLimit)
+            if (writerTaskLeases.size + writerLeaseIssuanceReservations >= writerResourceLimit)
             {
                 throw new Error('article-writer-resource-lease-capacity');
             }
-            const lease = articleDocumentContextAdapter.beginTask(...args);
-            writerTaskLeases.add(lease);
-            // Original supersession callbacks may have synchronously paused the owner.
-            // Return the same issued lease; its executor/finally owns real settlement.
-            if (!canStartWriterResourceWork())
+            // Reserve before non-pure admission; a different producer can synchronously reenter.
+            writerLeaseIssuanceReservations += 1;
+            let issuanceReserved = true;
+            try
             {
-                try
+                const lease = articleDocumentContextAdapter.beginTask(...args);
+                writerTaskLeases.add(lease);
+                // Transfer the reserved slot to the exact issued lease without an external callback.
+                writerLeaseIssuanceReservations -= 1;
+                issuanceReserved = false;
+                // Original supersession callbacks may have synchronously paused the owner.
+                // Return the same issued lease; its executor/finally owns real settlement.
+                if (!canStartWriterResourceWork())
                 {
-                    lease.cancel('article-writer-resource-paused');
+                    try
+                    {
+                        lease.cancel('article-writer-resource-paused');
+                    }
+                    catch (error)
+                    {
+                        // Refused before the real executor receives this issued lease.
+                        writerUndispatchedLeases.add(lease);
+                        writerResourceControlFailure ??= { failure: error };
+                        throw error;
+                    }
                 }
-                catch (error)
+                return lease;
+            }
+            finally
+            {
+                if (issuanceReserved)
                 {
-                    // Refused before the real executor receives this issued lease.
-                    writerUndispatchedLeases.add(lease);
-                    writerResourceControlFailure ??= { failure: error };
-                    throw error;
+                    writerLeaseIssuanceReservations -= 1;
                 }
             }
-            return lease;
         }
     });
     const observeWriterResourceWork = <T>(kind: string, execute: () => Promise<T>, continuation = false): Promise<T> =>
@@ -4831,7 +4848,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     {
         const pending = new Set(articleDocumentContextAdapter.pendingTaskRefs);
         const leases = [...writerTaskLeases].filter(lease => pending.has(lease.taskRef));
-        const ownWorkPending = leases.length > 0 || writerPendingWork.size > 0
+        const ownWorkPending = writerLeaseIssuanceReservations > 0 || leases.length > 0 || writerPendingWork.size > 0
             || attachmentUploadAttempt !== null || draftSaveInFlightIdentity !== null;
         return Object.freeze({
             scope: 'writer-owned-local' as const,
@@ -4841,6 +4858,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             scopePausedByOwner: writerScopePaused,
             retainedCriticalRevocationObservers: 2,
             leaseLimit: writerResourceLimit,
+            leaseIssuanceReservations: writerLeaseIssuanceReservations,
             workLimit: writerResourceLimit,
             unattributedDocumentTaskCount: pending.size - leases.length,
             pendingLeases: Object.freeze(leases.map(lease => Object.freeze({ taskRef: lease.taskRef,
@@ -4863,40 +4881,43 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 'external-producer-effects-and-network-settlement'])
         });
     };
-    const pauseWriterSessionResources = (): ReturnType<typeof inspectWriterSessionResources> =>
+    const pauseOriginalWriterScope = (): void =>
     {
-        if (writerResourceControlRunning)
-        {
-            throw writerResourceReentrancyFailure;
-        }
-        if (!active || !writerScope.active)
-        {
-            return inspectWriterSessionResources();
-        }
-        // Failed notification must leave the actual physical owner and cleanup custody untouched.
+        const failures: unknown[] = [];
+        // Withdraw a prior acknowledgement before any operation that may fail partially.
+        writerScopePaused = false;
         try
         {
-            notifyCurrentMountedAuthorityRetirement?.();
+            writerScope.pause();
+            writerScopePaused = true;
         }
         catch (error)
         {
-            writerResourceControlFailure ??= { failure: error };
-            throw error;
+            failures.push(error);
         }
-        writerResourceControlRunning = true;
-        writerResourcePhase = 'pausing';
+        // Attempt both original retirement guards even if pause or the first guard throws.
+        for (const guard of [mountedAuthorityRevocationWatch, draftPrincipalRetirementWatch])
+        {
+            try
+            {
+                guard.resume();
+            }
+            catch (error)
+            {
+                failures.push(error);
+            }
+        }
+        if (failures.length > 0)
+        {
+            throw combineWriterFailures(failures, 'article-writer-resource-scope-pause-failed');
+        }
+    };
+    const pauseOriginalWriterResourceHandles = (): void =>
+    {
         const failures: unknown[] = [];
         const operations = [
             () => revokeCurrentMountedAuthority?.(),
-            () =>
-            {
-                writerScope.pause();
-                writerScopePaused = true;
-                // Keep the two original synchronous retirement guards live, including observed A→B→A.
-                // Scope pause must not coalesce principal/Auth changes into a fresh admission.
-                mountedAuthorityRevocationWatch.resume();
-                draftPrincipalRetirementWatch.resume();
-            },
+            () => pauseOriginalWriterScope(),
             () => clearDraftSaveTimer(),
             () =>
             {
@@ -4922,30 +4943,58 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
             })
         ];
+        for (const operation of operations)
+        {
+            try
+            {
+                operation();
+            }
+            catch (error)
+            {
+                failures.push(error);
+            }
+        }
+        if (failures.length > 0)
+        {
+            throw combineWriterFailures(failures, 'article-writer-resource-pause-handles-failed');
+        }
+    };
+    const pauseWriterSessionResources = (): ReturnType<typeof inspectWriterSessionResources> =>
+    {
+        if (writerResourceControlRunning)
+        {
+            throw writerResourceReentrancyFailure;
+        }
+        if (!active || !writerScope.active)
+        {
+            return inspectWriterSessionResources();
+        }
+        // Failed notification must leave the actual physical owner and cleanup custody untouched.
         try
         {
-            for (const operation of operations)
-            {
-                try
-                {
-                    operation();
-                }
-                catch (error)
-                {
-                    failures.push(error);
-                }
-            }
+            notifyCurrentMountedAuthorityRetirement?.();
+        }
+        catch (error)
+        {
+            writerResourceControlFailure ??= { failure: error };
+            throw error;
+        }
+        writerResourceControlRunning = true;
+        writerResourcePhase = 'pausing';
+        try
+        {
+            pauseOriginalWriterResourceHandles();
             writerResourcePhase = 'paused';
-            if (failures.length > 0)
-            {
-                const previous = writerResourceControlFailure;
-                const failure = combineWriterFailures(failures, 'article-writer-resource-pause-failed');
-                writerResourceControlFailure = previous ?? { failure };
-                throw previous ? combineWriterFailures([previous.failure, failure], 'article-writer-resource-pause-retry-failed') : failure;
-            }
             // Only success of these real repeated operations releases the prior control failure.
             writerResourceControlFailure = null;
             return inspectWriterSessionResources();
+        }
+        catch (error)
+        {
+            writerResourcePhase = 'paused';
+            const previous = writerResourceControlFailure;
+            writerResourceControlFailure = previous ?? { failure: error };
+            throw previous ? combineWriterFailures([previous.failure, error], 'article-writer-resource-pause-retry-failed') : error;
         }
         finally
         {
@@ -4983,8 +5032,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             }
             writerResourcePhase = 'resuming';
             // Real deferred effects replay; draft work uses its existing server validation.
-            writerScope.resume();
             writerScopePaused = false;
+            writerScope.resume();
             installWriterRecoveryLifecycle();
             powProvider.prewarm();
             scheduleDraftSave();
@@ -4995,8 +5044,26 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             if (writerResourcePhase === 'resuming')
             {
+                writerResourcePhase = 'pausing';
+                const firstFailure = writerResourceControlFailure ? writerResourceControlFailure.failure : error;
+                const failures: unknown[] = [firstFailure];
+                if (firstFailure !== error)
+                {
+                    failures.push(error);
+                }
+                try
+                {
+                    // Real rollback, including partial scope replay, guards and newly installed handles.
+                    pauseOriginalWriterResourceHandles();
+                }
+                catch (cleanupError)
+                {
+                    failures.push(cleanupError);
+                }
                 writerResourcePhase = 'paused';
-                writerResourceControlFailure = { failure: error };
+                const failure = combineWriterFailures(failures, 'article-writer-resource-resume-and-rollback-failed');
+                writerResourceControlFailure = { failure };
+                throw failure;
             }
             throw error;
         }
