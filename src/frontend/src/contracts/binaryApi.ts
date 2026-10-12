@@ -1,3 +1,5 @@
+import type { SupportedLocale } from '@/locales/localeCatalog';
+
 export const ArticlePublishStatus = {
     Draft: 0,
     Scheduled: 1,
@@ -174,14 +176,14 @@ export type LocalePreferenceMode = 'auto' | 'fixed';
 
 export interface UserLocalePreference {
     mode: LocalePreferenceMode;
-    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;
+    fixedLocale: SupportedLocale | null;
     revision: number;
     updatedAt: string;
 }
 
 export interface UserLocalePreferenceUpdate {
     mode: LocalePreferenceMode;
-    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;
+    fixedLocale: SupportedLocale | null;
     expectedRevision: number;
 }
 
@@ -1042,3 +1044,24 @@ export interface UploadCompleteViewModel {
     mimeType: string;
     totalBytes: number;
 }
+
+/** Current session-authorized facts and bytes. Does not authorize article/Vault operations. */
+export interface UploadAssetPreviewViewModel {
+    schema: 'fsusblog.upload-asset-preview.v1';
+    uploadId: string;
+    assetId: string;
+    publicUrl: string;
+    mimeType: string;
+    extension: string;
+    sizeBytes: number;
+    width: number;
+    height: number;
+    sha256: string;
+    assetVersionSha256: string;
+    referenceLedgerSha256: string;
+    referenceRowCount: number;
+    bytes: Uint8Array;
+}
+
+/** Current session-authorized facts without image bytes; grants no reference operation receipt. */
+export type UploadAssetFactsViewModel = Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'> & { schema: 'fsusblog.upload-asset-facts.v1'; };

@@ -1,0 +1,393 @@
+{
+  "schema": "fsusblog.article-library-disposal-source-review.v1",
+  "kind": "source-reasoning-not-runtime-test-receipt-or-qualification",
+  "committed_before": "86d459b21450879633380a9288c1b3947d529771",
+  "candidate_source_sha256": "2bfa391b70f6aff8f4f4db9c4e38c7ae50e78c5b89caff900b3f463ac8f2875c",
+  "original_sync_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts",
+  "original_cache_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
+  "matrix": [
+    {
+      "id": "unsubscribe0-clear0-channel0-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": false,
+        "channel_close": false,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe0-clear0-channel0-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": false,
+        "channel_close": false,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "cache"
+      ],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe0-clear0-channel1-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": false,
+        "channel_close": true,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel"
+      ],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe0-clear0-channel1-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": false,
+        "channel_close": true,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel",
+        "cache"
+      ],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe0-clear1-channel0-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": true,
+        "channel_close": false,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe0-clear1-channel0-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": true,
+        "channel_close": false,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe0-clear1-channel1-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": true,
+        "channel_close": true,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe0-clear1-channel1-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "actual_storage_remove": true,
+        "channel_close": true,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear0-channel0-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": false,
+        "channel_close": false,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [
+        "sync"
+      ],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear0-channel0-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": false,
+        "channel_close": false,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "cache"
+      ],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear0-channel1-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": false,
+        "channel_close": true,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel"
+      ],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear0-channel1-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": false,
+        "channel_close": true,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel",
+        "cache"
+      ],
+      "actual_storage_close_permitted": true,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear1-channel0-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": true,
+        "channel_close": false,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear1-channel0-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": true,
+        "channel_close": false,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear1-channel1-storage-close0",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": true,
+        "channel_close": true,
+        "actual_storage_close": false
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    },
+    {
+      "id": "unsubscribe1-clear1-channel1-storage-close1",
+      "original_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "actual_storage_remove": true,
+        "channel_close": true,
+        "actual_storage_close": true
+      },
+      "pending_outer_obligations": [
+        "sync",
+        "channel",
+        "cache-scope",
+        "cache"
+      ],
+      "actual_storage_close_permitted": false,
+      "all_independent_roles_started": true,
+      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
+      "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source reasoning only; underlying Sync.stop still has dependent internal calls and may reject when any original callback fails."
+    }
+  ],
+  "partial_and_async_cases": [
+    {
+      "case": "No Sync adopted: independently attempt actual channel close and require adopted scope clear before actual storage close",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Sync constructor throws: retained cache/channel obligations remain callable",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Connection acquisition pending on cancellation: disposal awaits original acquisition settlement, then disposes any real returned handle",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Connection acquisition rejects: state not-acquired means no handle transferred; original constructor remains owner, original preparation exception retained by original task",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Synchronous abort reentry: pass reserved before abort, immediate abort outcome retained",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Any independent async obligation still pending: all other obligations have started; repeats share in-flight pass, no timeout success or duplicate attempt",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Late adopted Sync after synchronous constructor reentry: next microtask pass includes actual registered handle",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Repeated permanent unsubscribe/cache/channel failure: live cleanup obligation retained, admission cannot reopen",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Callback directly returning the current disposal pass: reject self-dependency; do not mark role fulfilled",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Successful cleanup after a failed attempt: diagnostics retain original first/latest causes while command state advances only after real return",
+      "runtime_status": "UNRUN_HELD"
+    }
+  ],
+  "limitations": [
+    "Every runtime, auth/security, test/list, native, and receipt cell remains UNRUN/HOLD.",
+    "Command return/status is not independent native/task/storage qualification.",
+    "Arbitrary foreign async self-wait remains a retained pending obligation; no timeout or invented terminal completion.",
+    "Snapshot9fb0e2c two prior P2s source-closed; new original conflict-refresh P2 pending original repair/re-review. Root copies no conflict-selection logic; not whole API admission."
+  ],
+  "failed_preparation_custody": "Same original preparation reservation retains partial lifetime; source-identity managed retry available without returned ports.",
+  "ordering_correction": "Root forwards the real original storage methods and retains only cleanup bookkeeping: accepted writes drain before remove; only successful actual remove authorizes close; swallowed original best-effort clear errors are rethrown by the strict Root prerequisite.",
+  "normal_path": "Original Sync clear and Root strict clear share the real in-flight remove; successful storage close idempotent bookkeeping is set only after actual original close returns.",
+  "original_sync_blob": "1112f212ab498a67b97020368cc5d4c7037a9874",
+  "original_sync_offer": "9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465"
+}
