@@ -165,6 +165,7 @@ let lastAedsDiagnosticsSignature = '';
 interface OwnedDecode {
     owner: LocalTransportOwner;
     requestId: number;
+    posted: boolean;
     state: 'queued' | 'pending' | 'observed' | 'unknown';
     terminal: Promise<void>;
     finish: (state: 'observed' | 'unknown') => void;
@@ -209,6 +210,7 @@ class LocalTransportOwner
         const task: OwnedDecode = {
             owner: this,
             requestId,
+            posted: false,
             state: 'queued',
             terminal,
             finish: (state) =>
@@ -229,11 +231,12 @@ class LocalTransportOwner
     {
         const pending = Array.from(pendingRequests.values()).filter((entry) => entry.task.owner === this);
         const queuedDecodes = queuedRequests.filter((entry) => entry.task.owner === this).length;
-        const workerTerminal = this.decodes.some((task) => task.state === 'unknown')
+        const postedDecodes = this.decodes.filter((task) => task.posted);
+        const workerTerminal = postedDecodes.some((task) => task.state === 'unknown')
             ? 'unknown'
-            : this.decodes.some((task) => task.state === 'queued' || task.state === 'pending')
+            : postedDecodes.some((task) => task.state === 'pending')
                 ? 'pending'
-                : this.decodes.length > 0 ? 'observed' : 'not-used';
+                : postedDecodes.length > 0 ? 'observed' : 'not-used';
         return Object.freeze({
             execution: this.execution,
             lease: this.lease,
@@ -739,6 +742,7 @@ function startWorkerDecode(queued: QueuedDecodeRequest): void
             accessProfile: queued.accessProfile
         };
         worker.postMessage(request, [queued.buffer]);
+        queued.task.posted = true;
     }
     catch (error)
     {
