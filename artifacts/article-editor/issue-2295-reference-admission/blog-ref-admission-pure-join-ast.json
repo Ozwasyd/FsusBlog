@@ -1,0 +1,30 @@
+{
+  "findings": [
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "calls": [
+        "privateCurrent",
+        "hasNative",
+        "hasNativeDocument",
+        "hasDraft",
+        "hasJournal",
+        "hasNative",
+        "hasNativeDocument",
+        "privateCurrent"
+      ],
+      "sourceOnly": true,
+      "executedProduct": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts",
+      "calls": [
+        "hasInstallation",
+        "hasOriginal",
+        "hasInstallation"
+      ],
+      "sourceOnly": true,
+      "executedProduct": false
+    }
+  ],
+  "status": "PASS source AST only; not runtime qualification"
+}

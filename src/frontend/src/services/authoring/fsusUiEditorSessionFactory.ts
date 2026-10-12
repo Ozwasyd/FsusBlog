@@ -1,3 +1,5 @@
+import { articleRecoveryIdentityHash } from '../articleRecoveryJournal';
+
 import { createArticleWorkspaceNativeDocumentAuthorityConsumer } from './articleWorkspaceNativeDocumentAuthority';
 import {
     calculateRetainedRecoveryRefsDigest,
@@ -5,6 +7,10 @@ import {
     type ArticleWorkspaceRetainedRecoverySnapshot
 } from './articleWorkspaceRetainedRecoverySnapshot';
 import {
+    authoringSessionSnapshotSchema,
+    sealAuthoringSessionSnapshot,
+    verifyAuthoringSessionSnapshot,
+    type AuthoringSessionSnapshotRefs,
     type AuthoringSessionSnapshotContext,
     type FsusUiPublicEditorSession,
     type FsusUiPublicEditorSessionFactory
@@ -75,7 +81,35 @@ export interface ArticleWorkspaceEditorSnapshotPreparation {
     discard(): boolean;
 }
 
+/** Original ref custody only. Root/Renderer/resource admission is still required by the host. */
+export interface ArticleWorkspaceSnapshotReferenceAdmission {
+    readonly references: Readonly<AuthoringSessionSnapshotRefs>;
+    readonly scope: 'native-draft-journal-reference-custody';
+    readonly complete: false;
+    readonly recoverable: false;
+    readonly missingAuthorities: readonly string[];
+    /** Original private queries only; no resolver, inspect, isCurrent, clock or acquisition. */
+    hasCustody(): boolean;
+    /** False preserves unfinished original cleanup; no disposal acknowledgement. */
+    cancel(): boolean;
+    inspectFailure(): Readonly<{ failed: boolean; firstCause: unknown; latestCause: unknown; }>;
+}
+
+interface SnapshotReferenceAttempt {
+    active: boolean;
+    preparing: boolean;
+    canceling: boolean;
+    failed: boolean;
+    firstCause: unknown;
+    latestCause: unknown;
+    nativePreparation: ArticleWorkspaceEditorSnapshotPreparation | null;
+    nativeReservation: ArticleWorkspaceNativeDocumentReservation | null;
+}
+
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
+    prepareSnapshotReferenceAdmission(entry: OpenArticleDocumentEntry, recoveryCheckpoint: ArticleWorkspaceRetainedRecoveryCheckpoint,
+        draftStateRef: string, crashJournalRef: string): Promise<ArticleWorkspaceSnapshotReferenceAdmission>;
+    inspectSnapshotReferenceCleanup(): Readonly<{ pending: boolean; failed: boolean; firstCause: unknown; latestCause: unknown; }>;
     reserveNativeDocumentAuthority(entry: OpenArticleDocumentEntry, revokeBeforeChange: () => void): ArticleWorkspaceNativeDocumentReservation | null;
     retireNativeDocumentAuthorities(): void;
     inspectNativeDocumentCleanup(): ReturnType<ReturnType<typeof createArticleWorkspaceNativeDocumentAuthorityConsumer>['inspectCleanupCustody']>;
@@ -123,6 +157,77 @@ export function createFsusUiEditorSessionFactory(
 ): ArticleWorkspaceFsusUiEditorSessionFactory
 {
     const nativeDocumentAuthority = createArticleWorkspaceNativeDocumentAuthorityConsumer();
+    // One pending operation beside the original native candidate, never an article/session index.
+    let referenceAttempt: SnapshotReferenceAttempt | null = null;
+    let referenceAdmissionRetired = false;
+    const recordReferenceFailure = (attempt: SnapshotReferenceAttempt, cause: unknown): void =>
+    {
+        if (!attempt.failed)
+        {
+            attempt.firstCause = cause;
+        }
+        attempt.failed = true;
+        attempt.latestCause = cause;
+    };
+    const cancelReferenceAttempt = (attempt: SnapshotReferenceAttempt): boolean =>
+    {
+        attempt.active = false;
+        if (attempt.preparing || attempt.canceling)
+        {
+            return false;
+        }
+        attempt.canceling = true;
+        let failed = false;
+        let firstCause: unknown;
+        try
+        {
+            try
+            {
+                attempt.nativePreparation?.discard();
+                attempt.nativePreparation = null;
+            }
+            catch (cause)
+            {
+                failed = true;
+                firstCause = cause;
+                recordReferenceFailure(attempt, cause);
+            }
+            try
+            {
+                const reservation = attempt.nativeReservation;
+                if (reservation)
+                {
+                    reservation.cancel();
+                    if (!reservation.hasCleanupCustody())
+                    {
+                        attempt.nativeReservation = null;
+                    }
+                }
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    firstCause = cause;
+                }
+                failed = true;
+                recordReferenceFailure(attempt, cause);
+            }
+            if (!attempt.nativePreparation && !attempt.nativeReservation && referenceAttempt === attempt)
+            {
+                referenceAttempt = null;
+            }
+            if (failed)
+            {
+                throw firstCause;
+            }
+            return !attempt.nativePreparation && !attempt.nativeReservation;
+        }
+        finally
+        {
+            attempt.canceling = false;
+        }
+    };
     function resolveSession(entry: OpenArticleDocumentEntry): {
         binding: ArticleWorkspaceMountedEditorBinding;
         session: MarkdownEditorSession;
@@ -326,7 +431,163 @@ export function createFsusUiEditorSessionFactory(
         });
     };
 
-    return {
+    const factory: ArticleWorkspaceFsusUiEditorSessionFactory = {
+        async prepareSnapshotReferenceAdmission(entry, recoveryCheckpoint, draftStateRef, crashJournalRef)
+        {
+            assertAdmission();
+            if (referenceAdmissionRetired || referenceAttempt)
+            {
+                throw new Error('public-editor-reference-admission-pending-or-retired');
+            }
+            const attempt: SnapshotReferenceAttempt = { active: true, preparing: true, canceling: false,
+                failed: false, firstCause: undefined, latestCause: undefined,
+                nativePreparation: null, nativeReservation: null };
+            referenceAttempt = attempt;
+            try
+            {
+                const { binding, session } = resolveSession(entry);
+                const draft = binding.draftCheckpoint;
+                if (!draft || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current')
+                {
+                    throw new Error('public-editor-reference-draft-owner-unavailable');
+                }
+                const identity = Object.freeze({ ...binding.identity });
+                const context = Object.freeze({ ...binding.documentContext });
+                const revision = binding.editorRevision;
+                const editor = binding.editor;
+                const entryDigest = calculateOpenArticleDocumentDigest(entry);
+                const inspectJournal = recoveryCheckpoint.inspectReference.bind(recoveryCheckpoint);
+                const validateJournal = recoveryCheckpoint.validateReference.bind(recoveryCheckpoint);
+                const hasJournal = recoveryCheckpoint.hasReferenceCustody.bind(recoveryCheckpoint);
+                const inspectDraft = draft.inspectDraftReference.bind(draft);
+                const hasDraft = draft.hasDraftReferenceCustody.bind(draft);
+                const assertOwner = (): void =>
+                {
+                    assertAdmission();
+                    const current = resolveSession(entry);
+                    assertBinding(current.binding, identity, context);
+                    if (referenceAttempt !== attempt || !attempt.active || referenceAdmissionRetired
+                        || current.session !== session || current.binding.editor !== editor
+                        || current.binding.editorRevision !== revision || current.binding.draftCheckpoint !== draft
+                        || calculateOpenArticleDocumentDigest(entry) !== entryDigest)
+                    {
+                        throw new Error('public-editor-reference-admission-owner-stale');
+                    }
+                    assertAdmission();
+                };
+                // Register actual Native pre-retirement before callbacks/awaits. This receiver
+                // only withdraws private publication; it never inspects or cancels an issuer.
+                attempt.nativeReservation = factory.reserveNativeDocumentAuthority(entry, () =>
+                {
+                    attempt.active = false;
+                });
+                if (!attempt.nativeReservation)
+                {
+                    throw new Error('public-editor-reference-native-authority-unavailable');
+                }
+                const draftObservation = factory.inspectOriginalDraftCheckpoint(entry, draftStateRef);
+                const draftInfo = draftObservation.info;
+                const journalInfo = assertRecoveryReference(entry, binding, inspectJournal, crashJournalRef);
+                const identityHash = await articleRecoveryIdentityHash(draftInfo.principalIdentityId);
+                assertOwner();
+                if (journalInfo.identityHash !== identityHash || journalInfo.siteScope !== draftInfo.siteScope
+                    || journalInfo.draftKey !== draftInfo.draftKey)
+                {
+                    throw new Error('public-editor-reference-journal-principal-mismatch');
+                }
+                const content = session.inspectContentDigest((source) =>
+                {
+                    if (!validateJournal(crashJournalRef, source))
+                    {
+                        throw new Error('public-editor-reference-journal-content-mismatch');
+                    }
+                    return calculateOpenArticleDocumentDigest(source);
+                }, { documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision,
+                    assertAdmission: assertOwner });
+                if (content.editorContentDigest !== draftObservation.editorContentDigest)
+                {
+                    throw new Error('public-editor-reference-draft-content-mismatch');
+                }
+                attempt.nativePreparation = factory.prepareRetainedSnapshot(entry);
+                const preparation = attempt.nativePreparation;
+                const native = preparation.snapshot;
+                const panels = native.panelRefs;
+                const render = native.lastValidRender;
+                if (!panels?.attachmentStateRef || !render)
+                {
+                    throw new Error('public-editor-reference-required-native-refs-unavailable');
+                }
+                const references = sealAuthoringSessionSnapshot({
+                    schema: authoringSessionSnapshotSchema, snapshotRef: native.snapshotRef,
+                    identity, editorSessionRef: native.editorSessionRef, documentContext: context,
+                    permission: entry.status.permission, permissionRef: entry.status.statusRef,
+                    selectionRef: native.selectionRef, selectionDirection: native.selection.direction,
+                    historyRef: native.historyRef, activeNodeRef: panels.activeNodeRef,
+                    scrollAnchorRef: panels.scrollAnchorRef, outlineRef: panels.outlineRef,
+                    searchRef: panels.searchRef, attachmentStateRef: panels.attachmentStateRef,
+                    lastValidRenderRef: render.ref, draftStateRef: draftInfo.draftStateRef,
+                    crashJournalRef: journalInfo.checkpointRef, editorContentDigest: native.editorContentDigest
+                });
+                Object.freeze(references.identity);
+                Object.freeze(references.documentContext);
+                Object.freeze(references);
+                if (!verifyAuthoringSessionSnapshot(references) || native.editorContentDigest !== content.editorContentDigest)
+                {
+                    throw new Error('public-editor-reference-set-invalid');
+                }
+                const publication = preparation.sealNative();
+                const hasNative = publication.hasNativeCustody.bind(publication);
+                const nativeReservation = attempt.nativeReservation;
+                const hasNativeDocument = nativeReservation.hasCustody.bind(nativeReservation);
+                const privateCurrent = (): boolean => referenceAttempt === attempt && attempt.active
+                    && !attempt.preparing && !attempt.canceling && !attempt.failed && !referenceAdmissionRetired;
+                const hasCustody = (): boolean => privateCurrent() && hasNative() && hasNativeDocument()
+                    && hasDraft(draftStateRef, draftInfo) && hasJournal(crashJournalRef, journalInfo)
+                    && hasNative() && hasNativeDocument() && privateCurrent();
+                const admission: ArticleWorkspaceSnapshotReferenceAdmission = Object.freeze({
+                    references, scope: 'native-draft-journal-reference-custody', complete: false, recoverable: false,
+                    missingAuthorities: Object.freeze([
+                        'markdown-editor-session:full-document-renderer-checkpoint-seal-public-port',
+                        'root:final-mounted-authority-port',
+                        'session:complete-resource-and-disposed-restoration-authority'
+                    ]),
+                    hasCustody, cancel: () => cancelReferenceAttempt(attempt),
+                    inspectFailure: () => Object.freeze({ failed: attempt.failed,
+                        firstCause: attempt.firstCause, latestCause: attempt.latestCause })
+                });
+                // These original inspectors may invalidate. Finish them before the final
+                // private join, and never call them from hasCustody or the retirement receiver.
+                if (inspectDraft(draftStateRef) !== draftInfo
+                    || assertRecoveryReference(entry, binding, inspectJournal, crashJournalRef) !== journalInfo)
+                {
+                    throw new Error('public-editor-reference-original-custody-revoked');
+                }
+                assertOwner();
+                attempt.preparing = false;
+                if (!hasCustody())
+                {
+                    throw new Error('public-editor-reference-final-custody-revoked');
+                }
+                return admission;
+            }
+            catch (cause)
+            {
+                recordReferenceFailure(attempt, cause);
+                attempt.preparing = false;
+                try
+                {
+                    cancelReferenceAttempt(attempt);
+                }
+                catch
+                {
+                    // Keep both the original acquisition cause and actual cleanup debt.
+                }
+                throw cause;
+            }
+        },
+        inspectSnapshotReferenceCleanup: () => Object.freeze({ pending: referenceAttempt !== null,
+            failed: referenceAttempt?.failed ?? false, firstCause: referenceAttempt?.firstCause,
+            latestCause: referenceAttempt?.latestCause }),
         reserveNativeDocumentAuthority(entry, revokeBeforeChange)
         {
             const { binding, session } = resolveSession(entry);
@@ -349,7 +610,40 @@ export function createFsusUiEditorSessionFactory(
                 { documentKey: identity.documentId, documentEpoch: context.documentEpoch, revision },
                 revokeBeforeChange, assertOwner);
         },
-        retireNativeDocumentAuthorities: () => nativeDocumentAuthority.retire(),
+        retireNativeDocumentAuthorities: () =>
+        {
+            referenceAdmissionRetired = true;
+            let failed = false;
+            let firstCause: unknown;
+            try
+            {
+                if (referenceAttempt && !cancelReferenceAttempt(referenceAttempt))
+                {
+                    throw new Error('public-editor-reference-cleanup-pending');
+                }
+            }
+            catch (cause)
+            {
+                failed = true;
+                firstCause = cause;
+            }
+            try
+            {
+                nativeDocumentAuthority.retire();
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    firstCause = cause;
+                }
+                failed = true;
+            }
+            if (failed)
+            {
+                throw firstCause;
+            }
+        },
         inspectNativeDocumentCleanup: () => nativeDocumentAuthority.inspectCleanupCustody(),
         inspectOriginalDraftCheckpoint(entry, reference)
         {
@@ -672,10 +966,9 @@ export function createFsusUiEditorSessionFactory(
                 captureSnapshot(context)
                 {
                     assertCurrent(entry, session, context);
-                    // Upstream exposes an actual nullable full-document render
-                    // ref and same-mounted projection restoration, but complete panel state and
-                    // application draft and complete recovery ref admission remain absent.
-                    // The separate retained API uses the actual original Writer journal binding.
+                    // Scoped reference admission now binds actual native/panel/draft/journal refs.
+                    // The original Renderer checkpoint public port, final Root joint authority
+                    // and complete resource/restoration admission are still required here.
                     // Refuse before capture so an existing snapshot is preserved.
                     throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,full-recovery-refset');
                 },
@@ -704,4 +997,5 @@ export function createFsusUiEditorSessionFactory(
             };
         }
     };
+    return factory;
 }

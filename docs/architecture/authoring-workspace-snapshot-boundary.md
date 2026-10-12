@@ -1253,3 +1253,35 @@ not a new issuer, realm, document generation or article index. Writer/Doc/Auth
 joint Root admission and full refset/resource readiness remain separate original
 producer work. Missing public native authority still returns null; no resources,
 pause/disposal/restore/eviction or full-host ready receipt follows from this port.
+
+### Original required-reference admission (#2295)
+
+`prepareArticleWorkspaceSnapshotReferenceAdmission` stages required reference
+metadata through the SAME installed host/factory. It borrows existing original
+Writer draft and journal refs, verifies native bytes and original principal/site/
+draft association during admission, and prepares/seals the existing public native
+snapshot. Selection direction, history, active node, scroll, outline, search,
+attachment and last-valid-render refs come from that actual native candidate;
+missing attachment/render refs refuse rather than receive synthetic locators.
+The original host snapshot digest function seals only this body-free metadata.
+
+Original draft/journal inspection and Writer binding reads remain admission
+operations. The final scoped guard and subsequent `hasCustody()` use only pinned
+original native publication/document, draft and journal private custody methods,
+plus the same installation's private continuity. The original native retirement
+receiver withdraws private publication before external work; it performs no
+inspection, capture, issuer cancellation or reactive read. Cancellation withdraws
+before attempting both actual native candidate and registration cleanup. Failed
+cleanup preserves its real handle and first/latest causes; factory retirement
+attempts all original obligations and supports retry through the same host.
+Only one pending reference operation is held, with no article/session index.
+
+This candidate has `complete:false` and `recoverable:false`; it is never passed
+to host attach/capture or router readiness. Original Renderer5b94 now owns a real
+checkpoint-bound seal in its mounted SFC, but the sole public MarkdownEditorSession
+still lacks a same-full-document renderer checkpoint prepare/seal/has/cancel port.
+The original Root's final mounted authority port is a separate required join.
+Complete resource authority and restoration after disposal remain unavailable.
+These missing ports prevent full-host readiness, pause/disposal qualification and
+eviction; no component-tree discovery, internal SDK import or substitute issuer
+is used to bypass them.

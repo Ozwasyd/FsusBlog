@@ -9,7 +9,8 @@ import {
     type ArticleWorkspaceFsusUiEditorSessionFactory,
     type ArticleWorkspaceEditorResourceSources,
     type ArticleWorkspaceOriginalDraftInspection,
-    type ArticleWorkspaceEditorSnapshotPreparation
+    type ArticleWorkspaceEditorSnapshotPreparation,
+    type ArticleWorkspaceSnapshotReferenceAdmission
 } from './fsusUiEditorSessionFactory';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
 
@@ -37,6 +38,7 @@ let installed: {
     readonly host: AuthoringSessionHost;
     readonly factory: ArticleWorkspaceFsusUiEditorSessionFactory;
     readonly assertActive: () => void;
+    readonly hasInstallationCustody: () => boolean;
     readonly retire: () => void;
     readonly sealAdmission: () => ArticleWorkspaceEditorSessionCompositionSeal;
     readonly hasAdmissionCustody: (seal: ArticleWorkspaceEditorSessionCompositionSeal) => boolean;
@@ -128,7 +130,8 @@ export function installArticleWorkspaceEditorSessions(
         sealedAdmission = null;
         return true;
     };
-    installed = { resolveMountedEditor, prepareMountedEditor, host, factory, assertActive, retire,
+    const hasInstallationCustody = (): boolean => installationComplete && !retired;
+    installed = { resolveMountedEditor, prepareMountedEditor, host, factory, assertActive, hasInstallationCustody, retire,
         sealAdmission, hasAdmissionCustody, cancelAdmission };
     try
     {
@@ -179,6 +182,66 @@ export function installArticleWorkspaceEditorSessions(
         throw error;
     }
     return host;
+}
+
+/** Stage actual required refs in the sole installed host; this never attaches or grants ready. */
+export async function prepareArticleWorkspaceSnapshotReferenceAdmission(
+    host: AuthoringSessionHost,
+    entry: OpenArticleDocumentEntry,
+    recoveryCheckpoint: ArticleWorkspaceRetainedRecoveryCheckpoint,
+    draftStateRef: string,
+    crashJournalRef: string
+): Promise<ArticleWorkspaceSnapshotReferenceAdmission>
+{
+    const composition = installed;
+    if (composition?.host !== host)
+    {
+        throw new Error('article-workspace-session-composition-owner-mismatch');
+    }
+    composition.assertActive();
+    const original = await composition.factory.prepareSnapshotReferenceAdmission(
+        entry, recoveryCheckpoint, draftStateRef, crashJournalRef);
+    try
+    {
+        const hasOriginal = original.hasCustody.bind(original);
+        const hasInstallation = composition.hasInstallationCustody;
+        const hasCustody = (): boolean => installed === composition && hasInstallation()
+            && hasOriginal() && hasInstallation() && installed === composition;
+        const admission: ArticleWorkspaceSnapshotReferenceAdmission = Object.freeze({
+            references: original.references, scope: original.scope,
+            complete: original.complete, recoverable: original.recoverable,
+            missingAuthorities: original.missingAuthorities, hasCustody,
+            cancel: original.cancel.bind(original), inspectFailure: original.inspectFailure.bind(original)
+        });
+        // Allocation and all external reads finish before this final private installation/ref join.
+        if (!hasCustody())
+        {
+            throw new Error('article-workspace-reference-admission-composition-retired');
+        }
+        return admission;
+    }
+    catch (cause)
+    {
+        try
+        {
+            original.cancel();
+        }
+        catch
+        {
+            // The SAME factory retains failed original cleanup for retirement retry.
+        }
+        throw cause;
+    }
+}
+
+/** Cleanup inspection stays available after retirement; it grants no refset/resource authority. */
+export function inspectArticleWorkspaceSnapshotReferenceCleanup()
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    return installed.factory.inspectSnapshotReferenceCleanup();
 }
 
 /** Revoke admission and retain actual owner custody; this does not dispose resources. */

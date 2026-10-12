@@ -1,0 +1,25 @@
+{
+  "baselineMain": "e40caa54335c43d1746b248203b6ea6c230f886b",
+  "actualUI": "bf7769d6628beb15ee7e781300b38fcf8133b174",
+  "sourceStyle2": 0,
+  "AST2": 0,
+  "scopedPureJoinAST2": "PASS only original pure/private call sites",
+  "originalWholeApplication": {
+    "exit": 2,
+    "delta": {
+      "before": 243,
+      "after": 243,
+      "added": [],
+      "removed": [],
+      "normalization": "positions only; full diagnostic blocks/multiplicity",
+      "status": "FAIL; no qualification"
+    }
+  },
+  "documentationLifecycle": {
+    "exit": 1,
+    "result": "existing missing explicit metadata for same two documents and stale inventory; authority/index/config unchanged; no refresh"
+  },
+  "runtime": "ALL HOLD/UNRUN",
+  "independentCompositeReview": "pending",
+  "rollback": "revert this owning increment; original full-host refusal and no publication remain"
+}
