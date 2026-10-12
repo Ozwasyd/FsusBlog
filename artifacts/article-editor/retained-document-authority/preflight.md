@@ -331,3 +331,15 @@ failure now records original owner failure custody, drains the remaining queued
 scopes, then reports aggregate actual errors instead of dropping the queue. One
 additional original-module source case checks that failure with real queued owner
 retirement and preserved pending tasks. This case also remains UNRUN/HOLD.
+
+## Original membership seal source increment
+
+Implements the exact original Registry request in Main36d835
+`artifacts/article-editor/issue-2295-composition-admission-seal/original-producer-requests.json`.
+Private original canonical publication/cell/entry custody supplies the membership
+seal and pure has/cancel paths. Original command and notification phase retire
+before external getters/hash/clone/callback, preserving original publication
+guards and actual canonical Map. Three original same-module negative source cases
+are written only. No test/config/setup/import entry changes or execution; every
+runtime/test/list/discovery/native/security/privacy/receipt/qualification HOLD
+remains, and new exact source must be independently reviewed.

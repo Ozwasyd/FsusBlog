@@ -19,6 +19,19 @@ receipt. Reentrant notification commands refuse. Handles are not permission,
 snapshot-restore or safe-eviction grants. No body/history/cache, second article
 index, Host, persistence or server DocumentId contract is introduced here.
 
+Original Registry membership seals bind the authentic retained cell, its actual
+canonical entry and original publication/revision. `sealRetainedArticleDocumentMembership`
+freshly inspects membership; `hasSealedRetainedArticleDocumentMembershipCustody`
+joins private original pointers/state without `cell.read`, clone, allocation or
+external reader. `cancelRetainedArticleDocumentMembershipSeal` removes that actual
+issued token. Registry command/ownership preparation and notification entry retire
+the original publication before getters, hashes, clones and callbacks; only the
+original stable canonical Map/revision publication can issue a replacement token.
+Scope/close/identity/permission/lifecycle and notification failure invalidate the
+same original cell. There is no second membership index or downstream boolean
+listener cache. Original Group publication guards/CAS/history/ratio remain intact.
+These seals prove only original membership custody, not mount/auth/full-ready.
+
 The original singleton `ArticleDocumentContextAuthority` owns the retained
 adapters. `prepareRetainedDocument(registry, input, scopeReaders)` issues original
 document/draft/editor-session identities and returns only a provenance-bound

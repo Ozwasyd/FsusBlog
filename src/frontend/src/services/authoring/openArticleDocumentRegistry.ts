@@ -64,6 +64,17 @@ export interface RetainedArticleDocumentHandle {
     readonly [retainedDocumentHandleBrand]: true;
 }
 
+declare const membershipSealBrand: unique symbol;
+
+export interface RetainedArticleDocumentMembershipSeal {
+    readonly [membershipSealBrand]: true;
+}
+
+interface RetainedMembershipPublication {
+    readonly entries: Map<string, OpenArticleDocumentEntry>;
+    readonly revision: number;
+}
+
 export type RetainedArticleDocumentRevocation = 'final-close' | 'identity-replaced' | 'scope-revoked';
 
 export interface RetainedArticleDocumentInspection {
@@ -81,6 +92,7 @@ interface RetainedArticleDocumentCell {
     readonly initial: OpenArticleDocumentEntry;
     readonly read: () => RetainedArticleDocumentInspection;
     readonly notify: () => void;
+    readonly publication: () => RetainedMembershipPublication | null;
     readonly listeners: Set<() => void>;
     reason: RetainedArticleDocumentRevocation | null;
     membershipClosed: boolean;
@@ -93,6 +105,52 @@ interface RetainedArticleDocumentCell {
 
 // Provenance is keyed by the opaque object, never article identity or a public ref.
 const retainedArticleDocumentCells = new WeakMap<RetainedArticleDocumentHandle, RetainedArticleDocumentCell>();
+const retainedMembershipSeals = new WeakMap<RetainedArticleDocumentMembershipSeal, {
+    readonly cell: RetainedArticleDocumentCell;
+    readonly publication: RetainedMembershipPublication;
+    readonly entry: OpenArticleDocumentEntry;
+}>();
+
+/** Fresh original membership inspection precedes issuing a private publication token. */
+export function sealRetainedArticleDocumentMembership(handle: RetainedArticleDocumentHandle): RetainedArticleDocumentMembershipSeal | null
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    const publication = cell?.publication();
+    if (!cell || !publication)
+    {
+        return null;
+    }
+    const observation = cell.read();
+    const entry = publication.entries.get(cell.tabId);
+    if (observation.state !== 'live' || cell.publication() !== publication || !entry
+        || observation.registryRevision !== publication.revision || observation.entry?.contentDigest !== entry.contentDigest)
+    {
+        return null;
+    }
+    const seal = Object.freeze({}) as RetainedArticleDocumentMembershipSeal;
+    retainedMembershipSeals.set(seal, { cell, publication, entry });
+    if (!hasSealedRetainedArticleDocumentMembershipCustody(seal))
+    {
+        retainedMembershipSeals.delete(seal);
+        return null;
+    }
+    return seal;
+}
+
+/** Private pointer joins only: no cell.read(), snapshot, clone, callback or allocation. */
+export function hasSealedRetainedArticleDocumentMembershipCustody(seal: RetainedArticleDocumentMembershipSeal): boolean
+{
+    const custody = retainedMembershipSeals.get(seal);
+    return !!custody && custody.cell.publication() === custody.publication
+        && custody.publication.entries.get(custody.cell.tabId) === custody.entry
+        && custody.cell.reason === null && !custody.cell.membershipClosed && !custody.cell.notificationFailed
+        && custody.entry.status.permission === 'allowed' && custody.entry.status.lifecycle === 'current';
+}
+
+export function cancelRetainedArticleDocumentMembershipSeal(seal: RetainedArticleDocumentMembershipSeal): boolean
+{
+    return retainedMembershipSeals.delete(seal);
+}
 
 export function retainedArticleDocumentHandleBelongsTo(handle: RetainedArticleDocumentHandle, registry: OpenArticleDocumentRegistry): boolean
 {
@@ -770,6 +828,41 @@ export class OpenArticleDocumentRegistry
     #retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
     #retainedNotificationPending = false;
     #retainedNotificationRequested = false;
+    #membershipMutationDepth = 0;
+    #membershipPublication: RetainedMembershipPublication | null = { entries: this.entriesByTabId, revision: this.revision };
+
+    #runMembershipMutation<T>(operation: () => T): T
+    {
+        // Retire before command getters, hashing, clones or any publisher callback.
+        this.#membershipPublication = null;
+        this.#membershipMutationDepth += 1;
+        try
+        {
+            return operation();
+        }
+        finally
+        {
+            this.#membershipMutationDepth -= 1;
+            this.#publishMembershipAuthority();
+        }
+    }
+
+    #publishMembershipAuthority(): void
+    {
+        if (this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        {
+            return;
+        }
+        // Preserve the original data-property publication guards. This root points
+        // to that actual canonical Map; it is neither a copy nor a second index.
+        const entries = Object.getOwnPropertyDescriptor(this, 'entriesByTabId');
+        const revision = Object.getOwnPropertyDescriptor(this, 'revision');
+        if (entries?.value instanceof Map && !entries.get && !entries.set
+            && typeof revision?.value === 'number' && !revision.get && !revision.set)
+        {
+            this.#membershipPublication = { entries: entries.value as Map<string, OpenArticleDocumentEntry>, revision: revision.value };
+        }
+    }
 
     public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
     {
@@ -809,6 +902,7 @@ export class OpenArticleDocumentRegistry
             notifiedFailure: false,
             listeners: new Set(),
             notify: () => this.#notifyRetainedDocuments(),
+            publication: () => this.#membershipPublication,
             read: () =>
             {
                 const current = this.entriesByTabId.get(tabId);
@@ -848,8 +942,9 @@ export class OpenArticleDocumentRegistry
 
     #notifyRetainedDocuments(): void
     {
+        this.#membershipPublication = null;
         this.#retainedNotificationRequested = true;
-        if (this.#retainedNotificationPending || this.#ownershipTransactionPending)
+        if (this.#retainedNotificationPending || this.#ownershipTransactionPending || this.#membershipMutationDepth !== 0)
         {
             return;
         }
@@ -877,10 +972,16 @@ export class OpenArticleDocumentRegistry
         finally
         {
             this.#retainedNotificationPending = false;
+            this.#publishMembershipAuthority();
         }
     }
 
     public createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
+    {
+        return this.#runMembershipMutation(() => this.#createGroupOwnershipCell(initial));
+    }
+
+    #createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
     {
         if (this.#groupOwnershipCell)
         {
@@ -914,7 +1015,7 @@ export class OpenArticleDocumentRegistry
         expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
         ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
     {
-        const result = this.executeCore(command, { expected, next, ratioChange });
+        const result = this.#runMembershipMutation(() => this.executeCore(command, { expected, next, ratioChange }));
         this.#notifyRetainedDocuments();
         return result;
     }
@@ -956,7 +1057,7 @@ export class OpenArticleDocumentRegistry
 
     public execute(command: unknown): OpenArticleDocumentCommandResult
     {
-        const result = this.executeCore(command);
+        const result = this.#runMembershipMutation(() => this.executeCore(command));
         this.#notifyRetainedDocuments();
         return result;
     }

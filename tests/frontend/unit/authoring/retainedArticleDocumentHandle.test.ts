@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
     OpenArticleDocumentRegistry,
+    sealRetainedArticleDocumentMembership,
+    hasSealedRetainedArticleDocumentMembershipCustody,
+    cancelRetainedArticleDocumentMembershipSeal,
     inspectRetainedArticleDocumentHandle,
     openArticleDocumentCommandSchema,
     retainedArticleDocumentHandleBelongsTo,
@@ -205,5 +208,64 @@ describe('original Registry retained document handle source controls', () =>
         });
         registry.execute(open(registry, 2));
         expect(observed).toEqual(['live', 'revoked']);
+    });
+    it('binds membership seals to original private publication and rejects copied or canceled tokens', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const seal = sealRetainedArticleDocumentMembership(handle)!;
+        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(true);
+        expect(hasSealedRetainedArticleDocumentMembershipCustody({ ...seal })).toBe(false);
+        expect(cancelRetainedArticleDocumentMembershipSeal({ ...seal })).toBe(false);
+        expect(cancelRetainedArticleDocumentMembershipSeal(seal)).toBe(true);
+        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+        expect(cancelRetainedArticleDocumentMembershipSeal(seal)).toBe(false);
+    });
+
+    it('retires original membership seals before command getters and notification readers run', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const seal = sealRetainedArticleDocumentMembership(handle)!;
+        let commandRead = false;
+        const command = open(registry, 2);
+        Object.defineProperty(command, 'schema', { enumerable: true, get: () =>
+        {
+            commandRead = true;
+            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+            expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
+            return openArticleDocumentCommandSchema;
+        } });
+        let notified = false;
+        subscribeRetainedArticleDocumentHandle(handle, () =>
+        {
+            notified = true;
+            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+            expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
+        });
+        registry.execute(command);
+        expect(commandRead).toBe(true);
+        expect(notified).toBe(true);
+        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+        expect(hasSealedRetainedArticleDocumentMembershipCustody(sealRetainedArticleDocumentMembership(handle)!)).toBe(true);
+    });
+
+    it('revokes original membership seals synchronously before scope listeners and retains notification failure', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const seal = sealRetainedArticleDocumentMembership(handle)!;
+        subscribeRetainedArticleDocumentHandle(handle, () =>
+        {
+            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+            throw new Error('actual-original-listener-failure');
+        });
+        revokeRetainedArticleDocumentScope(handle);
+        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+        expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
+        expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
     });
 });
