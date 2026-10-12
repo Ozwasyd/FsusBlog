@@ -421,7 +421,7 @@ describe('original Registry retained document handle source controls', () =>
             if (reenter)
             {
                 const before = calls;
-                try { stop.retry(); } catch (error) { first = error; }
+                try { stop.retry(); } catch (error) { first ??= error; }
                 expect(calls).toBe(before);
             }
         });
