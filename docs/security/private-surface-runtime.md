@@ -118,10 +118,12 @@ The actual Writer reader and six-method wrapper were inspected at
 `54ef3efee2ec7f2fff8e6dbcdfa6385a79e933ab`). Its mounted source verifies public native
 revision against the original document source revision. That reader directly
 supplies the required original scope fields and its six-method wrapper remains
-compatible. Writer owns forwarding the four additive methods on the SAME journal
-binding and exposing the extended port; those methods are not present in its
-current wrapper. Session owns the actual callback/refset join. Both remain
-unwired here; full aggregate capture/restore stays blocked. Server-authorized
+compatible. At that inspected checkpoint, the wrapper lacked the four additive
+reference methods. The subsequent Main source at
+`bbed9ae73cc790abf7ff32b28abbd271add08ec3` consumes the reference methods and the
+original pure custody check for retained recovery. Writer and session still own
+the actual new prepared-publication forwarding/refset join; this journal increment
+does not wire it. Full aggregate capture/restore stays blocked. Server-authorized
 DocumentId binding, complete draft/panel checkpoints and disposed-session hydration
 remain independent prerequisites.
 The original plaintext policy, 168-hour TTL, principal/article/recovery-tab storage

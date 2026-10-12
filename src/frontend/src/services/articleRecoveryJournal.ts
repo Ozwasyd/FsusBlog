@@ -767,7 +767,7 @@ export class ArticleRecoveryJournal
             },
             cancelPrepared: (preparation: ArticleRecoveryJournalCheckpointPreparation) =>
             {
-                if (state.preparation?.handle !== preparation)
+                if (!preparation || state.preparation?.handle !== preparation)
                 {
                     return false;
                 }
@@ -1024,7 +1024,7 @@ export class ArticleRecoveryJournal
     ): ArticleRecoveryJournalCheckpointInfo | null
     {
         const preparation = state.preparation;
-        if (preparation?.handle !== handle || !preparation.custody
+        if (!handle || preparation?.handle !== handle || !preparation.custody
             || preparation.validating || !this.#preparationCurrent(state, preparation))
         {
             return null;

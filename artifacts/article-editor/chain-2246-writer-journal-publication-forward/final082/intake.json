@@ -1,0 +1,29 @@
+{
+  "base": "6ff2e0a8a75ff7f8ffa97e6bae6e08d27a125d85",
+  "finalOwnerSource": "082ba73fc508a07572dd53487ef626a1f2449be5",
+  "supersededSource": "abf2d49056eeba7879c4981ec3d01cfe4fe61b4a",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "preimage": "6951187317d7a58bd940243dbbd30ab804c94f35",
+      "postimage": "808468e4efe9f72b92ba3799a7df233cda48ad30",
+      "exactFinalBytes": true
+    },
+    {
+      "path": "docs/security/private-surface-runtime.md",
+      "preimage": "c7da9e92bd379792d93195cc17baeb1ddd780cff",
+      "postimage": "18ca2d0f3f456fee5c49ff426747cd8058f2e731",
+      "exactFinalBytes": true
+    }
+  ],
+  "check": 0,
+  "indexApply": 0,
+  "diffCheck": 0,
+  "writerUnchanged": "9d96bbe324d9794269b18af07b0eb73a5de39f72",
+  "clientRevision619": "parent independent bounded SOURCE CLOSED, no new mustfix",
+  "sixDelegates": "preserved; parent confirms correct",
+  "main": "queued for specified model capacity failure; not integrated or available",
+  "runtime": "HOLD/UNRUN",
+  "localJournalRewrite": false,
+  "mergeOrConflictResolution": false
+}

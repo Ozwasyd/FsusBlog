@@ -18,7 +18,8 @@
   "applyIndex": 0,
   "exactPostimages": true,
   "threeWayOrMerge": false,
-  "sourceClosure": "parent supplied boundedSourceStaticClosed, no mustfix",
+  "sourceClosure": "superseded abf2 intake, NOT final accepted082 postimage",
   "controls": "original421 lines UNRUN",
-  "runtime": "HOLD/UNRUN"
+  "runtime": "HOLD/UNRUN",
+  "supersededByFinalOwnerSource": "082ba73fc508a07572dd53487ef626a1f2449be5"
 }
