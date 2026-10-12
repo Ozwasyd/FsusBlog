@@ -1384,6 +1384,28 @@ independent dependencies. Reservation flags stay `fullRefsRestored:false` and
 `resourcesValidated:false`; full host capture/restore/readiness/eviction guards
 and all runtime/native/IME/receipt qualification holds remain unchanged.
 
+### Exact original Root/Writer resource-source intake
+
+Original accepted Root `f6e214912ab31c7c8a7368de73bd966682c55551`
+and Writer `d80934e854f2dd3b338162fe924cf19e0662f66f` are consumed as
+exact owning postimages: reservation helper blob
+`12d8b0e74fc23ad4ae9324decbc579a15f3e1f3f` and Writer blob
+`e04178efa688b01a07cdfda8a8deec82e0244af6`. The existing Frame only adds
+the original `readOriginalWriterResources` expose. Its later same-Frame startup
+admission and borrowed Root seal join are preserved; donor omissions of those
+Main-owned hunks are excluded. Native/continuity/Registry/Doc/Auth source is not
+overwritten. This intake does not consume Root staging or Renderer/Heavy WIP.
+
+The original admission-only resource reader fences current Writer identity before
+and after the read and rejects permanent release, replacement, paused/stale loans
+and reentry. Already-borrowed original references keep their original settlement
+and failed cleanup custody. Original pure join/listener and 667 admission semantics
+remain. Writer owns its actual local controls and rollback; the Root resource loan
+is not a complete resource/recovery certificate. Full refs/resources/eviction and
+runtime/native/IME/security/receipt qualifications stay held. Exact current Main
+whole application remains FAIL243 with complete diagnostics added0/removed0;
+position-shifted existing Writer timer diagnostics are not a new regression.
+
 Unqualified labels and runtime/list/native holds are not automatically source
 gaps, and old diagnostic dependency strings are not interface inventories.
 All complete/recoverable/eviction guards remain; unknown resources remain unknown.

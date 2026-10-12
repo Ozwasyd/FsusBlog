@@ -782,6 +782,7 @@ defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
                readSnapshotPreparationFailure: () => snapshotPreparationFailure,
                attachOriginalDocumentBinding: writerReservation.attachDocumentBinding,
                readWriterReservationFailure: writerReservation.readFailure,
+               readOriginalWriterResources: writerReservation.readOriginalWriterResources,
                retryWriterReservationDisposal: writerReservation.retryDisposal });
 
 function hasPublicWorkspaceLayout(value: unknown, verify: () => void): value is { getAuthoringWorkspaceLayoutPort(): unknown; }

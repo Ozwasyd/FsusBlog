@@ -4,7 +4,8 @@ import type { AuthoringWorkspaceMountedAuthoritySources } from '@/services/autho
 import type { RetainedNotificationSubscription } from '@/services/authoring/openArticleDocumentRegistry';
 
 type OriginalMountedWriter = ReturnType<ReturnType<typeof useAdminArticleWrite>['authoringEditorRuntime']['bindEditor']>;
-type WriterAuthorityPort = Pick<OriginalMountedWriter, 'subscribeMountedAuthorityRetirement' | 'sealMountedAuthority' | 'hasMountedAuthorityCustody' | 'cancelMountedAuthority' | 'readRetainedDocumentBinding'>;
+export type AdminArticleWorkspaceWriterResources = OriginalMountedWriter['resources'];
+type WriterAuthorityPort = Pick<OriginalMountedWriter, 'subscribeMountedAuthorityRetirement' | 'sealMountedAuthority' | 'hasMountedAuthorityCustody' | 'cancelMountedAuthority' | 'readRetainedDocumentBinding' | 'resources'>;
 type WriterSeal = NonNullable<ReturnType<WriterAuthorityPort['sealMountedAuthority']>>;
 
 function hasWriterAuthorityPort(runtime: object): runtime is object & WriterAuthorityPort
@@ -13,16 +14,23 @@ function hasWriterAuthorityPort(runtime: object): runtime is object & WriterAuth
         && 'sealMountedAuthority' in runtime && typeof runtime.sealMountedAuthority === 'function'
         && 'hasMountedAuthorityCustody' in runtime && typeof runtime.hasMountedAuthorityCustody === 'function'
         && 'cancelMountedAuthority' in runtime && typeof runtime.cancelMountedAuthority === 'function'
-        && 'readRetainedDocumentBinding' in runtime && typeof runtime.readRetainedDocumentBinding === 'function';
+        && 'readRetainedDocumentBinding' in runtime && typeof runtime.readRetainedDocumentBinding === 'function'
+        && 'resources' in runtime && runtime.resources !== null && typeof runtime.resources === 'object';
 }
 
 interface WriterSubscription {
     readonly runtime: object & WriterAuthorityPort;
+    readonly resources: AdminArticleWorkspaceWriterResources;
     readonly seal: WriterAuthorityPort['sealMountedAuthority'];
     readonly has: WriterAuthorityPort['hasMountedAuthorityCustody'];
     readonly cancel: WriterAuthorityPort['cancelMountedAuthority'];
     readonly borrowDocument: WriterAuthorityPort['readRetainedDocumentBinding'];
     unsubscribe: (() => void) | null;
+}
+interface WriterResourceBinding {
+    readonly writer: WriterSubscription;
+    readonly editorSessionRef: string;
+    readonly nativeEditor: object;
 }
 interface DocumentSubscription {
     readonly binding: ArticleDocumentRetainedBinding;
@@ -42,6 +50,8 @@ interface Reservation {
 export function createAdminArticleWorkspaceWriterReservation()
 {
     let writer: WriterSubscription | null = null;
+    let writerResourceBinding: WriterResourceBinding | null = null;
+    let resourceBorrowing = false;
     let document: DocumentSubscription | null = null;
     let reservation: Reservation | null = null;
     let obligation: Reservation | null = null;
@@ -182,6 +192,10 @@ export function createAdminArticleWorkspaceWriterReservation()
                     if (writer === original)
                     {
                         writer = null;
+                        if (writerResourceBinding?.writer === original)
+                        {
+                            writerResourceBinding = null;
+                        }
                     }
                 }
                 catch (error: unknown)
@@ -223,7 +237,7 @@ export function createAdminArticleWorkspaceWriterReservation()
         busy = true;
         try
         {
-            const current: WriterSubscription = { runtime, seal: runtime.sealMountedAuthority.bind(runtime),
+            const current: WriterSubscription = { runtime, resources: runtime.resources, seal: runtime.sealMountedAuthority.bind(runtime),
                 has: runtime.hasMountedAuthorityCustody.bind(runtime), cancel: runtime.cancelMountedAuthority.bind(runtime),
                 borrowDocument: runtime.readRetainedDocumentBinding.bind(runtime), unsubscribe: null };
             writer = current;
@@ -310,6 +324,12 @@ export function createAdminArticleWorkspaceWriterReservation()
                 if (!original || closed || busy || failed)
                 {
                     return null;
+                }
+                // A single genuine physical tuple, not an article/session resource registry.
+                if (writerResourceBinding?.writer !== original || writerResourceBinding.editorSessionRef !== editorSessionRef
+                    || writerResourceBinding.nativeEditor !== nativeEditor)
+                {
+                    writerResourceBinding = { writer: original, editorSessionRef, nativeEditor };
                 }
                 cancelReservation();
                 const token = {};
@@ -406,6 +426,42 @@ export function createAdminArticleWorkspaceWriterReservation()
         }
     });
     return Object.freeze({ sources, withdraw, attachDocumentBinding, hasCurrentReservation,
+        readOriginalWriterResources: (editorSessionRef: string, nativeEditor: object): AdminArticleWorkspaceWriterResources | null =>
+        {
+            const current = writerResourceBinding;
+            if (!current || resourceBorrowing || closed || busy || sealing || reserving || failed || writer !== current.writer
+                || current.editorSessionRef !== editorSessionRef || current.nativeEditor !== nativeEditor)
+            {
+                return null;
+            }
+            const originalDocument = document;
+            const originalReservation = reservation;
+            const originalAttempt = attempt;
+            resourceBorrowing = true;
+            try
+            {
+                // Fresh admission only: the original nonpure reader rejects released/replaced runtimes.
+                const binding = current.writer.borrowDocument();
+                if (!binding || binding !== originalDocument?.binding || document !== originalDocument
+                    || writerResourceBinding !== current || writer !== current.writer || closed || busy || sealing || reserving || failed
+                    || reservation !== originalReservation || attempt !== originalAttempt)
+                {
+                    return null;
+                }
+                // Existing loans remain the SAME original port for paused observation/real cleanup.
+                return current.writer.resources;
+            }
+            catch (error: unknown)
+            {
+                recordFailure(error);
+                withdraw();
+                throw error;
+            }
+            finally
+            {
+                resourceBorrowing = false;
+            }
+        },
         throwIfAdmissionFailed: (): void =>
         {
             // Private failure custody only: no reader, scope inspection or producer callback.
