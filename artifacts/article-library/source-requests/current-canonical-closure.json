@@ -166,7 +166,7 @@
     "pipeline": "Original real admin principal + server-selected scope/artifact digest -> original complete API fresh-read verifier -> original Cache/Sync -> stable existing root startup ports; original runtime capability and resolveBatch remain mandatory. No host installation in this helper.",
     "lifetime": "Caller abort and original auth-generation revocation; explicit original connection disposal, original Sync stop/cache cleanup; root unmount releases only this caller-owned Snapshot custody. No native/task settlement receipt.",
     "api_custody_source": "efddb5f4b324f66e633bcce838ee15d048ea7213",
-    "root_disposal_review": "Old disposal finding source-closed, ordering follow-up fixed in candidate: real remove must fulfill before actual close; independent cleanup attempts and managed retry retained; re-review pending.",
+    "root_disposal_review": "Original remove-before-close ordering source-closed at4e6333bd0; new Root clear-witness generation P2 addressed in candidate: actual later replace invalidates old remove witness, removal drains/repeats for the current generation, and close rechecks generation/pending writes. Independent re-review pending; no runtime/receipt qualification.",
     "api_concurrency_source": "9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465",
     "production_invocation": "Actual AdminWorkspaceFrame calls connectAdminArticleWorkspaceSnapshotStartup when provided the real original workspaceSnapshotCaller; missing provider/mandatory capabilities reject. Root exposes fenced real routed Writer primary mount preparation; no ready stub."
   },
@@ -189,7 +189,7 @@
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
-        "sha256": "2bfa391b70f6aff8f4f4db9c4e38c7ae50e78c5b89caff900b3f463ac8f2875c",
+        "sha256": "ca701db4806b27ced54ccdca4c53ae673267471630400811827c9a126e1175d0",
         "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
       },
       {

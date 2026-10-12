@@ -302,7 +302,9 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
         const originalReplace = storage.replace.bind(storage);
         const originalRemove = storage.remove.bind(storage);
         const originalClose = storage.close.bind(storage);
-        let cleared = false;
+        // Cleanup witnesses only the write generation actually covered by a completed remove.
+        let writeGeneration: object = {};
+        let clearedGeneration: object | undefined;
         let storageClosed = false;
         let clearFailure: unknown;
         let hasClearFailure = false;
@@ -312,7 +314,8 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             replace: (record, now) =>
             {
                 assertCurrent();
-                cleared = false;
+                writeGeneration = {};
+                clearedGeneration = undefined;
                 hasClearFailure = false;
                 const task = originalReplace(record, now);
                 writes.add(task);
@@ -321,7 +324,7 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             },
             remove: (key) =>
             {
-                if (cleared)
+                if (clearedGeneration === writeGeneration && writes.size === 0)
                 {
                     return Promise.resolve();
                 }
@@ -329,10 +332,25 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
                 {
                     return clearing;
                 }
-                const task = Promise.allSettled([...writes]).then(() => originalRemove(key)).then(() =>
+                const task = Promise.resolve().then(async () =>
                 {
-                    cleared = true;
-                }, (error: unknown) =>
+                    for (;;)
+                    {
+                        const generation = writeGeneration;
+                        await Promise.allSettled([...writes]);
+                        if (generation !== writeGeneration || writes.size > 0)
+                        {
+                            continue;
+                        }
+                        await originalRemove(key);
+                        if (generation === writeGeneration && writes.size === 0)
+                        {
+                            clearedGeneration = generation;
+                            return;
+                        }
+                        // A real replace started during remove; drain it and remove again.
+                    }
+                }).catch((error: unknown) =>
                 {
                     hasClearFailure = true;
                     clearFailure = error;
@@ -350,7 +368,7 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             },
             close: () =>
             {
-                if (!cleared)
+                if (clearedGeneration !== writeGeneration || writes.size > 0)
                 {
                     if (hasClearFailure)
                     {
@@ -370,7 +388,7 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
         {
             await cache.clearCurrentScope();
             // The original cache's best-effort catch cannot certify this caller's cleanup.
-            if (!cleared)
+            if (clearedGeneration !== writeGeneration || writes.size > 0)
             {
                 if (hasClearFailure)
                 {

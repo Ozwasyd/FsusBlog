@@ -1,8 +1,8 @@
 {
   "schema": "fsusblog.article-library-disposal-source-review.v1",
   "kind": "source-reasoning-not-runtime-test-receipt-or-qualification",
-  "committed_before": "86d459b21450879633380a9288c1b3947d529771",
-  "candidate_source_sha256": "2bfa391b70f6aff8f4f4db9c4e38c7ae50e78c5b89caff900b3f463ac8f2875c",
+  "committed_before": "966b7d6ec916752ac14324b2303a81bfd85ebe51",
+  "candidate_source_sha256": "ca701db4806b27ced54ccdca4c53ae673267471630400811827c9a126e1175d0",
   "original_sync_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts",
   "original_cache_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
   "matrix": [
@@ -17,7 +17,7 @@
       "pending_outer_obligations": [],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -37,7 +37,7 @@
       ],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -57,7 +57,7 @@
       ],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -78,7 +78,7 @@
       ],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -99,7 +99,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -120,7 +120,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -142,7 +142,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -164,7 +164,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -183,7 +183,7 @@
       ],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -203,7 +203,7 @@
       ],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -223,7 +223,7 @@
       ],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -244,7 +244,7 @@
       ],
       "actual_storage_close_permitted": true,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -265,7 +265,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -286,7 +286,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -308,7 +308,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -330,7 +330,7 @@
       ],
       "actual_storage_close_permitted": false,
       "all_independent_roles_started": true,
-      "cache_close_dependency": "Awaits actual same scope-remove completion; propagates original remove failure even though original cache catches it. No close while uncleared.",
+      "cache_close_dependency": "Awaits successful actual same-scope remove covering the latest actual write generation with no pending writes; old remove completion never certifies a later replace. Original remove failure propagates despite cache best-effort catch.",
       "retry": "Only pending obligations retry with SAME captured methods/handles. Scope remove and in-flight clear are coalesced; a failed clear is not cached permanently.",
       "closed_admission": "Permanent in every outcome; never restart preparation or issuance",
       "runtime_status": "UNRUN_HELD",
@@ -386,8 +386,62 @@
     "Snapshot9fb0e2c two prior P2s source-closed; new original conflict-refresh P2 pending original repair/re-review. Root copies no conflict-selection logic; not whole API admission."
   ],
   "failed_preparation_custody": "Same original preparation reservation retains partial lifetime; source-identity managed retry available without returned ports.",
-  "ordering_correction": "Root forwards the real original storage methods and retains only cleanup bookkeeping: accepted writes drain before remove; only successful actual remove authorizes close; swallowed original best-effort clear errors are rethrown by the strict Root prerequisite.",
-  "normal_path": "Original Sync clear and Root strict clear share the real in-flight remove; successful storage close idempotent bookkeeping is set only after actual original close returns.",
+  "ordering_correction": "Original remove-before-close ordering source-closed at4e6333bd0. New clear-witness generation correction candidate: each original replace invalidates the witness; drain actual writes, capture/check generation around actual remove, and repeat real removal if a later write began before completion. close requires current-generation witness and no pending writes.",
+  "normal_path": "Normal Sync and Root clear coalesce the same removal task, which must settle only after a real remove covers the latest write generation. Physical close bookkeeping is set only after actual original close returns.",
   "original_sync_blob": "1112f212ab498a67b97020368cc5d4c7037a9874",
-  "original_sync_offer": "9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465"
+  "original_sync_offer": "9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465",
+  "write_remove_generation_cases": [
+    {
+      "id": "startup-missing-M1-before-peer-replace-W1",
+      "source_path": "Original startup missing cache.persist calls remove; original peer invalidation/read can later verifyAndReplace a current snapshot on the same cache.",
+      "ordering": "M1 is pending; W1 starts and invalidates the old generation; M1 completion cannot publish a current witness; task waits W1, then calls real M2; only M2 covering that generation enables close.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "W1-settles-after-M1",
+      "ordering": "Even if M1 resolves first, W1 settlement only removes its pending task. It never creates a clear witness. The original in-flight remove task drains W1 and physically removes again before fulfilling.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "W1-settles-before-M1",
+      "ordering": "A write generation began during M1, so M1 still cannot certify it; M2 is required even when W1 is already fulfilled before M1 returns.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "W1-starts-during-write-drain",
+      "ordering": "Generation mismatch or a newly pending write after the captured drain causes another drain before real remove; no witness is inferred from the older promise set.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "reentrant-replace-before-promise-registration",
+      "ordering": "Generation changes before fixed original replace invocation. If it synchronously requests remove before returning its task, the reserved clear microtask rechecks pending writes after drain; no same-generation pending write can be skipped.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "W1-fails-or-throws",
+      "ordering": "Starting the original replacement conservatively invalidates the witness even if the original write fails; final actual remove is still required, and no write success is fabricated. Original cache/Sync retain their write failure contract.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "M1-or-M2-fails",
+      "ordering": "No witness is published. The actual original remove error is retained, original best-effort catch cannot authorize close, independent cleanup roles still start, and same-source retry performs real remove again.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "W2-during-final-remove",
+      "ordering": "Every later original replace uses a fresh private identity token; the final remove repeats until its captured token remains current and pending writes are empty. No counter wrap or generation ABA.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "cleanup-terminal-fence-and-no-ports",
+      "ordering": "Existing lifetime closes before callbacks so new replace admission throws; previously started writes still drain and require last-generation remove. Partial lifetime and explicit same-source retry remain reachable without returned startup ports.",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "id": "foreign-self-dependent-write-or-remove",
+      "ordering": "An actual original operation that never settles remains pending with retained cleanup custody; no timeout, receipt, witness or successful close is manufactured.",
+      "runtime_status": "UNRUN_HELD"
+    }
+  ],
+  "ordinary_preflight": "Original ./tools/test.sh frontend-unit-shard / existing Vitest config and shared unit setup only. Proposed exact M1/W1/M2 cases above require original Root/HTTP/cache fixture import/setup admission. No new test entry, product import/mount, discovery/list or case execution performed."
 }
