@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "file": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "diagnostics": []
+    },
+    {
+      "file": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "diagnostics": []
+    }
+  ],
+  "candidateModulesImported": false,
+  "qualification": false
+}

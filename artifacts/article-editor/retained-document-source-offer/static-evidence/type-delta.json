@@ -1,0 +1,18 @@
+{
+  "consumer": "53104fdd7949a02fac7f0ac63bed5b8ca77fa54e",
+  "producer": "17c2e83ea1747baa1ca2f8de366ad7e249b2c23f",
+  "UI": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "baselineExit": 2,
+  "candidateExit": 2,
+  "baselineDiagnostics": 276,
+  "candidateDiagnostics": 275,
+  "added": [],
+  "removed": [
+    [
+      "src/services/authoring/openArticleDocumentRegistry.ts",
+      "TS2345",
+      "Argument of type '{ [x: string]: unknown; }' is not assignable to parameter of type 'Omit<OpenArticleDocumentEntry, \"contentDigest\">'."
+    ]
+  ],
+  "qualification": false
+}

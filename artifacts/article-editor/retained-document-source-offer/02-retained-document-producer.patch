@@ -1,0 +1,3242 @@
+diff --git a/artifacts/article-editor/retained-document-authority/preflight.md b/artifacts/article-editor/retained-document-authority/preflight.md
+new file mode 100644
+index 000000000..defab5c0d
+--- /dev/null
++++ b/artifacts/article-editor/retained-document-authority/preflight.md
+@@ -0,0 +1,274 @@
++# Original retained document authority source execution preflight
++
++This is source-stage evidence and caller handoff, not runtime or acceptance
++authority. Parent authorized the necessary original Registry issuance seam on
++2026-10-11 after the original absent capability was reported.
++
++## Bound original owners
++
++- Canonical Registry/Group source base:
++  `a27a5c1922d681d9796a05acdd7f424362f26869`, original PR3839.
++- Existing document adapter notifications, cancellation fencing and TypeScript
++  compatibility source consumed from Writer:
++  `de6df11110b5d060a001fad36bb604627323e32a`.
++- Actual Writer consumer request:
++  `9932613b500476d6921283200aedfe705b5f4e04`, original PR4153,
++  `artifacts/article-editor/chain-2246-retained-owner-producer-boundary/consumer-request.md`.
++- Host/factory source inspected from original PR4210:
++  `2461844ebcb79aa9eabb46d8ae7d42e4261e07ad`.
++- Original #2243, #2293, #2294 and #2295 issue bodies were read with their original
++  comments. PR3503 is the merged #2243 source owner. Historical qualifications
++  are not new grants.
++
++New source is restricted to the original Registry and document authority,
++dedicated source-test files, nearest boundary document and this preflight.
++Writer/Write/Layout/Frame/shared Vue/factory/Host/Group/ratio implementations,
++server DocumentId, persistence policy, dependencies, frozen authority/seals and
++qualification gates remain with their original owners.
++
++## Actual caller API
++
++1. Primary retains its actual original `ArticleDocumentContextBinding` and native
++   mount. After canonical Registry admission, issue the handle by that canonical
++   tab selector and call `adoptPrimaryRetainedDocument(registry, handle,
++   originalBinding, scopeReaders)`. Do not call legacy acquire again.
++2. A new document/draft uses `prepareRetainedDocument(registry, originalInput,
++   scopeReaders)`. Its original issued `context` supplies Registry admission
++   identity/epoch/source/draft coordinates. Obtain the actual issued handle and
++   pass both to `acquireRetainedDocument(handle, preparation)`. Already-open
++   activation uses `acquireRetainedDocument(handle)` to return the existing owner,
++   and discards its unused preparation.
++3. `scopeReaders` are the actual Writer's fresh `readPrincipalIdentityId()` and
++   `readSiteScope()` sources. They are reread around admission and subsequent
++   reads/use. The original principal/site scope is not authentication proof.
++4. `binding.attachConsumer(originalStableFactory)` stores/returns the SAME
++   actual original Writer resources, without body or form copying. This hook
++   does not implement consumer form/effects or instantiate a route composable.
++   Writer supplies view/body/selection/focus/attachment/save/submit and mounted
++   source/checkpoint ports. Layout borrows them.
++5. `binding.inspect()` returns actual canonical member/session association and
++   original document context, pending tasks and callback-failure facts.
++   `subscribeLifetime` delivers ownership/block/final-revocation observations;
++   `adapter.subscribeContext` is the actual context-change subscription.
++6. Registry final detach/preview replacement invalidates old lifetime, including
++   equal-ID reopen. Changed document/draft/session/epoch revokes old custody.
++   Permission/delete/archive blocks but retains canonical risk facts and original
++   consumer. Actual principal/site retirement calls `revokeRetainedScope` or is
++   observed through the original readers; final consumer invalidation runs once
++   on revocation, retaining actual references when cleanup fails.
++7. Producers acknowledge actual canceled/terminal work settlement using
++   `lease.settle()` in their real completion/cleanup path. Abort alone leaves
++   `pendingTaskRefs`. No safe-eviction API exists here; original full Host/native
++   recovery/disposal and pending-work prerequisites remain necessary.
++
++Multiple unsaved drafts have distinct original issued process-local IDs.
++Original storage/journal owners must supply proper existing-policy coordinates;
++the shared literal create key cannot overwrite A with B. Multi-draft persistence
++is not supplied or qualified. Canonical Registry revision refs may lag actual
++numeric source edits: inspection reports the mismatch. Original revision
++publication and native mount/restoration remain original-owner integration work.
++
++## Original complete test entrances: UNRUN / HOLD
++
++Existing original document-context source file has 14 cases. New Registry handle
++source file has 10 cases; new retained-authority source file has 29 cases. Counts
++come from source inspection, not Vitest list/discovery. Existing original cases
++are unchanged. All files remain complete; no `-t`, skip, mock/config replacement,
++timeout increase, worker override, coverage threshold or runner substitution is
++used. The dedicated cases use original Registry/authority classes and original
++real-issued capabilities in source fixtures; they are not production evidence.
++
++The original focused command below is a proposed entry for parent review, NOT
++executed. It runs whole files through the original configuration:
++
++```sh
++cd src/frontend
++FSUSBLOG_LOCAL_FSUSUI_ROOT=<exact approved local UI source> node_modules/.bin/vitest run --config vitest.config.ts ../../tests/frontend/unit/authoring/articleDocumentContext.test.ts ../../tests/frontend/unit/authoring/openArticleDocumentRegistry.test.ts ../../tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts ../../tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
++```
++
++Production's canonical matrix entrance remains `tests/matrix.yml` lane
++`frontend-unit-shard` -> `tools/test/lanes/frontend-unit-shard.sh` -> original
++lane support/`RunFrontendUnitShardLane`. It is executionClass=runtime, with
++original behavior-doc-static-admission dependency, frontend-vitest-unit exclusive
++resource, source/toolchain/cache inputs and required result/receipt producers.
++That entrance and `./tools/test.sh help` were not executed.
++
++## Config/setup/import preflight
++
++- Original `src/frontend/vitest.config.ts`: original Vue/Vue JSX plugins,
++  `scripts/fsusui-local.ts` and root resolver, `vitest.shared.mjs`, canonical
++  `@`, WASM, Vue and local UI aliases, Node environment, complete unit includes,
++  original setup and coverage/reporter/worker policy.
++- `vitest.shared.mjs`: canonical support root, original grant-aware worker
++  selection, JSON/JUnit outputs, ordinary/coverage lanes and source-bound paths.
++- Original `tests/frontend/support/unit/setup.ts`: happy-dom Window and globals,
++  actual animation-frame helper and FrameType source, original Vitest lifecycle
++  hooks, original AEDS/PoW/search mocks, then real `vi.importActual` locale-domain
++  and locale-runtime/API import graph in beforeAll. No candidate modules were
++  imported or hooks run during preflight.
++- Existing original context test imports the complete `@/services/authoring`
++  barrel. New source files import original document authority/Registry modules
++  directly through existing alias. Original Registry imports noble hashes and
++  utilities, original ratio owner and Group types. Source inspection does not
++  claim executed/dynamically complete import discovery.
++
++## Allowed static checks and preserved failures
++
++The exact original full application helper is used, without a substitute config:
++
++```sh
++FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application
++```
++
++The available local UI source for compiler-only inspection is
++`8db0ac8f49749e3e5f28be5051bb3d3ed71ada71`. It is not asserted to be PR4210's
++required combined UI source or a qualified native provider. Exact locked Blog
++frontend dependencies are reused only after byte-equal package-lock comparison.
++The first application compiler check and fixed a27a baseline both exit 2: baseline
++255 diagnostics, first candidate 249, zero newly added complete headline messages,
++six removed original authority diagnostics already repaired in consumed de6df.
++This does not waive existing RED or prove full native/compiler/runtime acceptance.
++Latest source must be rechecked after repairs; final results belong in WIP metadata.
++
++Pure TypeScript AST parsing of both owners and both dedicated source-test files
++reported zero parse diagnostics. `git diff --check` passed. No imported candidate
++module execution was used. The original strict-full style command is:
++
++```sh
++FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authoring/articleDocumentContext.ts --file src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
++```
++
++Original locked style-toolchain installation attempted offline first and preserved
++ENOTCACHED. A default-cache attempt failed ENOENT on the unavailable agent cache.
++The same original lock was installed with scripts disabled into task-owned
++node_modules using the configured writable cache; no dependency version or
++lockfile changed. These are tooling setup outcomes, not tests or gate passes.
++
++All tests/list/discovery/candidate-import/browser/mount/native/security/privacy/
++receipt/race/real-database/storage/full Host lifecycle/full CI qualification remain
++HOLD/UNRUN. Parent and original Registry owner must independently review the actual
++exact remote head; no previous source acceptance is inherited by this new seam.
++
++## Delivery source validation checkpoint
++
++The final production owner source passed the original strict-full checker: two
++files, zero violations. Initial two optional-chain findings remain preserved in
++`.tmp/retained-document-authority/strict-full-initial.txt`; repaired and subsequent
++current passes remain separate. Final publication/inspection notifications also
++contain post-commit clone/inspection failures without rewriting original success
++receipts/history. The authority is bound to one original Registry instance.
++
++Result acceptance, stale rejection and logical `complete()` never acknowledge real
++work settlement: producer `settle()` is explicit after actual completion/cleanup.
++A consumer's actually returned asynchronous cleanup promise is retained with
++pending/settled/failed facts, and does not confer native disposal or release.
++Canceled lease and failed consumer custody remain actual references.
++
++Latest compiler-only and four-file AST results are retained separately in the
++task-owned `.tmp/retained-document-authority/` directory. Complete original full
++application RED is not waived; previous fixed-baseline comparison is 255 versus
++249 diagnostics with no added complete headline messages. No test/qualification
++was run. Source tests are 29 retained-authority and 10 Registry-handle controls,
++counted by pure TypeScript AST reading. Original context/Registry tests unchanged.
++
++## Independent review repair source increment
++
++Original Registry and Document reviewers inspected8769. Their overlapping
++adoption finding is repaired once, including primary release rereading. New
++cell/owner/preparation/lease/adapter custody and internal helpers use runtime
++private fields; shadow public properties cannot reach the actual records.
++Admission reserves the actual handle/adapter before any scope-reader call,
++validates current handle state and full context/scope facts afterward, and closes
++the subscription window. Failed unpublished live admission rolls back; actual
++revocation retains recovery custody. Canonical close marks an actual incarnation
++ended even after scope retirement, so equal-ID reopening issues a new token and
++never resurrects the old one. Notification and cross-scope retirement obligations
++are drained after reentrancy. Unbound preparations participate in retirement,
++including equal-value ABA and retirement during admission.
++
++Original source mutation and task slots reserve before external guards. Result
++digest/getter exceptions retain an active recoverable lease rather than a finished
++running envelope; queued cancellation can publish a terminal, and real producer
++settlement remains explicit. Source反例 are written only:23 authority +10 Registry
++cases, no tests/list/discovery or candidate module execution.
++
++Writer160913cf40242f7ad603e080bb49871f584d1ce4's four constructor diagnostics
++were identified exactly in the original api/authoringWorkspaceSnapshot owner.
++Parent corrected ownership after intermediate691d: original owner
++1df8314c8000130448d798e7bf5d38f50e7f1ecd supplies the complete fix and Writer
++consumes it. This lane removes its intermediate Snapshot edit entirely from the
++final net diff against a27a, preserving the intermediate emitted-JS equality
++observation as historical evidence only. Consume this lane's final NET changes,
++not the intermediate Snapshot hunks; no Snapshot postimage is supplied here.
++
++Original strict-full style checks the two owned production owners. Original
++full application compiler remains baseline RED with Snapshot's four TS1294
++findings still in this producer checkout; they are an original-owner dependency,
++not waived or reclassified. The intermediate 245 result included Snapshot edits
++and is historical. Final restored-scope results must be recorded separately;
++no previous source acceptance is inherited. All held execution remains UNRUN.
++Original Group startup cell/guard, joint ownership/ratio publication, ownership-set
++and exact projection method texts compare byte-for-byte with8769 and remain
++unchanged, preserving a27a. Runtime and independent repaired-head review remain
++required.
++
++## Second Document P2 source repair
++
++Fixed reviewed base9e7b9de1cee9925f78ade7e6a24b2cc01882fe8e. Registry's five
++findings were independently source-closed; Registry/Group/ratio/Snapshot bytes
++remain exactly the fixed base. This increment changes only Document authority,
++its dedicated source controls and nearest explanations.
++
++New task issuance checks the real context-mutation reservation before any external
++guard, preventing a new producer key from escaping cancelAll at the old revision.
++Actual target owner/preparation admission closes synchronously when another scope
++retirement is queued. Canonical notification and cleanup still drain later. Local
++admission facts are checked before/after external readers; the actual Registry
++observation remains truthful and separate. inspect().admissionClosed reports the
++real owner fact, not write/restore permission or a fabricated terminal receipt.
++Existing running work is preserved pending actual cancellation and explicit real
++producer settlement; stale never counts as settlement.
++
++Three complete source cases cover final source/draft guard new-key issuance,
++B task/source/draft/consumer denial immediately after queued B retirement within
++A's callback, pending-resource retention/deferred cleanup, and retirement inside
++the actual borrowed reader. Authority controls26, Registry controls10, all UNRUN.
++Original lint/type/AST/diff checks are static only. Repaired-head independent
++review is required; no closed source counterexample is reclassified as runtime
++acceptance, and all original HOLD gates remain.
++
++Second P2 static recheck: original strict-full2files/0violations; original full
++application exits2, fixed9e7b baseline249/current249 diagnostics with zero added/
++removed complete headline messages. Owned source diagnostics0. Two changed code/
++source-test files parse without diagnostics; frozen Registry/Group/ratio/Snapshot
++postimages match9e7b byte-for-byte. No runtime/test/list/discovery executed.
++
++## Consumer external-boundary source repair
++
++Fixed reviewed5cf956db65c99ba0bf4e0ccd5712454006dbb542. Mutation task issuance
++was independently source-closed. Remaining factory-return retirement window is
++repaired with a real consumer-slot reservation before the first borrowed reader
++and admission checks after factory, method getter and later original scope reads.
++The local retirement and actual canonical membership states remain distinct.
++Actual created consumers and original factories remain retained on rejection or
++exception; queued cleanup drains normally, while already-finished canonical
++retirement receives its missed cleanup against the same returned consumer. Pending
++leases/promises are not dropped or converted to synthetic settlement.
++
++Adjacent external boundaries were inspected: existing primary/handle returns and
++post-subscription adoption recheck local retirement; adapter guards recheck after
++readers; mutable context and task creation keep the source-closed reservations.
++No Registry/Group/ratio/Snapshot bytes changed. New complete source matrices cover
++factory/getter/post-factory-reader retirement, reader exception, slot reentry from
++entry readers and factory, and cleanup failure after canonical retirement precedes
++consumer return. Authority29/Registry10 source cases, all UNRUN/HOLD.
++
++Original strict-full style, full application alias compiler, pure AST and diff
++checks run without candidate imports or tests. Existing full-app RED remains
++unwaived; this repaired exact head requires new independent Document review.
++
++Consumer-boundary current static results: original strict-full2files/0violations;
++original application compiler exits2, fixed5cf baseline249/current249 diagnostics,
++0added/removed complete headline messages and0owned diagnostics. AST/diff checks
++PASS; fixed Registry/Group/ratio/Snapshot postimages match5cf byte-for-byte.
++Source controls29 authority/10 Registry remain UNRUN; no execution qualification.
+diff --git a/docs/architecture/authoring-workspace-snapshot-boundary.md b/docs/architecture/authoring-workspace-snapshot-boundary.md
+index 3fab99cfc..cc9c06537 100644
+--- a/docs/architecture/authoring-workspace-snapshot-boundary.md
++++ b/docs/architecture/authoring-workspace-snapshot-boundary.md
+@@ -1,5 +1,141 @@
+ # Authoring workspace snapshot source handoff
+ 
++## Retained document authority source boundary
++
++The original `OpenArticleDocumentRegistry.issueRetainedDocumentHandle(tabId)`
++issues an opaque process-local handle from its actual canonical membership.
++`inspectRetainedArticleDocumentHandle` reads that same Registry's current facts;
++a copied entry, matching string, copied handle or foreign Registry is not handle
++provenance. Normal activation, pinning and joint Group/ratio publication preserve
++the original membership. Final detach and preview replacement revoke before an
++equal-ID reopen; changed document/draft/session/epoch invalidates the old handle.
++Permission and lifecycle blocking preserve the canonical entry and recovery
++obligations. Scope retirement prevents reissuing a handle for that same member.
++
++Handle notifications run outside the original command preparation/publication
++and history/CAS transaction. A failing listener is retained as a failed
++notification in inspection; it cannot turn a committed command into a rejected
++receipt. Reentrant notification commands refuse. Handles are not permission,
++snapshot-restore or safe-eviction grants. No body/history/cache, second article
++index, Host, persistence or server DocumentId contract is introduced here.
++
++The original singleton `ArticleDocumentContextAuthority` owns the retained
++adapters. `prepareRetainedDocument(registry, input, scopeReaders)` issues original
++document/draft/editor-session identities and returns only a provenance-bound
++preparation/context. Open that context through the canonical Registry, obtain
++its issued handle, then call `acquireRetainedDocument(handle, preparation)`.
++For an already open article, acquire its original handle without supplying a new
++preparation; `discardRetainedPreparation` retires an unused offer. Caller strings
++cannot replace the original issuer. Same-source articles and unsaved drafts have
++separate adapters and task/epoch/source-revision ownership. No retained adapter
++can be switched through the legacy route-owned binding.
++
++The already mounted primary Writer calls
++`adoptPrimaryRetainedDocument(registry, handle, originalBinding, scopeReaders)`.
++This validates the actual previously issued binding, original Registry provenance,
++identity/epoch and source/draft coordinates, and preserves the SAME adapter,
++native document identity, original tasks and epoch. It never reacquires the
++primary. The Registry's session reference and the original opaque editor session
++ID remain their existing association; neither is reconstructed from a route.
++Raw principal/site readers are reread on admission and use. Principal/site drift
++and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission for
++the original owners and notify their consumers. Scope-revocation callbacks cannot
++admit new owners reentrantly.
++
++The returned binding exposes `adapter`, `handle`, `inspect()`,
++`subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
++attaches its actual existing form/effects/runtime object once, using one stable
++factory callback. Repeat use returns that SAME consumer, never a cloned form or
++another Writer composable. A different factory or reentrant attachment refuses.
++Layout borrows the original Writer's commands and view/mount ports. The authority
++retains actual consumer references on final invalidation or cleanup failure;
++permission/delete/archive blocking does not invoke final consumer release.
++If final invalidation returns an actual cleanup promise, the SAME promise remains
++in owner custody and `consumerInvalidationState` reports pending/settled/failed;
++an asynchronous rejection records failure and preserves the actual reference.
++This is producer completion observation, not native disposal or release permission.
++Original `adapter.subscribeContext` remains the context-change subscription.
++
++`inspect().registry` reads canonical membership and permission/lifecycle facts;
++`registryRevisionMatchesDocument` separately reports whether the canonical
++source/draft reference coordinates match the original adapter. Ordinary source
++updates advance the adapter's original numeric revision without changing its
++identity/epoch. This seam does not add a Registry revision command: the original
++Writer/Registry revision-publication owner must refresh those references before
++Host restoration/readiness can succeed. A mismatching reference is reported,
++never rewritten as current readiness.
++
++Canceled leases stay in their original adapter's `pendingTaskRefs` until the
++actual producer calls `lease.settle()` after its real work/cleanup has settled.
++Running work cannot be settled. Acceptance, rejection and logical completion do
++not settle actual underlying work; the original producer explicitly acknowledges
++settlement after its real completion AND cleanup. Original acceptance/stale result
++rules remain intact. Terminal envelopes are published before synchronous abort
++listeners run, preventing duplicate completion on reentrant cancellation. An abort or
++aborted envelope is not completion. Final close, identity replacement and scope
++revocation disable old admission and notify consumers while retaining canceled
++work and recovery references; they do not prove native disposal or zero resources.
++No explicit safe-eviction grant is supplied: the original Host's full snapshot/
++recovery/disposal capability must satisfy its original preconditions first.
++
++Multiple unsaved draft IDs have real process-local lifetime here. Persistence and
++journal coordinates remain the original Writer/storage owners' obligation. The
++shared literal create key cannot be used to overwrite another retained draft;
++this authority adds no body/journal store, storage namespace or persistence-policy
++change, and makes no multi-draft persistence or cross-restart claim.
++
++Dedicated source controls are `retainedArticleDocumentHandle.test.ts` and
++`articleDocumentRetainedAuthority.test.ts`, using the original unit configuration
++and actual original Registry/authority source. These and all existing runtime,
++test/list/discovery/import, browser/native, security, receipt, race and database
++qualifications remain unrun/HOLD in this lane. Pure compiler/style evidence does
++not establish product or full Host lifecycle acceptance.
++
++Retained cell/owner/preparation/task custody and the helpers that reach it use
++runtime `#private` state, rather than erased TypeScript privacy. Admission reserves
++the actual handle and adapter before scope-reader calls, verifies primary release,
++scope lifetime, complete current handle observation and unchanged context afterward,
++and subscribes before the final read window. Unpublished live admission rolls back
++on failure; actual revocation keeps its pending recovery custody. A scope tombstone
++lasts for that original member: formal detach ends its incarnation, and an equal-ID
++new canonical member may issue a new handle while the old handle remains revoked.
++
++Notification and scope-retirement requests are deferred and drained during
++reentrancy. All actual target owners retire before consumer notifications; unbound
++preparations also retire. Retirement during preparation/adoption prevents
++equal-value scope ABA admission. Another scope request from a consumer cannot be
++dropped. These are ownership/lifetime facts, not strings used as permission grants.
++
++Context mutation and task-slot publication reserve their real original state
++before external guards. Failed result hashing/getters keep a recoverable lease
++and active slot; cancellation can publish a genuine terminal afterward. Digest
++preparation precedes ledger removal, terminal commits recheck current ownership,
++and cancellation during preparation is retained. Only explicit actual producer
++settlement removes pending work. Original Group cell/startup guard/ratio publication,
++CAS/idempotency/history, public issuer and server/persistence contracts remain.
++These repairs still require independent exact-head review and held qualification.
++
++Document mutation also blocks new task issuance until its actual revision is
++published, including a new producer key requested by the final external guard.
++Nested retirement closes the actual target owner/preparation admission before
++returning; canonical notifications and cleanup remain deferred obligations.
++`inspect().admissionClosed` reports that owner fact separately from the Registry's
++current member state. Readonly inspection never fabricates a Registry terminal
++state to represent queued cleanup. Adapter/consumer admission rechecks local
++retirement after external readers. Existing tasks remain pending until real
++cancellation/cleanup and explicit producer settlement; stale is not settled.
++
++Consumer attachment reserves its real slot before entry readers, even for cached
++consumer access. Admission is revalidated after the factory returns, after the
++consumer method property getter, and after every subsequent scope-reader call.
++Local retirement is checked alongside canonical facts; a still-live Registry
++member cannot authorize returning a locally retired consumer. Rejection retains
++the actual created consumer/factory and pending work for the original drain. If
++canonical retirement finished before the factory returned, its missed cleanup is
++performed against that same consumer, preserving failure and actual promise custody.
++Primary adoption's final reader and existing-binding returns also recheck local
++retirement. None of these checks grants restoration, settlement or safe disposal.
++
+ This source capability implements #2302–#2305 domain code under #1856. It is not
+ terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
+ migration registration, article/session/router/group owners and the live shell.
+diff --git a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+index fa6147bfb..d0fba443d 100644
+--- a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
++++ b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+@@ -57,6 +57,131 @@ export interface OpenArticleDocumentEntry {
+     contentDigest: string;
+ }
+ 
++declare const retainedDocumentHandleBrand: unique symbol;
++
++/** A selector or a copied entry cannot construct this original Registry capability. */
++export interface RetainedArticleDocumentHandle {
++    readonly [retainedDocumentHandleBrand]: true;
++}
++
++export type RetainedArticleDocumentRevocation = 'final-close' | 'identity-replaced' | 'scope-revoked';
++
++export interface RetainedArticleDocumentInspection {
++    readonly state: 'live' | 'blocked' | 'revoked';
++    readonly reason: RetainedArticleDocumentRevocation | null;
++    readonly registryRevision: number;
++    readonly entry: OpenArticleDocumentEntry | null;
++    readonly notificationFailed: boolean;
++}
++
++interface RetainedArticleDocumentCell {
++    readonly registry: OpenArticleDocumentRegistry;
++    readonly handle: RetainedArticleDocumentHandle;
++    readonly tabId: string;
++    readonly initial: OpenArticleDocumentEntry;
++    readonly read: () => RetainedArticleDocumentInspection;
++    readonly notify: () => void;
++    readonly listeners: Set<() => void>;
++    reason: RetainedArticleDocumentRevocation | null;
++    membershipClosed: boolean;
++    notificationFailed: boolean;
++    notifiedRevision: number;
++    notifiedReason: RetainedArticleDocumentRevocation | null;
++    notifiedState: RetainedArticleDocumentInspection['state'];
++    notifiedFailure: boolean;
++}
++
++// Provenance is keyed by the opaque object, never article identity or a public ref.
++const retainedArticleDocumentCells = new WeakMap<RetainedArticleDocumentHandle, RetainedArticleDocumentCell>();
++
++export function retainedArticleDocumentHandleBelongsTo(handle: RetainedArticleDocumentHandle, registry: OpenArticleDocumentRegistry): boolean
++{
++    return retainedArticleDocumentCells.get(handle)?.registry === registry;
++}
++
++export function inspectRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle): RetainedArticleDocumentInspection
++{
++    const cell = retainedArticleDocumentCells.get(handle);
++    if (!cell)
++    {
++        throw new Error('retained-article-document-handle-invalid');
++    }
++    return cell.read();
++}
++
++export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle, listener: () => void): () => void
++{
++    const cell = retainedArticleDocumentCells.get(handle);
++    if (!cell || typeof listener !== 'function')
++    {
++        throw new Error('retained-article-document-handle-invalid');
++    }
++    cell.listeners.add(listener);
++    return () =>
++    {
++        cell.listeners.delete(listener);
++    };
++}
++
++/** Only scope retirement is an explicit revocation; close follows canonical removal. */
++export function revokeRetainedArticleDocumentScope(handle: RetainedArticleDocumentHandle): void
++{
++    revokeRetainedArticleDocumentScopeSet([handle]);
++}
++
++/** Mark all original scoped custody before notifying any possibly reentrant consumer. */
++export function revokeRetainedArticleDocumentScopeSet(handles: readonly RetainedArticleDocumentHandle[]): void
++{
++    const cells = handles.map(handle =>
++    {
++        const cell = retainedArticleDocumentCells.get(handle);
++        if (!cell)
++        {
++            throw new Error('retained-article-document-handle-invalid');
++        }
++        return cell;
++    });
++    for (const cell of cells)
++    {
++        cell.reason ??= 'scope-revoked';
++    }
++    for (const cell of cells)
++    {
++        cell.notify();
++    }
++}
++
++function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): void
++{
++    const observation = cell.read();
++    if (cell.notifiedRevision === observation.registryRevision && cell.notifiedReason === observation.reason
++        && cell.notifiedState === observation.state && cell.notifiedFailure === observation.notificationFailed)
++    {
++        return;
++    }
++    cell.notifiedRevision = observation.registryRevision;
++    cell.notifiedReason = observation.reason;
++    cell.notifiedState = observation.state;
++    cell.notifiedFailure = observation.notificationFailed;
++    for (const listener of [...cell.listeners])
++    {
++        try
++        {
++            listener();
++        }
++        catch
++        {
++            // The original command already committed. Keep custody and report failed
++            // notification rather than return a rejection for a successful command.
++            if (!cell.notificationFailed)
++            {
++                cell.notificationFailed = true;
++                cell.notify();
++            }
++        }
++    }
++}
++
+ interface RegistryCommandBase {
+     schema: typeof openArticleDocumentCommandSchema;
+     commandId: string;
+@@ -642,6 +767,118 @@ export class OpenArticleDocumentRegistry
+     private revision = 0;
+     #ownershipTransactionPending = false;
+     #groupOwnershipCell: ArticleGroupOwnershipCell | null = null;
++    #retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
++    #retainedNotificationPending = false;
++    #retainedNotificationRequested = false;
++
++    public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
++    {
++        const entry = this.entriesByTabId.get(tabId);
++        if (!entry || this.#ownershipTransactionPending || this.#retainedNotificationPending)
++        {
++            throw new Error('retained-article-document-member-unavailable');
++        }
++        const existing = [...this.#retainedDocumentCells].find(cell => cell.tabId === tabId && cell.reason === null && !cell.membershipClosed);
++        if (existing)
++        {
++            const observation = existing.read();
++            if (observation.state !== 'revoked')
++            {
++                return existing.handle;
++            }
++        }
++        // A scope-retired member cannot mint a replacement handle before final close.
++        if ([...this.#retainedDocumentCells].some(cell => cell.tabId === tabId
++            && !cell.membershipClosed && cell.reason === 'scope-revoked' && cell.initial.editorSessionRef === entry.editorSessionRef
++            && cell.initial.identity.documentId === entry.identity.documentId))
++        {
++            throw new Error('retained-article-document-scope-revoked');
++        }
++        const handle = Object.freeze({}) as RetainedArticleDocumentHandle;
++        const cell: RetainedArticleDocumentCell = {
++            registry: this,
++            handle,
++            tabId,
++            initial: cloneValue(entry),
++            reason: null,
++            membershipClosed: false,
++            notificationFailed: false,
++            notifiedRevision: this.revision,
++            notifiedReason: null,
++            notifiedState: entry.status.permission === 'allowed' && entry.status.lifecycle === 'current' ? 'live' : 'blocked',
++            notifiedFailure: false,
++            listeners: new Set(),
++            notify: () => this.#notifyRetainedDocuments(),
++            read: () =>
++            {
++                const current = this.entriesByTabId.get(tabId);
++                if (!current)
++                {
++                    cell.membershipClosed = true;
++                }
++                if (!cell.reason)
++                {
++                    if (cell.membershipClosed || !current)
++                    {
++                        cell.reason = 'final-close';
++                    }
++                    else if (current.editorSessionRef !== cell.initial.editorSessionRef
++                        || current.identity.articleId !== cell.initial.identity.articleId
++                        || current.identity.draftId !== cell.initial.identity.draftId
++                        || current.identity.documentId !== cell.initial.identity.documentId
++                        || current.documentContext.documentEpoch !== cell.initial.documentContext.documentEpoch)
++                    {
++                        cell.reason = 'identity-replaced';
++                    }
++                }
++                return Object.freeze({
++                    state: cell.reason ? 'revoked' : current?.status.permission === 'allowed'
++                        && current.status.lifecycle === 'current' && !cell.notificationFailed ? 'live' : 'blocked',
++                    reason: cell.reason,
++                    registryRevision: this.revision,
++                    entry: cell.membershipClosed || !current || cell.reason === 'final-close' || cell.reason === 'identity-replaced' ? null : cloneValue(current),
++                    notificationFailed: cell.notificationFailed
++                });
++            }
++        };
++        this.#retainedDocumentCells.add(cell);
++        retainedArticleDocumentCells.set(handle, cell);
++        return handle;
++    }
++
++    #notifyRetainedDocuments(): void
++    {
++        this.#retainedNotificationRequested = true;
++        if (this.#retainedNotificationPending || this.#ownershipTransactionPending)
++        {
++            return;
++        }
++        this.#retainedNotificationPending = true;
++        try
++        {
++            do
++            {
++                this.#retainedNotificationRequested = false;
++                for (const cell of this.#retainedDocumentCells)
++                {
++                    try
++                    {
++                        notifyRetainedArticleDocumentCell(cell);
++                    }
++                    catch
++                    {
++                        // Inspection/clone failure remains post-publication failure.
++                        cell.notificationFailed = true;
++                    }
++                }
++            }
++            while (this.#retainedNotificationRequested);
++        }
++        finally
++        {
++            this.#retainedNotificationPending = false;
++        }
++    }
+ 
+     public createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
+     {
+@@ -677,7 +914,9 @@ export class OpenArticleDocumentRegistry
+         expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
+         ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
+     {
+-        return this.executeCore(command, { expected, next, ratioChange });
++        const result = this.executeCore(command, { expected, next, ratioChange });
++        this.#notifyRetainedDocuments();
++        return result;
+     }
+ 
+     private cloneGroupPublication(publication: ArticleGroupOwnershipPublication): ArticleGroupOwnershipPublication
+@@ -717,13 +956,15 @@ export class OpenArticleDocumentRegistry
+ 
+     public execute(command: unknown): OpenArticleDocumentCommandResult
+     {
+-        return this.executeCore(command);
++        const result = this.executeCore(command);
++        this.#notifyRetainedDocuments();
++        return result;
+     }
+ 
+     private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
+         next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
+     {
+-        if (this.#ownershipTransactionPending)
++        if (this.#ownershipTransactionPending || this.#retainedNotificationPending)
+         {
+             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
+         }
+@@ -1409,6 +1650,14 @@ export class OpenArticleDocumentRegistry
+ 
+     private removeEntry(entry: OpenArticleDocumentEntry): void
+     {
++        for (const cell of this.#retainedDocumentCells)
++        {
++            if (cell.tabId === entry.tabId)
++            {
++                cell.membershipClosed = true;
++                cell.reason ??= 'final-close';
++            }
++        }
+         this.entriesByTabId.delete(entry.tabId);
+         this.tabIdByIdentity.delete(identityKey(entry.identity));
+         this.tabIdBySessionRef.delete(entry.editorSessionRef);
+diff --git a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
+new file mode 100644
+index 000000000..14c3f34b5
+--- /dev/null
++++ b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
+@@ -0,0 +1,666 @@
++import { describe, expect, it } from 'vitest';
++
++import {
++    ArticleDocumentContextAuthority,
++    type ArticleDocumentRetainedBinding,
++    type ArticleDocumentRetainedPreparation
++} from '@/services/authoring/articleDocumentContext';
++import { OpenArticleDocumentRegistry, openArticleDocumentCommandSchema, revokeRetainedArticleDocumentScope, subscribeRetainedArticleDocumentHandle } from '@/services/authoring/openArticleDocumentRegistry';
++
++const scope = { readPrincipalIdentityId: () => 'test', readSiteScope: () => 'site:test' };
++const input = (articleId: number | null) => ({ articleId, siteScope: 'site:test', userScope: 'user:test', content: '# equal' });
++
++const admit = (registry: OpenArticleDocumentRegistry, context: ArticleDocumentRetainedPreparation['context'], suffix: string) =>
++{
++    const result = registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'open-or-activate',
++        commandId: `open:${suffix}`, idempotencyKey: `open:${suffix}`, expectedRevision: registry.getRevision(),
++        intent: 'workspace', entrypoint: 'direct-route',
++        identity: { articleId: context.articleId, draftId: context.draftId, documentId: context.documentId },
++        documentContext: { documentEpoch: context.documentEpoch,
++            sourceRevision: `source-revision:${context.sourceRevision}`, draftRevision: context.draftRevision },
++        editorSessionRef: `session:${suffix}`, tabId: `tab:${suffix}`, targetGroupId: 'group:primary', tabKind: 'pinned',
++        status: { dirty: false, saving: false, conflict: false, recovery: false, pendingAttachments: false,
++            permission: 'allowed', lifecycle: 'current', statusRef: 'status:clean' }, lastActiveAnchorRef: null });
++    expect(result.status).toBe('applied');
++    return registry.issueRetainedDocumentHandle(`tab:${suffix}`);
++};
++
++const create = (authority: ArticleDocumentContextAuthority, registry: OpenArticleDocumentRegistry, articleId: number | null, suffix: string) =>
++{
++    const prepared = authority.prepareRetainedDocument(registry, input(articleId), scope);
++    return authority.acquireRetainedDocument(admit(registry, prepared.context, suffix), prepared);
++};
++
++describe('original retained document authority source controls', () =>
++{
++    it('retains two same-source independent writable adapters and reuses the original handle owner', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        const original = first.adapter.context;
++        const pending = first.adapter.beginTask('attachment', 'producer:first');
++        const second = create(authority, registry, 2, 'second');
++        expect(second.adapter).not.toBe(first.adapter);
++        expect(second.adapter.context.contentDigest).toBe(original.contentDigest);
++        expect(second.adapter.context.documentId).not.toBe(original.documentId);
++        second.adapter.updateSource('# second changed');
++        expect(first.adapter.context).toBe(original);
++        expect(first.adapter.context.documentEpoch).toBe(original.documentEpoch);
++        expect(pending.signal.aborted).toBe(false);
++        expect(authority.acquireRetainedDocument(first.handle)).toBe(first);
++        expect(first.inspect().registry.entry?.isActive).toBe(false);
++        expect(pending.accept('first-result').accepted).toBe(true);
++    });
++
++    it('issues two genuine unsaved draft identities without adding a body or journal store', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, null, 'draft-first');
++        const second = create(authority, registry, null, 'draft-second');
++        expect(first.adapter.context.articleId).toBeNull();
++        expect(first.adapter.context.draftId).not.toBe(second.adapter.context.draftId);
++        expect(first.adapter.context.documentId).not.toBe(second.adapter.context.documentId);
++        expect(first.adapter.context.editorSessionId).not.toBe(second.adapter.context.editorSessionId);
++        expect(authority.acquireRetainedDocument(first.handle).adapter.context.draftId).toBe(first.adapter.context.draftId);
++    });
++
++    it('adopts the actual primary once and preserves identity/tasks when its component binding releases', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const primary = authority.acquire(input(1));
++        const original = primary.adapter.context;
++        const task = primary.adapter.beginTask('refresh', 'producer:primary');
++        const handle = admit(registry, original, 'primary');
++        const retained = authority.adoptPrimaryRetainedDocument(registry, handle, primary, scope);
++        expect(retained.adapter).toBe(primary.adapter);
++        expect(retained.adapter.context).toBe(original);
++        expect(authority.adoptPrimaryRetainedDocument(registry, handle, primary, scope)).toBe(retained);
++        primary.release();
++        expect(task.signal.aborted).toBe(false);
++        expect(() => authority.acquire(input(2))).toThrow('requires-handle');
++        expect(() => retained.adapter.switchDocument({ articleId: 2, draftId: 'article:2' })).toThrow('requires-registry');
++        expect(task.accept('actual-result').accepted).toBe(true);
++    });
++
++    it('rejects a copied primary binding, copied preparation and foreign Registry handle', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const primary = authority.acquire(input(1));
++        const handle = admit(registry, primary.adapter.context, 'primary');
++        expect(() => authority.adoptPrimaryRetainedDocument(registry, handle, { ...primary }, scope)).toThrow('binding-invalid');
++        const prepared = authority.prepareRetainedDocument(registry, input(2), scope);
++        const second = admit(registry, prepared.context, 'second');
++        expect(() => authority.acquireRetainedDocument(second, { ...prepared })).toThrow('preparation-invalid');
++        const foreignRegistry = new OpenArticleDocumentRegistry();
++        const foreignHandle = admit(foreignRegistry, prepared.context, 'foreign');
++        expect(() => authority.acquireRetainedDocument(foreignHandle, prepared)).toThrow('association-invalid');
++    });
++
++    it('keeps canceled work pending until the original producer acknowledges actual settlement', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        const task = retained.adapter.beginTask('attachment', 'producer:upload');
++        expect(() => task.settle()).toThrow('not-terminal');
++        task.cancel('actual-cancellation');
++        expect(task.signal.aborted).toBe(true);
++        expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
++        expect(task.accept('late-result').accepted).toBe(false);
++        task.complete();
++        expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
++        task.settle();
++        expect(retained.inspect().pendingTaskRefs).toEqual([]);
++        const completed = retained.adapter.beginTask('render', 'producer:completed');
++        expect(completed.accept('real-result').accepted).toBe(true);
++        expect(retained.inspect().pendingTaskRefs).toEqual([completed.taskRef]);
++        completed.settle();
++        expect(retained.inspect().pendingTaskRefs).toEqual([]);
++    });
++
++    it('retains exact-one original consumer and invokes scope invalidation without changing another owner', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        let creations = 0;
++        let invalidations = 0;
++        const factory = (_binding: ArticleDocumentRetainedBinding) =>
++        {
++            creations += 1;
++            return { originalForm: { value: '# actual owner' }, invalidateDocument: () => { invalidations += 1; } };
++        };
++        const actual = first.attachConsumer(factory);
++        expect(first.attachConsumer(factory)).toBe(actual);
++        expect(creations).toBe(1);
++        const task = first.adapter.beginTask('refresh', 'producer:save');
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(invalidations).toBe(1);
++        expect(task.signal.aborted).toBe(true);
++        expect(first.inspect().pendingTaskRefs).toEqual([task.taskRef]);
++        expect(first.inspect().registry.state).toBe('revoked');
++        expect(actual.originalForm.value).toBe('# actual owner');
++        expect(() => first.adapter.beginTask('render', 'producer:late')).toThrow('owner-unavailable');
++        expect(() => first.adapter.updateDraftRevision('revision:late')).toThrow('owner-unavailable');
++        task.settle();
++    });
++
++    it('rereads real scope sources and keeps callback failure and unfinished work observable', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        let principal: string | null = 'test';
++        const readers = { ...scope, readPrincipalIdentityId: () => principal };
++        const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
++        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
++        retained.attachConsumer(() => ({ invalidateDocument: () => { throw new Error('real-cleanup-failed'); } }));
++        const task = retained.adapter.beginTask('attachment', 'producer:upload');
++        principal = null;
++        expect(retained.inspect().registry.reason).toBe('scope-revoked');
++        expect(retained.inspect().invalidationFailed).toBe(true);
++        expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
++        expect(() => retained.adapter.updateSource('# stale')).toThrow('owner-unavailable');
++    });
++
++    it('reports canonical revision drift without replacing the document identity or inventing restore readiness', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        const original = retained.adapter.context;
++        retained.adapter.updateSource('# next');
++        expect(retained.inspect().registryRevisionMatchesDocument).toBe(false);
++        expect(retained.adapter.context.documentId).toBe(original.documentId);
++        expect(retained.adapter.context.documentEpoch).toBe(original.documentEpoch);
++        expect(retained.adapter.context.sourceRevision).toBe(original.sourceRevision + 1);
++    });
++
++    it('blocks permission without final consumer release or losing unfinished work', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const retained = create(authority, registry, 1, 'first');
++        let finalInvalidations = 0;
++        retained.attachConsumer(() => ({ invalidateDocument: () => { finalInvalidations += 1; } }));
++        const task = retained.adapter.beginTask('attachment', 'producer:pending');
++        registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'invalidate-permission',
++            commandId: 'permission:revoke', idempotencyKey: 'permission:revoke', expectedRevision: registry.getRevision(),
++            tabId: 'tab:first', permission: 'revoked', statusRef: 'status:revoked' });
++        expect(retained.inspect().registry.state).toBe('blocked');
++        expect(finalInvalidations).toBe(0);
++        expect(task.signal.aborted).toBe(true);
++        expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
++        expect(() => retained.adapter.updateSource('# denied')).toThrow('owner-unavailable');
++    });
++
++    it('revokes every scoped handle before a callback can use another owner or admit a replacement', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        const second = create(authority, registry, 2, 'second');
++        let observed = false;
++        first.attachConsumer(() => ({ invalidateDocument: () =>
++        {
++            observed = second.inspect().registry.state === 'revoked';
++            expect(() => second.adapter.beginTask('render', 'producer:reentrant')).toThrow('owner-unavailable');
++            expect(() => authority.prepareRetainedDocument(registry, input(3), scope)).toThrow('revocation-in-progress');
++        } }));
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(observed).toBe(true);
++        expect(first.inspect().invalidationFailed).toBe(false);
++        expect(second.inspect().registry.state).toBe('revoked');
++    });
++
++    it('refuses Registry epoch and revision coordinates that disagree with the real prepared owner', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const prepared = authority.prepareRetainedDocument(registry, input(1), scope);
++        const epochMismatch = admit(registry, { ...prepared.context, documentEpoch: prepared.context.documentEpoch + 1 }, 'wrong-epoch');
++        expect(() => authority.acquireRetainedDocument(epochMismatch, prepared)).toThrow('context-mismatch');
++        const revisionPrepared = authority.prepareRetainedDocument(registry, input(2), scope);
++        const revisionMismatch = admit(registry, { ...revisionPrepared.context, sourceRevision: 99 }, 'wrong-revision');
++        expect(() => authority.acquireRetainedDocument(revisionMismatch, revisionPrepared)).toThrow('context-mismatch');
++    });
++
++    it('keeps an unsuccessful consumer attachment fenced instead of allocating another resource owner', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        let attempts = 0;
++        const createConsumer = () =>
++        {
++            attempts += 1;
++            throw new Error('original-effect-attachment-failed');
++        };
++        expect(() => retained.attachConsumer(createConsumer)).toThrow('original-effect-attachment-failed');
++        expect(retained.inspect().invalidationFailed).toBe(true);
++        expect(() => retained.attachConsumer(createConsumer)).toThrow('attachment-unsettled');
++        expect(attempts).toBe(1);
++    });
++
++    it('publishes one terminal envelope before abort callbacks and fences reentrant context mutation', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        const original = retained.adapter.context;
++        const task = retained.adapter.beginTask('render', 'producer:reentrant');
++        let observedStatus: string | null = null;
++        task.signal.addEventListener('abort', () =>
++        {
++            observedStatus = task.accept('late-abort-result').envelope.status;
++            expect(() => retained.adapter.updateSource('# reentrant')).toThrow('cancellation-in-progress');
++        });
++        retained.adapter.cancelAll('actual-suspension');
++        expect(observedStatus).toBe('aborted');
++        expect(retained.adapter.completedTaskEnvelopes).toHaveLength(1);
++        expect(retained.adapter.context).toBe(original);
++        expect(retained.inspect().pendingTaskRefs).toEqual([task.taskRef]);
++    });
++
++    it('keeps the actually returned asynchronous cleanup pending until its own completion', async () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        let finish: (() => void) | null = null;
++        const actualCleanup = new Promise<void>(resolve =>
++        {
++            finish = resolve;
++        });
++        retained.attachConsumer(() => ({ invalidateDocument: () => actualCleanup }));
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(retained.inspect().consumerInvalidationState).toBe('pending');
++        const finishActualCleanup = finish as unknown as () => void;
++        finishActualCleanup();
++        await actualCleanup;
++        expect(retained.inspect().consumerInvalidationState).toBe('settled');
++        expect(retained.inspect().registry.state).toBe('revoked');
++    });
++
++    it('keeps genuine authority records and helper methods runtime private', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const primary = authority.acquire(input(1));
++        const handle = admit(registry, primary.adapter.context, 'primary');
++        expect(Object.getOwnPropertyNames(authority)).not.toContain('bindingCustody');
++        expect(Object.getOwnPropertyNames(primary.adapter)).not.toContain('pendingTasks');
++        Object.defineProperty(authority, 'bindingCustody', { value: new WeakMap([[{ ...primary }, { adapter: primary.adapter, isReleased: () => false }]]) });
++        expect(() => authority.adoptPrimaryRetainedDocument(registry, handle, { ...primary }, scope)).toThrow('binding-invalid');
++        expect((authority as unknown as Record<string, unknown>).createRetainedOwner).toBeUndefined();
++    });
++
++    it('reserves actual primary and handle before scope readers can reenter adoption', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const primary = authority.acquire(input(1));
++        const handle = admit(registry, primary.adapter.context, 'primary');
++        let reentered = false;
++        const readers = { ...scope, readPrincipalIdentityId: () =>
++        {
++            if (!reentered)
++            {
++                reentered = true;
++                expect(() => authority.adoptPrimaryRetainedDocument(registry, handle, primary, scope)).toThrow('admission-in-progress');
++            }
++            return 'test';
++        } };
++        const binding = authority.adoptPrimaryRetainedDocument(registry, handle, primary, readers);
++        expect(reentered).toBe(true);
++        let creations = 0;
++        const factory = () => { creations += 1; return { invalidateDocument: () => undefined }; };
++        expect(binding.attachConsumer(factory)).toBe(binding.attachConsumer(factory));
++        expect(creations).toBe(1);
++    });
++
++    it('rechecks primary release and current handle revocation even without a Registry revision change', () =>
++    {
++        for (const action of ['release', 'revoke'] as const)
++        {
++            const authority = new ArticleDocumentContextAuthority();
++            const registry = new OpenArticleDocumentRegistry();
++            const primary = authority.acquire(input(1));
++            const handle = admit(registry, primary.adapter.context, 'primary');
++            const revision = registry.getRevision();
++            let reads = 0;
++            const readers = { ...scope, readPrincipalIdentityId: () =>
++            {
++                reads += 1;
++                if (reads === 2)
++                {
++                    if (action === 'release') primary.release();
++                    else revokeRetainedArticleDocumentScope(handle);
++                }
++                return 'test';
++            } };
++            expect(() => authority.adoptPrimaryRetainedDocument(registry, handle, primary, readers)).toThrow('admission-changed');
++            expect(registry.getRevision()).toBe(revision);
++            expect(() => authority.acquireRetainedDocument(handle)).toThrow('preparation-invalid');
++        }
++    });
++
++    it('releases failed reservations so the same genuine primary can retry after a reader exception', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const primary = authority.acquire(input(1));
++        const handle = admit(registry, primary.adapter.context, 'primary');
++        expect(() => authority.adoptPrimaryRetainedDocument(registry, handle, primary,
++            { ...scope, readPrincipalIdentityId: () => { throw new Error('real-reader-failure'); } })).toThrow('real-reader-failure');
++        expect(authority.adoptPrimaryRetainedDocument(registry, handle, primary, scope).adapter).toBe(primary.adapter);
++    });
++
++    it('retires unbound preparations across equal-valued scope ABA and creation-time retirement', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const prepared = authority.prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, prepared.context, 'prepared');
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(() => authority.acquireRetainedDocument(handle, prepared)).toThrow('preparation-invalid');
++        const readers = { ...scope, readPrincipalIdentityId: () =>
++        {
++            authority.revokeRetainedScope('site:test', 'test');
++            return 'test';
++        } };
++        expect(() => authority.prepareRetainedDocument(registry, input(2), readers)).toThrow('scope-retired-during-admission');
++    });
++
++    it('drains another actual scope retirement requested by the first consumer', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        const prepared = authority.prepareRetainedDocument(registry, { ...input(2), userScope: 'user:other' },
++            { ...scope, readPrincipalIdentityId: () => 'other' });
++        const second = authority.acquireRetainedDocument(admit(registry, prepared.context, 'other'), prepared);
++        let secondInvalidations = 0;
++        second.attachConsumer(() => ({ invalidateDocument: () => { secondInvalidations += 1; } }));
++        first.attachConsumer(() => ({ invalidateDocument: () => authority.revokeRetainedScope('site:test', 'other') }));
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(second.inspect().registry.state).toBe('revoked');
++        expect(secondInvalidations).toBe(1);
++    });
++
++    it('fences source publication and task-slot creation before external guard reentry', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        let callback: (() => void) | null = null;
++        const readers = { ...scope, readPrincipalIdentityId: () => { callback?.(); return 'test'; } };
++        const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
++        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
++        callback = () => expect(() => retained.adapter.updateSource('# nested')).toThrow('mutation-in-progress');
++        const original = retained.adapter.context;
++        retained.adapter.updateSource('# outer');
++        expect(retained.adapter.context.sourceRevision).toBe(original.sourceRevision + 1);
++        callback = () =>
++        {
++            callback = null;
++            expect(() => retained.adapter.beginTask('render', 'producer:same')).toThrow('start-in-progress');
++        };
++        const task = retained.adapter.beginTask('render', 'producer:same');
++        expect(retained.adapter.cancelAll('real-cancellation')).toContain(task.taskRef);
++        expect(task.signal.aborted).toBe(true);
++    });
++
++    it('recovers terminal custody after result digest failure without declaring the work settled', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        const task = retained.adapter.beginTask('render', 'producer:result');
++        const value = { get result() { throw new Error('actual-digest-getter-failure'); } };
++        expect(() => task.accept(value)).toThrow('actual-digest-getter-failure');
++        expect(task.envelope.status).toBe('running');
++        expect(retained.inspect().pendingTaskRefs).toContain(task.taskRef);
++        expect(() => task.settle()).toThrow('not-terminal');
++        expect(task.cancel('producer-failure-cleanup').status).toBe('aborted');
++        expect(retained.adapter.completedTaskEnvelopes).toHaveLength(1);
++        expect(retained.inspect().pendingTaskRefs).toContain(task.taskRef);
++        task.settle();
++        expect(retained.inspect().pendingTaskRefs).toEqual([]);
++    });
++
++    it('preserves cancellation during result getters and terminal notification during a live observer', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const retained = create(authority, registry, 1, 'first');
++        const task = retained.adapter.beginTask('render', 'producer:result');
++        expect(task.accept({ get result() { task.cancel('actual-cancel'); return 'result'; } }).accepted).toBe(false);
++        expect(task.envelope.status).toBe('aborted');
++        expect(retained.adapter.completedTaskEnvelopes).toHaveLength(1);
++        let invalidations = 0;
++        retained.attachConsumer(() => ({ invalidateDocument: () => { invalidations += 1; } }));
++        const pending = retained.adapter.beginTask('attachment', 'producer:pending');
++        subscribeRetainedArticleDocumentHandle(retained.handle, () =>
++        {
++            if (retained.inspect().registry.state === 'live') revokeRetainedArticleDocumentScope(retained.handle);
++        });
++        create(authority, registry, 2, 'second');
++        expect(pending.signal.aborted).toBe(true);
++        expect(invalidations).toBe(1);
++        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
++    });
++
++    it('refuses new-key task issuance from the final source or draft mutation guard', () =>
++    {
++        for (const mutation of ['source', 'draft'] as const)
++        {
++            const authority = new ArticleDocumentContextAuthority();
++            const registry = new OpenArticleDocumentRegistry();
++            let guardReads = 0;
++            let armed = false;
++            let refused = false;
++            const readers = { ...scope, readPrincipalIdentityId: () =>
++            {
++                if (armed)
++                {
++                    guardReads += 1;
++                    if (guardReads === 2)
++                    {
++                        expect(() => retained.adapter.beginTask('render', 'producer:new-key')).toThrow('mutation-in-progress');
++                        refused = true;
++                    }
++                }
++                return 'test';
++            } };
++            const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
++            const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
++            const old = retained.adapter.beginTask('attachment', 'producer:old');
++            armed = true;
++            if (mutation === 'source') retained.adapter.updateSource('# next');
++            else retained.adapter.updateDraftRevision('draft:next');
++            armed = false;
++            expect(refused).toBe(true);
++            expect(old.signal.aborted).toBe(true);
++            expect(retained.adapter.activeTaskRefs).toEqual([]);
++            expect(retained.inspect().pendingTaskRefs).toEqual([old.taskRef]);
++            old.settle();
++            expect(retained.inspect().pendingTaskRefs).toEqual([]);
++        }
++    });
++
++    it('closes another scope admission synchronously and defers its actual cleanup until drain', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        const otherScope = { ...scope, readPrincipalIdentityId: () => 'other' };
++        const prepared = authority.prepareRetainedDocument(registry, { ...input(2), userScope: 'user:other' }, otherScope);
++        const second = authority.acquireRetainedDocument(admit(registry, prepared.context, 'second'), prepared);
++        const initial = second.adapter.context;
++        const pending = second.adapter.beginTask('attachment', 'producer:other');
++        let invalidations = 0;
++        const secondFactory = () => ({ invalidateDocument: () => { invalidations += 1; } });
++        second.attachConsumer(secondFactory);
++        let callbackCompleted = false;
++        first.attachConsumer(() => ({ invalidateDocument: () =>
++        {
++            authority.revokeRetainedScope('site:test', 'other');
++            expect(second.inspect().admissionClosed).toBe(true);
++            expect(second.inspect().registry.state).toBe('live');
++            expect(pending.isCurrent()).toBe(false);
++            expect(pending.signal.aborted).toBe(false);
++            expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
++            expect(invalidations).toBe(0);
++            expect(() => second.adapter.beginTask('render', 'producer:forbidden')).toThrow('owner-unavailable');
++            expect(() => second.adapter.updateSource('# forbidden')).toThrow('owner-unavailable');
++            expect(() => second.adapter.updateDraftRevision('draft:forbidden')).toThrow('owner-unavailable');
++            expect(() => second.attachConsumer(secondFactory)).toThrow('consumer-unavailable');
++            expect(second.adapter.context).toBe(initial);
++            callbackCompleted = true;
++        } }));
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(callbackCompleted).toBe(true);
++        expect(first.inspect().invalidationFailed).toBe(false);
++        expect(second.inspect().registry.state).toBe('revoked');
++        expect(pending.signal.aborted).toBe(true);
++        expect(invalidations).toBe(1);
++        expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
++    });
++
++    it('rechecks synchronous retirement that occurs inside the borrowed scope reader', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        let retireFromRead = false;
++        const readers = { ...scope, readPrincipalIdentityId: () =>
++        {
++            if (retireFromRead)
++            {
++                retireFromRead = false;
++                authority.revokeRetainedScope('site:test', 'other');
++            }
++            return 'other';
++        } };
++        const prepared = authority.prepareRetainedDocument(registry, { ...input(2), userScope: 'user:other' }, readers);
++        const second = authority.acquireRetainedDocument(admit(registry, prepared.context, 'second'), prepared);
++        let refused = false;
++        first.attachConsumer(() => ({ invalidateDocument: () =>
++        {
++            retireFromRead = true;
++            expect(() => second.adapter.beginTask('render', 'producer:read-window')).toThrow('owner-unavailable');
++            refused = true;
++        } }));
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(refused).toBe(true);
++        expect(second.inspect().registry.state).toBe('revoked');
++        expect(second.adapter.pendingTaskRefs).toEqual([]);
++    });
++
++    it('rejects a consumer retired by factory, getter or post-factory reader while retaining it for drain', () =>
++    {
++        for (const boundary of ['factory', 'getter', 'reader', 'reader-error'] as const)
++        {
++            const authority = new ArticleDocumentContextAuthority();
++            const registry = new OpenArticleDocumentRegistry();
++            const first = create(authority, registry, 1, 'first');
++            let readAfterFactory = false;
++            const readers = { ...scope, readPrincipalIdentityId: (): string =>
++            {
++                if (readAfterFactory)
++                {
++                    readAfterFactory = false;
++                    authority.revokeRetainedScope('site:test', 'other');
++                    if (boundary === 'reader-error') throw new Error('actual-post-factory-reader-error');
++                }
++                return 'other';
++            } };
++            const prepared = authority.prepareRetainedDocument(registry, { ...input(2), userScope: 'user:other' }, readers);
++            const second = authority.acquireRetainedDocument(admit(registry, prepared.context, 'second'), prepared);
++            const pending = second.adapter.beginTask('attachment', 'producer:pending');
++            let returned = false;
++            let cleanupCalls = 0;
++            let cleanupObservation: ReturnType<ArticleDocumentRetainedBinding['inspect']> | null = null;
++            const cleanup = (observation: ReturnType<ArticleDocumentRetainedBinding['inspect']>) =>
++            {
++                cleanupCalls += 1;
++                cleanupObservation = observation;
++            };
++            const actualConsumer = { get invalidateDocument()
++            {
++                if (boundary === 'getter') authority.revokeRetainedScope('site:test', 'other');
++                return cleanup;
++            } };
++            const factory = () =>
++            {
++                if (boundary === 'factory') authority.revokeRetainedScope('site:test', 'other');
++                if (boundary === 'reader' || boundary === 'reader-error') readAfterFactory = true;
++                return actualConsumer;
++            };
++            let checked = false;
++            first.attachConsumer(() => ({ invalidateDocument: () =>
++            {
++                expect(() => { second.attachConsumer(factory); returned = true; }).toThrow();
++                expect(returned).toBe(false);
++                expect(second.inspect().admissionClosed).toBe(true);
++                expect(second.inspect().registry.state).toBe('live');
++                expect(cleanupCalls).toBe(0);
++                expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
++                checked = true;
++            } }));
++            authority.revokeRetainedScope('site:test', 'test');
++            expect(checked).toBe(true);
++            expect(first.inspect().invalidationFailed).toBe(false);
++            expect(second.inspect().registry.state).toBe('revoked');
++            expect(cleanupCalls).toBe(1);
++            expect(cleanupObservation).not.toBeNull();
++            expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
++            expect(pending.signal.aborted).toBe(true);
++        }
++    });
++
++    it('reserves the consumer slot before entry readers and factory reentry', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        let readerReentry: (() => void) | null = null;
++        const readers = { ...scope, readPrincipalIdentityId: () => { readerReentry?.(); return 'test'; } };
++        const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
++        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
++        let creations = 0;
++        const actualConsumer = { invalidateDocument: () => undefined };
++        const factory = () =>
++        {
++            creations += 1;
++            expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
++            return actualConsumer;
++        };
++        readerReentry = () => expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
++        expect(retained.attachConsumer(factory)).toBe(actualConsumer);
++        expect(retained.attachConsumer(factory)).toBe(actualConsumer);
++        expect(creations).toBe(1);
++    });
++
++    it('retains consumer custody when retirement finishes before factory return and cleanup fails', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const retained = create(authority, registry, 1, 'first');
++        const pending = retained.adapter.beginTask('attachment', 'producer:pending');
++        let cleanupCalls = 0;
++        const actualConsumer = { invalidateDocument: () =>
++        {
++            cleanupCalls += 1;
++            throw new Error('actual-consumer-cleanup-failure');
++        } };
++        const factory = () =>
++        {
++            authority.revokeRetainedScope('site:test', 'test');
++            return actualConsumer;
++        };
++        expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
++        expect(retained.inspect().registry.state).toBe('revoked');
++        expect(cleanupCalls).toBe(1);
++        expect(retained.inspect().consumerInvalidationState).toBe('failed');
++        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
++        expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
++        expect(cleanupCalls).toBe(1);
++    });
++});
+diff --git a/tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts b/tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts
+new file mode 100644
+index 000000000..d5b46ac42
+--- /dev/null
++++ b/tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts
+@@ -0,0 +1,209 @@
++import { describe, expect, it } from 'vitest';
++
++import {
++    OpenArticleDocumentRegistry,
++    inspectRetainedArticleDocumentHandle,
++    openArticleDocumentCommandSchema,
++    retainedArticleDocumentHandleBelongsTo,
++    revokeRetainedArticleDocumentScope,
++    subscribeRetainedArticleDocumentHandle,
++    type OpenOrActivateArticleCommand,
++    type RetainedArticleDocumentHandle
++} from '@/services/authoring/openArticleDocumentRegistry';
++
++const open = (registry: OpenArticleDocumentRegistry, articleId = 1): OpenOrActivateArticleCommand => ({
++    schema: openArticleDocumentCommandSchema,
++    kind: 'open-or-activate',
++    commandId: `open:${registry.getRevision()}:${articleId}`,
++    idempotencyKey: `open:${registry.getRevision()}:${articleId}`,
++    expectedRevision: registry.getRevision(),
++    intent: 'workspace',
++    entrypoint: 'direct-route',
++    identity: { articleId, draftId: `article:${articleId}`, documentId: `document:${articleId}` },
++    documentContext: { documentEpoch: 1, sourceRevision: 'source-revision:0', draftRevision: null },
++    editorSessionRef: `session:${articleId}`,
++    tabId: `tab:${articleId}`,
++    targetGroupId: 'group:primary',
++    tabKind: 'pinned',
++    status: { dirty: false, saving: false, conflict: false, recovery: false, pendingAttachments: false,
++        permission: 'allowed', lifecycle: 'current', statusRef: 'status:clean' },
++    lastActiveAnchorRef: null
++});
++
++describe('original Registry retained document handle source controls', () =>
++{
++    it('issues exact-one original opaque handle and rejects copied and forged handle objects', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        expect(registry.issueRetainedDocumentHandle('tab:1')).toBe(handle);
++        expect(inspectRetainedArticleDocumentHandle(handle).state).toBe('live');
++        expect(() => inspectRetainedArticleDocumentHandle({ ...handle })).toThrow('handle-invalid');
++        expect(() => inspectRetainedArticleDocumentHandle(registry.getEntry('tab:1') as unknown as RetainedArticleDocumentHandle))
++            .toThrow('handle-invalid');
++        expect(retainedArticleDocumentHandleBelongsTo(handle, new OpenArticleDocumentRegistry())).toBe(false);
++    });
++
++    it('retains original lifetime across activate, pin and group ownership commands', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        for (const mutation of [
++            { kind: 'activate', tabId: 'tab:1', lastActiveAnchorRef: null },
++            { kind: 'set-pin-state', tabId: 'tab:1', pinned: true },
++            { kind: 'update-group-ownership', tabId: 'tab:1', targetGroupId: 'group:secondary', ownershipTransactionRef: 'ownership:test' }
++        ])
++        {
++            const revision = registry.getRevision();
++            const result = registry.execute({ schema: openArticleDocumentCommandSchema,
++                commandId: `mutation:${revision}`, idempotencyKey: `mutation:${revision}`, expectedRevision: revision, ...mutation });
++            expect(result.status).toBe('applied');
++            expect(registry.issueRetainedDocumentHandle('tab:1')).toBe(handle);
++            expect(inspectRetainedArticleDocumentHandle(handle).state).toBe('live');
++        }
++        expect(inspectRetainedArticleDocumentHandle(handle).entry?.owningGroupId).toBe('group:secondary');
++    });
++
++    it('does not resurrect a detached handle when every public identity is reused', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        for (const mutation of [
++            { kind: 'request-close', tabId: 'tab:1' },
++            { kind: 'detach-on-final-close', tabId: 'tab:1', closeDecisionRef: 'close:formal' }
++        ])
++        {
++            const revision = registry.getRevision();
++            registry.execute({ schema: openArticleDocumentCommandSchema, commandId: `close:${revision}`,
++                idempotencyKey: `close:${revision}`, expectedRevision: revision, ...mutation });
++        }
++        registry.execute(open(registry));
++        expect(inspectRetainedArticleDocumentHandle(handle).state).toBe('revoked');
++        expect(inspectRetainedArticleDocumentHandle(handle).reason).toBe('final-close');
++        expect(registry.issueRetainedDocumentHandle('tab:1')).not.toBe(handle);
++    });
++
++    it('revokes preview replacement while preserving the new canonical session', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute({ ...open(registry), tabKind: 'preview' });
++        const first = registry.issueRetainedDocumentHandle('tab:1');
++        registry.execute({ ...open(registry, 2), tabKind: 'preview' });
++        expect(inspectRetainedArticleDocumentHandle(first).reason).toBe('final-close');
++        expect(inspectRetainedArticleDocumentHandle(registry.issueRetainedDocumentHandle('tab:2')).state).toBe('live');
++    });
++
++    it('blocks revoked permission and deleted lifecycle without discarding risk facts', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const command = open(registry);
++        registry.execute({ ...command, status: { ...command.status, dirty: true, recovery: true } });
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        const revision = registry.getRevision();
++        registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'invalidate-permission',
++            commandId: 'permission:revoke', idempotencyKey: 'permission:revoke', expectedRevision: revision,
++            tabId: 'tab:1', permission: 'revoked', statusRef: 'status:revoked' });
++        const blocked = inspectRetainedArticleDocumentHandle(handle);
++        expect(blocked.state).toBe('blocked');
++        expect(blocked.entry?.status.dirty).toBe(true);
++        expect(blocked.entry?.status.recovery).toBe(true);
++        expect(registry.issueRetainedDocumentHandle('tab:1')).toBe(handle);
++        registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'invalidate-lifecycle',
++            commandId: 'lifecycle:delete', idempotencyKey: 'lifecycle:delete', expectedRevision: registry.getRevision(),
++            tabId: 'tab:1', lifecycle: 'deleted', statusRef: 'status:deleted' });
++        expect(inspectRetainedArticleDocumentHandle(handle).entry?.status.lifecycle).toBe('deleted');
++    });
++
++    it('revokes changed draft identity and refuses scope-retired reissuance', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'replace-draft-identity',
++            commandId: 'draft:replace', idempotencyKey: 'draft:replace', expectedRevision: registry.getRevision(),
++            tabId: 'tab:1', draftId: 'draft:replacement', draftRevision: 'revision:replacement', replacementRef: 'replace:test' });
++        expect(inspectRetainedArticleDocumentHandle(handle).reason).toBe('identity-replaced');
++        const replacement = registry.issueRetainedDocumentHandle('tab:1');
++        revokeRetainedArticleDocumentScope(replacement);
++        expect(inspectRetainedArticleDocumentHandle(replacement).reason).toBe('scope-revoked');
++        expect(inspectRetainedArticleDocumentHandle(replacement).entry).not.toBeNull();
++        expect(() => registry.issueRetainedDocumentHandle('tab:1')).toThrow('scope-revoked');
++    });
++
++    it('preserves committed command/history and records failed or reentrant notification', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        let nestedStatus: string | null = null;
++        subscribeRetainedArticleDocumentHandle(handle, () =>
++        {
++            nestedStatus = registry.execute(open(registry, 3)).status;
++            throw new Error('actual-consumer-cleanup-failure');
++        });
++        const second = open(registry, 2);
++        expect(registry.execute(second).status).toBe('applied');
++        expect(nestedStatus).toBe('rejected-state');
++        expect(registry.execute(second).status).toBe('replayed');
++        expect(registry.listEntries()).toHaveLength(2);
++        expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
++    });
++
++    it('keeps actual runtime custody hidden when shadow properties are injected', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        expect(Object.getOwnPropertyNames(registry)).not.toContain('retainedDocumentCells');
++        Object.defineProperty(registry, 'retainedDocumentCells', { value: new Set([{ handle, reason: null, registry: new OpenArticleDocumentRegistry() }]) });
++        revokeRetainedArticleDocumentScope(handle);
++        expect(inspectRetainedArticleDocumentHandle(handle).reason).toBe('scope-revoked');
++        expect(retainedArticleDocumentHandleBelongsTo(handle, registry)).toBe(true);
++        expect(retainedArticleDocumentHandleBelongsTo(handle, new OpenArticleDocumentRegistry())).toBe(false);
++    });
++
++    it('permits a new incarnation after scope retirement and formal detach with equal public IDs', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const original = registry.issueRetainedDocumentHandle('tab:1');
++        revokeRetainedArticleDocumentScope(original);
++        for (const mutation of [
++            { kind: 'request-close', tabId: 'tab:1' },
++            { kind: 'detach-on-final-close', tabId: 'tab:1', closeDecisionRef: 'close:formal' }
++        ])
++        {
++            const revision = registry.getRevision();
++            registry.execute({ schema: openArticleDocumentCommandSchema, commandId: `close:${revision}`,
++                idempotencyKey: `close:${revision}`, expectedRevision: revision, ...mutation });
++        }
++        registry.execute(open(registry));
++        const current = registry.issueRetainedDocumentHandle('tab:1');
++        expect(current).not.toBe(original);
++        expect(inspectRetainedArticleDocumentHandle(current).state).toBe('live');
++        expect(inspectRetainedArticleDocumentHandle(original).state).toBe('revoked');
++        expect(inspectRetainedArticleDocumentHandle(original).entry).toBeNull();
++    });
++
++    it('drains terminal scope notification requested from inside a live notification', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        const observed: string[] = [];
++        subscribeRetainedArticleDocumentHandle(handle, () =>
++        {
++            const state = inspectRetainedArticleDocumentHandle(handle).state;
++            observed.push(state);
++            if (state === 'live')
++            {
++                revokeRetainedArticleDocumentScope(handle);
++            }
++        });
++        registry.execute(open(registry, 2));
++        expect(observed).toEqual(['live', 'revoked']);
++    });
++});
+diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
+index 04d25daab..4221025bd 100644
+--- a/src/frontend/src/services/authoring/articleDocumentContext.ts
++++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
+@@ -1,5 +1,16 @@
+ import {
+-    calculateOpenArticleDocumentDigest
++    calculateOpenArticleDocumentDigest,
++    inspectRetainedArticleDocumentHandle,
++    retainedArticleDocumentHandleBelongsTo,
++    revokeRetainedArticleDocumentScope,
++    revokeRetainedArticleDocumentScopeSet,
++    subscribeRetainedArticleDocumentHandle
++} from './openArticleDocumentRegistry';
++
++import type {
++    OpenArticleDocumentRegistry,
++    RetainedArticleDocumentHandle,
++    RetainedArticleDocumentInspection
+ } from './openArticleDocumentRegistry';
+ 
+ export const articleDocumentContextSchema = 'fsusblog.article-document-context.v1' as const;
+@@ -122,6 +133,8 @@ export interface ArticleDocumentTaskLease {
+     cancel(reason?: string): ArticleDocumentTaskEnvelope;
+     complete(completedRevision?: number, value?: unknown): ArticleDocumentTaskEnvelope;
+     accept<T>(value: T, completedRevision?: number): ArticleDocumentTaskAcceptance<T>;
++    /** Producer acknowledgement after its real work/cleanup has actually settled. */
++    settle(): void;
+ }
+ 
+ export interface ArticleDocumentTaskRegistry {
+@@ -176,6 +189,73 @@ export interface ArticleDocumentContextBinding {
+     release(): void;
+ }
+ 
++export interface ArticleDocumentRetainedScopeReaders {
++    readPrincipalIdentityId(): string | null;
++    readSiteScope(): string | null;
++}
++
++declare const preparedDocumentBrand: unique symbol;
++
++export interface ArticleDocumentRetainedPreparation {
++    readonly [preparedDocumentBrand]: true;
++    readonly context: ArticleDocumentContext;
++}
++
++export interface ArticleDocumentRetainedInspection {
++    readonly registry: RetainedArticleDocumentInspection;
++    readonly context: ArticleDocumentContext;
++    readonly principalIdentityId: string;
++    readonly registryRevisionMatchesDocument: boolean;
++    readonly pendingTaskRefs: readonly string[];
++    readonly invalidationFailed: boolean;
++    readonly consumerInvalidationState: 'not-requested' | 'pending' | 'settled' | 'failed';
++    readonly admissionClosed: boolean;
++}
++
++export interface ArticleDocumentRetainedConsumer {
++    /** Release actual Writer effects/ports; the producer retains this object on failure. */
++    invalidateDocument(observation: ArticleDocumentRetainedInspection): void | Promise<void>;
++}
++
++export interface ArticleDocumentRetainedBinding {
++    readonly handle: RetainedArticleDocumentHandle;
++    readonly adapter: ArticleDocumentContextAdapter;
++    inspect(): ArticleDocumentRetainedInspection;
++    subscribeLifetime(listener: (observation: ArticleDocumentRetainedInspection) => void): () => void;
++    attachConsumer<T extends ArticleDocumentRetainedConsumer>(create: (binding: ArticleDocumentRetainedBinding) => T): T;
++}
++
++interface ArticleDocumentRetainedOwner {
++    readonly registry: OpenArticleDocumentRegistry;
++    readonly adapter: ArticleDocumentContextAdapter;
++    readonly scope: ArticleDocumentRetainedScopeReaders;
++    readonly principalIdentityId: string;
++    scopeRetired: boolean;
++    handle: RetainedArticleDocumentHandle | null;
++    binding: ArticleDocumentRetainedBinding | null;
++    consumer: ArticleDocumentRetainedConsumer | null;
++    consumerFactory: ((binding: ArticleDocumentRetainedBinding) => ArticleDocumentRetainedConsumer) | null;
++    attachingConsumer: boolean;
++    invalidationFailed: boolean;
++    consumerInvalidationState: ArticleDocumentRetainedInspection['consumerInvalidationState'];
++    pendingConsumerInvalidation: Promise<void> | null;
++    lastState: RetainedArticleDocumentInspection['state'];
++    readonly listeners: Set<(observation: ArticleDocumentRetainedInspection) => void>;
++}
++
++interface ArticleDocumentOwnerAdmission {
++    readonly handle: RetainedArticleDocumentHandle;
++    readonly adapter: ArticleDocumentContextAdapter;
++    readonly context: ArticleDocumentContext;
++    readonly scopeRetirementSequence: number;
++}
++
++// An adapter guard belongs to its original handle custody, never an article index.
++const retainedAdapterGuards = new WeakMap<ArticleDocumentContextAdapter, {
++    readonly isAdmitted: () => boolean;
++    readonly inspect: () => RetainedArticleDocumentInspection;
++}>();
++
+ const stableRefPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u;
+ const digestPattern = /^[a-f0-9]{64}$/u;
+ const articleDocumentSwitchReasons = ['article-switch', 'draft-switch', 'entity-switch'] as const;
+@@ -548,150 +628,168 @@ export function validateArticleDocumentEpochReceipt(value: unknown): value is Ar
+ 
+ export const verifyArticleDocumentEpochReceipt = validateArticleDocumentEpochReceipt;
+ 
++const taskFinalizationTokens = new WeakMap<ArticleDocumentTaskLeaseImpl, object>();
++
+ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
+ {
+-    private currentEnvelope: ArticleDocumentTaskEnvelope;
+-    private finished = false;
+-    private readonly owner: ArticleDocumentContextAdapter;
+-    private readonly controller: AbortController;
+-    private readonly taskKey: string;
+-
+-    public constructor(
+-        owner: ArticleDocumentContextAdapter,
+-        controller: AbortController,
+-        taskKey: string,
+-        envelope: ArticleDocumentTaskEnvelope
+-    )
++    #currentEnvelope: ArticleDocumentTaskEnvelope;
++    #finished = false;
++    #finishing = false;
++    #cancelReason: string | null = null;
++    #owner: ArticleDocumentContextAdapter;
++    #controller: AbortController;
++    #taskKey: string;
++
++    public constructor(owner: ArticleDocumentContextAdapter, controller: AbortController,
++        taskKey: string, envelope: ArticleDocumentTaskEnvelope)
+     {
+-        this.owner = owner;
+-        this.controller = controller;
+-        this.taskKey = taskKey;
+-        this.currentEnvelope = envelope;
++        this.#owner = owner;
++        this.#controller = controller;
++        this.#taskKey = taskKey;
++        this.#currentEnvelope = envelope;
+     }
+ 
+     public get taskRef(): string
+     {
+-        return this.currentEnvelope.taskRef;
++        return this.#currentEnvelope.taskRef;
+     }
+ 
+     public get signal(): AbortSignal
+     {
+-        return this.controller.signal;
++        return this.#controller.signal;
+     }
+ 
+     public get envelope(): ArticleDocumentTaskEnvelope
+     {
+-        return this.currentEnvelope;
++        return this.#currentEnvelope;
+     }
+ 
+     public isCurrent(): boolean
+     {
+-        return !this.finished && this.owner.isTaskCurrent(this);
++        return !this.#finished && this.#owner.isTaskCurrent(this);
+     }
+ 
+     public cancel(reason = 'task-canceled'): ArticleDocumentTaskEnvelope
+     {
+         assertAbortReason(reason);
+-        if (!this.finished)
++        if (this.#finished)
++        {
++            return this.#currentEnvelope;
++        }
++        if (this.#finishing)
+         {
+-            this.controller.abort(reason);
+-            this.finished = true;
+-            this.currentEnvelope = this.owner.finishTask(this, 'aborted', null, null, reason);
++            this.#cancelReason ??= reason;
++            this.#controller.abort(reason);
++            return this.#currentEnvelope;
+         }
+-        return this.currentEnvelope;
++        this.#finalize('aborted', null, null, reason);
++        this.#controller.abort(reason);
++        return this.#currentEnvelope;
+     }
+ 
+     public complete(completedRevision?: number, value?: unknown): ArticleDocumentTaskEnvelope
+     {
+-        if (this.finished)
++        if (this.#finished || this.#finishing)
+         {
+-            return this.currentEnvelope;
++            return this.#currentEnvelope;
+         }
+-        const accepted = this.isCurrent()
+-            && (completedRevision === undefined || completedRevision === this.owner.context.sourceRevision);
+-        this.finished = true;
+-        this.currentEnvelope = this.owner.finishTask(
+-            this,
+-            accepted ? 'completed' : (this.signal.aborted ? 'aborted' : 'stale'),
+-            accepted ? (completedRevision ?? this.owner.context.sourceRevision) : this.owner.context.sourceRevision,
+-            accepted ? value : null,
+-            accepted ? null : (this.signal.aborted ? 'task-aborted' : 'task-stale')
+-        );
+-        return this.currentEnvelope;
++        return this.#finishResult(value, completedRevision);
+     }
+ 
+     public accept<T>(value: T, completedRevision?: number): ArticleDocumentTaskAcceptance<T>
+     {
+-        if (this.finished)
++        if (this.#finished || this.#finishing)
+         {
+-            return {
+-                accepted: false,
+-                value: null,
+-                reason: 'task-finished',
+-                envelope: this.currentEnvelope
+-            };
++            return { accepted: false, value: null, reason: 'task-finished', envelope: this.#currentEnvelope };
++        }
++        const envelope = this.#finishResult(value, completedRevision);
++        const accepted = envelope.status === 'completed';
++        return { accepted, value: accepted ? value : null,
++            reason: accepted ? null : envelope.status === 'aborted' ? 'task-aborted'
++                : completedRevision !== undefined && completedRevision !== this.#owner.context.sourceRevision
++                    ? 'completed-revision-stale' : 'task-stale', envelope };
++    }
++
++    #finishResult(value: unknown, completedRevision?: number): ArticleDocumentTaskEnvelope
++    {
++        return this.#finalize('completed', completedRevision ?? this.#owner.context.sourceRevision, value, null);
++    }
++
++    #finalize(status: Exclude<ArticleDocumentTaskStatus, 'running'>, completedRevision: number | null,
++        value: unknown, reason: string | null): ArticleDocumentTaskEnvelope
++    {
++        const token = Object.freeze({});
++        this.#finishing = true;
++        taskFinalizationTokens.set(this, token);
++        try
++        {
++            const envelope = this.#owner.finishTask(this, status, completedRevision, value, reason, token);
++            this.#currentEnvelope = envelope;
++            this.#finished = true;
++            return envelope;
++        }
++        finally
++        {
++            taskFinalizationTokens.delete(this);
++            this.#finishing = false;
++            // A failing result getter must leave recoverable custody. If a real
++            // cancellation arrived during it, publish that terminal after failure.
++            if (!this.#finished && this.#cancelReason)
++            {
++                this.cancel(this.#cancelReason);
++            }
+         }
+-        const accepted = this.isCurrent()
+-            && (completedRevision === undefined || completedRevision === this.owner.context.sourceRevision);
+-        this.finished = true;
+-        this.currentEnvelope = this.owner.finishTask(
+-            this,
+-            accepted ? 'completed' : (this.signal.aborted ? 'aborted' : 'stale'),
+-            accepted ? (completedRevision ?? this.owner.context.sourceRevision) : this.owner.context.sourceRevision,
+-            accepted ? value : null,
+-            accepted ? null : (this.signal.aborted ? 'task-aborted' : 'task-stale')
+-        );
+-        return {
+-            accepted,
+-            value: accepted ? value : null,
+-            reason: accepted
+-                ? null
+-                : this.signal.aborted
+-                    ? 'task-aborted'
+-                    : completedRevision !== undefined && completedRevision !== this.owner.context.sourceRevision
+-                        ? 'completed-revision-stale'
+-                        : 'task-stale',
+-            envelope: this.currentEnvelope
+-        };
+     }
+ 
+     public get registryKey(): string
+     {
+-        return this.taskKey;
++        return this.#taskKey;
++    }
++
++    public settle(): void
++    {
++        if (!this.#finished)
++        {
++            throw new Error('article-document-task-not-terminal');
++        }
++        this.#owner.settleTask(this);
+     }
+ }
+ 
+ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistry
+ {
+-    private current: ArticleDocumentContext;
+-    private readonly activeTasks = new Map<string, ArticleDocumentTaskLeaseImpl>();
+-    private readonly receiptsLog: ArticleDocumentEpochReceipt[] = [];
+-    private readonly completedTaskEnvelopeLog: ArticleDocumentTaskEnvelope[] = [];
+-    private taskSequence = 0;
+-    private taskCancellationDepth = 0;
+-    private receiptSequence = 0;
+-    private disposed = false;
+-    private readonly contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
++    #current: ArticleDocumentContext;
++    #activeTasks = new Map<string, ArticleDocumentTaskLeaseImpl>();
++    #pendingTasks = new Set<ArticleDocumentTaskLeaseImpl>();
++    #receiptsLog: ArticleDocumentEpochReceipt[] = [];
++    #completedTaskEnvelopeLog: ArticleDocumentTaskEnvelope[] = [];
++    #taskSequence = 0;
++    #taskStartsPending = new Set<string>();
++    #contextMutationPending = false;
++    #taskCancellationDepth = 0;
++    #receiptSequence = 0;
++    #disposed = false;
++    #contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
+ 
+     public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): () => void
+     {
+-        if (this.disposed)
++        if (this.#disposed)
+         {
+             listener(null);
+             return () => undefined;
+         }
+-        this.contextListeners.add(listener);
++        this.#contextListeners.add(listener);
+         return () =>
+         {
+-            this.contextListeners.delete(listener);
++            this.#contextListeners.delete(listener);
+         };
+     }
+ 
+-    private notifyContext(): void
++    #notifyContext(): void
+     {
+-        for (const listener of this.contextListeners)
++        for (const listener of this.#contextListeners)
+         {
+-            listener(this.disposed ? null : this.current);
++            listener(this.#disposed ? null : this.#current);
+         }
+     }
+ 
+@@ -709,211 +807,329 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+             userScope: options.userScope,
+             content: options.content ?? ''
+         });
+-        this.current = initialContext;
+-        this.receiptsLog.push(this.createReceipt('initialize', 'initial', null, []));
++        this.#current = initialContext;
++        this.#receiptsLog.push(this.#createReceipt('initialize', 'initial', null, []));
+     }
+ 
+     public get context(): ArticleDocumentContext
+     {
+-        return this.current;
++        return this.#current;
+     }
+ 
+     public get documentIdentity(): ArticleDocumentOpaqueIdentity
+     {
+         return Object.freeze({
+-            id: this.current.documentId,
+-            epoch: this.current.documentEpoch
++            id: this.#current.documentId,
++            epoch: this.#current.documentEpoch
+         });
+     }
+ 
+     public get receipts(): readonly ArticleDocumentEpochReceipt[]
+     {
+-        return this.receiptsLog.map(clone);
++        return this.#receiptsLog.map(clone);
+     }
+ 
+     public get completedTaskEnvelopes(): readonly ArticleDocumentTaskEnvelope[]
+     {
+-        return this.completedTaskEnvelopeLog.map(clone);
++        return this.#completedTaskEnvelopeLog.map(clone);
+     }
+ 
+     public get activeTaskRefs(): readonly string[]
+     {
+-        return [...this.activeTasks.keys()].sort();
++        return [...this.#activeTasks.keys()].sort();
+     }
+ 
+-    public beginTask(
+-        kind: ArticleDocumentTaskKind,
+-        producerRef: string,
+-        producerVersion = 'v1.0'
+-    ): ArticleDocumentTaskLease
++    public get pendingTaskRefs(): readonly string[]
++    {
++        return [...this.#pendingTasks].map(task => task.taskRef).sort();
++    }
++
++    #assertRetainedAdmission(): void
+     {
+-        if (this.disposed)
++        if (!this.#isRetainedAdmitted())
+         {
+-            throw new Error('article-document-context-disposed');
++            throw new Error('article-document-retained-owner-unavailable');
+         }
+-        if (this.taskCancellationDepth > 0)
++    }
++
++    #isRetainedAdmitted(): boolean
++    {
++        const guard = retainedAdapterGuards.get(this);
++        if (!guard)
+         {
+-            throw new Error('article-document-task-cancellation-in-progress');
++            return true;
+         }
+-        assertTaskInput(kind, producerRef, producerVersion);
+-        const taskKey = `${kind}\u0000${producerRef}`;
+-        const startedContext = this.current;
+-        this.taskCancellationDepth += 1;
+-        try
++        if (!guard.isAdmitted())
+         {
+-            this.activeTasks.get(taskKey)?.cancel('task-superseded');
++            return false;
+         }
+-        finally
++        const observation = guard.inspect();
++        return guard.isAdmitted() && observation.state === 'live';
++    }
++
++    #assertContextMutation(): void
++    {
++        this.#assertRetainedAdmission();
++        if (this.#disposed)
+         {
+-            this.taskCancellationDepth -= 1;
++            throw new Error('article-document-context-disposed');
+         }
+-        if (this.disposed || !this.isCurrentContext(startedContext))
++        if (this.#taskCancellationDepth > 0)
+         {
+-            throw new Error('article-document-task-start-context-changed');
++            throw new Error('article-document-context-cancellation-in-progress');
+         }
+-        this.taskSequence += 1;
+-        const taskRef = `task:${this.taskSequence.toString(36)}`;
+-        const requestId = `request:${this.taskSequence.toString(36)}`;
+-        const controller = new AbortController();
+-        const envelope = sealTaskEnvelope({
+-            taskRef,
+-            kind,
+-            context: this.current,
+-            requestId,
+-            producerRef,
+-            producerVersion,
+-            startedRevision: this.current.sourceRevision,
+-            completedRevision: null,
+-            status: 'running',
+-            abortReason: null,
+-            resultDigest: null
+-        });
+-        const lease = new ArticleDocumentTaskLeaseImpl(this, controller, taskKey, envelope);
+-        this.activeTasks.set(taskKey, lease);
+-        return lease;
+     }
+ 
+-    public switchDocument(input: ArticleDocumentSwitchInput): ArticleDocumentEpochReceipt | null
++    public beginTask(
++        kind: ArticleDocumentTaskKind,
++        producerRef: string,
++        producerVersion = 'v1.0'
++    ): ArticleDocumentTaskLease
+     {
+-        if (this.disposed)
++        if (this.#contextMutationPending)
+         {
+-            throw new Error('article-document-context-disposed');
++            throw new Error('article-document-context-mutation-in-progress');
+         }
+-        if (!isArticleId(input.articleId) || !isStableRef(input.draftId))
++        assertTaskInput(kind, producerRef, producerVersion);
++        const taskKey = `${kind}\u0000${producerRef}`;
++        const startedContext = this.#current;
++        if (this.#taskStartsPending.has(taskKey))
+         {
+-            throw new Error('article-document-switch-input-invalid');
++            throw new Error('article-document-task-start-in-progress');
+         }
+-        if (input.reason !== undefined && !isArticleDocumentSwitchReason(input.reason))
++        this.#taskStartsPending.add(taskKey);
++        try
+         {
+-            throw new Error('article-document-switch-reason-invalid');
++            this.#assertRetainedAdmission();
++            if (this.#disposed)
++            {
++                throw new Error('article-document-context-disposed');
++            }
++            if (this.#taskCancellationDepth > 0)
++            {
++                throw new Error('article-document-task-cancellation-in-progress');
++            }
++            this.#taskCancellationDepth += 1;
++            try
++            {
++                this.#activeTasks.get(taskKey)?.cancel('task-superseded');
++            }
++            finally
++            {
++                this.#taskCancellationDepth -= 1;
++            }
++            const contextCurrent = this.isCurrentContext(startedContext);
++            if (this.#disposed || !contextCurrent || this.#current !== startedContext || this.#activeTasks.has(taskKey))
++            {
++                throw new Error('article-document-task-start-context-changed');
++            }
++            this.#taskSequence += 1;
++            const taskRef = `task:${this.#taskSequence.toString(36)}`;
++            const requestId = `request:${this.#taskSequence.toString(36)}`;
++            const controller = new AbortController();
++            const envelope = sealTaskEnvelope({
++                taskRef,
++                kind,
++                context: this.#current,
++                requestId,
++                producerRef,
++                producerVersion,
++                startedRevision: this.#current.sourceRevision,
++                completedRevision: null,
++                status: 'running',
++                abortReason: null,
++                resultDigest: null
++            });
++            const lease = new ArticleDocumentTaskLeaseImpl(this, controller, taskKey, envelope);
++            this.#activeTasks.set(taskKey, lease);
++            this.#pendingTasks.add(lease);
++            return Object.freeze(lease);
+         }
+-        const siteScope = input.siteScope ?? this.current.siteScope;
+-        const userScope = input.userScope ?? this.current.userScope;
+-        if (!isStableRef(siteScope) || !isStableRef(userScope))
++        finally
++        {
++            this.#taskStartsPending.delete(taskKey);
++        }
++
++    }
++
++    public switchDocument(input: ArticleDocumentSwitchInput): ArticleDocumentEpochReceipt | null
++    {
++        if (this.#contextMutationPending)
+         {
+-            throw new Error('article-document-switch-scope-invalid');
++            throw new Error('article-document-context-mutation-in-progress');
+         }
+-        if (this.current.articleId === input.articleId
+-            && this.current.draftId === input.draftId
+-            && this.current.siteScope === siteScope
+-            && this.current.userScope === userScope)
++        this.#contextMutationPending = true;
++        try
+         {
+-            return null;
++            if (retainedAdapterGuards.has(this))
++            {
++                throw new Error('article-document-retained-switch-requires-registry');
++            }
++            this.#assertContextMutation();
++            if (this.#disposed)
++            {
++                throw new Error('article-document-context-disposed');
++            }
++            if (!isArticleId(input.articleId) || !isStableRef(input.draftId))
++            {
++                throw new Error('article-document-switch-input-invalid');
++            }
++            if (input.reason !== undefined && !isArticleDocumentSwitchReason(input.reason))
++            {
++                throw new Error('article-document-switch-reason-invalid');
++            }
++            const siteScope = input.siteScope ?? this.#current.siteScope;
++            const userScope = input.userScope ?? this.#current.userScope;
++            if (!isStableRef(siteScope) || !isStableRef(userScope))
++            {
++                throw new Error('article-document-switch-scope-invalid');
++            }
++            if (this.#current.articleId === input.articleId
++                && this.#current.draftId === input.draftId
++                && this.#current.siteScope === siteScope
++                && this.#current.userScope === userScope)
++            {
++                return null;
++            }
++            const previous = this.#current;
++            const canceledTaskRefs = this.cancelAll('document-switch');
++            const nextEpoch = previous.documentEpoch + 1;
++            if (!Number.isSafeInteger(nextEpoch))
++            {
++                throw new Error('article-document-epoch-exhausted');
++            }
++            this.#current = createArticleDocumentContext({
++                articleId: input.articleId,
++                draftId: input.draftId,
++                documentId: nextOpaqueDocumentId(),
++                documentEpoch: nextEpoch,
++                sourceRevision: input.sourceRevision ?? 0,
++                draftRevision: input.draftRevision ?? null,
++                editorSessionId: previous.editorSessionId,
++                siteScope,
++                userScope,
++                content: input.content ?? ''
++            });
++            const receipt = this.#createReceipt('switch', input.reason ?? 'entity-switch', previous, canceledTaskRefs);
++            this.#receiptsLog.push(receipt);
++            this.#contextMutationPending = false;
++            this.#notifyContext();
++            return clone(receipt);
+         }
+-        const previous = this.current;
+-        const canceledTaskRefs = this.cancelAll('document-switch');
+-        const nextEpoch = previous.documentEpoch + 1;
+-        if (!Number.isSafeInteger(nextEpoch))
++        finally
+         {
+-            throw new Error('article-document-epoch-exhausted');
++            this.#contextMutationPending = false;
+         }
+-        this.current = createArticleDocumentContext({
+-            articleId: input.articleId,
+-            draftId: input.draftId,
+-            documentId: nextOpaqueDocumentId(),
+-            documentEpoch: nextEpoch,
+-            sourceRevision: input.sourceRevision ?? 0,
+-            draftRevision: input.draftRevision ?? null,
+-            editorSessionId: previous.editorSessionId,
+-            siteScope,
+-            userScope,
+-            content: input.content ?? ''
+-        });
+-        const receipt = this.createReceipt('switch', input.reason ?? 'entity-switch', previous, canceledTaskRefs);
+-        this.receiptsLog.push(receipt);
+-        this.notifyContext();
+-        return clone(receipt);
++
+     }
+ 
+     public updateSource(content: string, sourceRevision?: number): ArticleDocumentContext
+     {
+-        if (this.disposed)
++        if (this.#contextMutationPending)
+         {
+-            throw new Error('article-document-context-disposed');
+-        }
+-        if (typeof content !== 'string')
+-        {
+-            throw new Error('article-document-source-invalid');
++            throw new Error('article-document-context-mutation-in-progress');
+         }
+-        const nextContentDigest = contentDigestFor(content);
+-        if (nextContentDigest === this.current.contentDigest && sourceRevision === undefined)
++        this.#contextMutationPending = true;
++        try
+         {
+-            return this.current;
++            this.#assertContextMutation();
++            if (this.#disposed)
++            {
++                throw new Error('article-document-context-disposed');
++            }
++            if (typeof content !== 'string')
++            {
++                throw new Error('article-document-source-invalid');
++            }
++            const nextContentDigest = contentDigestFor(content);
++            if (nextContentDigest === this.#current.contentDigest && sourceRevision === undefined)
++            {
++                return this.#current;
++            }
++            const nextRevision = sourceRevision ?? this.#current.sourceRevision + 1;
++            if (!isSourceRevision(nextRevision) || nextRevision <= this.#current.sourceRevision)
++            {
++                throw new Error('article-document-source-revision-must-advance');
++            }
++            this.cancelAll('source-revision-changed');
++            this.#assertContextMutation();
++            this.#current = createArticleDocumentContext({
++                articleId: this.#current.articleId,
++                draftId: this.#current.draftId,
++                documentId: this.#current.documentId,
++                documentEpoch: this.#current.documentEpoch,
++                sourceRevision: nextRevision,
++                draftRevision: this.#current.draftRevision,
++                editorSessionId: this.#current.editorSessionId,
++                siteScope: this.#current.siteScope,
++                userScope: this.#current.userScope,
++                content
++            });
++            this.#contextMutationPending = false;
++            this.#notifyContext();
++            return this.#current;
+         }
+-        const nextRevision = sourceRevision ?? this.current.sourceRevision + 1;
+-        if (!isSourceRevision(nextRevision) || nextRevision <= this.current.sourceRevision)
++        finally
+         {
+-            throw new Error('article-document-source-revision-must-advance');
++            this.#contextMutationPending = false;
+         }
+-        this.cancelAll('source-revision-changed');
+-        this.current = createArticleDocumentContext({
+-            articleId: this.current.articleId,
+-            draftId: this.current.draftId,
+-            documentId: this.current.documentId,
+-            documentEpoch: this.current.documentEpoch,
+-            sourceRevision: nextRevision,
+-            draftRevision: this.current.draftRevision,
+-            editorSessionId: this.current.editorSessionId,
+-            siteScope: this.current.siteScope,
+-            userScope: this.current.userScope,
+-            content
+-        });
+-        this.notifyContext();
+-        return this.current;
++
+     }
+ 
+     public updateDraftRevision(draftRevision: string | null): ArticleDocumentContext
+     {
+-        if (!isDraftRevision(draftRevision))
++        if (this.#contextMutationPending)
+         {
+-            throw new Error('article-document-draft-revision-invalid');
++            throw new Error('article-document-context-mutation-in-progress');
+         }
+-        if (draftRevision === this.current.draftRevision)
++        this.#contextMutationPending = true;
++        try
+         {
+-            return this.current;
++            this.#assertContextMutation();
++            if (this.#disposed)
++            {
++                throw new Error('article-document-context-disposed');
++            }
++            if (!isDraftRevision(draftRevision))
++            {
++                throw new Error('article-document-draft-revision-invalid');
++            }
++            if (draftRevision === this.#current.draftRevision)
++            {
++                return this.#current;
++            }
++            this.cancelAll('draft-revision-changed');
++            this.#assertContextMutation();
++            this.#current = createArticleDocumentContext({
++                articleId: this.#current.articleId,
++                draftId: this.#current.draftId,
++                documentId: this.#current.documentId,
++                documentEpoch: this.#current.documentEpoch,
++                sourceRevision: this.#current.sourceRevision,
++                draftRevision,
++                editorSessionId: this.#current.editorSessionId,
++                siteScope: this.#current.siteScope,
++                userScope: this.#current.userScope,
++                contentDigest: this.#current.contentDigest
++            });
++            this.#contextMutationPending = false;
++            this.#notifyContext();
++            return this.#current;
+         }
+-        this.cancelAll('draft-revision-changed');
+-        this.current = createArticleDocumentContext({
+-            articleId: this.current.articleId,
+-            draftId: this.current.draftId,
+-            documentId: this.current.documentId,
+-            documentEpoch: this.current.documentEpoch,
+-            sourceRevision: this.current.sourceRevision,
+-            draftRevision,
+-            editorSessionId: this.current.editorSessionId,
+-            siteScope: this.current.siteScope,
+-            userScope: this.current.userScope,
+-            contentDigest: this.current.contentDigest
+-        });
+-        this.notifyContext();
+-        return this.current;
++        finally
++        {
++            this.#contextMutationPending = false;
++        }
++
+     }
+ 
+     public isCurrentContext(context: ArticleDocumentContext): boolean
+     {
+-        return !this.disposed
++        const retained = this.#isRetainedAdmitted();
++        return !this.#disposed
++            && retained
+             && validateArticleDocumentContext(context)
+-            && context.contextDigest === this.current.contextDigest;
++            && context.contextDigest === this.#current.contextDigest;
+     }
+ 
+     public acceptTaskResult<T>(
+@@ -922,7 +1138,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         completedRevision?: number
+     ): ArticleDocumentTaskAcceptance<T>
+     {
+-        if (!(lease instanceof ArticleDocumentTaskLeaseImpl) || !this.activeTasksHas(lease))
++        if (!(lease instanceof ArticleDocumentTaskLeaseImpl) || !this.#activeTasksHas(lease))
+         {
+             const envelope = lease.envelope;
+             return {
+@@ -938,44 +1154,50 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+     public cancelAll(reason = 'task-canceled'): readonly string[]
+     {
+         assertAbortReason(reason);
+-        const refs = [...this.activeTasks.values()].map(task => task.taskRef).sort();
++        const refs = [...this.#activeTasks.values()].map(task => task.taskRef).sort();
+         // Synchronous abort listeners must not register work outside this cancellation snapshot.
+-        this.taskCancellationDepth += 1;
++        this.#taskCancellationDepth += 1;
+         try
+         {
+-            for (const task of [...this.activeTasks.values()])
++            for (const task of [...this.#activeTasks.values()])
+             {
+                 task.cancel(reason);
+             }
+         }
+         finally
+         {
+-            this.taskCancellationDepth -= 1;
++            this.#taskCancellationDepth -= 1;
+         }
+         return refs;
+     }
+ 
+     public dispose(): ArticleDocumentEpochReceipt | null
+     {
+-        if (this.disposed)
++        if (retainedAdapterGuards.has(this) && retainedAdapterGuards.get(this)?.inspect().state !== 'revoked')
++        {
++            throw new Error('article-document-retained-dispose-requires-revocation');
++        }
++        if (this.#disposed)
+         {
+             return null;
+         }
+         const canceledTaskRefs = this.cancelAll('dispose');
+-        this.disposed = true;
+-        this.notifyContext();
+-        this.contextListeners.clear();
+-        const receipt = this.createReceipt('dispose', 'dispose', this.current, canceledTaskRefs);
+-        this.receiptsLog.push(receipt);
++        this.#disposed = true;
++        this.#notifyContext();
++        this.#contextListeners.clear();
++        const receipt = this.#createReceipt('dispose', 'dispose', this.#current, canceledTaskRefs);
++        this.#receiptsLog.push(receipt);
+         return clone(receipt);
+     }
+ 
+     public isTaskCurrent(task: ArticleDocumentTaskLeaseImpl): boolean
+     {
+-        return !this.disposed
+-            && this.activeTasksHas(task)
++        const retained = this.#isRetainedAdmitted();
++        return !this.#disposed
++            && retained
++            && this.#activeTasksHas(task)
+             && !task.signal.aborted
+-            && task.envelope.context.contextDigest === this.current.contextDigest;
++            && task.envelope.context.contextDigest === this.#current.contextDigest;
+     }
+ 
+     public finishTask(
+@@ -983,14 +1205,21 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         status: Exclude<ArticleDocumentTaskStatus, 'running'>,
+         completedRevision: number | null,
+         value: unknown,
+-        abortReason: string | null
++        abortReason: string | null,
++        operationToken?: object
+     ): ArticleDocumentTaskEnvelope
+     {
+-        const current = this.activeTasks.get(task.registryKey);
+-        if (current === task)
++        if (!operationToken || taskFinalizationTokens.get(task) !== operationToken || !this.#pendingTasks.has(task))
+         {
+-            this.activeTasks.delete(task.registryKey);
++            throw new Error('article-document-task-finalization-invalid');
+         }
++        const eligible = status === 'completed' && this.isTaskCurrent(task) && completedRevision === this.#current.sourceRevision;
++        const resultDigest = eligible && value !== null && value !== undefined
++            ? calculateOpenArticleDocumentDigest(value) : null;
++        const current = status === 'completed' && this.isTaskCurrent(task);
++        const accepted = status === 'completed' && current && completedRevision === this.#current.sourceRevision;
++        const finalStatus = status === 'completed' && !accepted ? task.signal.aborted ? 'aborted' : 'stale' : status;
++        const cancellationReason = task.signal.aborted && isStableRef(task.signal.reason) ? task.signal.reason : null;
+         const envelope = sealTaskEnvelope({
+             taskRef: task.envelope.taskRef,
+             kind: task.envelope.kind,
+@@ -999,46 +1228,58 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+             producerRef: task.envelope.producerRef,
+             producerVersion: task.envelope.producerVersion,
+             startedRevision: task.envelope.startedRevision,
+-            completedRevision: completedRevision ?? task.envelope.context.sourceRevision,
+-            status,
+-            abortReason,
+-            resultDigest: status === 'completed' && value !== null && value !== undefined
+-                ? calculateOpenArticleDocumentDigest(value)
+-                : null
++            completedRevision: finalStatus === 'completed' ? completedRevision ?? task.envelope.context.sourceRevision
++                : status === 'completed' ? this.#current.sourceRevision : completedRevision ?? task.envelope.context.sourceRevision,
++            status: finalStatus,
++            abortReason: accepted ? null : abortReason ?? cancellationReason ?? (task.signal.aborted ? 'task-aborted' : 'task-stale'),
++            resultDigest: accepted ? resultDigest : null
+         });
+-        this.completedTaskEnvelopeLog.push(envelope);
++        if (this.#activeTasks.get(task.registryKey) === task)
++        {
++            this.#activeTasks.delete(task.registryKey);
++        }
++        this.#completedTaskEnvelopeLog.push(envelope);
+         return envelope;
+     }
+ 
+-    private activeTasksHas(task: ArticleDocumentTaskLeaseImpl): boolean
++    #activeTasksHas(task: ArticleDocumentTaskLeaseImpl): boolean
+     {
+-        return this.activeTasks.get(task.registryKey) === task;
++        return this.#activeTasks.get(task.registryKey) === task;
++    }
++
++    public settleTask(task: ArticleDocumentTaskLeaseImpl): void
++    {
++        if (task.envelope.status === 'running')
++        {
++            throw new Error('article-document-task-not-terminal');
++        }
++        this.#pendingTasks.delete(task);
+     }
+ 
+-    private createReceipt(
++    #createReceipt(
+         action: ArticleDocumentEpochReceipt['action'],
+         reason: ArticleDocumentEpochReason,
+         previous: ArticleDocumentContext | null,
+         canceledTaskRefs: readonly string[]
+     ): ArticleDocumentEpochReceipt
+     {
+-        this.receiptSequence += 1;
++        this.#receiptSequence += 1;
+         const base = {
+             schema: articleDocumentEpochReceiptSchema,
+-            receiptRef: `epoch-receipt:${this.receiptSequence.toString(36)}`,
+-            receiptSequence: this.receiptSequence,
++            receiptRef: `epoch-receipt:${this.#receiptSequence.toString(36)}`,
++            receiptSequence: this.#receiptSequence,
+             action,
+             reason,
+             previousArticleId: previous?.articleId ?? null,
+             previousDraftId: previous?.draftId ?? null,
+             previousDocumentId: previous?.documentId ?? null,
+             previousDocumentEpoch: previous?.documentEpoch ?? null,
+-            articleId: this.current.articleId,
+-            draftId: this.current.draftId,
+-            documentId: this.current.documentId,
+-            documentEpoch: this.current.documentEpoch,
++            articleId: this.#current.articleId,
++            draftId: this.#current.draftId,
++            documentId: this.#current.documentId,
++            documentEpoch: this.#current.documentEpoch,
+             canceledTaskRefs: [...canceledTaskRefs].sort(),
+-            contentDigest: this.current.contentDigest
++            contentDigest: this.#current.contentDigest
+         };
+         return Object.freeze({
+             ...base,
+@@ -1061,50 +1302,70 @@ export function createArticleDocumentContextAdapter(
+  */
+ export class ArticleDocumentContextAuthority
+ {
+-    private adapter: ArticleDocumentContextAdapter | null = null;
+-    private readonly bindings = new Set<number>();
+-    private bindingSequence = 0;
++    #adapter: ArticleDocumentContextAdapter | null = null;
++    #bindings = new Set<number>();
++    #bindingSequence = 0;
++    #bindingCustody = new WeakMap<ArticleDocumentContextBinding, {
++        readonly adapter: ArticleDocumentContextAdapter;
++        readonly isReleased: () => boolean;
++    }>();
++    #preparations = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentRetainedOwner>();
++    #retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
++    #ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
++    #scopedOwners = new Set<ArticleDocumentRetainedOwner>();
++    #scopeRevocationPending = false;
++    #retainedRegistry: OpenArticleDocumentRegistry | null = null;
++    #pendingHandleAdmissions = new WeakSet<RetainedArticleDocumentHandle>();
++    #pendingAdapterAdmissions = new WeakSet<ArticleDocumentContextAdapter>();
++    #preparedOwners = new Set<ArticleDocumentRetainedOwner>();
++    #scopeRetirementSequence = 0;
++    #scopeRetirementQueue: { siteScope: string; principalIdentityId: string; }[] = [];
++    #currentScopeRetirement: { siteScope: string; principalIdentityId: string; } | null = null;
+ 
+     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
+     {
+-        this.assertAuthorityInput(input);
+-        if (!this.adapter)
++        this.#assertAuthorityInput(input);
++        if (this.#adapter && (this.#ownersByAdapter.has(this.#adapter) || this.#pendingAdapterAdmissions.has(this.#adapter)))
+         {
+-            this.adapter = createArticleDocumentContextAdapter({
++            throw new Error('article-document-retained-acquire-requires-handle');
++        }
++        if (!this.#adapter)
++        {
++            this.#adapter = createArticleDocumentContextAdapter({
+                 articleId: input.articleId,
+-                draftId: this.draftIdFor(input.articleId),
++                draftId: this.#draftIdFor(input.articleId),
+                 editorSessionId: nextOpaqueEditorSessionId(),
+                 siteScope: input.siteScope,
+                 userScope: input.userScope,
+                 content: input.content
+             });
+         }
+-        else if (this.adapter.context.articleId !== input.articleId
+-            || this.adapter.context.siteScope !== input.siteScope
+-            || this.adapter.context.userScope !== input.userScope)
++        else if (this.#adapter.context.articleId !== input.articleId
++            || this.#adapter.context.siteScope !== input.siteScope
++            || this.#adapter.context.userScope !== input.userScope)
+         {
+-            this.switchAdapterDocument(this.adapter, {
++            this.#switchAdapterDocument(this.#adapter, {
+                 articleId: input.articleId,
+                 content: input.content,
+                 reason: 'entity-switch'
+             }, input.siteScope, input.userScope);
+         }
+ 
+-        this.bindingSequence += 1;
+-        const bindingId = this.bindingSequence;
+-        const adapter = this.adapter;
+-        this.bindings.add(bindingId);
++        this.#bindingSequence += 1;
++        const bindingId = this.#bindingSequence;
++        const adapter = this.#adapter;
++        this.#bindings.add(bindingId);
+         let released = false;
+ 
+-        return Object.freeze({
++        const binding: ArticleDocumentContextBinding = Object.freeze({
+             adapter,
+             switchDocument: (switchInput: ArticleDocumentAuthoritySwitchInput) =>
+             {
+-                if (released || this.adapter !== adapter)
++                if (released || this.#adapter !== adapter)
+                 {
+                     throw new Error('article-document-context-binding-released');
+                 }
+-                return this.switchAdapterDocument(
++                return this.#switchAdapterDocument(
+                     adapter,
+                     switchInput,
+                     adapter.context.siteScope,
+@@ -1118,27 +1379,517 @@ export class ArticleDocumentContextAuthority
+                     return;
+                 }
+                 released = true;
+-                this.bindings.delete(bindingId);
+-                if (this.bindings.size === 0 && this.adapter === adapter)
++                this.#bindings.delete(bindingId);
++                if (this.#bindings.size === 0 && this.#adapter === adapter && !this.#ownersByAdapter.has(adapter))
+                 {
+                     adapter.cancelAll('component-unmounted');
+                 }
+             }
+         });
++        this.#bindingCustody.set(binding, { adapter, isReleased: () => released });
++        return binding;
++    }
++
++    /** Issue original identities before Registry admission; expose no writable adapter. */
++    public prepareRetainedDocument(registry: OpenArticleDocumentRegistry, input: ArticleDocumentAuthorityInput,
++        scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedPreparation
++    {
++        this.#assertRetainedOwnerAdmission();
++        this.#assertAuthorityInput(input);
++        const adapter = createArticleDocumentContextAdapter({ ...input,
++            draftId: this.#draftIdFor(input.articleId), editorSessionId: nextOpaqueEditorSessionId() });
++        const owner = this.#createRetainedOwner(registry, adapter, scope);
++        const preparation = Object.freeze({ context: adapter.context }) as ArticleDocumentRetainedPreparation;
++        this.#preparations.set(preparation, owner);
++        this.#preparedOwners.add(owner);
++        return preparation;
++    }
++
++    /** Reuse the primary's genuine original binding and native identity exactly once. */
++    public adoptPrimaryRetainedDocument(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
++        primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedBinding
++    {
++        this.#assertRetainedOwnerAdmission();
++        const custody = this.#bindingCustody.get(primary);
++        if (!custody || custody.isReleased() || primary.adapter !== custody.adapter)
++        {
++            throw new Error('article-document-primary-binding-invalid');
++        }
++        if (!retainedArticleDocumentHandleBelongsTo(handle, registry))
++        {
++            throw new Error('article-document-retained-association-invalid');
++        }
++        if (this.#pendingHandleAdmissions.has(handle) || this.#pendingAdapterAdmissions.has(custody.adapter))
++        {
++            throw new Error('article-document-retained-admission-in-progress');
++        }
++        const previous = this.#ownersByAdapter.get(custody.adapter);
++        if (previous)
++        {
++            if (previous.handle !== handle || previous.registry !== registry || !previous.binding)
++            {
++                throw new Error('article-document-primary-already-retained');
++            }
++            if (previous.binding.inspect().registry.state === 'revoked' || previous.scopeRetired)
++            {
++                throw new Error('article-document-retained-owner-revoked');
++            }
++            return previous.binding;
++        }
++        const admission = this.#reserveRetainedOwner(handle, custody.adapter);
++        try
++        {
++            return this.#bindRetainedOwner(handle, this.#createRetainedOwner(registry, custody.adapter, scope), admission,
++                () => !custody.isReleased() && primary.adapter === custody.adapter);
++        }
++        finally
++        {
++            this.#releaseRetainedOwnerAdmission(admission);
++        }
++    }
++
++    public acquireRetainedDocument(handle: RetainedArticleDocumentHandle,
++        preparation?: ArticleDocumentRetainedPreparation): ArticleDocumentRetainedBinding
++    {
++        this.#assertRetainedOwnerAdmission();
++        if (this.#pendingHandleAdmissions.has(handle))
++        {
++            throw new Error('article-document-retained-admission-in-progress');
++        }
++        const existing = this.#retainedOwners.get(handle);
++        if (existing?.binding)
++        {
++            if (preparation && this.#preparations.get(preparation) !== existing)
++            {
++                throw new Error('article-document-retained-preparation-conflict');
++            }
++            const observation = existing.binding.inspect();
++            if (observation.registry.state === 'revoked' || existing.scopeRetired)
++            {
++                throw new Error('article-document-retained-owner-revoked');
++            }
++            return existing.binding;
++        }
++        const owner = preparation ? this.#preparations.get(preparation) : null;
++        if (!owner || owner.handle || owner.scopeRetired)
++        {
++            throw new Error('article-document-retained-preparation-invalid');
++        }
++        const admission = this.#reserveRetainedOwner(handle, owner.adapter);
++        try
++        {
++            return this.#bindRetainedOwner(handle, owner, admission);
++        }
++        finally
++        {
++            this.#releaseRetainedOwnerAdmission(admission);
++        }
++    }
++
++    public discardRetainedPreparation(preparation: ArticleDocumentRetainedPreparation): void
++    {
++        const owner = this.#preparations.get(preparation);
++        if (!owner || owner.handle || this.#pendingAdapterAdmissions.has(owner.adapter))
++        {
++            throw new Error('article-document-retained-preparation-not-unused');
++        }
++        owner.adapter.dispose();
++        this.#preparations.delete(preparation);
++        this.#preparedOwners.delete(owner);
++    }
++
++    /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
++    public revokeRetainedScope(siteScope: string, principalIdentityId: string): void
++    {
++        const target = { siteScope, principalIdentityId };
++        // Close the actual target custody before returning even when another scope
++        // is notifying. Canonical notifications and cleanup stay in the drain.
++        for (const owner of new Set([...this.#scopedOwners, ...this.#preparedOwners]))
++        {
++            if (owner.adapter.context.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
++            {
++                owner.scopeRetired = true;
++            }
++        }
++        const isSame = (entry: typeof target): boolean => entry.siteScope === siteScope && entry.principalIdentityId === principalIdentityId;
++        if ((this.#currentScopeRetirement && isSame(this.#currentScopeRetirement)) || this.#scopeRetirementQueue.some(isSame))
++        {
++            return;
++        }
++        this.#scopeRetirementSequence += 1;
++        this.#scopeRetirementQueue.push(target);
++        if (this.#scopeRevocationPending)
++        {
++            return;
++        }
++        this.#scopeRevocationPending = true;
++        try
++        {
++            while (this.#scopeRetirementQueue.length > 0)
++            {
++                const current = this.#scopeRetirementQueue.shift();
++                if (!current)
++                {
++                    break;
++                }
++                this.#currentScopeRetirement = current;
++                const targets = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
++                    owner.adapter.context.siteScope === current.siteScope && owner.principalIdentityId === current.principalIdentityId);
++                const handles: RetainedArticleDocumentHandle[] = [];
++                for (const owner of targets)
++                {
++                    owner.scopeRetired = true;
++                    if (owner.handle)
++                    {
++                        handles.push(owner.handle);
++                    }
++                }
++                revokeRetainedArticleDocumentScopeSet(handles);
++                for (const owner of targets)
++                {
++                    if (!owner.handle)
++                    {
++                        owner.adapter.dispose();
++                    }
++                }
++            }
++        }
++        finally
++        {
++            this.#scopeRevocationPending = false;
++            this.#currentScopeRetirement = null;
++        }
++    }
++
++    #assertRetainedOwnerAdmission(): void
++    {
++        if (this.#scopeRevocationPending)
++        {
++            throw new Error('article-document-scope-revocation-in-progress');
++        }
++    }
++
++    #createRetainedOwner(registry: OpenArticleDocumentRegistry, adapter: ArticleDocumentContextAdapter,
++        scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedOwner
++    {
++        const scopeRetirementSequence = this.#scopeRetirementSequence;
++        const principalIdentityId = scope.readPrincipalIdentityId();
++        if (!principalIdentityId?.trim() || scope.readSiteScope() !== adapter.context.siteScope
++            || adapter.context.userScope !== `user:${principalIdentityId}`.replace(/[^a-zA-Z0-9._:-]/gu, '-'))
++        {
++            throw new Error('article-document-retained-scope-invalid');
++        }
++        if (scopeRetirementSequence !== this.#scopeRetirementSequence)
++        {
++            throw new Error('article-document-retained-scope-retired-during-admission');
++        }
++        if (this.#retainedRegistry && this.#retainedRegistry !== registry)
++        {
++            throw new Error('article-document-retained-registry-owner-mismatch');
++        }
++        this.#retainedRegistry = registry;
++        return { registry, adapter, scope, principalIdentityId, scopeRetired: false, handle: null, binding: null,
++            consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
++            consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
++            lastState: 'live', listeners: new Set() };
++    }
++
++    #readRetainedRegistry(owner: ArticleDocumentRetainedOwner): RetainedArticleDocumentInspection
++    {
++        if (!owner.handle)
++        {
++            throw new Error('article-document-retained-owner-not-bound');
++        }
++        if (owner.scope.readPrincipalIdentityId() !== owner.principalIdentityId
++            || owner.scope.readSiteScope() !== owner.adapter.context.siteScope)
++        {
++            revokeRetainedArticleDocumentScope(owner.handle);
++        }
++        return inspectRetainedArticleDocumentHandle(owner.handle);
++    }
++
++    #inspectRetainedOwner(owner: ArticleDocumentRetainedOwner): ArticleDocumentRetainedInspection
++    {
++        const registry = this.#readRetainedRegistry(owner);
++        const context = owner.adapter.context;
++        return Object.freeze({ registry, context, principalIdentityId: owner.principalIdentityId,
++            registryRevisionMatchesDocument: registry.entry?.documentContext.sourceRevision === `source-revision:${context.sourceRevision}`
++                && registry.entry.documentContext.draftRevision === context.draftRevision,
++            pendingTaskRefs: owner.adapter.pendingTaskRefs, invalidationFailed: owner.invalidationFailed,
++            consumerInvalidationState: owner.consumerInvalidationState,
++            admissionClosed: owner.scopeRetired || owner.invalidationFailed || registry.state !== 'live' });
++    }
++
++    #assertRetainedConsumerAdmission(owner: ArticleDocumentRetainedOwner): void
++    {
++        if (owner.scopeRetired || owner.invalidationFailed)
++        {
++            throw new Error('article-document-retained-consumer-unavailable');
++        }
++        const observation = this.#readRetainedRegistry(owner);
++        if (owner.scopeRetired || owner.invalidationFailed || observation.state !== 'live')
++        {
++            throw new Error('article-document-retained-consumer-admission-changed');
++        }
++    }
++
++    #reserveRetainedOwner(handle: RetainedArticleDocumentHandle, adapter: ArticleDocumentContextAdapter): ArticleDocumentOwnerAdmission
++    {
++        if (this.#pendingHandleAdmissions.has(handle) || this.#pendingAdapterAdmissions.has(adapter)
++            || this.#retainedOwners.has(handle) || this.#ownersByAdapter.has(adapter))
++        {
++            throw new Error('article-document-retained-admission-in-progress');
++        }
++        this.#pendingHandleAdmissions.add(handle);
++        this.#pendingAdapterAdmissions.add(adapter);
++        return { handle, adapter, context: adapter.context, scopeRetirementSequence: this.#scopeRetirementSequence };
++    }
++
++    #releaseRetainedOwnerAdmission(admission: ArticleDocumentOwnerAdmission): void
++    {
++        this.#pendingHandleAdmissions.delete(admission.handle);
++        this.#pendingAdapterAdmissions.delete(admission.adapter);
++    }
++
++    #bindRetainedOwner(handle: RetainedArticleDocumentHandle, owner: ArticleDocumentRetainedOwner,
++        admission: ArticleDocumentOwnerAdmission, validatePrimary?: () => boolean): ArticleDocumentRetainedBinding
++    {
++        if (!retainedArticleDocumentHandleBelongsTo(handle, owner.registry) || this.#retainedOwners.has(handle)
++            || this.#ownersByAdapter.has(owner.adapter))
++        {
++            throw new Error('article-document-retained-association-invalid');
++        }
++        const initial = inspectRetainedArticleDocumentHandle(handle);
++        const context = owner.adapter.context;
++        const entry = initial.entry;
++        if (owner.scopeRetired || context !== admission.context || initial.state !== 'live' || entry?.identity.articleId !== context.articleId
++            || entry.identity.draftId !== context.draftId || entry.identity.documentId !== context.documentId
++            || entry.documentContext.documentEpoch !== context.documentEpoch
++            || entry.documentContext.sourceRevision !== `source-revision:${context.sourceRevision}`
++            || entry.documentContext.draftRevision !== context.draftRevision || !owner.adapter.isCurrentContext(context))
++        {
++            throw new Error('article-document-retained-context-mismatch');
++        }
++        // Reread original principal/site sources before installing ownership.
++        const principal = owner.scope.readPrincipalIdentityId();
++        const site = owner.scope.readSiteScope();
++        const current = inspectRetainedArticleDocumentHandle(handle);
++        if (principal !== owner.principalIdentityId || site !== context.siteScope || current.state !== 'live'
++            || current.registryRevision !== initial.registryRevision || current.entry?.contentDigest !== entry.contentDigest
++            || owner.scopeRetired || admission.scopeRetirementSequence !== this.#scopeRetirementSequence
++            || owner.adapter.context !== admission.context || !owner.adapter.isCurrentContext(context)
++            || (validatePrimary && !validatePrimary()) || this.#retainedOwners.has(handle) || this.#ownersByAdapter.has(owner.adapter))
++        {
++            throw new Error('article-document-retained-admission-changed');
++        }
++        owner.handle = handle;
++        const binding: ArticleDocumentRetainedBinding = Object.freeze({ handle, adapter: owner.adapter,
++            inspect: () => this.#inspectRetainedOwner(owner),
++            subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
++            {
++                owner.listeners.add(listener);
++                return () =>
++                {
++                    owner.listeners.delete(listener);
++                };
++            },
++            attachConsumer: <T extends ArticleDocumentRetainedConsumer>(create: (retained: ArticleDocumentRetainedBinding) => T): T =>
++            {
++                if (owner.attachingConsumer)
++                {
++                    throw new Error('article-document-retained-consumer-unavailable');
++                }
++                // Reserve before the first external reader, including cached reads.
++                owner.attachingConsumer = true;
++                try
++                {
++                    if (owner.consumerFactory && !owner.consumer)
++                    {
++                        throw new Error('article-document-retained-consumer-attachment-unsettled');
++                    }
++                    this.#assertRetainedConsumerAdmission(owner);
++                    if (owner.consumer)
++                    {
++                        if (owner.consumerFactory !== create)
++                        {
++                            throw new Error('article-document-retained-consumer-already-attached');
++                        }
++                        return owner.consumer as T;
++                    }
++                    owner.consumerFactory = create;
++                    try
++                    {
++                        owner.consumer = create(binding);
++                        this.#assertRetainedConsumerAdmission(owner);
++                        if (!owner.consumer || typeof owner.consumer.invalidateDocument !== 'function')
++                        {
++                            throw new Error('article-document-retained-consumer-invalid');
++                        }
++                        // The method property may be a getter. Both it and the
++                        // subsequent original scope readers can retire admission.
++                        this.#assertRetainedConsumerAdmission(owner);
++                        return owner.consumer as T;
++                    }
++                    catch (error)
++                    {
++                        owner.invalidationFailed = true;
++                        // Keep the returned consumer and exact factory. If real
++                        // canonical revocation already finished before the factory
++                        // returned, complete its missed notification now. Queued
++                        // retirement leaves cleanup to the original drain.
++                        try
++                        {
++                            if (inspectRetainedArticleDocumentHandle(handle).state === 'revoked')
++                            {
++                                this.#invalidateRetainedConsumer(owner);
++                            }
++                        }
++                        catch
++                        {
++                            owner.invalidationFailed = true;
++                        }
++                        throw error;
++                    }
++                }
++                finally
++                {
++                    owner.attachingConsumer = false;
++                }
++            }
++        });
++        owner.binding = binding;
++        this.#retainedOwners.set(handle, owner);
++        this.#ownersByAdapter.set(owner.adapter, owner);
++        this.#scopedOwners.add(owner);
++        retainedAdapterGuards.set(owner.adapter, {
++            isAdmitted: () => !owner.scopeRetired && !owner.invalidationFailed,
++            inspect: () => this.#readRetainedRegistry(owner)
++        });
++        const stopSubscription = subscribeRetainedArticleDocumentHandle(handle, () => this.#notifyRetainedOwner(owner));
++        // Subscription is installed before the final external readers. A revoke in
++        // this window is observed and its real pending resources remain retained.
++        try
++        {
++            if (this.#readRetainedRegistry(owner).state !== 'live' || owner.scopeRetired || owner.invalidationFailed
++                || owner.adapter.context !== admission.context
++                || (validatePrimary && !validatePrimary()))
++            {
++                this.#notifyRetainedOwner(owner);
++                throw new Error('article-document-retained-admission-changed');
++            }
++        }
++        catch (error)
++        {
++            // No binding/consumer escaped the still-held reservation. Roll back
++            // unpublished live admission; actual revocation keeps recovery custody.
++            if (inspectRetainedArticleDocumentHandle(handle).state !== 'revoked')
++            {
++                stopSubscription();
++                this.#retainedOwners.delete(handle);
++                this.#ownersByAdapter.delete(owner.adapter);
++                this.#scopedOwners.delete(owner);
++                retainedAdapterGuards.delete(owner.adapter);
++                owner.handle = null;
++                owner.binding = null;
++                if (this.#bindings.size === 0 && this.#adapter === owner.adapter)
++                {
++                    owner.adapter.cancelAll('component-unmounted');
++                }
++            }
++            throw error;
++        }
++        return binding;
++    }
++
++    #notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
++    {
++        const observation = this.#inspectRetainedOwner(owner);
++        const state = observation.registry.state;
++        const changedState = state !== owner.lastState;
++        owner.lastState = state;
++        if (state !== 'live')
++        {
++            owner.adapter.cancelAll(state === 'revoked' ? 'retained-owner-revoked' : 'retained-owner-blocked');
++            if (state === 'revoked')
++            {
++                try
++                {
++                    owner.adapter.dispose();
++                }
++                catch
++                {
++                    owner.invalidationFailed = true;
++                }
++            }
++            if (state === 'revoked' && changedState && owner.consumer)
++            {
++                this.#invalidateRetainedConsumer(owner);
++            }
++        }
++        for (const listener of [...owner.listeners])
++        {
++            try
++            {
++                listener(this.#inspectRetainedOwner(owner));
++            }
++            catch
++            {
++                owner.invalidationFailed = true;
++            }
++        }
++    }
++
++    #invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
++    {
++        if (!owner.consumer || owner.consumerInvalidationState !== 'not-requested')
++        {
++            return;
++        }
++        owner.consumerInvalidationState = 'pending';
++        try
++        {
++            const pending = owner.consumer.invalidateDocument(this.#inspectRetainedOwner(owner));
++            if (!pending)
++            {
++                owner.consumerInvalidationState = 'settled';
++                return;
++            }
++            // Preserve the ACTUAL returned cleanup promise; do not invent a task,
++            // recovery token, timeout completion or zero-resource receipt.
++            owner.pendingConsumerInvalidation = pending;
++            void pending.then(() =>
++            {
++                owner.consumerInvalidationState = 'settled';
++                owner.pendingConsumerInvalidation = null;
++            }, () =>
++            {
++                owner.consumerInvalidationState = 'failed';
++                owner.invalidationFailed = true;
++            });
++        }
++        catch
++        {
++            owner.consumerInvalidationState = 'failed';
++            owner.invalidationFailed = true;
++        }
+     }
+ 
+     public get context(): ArticleDocumentContext | null
+     {
+-        return this.adapter?.context ?? null;
++        return this.#adapter?.context ?? null;
+     }
+ 
+-    private switchAdapterDocument(
++    #switchAdapterDocument(
+         adapter: ArticleDocumentContextAdapter,
+         input: ArticleDocumentAuthoritySwitchInput,
+         siteScope: string,
+         userScope: string
+     ): ArticleDocumentEpochReceipt | null
+     {
++        if (this.#pendingAdapterAdmissions.has(adapter))
++        {
++            throw new Error('article-document-retained-admission-in-progress');
++        }
+         const retainsCurrentDraft = input.articleId === null
+             && adapter.context.articleId === null
+             && input.reason !== 'draft-switch'
+@@ -1146,7 +1897,7 @@ export class ArticleDocumentContextAuthority
+             && adapter.context.userScope === userScope;
+         const draftId = retainsCurrentDraft
+             ? adapter.context.draftId
+-            : this.draftIdFor(input.articleId);
++            : this.#draftIdFor(input.articleId);
+         return adapter.switchDocument({
+             ...input,
+             draftId,
+@@ -1155,12 +1906,12 @@ export class ArticleDocumentContextAuthority
+         });
+     }
+ 
+-    private draftIdFor(articleId: number | null): string
++    #draftIdFor(articleId: number | null): string
+     {
+         return articleId === null ? nextOpaqueDraftId() : `article:${articleId}`;
+     }
+ 
+-    private assertAuthorityInput(input: ArticleDocumentAuthorityInput): void
++    #assertAuthorityInput(input: ArticleDocumentAuthorityInput): void
+     {
+         if (!isArticleId(input.articleId)
+             || !isStableRef(input.siteScope)

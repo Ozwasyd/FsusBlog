@@ -1,0 +1,915 @@
+diff --git a/artifacts/article-editor/retained-document-authority/preflight.md b/artifacts/article-editor/retained-document-authority/preflight.md
+index 61b87b905..ecbd3a5c7 100644
+--- a/artifacts/article-editor/retained-document-authority/preflight.md
++++ b/artifacts/article-editor/retained-document-authority/preflight.md
+@@ -331,3 +331,46 @@ failure now records original owner failure custody, drains the remaining queued
+ scopes, then reports aggregate actual errors instead of dropping the queue. One
+ additional original-module source case checks that failure with real queued owner
+ retirement and preserved pending tasks. This case also remains UNRUN/HOLD.
++
++## Original membership seal source increment
++
++Implements the exact original Registry request in Main36d835
++`artifacts/article-editor/issue-2295-composition-admission-seal/original-producer-requests.json`.
++Private original canonical publication/cell/entry custody supplies the membership
++seal and pure has/cancel paths. Original command and notification phase retire
++before external getters/hash/clone/callback, preserving original publication
++guards and actual canonical Map. Three original same-module negative source cases
++are written only. No test/config/setup/import entry changes or execution; every
++runtime/test/list/discovery/native/security/privacy/receipt/qualification HOLD
++remains, and new exact source must be independently reviewed.
++
++## Original Document lifetime seal source increment
++
++Implements the exact original Document request at Main36d835. The original retained
++binding issues/cancels lifetime seals; pure final has joins original membership
++private token and original adapter context/owner/binding/consumer pointers without
++cell.read, public context getters, raw scope readers or observation allocation.
++Adapter mutation/handover/dispose and real owner retirement/notify/consumer phases
++retire before external guards/read/cleanup. Existing handover/failure/task custody
++and original guards remain. Four appended original same-file source cases cover
++foreign/copy/cancel, source abort ordering, consumer phase ordering and callback-
++free has. All source cases are UNRUN through the unchanged COMPLETE original unit
++entry/config/setup/import preflight. No runtime/native/security/privacy/receipt/
++fullfactory/mount/browser/qualification holds lifted, no frozen evidence refreshed.
++
++## Independent membership/lifetime seal P2 source repair
++
++Independent static review of711265/fa513 found queued revocation lost on a throwing
++mutation getter and token-allocation cached-attach reentry capturing null owner
++publication. Those heads are NOT accepted as new seal source. Outermost membership
++mutation now drains on success AND failure, preserves actual operation error and
++unexpected drain failure, and retains notification/Document cleanup custody.
++Document captures non-null publication and exact consumer BEFORE allocation,
++revalidates afterward, and pure has rejects null rather than null===null revival.
++One original Registry and two original Document source controls cover actual
++queued revocation/error/failed consumer cancellation and original token allocation
++reentry. They are written only, through unchanged whole original entry/config/
++setup/import paths. The allocation interception is a negative SOURCE case calling
++the same actual producers, not a production alternative, configuration or runtime
++qualification. All runtime/test/list/discovery/native/security/privacy/receipt/
++fullfactory/frozen-authority holds remain, with new exact-head review required.
+diff --git a/docs/architecture/authoring-workspace-snapshot-boundary.md b/docs/architecture/authoring-workspace-snapshot-boundary.md
+index 351df3df7..d60c4dd57 100644
+--- a/docs/architecture/authoring-workspace-snapshot-boundary.md
++++ b/docs/architecture/authoring-workspace-snapshot-boundary.md
+@@ -19,6 +19,25 @@ receipt. Reentrant notification commands refuse. Handles are not permission,
+ snapshot-restore or safe-eviction grants. No body/history/cache, second article
+ index, Host, persistence or server DocumentId contract is introduced here.
+ 
++Original Registry membership seals bind the authentic retained cell, its actual
++canonical entry and original publication/revision. `sealRetainedArticleDocumentMembership`
++freshly inspects membership; `hasSealedRetainedArticleDocumentMembershipCustody`
++joins private original pointers/state without `cell.read`, clone, allocation or
++external reader. `cancelRetainedArticleDocumentMembershipSeal` removes that actual
++issued token. Registry command/ownership preparation and notification entry retire
++the original publication before getters, hashes, clones and callbacks; only the
++original stable canonical Map/revision publication can issue a replacement token.
++Scope/close/identity/permission/lifecycle and notification failure invalidate the
++same original cell. There is no second membership index or downstream boolean
++listener cache. Original Group publication guards/CAS/history/ratio remain intact.
++These seals prove only original membership custody, not mount/auth/full-ready.
++The outermost original membership mutation drains queued notifications on both
++successful and exceptional exits. A command getter may revoke a genuine handle
++before throwing; that revocation still reaches original Document cancellation and
++consumer cleanup. Original operation error remains the error on successful drain;
++an unexpected drain error is preserved alongside it, with publication retired and
++failure custody retained. Notification is not a success-only wrapper epilogue.
++
+ The original singleton `ArticleDocumentContextAuthority` owns the retained
+ adapters. `prepareRetainedDocument(registry, input, scopeReaders)` issues original
+ document/draft/editor-session identities and returns only a provenance-bound
+@@ -113,6 +132,28 @@ an asynchronous rejection records failure and preserves the actual reference.
+ This is producer completion observation, not native disposal or release permission.
+ Original `adapter.subscribeContext` remains the context-change subscription.
+ 
++The original retained binding also issues `sealLifetimeAuthority()` and exposes
++`hasLifetimeAuthorityCustody(seal)` / `cancelLifetimeAuthority(seal)`. Its opaque
++seal joins the authentic owner/binding/handle, original membership seal, actual
++consumer pointer and the adapter's private context publication. Fresh scope/member
++and matching revision inspection precedes issuance. Pure final has only joins
++those private pointers and original producer facts; it never calls `cell.read`,
++`adapter.context`, a scope reader, clone, observer, or an allocating inspection.
++It does not infer mounted/auth/native resource authority from this document seal.
++Non-null owner publication and actual consumer are captured before opaque token
++allocation. Allocation reentry must leave both exact pointers unchanged, and final
++has explicitly refuses a null current publication. Cached attachment retirement
++cannot make a canceled/null seal valid again when its temporary phase ends.
++
++Actual adapter mutation/handover/disposal retires the private native publication
++before external guards, cancellation or notifications. Owner scope retirement,
++notification entry and consumer attachment/release retire original owner authority
++before their first external read/cleanup callback. Failure and queued cleanup retain
++existing custody; no cancellation or null seal settles real work. A stale source
++reference prevents resealing. These producer tokens are not downstream boolean
++listener caches or full-ready receipts; all original guards and handover semantics
++remain, with new source review and every original runtime qualification held.
++
+ `inspect().registry` reads canonical membership and permission/lifecycle facts;
+ `registryRevisionMatchesDocument` separately reports whether the canonical
+ source/draft reference coordinates match the original adapter. Ordinary source
+diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
+index 3d36ef1e4..76761edf0 100644
+--- a/src/frontend/src/services/authoring/articleDocumentContext.ts
++++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
+@@ -1,15 +1,19 @@
+ import {
+     calculateOpenArticleDocumentDigest,
++    cancelRetainedArticleDocumentMembershipSeal,
++    hasSealedRetainedArticleDocumentMembershipCustody,
+     inspectRetainedArticleDocumentHandle,
+     retainedArticleDocumentHandleBelongsTo,
+     revokeRetainedArticleDocumentScope,
+     revokeRetainedArticleDocumentScopeSet,
++    sealRetainedArticleDocumentMembership,
+     subscribeRetainedArticleDocumentHandle
+ } from './openArticleDocumentRegistry';
+ 
+ import type {
+     OpenArticleDocumentRegistry,
+     RetainedArticleDocumentHandle,
++    RetainedArticleDocumentMembershipSeal,
+     RetainedArticleDocumentInspection
+ } from './openArticleDocumentRegistry';
+ 
+@@ -217,12 +221,21 @@ export interface ArticleDocumentRetainedConsumer {
+     invalidateDocument(observation: ArticleDocumentRetainedInspection): void | Promise<void>;
+ }
+ 
++declare const documentLifetimeSealBrand: unique symbol;
++
++export interface ArticleDocumentLifetimeSeal {
++    readonly [documentLifetimeSealBrand]: true;
++}
++
+ export interface ArticleDocumentRetainedBinding {
+     readonly handle: RetainedArticleDocumentHandle;
+     readonly adapter: ArticleDocumentContextAdapter;
+     inspect(): ArticleDocumentRetainedInspection;
+     subscribeLifetime(listener: (observation: ArticleDocumentRetainedInspection) => void): () => void;
+     attachConsumer<T extends ArticleDocumentRetainedConsumer>(create: (binding: ArticleDocumentRetainedBinding) => T): T;
++    sealLifetimeAuthority(): ArticleDocumentLifetimeSeal | null;
++    hasLifetimeAuthorityCustody(seal: ArticleDocumentLifetimeSeal): boolean;
++    cancelLifetimeAuthority(seal: ArticleDocumentLifetimeSeal): boolean;
+ }
+ 
+ interface ArticleDocumentRetainedOwner {
+@@ -242,6 +255,7 @@ interface ArticleDocumentRetainedOwner {
+     pendingConsumerInvalidation: Promise<void> | null;
+     lastState: RetainedArticleDocumentInspection['state'];
+     readonly listeners: Set<(observation: ArticleDocumentRetainedInspection) => void>;
++    lifetimePublication: object | null;
+ }
+ 
+ interface ArticleDocumentOwnerAdmission {
+@@ -270,6 +284,17 @@ const primaryHandoverPorts = new WeakMap<ArticleDocumentContextAdapter, {
+ // closes admission synchronously even when canonical cleanup is still queued.
+ const preparedPrimaryGuards = new WeakMap<ArticleDocumentContextAdapter, { readonly isAdmitted: () => boolean; }>();
+ 
++interface NativeDocumentLifetimePublication {
++    readonly context: ArticleDocumentContext;
++}
++
++interface NativeDocumentLifetimePort {
++    readonly seal: () => NativeDocumentLifetimePublication | null;
++    readonly has: (publication: NativeDocumentLifetimePublication) => boolean;
++}
++
++const nativeDocumentLifetimePorts = new WeakMap<ArticleDocumentContextAdapter, NativeDocumentLifetimePort>();
++
+ // An adapter guard belongs to its original handle custody, never an article index.
+ const retainedAdapterGuards = new WeakMap<ArticleDocumentContextAdapter, {
+     readonly isAdmitted: () => boolean;
+@@ -790,6 +815,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+     #receiptSequence = 0;
+     #disposed = false;
+     #contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
++    #lifetimePublication: NativeDocumentLifetimePublication | null = null;
+ 
+     public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): () => void
+     {
+@@ -832,6 +858,19 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         primaryHandoverPorts.set(this, {
+             handover: (previous, target, validate, bind, publish) => this.#handoverPrimary(previous, target, validate, bind, publish)
+         });
++        nativeDocumentLifetimePorts.set(this, {
++            seal: () =>
++            {
++                if (this.#disposed || this.#contextMutationPending)
++                {
++                    return null;
++                }
++                this.#lifetimePublication ??= { context: this.#current };
++                return this.#lifetimePublication;
++            },
++            has: publication => this.#lifetimePublication === publication && this.#current === publication.context
++                && !this.#disposed && !this.#contextMutationPending
++        });
+     }
+ 
+     #handoverPrimary(previous: ArticleDocumentContext, target: ArticleDocumentContext,
+@@ -841,6 +880,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         {
+             throw new Error('article-document-primary-handover-unavailable');
+         }
++        this.#lifetimePublication = null;
+         this.#contextMutationPending = true;
+         let published = false;
+         try
+@@ -1041,6 +1081,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         {
+             throw new Error('article-document-context-mutation-in-progress');
+         }
++        this.#lifetimePublication = null;
+         this.#contextMutationPending = true;
+         try
+         {
+@@ -1112,6 +1153,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         {
+             throw new Error('article-document-context-mutation-in-progress');
+         }
++        this.#lifetimePublication = null;
+         this.#contextMutationPending = true;
+         try
+         {
+@@ -1165,6 +1207,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         {
+             throw new Error('article-document-context-mutation-in-progress');
+         }
++        this.#lifetimePublication = null;
+         this.#contextMutationPending = true;
+         try
+         {
+@@ -1256,6 +1299,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     public dispose(): ArticleDocumentEpochReceipt | null
+     {
++        this.#lifetimePublication = null;
+         if (retainedAdapterGuards.has(this) && retainedAdapterGuards.get(this)?.inspect().state !== 'revoked')
+         {
+             throw new Error('article-document-retained-dispose-requires-revocation');
+@@ -1396,6 +1440,16 @@ export class ArticleDocumentContextAuthority
+     #primaryHandovers = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentPrimaryHandover>();
+     #retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
+     #ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
++    #lifetimeSeals = new WeakMap<ArticleDocumentLifetimeSeal, {
++        readonly owner: ArticleDocumentRetainedOwner;
++        readonly binding: ArticleDocumentRetainedBinding;
++        readonly handle: RetainedArticleDocumentHandle;
++        readonly membership: RetainedArticleDocumentMembershipSeal;
++        readonly ownerPublication: object;
++        readonly nativePublication: NativeDocumentLifetimePublication;
++        readonly nativePort: NativeDocumentLifetimePort;
++        readonly consumer: ArticleDocumentRetainedConsumer | null;
++    }>();
+     #scopedOwners = new Set<ArticleDocumentRetainedOwner>();
+     #scopeRevocationPending = false;
+     #retainedRegistry: OpenArticleDocumentRegistry | null = null;
+@@ -1716,6 +1770,7 @@ export class ArticleDocumentContextAuthority
+         {
+             if (owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
+             {
++                owner.lifetimePublication = null;
+                 owner.scopeRetired = true;
+             }
+         }
+@@ -1747,6 +1802,7 @@ export class ArticleDocumentContextAuthority
+                 const handles: RetainedArticleDocumentHandle[] = [];
+                 for (const owner of targets)
+                 {
++                    owner.lifetimePublication = null;
+                     owner.scopeRetired = true;
+                     if (owner.handle)
+                     {
+@@ -1813,7 +1869,7 @@ export class ArticleDocumentContextAuthority
+         return { registry, adapter, scope, principalIdentityId, siteScope: context.siteScope, scopeRetired: false, handle: null, binding: null,
+             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
+             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
+-            lastState: 'live', listeners: new Set() };
++            lastState: 'live', listeners: new Set(), lifetimePublication: null };
+     }
+ 
+     #readRetainedRegistry(owner: ArticleDocumentRetainedOwner): RetainedArticleDocumentInspection
+@@ -1825,6 +1881,7 @@ export class ArticleDocumentContextAuthority
+         if (owner.scope.readPrincipalIdentityId() !== owner.principalIdentityId
+             || owner.scope.readSiteScope() !== owner.adapter.context.siteScope)
+         {
++            owner.lifetimePublication = null;
+             revokeRetainedArticleDocumentScope(owner.handle);
+         }
+         return inspectRetainedArticleDocumentHandle(owner.handle);
+@@ -1842,6 +1899,87 @@ export class ArticleDocumentContextAuthority
+             admissionClosed: owner.scopeRetired || owner.invalidationFailed || registry.state !== 'live' });
+     }
+ 
++    #sealLifetimeAuthority(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding): ArticleDocumentLifetimeSeal | null
++    {
++        const handle = owner.handle;
++        const port = nativeDocumentLifetimePorts.get(owner.adapter);
++        if (!handle || !port || owner.binding !== binding || owner.scopeRetired || owner.invalidationFailed
++            || owner.attachingConsumer || owner.consumerInvalidationState !== 'not-requested')
++        {
++            return null;
++        }
++        const before = this.#inspectRetainedOwner(owner);
++        if (before.admissionClosed || !before.registryRevisionMatchesDocument)
++        {
++            return null;
++        }
++        const membership = sealRetainedArticleDocumentMembership(handle);
++        if (!membership)
++        {
++            return null;
++        }
++        try
++        {
++            const after = this.#inspectRetainedOwner(owner);
++            const native = port.seal();
++            if (native?.context !== before.context || native.context !== after.context
++                || after.admissionClosed || !after.registryRevisionMatchesDocument
++                || after.registry.registryRevision !== before.registry.registryRevision)
++            {
++                cancelRetainedArticleDocumentMembershipSeal(membership);
++                return null;
++            }
++            owner.lifetimePublication ??= {};
++            const ownerPublication = owner.lifetimePublication;
++            const consumer = owner.consumer;
++            const seal = Object.freeze({}) as ArticleDocumentLifetimeSeal;
++            if (owner.lifetimePublication !== ownerPublication || owner.consumer !== consumer)
++            {
++                cancelRetainedArticleDocumentMembershipSeal(membership);
++                return null;
++            }
++            this.#lifetimeSeals.set(seal, { owner, binding, handle, membership,
++                ownerPublication, nativePublication: native, nativePort: port, consumer });
++            if (!this.#hasLifetimeAuthorityCustody(owner, binding, seal))
++            {
++                this.#cancelLifetimeAuthority(owner, binding, seal);
++                return null;
++            }
++            return seal;
++        }
++        catch (error)
++        {
++            cancelRetainedArticleDocumentMembershipSeal(membership);
++            throw error;
++        }
++    }
++
++    #hasLifetimeAuthorityCustody(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding,
++        seal: ArticleDocumentLifetimeSeal): boolean
++    {
++        const custody = this.#lifetimeSeals.get(seal);
++        return !!custody && custody.owner === owner && custody.binding === binding && owner.binding === binding
++            && owner.handle === custody.handle && owner.lifetimePublication !== null && owner.lifetimePublication === custody.ownerPublication
++            && this.#retainedOwners.get(custody.handle) === owner && this.#ownersByAdapter.get(owner.adapter) === owner
++            && owner.consumer === custody.consumer && !owner.scopeRetired && !owner.invalidationFailed && !owner.attachingConsumer
++            && owner.consumerInvalidationState === 'not-requested'
++            && hasSealedRetainedArticleDocumentMembershipCustody(custody.membership)
++            && custody.nativePort.has(custody.nativePublication);
++    }
++
++    #cancelLifetimeAuthority(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding,
++        seal: ArticleDocumentLifetimeSeal): boolean
++    {
++        const custody = this.#lifetimeSeals.get(seal);
++        if (custody?.owner !== owner || custody.binding !== binding)
++        {
++            return false;
++        }
++        this.#lifetimeSeals.delete(seal);
++        cancelRetainedArticleDocumentMembershipSeal(custody.membership);
++        return true;
++    }
++
+     #assertRetainedConsumerAdmission(owner: ArticleDocumentRetainedOwner): void
+     {
+         if (owner.scopeRetired || owner.invalidationFailed)
+@@ -1907,6 +2045,9 @@ export class ArticleDocumentContextAuthority
+         owner.handle = handle;
+         const binding: ArticleDocumentRetainedBinding = Object.freeze({ handle, adapter: owner.adapter,
+             inspect: () => this.#inspectRetainedOwner(owner),
++            sealLifetimeAuthority: () => this.#sealLifetimeAuthority(owner, binding),
++            hasLifetimeAuthorityCustody: (seal: ArticleDocumentLifetimeSeal) => this.#hasLifetimeAuthorityCustody(owner, binding, seal),
++            cancelLifetimeAuthority: (seal: ArticleDocumentLifetimeSeal) => this.#cancelLifetimeAuthority(owner, binding, seal),
+             subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
+             {
+                 owner.listeners.add(listener);
+@@ -1922,6 +2063,7 @@ export class ArticleDocumentContextAuthority
+                     throw new Error('article-document-retained-consumer-unavailable');
+                 }
+                 // Reserve before the first external reader, including cached reads.
++                owner.lifetimePublication = null;
+                 owner.attachingConsumer = true;
+                 try
+                 {
+@@ -2030,6 +2172,7 @@ export class ArticleDocumentContextAuthority
+ 
+     #notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
+     {
++        owner.lifetimePublication = null;
+         const observation = this.#inspectRetainedOwner(owner);
+         const state = observation.registry.state;
+         const changedState = state !== owner.lastState;
+@@ -2068,6 +2211,7 @@ export class ArticleDocumentContextAuthority
+ 
+     #invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
+     {
++        owner.lifetimePublication = null;
+         if (!owner.consumer || owner.consumerInvalidationState !== 'not-requested')
+         {
+             return;
+diff --git a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+index d0fba443d..fbe62dab1 100644
+--- a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
++++ b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+@@ -64,6 +64,17 @@ export interface RetainedArticleDocumentHandle {
+     readonly [retainedDocumentHandleBrand]: true;
+ }
+ 
++declare const membershipSealBrand: unique symbol;
++
++export interface RetainedArticleDocumentMembershipSeal {
++    readonly [membershipSealBrand]: true;
++}
++
++interface RetainedMembershipPublication {
++    readonly entries: Map<string, OpenArticleDocumentEntry>;
++    readonly revision: number;
++}
++
+ export type RetainedArticleDocumentRevocation = 'final-close' | 'identity-replaced' | 'scope-revoked';
+ 
+ export interface RetainedArticleDocumentInspection {
+@@ -81,6 +92,7 @@ interface RetainedArticleDocumentCell {
+     readonly initial: OpenArticleDocumentEntry;
+     readonly read: () => RetainedArticleDocumentInspection;
+     readonly notify: () => void;
++    readonly publication: () => RetainedMembershipPublication | null;
+     readonly listeners: Set<() => void>;
+     reason: RetainedArticleDocumentRevocation | null;
+     membershipClosed: boolean;
+@@ -93,6 +105,52 @@ interface RetainedArticleDocumentCell {
+ 
+ // Provenance is keyed by the opaque object, never article identity or a public ref.
+ const retainedArticleDocumentCells = new WeakMap<RetainedArticleDocumentHandle, RetainedArticleDocumentCell>();
++const retainedMembershipSeals = new WeakMap<RetainedArticleDocumentMembershipSeal, {
++    readonly cell: RetainedArticleDocumentCell;
++    readonly publication: RetainedMembershipPublication;
++    readonly entry: OpenArticleDocumentEntry;
++}>();
++
++/** Fresh original membership inspection precedes issuing a private publication token. */
++export function sealRetainedArticleDocumentMembership(handle: RetainedArticleDocumentHandle): RetainedArticleDocumentMembershipSeal | null
++{
++    const cell = retainedArticleDocumentCells.get(handle);
++    const publication = cell?.publication();
++    if (!cell || !publication)
++    {
++        return null;
++    }
++    const observation = cell.read();
++    const entry = publication.entries.get(cell.tabId);
++    if (observation.state !== 'live' || cell.publication() !== publication || !entry
++        || observation.registryRevision !== publication.revision || observation.entry?.contentDigest !== entry.contentDigest)
++    {
++        return null;
++    }
++    const seal = Object.freeze({}) as RetainedArticleDocumentMembershipSeal;
++    retainedMembershipSeals.set(seal, { cell, publication, entry });
++    if (!hasSealedRetainedArticleDocumentMembershipCustody(seal))
++    {
++        retainedMembershipSeals.delete(seal);
++        return null;
++    }
++    return seal;
++}
++
++/** Private pointer joins only: no cell.read(), snapshot, clone, callback or allocation. */
++export function hasSealedRetainedArticleDocumentMembershipCustody(seal: RetainedArticleDocumentMembershipSeal): boolean
++{
++    const custody = retainedMembershipSeals.get(seal);
++    return !!custody && custody.cell.publication() === custody.publication
++        && custody.publication.entries.get(custody.cell.tabId) === custody.entry
++        && custody.cell.reason === null && !custody.cell.membershipClosed && !custody.cell.notificationFailed
++        && custody.entry.status.permission === 'allowed' && custody.entry.status.lifecycle === 'current';
++}
++
++export function cancelRetainedArticleDocumentMembershipSeal(seal: RetainedArticleDocumentMembershipSeal): boolean
++{
++    return retainedMembershipSeals.delete(seal);
++}
+ 
+ export function retainedArticleDocumentHandleBelongsTo(handle: RetainedArticleDocumentHandle, registry: OpenArticleDocumentRegistry): boolean
+ {
+@@ -770,6 +828,76 @@ export class OpenArticleDocumentRegistry
+     #retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
+     #retainedNotificationPending = false;
+     #retainedNotificationRequested = false;
++    #membershipMutationDepth = 0;
++    #membershipPublication: RetainedMembershipPublication | null = { entries: this.entriesByTabId, revision: this.revision };
++
++    #runMembershipMutation<T>(operation: () => T): T
++    {
++        // Retire before command getters, hashing, clones or any publisher callback.
++        this.#membershipPublication = null;
++        this.#membershipMutationDepth += 1;
++        let outcome: { succeeded: true; value: T; } | { succeeded: false; error: unknown; };
++        try
++        {
++            outcome = { succeeded: true, value: operation() };
++        }
++        catch (error)
++        {
++            outcome = { succeeded: false, error };
++        }
++        finally
++        {
++            this.#membershipMutationDepth -= 1;
++        }
++        let cleanupFailed = false;
++        let cleanupError: unknown;
++        if (this.#membershipMutationDepth === 0)
++        {
++            try
++            {
++                // Drain on both success and failure. A throwing getter can
++                // already have retired real membership while depth deferred it.
++                this.#notifyRetainedDocuments();
++            }
++            catch (error)
++            {
++                this.#membershipPublication = null;
++                cleanupFailed = true;
++                cleanupError = error;
++            }
++        }
++        if (!outcome.succeeded)
++        {
++            if (cleanupFailed)
++            {
++                throw new AggregateError([outcome.error, cleanupError], 'retained-article-document-mutation-and-notification-failed',
++                    { cause: outcome.error });
++            }
++            throw outcome.error;
++        }
++        if (cleanupFailed)
++        {
++            throw cleanupError;
++        }
++        return outcome.value;
++    }
++
++    #publishMembershipAuthority(): void
++    {
++        if (this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending || this.#retainedNotificationPending)
++        {
++            return;
++        }
++        // Preserve the original data-property publication guards. This root points
++        // to that actual canonical Map; it is neither a copy nor a second index.
++        const entries = Object.getOwnPropertyDescriptor(this, 'entriesByTabId');
++        const revision = Object.getOwnPropertyDescriptor(this, 'revision');
++        if (entries?.value instanceof Map && !entries.get && !entries.set
++            && typeof revision?.value === 'number' && !revision.get && !revision.set)
++        {
++            this.#membershipPublication = { entries: entries.value as Map<string, OpenArticleDocumentEntry>, revision: revision.value };
++        }
++    }
+ 
+     public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
+     {
+@@ -809,6 +937,7 @@ export class OpenArticleDocumentRegistry
+             notifiedFailure: false,
+             listeners: new Set(),
+             notify: () => this.#notifyRetainedDocuments(),
++            publication: () => this.#membershipPublication,
+             read: () =>
+             {
+                 const current = this.entriesByTabId.get(tabId);
+@@ -848,8 +977,9 @@ export class OpenArticleDocumentRegistry
+ 
+     #notifyRetainedDocuments(): void
+     {
++        this.#membershipPublication = null;
+         this.#retainedNotificationRequested = true;
+-        if (this.#retainedNotificationPending || this.#ownershipTransactionPending)
++        if (this.#retainedNotificationPending || this.#ownershipTransactionPending || this.#membershipMutationDepth !== 0)
+         {
+             return;
+         }
+@@ -877,10 +1007,16 @@ export class OpenArticleDocumentRegistry
+         finally
+         {
+             this.#retainedNotificationPending = false;
++            this.#publishMembershipAuthority();
+         }
+     }
+ 
+     public createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
++    {
++        return this.#runMembershipMutation(() => this.#createGroupOwnershipCell(initial));
++    }
++
++    #createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
+     {
+         if (this.#groupOwnershipCell)
+         {
+@@ -914,8 +1050,7 @@ export class OpenArticleDocumentRegistry
+         expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
+         ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
+     {
+-        const result = this.executeCore(command, { expected, next, ratioChange });
+-        this.#notifyRetainedDocuments();
++        const result = this.#runMembershipMutation(() => this.executeCore(command, { expected, next, ratioChange }));
+         return result;
+     }
+ 
+@@ -956,8 +1091,7 @@ export class OpenArticleDocumentRegistry
+ 
+     public execute(command: unknown): OpenArticleDocumentCommandResult
+     {
+-        const result = this.executeCore(command);
+-        this.#notifyRetainedDocuments();
++        const result = this.#runMembershipMutation(() => this.executeCore(command));
+         return result;
+     }
+ 
+diff --git a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
+index a6122c83a..3551d54e5 100644
+--- a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
++++ b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
+@@ -947,4 +947,159 @@ describe('original retained document authority source controls', () =>
+         expect(() => authority.discardRetainedPreparation(preparation)).toThrow('not-unused');
+         expect(() => primary.adapter.beginTask('render', 'producer:late')).toThrow('owner-unavailable');
+     });
++    it('joins lifetime seals to the original binding, membership, adapter and consumer custody', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        const second = create(authority, registry, 2, 'second');
++        const seal = first.sealLifetimeAuthority()!;
++        expect(first.hasLifetimeAuthorityCustody(seal)).toBe(true);
++        expect(second.hasLifetimeAuthorityCustody(seal)).toBe(false);
++        expect(second.cancelLifetimeAuthority(seal)).toBe(false);
++        expect(first.hasLifetimeAuthorityCustody({ ...seal })).toBe(false);
++        expect(first.cancelLifetimeAuthority(seal)).toBe(true);
++        expect(first.hasLifetimeAuthorityCustody(seal)).toBe(false);
++        expect(first.cancelLifetimeAuthority(seal)).toBe(false);
++    });
++
++    it('retires original native context custody before source guards and real task abort callbacks', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        const pending = retained.adapter.beginTask('attachment', 'producer:actual');
++        const seal = retained.sealLifetimeAuthority()!;
++        let observed = false;
++        pending.signal.addEventListener('abort', () =>
++        {
++            observed = true;
++            expect(retained.hasLifetimeAuthorityCustody(seal)).toBe(false);
++        });
++        retained.adapter.updateSource('# actual next source');
++        expect(observed).toBe(true);
++        expect(retained.hasLifetimeAuthorityCustody(seal)).toBe(false);
++        expect(retained.sealLifetimeAuthority()).toBeNull();
++        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
++    });
++
++    it('retires original owner seals before attachment factory and final consumer cleanup callbacks', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        const beforeAttach = retained.sealLifetimeAuthority()!;
++        let currentSeal = beforeAttach;
++        let cleanupObserved = false;
++        retained.attachConsumer(() =>
++        {
++            expect(retained.hasLifetimeAuthorityCustody(beforeAttach)).toBe(false);
++            return { invalidateDocument: () =>
++            {
++                cleanupObserved = true;
++                expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(false);
++            } };
++        });
++        currentSeal = retained.sealLifetimeAuthority()!;
++        expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(true);
++        authority.revokeRetainedScope('site:test', 'test');
++        expect(cleanupObserved).toBe(true);
++        expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(false);
++    });
++
++    it('checks sealed lifetime custody without calling public context getters or raw scope readers', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        let reads = 0;
++        const originalScope = { readPrincipalIdentityId: () => { reads += 1; return 'test'; },
++            readSiteScope: () => { reads += 1; return 'site:test'; } };
++        const prepared = authority.prepareRetainedDocument(registry, input(1), originalScope);
++        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
++        const seal = retained.sealLifetimeAuthority()!;
++        const before = reads;
++        Object.defineProperty(retained.adapter, 'context', { get: () => { throw new Error('external-context-reader'); } });
++        expect(retained.hasLifetimeAuthorityCustody(seal)).toBe(true);
++        expect(reads).toBe(before);
++        expect(retained.cancelLifetimeAuthority(seal)).toBe(true);
++        expect(reads).toBe(before);
++    });
++    it('delivers queued real Document cancellation and failed consumer custody after a throwing Registry getter', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const retained = create(authority, registry, 1, 'first');
++        const pending = retained.adapter.beginTask('attachment', 'producer:actual');
++        let cleanups = 0;
++        retained.attachConsumer(() => ({ invalidateDocument: () =>
++        {
++            cleanups += 1;
++            throw new Error('actual-consumer-cleanup-failure');
++        } }));
++        const originalFailure = new Error('actual-getter-failure');
++        const command = { schema: openArticleDocumentCommandSchema };
++        Object.defineProperty(command, 'schema', { enumerable: true, get: () =>
++        {
++            revokeRetainedArticleDocumentScope(retained.handle);
++            expect(pending.signal.aborted).toBe(false);
++            throw originalFailure;
++        } });
++        let caught: unknown;
++        try
++        {
++            registry.execute(command);
++        }
++        catch (error)
++        {
++            caught = error;
++        }
++        expect(caught).toBe(originalFailure);
++        expect(pending.signal.aborted).toBe(true);
++        expect(cleanups).toBe(1);
++        expect(retained.inspect().consumerInvalidationState).toBe('failed');
++        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
++    });
++
++    it('pins non-null lifetime publication before token allocation and refuses cached-attachment reentry', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
++        const consumer = { invalidateDocument: () => undefined };
++        const factory = () => consumer;
++        retained.attachConsumer(factory);
++        const originalSeal = retained.sealLifetimeAuthority()!;
++        const originalFreeze = Object.freeze;
++        let emptyAllocations = 0;
++        let candidate: object | null = null;
++        try
++        {
++            Object.freeze = ((value: unknown) =>
++            {
++                if (value && typeof value === 'object' && Object.keys(value).length === 0)
++                {
++                    emptyAllocations += 1;
++                    if (emptyAllocations === 2)
++                    {
++                        candidate = value;
++                        expect(retained.attachConsumer(factory)).toBe(consumer);
++                        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
++                    }
++                }
++                return originalFreeze(value);
++            }) as typeof Object.freeze;
++            expect(retained.sealLifetimeAuthority()).toBeNull();
++        }
++        finally
++        {
++            Object.freeze = originalFreeze;
++        }
++        expect(emptyAllocations).toBe(2);
++        expect(candidate).not.toBeNull();
++        expect(retained.hasLifetimeAuthorityCustody(candidate as NonNullable<ReturnType<typeof retained.sealLifetimeAuthority>>)).toBe(false);
++        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
++        retained.attachConsumer(factory);
++        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
++        expect(retained.hasLifetimeAuthorityCustody(candidate as NonNullable<ReturnType<typeof retained.sealLifetimeAuthority>>)).toBe(false);
++        const currentSeal = retained.sealLifetimeAuthority()!;
++        expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(true);
++        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
++    });
+ });
+diff --git a/tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts b/tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts
+index d5b46ac42..596c748bd 100644
+--- a/tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts
++++ b/tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts
+@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
+ 
+ import {
+     OpenArticleDocumentRegistry,
++    sealRetainedArticleDocumentMembership,
++    hasSealedRetainedArticleDocumentMembershipCustody,
++    cancelRetainedArticleDocumentMembershipSeal,
+     inspectRetainedArticleDocumentHandle,
+     openArticleDocumentCommandSchema,
+     retainedArticleDocumentHandleBelongsTo,
+@@ -206,4 +209,98 @@ describe('original Registry retained document handle source controls', () =>
+         registry.execute(open(registry, 2));
+         expect(observed).toEqual(['live', 'revoked']);
+     });
++    it('binds membership seals to original private publication and rejects copied or canceled tokens', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        const seal = sealRetainedArticleDocumentMembership(handle)!;
++        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(true);
++        expect(hasSealedRetainedArticleDocumentMembershipCustody({ ...seal })).toBe(false);
++        expect(cancelRetainedArticleDocumentMembershipSeal({ ...seal })).toBe(false);
++        expect(cancelRetainedArticleDocumentMembershipSeal(seal)).toBe(true);
++        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
++        expect(cancelRetainedArticleDocumentMembershipSeal(seal)).toBe(false);
++    });
++
++    it('retires original membership seals before command getters and notification readers run', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        const seal = sealRetainedArticleDocumentMembership(handle)!;
++        let commandRead = false;
++        const command = open(registry, 2);
++        Object.defineProperty(command, 'schema', { enumerable: true, get: () =>
++        {
++            commandRead = true;
++            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
++            expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
++            return openArticleDocumentCommandSchema;
++        } });
++        let notified = false;
++        subscribeRetainedArticleDocumentHandle(handle, () =>
++        {
++            notified = true;
++            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
++            expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
++        });
++        registry.execute(command);
++        expect(commandRead).toBe(true);
++        expect(notified).toBe(true);
++        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
++        expect(hasSealedRetainedArticleDocumentMembershipCustody(sealRetainedArticleDocumentMembership(handle)!)).toBe(true);
++    });
++
++    it('revokes original membership seals synchronously before scope listeners and retains notification failure', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        const seal = sealRetainedArticleDocumentMembership(handle)!;
++        subscribeRetainedArticleDocumentHandle(handle, () =>
++        {
++            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
++            throw new Error('actual-original-listener-failure');
++        });
++        revokeRetainedArticleDocumentScope(handle);
++        expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
++        expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
++        expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
++    });
++    it('drains actual queued revocation when a command getter retires membership then throws', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        registry.execute(open(registry));
++        const handle = registry.issueRetainedDocumentHandle('tab:1');
++        const seal = sealRetainedArticleDocumentMembership(handle)!;
++        const failure = new Error('actual-command-getter-failure');
++        let notified = false;
++        subscribeRetainedArticleDocumentHandle(handle, () =>
++        {
++            notified = true;
++            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
++            throw new Error('actual-notification-cleanup-failure');
++        });
++        const command = open(registry, 2);
++        Object.defineProperty(command, 'schema', { enumerable: true, get: () =>
++        {
++            revokeRetainedArticleDocumentScope(handle);
++            expect(notified).toBe(false);
++            throw failure;
++        } });
++        let caught: unknown;
++        try
++        {
++            registry.execute(command);
++        }
++        catch (error)
++        {
++            caught = error;
++        }
++        expect(caught).toBe(failure);
++        expect(notified).toBe(true);
++        expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
++        expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
++    });
+ });

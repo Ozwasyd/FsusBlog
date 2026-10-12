@@ -1,0 +1,811 @@
+diff --git a/artifacts/article-editor/retained-document-authority/preflight.md b/artifacts/article-editor/retained-document-authority/preflight.md
+index defab5c0d..61b87b905 100644
+--- a/artifacts/article-editor/retained-document-authority/preflight.md
++++ b/artifacts/article-editor/retained-document-authority/preflight.md
+@@ -272,3 +272,62 @@ original application compiler exits2, fixed5cf baseline249/current249 diagnostic
+ 0added/removed complete headline messages and0owned diagnostics. AST/diff checks
+ PASS; fixed Registry/Group/ratio/Snapshot postimages match5cf byte-for-byte.
+ Source controls29 authority/10 Registry remain UNRUN; no execution qualification.
++
++## Loaded primary handover source increment
++
++Continues original producer17c2e with only original authority/consumer registration,
++its dedicated source controls and boundary documentation. New
++`preparePrimaryRetainedHandover` requires real original primary binding and Registry
++handle, sole live primary binding, matching article/draft/source/draft coordinates.
++It pins the actual loaded context and canonical target identity/epoch. Existing
++`acquireRetainedDocument(handle, preparation)` consumes that genuine preparation
++on the same adapter, retaining its editor-session identity/content digest and
++actual pending tasks; unused discard does not dispose the borrowed primary.
++Registered retained consumers cannot move between owners.
++
++Eight appended original-module source cases cover genuine identity handover/one
++receipt/late result rejection/pending settlement, unused discard, copied/foreign
++provenance, unmatched revision/draft, intervening edit, synchronous primary release
++on cancellation, published notification failure custody and duplicate consumer
++refusal. They add no imports/config/mock/setup/test invocation. The COMPLETE
++original Vitest entry/setup/import preflight above still applies; every case is
++UNRUN, with all tests/list/discovery/candidate-import/native/browser/mount/security/
++privacy/receipt/race/DB/storage/full-ref/resource settlement qualification HOLD.
++
++This seam does not prove body freshness or restore native state. Mismatched
++revision/draft requires original Writer/body/draft/Registry source-publication
++capability; arbitrary string metadata, revision relabeling or new draft IDs cannot
++fill it. It does not transfer already retained adapter/consumer custody. Static
++results and exact source/consumer offers are recorded separately in PR4228 WIP.
++
++## Independent loaded-primary P2 repair increment
++
++Independent review ofad35/03c75 found three actual gaps: prepared borrowed-primary
++admission stayed open until bind during nested retirement; an additional genuine
++legacy binding could enter after preparation without consumption revalidation;
++and any intervening context edit was mistaken for handover publication, preventing
++unused discard and permanently pinning the adapter. Those heads are NOT consumed
++as accepted new handover source.
++
++The repair installs the genuine preparation's runtime-private admission guard
++before return, closes it synchronously through original owner retirement facts,
++anchors owner scope independently of subsequent mutable context, and retains real
++queued cleanup/pending tasks. Every handover validator and bind's final primary
++check revalidate the actual sole binding. A module-private explicit publication
++marker is set only at real target assignment; ordinary edit/refusal still permits
++unused discard without disposing the borrowed adapter. Discard of a retired or
++published owner refuses; strict adoption cannot bypass the unused preparation.
++
++Four additional source cases plus the existing intervening-edit case cover the
++three actual P2 paths, nested pre-drain source/task/binding denial, safe retry after
++secondary release, edited-pin discard/reprepare, already-published failure refusal
++and preparation ownership bypass. Original whole-file entry/config/setup/import
++preflight remains unchanged; source cases are written only, with all test/list/
++discovery/import/native/browser/mount/security/privacy/receipt/race/DB/storage/
++fullfactory qualifications HOLD. New repaired-head source review is required.
++
++Borrowed-primary cleanup may invoke its actual context listeners. A real listener
++failure now records original owner failure custody, drains the remaining queued
++scopes, then reports aggregate actual errors instead of dropping the queue. One
++additional original-module source case checks that failure with real queued owner
++retirement and preserved pending tasks. This case also remains UNRUN/HOLD.
+diff --git a/docs/architecture/authoring-workspace-snapshot-boundary.md b/docs/architecture/authoring-workspace-snapshot-boundary.md
+index cc9c06537..351df3df7 100644
+--- a/docs/architecture/authoring-workspace-snapshot-boundary.md
++++ b/docs/architecture/authoring-workspace-snapshot-boundary.md
+@@ -42,6 +42,63 @@ and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission fo
+ the original owners and notify their consumers. Scope-revocation callbacks cannot
+ admit new owners reentrantly.
+ 
++A loaded primary whose original identity differs from an existing canonical
++member may call `preparePrimaryRetainedHandover(registry, handle, originalBinding,
++scopeReaders)`, then consume that SAME preparation with
++`acquireRetainedDocument(handle, preparation)`. The authority authenticates both
++issued objects and reserves the actual handle/adapter before external readers.
++Only one live primary binding, with no retained owner or other preparation, may
++enter. Article/draft identity and numeric source/draft revision must already match
++that canonical member. Its genuine handle supplies only document identity/epoch;
++the original mounted adapter, editor-session identity and content digest remain.
++Preparation does not mutate the primary; an unused preparation can be discarded
++without disposing its borrowed adapter. Ordinary source edits invalidate the offer.
++
++Consumption reserves context mutation, revalidates the actual primary/scope/member,
++cancels the old context's tasks, revalidates again after their synchronous abort
++callbacks, and publishes one switch receipt before the original retained binding.
++Canceled work remains pending until its producer actually settles. Original context
++listeners receive the new context; a post-publication refusal retires document
++admission and retains actual custody instead of rolling back notified context or
++claiming native completion. The actual Writer still registers its original consumer
++through `attachConsumer`; a consumer already owned by any other retained owner
++cannot be moved or duplicated. This is not an API to switch an existing retained
++adapter or transfer a registered consumer's form/history/native resources.
++
++The preparation installs an actual borrowed-primary admission guard before it
++escapes. Scope retirement closes that guard synchronously, including nested
++retirement whose canonical cleanup remains queued; task/source admission refuses
++while real pending work and cleanup stay in the drain. The original owner's scope
++is pinned independently of later edits to its borrowed adapter. Discard cannot
++remove a retired owner from pending cleanup or reopen admission. A live unused
++handover may still be edited; rejecting its now-stale offer does not dispose that
++adapter or mark an identity publication. Explicit discard releases that unused pin
++and preserves the actual edited context and pending work.
++
++The sole-binding constraint is revalidated at consumption, after cancellation and
++other external reads, and after publication/notification. A second genuine legacy
++binding acquired since preparation prevents publication; after its real release,
++the original unused offer can retry if all original context facts still match.
++An explicit module-private marker records ONLY actual target context publication.
++That marker, not any context difference, determines failed-publication custody and
++discard refusal. Strict adoption cannot bypass an unbound handover pin. These
++facts do not settle tasks or prove native/full-ref restoration. If a borrowed
++primary's real disposal listener fails, its failure custody remains retained while
++the original drain processes the remaining queued scopes. Only afterward does
++revocation report the aggregate actual cleanup failures; no failed cleanup is
++recorded as settled or silently discarded.
++
++This handover does not validate a loaded body against a snapshot, grant full native
++restore or label arbitrary source as current. A different article/draft, unmatched
++source/draft revision, or unsupported Registry source reference refuses. Restored
++unsaved drafts need their original draft/body producer's genuine identity/revision
++handover; a new create-draft issuer cannot stand in for it. The original Writer/body
++loader and Registry source-publication owner must establish those coordinates
++before this API, and the original native/session owner must validate physical
++binding, actual snapshot/body authority and resource lifetime afterward. No
++revision renumbering, body store, new document ID issuer or native settlement is
++introduced by this seam. All corresponding runtime qualifications remain HOLD.
++
+ The returned binding exposes `adapter`, `handle`, `inspect()`,
+ `subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
+ attaches its actual existing form/effects/runtime object once, using one stable
+diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
+index 4221025bd..3d36ef1e4 100644
+--- a/src/frontend/src/services/authoring/articleDocumentContext.ts
++++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
+@@ -230,6 +230,7 @@ interface ArticleDocumentRetainedOwner {
+     readonly adapter: ArticleDocumentContextAdapter;
+     readonly scope: ArticleDocumentRetainedScopeReaders;
+     readonly principalIdentityId: string;
++    readonly siteScope: string;
+     scopeRetired: boolean;
+     handle: RetainedArticleDocumentHandle | null;
+     binding: ArticleDocumentRetainedBinding | null;
+@@ -250,6 +251,25 @@ interface ArticleDocumentOwnerAdmission {
+     readonly scopeRetirementSequence: number;
+ }
+ 
++interface ArticleDocumentPrimaryHandover {
++    readonly handle: RetainedArticleDocumentHandle;
++    readonly primary: ArticleDocumentContextBinding;
++    readonly previous: ArticleDocumentContext;
++    readonly target: ArticleDocumentContext;
++    readonly isReleased: () => boolean;
++    published: boolean;
++}
++
++// Only this module's original authority can enter the adapter's handover operation.
++const primaryHandoverPorts = new WeakMap<ArticleDocumentContextAdapter, {
++    readonly handover: (previous: ArticleDocumentContext, target: ArticleDocumentContext,
++        validate: () => void, bind: () => ArticleDocumentRetainedBinding, publish: () => void) => ArticleDocumentRetainedBinding;
++}>();
++
++// A borrowed primary remains writable while prepared, but actual retirement
++// closes admission synchronously even when canonical cleanup is still queued.
++const preparedPrimaryGuards = new WeakMap<ArticleDocumentContextAdapter, { readonly isAdmitted: () => boolean; }>();
++
+ // An adapter guard belongs to its original handle custody, never an article index.
+ const retainedAdapterGuards = new WeakMap<ArticleDocumentContextAdapter, {
+     readonly isAdmitted: () => boolean;
+@@ -809,6 +829,65 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         });
+         this.#current = initialContext;
+         this.#receiptsLog.push(this.#createReceipt('initialize', 'initial', null, []));
++        primaryHandoverPorts.set(this, {
++            handover: (previous, target, validate, bind, publish) => this.#handoverPrimary(previous, target, validate, bind, publish)
++        });
++    }
++
++    #handoverPrimary(previous: ArticleDocumentContext, target: ArticleDocumentContext,
++        validate: () => void, bind: () => ArticleDocumentRetainedBinding, publish: () => void): ArticleDocumentRetainedBinding
++    {
++        if (this.#contextMutationPending || retainedAdapterGuards.has(this))
++        {
++            throw new Error('article-document-primary-handover-unavailable');
++        }
++        this.#contextMutationPending = true;
++        let published = false;
++        try
++        {
++            this.#assertContextMutation();
++            validate();
++            if (this.#current !== previous || this.#disposed)
++            {
++                throw new Error('article-document-primary-handover-context-changed');
++            }
++            const canceledTaskRefs = this.cancelAll('retained-primary-handover');
++            validate();
++            if (this.#current !== previous || this.#disposed)
++            {
++                throw new Error('article-document-primary-handover-context-changed');
++            }
++            this.#current = target;
++            published = true;
++            publish();
++            this.#receiptsLog.push(this.#createReceipt('switch', 'entity-switch', previous, canceledTaskRefs));
++            const binding = bind();
++            this.#notifyContext();
++            validate();
++            return binding;
++        }
++        catch (error)
++        {
++            if (published)
++            {
++                // No rollback can undo real abort callbacks or a published context.
++                // Retire this document adapter; underlying work remains pending.
++                this.#disposed = true;
++                try
++                {
++                    this.#notifyContext();
++                }
++                catch
++                {
++                    // Preserve the original refusal; the authority retains custody.
++                }
++            }
++            throw error;
++        }
++        finally
++        {
++            this.#contextMutationPending = false;
++        }
+     }
+ 
+     public get context(): ArticleDocumentContext
+@@ -854,6 +933,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     #isRetainedAdmitted(): boolean
+     {
++        if (preparedPrimaryGuards.get(this)?.isAdmitted() === false)
++        {
++            return false;
++        }
+         const guard = retainedAdapterGuards.get(this);
+         if (!guard)
+         {
+@@ -1310,6 +1393,7 @@ export class ArticleDocumentContextAuthority
+         readonly isReleased: () => boolean;
+     }>();
+     #preparations = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentRetainedOwner>();
++    #primaryHandovers = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentPrimaryHandover>();
+     #retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
+     #ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
+     #scopedOwners = new Set<ArticleDocumentRetainedOwner>();
+@@ -1325,6 +1409,10 @@ export class ArticleDocumentContextAuthority
+     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
+     {
+         this.#assertAuthorityInput(input);
++        if (this.#adapter && preparedPrimaryGuards.get(this.#adapter)?.isAdmitted() === false)
++        {
++            throw new Error('article-document-retained-owner-unavailable');
++        }
+         if (this.#adapter && (this.#ownersByAdapter.has(this.#adapter) || this.#pendingAdapterAdmissions.has(this.#adapter)))
+         {
+             throw new Error('article-document-retained-acquire-requires-handle');
+@@ -1405,6 +1493,56 @@ export class ArticleDocumentContextAuthority
+         return preparation;
+     }
+ 
++    /** Borrow a loaded, unretained primary; canonical identity comes only from the genuine handle. */
++    public preparePrimaryRetainedHandover(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
++        primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedPreparation
++    {
++        this.#assertRetainedOwnerAdmission();
++        const custody = this.#bindingCustody.get(primary);
++        if (!custody || custody.isReleased() || primary.adapter !== custody.adapter || this.#bindings.size !== 1
++            || [...this.#preparedOwners].some(owner => owner.adapter === custody.adapter))
++        {
++            throw new Error('article-document-primary-binding-invalid');
++        }
++        if (!retainedArticleDocumentHandleBelongsTo(handle, registry))
++        {
++            throw new Error('article-document-retained-association-invalid');
++        }
++        const admission = this.#reserveRetainedOwner(handle, custody.adapter);
++        try
++        {
++            const observation = inspectRetainedArticleDocumentHandle(handle);
++            const entry = observation.entry;
++            const previous = admission.context;
++            if (observation.state !== 'live' || entry?.identity.articleId !== previous.articleId
++                || entry.identity.draftId !== previous.draftId
++                || entry.documentContext.sourceRevision !== `source-revision:${previous.sourceRevision}`
++                || entry.documentContext.draftRevision !== previous.draftRevision)
++            {
++                throw new Error('article-document-primary-handover-source-mismatch');
++            }
++            if (entry.identity.documentId === previous.documentId && entry.documentContext.documentEpoch === previous.documentEpoch)
++            {
++                throw new Error('article-document-primary-handover-not-required');
++            }
++            const target = createArticleDocumentContext({ ...previous,
++                documentId: entry.identity.documentId, documentEpoch: entry.documentContext.documentEpoch });
++            const owner = this.#createRetainedOwner(registry, custody.adapter, scope);
++            const handover = { handle, primary, previous, target, isReleased: custody.isReleased, published: false };
++            this.#assertPrimaryHandover(owner, handover, admission.scopeRetirementSequence);
++            const preparation = Object.freeze({ context: target }) as ArticleDocumentRetainedPreparation;
++            this.#preparations.set(preparation, owner);
++            this.#primaryHandovers.set(preparation, handover);
++            this.#preparedOwners.add(owner);
++            preparedPrimaryGuards.set(owner.adapter, { isAdmitted: () => !owner.scopeRetired && !owner.invalidationFailed });
++            return preparation;
++        }
++        finally
++        {
++            this.#releaseRetainedOwnerAdmission(admission);
++        }
++    }
++
+     /** Reuse the primary's genuine original binding and native identity exactly once. */
+     public adoptPrimaryRetainedDocument(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
+         primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedBinding
+@@ -1423,6 +1561,10 @@ export class ArticleDocumentContextAuthority
+         {
+             throw new Error('article-document-retained-admission-in-progress');
+         }
++        if ([...this.#preparedOwners].some(owner => !owner.handle && owner.adapter === custody.adapter))
++        {
++            throw new Error('article-document-primary-handover-prepared');
++        }
+         const previous = this.#ownersByAdapter.get(custody.adapter);
+         if (previous)
+         {
+@@ -1478,6 +1620,34 @@ export class ArticleDocumentContextAuthority
+         const admission = this.#reserveRetainedOwner(handle, owner.adapter);
+         try
+         {
++            const handover = preparation ? this.#primaryHandovers.get(preparation) : null;
++            if (handover)
++            {
++                const port = primaryHandoverPorts.get(owner.adapter);
++                if (!port || handover.handle !== handle || owner.adapter.context !== handover.previous)
++                {
++                    throw new Error('article-document-primary-handover-invalid');
++                }
++                const validate = () => this.#assertPrimaryHandover(owner, handover, admission.scopeRetirementSequence);
++                try
++                {
++                    return port.handover(handover.previous, handover.target, validate,
++                        () => this.#bindRetainedOwner(handle, owner, { ...admission, context: handover.target },
++                            () => !handover.isReleased() && handover.primary.adapter === owner.adapter && this.#bindings.size === 1),
++                        () =>
++                        {
++                            handover.published = true;
++                        });
++                }
++                catch (error)
++                {
++                    if (handover.published)
++                    {
++                        owner.invalidationFailed = true;
++                    }
++                    throw error;
++                }
++            }
+             return this.#bindRetainedOwner(handle, owner, admission);
+         }
+         finally
+@@ -1489,15 +1659,53 @@ export class ArticleDocumentContextAuthority
+     public discardRetainedPreparation(preparation: ArticleDocumentRetainedPreparation): void
+     {
+         const owner = this.#preparations.get(preparation);
+-        if (!owner || owner.handle || this.#pendingAdapterAdmissions.has(owner.adapter))
++        if (!owner || owner.handle || owner.scopeRetired || this.#pendingAdapterAdmissions.has(owner.adapter))
+         {
+             throw new Error('article-document-retained-preparation-not-unused');
+         }
+-        owner.adapter.dispose();
++        const handover = this.#primaryHandovers.get(preparation);
++        if (handover?.published)
++        {
++            throw new Error('article-document-primary-handover-already-published');
++        }
++        if (!this.#primaryHandovers.has(preparation))
++        {
++            owner.adapter.dispose();
++        }
++        else
++        {
++            preparedPrimaryGuards.delete(owner.adapter);
++        }
+         this.#preparations.delete(preparation);
++        this.#primaryHandovers.delete(preparation);
+         this.#preparedOwners.delete(owner);
+     }
+ 
++    #assertPrimaryHandover(owner: ArticleDocumentRetainedOwner, handover: ArticleDocumentPrimaryHandover,
++        scopeRetirementSequence: number): void
++    {
++        const principal = owner.scope.readPrincipalIdentityId();
++        const site = owner.scope.readSiteScope();
++        const target = handover.target;
++        const current = owner.adapter.isCurrentContext(owner.adapter.context);
++        const observation = inspectRetainedArticleDocumentHandle(handover.handle);
++        const entry = observation.entry;
++        if (owner.scopeRetired || owner.invalidationFailed || handover.isReleased() || this.#bindings.size !== 1
++            || this.#adapter !== owner.adapter
++            || handover.primary.adapter !== owner.adapter || principal !== owner.principalIdentityId
++            || site !== target.siteScope || scopeRetirementSequence !== this.#scopeRetirementSequence
++            || observation.state !== 'live' || entry?.identity.articleId !== target.articleId
++            || entry.identity.draftId !== target.draftId || entry.identity.documentId !== target.documentId
++            || entry.documentContext.documentEpoch !== target.documentEpoch
++            || entry.documentContext.sourceRevision !== `source-revision:${target.sourceRevision}`
++            || entry.documentContext.draftRevision !== target.draftRevision
++            || (owner.adapter.context !== handover.previous && owner.adapter.context !== target)
++            || !current)
++        {
++            throw new Error('article-document-primary-handover-admission-changed');
++        }
++    }
++
+     /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
+     public revokeRetainedScope(siteScope: string, principalIdentityId: string): void
+     {
+@@ -1506,7 +1714,7 @@ export class ArticleDocumentContextAuthority
+         // is notifying. Canonical notifications and cleanup stay in the drain.
+         for (const owner of new Set([...this.#scopedOwners, ...this.#preparedOwners]))
+         {
+-            if (owner.adapter.context.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
++            if (owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
+             {
+                 owner.scopeRetired = true;
+             }
+@@ -1523,6 +1731,7 @@ export class ArticleDocumentContextAuthority
+             return;
+         }
+         this.#scopeRevocationPending = true;
++        const cleanupFailures: unknown[] = [];
+         try
+         {
+             while (this.#scopeRetirementQueue.length > 0)
+@@ -1534,7 +1743,7 @@ export class ArticleDocumentContextAuthority
+                 }
+                 this.#currentScopeRetirement = current;
+                 const targets = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
+-                    owner.adapter.context.siteScope === current.siteScope && owner.principalIdentityId === current.principalIdentityId);
++                    owner.siteScope === current.siteScope && owner.principalIdentityId === current.principalIdentityId);
+                 const handles: RetainedArticleDocumentHandle[] = [];
+                 for (const owner of targets)
+                 {
+@@ -1549,7 +1758,15 @@ export class ArticleDocumentContextAuthority
+                 {
+                     if (!owner.handle)
+                     {
+-                        owner.adapter.dispose();
++                        try
++                        {
++                            owner.adapter.dispose();
++                        }
++                        catch (error)
++                        {
++                            owner.invalidationFailed = true;
++                            cleanupFailures.push(error);
++                        }
+                     }
+                 }
+             }
+@@ -1559,6 +1776,10 @@ export class ArticleDocumentContextAuthority
+             this.#scopeRevocationPending = false;
+             this.#currentScopeRetirement = null;
+         }
++        if (cleanupFailures.length > 0)
++        {
++            throw new AggregateError(cleanupFailures, 'article-document-retained-scope-cleanup-failed');
++        }
+     }
+ 
+     #assertRetainedOwnerAdmission(): void
+@@ -1573,9 +1794,10 @@ export class ArticleDocumentContextAuthority
+         scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedOwner
+     {
+         const scopeRetirementSequence = this.#scopeRetirementSequence;
++        const context = adapter.context;
+         const principalIdentityId = scope.readPrincipalIdentityId();
+-        if (!principalIdentityId?.trim() || scope.readSiteScope() !== adapter.context.siteScope
+-            || adapter.context.userScope !== `user:${principalIdentityId}`.replace(/[^a-zA-Z0-9._:-]/gu, '-'))
++        if (!principalIdentityId?.trim() || scope.readSiteScope() !== context.siteScope
++            || context.userScope !== `user:${principalIdentityId}`.replace(/[^a-zA-Z0-9._:-]/gu, '-'))
+         {
+             throw new Error('article-document-retained-scope-invalid');
+         }
+@@ -1588,7 +1810,7 @@ export class ArticleDocumentContextAuthority
+             throw new Error('article-document-retained-registry-owner-mismatch');
+         }
+         this.#retainedRegistry = registry;
+-        return { registry, adapter, scope, principalIdentityId, scopeRetired: false, handle: null, binding: null,
++        return { registry, adapter, scope, principalIdentityId, siteScope: context.siteScope, scopeRetired: false, handle: null, binding: null,
+             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
+             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
+             lastState: 'live', listeners: new Set() };
+@@ -1719,7 +1941,12 @@ export class ArticleDocumentContextAuthority
+                     owner.consumerFactory = create;
+                     try
+                     {
+-                        owner.consumer = create(binding);
++                        const consumer = create(binding);
++                        if ([...this.#scopedOwners].some(other => other !== owner && other.consumer === consumer))
++                        {
++                            throw new Error('article-document-retained-consumer-owned-elsewhere');
++                        }
++                        owner.consumer = consumer;
+                         this.#assertRetainedConsumerAdmission(owner);
+                         if (!owner.consumer || typeof owner.consumer.invalidateDocument !== 'function')
+                         {
+diff --git a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
+index 14c3f34b5..a6122c83a 100644
+--- a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
++++ b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
+@@ -663,4 +663,288 @@ describe('original retained document authority source controls', () =>
+         expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
+         expect(cleanupCalls).toBe(1);
+     });
++    it('hands the loaded genuine primary to canonical identity without copying its consumer or settling old work', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const originalIssuer = new ArticleDocumentContextAuthority();
++        const canonical = originalIssuer.prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const authority = new ArticleDocumentContextAuthority();
++        const primary = authority.acquire(input(1));
++        const previous = primary.adapter.context;
++        const pending = primary.adapter.beginTask('attachment', 'producer:old-mount');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        expect(primary.adapter.context).toBe(previous);
++        expect(preparation.context.documentId).toBe(canonical.context.documentId);
++        const retained = authority.acquireRetainedDocument(handle, preparation);
++        expect(retained.adapter).toBe(primary.adapter);
++        expect(retained.adapter.context).toBe(preparation.context);
++        expect(retained.adapter.context.editorSessionId).toBe(previous.editorSessionId);
++        expect(retained.adapter.context.contentDigest).toBe(previous.contentDigest);
++        expect(pending.signal.aborted).toBe(true);
++        expect(pending.accept('late-old-result').accepted).toBe(false);
++        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
++        expect(retained.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(1);
++        expect(authority.acquireRetainedDocument(handle, preparation)).toBe(retained);
++        const actualConsumer = { invalidateDocument: () => undefined };
++        expect(retained.attachConsumer(() => actualConsumer)).toBe(actualConsumer);
++        primary.release();
++        pending.settle();
++        expect(retained.inspect().pendingTaskRefs).toEqual([]);
++    });
++
++    it('discards an unused primary offer without disposing the borrowed mounted adapter', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const authority = new ArticleDocumentContextAuthority();
++        const primary = authority.acquire(input(1));
++        const original = primary.adapter.context;
++        const pending = primary.adapter.beginTask('render', 'producer:original');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        authority.discardRetainedPreparation(preparation);
++        expect(primary.adapter.context).toBe(original);
++        expect(pending.signal.aborted).toBe(false);
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('preparation-invalid');
++        expect(pending.accept('original-result').accepted).toBe(true);
++    });
++
++    it('refuses foreign/copy provenance and already retained primary handover', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const authority = new ArticleDocumentContextAuthority();
++        const primary = authority.acquire(input(1));
++        expect(() => authority.preparePrimaryRetainedHandover(registry, handle, { ...primary }, scope)).toThrow('binding-invalid');
++        expect(() => authority.preparePrimaryRetainedHandover(new OpenArticleDocumentRegistry(), handle, primary, scope))
++            .toThrow('association-invalid');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        expect(() => authority.acquireRetainedDocument(handle, { ...preparation })).toThrow('preparation-invalid');
++        authority.acquireRetainedDocument(handle, preparation);
++        expect(() => authority.preparePrimaryRetainedHandover(registry, handle, primary, scope)).toThrow();
++    });
++
++    it('refuses body coordinate relabeling and different restored unsaved draft identity', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const authority = new ArticleDocumentContextAuthority();
++        const primary = authority.acquire(input(1));
++        primary.adapter.updateSource('# newer real loaded revision');
++        const original = primary.adapter.context;
++        expect(() => authority.preparePrimaryRetainedHandover(registry, handle, primary, scope)).toThrow('source-mismatch');
++        expect(primary.adapter.context).toBe(original);
++        const draftRegistry = new OpenArticleDocumentRegistry();
++        const draft = new ArticleDocumentContextAuthority().prepareRetainedDocument(draftRegistry, input(null), scope);
++        const draftHandle = admit(draftRegistry, draft.context, 'draft');
++        const draftAuthority = new ArticleDocumentContextAuthority();
++        const draftPrimary = draftAuthority.acquire(input(null));
++        expect(() => draftAuthority.preparePrimaryRetainedHandover(draftRegistry, draftHandle, draftPrimary, scope))
++            .toThrow('source-mismatch');
++    });
++
++    it('pins source preparation and refuses a real intervening edit before handover', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const authority = new ArticleDocumentContextAuthority();
++        const primary = authority.acquire(input(1));
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        primary.adapter.updateSource('# actual intervening edit');
++        const edited = primary.adapter.context;
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('handover-invalid');
++        expect(primary.adapter.context).toBe(edited);
++        expect(primary.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(0);
++        authority.discardRetainedPreparation(preparation);
++        const task = primary.adapter.beginTask('render', 'producer:after-discard');
++        expect(task.accept('real-edited-result').accepted).toBe(true);
++        const next = primary.switchDocument({ articleId: 2, content: '# next actual document' });
++        expect(next?.articleId).toBe(2);
++        const nextPreparation = authority.prepareRetainedDocument(registry, input(3), scope);
++        authority.discardRetainedPreparation(nextPreparation);
++    });
++
++    it('rechecks actual primary release after synchronous task cancellation and retains unsettled work', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const authority = new ArticleDocumentContextAuthority();
++        const primary = authority.acquire(input(1));
++        const original = primary.adapter.context;
++        const pending = primary.adapter.beginTask('refresh', 'producer:actual');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        pending.signal.addEventListener('abort', () => primary.release(), { once: true });
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('admission-changed');
++        expect(primary.adapter.context).toBe(original);
++        expect(primary.adapter.pendingTaskRefs).toContain(pending.taskRef);
++        expect(primary.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(0);
++    });
++
++    it('retains failed published handover custody instead of rolling back a notified document', () =>
++    {
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const authority = new ArticleDocumentContextAuthority();
++        const primary = authority.acquire(input(1));
++        const pending = primary.adapter.beginTask('refresh', 'producer:actual');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        primary.adapter.subscribeContext(() => { throw new Error('actual-mount-notification-failed'); });
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('actual-mount-notification-failed');
++        expect(primary.adapter.context).toBe(preparation.context);
++        expect(primary.adapter.pendingTaskRefs).toContain(pending.taskRef);
++        expect(() => primary.adapter.beginTask('render', 'producer:late')).toThrow();
++        expect(() => authority.discardRetainedPreparation(preparation)).toThrow();
++        pending.settle();
++        expect(primary.adapter.pendingTaskRefs).toEqual([]);
++    });
++
++    it('does not move an already registered consumer into another retained owner', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const first = create(authority, registry, 1, 'first');
++        const second = create(authority, registry, 2, 'second');
++        let invalidations = 0;
++        const actual = { invalidateDocument: () => { invalidations += 1; } };
++        const factory = () => actual;
++        first.attachConsumer(factory);
++        expect(() => second.attachConsumer(factory)).toThrow('owned-elsewhere');
++        expect(first.attachConsumer(factory)).toBe(actual);
++        expect(first.inspect().admissionClosed).toBe(false);
++        expect(invalidations).toBe(0);
++    });
++    it('blocks prepared primary admission synchronously during nested scope retirement before cleanup drain', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const outerScope = { readPrincipalIdentityId: () => 'outer', readSiteScope: () => 'site:outer' };
++        const outerPreparation = authority.prepareRetainedDocument(registry,
++            { articleId: 2, siteScope: 'site:outer', userScope: 'user:outer', content: '# outer' }, outerScope);
++        const outer = authority.acquireRetainedDocument(admit(registry, outerPreparation.context, 'outer'), outerPreparation);
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const primary = authority.acquire(input(1));
++        const original = primary.adapter.context;
++        const pending = primary.adapter.beginTask('attachment', 'producer:pending-primary');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        let nested = false;
++        outer.attachConsumer(() => ({ invalidateDocument: () =>
++        {
++            authority.revokeRetainedScope('site:test', 'test');
++            nested = true;
++            expect(pending.signal.aborted).toBe(false);
++            expect(primary.adapter.isCurrentContext(original)).toBe(false);
++            expect(() => primary.adapter.beginTask('render', 'producer:illegal')).toThrow('owner-unavailable');
++            expect(() => primary.adapter.updateSource('# illegal write')).toThrow('owner-unavailable');
++            expect(() => authority.acquire(input(1))).toThrow('owner-unavailable');
++            expect(() => authority.discardRetainedPreparation(preparation)).toThrow('not-unused');
++        } }));
++        authority.revokeRetainedScope('site:outer', 'outer');
++        expect(nested).toBe(true);
++        expect(primary.adapter.context).toBe(original);
++        expect(pending.signal.aborted).toBe(true);
++        expect(primary.adapter.pendingTaskRefs).toContain(pending.taskRef);
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('preparation-invalid');
++    });
++
++    it('revalidates sole primary binding at consumption and permits a genuine retry after secondary release', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const primary = authority.acquire(input(1));
++        const original = primary.adapter.context;
++        const pending = primary.adapter.beginTask('refresh', 'producer:original');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        const secondary = authority.acquire(input(1));
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('admission-changed');
++        expect(primary.adapter.context).toBe(original);
++        expect(pending.signal.aborted).toBe(false);
++        expect(primary.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(0);
++        secondary.release();
++        const retained = authority.acquireRetainedDocument(handle, preparation);
++        expect(retained.adapter).toBe(primary.adapter);
++        expect(pending.signal.aborted).toBe(true);
++        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
++    });
++
++    it('releases an edited unused primary pin so the same actual adapter can prepare again', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const primary = authority.acquire(input(1));
++        const pending = primary.adapter.beginTask('attachment', 'producer:actual');
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        primary.adapter.updateDraftRevision('draft-revision:actual-edit');
++        const edited = primary.adapter.context;
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('handover-invalid');
++        authority.discardRetainedPreparation(preparation);
++        expect(primary.adapter.context).toBe(edited);
++        expect(primary.adapter.pendingTaskRefs).toContain(pending.taskRef);
++        expect(primary.adapter.isCurrentContext(edited)).toBe(true);
++        primary.adapter.updateDraftRevision(null);
++        const retry = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        expect(authority.acquireRetainedDocument(handle, retry).adapter).toBe(primary.adapter);
++    });
++
++    it('cannot adopt around an unused handover pin and cannot discard a published failed handover', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const primary = authority.acquire(input(1));
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        expect(() => authority.adoptPrimaryRetainedDocument(registry, handle, primary, scope)).toThrow('handover-prepared');
++        primary.adapter.subscribeContext(() => { throw new Error('actual-publication-failure'); });
++        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('actual-publication-failure');
++        expect(() => authority.discardRetainedPreparation(preparation)).toThrow();
++        expect(() => primary.adapter.updateSource('# after publication failure')).toThrow('owner-unavailable');
++    });
++    it('drains queued original scopes after a real borrowed-primary disposal listener failure', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const make = (articleId: number, principal: string) =>
++        {
++            const originalScope = { readPrincipalIdentityId: () => principal, readSiteScope: () => `site:${principal}` };
++            const prepared = authority.prepareRetainedDocument(registry,
++                { articleId, siteScope: `site:${principal}`, userScope: `user:${principal}`, content: '# original' }, originalScope);
++            return authority.acquireRetainedDocument(admit(registry, prepared.context, principal), prepared);
++        };
++        const outer = make(2, 'outer');
++        const tail = make(3, 'tail');
++        const tailTask = tail.adapter.beginTask('attachment', 'producer:tail');
++        let tailCleanup = false;
++        tail.attachConsumer(() => ({ invalidateDocument: () => { tailCleanup = true; } }));
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const primary = authority.acquire(input(1));
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        const primaryTask = primary.adapter.beginTask('refresh', 'producer:primary');
++        primary.adapter.subscribeContext(() => { throw new Error('actual-borrowed-cleanup-failure'); });
++        outer.attachConsumer(() => ({ invalidateDocument: () =>
++        {
++            authority.revokeRetainedScope('site:test', 'test');
++            authority.revokeRetainedScope('site:tail', 'tail');
++        } }));
++        expect(() => authority.revokeRetainedScope('site:outer', 'outer')).toThrow('scope-cleanup-failed');
++        expect(tailCleanup).toBe(true);
++        expect(tail.inspect().registry.state).toBe('revoked');
++        expect(tailTask.signal.aborted).toBe(true);
++        expect(tail.inspect().pendingTaskRefs).toContain(tailTask.taskRef);
++        expect(primaryTask.signal.aborted).toBe(true);
++        expect(primary.adapter.pendingTaskRefs).toContain(primaryTask.taskRef);
++        expect(() => authority.discardRetainedPreparation(preparation)).toThrow('not-unused');
++        expect(() => primary.adapter.beginTask('render', 'producer:late')).toThrow('owner-unavailable');
++    });
+ });

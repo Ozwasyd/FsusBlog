@@ -1,0 +1,700 @@
+diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
+index 76761edf0..6b0432af6 100644
+--- a/src/frontend/src/services/authoring/articleDocumentContext.ts
++++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
+@@ -7,7 +7,8 @@ import {
+     revokeRetainedArticleDocumentScope,
+     revokeRetainedArticleDocumentScopeSet,
+     sealRetainedArticleDocumentMembership,
+-    subscribeRetainedArticleDocumentHandle
++    subscribeRetainedArticleDocumentHandle,
++    subscribeRetainedArticleDocumentRetirement
+ } from './openArticleDocumentRegistry';
+ 
+ import type {
+@@ -232,6 +233,7 @@ export interface ArticleDocumentRetainedBinding {
+     readonly adapter: ArticleDocumentContextAdapter;
+     inspect(): ArticleDocumentRetainedInspection;
+     subscribeLifetime(listener: (observation: ArticleDocumentRetainedInspection) => void): () => void;
++    subscribeRetirement(listener: () => void): () => void;
+     attachConsumer<T extends ArticleDocumentRetainedConsumer>(create: (binding: ArticleDocumentRetainedBinding) => T): T;
+     sealLifetimeAuthority(): ArticleDocumentLifetimeSeal | null;
+     hasLifetimeAuthorityCustody(seal: ArticleDocumentLifetimeSeal): boolean;
+@@ -256,6 +258,10 @@ interface ArticleDocumentRetainedOwner {
+     lastState: RetainedArticleDocumentInspection['state'];
+     readonly listeners: Set<(observation: ArticleDocumentRetainedInspection) => void>;
+     lifetimePublication: object | null;
++    retirementPending: boolean;
++    retirementActivityDepth: number;
++    readonly retirementListeners: Set<() => void>;
++    readonly retirementFailures: unknown[];
+ }
+ 
+ interface ArticleDocumentOwnerAdmission {
+@@ -291,6 +297,8 @@ interface NativeDocumentLifetimePublication {
+ interface NativeDocumentLifetimePort {
+     readonly seal: () => NativeDocumentLifetimePublication | null;
+     readonly has: (publication: NativeDocumentLifetimePublication) => boolean;
++    readonly subscribeRetirement: (listener: () => void) => () => void;
++    readonly retirementActive: () => boolean;
+ }
+ 
+ const nativeDocumentLifetimePorts = new WeakMap<ArticleDocumentContextAdapter, NativeDocumentLifetimePort>();
+@@ -816,6 +824,9 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+     #disposed = false;
+     #contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
+     #lifetimePublication: NativeDocumentLifetimePublication | null = null;
++    #retirementPending = false;
++    #retirementListeners = new Set<() => void>();
++    #retirementFailures: unknown[] = [];
+ 
+     public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): () => void
+     {
+@@ -861,7 +872,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         nativeDocumentLifetimePorts.set(this, {
+             seal: () =>
+             {
+-                if (this.#disposed || this.#contextMutationPending)
++                if (this.#disposed || this.#contextMutationPending || this.#retirementPending)
+                 {
+                     return null;
+                 }
+@@ -869,10 +880,53 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+                 return this.#lifetimePublication;
+             },
+             has: publication => this.#lifetimePublication === publication && this.#current === publication.context
+-                && !this.#disposed && !this.#contextMutationPending
++                && !this.#disposed && !this.#contextMutationPending,
++            subscribeRetirement: listener =>
++            {
++                this.#retirementListeners.add(listener);
++                return () =>
++                {
++                    this.#retirementListeners.delete(listener);
++                };
++            },
++            retirementActive: () => this.#retirementPending || this.#contextMutationPending || this.#disposed
+         });
+     }
+ 
++    #retireLifetimeAuthority(): void
++    {
++        if (this.#retirementPending)
++        {
++            throw new Error('article-document-retirement-in-progress');
++        }
++        this.#lifetimePublication = null;
++        this.#retirementPending = true;
++        const failures: unknown[] = [];
++        try
++        {
++            for (const listener of [...this.#retirementListeners])
++            {
++                try
++                {
++                    listener();
++                }
++                catch (error)
++                {
++                    failures.push(error);
++                }
++            }
++        }
++        finally
++        {
++            this.#retirementPending = false;
++        }
++        if (failures.length > 0)
++        {
++            this.#retirementFailures.push(...failures);
++            throw new AggregateError(failures, 'article-document-pre-retirement-failed', { cause: failures[0] });
++        }
++    }
++
+     #handoverPrimary(previous: ArticleDocumentContext, target: ArticleDocumentContext,
+         validate: () => void, bind: () => ArticleDocumentRetainedBinding, publish: () => void): ArticleDocumentRetainedBinding
+     {
+@@ -880,7 +934,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         {
+             throw new Error('article-document-primary-handover-unavailable');
+         }
+-        this.#lifetimePublication = null;
++        this.#retireLifetimeAuthority();
+         this.#contextMutationPending = true;
+         let published = false;
+         try
+@@ -1009,7 +1063,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         producerVersion = 'v1.0'
+     ): ArticleDocumentTaskLease
+     {
+-        if (this.#contextMutationPending)
++        if (this.#contextMutationPending || this.#retirementPending)
+         {
+             throw new Error('article-document-context-mutation-in-progress');
+         }
+@@ -1077,11 +1131,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     public switchDocument(input: ArticleDocumentSwitchInput): ArticleDocumentEpochReceipt | null
+     {
+-        if (this.#contextMutationPending)
++        if (this.#contextMutationPending || this.#retirementPending)
+         {
+             throw new Error('article-document-context-mutation-in-progress');
+         }
+-        this.#lifetimePublication = null;
++        this.#retireLifetimeAuthority();
+         this.#contextMutationPending = true;
+         try
+         {
+@@ -1149,11 +1203,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     public updateSource(content: string, sourceRevision?: number): ArticleDocumentContext
+     {
+-        if (this.#contextMutationPending)
++        if (this.#contextMutationPending || this.#retirementPending)
+         {
+             throw new Error('article-document-context-mutation-in-progress');
+         }
+-        this.#lifetimePublication = null;
++        this.#retireLifetimeAuthority();
+         this.#contextMutationPending = true;
+         try
+         {
+@@ -1203,11 +1257,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     public updateDraftRevision(draftRevision: string | null): ArticleDocumentContext
+     {
+-        if (this.#contextMutationPending)
++        if (this.#contextMutationPending || this.#retirementPending)
+         {
+             throw new Error('article-document-context-mutation-in-progress');
+         }
+-        this.#lifetimePublication = null;
++        this.#retireLifetimeAuthority();
+         this.#contextMutationPending = true;
+         try
+         {
+@@ -1279,6 +1333,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     public cancelAll(reason = 'task-canceled'): readonly string[]
+     {
++        if (this.#retirementPending)
++        {
++            throw new Error('article-document-retirement-in-progress');
++        }
+         assertAbortReason(reason);
+         const refs = [...this.#activeTasks.values()].map(task => task.taskRef).sort();
+         // Synchronous abort listeners must not register work outside this cancellation snapshot.
+@@ -1299,7 +1357,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     public dispose(): ArticleDocumentEpochReceipt | null
+     {
+-        this.#lifetimePublication = null;
++        this.#retireLifetimeAuthority();
+         if (retainedAdapterGuards.has(this) && retainedAdapterGuards.get(this)?.inspect().state !== 'revoked')
+         {
+             throw new Error('article-document-retained-dispose-requires-revocation');
+@@ -1336,6 +1394,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         operationToken?: object
+     ): ArticleDocumentTaskEnvelope
+     {
++        if (this.#retirementPending)
++        {
++            throw new Error('article-document-retirement-in-progress');
++        }
+         if (!operationToken || taskFinalizationTokens.get(task) !== operationToken || !this.#pendingTasks.has(task))
+         {
+             throw new Error('article-document-task-finalization-invalid');
+@@ -1376,6 +1438,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     public settleTask(task: ArticleDocumentTaskLeaseImpl): void
+     {
++        if (this.#retirementPending)
++        {
++            throw new Error('article-document-retirement-in-progress');
++        }
+         if (task.envelope.status === 'running')
+         {
+             throw new Error('article-document-task-not-terminal');
+@@ -1459,9 +1525,11 @@ export class ArticleDocumentContextAuthority
+     #scopeRetirementSequence = 0;
+     #scopeRetirementQueue: { siteScope: string; principalIdentityId: string; }[] = [];
+     #currentScopeRetirement: { siteScope: string; principalIdentityId: string; } | null = null;
++    #ownerRetirementDepth = 0;
+ 
+     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
+     {
++        this.#assertRetirementNotPending();
+         this.#assertAuthorityInput(input);
+         if (this.#adapter && preparedPrimaryGuards.get(this.#adapter)?.isAdmitted() === false)
+         {
+@@ -1763,30 +1831,56 @@ export class ArticleDocumentContextAuthority
+     /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
+     public revokeRetainedScope(siteScope: string, principalIdentityId: string): void
+     {
++        this.#assertRetirementNotPending();
+         const target = { siteScope, principalIdentityId };
+-        // Close the actual target custody before returning even when another scope
+-        // is notifying. Canonical notifications and cleanup stay in the drain.
+-        for (const owner of new Set([...this.#scopedOwners, ...this.#preparedOwners]))
++        const retiring = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
++            owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId);
++        if (retiring.some(owner => owner.retirementPending))
+         {
+-            if (owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
++            throw new Error('article-document-owner-retirement-in-progress');
++        }
++        const retirementFailures: unknown[] = [];
++        for (const owner of retiring)
++        {
++            owner.lifetimePublication = null;
++        }
++        for (const owner of retiring)
++        {
++            try
+             {
+-                owner.lifetimePublication = null;
+-                owner.scopeRetired = true;
++                this.#retireOwnerAuthority(owner);
+             }
++            catch (error)
++            {
++                retirementFailures.push(error);
++            }
++        }
++        // Every actual target was pre-signaled before scope or cleanup changes.
++        for (const owner of retiring)
++        {
++            owner.scopeRetired = true;
+         }
+         const isSame = (entry: typeof target): boolean => entry.siteScope === siteScope && entry.principalIdentityId === principalIdentityId;
+         if ((this.#currentScopeRetirement && isSame(this.#currentScopeRetirement)) || this.#scopeRetirementQueue.some(isSame))
+         {
++            if (retirementFailures.length > 0)
++            {
++                throw new AggregateError(retirementFailures, 'article-document-scope-pre-retirement-failed', { cause: retirementFailures[0] });
++            }
+             return;
+         }
+         this.#scopeRetirementSequence += 1;
+         this.#scopeRetirementQueue.push(target);
+         if (this.#scopeRevocationPending)
+         {
++            if (retirementFailures.length > 0)
++            {
++                throw new AggregateError(retirementFailures, 'article-document-scope-pre-retirement-failed', { cause: retirementFailures[0] });
++            }
+             return;
+         }
+         this.#scopeRevocationPending = true;
+-        const cleanupFailures: unknown[] = [];
++        const cleanupFailures: unknown[] = retirementFailures;
+         try
+         {
+             while (this.#scopeRetirementQueue.length > 0)
+@@ -1809,7 +1903,14 @@ export class ArticleDocumentContextAuthority
+                         handles.push(owner.handle);
+                     }
+                 }
+-                revokeRetainedArticleDocumentScopeSet(handles);
++                try
++                {
++                    revokeRetainedArticleDocumentScopeSet(handles);
++                }
++                catch (error)
++                {
++                    cleanupFailures.push(error);
++                }
+                 for (const owner of targets)
+                 {
+                     if (!owner.handle)
+@@ -1840,12 +1941,21 @@ export class ArticleDocumentContextAuthority
+ 
+     #assertRetainedOwnerAdmission(): void
+     {
++        this.#assertRetirementNotPending();
+         if (this.#scopeRevocationPending)
+         {
+             throw new Error('article-document-scope-revocation-in-progress');
+         }
+     }
+ 
++    #assertRetirementNotPending(): void
++    {
++        if (this.#ownerRetirementDepth !== 0)
++        {
++            throw new Error('article-document-owner-retirement-in-progress');
++        }
++    }
++
+     #createRetainedOwner(registry: OpenArticleDocumentRegistry, adapter: ArticleDocumentContextAdapter,
+         scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedOwner
+     {
+@@ -1869,7 +1979,8 @@ export class ArticleDocumentContextAuthority
+         return { registry, adapter, scope, principalIdentityId, siteScope: context.siteScope, scopeRetired: false, handle: null, binding: null,
+             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
+             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
+-            lastState: 'live', listeners: new Set(), lifetimePublication: null };
++            lastState: 'live', listeners: new Set(), lifetimePublication: null, retirementPending: false,
++            retirementActivityDepth: 0, retirementListeners: new Set(), retirementFailures: [] };
+     }
+ 
+     #readRetainedRegistry(owner: ArticleDocumentRetainedOwner): RetainedArticleDocumentInspection
+@@ -1899,12 +2010,50 @@ export class ArticleDocumentContextAuthority
+             admissionClosed: owner.scopeRetired || owner.invalidationFailed || registry.state !== 'live' });
+     }
+ 
++    #retireOwnerAuthority(owner: ArticleDocumentRetainedOwner): void
++    {
++        if (owner.retirementPending)
++        {
++            throw new Error('article-document-owner-retirement-in-progress');
++        }
++        owner.lifetimePublication = null;
++        owner.retirementPending = true;
++        this.#ownerRetirementDepth += 1;
++        const failures: unknown[] = [];
++        try
++        {
++            for (const listener of [...owner.retirementListeners])
++            {
++                try
++                {
++                    listener();
++                }
++                catch (error)
++                {
++                    failures.push(error);
++                }
++            }
++        }
++        finally
++        {
++            owner.retirementPending = false;
++            this.#ownerRetirementDepth -= 1;
++        }
++        if (failures.length > 0)
++        {
++            owner.retirementFailures.push(...failures);
++            owner.invalidationFailed = true;
++            throw new AggregateError(failures, 'article-document-owner-pre-retirement-failed', { cause: failures[0] });
++        }
++    }
++
+     #sealLifetimeAuthority(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding): ArticleDocumentLifetimeSeal | null
+     {
+         const handle = owner.handle;
+         const port = nativeDocumentLifetimePorts.get(owner.adapter);
+         if (!handle || !port || owner.binding !== binding || owner.scopeRetired || owner.invalidationFailed
+-            || owner.attachingConsumer || owner.consumerInvalidationState !== 'not-requested')
++            || owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
++            || owner.consumerInvalidationState !== 'not-requested')
+         {
+             return null;
+         }
+@@ -2048,6 +2197,20 @@ export class ArticleDocumentContextAuthority
+             sealLifetimeAuthority: () => this.#sealLifetimeAuthority(owner, binding),
+             hasLifetimeAuthorityCustody: (seal: ArticleDocumentLifetimeSeal) => this.#hasLifetimeAuthorityCustody(owner, binding, seal),
+             cancelLifetimeAuthority: (seal: ArticleDocumentLifetimeSeal) => this.#cancelLifetimeAuthority(owner, binding, seal),
++            subscribeRetirement: (listener: () => void) =>
++            {
++                if (typeof listener !== 'function' || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
++                    || owner.attachingConsumer || owner.scopeRetired || owner.invalidationFailed
++                    || nativeDocumentLifetimePorts.get(owner.adapter)?.retirementActive())
++                {
++                    throw new Error('article-document-retirement-subscription-unavailable');
++                }
++                owner.retirementListeners.add(listener);
++                return () =>
++                {
++                    owner.retirementListeners.delete(listener);
++                };
++            },
+             subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
+             {
+                 owner.listeners.add(listener);
+@@ -2058,12 +2221,12 @@ export class ArticleDocumentContextAuthority
+             },
+             attachConsumer: <T extends ArticleDocumentRetainedConsumer>(create: (retained: ArticleDocumentRetainedBinding) => T): T =>
+             {
+-                if (owner.attachingConsumer)
++                if (owner.attachingConsumer || owner.retirementPending)
+                 {
+                     throw new Error('article-document-retained-consumer-unavailable');
+                 }
+                 // Reserve before the first external reader, including cached reads.
+-                owner.lifetimePublication = null;
++                this.#retireOwnerAuthority(owner);
+                 owner.attachingConsumer = true;
+                 try
+                 {
+@@ -2134,11 +2297,16 @@ export class ArticleDocumentContextAuthority
+             isAdmitted: () => !owner.scopeRetired && !owner.invalidationFailed,
+             inspect: () => this.#readRetainedRegistry(owner)
+         });
+-        const stopSubscription = subscribeRetainedArticleDocumentHandle(handle, () => this.#notifyRetainedOwner(owner));
++        let stopNativeRetirement: (() => void) | undefined;
++        let stopMembershipRetirement: (() => void) | undefined;
++        let stopSubscription: (() => void) | undefined;
+         // Subscription is installed before the final external readers. A revoke in
+         // this window is observed and its real pending resources remain retained.
+         try
+         {
++            stopNativeRetirement = nativeDocumentLifetimePorts.get(owner.adapter)?.subscribeRetirement(() => this.#retireOwnerAuthority(owner));
++            stopMembershipRetirement = subscribeRetainedArticleDocumentRetirement(handle, () => this.#retireOwnerAuthority(owner));
++            stopSubscription = subscribeRetainedArticleDocumentHandle(handle, () => this.#notifyRetainedOwner(owner));
+             if (this.#readRetainedRegistry(owner).state !== 'live' || owner.scopeRetired || owner.invalidationFailed
+                 || owner.adapter.context !== admission.context
+                 || (validatePrimary && !validatePrimary()))
+@@ -2153,7 +2321,9 @@ export class ArticleDocumentContextAuthority
+             // unpublished live admission; actual revocation keeps recovery custody.
+             if (inspectRetainedArticleDocumentHandle(handle).state !== 'revoked')
+             {
+-                stopSubscription();
++                stopSubscription?.();
++                stopMembershipRetirement?.();
++                stopNativeRetirement?.();
+                 this.#retainedOwners.delete(handle);
+                 this.#ownersByAdapter.delete(owner.adapter);
+                 this.#scopedOwners.delete(owner);
+@@ -2171,6 +2341,46 @@ export class ArticleDocumentContextAuthority
+     }
+ 
+     #notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
++    {
++        owner.lifetimePublication = null;
++        owner.retirementActivityDepth += 1;
++        let retirementFailed = false;
++        let retirementError: unknown;
++        try
++        {
++            try
++            {
++                this.#retireOwnerAuthority(owner);
++            }
++            catch (error)
++            {
++                retirementFailed = true;
++                retirementError = error;
++            }
++            try
++            {
++                this.#notifyRetainedOwnerAfterRetirement(owner);
++            }
++            catch (error)
++            {
++                if (retirementFailed)
++                {
++                    throw new AggregateError([retirementError, error], 'article-document-retirement-and-cleanup-failed', { cause: error });
++                }
++                throw error;
++            }
++            if (retirementFailed)
++            {
++                throw retirementError;
++            }
++        }
++        finally
++        {
++            owner.retirementActivityDepth -= 1;
++        }
++    }
++
++    #notifyRetainedOwnerAfterRetirement(owner: ArticleDocumentRetainedOwner): void
+     {
+         owner.lifetimePublication = null;
+         const observation = this.#inspectRetainedOwner(owner);
+@@ -2216,9 +2426,10 @@ export class ArticleDocumentContextAuthority
+         {
+             return;
+         }
+-        owner.consumerInvalidationState = 'pending';
+         try
+         {
++            this.#retireOwnerAuthority(owner);
++            owner.consumerInvalidationState = 'pending';
+             const pending = owner.consumer.invalidateDocument(this.#inspectRetainedOwner(owner));
+             if (!pending)
+             {
+diff --git a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+index fbe62dab1..45a8dea8e 100644
+--- a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
++++ b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+@@ -93,6 +93,10 @@ interface RetainedArticleDocumentCell {
+     readonly read: () => RetainedArticleDocumentInspection;
+     readonly notify: () => void;
+     readonly publication: () => RetainedMembershipPublication | null;
++    readonly retire: () => void;
++    readonly retirementPending: () => boolean;
++    readonly retirementListeners: Set<() => void>;
++    readonly retirementFailures: unknown[];
+     readonly listeners: Set<() => void>;
+     reason: RetainedArticleDocumentRevocation | null;
+     membershipClosed: boolean;
+@@ -181,6 +185,21 @@ export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDo
+     };
+ }
+ 
++/** Synchronous pre-change signal from this same original cell/Registry realm. */
++export function subscribeRetainedArticleDocumentRetirement(handle: RetainedArticleDocumentHandle, listener: () => void): () => void
++{
++    const cell = retainedArticleDocumentCells.get(handle);
++    if (!cell || typeof listener !== 'function' || cell.retirementPending() || cell.publication() === null)
++    {
++        throw new Error('retained-article-document-retirement-subscription-unavailable');
++    }
++    cell.retirementListeners.add(listener);
++    return () =>
++    {
++        cell.retirementListeners.delete(listener);
++    };
++}
++
+ /** Only scope retirement is an explicit revocation; close follows canonical removal. */
+ export function revokeRetainedArticleDocumentScope(handle: RetainedArticleDocumentHandle): void
+ {
+@@ -199,13 +218,45 @@ export function revokeRetainedArticleDocumentScopeSet(handles: readonly Retained
+         }
+         return cell;
+     });
++    if (cells.some(cell => cell.retirementPending()))
++    {
++        throw new Error('retained-article-document-retirement-in-progress');
++    }
++    const retiredRegistries = new Set<OpenArticleDocumentRegistry>();
++    const failures: unknown[] = [];
++    for (const cell of cells)
++    {
++        if (!retiredRegistries.has(cell.registry))
++        {
++            retiredRegistries.add(cell.registry);
++            try
++            {
++                cell.retire();
++            }
++            catch (error)
++            {
++                failures.push(error);
++            }
++        }
++    }
+     for (const cell of cells)
+     {
+         cell.reason ??= 'scope-revoked';
+     }
+     for (const cell of cells)
+     {
+-        cell.notify();
++        try
++        {
++            cell.notify();
++        }
++        catch (error)
++        {
++            failures.push(error);
++        }
++    }
++    if (failures.length > 0)
++    {
++        throw new AggregateError(failures, 'retained-article-document-scope-retirement-failed', { cause: failures[0] });
+     }
+ }
+ 
+@@ -829,6 +880,7 @@ export class OpenArticleDocumentRegistry
+     #retainedNotificationPending = false;
+     #retainedNotificationRequested = false;
+     #membershipMutationDepth = 0;
++    #membershipRetirementPending = false;
+     #membershipPublication: RetainedMembershipPublication | null = { entries: this.entriesByTabId, revision: this.revision };
+ 
+     #runMembershipMutation<T>(operation: () => T): T
+@@ -839,6 +891,7 @@ export class OpenArticleDocumentRegistry
+         let outcome: { succeeded: true; value: T; } | { succeeded: false; error: unknown; };
+         try
+         {
++            this.#retireMembershipAuthority();
+             outcome = { succeeded: true, value: operation() };
+         }
+         catch (error)
+@@ -882,9 +935,51 @@ export class OpenArticleDocumentRegistry
+         return outcome.value;
+     }
+ 
++    #retireMembershipAuthority(): void
++    {
++        if (this.#membershipRetirementPending)
++        {
++            throw new Error('retained-article-document-retirement-in-progress');
++        }
++        this.#membershipPublication = null;
++        this.#membershipRetirementPending = true;
++        const failures: { cell: RetainedArticleDocumentCell; error: unknown; }[] = [];
++        try
++        {
++            for (const cell of this.#retainedDocumentCells)
++            {
++                for (const listener of [...cell.retirementListeners])
++                {
++                    try
++                    {
++                        listener();
++                    }
++                    catch (error)
++                    {
++                        failures.push({ cell, error });
++                    }
++                }
++            }
++        }
++        finally
++        {
++            this.#membershipRetirementPending = false;
++        }
++        for (const failure of failures)
++        {
++            failure.cell.notificationFailed = true;
++            failure.cell.retirementFailures.push(failure.error);
++        }
++        if (failures.length > 0)
++        {
++            throw new AggregateError(failures.map(failure => failure.error), 'retained-article-document-pre-retirement-failed',
++                { cause: failures[0].error });
++        }
++    }
++
+     #publishMembershipAuthority(): void
+     {
+-        if (this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending || this.#retainedNotificationPending)
++        if (this.#membershipMutationDepth !== 0 || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+         {
+             return;
+         }
+@@ -902,7 +997,7 @@ export class OpenArticleDocumentRegistry
+     public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
+     {
+         const entry = this.entriesByTabId.get(tabId);
+-        if (!entry || this.#ownershipTransactionPending || this.#retainedNotificationPending)
++        if (!entry || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+         {
+             throw new Error('retained-article-document-member-unavailable');
+         }
+@@ -938,6 +1033,10 @@ export class OpenArticleDocumentRegistry
+             listeners: new Set(),
+             notify: () => this.#notifyRetainedDocuments(),
+             publication: () => this.#membershipPublication,
++            retire: () => this.#retireMembershipAuthority(),
++            retirementPending: () => this.#membershipRetirementPending,
++            retirementListeners: new Set(),
++            retirementFailures: [],
+             read: () =>
+             {
+                 const current = this.entriesByTabId.get(tabId);
+@@ -1098,7 +1197,7 @@ export class OpenArticleDocumentRegistry
+     private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
+         next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
+     {
+-        if (this.#ownershipTransactionPending || this.#retainedNotificationPending)
++        if (this.#ownershipTransactionPending || this.#retainedNotificationPending || this.#membershipRetirementPending)
+         {
+             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
+         }

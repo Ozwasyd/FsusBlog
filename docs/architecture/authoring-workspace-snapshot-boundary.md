@@ -1,5 +1,239 @@
 # Authoring workspace snapshot source handoff
 
+## Retained document authority source boundary
+
+The original `OpenArticleDocumentRegistry.issueRetainedDocumentHandle(tabId)`
+issues an opaque process-local handle from its actual canonical membership.
+`inspectRetainedArticleDocumentHandle` reads that same Registry's current facts;
+a copied entry, matching string, copied handle or foreign Registry is not handle
+provenance. Normal activation, pinning and joint Group/ratio publication preserve
+the original membership. Final detach and preview replacement revoke before an
+equal-ID reopen; changed document/draft/session/epoch invalidates the old handle.
+Permission and lifecycle blocking preserve the canonical entry and recovery
+obligations. Scope retirement prevents reissuing a handle for that same member.
+
+Handle notifications run outside the original command preparation/publication
+and history/CAS transaction. A failing listener is retained as a failed
+notification in inspection; it cannot turn a committed command into a rejected
+receipt. Reentrant notification commands refuse. Handles are not permission,
+snapshot-restore or safe-eviction grants. No body/history/cache, second article
+index, Host, persistence or server DocumentId contract is introduced here.
+
+Original Registry membership seals bind the authentic retained cell, its actual
+canonical entry and original publication/revision. `sealRetainedArticleDocumentMembership`
+freshly inspects membership; `hasSealedRetainedArticleDocumentMembershipCustody`
+joins private original pointers/state without `cell.read`, clone, allocation or
+external reader. `cancelRetainedArticleDocumentMembershipSeal` removes that actual
+issued token. Registry command/ownership preparation and notification entry retire
+the original publication before getters, hashes, clones and callbacks; only the
+original stable canonical Map/revision publication can issue a replacement token.
+Scope/close/identity/permission/lifecycle and notification failure invalidate the
+same original cell. There is no second membership index or downstream boolean
+listener cache. Original Group publication guards/CAS/history/ratio remain intact.
+These seals prove only original membership custody, not mount/auth/full-ready.
+The outermost original membership mutation drains queued notifications on both
+successful and exceptional exits. A command getter may revoke a genuine handle
+before throwing; that revocation still reaches original Document cancellation and
+consumer cleanup. Original operation error remains the error on successful drain;
+an unexpected drain error is preserved alongside it, with publication retired and
+failure custody retained. Notification is not a success-only wrapper epilogue.
+
+The original singleton `ArticleDocumentContextAuthority` owns the retained
+adapters. `prepareRetainedDocument(registry, input, scopeReaders)` issues original
+document/draft/editor-session identities and returns only a provenance-bound
+preparation/context. Open that context through the canonical Registry, obtain
+its issued handle, then call `acquireRetainedDocument(handle, preparation)`.
+For an already open article, acquire its original handle without supplying a new
+preparation; `discardRetainedPreparation` retires an unused offer. Caller strings
+cannot replace the original issuer. Same-source articles and unsaved drafts have
+separate adapters and task/epoch/source-revision ownership. No retained adapter
+can be switched through the legacy route-owned binding.
+
+The already mounted primary Writer calls
+`adoptPrimaryRetainedDocument(registry, handle, originalBinding, scopeReaders)`.
+This validates the actual previously issued binding, original Registry provenance,
+identity/epoch and source/draft coordinates, and preserves the SAME adapter,
+native document identity, original tasks and epoch. It never reacquires the
+primary. The Registry's session reference and the original opaque editor session
+ID remain their existing association; neither is reconstructed from a route.
+Raw principal/site readers are reread on admission and use. Principal/site drift
+and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission for
+the original owners and notify their consumers. Scope-revocation callbacks cannot
+admit new owners reentrantly.
+
+A loaded primary whose original identity differs from an existing canonical
+member may call `preparePrimaryRetainedHandover(registry, handle, originalBinding,
+scopeReaders)`, then consume that SAME preparation with
+`acquireRetainedDocument(handle, preparation)`. The authority authenticates both
+issued objects and reserves the actual handle/adapter before external readers.
+Only one live primary binding, with no retained owner or other preparation, may
+enter. Article/draft identity and numeric source/draft revision must already match
+that canonical member. Its genuine handle supplies only document identity/epoch;
+the original mounted adapter, editor-session identity and content digest remain.
+Preparation does not mutate the primary; an unused preparation can be discarded
+without disposing its borrowed adapter. Ordinary source edits invalidate the offer.
+
+Consumption reserves context mutation, revalidates the actual primary/scope/member,
+cancels the old context's tasks, revalidates again after their synchronous abort
+callbacks, and publishes one switch receipt before the original retained binding.
+Canceled work remains pending until its producer actually settles. Original context
+listeners receive the new context; a post-publication refusal retires document
+admission and retains actual custody instead of rolling back notified context or
+claiming native completion. The actual Writer still registers its original consumer
+through `attachConsumer`; a consumer already owned by any other retained owner
+cannot be moved or duplicated. This is not an API to switch an existing retained
+adapter or transfer a registered consumer's form/history/native resources.
+
+The preparation installs an actual borrowed-primary admission guard before it
+escapes. Scope retirement closes that guard synchronously, including nested
+retirement whose canonical cleanup remains queued; task/source admission refuses
+while real pending work and cleanup stay in the drain. The original owner's scope
+is pinned independently of later edits to its borrowed adapter. Discard cannot
+remove a retired owner from pending cleanup or reopen admission. A live unused
+handover may still be edited; rejecting its now-stale offer does not dispose that
+adapter or mark an identity publication. Explicit discard releases that unused pin
+and preserves the actual edited context and pending work.
+
+The sole-binding constraint is revalidated at consumption, after cancellation and
+other external reads, and after publication/notification. A second genuine legacy
+binding acquired since preparation prevents publication; after its real release,
+the original unused offer can retry if all original context facts still match.
+An explicit module-private marker records ONLY actual target context publication.
+That marker, not any context difference, determines failed-publication custody and
+discard refusal. Strict adoption cannot bypass an unbound handover pin. These
+facts do not settle tasks or prove native/full-ref restoration. If a borrowed
+primary's real disposal listener fails, its failure custody remains retained while
+the original drain processes the remaining queued scopes. Only afterward does
+revocation report the aggregate actual cleanup failures; no failed cleanup is
+recorded as settled or silently discarded.
+
+This handover does not validate a loaded body against a snapshot, grant full native
+restore or label arbitrary source as current. A different article/draft, unmatched
+source/draft revision, or unsupported Registry source reference refuses. Restored
+unsaved drafts need their original draft/body producer's genuine identity/revision
+handover; a new create-draft issuer cannot stand in for it. The original Writer/body
+loader and Registry source-publication owner must establish those coordinates
+before this API, and the original native/session owner must validate physical
+binding, actual snapshot/body authority and resource lifetime afterward. No
+revision renumbering, body store, new document ID issuer or native settlement is
+introduced by this seam. All corresponding runtime qualifications remain HOLD.
+
+The returned binding exposes `adapter`, `handle`, `inspect()`,
+`subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
+attaches its actual existing form/effects/runtime object once, using one stable
+factory callback. Repeat use returns that SAME consumer, never a cloned form or
+another Writer composable. A different factory or reentrant attachment refuses.
+Layout borrows the original Writer's commands and view/mount ports. The authority
+retains actual consumer references on final invalidation or cleanup failure;
+permission/delete/archive blocking does not invoke final consumer release.
+If final invalidation returns an actual cleanup promise, the SAME promise remains
+in owner custody and `consumerInvalidationState` reports pending/settled/failed;
+an asynchronous rejection records failure and preserves the actual reference.
+This is producer completion observation, not native disposal or release permission.
+Original `adapter.subscribeContext` remains the context-change subscription.
+
+The original retained binding also issues `sealLifetimeAuthority()` and exposes
+`hasLifetimeAuthorityCustody(seal)` / `cancelLifetimeAuthority(seal)`. Its opaque
+seal joins the authentic owner/binding/handle, original membership seal, actual
+consumer pointer and the adapter's private context publication. Fresh scope/member
+and matching revision inspection precedes issuance. Pure final has only joins
+those private pointers and original producer facts; it never calls `cell.read`,
+`adapter.context`, a scope reader, clone, observer, or an allocating inspection.
+It does not infer mounted/auth/native resource authority from this document seal.
+Non-null owner publication and actual consumer are captured before opaque token
+allocation. Allocation reentry must leave both exact pointers unchanged, and final
+has explicitly refuses a null current publication. Cached attachment retirement
+cannot make a canceled/null seal valid again when its temporary phase ends.
+
+Actual adapter mutation/handover/disposal retires the private native publication
+before external guards, cancellation or notifications. Owner scope retirement,
+notification entry and consumer attachment/release retire original owner authority
+before their first external read/cleanup callback. Failure and queued cleanup retain
+existing custody; no cancellation or null seal settles real work. A stale source
+reference prevents resealing. These producer tokens are not downstream boolean
+listener caches or full-ready receipts; all original guards and handover semantics
+remain, with new source review and every original runtime qualification held.
+
+`inspect().registry` reads canonical membership and permission/lifecycle facts;
+`registryRevisionMatchesDocument` separately reports whether the canonical
+source/draft reference coordinates match the original adapter. Ordinary source
+updates advance the adapter's original numeric revision without changing its
+identity/epoch. This seam does not add a Registry revision command: the original
+Writer/Registry revision-publication owner must refresh those references before
+Host restoration/readiness can succeed. A mismatching reference is reported,
+never rewritten as current readiness.
+
+Canceled leases stay in their original adapter's `pendingTaskRefs` until the
+actual producer calls `lease.settle()` after its real work/cleanup has settled.
+Running work cannot be settled. Acceptance, rejection and logical completion do
+not settle actual underlying work; the original producer explicitly acknowledges
+settlement after its real completion AND cleanup. Original acceptance/stale result
+rules remain intact. Terminal envelopes are published before synchronous abort
+listeners run, preventing duplicate completion on reentrant cancellation. An abort or
+aborted envelope is not completion. Final close, identity replacement and scope
+revocation disable old admission and notify consumers while retaining canceled
+work and recovery references; they do not prove native disposal or zero resources.
+No explicit safe-eviction grant is supplied: the original Host's full snapshot/
+recovery/disposal capability must satisfy its original preconditions first.
+
+Multiple unsaved draft IDs have real process-local lifetime here. Persistence and
+journal coordinates remain the original Writer/storage owners' obligation. The
+shared literal create key cannot be used to overwrite another retained draft;
+this authority adds no body/journal store, storage namespace or persistence-policy
+change, and makes no multi-draft persistence or cross-restart claim.
+
+Dedicated source controls are `retainedArticleDocumentHandle.test.ts` and
+`articleDocumentRetainedAuthority.test.ts`, using the original unit configuration
+and actual original Registry/authority source. These and all existing runtime,
+test/list/discovery/import, browser/native, security, receipt, race and database
+qualifications remain unrun/HOLD in this lane. Pure compiler/style evidence does
+not establish product or full Host lifecycle acceptance.
+
+Retained cell/owner/preparation/task custody and the helpers that reach it use
+runtime `#private` state, rather than erased TypeScript privacy. Admission reserves
+the actual handle and adapter before scope-reader calls, verifies primary release,
+scope lifetime, complete current handle observation and unchanged context afterward,
+and subscribes before the final read window. Unpublished live admission rolls back
+on failure; actual revocation keeps its pending recovery custody. A scope tombstone
+lasts for that original member: formal detach ends its incarnation, and an equal-ID
+new canonical member may issue a new handle while the old handle remains revoked.
+
+Notification and scope-retirement requests are deferred and drained during
+reentrancy. All actual target owners retire before consumer notifications; unbound
+preparations also retire. Retirement during preparation/adoption prevents
+equal-value scope ABA admission. Another scope request from a consumer cannot be
+dropped. These are ownership/lifetime facts, not strings used as permission grants.
+
+Context mutation and task-slot publication reserve their real original state
+before external guards. Failed result hashing/getters keep a recoverable lease
+and active slot; cancellation can publish a genuine terminal afterward. Digest
+preparation precedes ledger removal, terminal commits recheck current ownership,
+and cancellation during preparation is retained. Only explicit actual producer
+settlement removes pending work. Original Group cell/startup guard/ratio publication,
+CAS/idempotency/history, public issuer and server/persistence contracts remain.
+These repairs still require independent exact-head review and held qualification.
+
+Document mutation also blocks new task issuance until its actual revision is
+published, including a new producer key requested by the final external guard.
+Nested retirement closes the actual target owner/preparation admission before
+returning; canonical notifications and cleanup remain deferred obligations.
+`inspect().admissionClosed` reports that owner fact separately from the Registry's
+current member state. Readonly inspection never fabricates a Registry terminal
+state to represent queued cleanup. Adapter/consumer admission rechecks local
+retirement after external readers. Existing tasks remain pending until real
+cancellation/cleanup and explicit producer settlement; stale is not settled.
+
+Consumer attachment reserves its real slot before entry readers, even for cached
+consumer access. Admission is revalidated after the factory returns, after the
+consumer method property getter, and after every subsequent scope-reader call.
+Local retirement is checked alongside canonical facts; a still-live Registry
+member cannot authorize returning a locally retired consumer. Rejection retains
+the actual created consumer/factory and pending work for the original drain. If
+canonical retirement finished before the factory returned, its missed cleanup is
+performed against that same consumer, preserving failure and actual promise custody.
+Primary adoption's final reader and existing-binding returns also recheck local
+retirement. None of these checks grants restoration, settlement or safe disposal.
+
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.

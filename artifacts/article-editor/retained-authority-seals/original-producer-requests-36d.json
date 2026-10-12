@@ -1,0 +1,73 @@
+[
+  {
+    "owner": "original Registry/Group",
+    "file": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+    "actual": "retainedArticleDocumentCells weak-map/cell; issueRetainedDocumentHandle; updateEntry/removeEntry; revokeRetainedArticleDocumentScopeSet; ownership transaction/notification pending/failed flags",
+    "requested": [
+      "sealRetainedArticleDocumentMembership(handle: RetainedArticleDocumentHandle): MembershipSeal | null",
+      "hasSealedRetainedArticleDocumentMembershipCustody(seal: MembershipSeal): boolean",
+      "cancelRetainedArticleDocumentMembershipSeal(seal: MembershipSeal): boolean"
+    ],
+    "events": "entry/document id/epoch/source/draft/lifecycle revision; permission/lifecycle/final close/identity replacement; ownership transaction; scope revoke; notification failure. Original private seal invalidated BEFORE every external notify/read/clone/callback; private has cannot call allocating cell.read().",
+    "actualSourceBlobs": {
+      "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": "d0fba443d5d0522fdefa1b24249fae858564ca34"
+    }
+  },
+  {
+    "owner": "original Document",
+    "file": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+    "actual": "ArticleDocumentRetainedBinding; #bindRetainedOwner; owner.scopeRetired/invalidationFailed; adapter #current/#disposed/contextMutationPending; revokeRetainedScope; #notifyRetainedOwner",
+    "requested": [
+      "ArticleDocumentRetainedBinding.sealLifetimeAuthority(): DocumentLifetimeSeal | null",
+      "ArticleDocumentRetainedBinding.hasLifetimeAuthorityCustody(seal: DocumentLifetimeSeal): boolean",
+      "ArticleDocumentRetainedBinding.cancelLifetimeAuthority(seal: DocumentLifetimeSeal): boolean"
+    ],
+    "events": "actual original scope/member/context/adapter disposed/invalidation failure and consumer release. Pure final has must join original membership private token and native adapter/private owner identity. Retire BEFORE #notifyRetainedOwner calls cancelAll/dispose/#inspectRetainedOwner/external listeners. A downstream listener cache is insufficient.",
+    "actualSourceBlobs": {
+      "src/frontend/src/services/authoring/articleDocumentContext.ts": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb"
+    }
+  },
+  {
+    "owner": "original Writer",
+    "file": "src/frontend/src/composables/useAdminArticleWrite.ts",
+    "actual": "same authoringEditorRuntime.bindEditor runtime; release; originalMountedEditor/originalMountedRuntime/editorRuntimeBinding; componentAttached/active; fullDraftPrincipalRetired; preparedDraftCustody; subscribeLifetime",
+    "requested": [
+      "same original mounted runtime.sealMountedAuthority(editorSessionRef: string): MountedWriterSeal | null",
+      "same original mounted runtime.hasMountedAuthorityCustody(seal: MountedWriterSeal): boolean",
+      "same original mounted runtime.cancelMountedAuthority(seal: MountedWriterSeal): boolean"
+    ],
+    "events": "retire BEFORE release() first recoveryCheckpoint.release callback, pointer replacement, component unmount/scope dispose/active=false, context/retained member changes, actual auth token invalidation. Existing draft candidate private has is genuine but downstream lifetime listener occurs after Document cleanup; id-only principal watch does not attest permissions/admin admission.",
+    "actualSourceBlobs": {
+      "src/frontend/src/composables/useAdminArticleWrite.ts": "ab2a1ab6630a2129094ea4b559bfcf2c97357f1e"
+    }
+  },
+  {
+    "owner": "original auth/private surface",
+    "files": [
+      "src/frontend/src/store/admin.ts",
+      "src/frontend/src/services/privateSurfaceRuntime.ts"
+    ],
+    "actual": "setAdminPrincipal/clearAdminPrincipal/invalidateMissingCache; mutable exposed principal/adminState; privateSurfaceRuntime.invalidate first clearingState=true, generationState change, then advanceForAuthTransition/cleanup/termination callbacks",
+    "requested": [
+      "same original auth producer.sealAdminPrincipalAuthority(expectedIdentityId: string): AdminPrincipalSeal | null",
+      "same original auth producer.hasAdminPrincipalAuthorityCustody(seal: AdminPrincipalSeal): boolean",
+      "same original auth producer.cancelAdminPrincipalAuthority(seal: AdminPrincipalSeal): boolean"
+    ],
+    "events": "real principal replacement/clear/ABA, permissions, adminState/adminSessionStatus/step-up, expiry and private surface clearing/auth-generation/account switch/logout/session-expired. Producer-owned private token must retire synchronously before external observer/termination/clear callbacks and auth transition allocation/advance. Same-id permissions/state changes are NOT covered by Writer id-only watch; readonly reactive authGeneration/isClearing are real source but not existing pure private reservation. No auth/security/network qualification granted.",
+    "actualSourceBlobs": {
+      "src/frontend/src/store/admin.ts": "101e78249b17901956bb2d249290801a0a42811d",
+      "src/frontend/src/services/privateSurfaceRuntime.ts": "81964e4adf69a875e92612276caf8221e04f38d4"
+    }
+  },
+  {
+    "owner": "original Root/Layout",
+    "actualCurrentTree": "production files authoringWorkspaceSessionSource/authoringWorkspaceLayoutController and installer caller postimages absent at this fixed Main source; existing composition receives external resolver/preparation only",
+    "offerFile": "src/frontend/src/layouts/AdminWorkspaceFrame.vue in original layout-2f386-root-owner-physical-offer.patch (not imported as new source)",
+    "requested": [
+      "original successful retained mount owner.sealMountedAuthority(editorSessionRef: string): RootMountedSeal | null",
+      "original successful retained mount owner.hasMountedAuthorityCustody(seal: RootMountedSeal): boolean",
+      "original successful retained mount owner.cancelMountedAuthority(seal: RootMountedSeal): boolean"
+    ],
+    "events": "actual mounted subtree/route-outlet source/component ref, retained member handle/cancel/replacement, startup retirement and original principal/private surface token. Missing provider Queryv1/resolveBatch/canonical stays refusal; no mounting/provider completion inferred from composition seal."
+  }
+]

@@ -1,0 +1,58 @@
+diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
+index d9a09b86c..055558e54 100644
+--- a/src/frontend/src/services/authoring/articleDocumentContext.ts
++++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
+@@ -408,6 +408,7 @@ const retainedAdapterGuards = new WeakMap<ArticleDocumentContextAdapter, {
+     readonly isAdmitted: () => boolean;
+     readonly inspect: () => RetainedArticleDocumentInspection;
+     readonly notificationActive: () => boolean;
++    readonly retryActive: () => boolean;
+ }>();
+ 
+ const stableRefPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u;
+@@ -935,7 +936,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         const subscription = registerNotificationSubscription(this.#contextListeners,
+             () => listener(this.#disposed ? null : this.#current), () => this.#notifyContext(),
+             () => this.#contextNotificationDepth !== 0 || this.#retirementPending || this.#contextMutationPending || this.#taskCancellationDepth !== 0
+-                || retainedAdapterGuards.get(this)?.notificationActive() === true);
++                || retainedAdapterGuards.get(this)?.retryActive() === true);
+         if (this.#disposed)
+         {
+             this.#notifyContext();
+@@ -1006,7 +1007,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+             {
+                 return registerNotificationSubscription(this.#retirementListeners, listener, () => this.#retireLifetimeAuthority(),
+                     () => this.#retirementPending || this.#contextNotificationDepth !== 0 || this.#contextMutationPending || this.#taskCancellationDepth !== 0
+-                || retainedAdapterGuards.get(this)?.notificationActive() === true);
++                || retainedAdapterGuards.get(this)?.retryActive() === true);
+             },
+             retirementActive: () => this.#retirementPending || this.#contextMutationPending || this.#disposed,
+             notificationActive: () => this.#retirementPending || this.#contextMutationPending || this.#contextNotificationDepth !== 0
+@@ -2365,14 +2366,14 @@ export class ArticleDocumentContextAuthority
+                     throw new Error('article-document-retirement-subscription-unavailable');
+                 }
+                 return registerNotificationSubscription(owner.retirementListeners, listener, () => this.#retireOwnerAuthority(owner),
+-                    () => owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
++                    () => owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
+                         || nativeDocumentLifetimePorts.get(owner.adapter)?.notificationActive() === true);
+             },
+             subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
+             {
+                 return registerNotificationSubscription(owner.listeners, () => listener(this.#inspectRetainedOwner(owner)),
+                     () => this.#notifyRetainedOwner(owner),
+-                    () => owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
++                    () => owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
+                         || nativeDocumentLifetimePorts.get(owner.adapter)?.notificationActive() === true);
+             },
+             attachConsumer: <T extends ArticleDocumentRetainedConsumer>(create: (retained: ArticleDocumentRetainedBinding) => T): T =>
+@@ -2452,7 +2453,9 @@ export class ArticleDocumentContextAuthority
+         retainedAdapterGuards.set(owner.adapter, {
+             isAdmitted: () => !owner.scopeRetired && !owner.invalidationFailed,
+             inspect: () => this.#readRetainedRegistry(owner),
+-            notificationActive: () => owner.retirementPending || owner.listenerNotificationDepth !== 0
++            notificationActive: () => owner.retirementPending || owner.listenerNotificationDepth !== 0,
++            retryActive: () => owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0
++                || owner.listenerNotificationDepth !== 0 || this.#ownerRetirementDepth !== 0
+         });
+         let stopNativeRetirement: (() => void) | undefined;
+         let stopMembershipRetirement: (() => void) | undefined;

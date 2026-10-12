@@ -1,0 +1,14 @@
+{
+  "source": "002a48338a6fbb2cd97eb5195cfd302cbaf229a7",
+  "command": "git diff 85a8ebebba8f777eef9d30466d4101e15f74b649 --check",
+  "exit": 2,
+  "rawPatchContextWhitespaceWarnings": 2,
+  "aggregatePass": false,
+  "standardRawPatchesPreserved": true,
+  "appliedProductionDiffCheckExit": 0,
+  "appliedFourPathSourceDiffCheckExit": 0,
+  "predecessorArtifactExit": 2,
+  "predecessorArtifactWarnings": 22,
+  "predecessorEvidenceUnchanged": true,
+  "qualification": false
+}

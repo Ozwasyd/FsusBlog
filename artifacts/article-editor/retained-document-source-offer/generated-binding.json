@@ -1,0 +1,94 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "artifacts/article-editor/retained-document-source-offer/build-source-offer-manifest.py",
+    "artifacts/article-editor/retained-document-source-offer/01-canonical-group-registry.patch",
+    "artifacts/article-editor/retained-document-source-offer/02-retained-document-producer.patch",
+    "artifacts/article-editor/retained-primary-handover/capture-source-offer.py",
+    "src/frontend/src/services/authoring/articleDocumentContext.ts",
+    "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+    "docs/architecture/authoring-workspace-snapshot-boundary.md",
+    "artifacts/article-editor/retained-document-authority/preflight.md",
+    "artifacts/article-editor/retained-authority-seals/capture-source-offer.py",
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+    "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
+    "artifacts/article-editor/retained-pre-retirement/capture-source-offer.py",
+    "artifacts/article-editor/retained-retry-custody/capture-source-offer.py",
+    "artifacts/article-editor/retained-retry-entry/capture-source-offer.py",
+    "artifacts/article-editor/retained-retry-attach/capture-source-offer.py"
+  ],
+  "outputs": [
+    {
+      "path": "artifacts/article-editor/retained-document-source-offer/source-offer.json",
+      "sha256": "3297202a35907d2e6a97719a9c8c4f8444d1c72aadf4ed73d89023b7b999efe8"
+    },
+    {
+      "path": "artifacts/article-editor/retained-primary-handover/consumer-1b8.patch",
+      "sha256": "deed9d5618952aea3c9411ef7a2ea500e236b44d1e3f04162812aae18bf1291e"
+    },
+    {
+      "path": "artifacts/article-editor/retained-primary-handover/source-offer.json",
+      "sha256": "95c1ea3a33b64db52f72fa83b77183fcf149ff3f88638c814650e909e64eb3d7"
+    },
+    {
+      "path": "artifacts/article-editor/retained-authority-seals/consumer-36d.patch",
+      "sha256": "5d1e09dfe4fcd5aa27284f46ef4a17dfe95296d64606c55c344a00904d879271"
+    },
+    {
+      "path": "artifacts/article-editor/retained-authority-seals/production-36d.patch",
+      "sha256": "41cf654e6e46aa593021a55becf24575ddfb9dd3f14136646e9db4d009c0b305"
+    },
+    {
+      "path": "artifacts/article-editor/retained-authority-seals/source-offer.json",
+      "sha256": "e8036158c32bc166e241b2da6cbff4485c48d77442953d57bcbf8e4285e1db94"
+    },
+    {
+      "path": "artifacts/article-editor/retained-pre-retirement/production-d354.patch",
+      "sha256": "c5dd16cf5ac88db55e99e9d06e59a742d274671e26e73ba6e061ca457518637c"
+    },
+    {
+      "path": "artifacts/article-editor/retained-pre-retirement/consumer-d354.patch",
+      "sha256": "bcb1e2629729439f05c07808c07da7e37af510c7acf634089fc9dcd0e376923a"
+    },
+    {
+      "path": "artifacts/article-editor/retained-pre-retirement/source-offer.json",
+      "sha256": "cbdd8f196dd22ff5352711c95d3f205de216c82d0b8b8c8c2813c7c58d23ce20"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-custody/production-537.patch",
+      "sha256": "1585503fd1e71a8b0a1b4dfc8e8c0d9c8fe0044b1372f5f85661435bc6881217"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-custody/consumer-537.patch",
+      "sha256": "1bc9a1b67b687ffa76f0e502f454f34a9c243d9a14f13b34be870f89b20d52e5"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-custody/source-offer.json",
+      "sha256": "8907790208ceae42de2f1cb62396d4b4cbd6636e5b840304470a00efeaca2724"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-entry/production-b304.patch",
+      "sha256": "98337c712fcc1b6f415bd3a559f33cd2dec01b02a66d5c82c96a0bfee2eb2721"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-entry/consumer-b304.patch",
+      "sha256": "c88052ffd9b651965cecb848bae183bc82e8cd03272a46e77f1e4674532daaaf"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-entry/source-offer.json",
+      "sha256": "97d20959865c019d25910c168ffe454acd58de5715985b83dced0924c78727d2"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-attach/production-85a8.patch",
+      "sha256": "07aaf7045bfa91930f0fa97d0d6ef8bc6b23549ddad62b678932dae5f536b70c"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-attach/consumer-85a8.patch",
+      "sha256": "15204b53409a041332639aeb787c2d3ee7cd6ba4835096a86cb08a5f0dab507b"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-attach/source-offer.json",
+      "sha256": "3270164985f100ad0c5847f74f23edf94445a8d3ce85723634fe40fd642dd3ff"
+    }
+  ]
+}
