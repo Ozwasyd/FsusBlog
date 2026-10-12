@@ -1225,9 +1225,18 @@ Doc/Registry and original host/router remain unchanged by this intake.
 
 The independently closed Doc7ab exact two-file postimages supply synchronous
 `subscribeRetirement`, real stop `retry()`/`inspect()`, and `retryInvalidation()`.
-Current Write physical preparation still needs to call the original retained
-primary adoption before Root can borrow that issued binding; metadata cannot
-substitute for it. Root667 source is a real producer join, not full-host resource,
+Write physical preparation now issues/reuses the canonical Registry handle and
+calls the original retained primary adoption on that SAME real Writer/native
+mount. It verifies the returned original consumer binding through the admission-only
+Writer reader and repeats the existing physical/epoch/association guards before
+completion. The actual startup host callback retains and awaits its original
+external prepare, then invokes this SAME Frame's seal/admission helper without
+repeating physical preparation. Module installation pins that Frame callback
+identity alongside its original revoker/retirer; no alternate host is installed.
+The original Root helper borrows the adopted binding and registers its real
+pre-retirement sources. Preparation attempts its actual watcher/listener cleanup
+and propagates the original failure identity or an aggregate preserving all
+separate cleanup causes; cleanup failure cannot become successful completion. Root667 source is a real producer join, not full-host resource,
 restoration, recovery or ready qualification. Runtime remains HOLD/UNRUN.
 
 ### Public native document reservation consumer (#2295)

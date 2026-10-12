@@ -102,6 +102,7 @@ let workspaceInstallation: {
         sessions: AuthoringWorkspaceSessionSource | null;
         readonly revokeMountedAuthority: () => void;
         readonly retireMountedAuthority: () => void;
+        readonly admitMountedEditor: AdminArticleWorkspaceStartupPorts['prepareMountedEditor'];
         readonly invalidateLayouts: Set<() => void>;
     };
     readonly task: Promise<{
@@ -246,6 +247,10 @@ async function startArticleWorkspace(
         requireStartupAdmission(ports);
         await mountOwner.call(ports, entry, signal);
         requireStartupAdmission(ports);
+        // The external original prepare owns physical completion. This SAME Frame
+        // must still join its actual Write/Writer/Doc reservation before host admission.
+        await resources.admitMountedEditor(entry, signal);
+        requireStartupAdmission(ports);
     });
     resources.sessions = sessions;
     requireStartupAdmission(ports);
@@ -266,14 +271,16 @@ async function startArticleWorkspace(
 
 /** Sole host installer: failed/partial startup cannot be retried against a now-started Registry. */
 function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts, signal: AbortSignal,
-                                        revokeMountedAuthority: () => void, retireMountedAuthority: () => void): NonNullable<typeof workspaceInstallation>['task']
+                                        revokeMountedAuthority: () => void, retireMountedAuthority: () => void,
+                                        admitMountedEditor: AdminArticleWorkspaceStartupPorts['prepareMountedEditor']): NonNullable<typeof workspaceInstallation>['task']
 {
     const installed = workspaceInstallation;
     if (installed)
     {
         if (installed.ports !== ports || installed.signal !== signal
             || installed.resources.revokeMountedAuthority !== revokeMountedAuthority
-            || installed.resources.retireMountedAuthority !== retireMountedAuthority)
+            || installed.resources.retireMountedAuthority !== retireMountedAuthority
+            || installed.resources.admitMountedEditor !== admitMountedEditor)
         {
             return Promise.reject(new Error('article-workspace-startup-owner-changed'));
         }
@@ -294,6 +301,7 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         sessions: null,
         revokeMountedAuthority,
         retireMountedAuthority,
+        admitMountedEditor,
         invalidateLayouts: new Set()
     };
     // Reserve the sole installation before any original capability callback can re-enter it.
@@ -596,6 +604,18 @@ function captureRouteOutlet(instance: unknown): void
 /** Borrow only the actual current routed Writer's public physical preparation operation. */
 async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
 {
+    return completeCurrentPrimaryMountedEditor(entry, signal, true);
+}
+
+/** Join the actual already-prepared physical Write; never replace/repeat its external prepare. */
+async function admitCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
+{
+    return completeCurrentPrimaryMountedEditor(entry, signal, false);
+}
+
+async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal,
+                                                   preparePhysical: boolean): Promise<void>
+{
     try
     {
         const instance = routeOutletInstance.value;
@@ -646,7 +666,10 @@ async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDoc
         {
             throw new Error('article-workspace-primary-mount-operation-unavailable');
         }
-        await prepare.call(port, entry, signal);
+        if (preparePhysical)
+        {
+            await prepare.call(port, entry, signal);
+        }
         verify();
         const current: unknown = getter.call(instance);
         verify();
@@ -952,7 +975,11 @@ function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPort
     const startupSignal = selectedPorts.signal;
     workspaceStartupState.value = 'starting';
     startupSignal.addEventListener('abort', markWorkspaceStartupUnavailable);
-    void Promise.resolve().then(() => installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker, mountedRetirer)).then(({ plan, sessions }) =>
+    const installationTask = Promise.resolve().then(() =>
+    {
+        return installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker, mountedRetirer, admitCurrentPrimaryMountedEditor);
+    });
+    void installationTask.then(({ plan, sessions }) =>
     {
         if (!mounted)
         {
