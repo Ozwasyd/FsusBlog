@@ -1,0 +1,11 @@
+{
+  "baselineSource": "3c5e3f19b0f9cf1a6aafc6b308a76f43f9a03b0e",
+  "testedSource": "cbd7213c31dd9a189c3a5d80456a7efd110a65f8",
+  "baselineDiagnosticCount": 221,
+  "diagnosticCount": 221,
+  "added": [],
+  "removed": [],
+  "typeExit": 2,
+  "candidateExcludesWriterBodyWip": true,
+  "runtimeQualification": false
+}
