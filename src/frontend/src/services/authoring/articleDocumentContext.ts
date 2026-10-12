@@ -1930,9 +1930,16 @@ export class ArticleDocumentContextAuthority
                 return null;
             }
             owner.lifetimePublication ??= {};
+            const ownerPublication = owner.lifetimePublication;
+            const consumer = owner.consumer;
             const seal = Object.freeze({}) as ArticleDocumentLifetimeSeal;
+            if (owner.lifetimePublication !== ownerPublication || owner.consumer !== consumer)
+            {
+                cancelRetainedArticleDocumentMembershipSeal(membership);
+                return null;
+            }
             this.#lifetimeSeals.set(seal, { owner, binding, handle, membership,
-                ownerPublication: owner.lifetimePublication, nativePublication: native, nativePort: port, consumer: owner.consumer });
+                ownerPublication, nativePublication: native, nativePort: port, consumer });
             if (!this.#hasLifetimeAuthorityCustody(owner, binding, seal))
             {
                 this.#cancelLifetimeAuthority(owner, binding, seal);
@@ -1952,7 +1959,7 @@ export class ArticleDocumentContextAuthority
     {
         const custody = this.#lifetimeSeals.get(seal);
         return !!custody && custody.owner === owner && custody.binding === binding && owner.binding === binding
-            && owner.handle === custody.handle && owner.lifetimePublication === custody.ownerPublication
+            && owner.handle === custody.handle && owner.lifetimePublication !== null && owner.lifetimePublication === custody.ownerPublication
             && this.#retainedOwners.get(custody.handle) === owner && this.#ownersByAdapter.get(owner.adapter) === owner
             && owner.consumer === custody.consumer && !owner.scopeRetired && !owner.invalidationFailed && !owner.attachingConsumer
             && owner.consumerInvalidationState === 'not-requested'

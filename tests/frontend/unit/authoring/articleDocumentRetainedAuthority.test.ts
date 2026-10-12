@@ -1022,4 +1022,84 @@ describe('original retained document authority source controls', () =>
         expect(retained.cancelLifetimeAuthority(seal)).toBe(true);
         expect(reads).toBe(before);
     });
+    it('delivers queued real Document cancellation and failed consumer custody after a throwing Registry getter', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const retained = create(authority, registry, 1, 'first');
+        const pending = retained.adapter.beginTask('attachment', 'producer:actual');
+        let cleanups = 0;
+        retained.attachConsumer(() => ({ invalidateDocument: () =>
+        {
+            cleanups += 1;
+            throw new Error('actual-consumer-cleanup-failure');
+        } }));
+        const originalFailure = new Error('actual-getter-failure');
+        const command = { schema: openArticleDocumentCommandSchema };
+        Object.defineProperty(command, 'schema', { enumerable: true, get: () =>
+        {
+            revokeRetainedArticleDocumentScope(retained.handle);
+            expect(pending.signal.aborted).toBe(false);
+            throw originalFailure;
+        } });
+        let caught: unknown;
+        try
+        {
+            registry.execute(command);
+        }
+        catch (error)
+        {
+            caught = error;
+        }
+        expect(caught).toBe(originalFailure);
+        expect(pending.signal.aborted).toBe(true);
+        expect(cleanups).toBe(1);
+        expect(retained.inspect().consumerInvalidationState).toBe('failed');
+        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
+    });
+
+    it('pins non-null lifetime publication before token allocation and refuses cached-attachment reentry', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const consumer = { invalidateDocument: () => undefined };
+        const factory = () => consumer;
+        retained.attachConsumer(factory);
+        const originalSeal = retained.sealLifetimeAuthority()!;
+        const originalFreeze = Object.freeze;
+        let emptyAllocations = 0;
+        let candidate: object | null = null;
+        try
+        {
+            Object.freeze = ((value: unknown) =>
+            {
+                if (value && typeof value === 'object' && Object.keys(value).length === 0)
+                {
+                    emptyAllocations += 1;
+                    if (emptyAllocations === 2)
+                    {
+                        candidate = value;
+                        expect(retained.attachConsumer(factory)).toBe(consumer);
+                        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
+                    }
+                }
+                return originalFreeze(value);
+            }) as typeof Object.freeze;
+            expect(retained.sealLifetimeAuthority()).toBeNull();
+        }
+        finally
+        {
+            Object.freeze = originalFreeze;
+        }
+        expect(emptyAllocations).toBe(2);
+        expect(candidate).not.toBeNull();
+        expect(retained.hasLifetimeAuthorityCustody(candidate as NonNullable<ReturnType<typeof retained.sealLifetimeAuthority>>)).toBe(false);
+        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
+        retained.attachConsumer(factory);
+        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
+        expect(retained.hasLifetimeAuthorityCustody(candidate as NonNullable<ReturnType<typeof retained.sealLifetimeAuthority>>)).toBe(false);
+        const currentSeal = retained.sealLifetimeAuthority()!;
+        expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(true);
+        expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
+    });
 });

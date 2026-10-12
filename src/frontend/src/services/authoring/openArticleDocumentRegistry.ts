@@ -836,15 +836,50 @@ export class OpenArticleDocumentRegistry
         // Retire before command getters, hashing, clones or any publisher callback.
         this.#membershipPublication = null;
         this.#membershipMutationDepth += 1;
+        let outcome: { succeeded: true; value: T; } | { succeeded: false; error: unknown; };
         try
         {
-            return operation();
+            outcome = { succeeded: true, value: operation() };
+        }
+        catch (error)
+        {
+            outcome = { succeeded: false, error };
         }
         finally
         {
             this.#membershipMutationDepth -= 1;
-            this.#publishMembershipAuthority();
         }
+        let cleanupFailed = false;
+        let cleanupError: unknown;
+        if (this.#membershipMutationDepth === 0)
+        {
+            try
+            {
+                // Drain on both success and failure. A throwing getter can
+                // already have retired real membership while depth deferred it.
+                this.#notifyRetainedDocuments();
+            }
+            catch (error)
+            {
+                this.#membershipPublication = null;
+                cleanupFailed = true;
+                cleanupError = error;
+            }
+        }
+        if (!outcome.succeeded)
+        {
+            if (cleanupFailed)
+            {
+                throw new AggregateError([outcome.error, cleanupError], 'retained-article-document-mutation-and-notification-failed',
+                    { cause: outcome.error });
+            }
+            throw outcome.error;
+        }
+        if (cleanupFailed)
+        {
+            throw cleanupError;
+        }
+        return outcome.value;
     }
 
     #publishMembershipAuthority(): void
@@ -1016,7 +1051,6 @@ export class OpenArticleDocumentRegistry
         ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
     {
         const result = this.#runMembershipMutation(() => this.executeCore(command, { expected, next, ratioChange }));
-        this.#notifyRetainedDocuments();
         return result;
     }
 
@@ -1058,7 +1092,6 @@ export class OpenArticleDocumentRegistry
     public execute(command: unknown): OpenArticleDocumentCommandResult
     {
         const result = this.#runMembershipMutation(() => this.executeCore(command));
-        this.#notifyRetainedDocuments();
         return result;
     }
 

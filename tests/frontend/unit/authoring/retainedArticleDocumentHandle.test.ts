@@ -268,4 +268,39 @@ describe('original Registry retained document handle source controls', () =>
         expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
         expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
     });
+    it('drains actual queued revocation when a command getter retires membership then throws', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const seal = sealRetainedArticleDocumentMembership(handle)!;
+        const failure = new Error('actual-command-getter-failure');
+        let notified = false;
+        subscribeRetainedArticleDocumentHandle(handle, () =>
+        {
+            notified = true;
+            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+            throw new Error('actual-notification-cleanup-failure');
+        });
+        const command = open(registry, 2);
+        Object.defineProperty(command, 'schema', { enumerable: true, get: () =>
+        {
+            revokeRetainedArticleDocumentScope(handle);
+            expect(notified).toBe(false);
+            throw failure;
+        } });
+        let caught: unknown;
+        try
+        {
+            registry.execute(command);
+        }
+        catch (error)
+        {
+            caught = error;
+        }
+        expect(caught).toBe(failure);
+        expect(notified).toBe(true);
+        expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
+        expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
+    });
 });

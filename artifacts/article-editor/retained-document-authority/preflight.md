@@ -357,3 +357,20 @@ foreign/copy/cancel, source abort ordering, consumer phase ordering and callback
 free has. All source cases are UNRUN through the unchanged COMPLETE original unit
 entry/config/setup/import preflight. No runtime/native/security/privacy/receipt/
 fullfactory/mount/browser/qualification holds lifted, no frozen evidence refreshed.
+
+## Independent membership/lifetime seal P2 source repair
+
+Independent static review of711265/fa513 found queued revocation lost on a throwing
+mutation getter and token-allocation cached-attach reentry capturing null owner
+publication. Those heads are NOT accepted as new seal source. Outermost membership
+mutation now drains on success AND failure, preserves actual operation error and
+unexpected drain failure, and retains notification/Document cleanup custody.
+Document captures non-null publication and exact consumer BEFORE allocation,
+revalidates afterward, and pure has rejects null rather than null===null revival.
+One original Registry and two original Document source controls cover actual
+queued revocation/error/failed consumer cancellation and original token allocation
+reentry. They are written only, through unchanged whole original entry/config/
+setup/import paths. The allocation interception is a negative SOURCE case calling
+the same actual producers, not a production alternative, configuration or runtime
+qualification. All runtime/test/list/discovery/native/security/privacy/receipt/
+fullfactory/frozen-authority holds remain, with new exact-head review required.
