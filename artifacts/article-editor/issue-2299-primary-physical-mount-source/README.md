@@ -25,6 +25,11 @@ and suppresses its original automatic route registration/status publication duri
 that phase. This prevents the route editor from populating the empty Registry
 before original startup custody. No phase flag grants permission or admission.
 
+`layout-owned-only.patch` supplies exactly the two owned product files against
+Layout1374; those two original files also match Root625 byte-for-byte. Its applied
+postimages match the published source-map hashes. Consume these two files rather
+than the whole Layout branch.
+
 `root-owner-only.patch` is an exact four-file offer against original Rail
 `62564bb29270a2bfc53e0ba5c24a2f30f24ecb42`, retaining its authenticated lifetime
 introduced at `16f5248ba7cc6f87230672246c4a43366769caf6`. It removes the actual

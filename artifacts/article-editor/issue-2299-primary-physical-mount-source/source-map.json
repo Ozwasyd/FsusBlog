@@ -42,5 +42,14 @@
             "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
             "sha256": "acb3b22dae5472e061d1196cffca2885c1f2d5e4c79640865e78df3f51d03521"
         }
-    ]
+    ],
+    "layoutPatch": {
+        "base": "1374af6fa184933b4448d7e457a374cf14f8fd52",
+        "rootSourceFilesAt625MatchBase": true,
+        "sha256": "a5a74089b1d15299e358944da1ddaa30769df648d6e9cfb538800c846126b2a4",
+        "paths": [
+            "src/frontend/src/views/admin/article/Write.vue",
+            "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts"
+        ]
+    }
 }
