@@ -1,0 +1,16 @@
+{
+  "baselineDiagnostics": 162,
+  "reviewedCandidateDiagnostics": 161,
+  "finalDiagnostics": 161,
+  "addedVsBaseline": [],
+  "removedVsBaseline": [
+    "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read."
+  ],
+  "addedVsReviewed": [],
+  "removedVsReviewed": [],
+  "intermediateDiagnostics": 162,
+  "intermediateIntroducedThenRepaired": [
+    "src/services/binaryTransport.ts(POS): error TS2367: This comparison appears to be unintentional because the types '\"unknown\" | \"pending\" | \"queued\"' and '\"observed\"' have no overlap."
+  ],
+  "normalization": "Only diagnostic header positions normalized; complete continuation text and multiplicity retained"
+}
