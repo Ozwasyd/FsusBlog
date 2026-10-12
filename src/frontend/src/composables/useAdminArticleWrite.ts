@@ -523,6 +523,34 @@ export function useAdminArticleWrite()
 
 function createAdminArticleWriteOwner(writerScope: EffectScope)
 {
+    // Expand ONLY this original Writer's own groups. Arbitrary thrown objects or
+    // external AggregateError.errors getters are never inspected or flattened.
+    const writerFailureGroups = new WeakMap<object, readonly unknown[]>();
+    const combineWriterFailures = (failures: readonly unknown[], message: string): unknown =>
+    {
+        const errors: unknown[] = [];
+        const seen = new Set<unknown>();
+        for (const failure of failures)
+        {
+            const own = ((typeof failure === 'object' && failure !== null) || typeof failure === 'function')
+                ? writerFailureGroups.get(failure) : undefined;
+            for (const error of own ?? [failure])
+            {
+                if (!seen.has(error))
+                {
+                    seen.add(error);
+                    errors.push(error);
+                }
+            }
+        }
+        if (errors.length === 1)
+        {
+            return errors[0];
+        }
+        const combined = new AggregateError(errors, message, { cause: errors[0] });
+        writerFailureGroups.set(combined, Object.freeze(errors));
+        return combined;
+    };
     const route = useRoute();
     const router = useRouter();
     const powProvider = usePow();
@@ -1257,7 +1285,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 if (operationFailed && cancellationFailed)
                 {
-                    throw new AggregateError([operationFailure, cancellationFailure], 'article-writer-mounted-seal-and-cancellation-failed', { cause: operationFailure });
+                    throw combineWriterFailures([operationFailure, cancellationFailure], 'article-writer-mounted-seal-and-cancellation-failed');
                 }
                 if (operationFailed)
                 {
@@ -1341,7 +1369,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     if (cancellationFailed)
                     {
-                        throw new AggregateError([cancellationFailure, error], 'article-writer-mounted-cancellation-and-release-failed', { cause: error });
+                        throw combineWriterFailures([cancellationFailure, error], 'article-writer-mounted-cancellation-and-release-failed');
                     }
                     throw error;
                 }
@@ -4650,7 +4678,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     }
                     catch (cleanupError)
                     {
-                        throw new AggregateError([error, cleanupError], 'article-writer-adoption-and-cleanup-failed', { cause: cleanupError });
+                        throw combineWriterFailures([error, cleanupError], 'article-writer-adoption-and-cleanup-failed');
                     }
                 }
                 throw error;
@@ -4665,6 +4693,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     let synchronousCleanupCompleted = false;
     let synchronousCleanupFailed = false;
     let synchronousCleanupFailure: unknown;
+    const synchronousCleanupErrors: unknown[] = [];
     const disposeOriginalWriter = (): void =>
     {
         if (synchronousCleanupRunning)
@@ -4689,6 +4718,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             // independent original cleanup operations below.
             synchronousCleanupFailure = error;
             synchronousCleanupFailed = true;
+            synchronousCleanupErrors.push(error);
         }
         synchronousCleanupRunning = true;
         active = false;
@@ -4748,6 +4778,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 catch (error)
                 {
+                    synchronousCleanupErrors.push(error);
                     if (!synchronousCleanupFailed)
                     {
                         synchronousCleanupFailure = error;
@@ -4758,6 +4789,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             if (synchronousCleanupFailed)
             {
                 // Actual failed custody is retained; do not turn a later noop into a cleanup success.
+                // Construct the complete outcome only AFTER every original operation was attempted.
+                synchronousCleanupFailure = combineWriterFailures(synchronousCleanupErrors, 'article-writer-cleanup-failed');
                 throw synchronousCleanupFailure;
             }
             articleForm.title = '';
@@ -4797,7 +4830,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             if (cancellationFailed)
             {
-                throw new AggregateError([cancellationFailure, error], 'article-writer-mounted-cancellation-and-unmount-failed', { cause: error });
+                throw combineWriterFailures([cancellationFailure, error], 'article-writer-mounted-cancellation-and-unmount-failed');
             }
             throw error;
         }

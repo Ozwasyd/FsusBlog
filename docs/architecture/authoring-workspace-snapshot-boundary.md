@@ -175,6 +175,12 @@ on any physical/generation/lifetime failure or final auth refusal. Local custody
 is removed before producer cancellation; actual issuer/token and error remain
 retained if cancellation fails, further admission refuses, and recovery/unmount
 cleanup is still attempted with actual combined errors preserved.
+The original Writer keeps every subsequent cleanup failure after the first and
+constructs its final outcome only after independent operations were attempted.
+Its own aggregate groups carry private original leaves, so nested release/unmount
+groups deduplicate the SAME error identity without reading arbitrary external
+`AggregateError.errors`. A sole first failure is rethrown unchanged; multiple
+failures preserve that first identity as cause and all distinct later errors.
 
 Positive authority intentionally remains refused because accepted complete live
 auth custody is unavailable. Physical/Document candidates are canceled and
