@@ -21,6 +21,10 @@ interface AdminPrincipalInvalidationBinding {
     readonly invalidate: AdminPrincipalInvalidationHandler;
 }
 
+interface AuthBroadcastSubscription {
+    readonly owner: AdminPrincipalInvalidationBinding | null;
+}
+
 const AUTH_BROADCAST_CHANNEL = 'fsus-auth';
 const AUTH_BROADCAST_STORAGE_KEY = 'fsus:auth:broadcast';
 const MAX_RECENT_EVENT_KEYS = 64;
@@ -65,7 +69,7 @@ export class AuthBroadcastRuntime
     private channel: BroadcastChannel | null = null;
     private storageListenerInstalled = false;
     private initialized = false;
-    private readonly subscribers = new Set<AuthBroadcastEventSubscriber>();
+    private readonly subscribers = new Map<AuthBroadcastEventSubscriber, AuthBroadcastSubscription>();
     private readonly recentEventKeys = new Set<string>();
     #adminPrincipalInvalidation: AdminPrincipalInvalidationBinding | null = null;
 
@@ -117,10 +121,14 @@ export class AuthBroadcastRuntime
 
     subscribe(subscriber: AuthBroadcastEventSubscriber): () => void
     {
-        this.subscribers.add(subscriber);
+        const registration: AuthBroadcastSubscription = { owner: this.#adminPrincipalInvalidation };
+        this.subscribers.set(subscriber, registration);
         return () =>
         {
-            this.subscribers.delete(subscriber);
+            if (this.subscribers.get(subscriber) === registration)
+            {
+                this.subscribers.delete(subscriber);
+            }
         };
     }
 
@@ -240,8 +248,32 @@ export class AuthBroadcastRuntime
             this.#adminPrincipalInvalidation?.invalidate();
         }
 
-        for (const subscriber of this.subscribers)
+        for (const [subscriber, registration] of this.subscribers)
         {
+            if (event.type === 'admin-changed')
+            {
+                // Live iteration can reach a newly installed owner/subscription.
+                // Retire the actual registered and current delivery owners each
+                // time, rather than treating the loop's initial owner as custody.
+                const currentOwner = this.#adminPrincipalInvalidation;
+                registration.owner?.invalidate();
+                if (this.#adminPrincipalInvalidation !== currentOwner)
+                {
+                    throw new Error('auth_broadcast_delivery_owner_superseded');
+                }
+                if (currentOwner !== registration.owner)
+                {
+                    currentOwner?.invalidate();
+                }
+                if (this.#adminPrincipalInvalidation !== currentOwner)
+                {
+                    throw new Error('auth_broadcast_delivery_owner_superseded');
+                }
+            }
+            if (this.subscribers.get(subscriber) !== registration)
+            {
+                continue;
+            }
             subscriber(event, origin);
         }
     }

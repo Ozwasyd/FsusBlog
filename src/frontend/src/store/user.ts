@@ -121,8 +121,16 @@ export const useUserStore = defineStore('user', () =>
         lastFetchedAt.value = 0;
     };
 
-    const setLogoutBroadcast = (publisher: (() => void) | null): void =>
+    const setLogoutBroadcast = (
+        publisher: (() => void) | null,
+        ownsWrite?: () => boolean,
+        expected?: () => void
+    ): void =>
     {
+        if ((ownsWrite && !ownsWrite()) || (expected && logoutBroadcast !== expected))
+        {
+            return;
+        }
         logoutBroadcast = publisher;
     };
 
@@ -256,7 +264,7 @@ export const useUserStore = defineStore('user', () =>
         {
             await logoutApi();
         }
-        catch (error)
+        catch
         {
             console.warn('[UserStore] Logout partial failure.');
         }

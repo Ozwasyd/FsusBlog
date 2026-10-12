@@ -20,32 +20,81 @@ import { clearPrivateBrowserState } from './serviceWorkerRuntime';
 
 import type { Pinia } from 'pinia';
 
-let activePinia: Pinia | null = null;
-let unsubscribe: (() => void) | null = null;
-let unregisterAdminPrincipalInvalidation: (() => void) | null = null;
-let unregisterPrivateCleanupHandlers: (() => void)[] = [];
-let unregisterPrivateSurfaceHandlers: (() => void)[] = [];
+interface AuthBroadcastCompositionOwnership {
+    readonly pinia: Pinia;
+    unsubscribe: (() => void) | null;
+    unregisterInvalidation: (() => void) | null;
+    cleanupHandlers: (() => void)[];
+    surfaceHandlers: (() => void)[];
+    userStore?: ReturnType<typeof useUserStore>;
+    adminStore?: ReturnType<typeof useAdminStore>;
+    notificationStore?: ReturnType<typeof useNotificationStreamStore>;
+    userPublisher?: () => void;
+    adminPublisher?: () => void;
+    sessionHandler?: () => void;
+}
+
+let activeComposition: AuthBroadcastCompositionOwnership | null = null;
 
 export function installAuthBroadcastComposition(pinia: Pinia): void
 {
-    if (activePinia === pinia && unsubscribe)
+    if (activeComposition?.pinia === pinia && activeComposition.unsubscribe)
+    {
+        return;
+    }
+    const previous = activeComposition;
+    const owner: AuthBroadcastCompositionOwnership = {
+        pinia,
+        unsubscribe: null,
+        unregisterInvalidation: null,
+        cleanupHandlers: [],
+        surfaceHandlers: []
+    };
+    activeComposition = owner;
+    const ownsWrite = (): boolean => activeComposition === owner;
+    if (previous)
+    {
+        disposeOwnedComposition(previous, ownsWrite);
+    }
+    if (!ownsWrite())
     {
         return;
     }
 
-    disposeAuthBroadcastComposition();
-    activePinia = pinia;
-
     const userStore = useUserStore(pinia);
+    if (!ownsWrite())
+    {
+        return;
+    }
+    owner.userStore = userStore;
     const adminStore = useAdminStore(pinia);
+    if (!ownsWrite())
+    {
+        return;
+    }
+    owner.adminStore = adminStore;
     const appShellStore = useAppShellStore(pinia);
+    if (!ownsWrite())
+    {
+        return;
+    }
     const notificationStore = useNotificationStreamStore(pinia);
+    if (!ownsWrite())
+    {
+        return;
+    }
+    owner.notificationStore = notificationStore;
 
-    // The original transport invokes this stable, unwrapped owner function
-    // before event clock/publication or remote subscriber/request callbacks.
-    unregisterAdminPrincipalInvalidation = authBroadcastRuntime.registerAdminPrincipalInvalidation(
+    const unregisterInvalidation = authBroadcastRuntime.registerAdminPrincipalInvalidation(
         adminStore.invalidateAdminPrincipalAuthority
     );
+    if (!ownsWrite())
+    {
+        unregisterInvalidation();
+        return;
+    }
+    owner.unregisterInvalidation = unregisterInvalidation;
+    const isActiveOwner = (): boolean => ownsWrite() && owner.unsubscribe !== null;
 
     const stopAuthenticatedRuntime = (): void =>
     {
@@ -55,9 +104,13 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
         void notificationStreamRuntime.stop(true);
     };
 
-    unregisterPrivateCleanupHandlers = [
-        registerPrivateStateCleanupHandler('account-pinia', (trigger: PrivateStateCleanupTrigger) =>
+    const cleanupRegistrations = [
+        () => registerPrivateStateCleanupHandler('account-pinia', (trigger: PrivateStateCleanupTrigger) =>
         {
+            if (!isActiveOwner())
+            {
+                return;
+            }
             userStore.cancelUserInfoRequest();
             if (trigger === 'account-switch')
             {
@@ -68,22 +121,38 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
                 userStore.markGuest();
             }
         }),
-        registerPrivateStateCleanupHandler('admin-pinia', () =>
+        () => registerPrivateStateCleanupHandler('admin-pinia', () =>
         {
+            if (!isActiveOwner())
+            {
+                return;
+            }
             adminStore.clearAdminPrincipal();
         }),
-        registerPrivateStateCleanupHandler('notification-runtime', () =>
+        () => registerPrivateStateCleanupHandler('notification-runtime', () =>
         {
+            if (!isActiveOwner())
+            {
+                return;
+            }
             stopAuthenticatedRuntime();
         }),
-        registerPrivateStateCleanupHandler('challenge-proof-runtime', () =>
+        () => registerPrivateStateCleanupHandler('challenge-proof-runtime', () =>
         {
+            if (!isActiveOwner())
+            {
+                return;
+            }
             defaultChallengeProofStore.clear();
         })
     ];
-    unregisterPrivateSurfaceHandlers = [
-        privateSurfaceRuntime.registerTerminationHandler((reason) =>
+    const surfaceRegistrations = [
+        () => privateSurfaceRuntime.registerTerminationHandler((reason) =>
         {
+            if (!isActiveOwner())
+            {
+                return;
+            }
             userStore.cancelUserInfoRequest();
             if (reason === 'account-switch')
             {
@@ -94,21 +163,77 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
                 userStore.markGuest();
             }
         }),
-        privateSurfaceRuntime.registerTerminationHandler((reason) =>
+        () => privateSurfaceRuntime.registerTerminationHandler((reason) =>
         {
+            if (!isActiveOwner())
+            {
+                return;
+            }
             adminStore.cancelAdminSessionRequest();
             if (reason === 'admin-logout')
             {
                 adminStore.clearAdminPrincipal();
             }
         }),
-        privateSurfaceRuntime.registerTerminationHandler(() => stopAuthenticatedRuntime()),
-        privateSurfaceRuntime.registerTerminationHandler(() => defaultChallengeProofStore.clear())
+        () => privateSurfaceRuntime.registerTerminationHandler(() =>
+        {
+            if (isActiveOwner())
+            {
+                stopAuthenticatedRuntime();
+            }
+        }),
+        () => privateSurfaceRuntime.registerTerminationHandler(() =>
+        {
+            if (isActiveOwner())
+            {
+                defaultChallengeProofStore.clear();
+            }
+        })
     ];
 
-    unsubscribe = authBroadcastRuntime.subscribe((event, origin) =>
+    for (const register of cleanupRegistrations)
     {
+        if (!ownsWrite())
+        {
+            return;
+        }
+        const unregister = register();
+        if (!ownsWrite())
+        {
+            unregister();
+            return;
+        }
+        owner.cleanupHandlers.push(unregister);
+    }
+    for (const register of surfaceRegistrations)
+    {
+        if (!ownsWrite())
+        {
+            return;
+        }
+        const unregister = register();
+        if (!ownsWrite())
+        {
+            unregister();
+            return;
+        }
+        owner.surfaceHandlers.push(unregister);
+    }
+    if (!ownsWrite())
+    {
+        return;
+    }
+    owner.unsubscribe = authBroadcastRuntime.subscribe((event, origin) =>
+    {
+        if (!isActiveOwner())
+        {
+            return;
+        }
         defaultChallengeProofStore.clear();
+        if (!isActiveOwner())
+        {
+            return;
+        }
         if (event.type === 'admin-logout')
         {
             if (origin === 'remote')
@@ -126,7 +251,15 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
         if (event.type === 'admin-changed')
         {
             privateRequestRuntime.advance('admin');
+            if (!isActiveOwner())
+            {
+                return;
+            }
             userStore.invalidateGuestCache();
+            if (!isActiveOwner())
+            {
+                return;
+            }
             adminStore.invalidateMissingCache();
             return;
         }
@@ -187,54 +320,135 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
         }
     });
 
-    userStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastLogout());
-    adminStore.setLogoutBroadcast(() => authBroadcastRuntime.broadcastAdminLogout());
-    notificationStore.setSessionRevokedHandler(() =>
+    if (!isActiveOwner())
     {
-    // SessionRevoked is account-scoped so the payload never carries a session
-    // identifier. Revalidate this tab against the server before expiring it:
-    // targeted revoke and active-session-limit events must leave unaffected
-    // devices signed in, while the revoked device still clears immediately.
+        return;
+    }
+    owner.userPublisher = () =>
+    {
+        if (isActiveOwner())
+        {
+            authBroadcastRuntime.broadcastLogout();
+        }
+    };
+    userStore.setLogoutBroadcast(owner.userPublisher, ownsWrite);
+    if (!isActiveOwner())
+    {
+        return;
+    }
+    owner.adminPublisher = () =>
+    {
+        if (isActiveOwner())
+        {
+            authBroadcastRuntime.broadcastAdminLogout();
+        }
+    };
+    adminStore.setLogoutBroadcast(owner.adminPublisher, ownsWrite);
+    if (!isActiveOwner())
+    {
+        return;
+    }
+    owner.sessionHandler = () =>
+    {
+        if (!isActiveOwner())
+        {
+            return;
+        }
+        // SessionRevoked is account-scoped so the payload never carries a session
+        // identifier. Revalidate this tab against the server before expiring it:
+        // targeted revoke and active-session-limit events must leave unaffected
+        // devices signed in, while the revoked device still clears immediately.
         void userStore.fetchUserInfo(true).then(() =>
         {
-            if (!userStore.isLoggedIn)
+            if (isActiveOwner() && !userStore.isLoggedIn)
             {
                 authBroadcastRuntime.expireUserSession();
             }
         });
-    });
+    };
+    notificationStore.setSessionRevokedHandler(owner.sessionHandler, ownsWrite);
+}
+
+function disposeOwnedComposition(owner: AuthBroadcastCompositionOwnership, ownsWrite: () => boolean): void
+{
+    if (!ownsWrite())
+    {
+        return;
+    }
+    const unsubscribe = owner.unsubscribe;
+    owner.unsubscribe = null;
+    unsubscribe?.();
+    if (!ownsWrite())
+    {
+        return;
+    }
+    const unregisterInvalidation = owner.unregisterInvalidation;
+    owner.unregisterInvalidation = null;
+    unregisterInvalidation?.();
+    if (!ownsWrite())
+    {
+        return;
+    }
+    while (owner.surfaceHandlers.length > 0)
+    {
+        const unregister = owner.surfaceHandlers.shift();
+        unregister?.();
+        if (!ownsWrite())
+        {
+            return;
+        }
+    }
+    while (owner.cleanupHandlers.length > 0)
+    {
+        const unregister = owner.cleanupHandlers.shift();
+        unregister?.();
+        if (!ownsWrite())
+        {
+            return;
+        }
+    }
+    if (owner.userPublisher)
+    {
+        owner.userStore?.setLogoutBroadcast(null, ownsWrite, owner.userPublisher);
+        if (!ownsWrite())
+        {
+            return;
+        }
+        owner.userPublisher = undefined;
+    }
+    if (owner.adminPublisher)
+    {
+        owner.adminStore?.setLogoutBroadcast(null, ownsWrite, owner.adminPublisher);
+        if (!ownsWrite())
+        {
+            return;
+        }
+        owner.adminPublisher = undefined;
+    }
+    if (owner.sessionHandler)
+    {
+        owner.notificationStore?.setSessionRevokedHandler(null, ownsWrite, owner.sessionHandler);
+        if (!ownsWrite())
+        {
+            return;
+        }
+        owner.sessionHandler = undefined;
+    }
 }
 
 export function disposeAuthBroadcastComposition(): void
 {
-    const unregisterInvalidation = unregisterAdminPrincipalInvalidation;
-    unregisterAdminPrincipalInvalidation = null;
-    unregisterInvalidation?.();
-    if (unregisterAdminPrincipalInvalidation)
+    const owner = activeComposition;
+    if (!owner)
     {
-        // Retirement reentered a newer install; this disposer owns neither its
-        // handlers nor its subscriber/publisher pointers.
         return;
     }
-    for (const unregister of unregisterPrivateSurfaceHandlers)
+    const ownsWrite = (): boolean => activeComposition === owner;
+    disposeOwnedComposition(owner, ownsWrite);
+    if (ownsWrite())
     {
-        unregister();
+        activeComposition = null;
     }
-    unregisterPrivateSurfaceHandlers = [];
-    for (const unregister of unregisterPrivateCleanupHandlers)
-    {
-        unregister();
-    }
-    unregisterPrivateCleanupHandlers = [];
-    if (activePinia)
-    {
-        useUserStore(activePinia).setLogoutBroadcast(null);
-        useAdminStore(activePinia).setLogoutBroadcast(null);
-        useNotificationStreamStore(activePinia).setSessionRevokedHandler(null);
-    }
-    unsubscribe?.();
-    unsubscribe = null;
-    activePinia = null;
 }
 
 function clearPrivateStateForBroadcast(

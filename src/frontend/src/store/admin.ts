@@ -503,8 +503,16 @@ export const useAdminStore = defineStore('admin', ({ action }) =>
         adminSessionRequest = null;
     };
 
-    const setLogoutBroadcast = (callback: (() => void) | null): void =>
+    const setLogoutBroadcast = (
+        callback: (() => void) | null,
+        ownsWrite?: () => boolean,
+        expected?: () => void
+    ): void =>
     {
+        if ((ownsWrite && !ownsWrite()) || (expected && logoutBroadcast !== expected))
+        {
+            return;
+        }
         logoutBroadcast = callback;
     };
 
