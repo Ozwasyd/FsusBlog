@@ -78,7 +78,8 @@ import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter,
     type ArticleDocumentRetainedBinding,
-    type ArticleDocumentRetainedInspection
+    type ArticleDocumentRetainedInspection,
+    type ArticleDocumentLifetimeSeal
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
@@ -1041,8 +1042,14 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     onBeforeUnmount(() =>
     {
         mountedComponentActive = false;
-        revokeCurrentMountedAuthority?.();
-        componentAttached = false;
+        try
+        {
+            revokeCurrentMountedAuthority?.();
+        }
+        finally
+        {
+            componentAttached = false;
+        }
     });
     onScopeDispose(() => revokeCurrentMountedAuthority?.());
     const unsubscribeMountedAuthorityContext = articleDocumentContextAdapter.subscribeContext(() => revokeCurrentMountedAuthority?.());
@@ -1060,6 +1067,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             {
                 throw new Error('article-editor-runtime-already-bound');
             }
+            // Retire an old physical owner before allocating any replacement resources.
+            revokeCurrentMountedAuthority?.();
             const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
                 withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true });
             let binding: ArticleEditorRuntimeBinding;
@@ -1084,12 +1093,17 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 releaseAttachmentEditor();
                 throw error;
             }
-            revokeCurrentMountedAuthority?.();
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
             let recoveryCheckpoint: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
             let recoveryCheckpointCreating = false;
             // One reservation in this actual mounted runtime, not a second mount/session store.
+            interface MountedDocumentAuthority {
+                readonly binding: ArticleDocumentRetainedBinding;
+                readonly seal: ArticleDocumentLifetimeSeal;
+                readonly has: ArticleDocumentRetainedBinding['hasLifetimeAuthorityCustody'];
+                readonly cancel: ArticleDocumentRetainedBinding['cancelLifetimeAuthority'];
+            }
             interface MountedWriterCustody {
                 readonly seal: MountedWriterSeal;
                 readonly runtime: object;
@@ -1098,11 +1112,39 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 readonly editorSessionRef: string;
                 readonly session: MarkdownEditorSession;
                 readonly generation: number;
+                readonly document: MountedDocumentAuthority;
             }
             let mountedAuthorityCustody: MountedWriterCustody | null = null;
+            let mountedDocumentAuthority: MountedDocumentAuthority | null = null;
+            let mountedDocumentCancellationFailure: { readonly authority: MountedDocumentAuthority; readonly failure: unknown; } | null = null;
             let mountedAuthorityGeneration = 0;
             let mountedAuthorityReleased = false;
             let mountedAuthorityPreparing = false;
+            const cancelMountedDocumentAuthority = (): boolean =>
+            {
+                if (mountedDocumentCancellationFailure)
+                {
+                    throw mountedDocumentCancellationFailure.failure;
+                }
+                const authority = mountedDocumentAuthority;
+                // Remove original local custody BEFORE invoking actual producer cancellation.
+                mountedDocumentAuthority = null;
+                if (!authority)
+                {
+                    return false;
+                }
+                try
+                {
+                    return authority.cancel(authority.seal);
+                }
+                catch (error)
+                {
+                    // Keep the real issuer/token on failure; never turn a later
+                    // noop into successful cancellation or admit another seal.
+                    mountedDocumentCancellationFailure = { authority, failure: error };
+                    throw error;
+                }
+            };
             const revokeMountedAuthority = (): void =>
             {
                 mountedAuthorityCustody = null;
@@ -1115,6 +1157,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     mountedAuthorityGeneration += 1;
                 }
+                cancelMountedDocumentAuthority();
             };
             const mountedAuthorityCurrent = (): boolean =>
                 !mountedAuthorityReleased && active && componentAttached && mountedComponentActive && writerScope.active
@@ -1122,18 +1165,43 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 && editorRuntimeBinding === binding && originalMountedEditor === editor && originalMountedRuntime === mountedRuntime;
             const sealMountedAuthority = (editorSessionRef: string): MountedWriterSeal | null =>
             {
-                if (mountedAuthorityPreparing || !mountedAuthorityCurrent() || typeof editorSessionRef !== 'string' || !editorSessionRef)
+                if (mountedAuthorityPreparing || mountedDocumentCancellationFailure || !mountedAuthorityCurrent()
+                    || typeof editorSessionRef !== 'string' || !editorSessionRef)
                 {
                     return null;
                 }
                 mountedAuthorityPreparing = true;
                 const generation = mountedAuthorityGeneration;
                 let candidate: MountedWriterCustody | null = null;
-                try
+                let operationFailed = false;
+                let operationFailure: unknown;
+                const prepare = (): MountedWriterSeal | null =>
                 {
+                    const retained = retainedPrimaryBinding.value;
+                    if (retained?.adapter !== articleDocumentContextAdapter)
+                    {
+                        return null;
+                    }
+                    // These are the SAME original frozen binding's real methods,
+                    // not a structural provider or a membership selector/index.
+                    const has = retained.hasLifetimeAuthorityCustody.bind(retained);
+                    const cancel = retained.cancelLifetimeAuthority.bind(retained);
+                    const documentSeal = retained.sealLifetimeAuthority();
+                    if (!documentSeal)
+                    {
+                        return null;
+                    }
+                    mountedDocumentAuthority = { binding: retained, seal: documentSeal, has, cancel };
+                    const document = mountedDocumentAuthority;
+                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
+                        || retainedPrimaryBinding.value !== retained || !has(documentSeal))
+                    {
+                        return null;
+                    }
                     const context = articleDocumentContextAdapter.context;
                     const mounted = mountedSource?.readMountedEditor(editorSessionRef);
-                    if (mounted !== editor || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
+                    if (mounted !== editor || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
+                        || mountedDocumentAuthority !== document || !has(documentSeal))
                     {
                         return null;
                     }
@@ -1143,31 +1211,63 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                         || native.documentIdentity.id !== context.documentId || native.documentIdentity.epoch !== context.documentEpoch
                         || native.revision !== context.sourceRevision || !articleDocumentContextAdapter.isCurrentContext(context)
                         || mountedSource?.readMountedEditor(editorSessionRef) !== mounted || mounted.getSession(editorSessionRef) !== session
+                        || !has(documentSeal) || mountedDocumentAuthority !== document
                         || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
                     {
                         return null;
                     }
                     const seal = Object.freeze<MountedWriterSeal>({ [mountedWriterAuthorityBrand]: true });
-                    candidate = Object.freeze({ seal, runtime: mountedRuntime, editor, binding, editorSessionRef, session, generation });
-                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
+                    candidate = Object.freeze({ seal, runtime: mountedRuntime, editor, binding, editorSessionRef, session, generation, document });
+                    if (!has(documentSeal) || mountedDocumentAuthority !== document
+                        || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
                     {
                         return null;
                     }
                     mountedAuthorityCustody = candidate;
-                    // Actual auth and Document membership/lifetime seal APIs are absent
-                    // at this source. Do not return the physical candidate as authority.
-                    // Their genuine token types/private has/cancel must be supplied by
-                    // the original producers (issue2295) before issuance can be enabled.
+                    // Doc/membership custody is real; accepted complete live auth
+                    // is still missing. Do not publish a partial authority token.
                     return null;
+                };
+                try
+                {
+                    prepare();
+                }
+                catch (error)
+                {
+                    operationFailed = true;
+                    operationFailure = error;
+                }
+                // Auth refusal or any physical/Doc failure cancels the real Doc
+                // token. Keep both genuine operation and cancellation failures.
+                mountedAuthorityCustody = null;
+                let cancellationFailed = false;
+                let cancellationFailure: unknown;
+                try
+                {
+                    cancelMountedDocumentAuthority();
+                }
+                catch (error)
+                {
+                    cancellationFailed = true;
+                    cancellationFailure = error;
                 }
                 finally
                 {
-                    if (candidate && mountedAuthorityCustody === candidate)
-                    {
-                        mountedAuthorityCustody = null;
-                    }
                     mountedAuthorityPreparing = false;
                 }
+                if (operationFailed && cancellationFailed)
+                {
+                    throw new AggregateError([operationFailure, cancellationFailure], 'article-writer-mounted-seal-and-cancellation-failed', { cause: operationFailure });
+                }
+                if (operationFailed)
+                {
+                    throw operationFailure;
+                }
+                if (cancellationFailed)
+                {
+                    throw cancellationFailure;
+                }
+                return null;
             };
             const hasMountedAuthorityCustody = (seal: MountedWriterSeal): boolean =>
             {
@@ -1178,8 +1278,12 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     return false;
                 }
-                // Pure physical custody alone is insufficient; no real upstream
-                // auth/member token has been issued or joined in this WIP.
+                const document = mountedDocumentAuthority;
+                if (!document || custody.document !== document || !document.has(document.seal))
+                {
+                    return false;
+                }
+                // Genuine Doc private custody does not fill missing live auth.
                 return false;
             };
             const cancelMountedAuthority = (seal: MountedWriterSeal): boolean =>
@@ -1189,7 +1293,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     return false;
                 }
                 mountedAuthorityCustody = null;
-                return true;
+                return cancelMountedDocumentAuthority();
             };
             const release = (): void =>
             {
@@ -1200,26 +1304,51 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     revokeCurrentMountedAuthority = null;
                 }
-                if (editorRuntimeBinding !== binding)
+                let cancellationFailed = false;
+                let cancellationFailure: unknown;
+                try
                 {
-                    return;
+                    cancelMountedDocumentAuthority();
                 }
-                recoveryCheckpoint?.release();
-                editorRuntimeBinding = null;
-                releaseEditorRuntime = null;
-                originalMountedEditor = null;
-                originalMountedRuntime = null;
-                if (previewOwners.value?.binding === binding)
+                catch (error)
                 {
-                    previewOwners.value = null;
-                    previewTask.cancel();
-                    previewCurrentAuthorities.cancel();
+                    cancellationFailed = true;
+                    cancellationFailure = error;
                 }
-                searchRuntime.dispose();
-                surfaceRuntime?.dispose();
-                surfaceRuntime = null;
-                binding.dispose();
-                releaseAttachmentEditor();
+                try
+                {
+                    if (editorRuntimeBinding === binding)
+                    {
+                        recoveryCheckpoint?.release();
+                        editorRuntimeBinding = null;
+                        releaseEditorRuntime = null;
+                        originalMountedEditor = null;
+                        originalMountedRuntime = null;
+                        if (previewOwners.value?.binding === binding)
+                        {
+                            previewOwners.value = null;
+                            previewTask.cancel();
+                            previewCurrentAuthorities.cancel();
+                        }
+                        searchRuntime.dispose();
+                        surfaceRuntime?.dispose();
+                        surfaceRuntime = null;
+                        binding.dispose();
+                        releaseAttachmentEditor();
+                    }
+                }
+                catch (error)
+                {
+                    if (cancellationFailed)
+                    {
+                        throw new AggregateError([cancellationFailure, error], 'article-writer-mounted-cancellation-and-release-failed', { cause: error });
+                    }
+                    throw error;
+                }
+                if (cancellationFailed)
+                {
+                    throw cancellationFailure;
+                }
             };
             releaseEditorRuntime = release;
             const bindSurfacePreference = (readPreference: () => ArticleEditorSurfacePreference | null): ArticleEditorSurfaceRuntime =>
@@ -4550,7 +4679,17 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             return;
         }
-        revokeCurrentMountedAuthority?.();
+        try
+        {
+            revokeCurrentMountedAuthority?.();
+        }
+        catch (error)
+        {
+            // Preserve real cancellation failure without skipping the existing
+            // independent original cleanup operations below.
+            synchronousCleanupFailure = error;
+            synchronousCleanupFailed = true;
+        }
         synchronousCleanupRunning = true;
         active = false;
         invalidateDraftCheckpoint();
@@ -4635,11 +4774,36 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     };
     onUnmounted(() =>
     {
-        revokeCurrentMountedAuthority?.();
         componentAttached = false;
-        if (!retainedPrimaryReady)
+        let cancellationFailed = false;
+        let cancellationFailure: unknown;
+        try
         {
-            disposeOriginalWriter();
+            revokeCurrentMountedAuthority?.();
+        }
+        catch (error)
+        {
+            cancellationFailed = true;
+            cancellationFailure = error;
+        }
+        try
+        {
+            if (!retainedPrimaryReady)
+            {
+                disposeOriginalWriter();
+            }
+        }
+        catch (error)
+        {
+            if (cancellationFailed)
+            {
+                throw new AggregateError([cancellationFailure, error], 'article-writer-mounted-cancellation-and-unmount-failed', { cause: error });
+            }
+            throw error;
+        }
+        if (cancellationFailed)
+        {
+            throw cancellationFailure;
         }
     });
 

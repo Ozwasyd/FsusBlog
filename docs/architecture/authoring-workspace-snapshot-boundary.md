@@ -166,16 +166,27 @@ when that callback reenters or throws. Replacement, before-unmount, deactivation
 scope cleanup, context and lifetime changes revoke physical reservations; no
 generation can revive an earlier token.
 
-This increment intentionally refuses positive authority: the current actual auth
-and Document producers have no genuine admin-principal and membership/lifetime
-seal APIs. Physical candidates are discarded and `sealMountedAuthority` returns
-null; `hasMountedAuthorityCustody` does not return true from a local readiness
-boolean or notification cache. The source auth/private-surface watches are ONLY
+The Writer now consumes the original retained binding's genuine
+`ArticleDocumentLifetimeSeal` through its actual seal/has/cancel methods. That
+token already joins original Registry membership and private native/context/owner
+custody; Writer does not create a second membership issuer. The same binding and
+opaque token are pinned before physical reads, rechecked afterward, and canceled
+on any physical/generation/lifetime failure or final auth refusal. Local custody
+is removed before producer cancellation; actual issuer/token and error remain
+retained if cancellation fails, further admission refuses, and recovery/unmount
+cleanup is still attempted with actual combined errors preserved.
+
+Positive authority intentionally remains refused because accepted complete live
+auth custody is unavailable. Physical/Document candidates are canceled and
+`sealMountedAuthority` returns null; `hasMountedAuthorityCustody` does not return
+true from a local readiness boolean or notification cache. The source
+auth/private-surface watches are ONLY
 negative physical revocation, including same-id changes; they do not attest
 permissions, expiry, step-up or administrative admission. Document's downstream
-lifetime listener is also not its required early private authority. Joining real
-producer-issued tokens and their private has/cancel methods requires the exact
-original-owner source interfaces. Until then Main composition, restoration and
+lifetime listener is also not its early private authority; the actual Document
+token supplies that private predicate. Completing the joint authority requires
+accepted real auth tokens and callback-free original custody with its explicitly
+limited expiry/permission scope. Until then Main composition, restoration and
 full-ready remain refused. This partial producer wiring grants no runtime or
 qualification evidence and preserves all existing HOLD gates.
 
