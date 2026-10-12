@@ -17,3 +17,17 @@ Original Root/Layout/Document member/mount/principal/binding lifetime must suppl
 Original UI Web/Vitest PROJECT compilers pass0/0 (no test execution), three-source lint0, five-file pure TS/SFC AST0 and original Main strict-full local-alias style0. Main full original local-alias program remains RED2/257; complete diagnostic block delta257->257 added0/removed0, positions only normalized. First indentation failure and the style invocation missing local alias are preserved in raw logs and repaired normally, not waived. All three new original controls are UNRUN. See preflight.md and static-results.json.
 
 Rollback only this isolated native seal and corresponding Main forwarding delta; preserve prior producer intake, native allocation P1 repair, existing owner guards and all holds. This is a draft source checkpoint awaiting independent review.
+
+
+## Original unmount ordering follow-up
+
+The original useMarkdownEditorFrameScheduler registers its own onBeforeUnmount
+at hook creation before the old late native cleanup hook. Native publication
+retirement now registers before that original scheduler hook: it marks the
+original sessionDisposed lifetime and retires the genuine private ticket before
+scheduler.dispose can invoke cancellation/cleanup callbacks. The old native
+resource/history cleanup hook remains original. Early optional retirement also
+handles setup-time unmount before sessionBinding assignment; the existing
+sessionDisposed check retires the later-created binding. Cleanup failure keeps
+native ticket retired and does not imply successful resource release/disposal.
+No other owner hook, scheduler implementation or resource qualification changes.
