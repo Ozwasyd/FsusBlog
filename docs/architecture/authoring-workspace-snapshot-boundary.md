@@ -125,6 +125,17 @@ state to represent queued cleanup. Adapter/consumer admission rechecks local
 retirement after external readers. Existing tasks remain pending until real
 cancellation/cleanup and explicit producer settlement; stale is not settled.
 
+Consumer attachment reserves its real slot before entry readers, even for cached
+consumer access. Admission is revalidated after the factory returns, after the
+consumer method property getter, and after every subsequent scope-reader call.
+Local retirement is checked alongside canonical facts; a still-live Registry
+member cannot authorize returning a locally retired consumer. Rejection retains
+the actual created consumer/factory and pending work for the original drain. If
+canonical retirement finished before the factory returned, its missed cleanup is
+performed against that same consumer, preserving failure and actual promise custody.
+Primary adoption's final reader and existing-binding returns also recheck local
+retirement. None of these checks grants restoration, settlement or safe disposal.
+
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.

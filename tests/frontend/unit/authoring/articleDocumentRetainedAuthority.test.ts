@@ -553,4 +553,114 @@ describe('original retained document authority source controls', () =>
         expect(second.inspect().registry.state).toBe('revoked');
         expect(second.adapter.pendingTaskRefs).toEqual([]);
     });
+
+    it('rejects a consumer retired by factory, getter or post-factory reader while retaining it for drain', () =>
+    {
+        for (const boundary of ['factory', 'getter', 'reader', 'reader-error'] as const)
+        {
+            const authority = new ArticleDocumentContextAuthority();
+            const registry = new OpenArticleDocumentRegistry();
+            const first = create(authority, registry, 1, 'first');
+            let readAfterFactory = false;
+            const readers = { ...scope, readPrincipalIdentityId: (): string =>
+            {
+                if (readAfterFactory)
+                {
+                    readAfterFactory = false;
+                    authority.revokeRetainedScope('site:test', 'other');
+                    if (boundary === 'reader-error') throw new Error('actual-post-factory-reader-error');
+                }
+                return 'other';
+            } };
+            const prepared = authority.prepareRetainedDocument(registry, { ...input(2), userScope: 'user:other' }, readers);
+            const second = authority.acquireRetainedDocument(admit(registry, prepared.context, 'second'), prepared);
+            const pending = second.adapter.beginTask('attachment', 'producer:pending');
+            let returned = false;
+            let cleanupCalls = 0;
+            let cleanupObservation: ReturnType<ArticleDocumentRetainedBinding['inspect']> | null = null;
+            const cleanup = (observation: ReturnType<ArticleDocumentRetainedBinding['inspect']>) =>
+            {
+                cleanupCalls += 1;
+                cleanupObservation = observation;
+            };
+            const actualConsumer = { get invalidateDocument()
+            {
+                if (boundary === 'getter') authority.revokeRetainedScope('site:test', 'other');
+                return cleanup;
+            } };
+            const factory = () =>
+            {
+                if (boundary === 'factory') authority.revokeRetainedScope('site:test', 'other');
+                if (boundary === 'reader' || boundary === 'reader-error') readAfterFactory = true;
+                return actualConsumer;
+            };
+            let checked = false;
+            first.attachConsumer(() => ({ invalidateDocument: () =>
+            {
+                expect(() => { second.attachConsumer(factory); returned = true; }).toThrow();
+                expect(returned).toBe(false);
+                expect(second.inspect().admissionClosed).toBe(true);
+                expect(second.inspect().registry.state).toBe('live');
+                expect(cleanupCalls).toBe(0);
+                expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
+                checked = true;
+            } }));
+            authority.revokeRetainedScope('site:test', 'test');
+            expect(checked).toBe(true);
+            expect(first.inspect().invalidationFailed).toBe(false);
+            expect(second.inspect().registry.state).toBe('revoked');
+            expect(cleanupCalls).toBe(1);
+            expect(cleanupObservation).not.toBeNull();
+            expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
+            expect(pending.signal.aborted).toBe(true);
+        }
+    });
+
+    it('reserves the consumer slot before entry readers and factory reentry', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        let readerReentry: (() => void) | null = null;
+        const readers = { ...scope, readPrincipalIdentityId: () => { readerReentry?.(); return 'test'; } };
+        const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
+        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
+        let creations = 0;
+        const actualConsumer = { invalidateDocument: () => undefined };
+        const factory = () =>
+        {
+            creations += 1;
+            expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
+            return actualConsumer;
+        };
+        readerReentry = () => expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
+        expect(retained.attachConsumer(factory)).toBe(actualConsumer);
+        expect(retained.attachConsumer(factory)).toBe(actualConsumer);
+        expect(creations).toBe(1);
+    });
+
+    it('retains consumer custody when retirement finishes before factory return and cleanup fails', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const retained = create(authority, registry, 1, 'first');
+        const pending = retained.adapter.beginTask('attachment', 'producer:pending');
+        let cleanupCalls = 0;
+        const actualConsumer = { invalidateDocument: () =>
+        {
+            cleanupCalls += 1;
+            throw new Error('actual-consumer-cleanup-failure');
+        } };
+        const factory = () =>
+        {
+            authority.revokeRetainedScope('site:test', 'test');
+            return actualConsumer;
+        };
+        expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
+        expect(retained.inspect().registry.state).toBe('revoked');
+        expect(cleanupCalls).toBe(1);
+        expect(retained.inspect().consumerInvalidationState).toBe('failed');
+        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
+        expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
+        expect(cleanupCalls).toBe(1);
+    });
 });

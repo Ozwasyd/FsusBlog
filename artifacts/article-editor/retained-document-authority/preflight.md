@@ -71,7 +71,7 @@ publication and native mount/restoration remain original-owner integration work.
 ## Original complete test entrances: UNRUN / HOLD
 
 Existing original document-context source file has 14 cases. New Registry handle
-source file has 10 cases; new retained-authority source file has 26 cases. Counts
+source file has 10 cases; new retained-authority source file has 29 cases. Counts
 come from source inspection, not Vitest list/discovery. Existing original cases
 are unchanged. All files remain complete; no `-t`, skip, mock/config replacement,
 timeout increase, worker override, coverage threshold or runner substitution is
@@ -168,7 +168,7 @@ Latest compiler-only and four-file AST results are retained separately in the
 task-owned `.tmp/retained-document-authority/` directory. Complete original full
 application RED is not waived; previous fixed-baseline comparison is 255 versus
 249 diagnostics with no added complete headline messages. No test/qualification
-was run. Source tests are 26 retained-authority and 10 Registry-handle controls,
+was run. Source tests are 29 retained-authority and 10 Registry-handle controls,
 counted by pure TypeScript AST reading. Original context/Registry tests unchanged.
 
 ## Independent review repair source increment
@@ -242,3 +242,33 @@ application exits2, fixed9e7b baseline249/current249 diagnostics with zero added
 removed complete headline messages. Owned source diagnostics0. Two changed code/
 source-test files parse without diagnostics; frozen Registry/Group/ratio/Snapshot
 postimages match9e7b byte-for-byte. No runtime/test/list/discovery executed.
+
+## Consumer external-boundary source repair
+
+Fixed reviewed5cf956db65c99ba0bf4e0ccd5712454006dbb542. Mutation task issuance
+was independently source-closed. Remaining factory-return retirement window is
+repaired with a real consumer-slot reservation before the first borrowed reader
+and admission checks after factory, method getter and later original scope reads.
+The local retirement and actual canonical membership states remain distinct.
+Actual created consumers and original factories remain retained on rejection or
+exception; queued cleanup drains normally, while already-finished canonical
+retirement receives its missed cleanup against the same returned consumer. Pending
+leases/promises are not dropped or converted to synthetic settlement.
+
+Adjacent external boundaries were inspected: existing primary/handle returns and
+post-subscription adoption recheck local retirement; adapter guards recheck after
+readers; mutable context and task creation keep the source-closed reservations.
+No Registry/Group/ratio/Snapshot bytes changed. New complete source matrices cover
+factory/getter/post-factory-reader retirement, reader exception, slot reentry from
+entry readers and factory, and cleanup failure after canonical retirement precedes
+consumer return. Authority29/Registry10 source cases, all UNRUN/HOLD.
+
+Original strict-full style, full application alias compiler, pure AST and diff
+checks run without candidate imports or tests. Existing full-app RED remains
+unwaived; this repaired exact head requires new independent Document review.
+
+Consumer-boundary current static results: original strict-full2files/0violations;
+original application compiler exits2, fixed5cf baseline249/current249 diagnostics,
+0added/removed complete headline messages and0owned diagnostics. AST/diff checks
+PASS; fixed Registry/Group/ratio/Snapshot postimages match5cf byte-for-byte.
+Source controls29 authority/10 Registry remain UNRUN; no execution qualification.
