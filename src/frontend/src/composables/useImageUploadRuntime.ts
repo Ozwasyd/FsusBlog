@@ -117,6 +117,7 @@ export interface ImageUploadRuntimeOptions {
     bypassCompression?: boolean;
     targetFormat?: string;
     attemptBinding?: ImageUploadAttemptBinding;
+    /** Return this consumer's work only; upload/Flow result and settled depend on this callback. */
     onSessionReady?: (borrow: ImageUploadSessionBorrow, completionUrl: string) => void | Promise<void>;
 }
 
@@ -155,6 +156,9 @@ interface LocalUploadResourceRecord {
     cancellationRequested: boolean;
     cancel?: () => void;
     work?: Promise<unknown>;
+    callbackWork?: unknown;
+    scopeCleanup?: readonly (() => void)[];
+    cleanupFailures?: unknown[];
 }
 
 /** Resource accounting on the original operation, separate from its existing business authority. */
@@ -227,7 +231,16 @@ class OwnedLocalUploadAttempt
         this.resources.push(resource);
         const detach = (): void =>
         {
-            signal.removeEventListener('abort', invoke);
+            try
+            {
+                signal.removeEventListener('abort', invoke);
+            }
+            catch (error)
+            {
+                (resource.cleanupFailures ??= []).push(error);
+                resource.terminal = 'unknown';
+                throw error;
+            }
             resource.result = 'finished';
             resource.terminal = 'settled';
             this.reconsider();
@@ -254,23 +267,38 @@ class OwnedLocalUploadAttempt
             cancellationSupported: true, cancellationRequested: false };
         this.resources.push(resource);
         let finished = false;
+        let finishing = false;
         const finish = (action?: () => void): void =>
         {
-            if (finished)
+            if (finished || finishing)
             {
                 return;
             }
-            finished = true;
-            clearTimeout(handle);
+            finishing = true;
             try
             {
+                clearTimeout(handle);
+                finished = true;
                 action?.();
+            }
+            catch (error)
+            {
+                (resource.cleanupFailures ??= []).push(error);
+                if (!finished)
+                {
+                    resource.terminal = 'unknown';
+                }
+                throw error;
             }
             finally
             {
-                resource.result = 'finished';
-                resource.terminal = 'settled';
-                resource.cancel = undefined;
+                finishing = false;
+                if (finished)
+                {
+                    resource.result = 'finished';
+                    resource.terminal = 'settled';
+                    resource.cancel = undefined;
+                }
                 this.reconsider();
             }
         };
@@ -304,7 +332,7 @@ class OwnedLocalUploadAttempt
         const finished = (): void =>
         {
             resource.result = 'finished';
-            // A result/failure is not the missing compression/hash/transport/consumer terminal contract.
+            // A result/failure is not the missing opaque producer terminal contract.
             this.reconsider();
         };
         try
@@ -319,6 +347,66 @@ class OwnedLocalUploadAttempt
             finished();
             throw error;
         }
+    }
+
+    async observeCallbackScope<T>(kind: string, task: () => T | Promise<T>,
+        cleanup: readonly (() => void)[] = [], cancellationSupported = false): Promise<T>
+    {
+        const resource: LocalUploadResourceRecord = { id: String(this.resources.length + 1), kind,
+            result: 'pending', terminal: 'active', cancellationSupported, cancellationRequested: false,
+            scopeCleanup: cleanup };
+        this.resources.push(resource);
+        let callbackFailed = false;
+        let callbackFailure: unknown;
+        let value!: T;
+        try
+        {
+            this.controller.signal.throwIfAborted();
+            const work = task();
+            resource.callbackWork = work;
+            value = await work;
+        }
+        catch (error)
+        {
+            callbackFailed = true;
+            callbackFailure = error;
+        }
+        resource.result = 'finished';
+        let cleanupFailed = false;
+        let cleanupFailure: unknown;
+        // Each action is this scope's original cleanup, never another producer's terminal.
+        for (const release of cleanup)
+        {
+            try
+            {
+                release();
+            }
+            catch (error)
+            {
+                if (!cleanupFailed)
+                {
+                    cleanupFailure = error;
+                }
+                cleanupFailed = true;
+                (resource.cleanupFailures ??= []).push(error);
+            }
+        }
+        resource.terminal = cleanupFailed ? 'unknown' : 'settled';
+        if (!cleanupFailed)
+        {
+            resource.callbackWork = undefined;
+            resource.scopeCleanup = undefined;
+        }
+        this.reconsider();
+        if (callbackFailed)
+        {
+            throw callbackFailure;
+        }
+        if (cleanupFailed)
+        {
+            throw cleanupFailure;
+        }
+        return value;
     }
 
     finishExecution(): void
@@ -698,23 +786,16 @@ export function useImageUploadRuntime()
                     throw new Error('upload_session_borrow_not_serializable');
                 } });
                 Object.freeze(access);
-                try
+                return await attempt.local.observeCallbackScope('session-callback-scope', async () =>
                 {
-                    const result = await attempt.local.observe('session-consumer', () => read(access, scopeController.signal), true);
+                    const result = await read(access, scopeController.signal);
                     assertCurrent();
                     if (!scopeActive || performance.now() >= scopeDeadline)
                     {
                         throw new UploadAttemptSupersededError();
                     }
                     return result;
-                }
-                finally
-                {
-                    // Each invocation owns its own scope, including concurrent invocations.
-                    clearScopeTimer();
-                    detachController();
-                    revokeScope();
-                }
+                }, [clearScopeTimer, detachController, revokeScope], true);
             },
             release
         });
@@ -1138,7 +1219,7 @@ export function useImageUploadRuntime()
             }
             // The result comes only from this operation's already-correlated actual ACK.
             const onSessionReady = runtimeOptions.onSessionReady;
-            await local.observe('session-ready-consumer', async () => onSessionReady(borrow, acknowledgedResponse.url));
+            await local.observeCallbackScope('session-ready-callback-scope', () => onSessionReady(borrow, acknowledgedResponse.url));
             ensureCurrentAttempt();
         }
         phase.value = 'completed';

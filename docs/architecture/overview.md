@@ -225,10 +225,30 @@ abort retains its original init acknowledgement and separate cleanup authority;
 its result is not an atomic local or remote cancellation receipt.
 
 The census distinguishes pending results, owned active timers/listeners, known
-timer/listener cleanup and unknown producer terminals. Compression, hash,
-transport and consumer callbacks currently expose results without full local
-terminal capabilities, so their terminal remains `unknown` even after fulfillment
-or rejection. `settled` stays pending while any such unknown, active resource or
+local callback scopes and unknown external producer terminals. Each
+`session-callback-scope` owns its awaited invocation and original scope timer,
+controller listener and access revocation. It becomes settled only after that
+callback actually returns or rejects and all those original cleanup actions
+succeed. Cancellation or expiry revokes access without settling a still-pending
+callback. Cleanup tries every owned action; failed cleanup retains the actual
+causes and original handles as unknown, while a simultaneous callback failure
+remains the error reported to the original ACK recovery owner. A failed timer
+clear can retry its original handle; a cleared timer is distinguished from a
+failed subsequent action. `session-ready-callback-scope` and
+`flow-callback-scope` own their awaited invocation only. Their finite completion
+does not wait for unrelated external resources; the original borrow lifetime,
+Flow task listener and actual child requests are accounted separately. Completed
+callback work references are released instead of being retained by opaque child
+terminals.
+
+These callbacks must return their own consumer work, never the result or settled
+of their containing upload/Flow operation, which already waits for the callback.
+Independent resources started by a consumer require that consumer's original
+producer capability; callback-scope completion grants no external termination or
+business receive/release acknowledgement. Compression, hash and transport still
+expose results without consumed local terminal capabilities, so their terminal
+remains `unknown` after fulfillment or rejection. Aggregate `settled` stays
+pending while any such unknown, active resource, failed owned cleanup or
 unfinished execution remains. No checkpoint is exposed. This attempt census
 does not claim termination of shared codec initialization, hidden compression
 resources, fetch/body/decode work or worker requests. Their original owners must

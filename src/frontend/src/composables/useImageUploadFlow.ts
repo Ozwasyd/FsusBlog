@@ -17,8 +17,10 @@ interface UploadContext {
 }
 
 interface UploadCallbacks {
+    /** Await this callback's work, never the result/settled of its containing Flow run. */
     onSuccess?: (urls: string[], context: UploadContext) => void | Promise<void>;
     onError?: (message: string, error: unknown, context: UploadContext) => void | Promise<void>;
+    /** Await this consumer's work, never the upstream upload/Flow result or settled. */
     onFileUploaded?: (completion: ImageUploadFileCompletion) => Promise<void>;
 }
 
@@ -71,7 +73,7 @@ export interface UseImageUploadFlowOptions {
     taskProducerRef?: string;
     getAttemptBinding?: (file: File) => Omit<ImageUploadAttemptBinding, 'lease'> | null;
     onSessionReady?: (file: File, borrow: ImageUploadSessionBorrow) => void | Promise<void>;
-    /** Awaited before the next file; observe inside withSession, then release. */
+    /** Await consumer work before the next file; use withSession, never upstream result/settled. */
     onFileUploaded?: (completion: ImageUploadFileCompletion) => Promise<void>;
 }
 
@@ -92,7 +94,7 @@ class OwnedLocalUploadFlow
     context: PendingUploadContext | null = null;
     private readonly children: ImageUploadLocalRequest<string>[] = [];
     private readonly resources: ImageUploadLocalResource[] = [];
-    private readonly callbackWork: (void | Promise<void>)[] = [];
+    private readonly callbackWork = new Map<string, void | Promise<void>>();
     private readonly controller = new AbortController();
     private executionFinished = false;
     private cancelTask: (() => void) | null = null;
@@ -195,18 +197,20 @@ class OwnedLocalUploadFlow
     async observeCallback(task: () => void | Promise<void>): Promise<void>
     {
         const index = this.resources.length;
-        this.resources.push({ id: `flow-${index + 1}`, kind: 'flow-consumer',
-            result: 'pending', terminal: 'unknown', cancellationSupported: false, cancellationRequested: false });
+        const id = `flow-${index + 1}`;
+        this.resources.push({ id, kind: 'flow-callback-scope',
+            result: 'pending', terminal: 'active', cancellationSupported: false, cancellationRequested: false });
         try
         {
             const work = task();
-            this.callbackWork.push(work);
+            this.callbackWork.set(id, work);
             await work;
         }
         finally
         {
-            // The existing callback API provides its result only, no full local terminal capability.
-            this.resources[index] = { ...this.resources[index], result: 'finished' };
+            // This invocation owns its await only. Child requests and the task listener stay separate.
+            this.resources[index] = { ...this.resources[index], result: 'finished', terminal: 'settled' };
+            this.callbackWork.delete(id);
             this.reconsider();
         }
     }
