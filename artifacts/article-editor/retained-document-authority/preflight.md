@@ -272,3 +272,62 @@ original application compiler exits2, fixed5cf baseline249/current249 diagnostic
 0added/removed complete headline messages and0owned diagnostics. AST/diff checks
 PASS; fixed Registry/Group/ratio/Snapshot postimages match5cf byte-for-byte.
 Source controls29 authority/10 Registry remain UNRUN; no execution qualification.
+
+## Loaded primary handover source increment
+
+Continues original producer17c2e with only original authority/consumer registration,
+its dedicated source controls and boundary documentation. New
+`preparePrimaryRetainedHandover` requires real original primary binding and Registry
+handle, sole live primary binding, matching article/draft/source/draft coordinates.
+It pins the actual loaded context and canonical target identity/epoch. Existing
+`acquireRetainedDocument(handle, preparation)` consumes that genuine preparation
+on the same adapter, retaining its editor-session identity/content digest and
+actual pending tasks; unused discard does not dispose the borrowed primary.
+Registered retained consumers cannot move between owners.
+
+Eight appended original-module source cases cover genuine identity handover/one
+receipt/late result rejection/pending settlement, unused discard, copied/foreign
+provenance, unmatched revision/draft, intervening edit, synchronous primary release
+on cancellation, published notification failure custody and duplicate consumer
+refusal. They add no imports/config/mock/setup/test invocation. The COMPLETE
+original Vitest entry/setup/import preflight above still applies; every case is
+UNRUN, with all tests/list/discovery/candidate-import/native/browser/mount/security/
+privacy/receipt/race/DB/storage/full-ref/resource settlement qualification HOLD.
+
+This seam does not prove body freshness or restore native state. Mismatched
+revision/draft requires original Writer/body/draft/Registry source-publication
+capability; arbitrary string metadata, revision relabeling or new draft IDs cannot
+fill it. It does not transfer already retained adapter/consumer custody. Static
+results and exact source/consumer offers are recorded separately in PR4228 WIP.
+
+## Independent loaded-primary P2 repair increment
+
+Independent review ofad35/03c75 found three actual gaps: prepared borrowed-primary
+admission stayed open until bind during nested retirement; an additional genuine
+legacy binding could enter after preparation without consumption revalidation;
+and any intervening context edit was mistaken for handover publication, preventing
+unused discard and permanently pinning the adapter. Those heads are NOT consumed
+as accepted new handover source.
+
+The repair installs the genuine preparation's runtime-private admission guard
+before return, closes it synchronously through original owner retirement facts,
+anchors owner scope independently of subsequent mutable context, and retains real
+queued cleanup/pending tasks. Every handover validator and bind's final primary
+check revalidate the actual sole binding. A module-private explicit publication
+marker is set only at real target assignment; ordinary edit/refusal still permits
+unused discard without disposing the borrowed adapter. Discard of a retired or
+published owner refuses; strict adoption cannot bypass the unused preparation.
+
+Four additional source cases plus the existing intervening-edit case cover the
+three actual P2 paths, nested pre-drain source/task/binding denial, safe retry after
+secondary release, edited-pin discard/reprepare, already-published failure refusal
+and preparation ownership bypass. Original whole-file entry/config/setup/import
+preflight remains unchanged; source cases are written only, with all test/list/
+discovery/import/native/browser/mount/security/privacy/receipt/race/DB/storage/
+fullfactory qualifications HOLD. New repaired-head source review is required.
+
+Borrowed-primary cleanup may invoke its actual context listeners. A real listener
+failure now records original owner failure custody, drains the remaining queued
+scopes, then reports aggregate actual errors instead of dropping the queue. One
+additional original-module source case checks that failure with real queued owner
+retirement and preserved pending tasks. This case also remains UNRUN/HOLD.

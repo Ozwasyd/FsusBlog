@@ -230,6 +230,7 @@ interface ArticleDocumentRetainedOwner {
     readonly adapter: ArticleDocumentContextAdapter;
     readonly scope: ArticleDocumentRetainedScopeReaders;
     readonly principalIdentityId: string;
+    readonly siteScope: string;
     scopeRetired: boolean;
     handle: RetainedArticleDocumentHandle | null;
     binding: ArticleDocumentRetainedBinding | null;
@@ -249,6 +250,25 @@ interface ArticleDocumentOwnerAdmission {
     readonly context: ArticleDocumentContext;
     readonly scopeRetirementSequence: number;
 }
+
+interface ArticleDocumentPrimaryHandover {
+    readonly handle: RetainedArticleDocumentHandle;
+    readonly primary: ArticleDocumentContextBinding;
+    readonly previous: ArticleDocumentContext;
+    readonly target: ArticleDocumentContext;
+    readonly isReleased: () => boolean;
+    published: boolean;
+}
+
+// Only this module's original authority can enter the adapter's handover operation.
+const primaryHandoverPorts = new WeakMap<ArticleDocumentContextAdapter, {
+    readonly handover: (previous: ArticleDocumentContext, target: ArticleDocumentContext,
+        validate: () => void, bind: () => ArticleDocumentRetainedBinding, publish: () => void) => ArticleDocumentRetainedBinding;
+}>();
+
+// A borrowed primary remains writable while prepared, but actual retirement
+// closes admission synchronously even when canonical cleanup is still queued.
+const preparedPrimaryGuards = new WeakMap<ArticleDocumentContextAdapter, { readonly isAdmitted: () => boolean; }>();
 
 // An adapter guard belongs to its original handle custody, never an article index.
 const retainedAdapterGuards = new WeakMap<ArticleDocumentContextAdapter, {
@@ -809,6 +829,65 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         });
         this.#current = initialContext;
         this.#receiptsLog.push(this.#createReceipt('initialize', 'initial', null, []));
+        primaryHandoverPorts.set(this, {
+            handover: (previous, target, validate, bind, publish) => this.#handoverPrimary(previous, target, validate, bind, publish)
+        });
+    }
+
+    #handoverPrimary(previous: ArticleDocumentContext, target: ArticleDocumentContext,
+        validate: () => void, bind: () => ArticleDocumentRetainedBinding, publish: () => void): ArticleDocumentRetainedBinding
+    {
+        if (this.#contextMutationPending || retainedAdapterGuards.has(this))
+        {
+            throw new Error('article-document-primary-handover-unavailable');
+        }
+        this.#contextMutationPending = true;
+        let published = false;
+        try
+        {
+            this.#assertContextMutation();
+            validate();
+            if (this.#current !== previous || this.#disposed)
+            {
+                throw new Error('article-document-primary-handover-context-changed');
+            }
+            const canceledTaskRefs = this.cancelAll('retained-primary-handover');
+            validate();
+            if (this.#current !== previous || this.#disposed)
+            {
+                throw new Error('article-document-primary-handover-context-changed');
+            }
+            this.#current = target;
+            published = true;
+            publish();
+            this.#receiptsLog.push(this.#createReceipt('switch', 'entity-switch', previous, canceledTaskRefs));
+            const binding = bind();
+            this.#notifyContext();
+            validate();
+            return binding;
+        }
+        catch (error)
+        {
+            if (published)
+            {
+                // No rollback can undo real abort callbacks or a published context.
+                // Retire this document adapter; underlying work remains pending.
+                this.#disposed = true;
+                try
+                {
+                    this.#notifyContext();
+                }
+                catch
+                {
+                    // Preserve the original refusal; the authority retains custody.
+                }
+            }
+            throw error;
+        }
+        finally
+        {
+            this.#contextMutationPending = false;
+        }
     }
 
     public get context(): ArticleDocumentContext
@@ -854,6 +933,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     #isRetainedAdmitted(): boolean
     {
+        if (preparedPrimaryGuards.get(this)?.isAdmitted() === false)
+        {
+            return false;
+        }
         const guard = retainedAdapterGuards.get(this);
         if (!guard)
         {
@@ -1310,6 +1393,7 @@ export class ArticleDocumentContextAuthority
         readonly isReleased: () => boolean;
     }>();
     #preparations = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentRetainedOwner>();
+    #primaryHandovers = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentPrimaryHandover>();
     #retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
     #ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
     #scopedOwners = new Set<ArticleDocumentRetainedOwner>();
@@ -1325,6 +1409,10 @@ export class ArticleDocumentContextAuthority
     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
     {
         this.#assertAuthorityInput(input);
+        if (this.#adapter && preparedPrimaryGuards.get(this.#adapter)?.isAdmitted() === false)
+        {
+            throw new Error('article-document-retained-owner-unavailable');
+        }
         if (this.#adapter && (this.#ownersByAdapter.has(this.#adapter) || this.#pendingAdapterAdmissions.has(this.#adapter)))
         {
             throw new Error('article-document-retained-acquire-requires-handle');
@@ -1405,6 +1493,56 @@ export class ArticleDocumentContextAuthority
         return preparation;
     }
 
+    /** Borrow a loaded, unretained primary; canonical identity comes only from the genuine handle. */
+    public preparePrimaryRetainedHandover(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
+        primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedPreparation
+    {
+        this.#assertRetainedOwnerAdmission();
+        const custody = this.#bindingCustody.get(primary);
+        if (!custody || custody.isReleased() || primary.adapter !== custody.adapter || this.#bindings.size !== 1
+            || [...this.#preparedOwners].some(owner => owner.adapter === custody.adapter))
+        {
+            throw new Error('article-document-primary-binding-invalid');
+        }
+        if (!retainedArticleDocumentHandleBelongsTo(handle, registry))
+        {
+            throw new Error('article-document-retained-association-invalid');
+        }
+        const admission = this.#reserveRetainedOwner(handle, custody.adapter);
+        try
+        {
+            const observation = inspectRetainedArticleDocumentHandle(handle);
+            const entry = observation.entry;
+            const previous = admission.context;
+            if (observation.state !== 'live' || entry?.identity.articleId !== previous.articleId
+                || entry.identity.draftId !== previous.draftId
+                || entry.documentContext.sourceRevision !== `source-revision:${previous.sourceRevision}`
+                || entry.documentContext.draftRevision !== previous.draftRevision)
+            {
+                throw new Error('article-document-primary-handover-source-mismatch');
+            }
+            if (entry.identity.documentId === previous.documentId && entry.documentContext.documentEpoch === previous.documentEpoch)
+            {
+                throw new Error('article-document-primary-handover-not-required');
+            }
+            const target = createArticleDocumentContext({ ...previous,
+                documentId: entry.identity.documentId, documentEpoch: entry.documentContext.documentEpoch });
+            const owner = this.#createRetainedOwner(registry, custody.adapter, scope);
+            const handover = { handle, primary, previous, target, isReleased: custody.isReleased, published: false };
+            this.#assertPrimaryHandover(owner, handover, admission.scopeRetirementSequence);
+            const preparation = Object.freeze({ context: target }) as ArticleDocumentRetainedPreparation;
+            this.#preparations.set(preparation, owner);
+            this.#primaryHandovers.set(preparation, handover);
+            this.#preparedOwners.add(owner);
+            preparedPrimaryGuards.set(owner.adapter, { isAdmitted: () => !owner.scopeRetired && !owner.invalidationFailed });
+            return preparation;
+        }
+        finally
+        {
+            this.#releaseRetainedOwnerAdmission(admission);
+        }
+    }
+
     /** Reuse the primary's genuine original binding and native identity exactly once. */
     public adoptPrimaryRetainedDocument(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
         primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedBinding
@@ -1422,6 +1560,10 @@ export class ArticleDocumentContextAuthority
         if (this.#pendingHandleAdmissions.has(handle) || this.#pendingAdapterAdmissions.has(custody.adapter))
         {
             throw new Error('article-document-retained-admission-in-progress');
+        }
+        if ([...this.#preparedOwners].some(owner => !owner.handle && owner.adapter === custody.adapter))
+        {
+            throw new Error('article-document-primary-handover-prepared');
         }
         const previous = this.#ownersByAdapter.get(custody.adapter);
         if (previous)
@@ -1478,6 +1620,34 @@ export class ArticleDocumentContextAuthority
         const admission = this.#reserveRetainedOwner(handle, owner.adapter);
         try
         {
+            const handover = preparation ? this.#primaryHandovers.get(preparation) : null;
+            if (handover)
+            {
+                const port = primaryHandoverPorts.get(owner.adapter);
+                if (!port || handover.handle !== handle || owner.adapter.context !== handover.previous)
+                {
+                    throw new Error('article-document-primary-handover-invalid');
+                }
+                const validate = () => this.#assertPrimaryHandover(owner, handover, admission.scopeRetirementSequence);
+                try
+                {
+                    return port.handover(handover.previous, handover.target, validate,
+                        () => this.#bindRetainedOwner(handle, owner, { ...admission, context: handover.target },
+                            () => !handover.isReleased() && handover.primary.adapter === owner.adapter && this.#bindings.size === 1),
+                        () =>
+                        {
+                            handover.published = true;
+                        });
+                }
+                catch (error)
+                {
+                    if (handover.published)
+                    {
+                        owner.invalidationFailed = true;
+                    }
+                    throw error;
+                }
+            }
             return this.#bindRetainedOwner(handle, owner, admission);
         }
         finally
@@ -1489,13 +1659,51 @@ export class ArticleDocumentContextAuthority
     public discardRetainedPreparation(preparation: ArticleDocumentRetainedPreparation): void
     {
         const owner = this.#preparations.get(preparation);
-        if (!owner || owner.handle || this.#pendingAdapterAdmissions.has(owner.adapter))
+        if (!owner || owner.handle || owner.scopeRetired || this.#pendingAdapterAdmissions.has(owner.adapter))
         {
             throw new Error('article-document-retained-preparation-not-unused');
         }
-        owner.adapter.dispose();
+        const handover = this.#primaryHandovers.get(preparation);
+        if (handover?.published)
+        {
+            throw new Error('article-document-primary-handover-already-published');
+        }
+        if (!this.#primaryHandovers.has(preparation))
+        {
+            owner.adapter.dispose();
+        }
+        else
+        {
+            preparedPrimaryGuards.delete(owner.adapter);
+        }
         this.#preparations.delete(preparation);
+        this.#primaryHandovers.delete(preparation);
         this.#preparedOwners.delete(owner);
+    }
+
+    #assertPrimaryHandover(owner: ArticleDocumentRetainedOwner, handover: ArticleDocumentPrimaryHandover,
+        scopeRetirementSequence: number): void
+    {
+        const principal = owner.scope.readPrincipalIdentityId();
+        const site = owner.scope.readSiteScope();
+        const target = handover.target;
+        const current = owner.adapter.isCurrentContext(owner.adapter.context);
+        const observation = inspectRetainedArticleDocumentHandle(handover.handle);
+        const entry = observation.entry;
+        if (owner.scopeRetired || owner.invalidationFailed || handover.isReleased() || this.#bindings.size !== 1
+            || this.#adapter !== owner.adapter
+            || handover.primary.adapter !== owner.adapter || principal !== owner.principalIdentityId
+            || site !== target.siteScope || scopeRetirementSequence !== this.#scopeRetirementSequence
+            || observation.state !== 'live' || entry?.identity.articleId !== target.articleId
+            || entry.identity.draftId !== target.draftId || entry.identity.documentId !== target.documentId
+            || entry.documentContext.documentEpoch !== target.documentEpoch
+            || entry.documentContext.sourceRevision !== `source-revision:${target.sourceRevision}`
+            || entry.documentContext.draftRevision !== target.draftRevision
+            || (owner.adapter.context !== handover.previous && owner.adapter.context !== target)
+            || !current)
+        {
+            throw new Error('article-document-primary-handover-admission-changed');
+        }
     }
 
     /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
@@ -1506,7 +1714,7 @@ export class ArticleDocumentContextAuthority
         // is notifying. Canonical notifications and cleanup stay in the drain.
         for (const owner of new Set([...this.#scopedOwners, ...this.#preparedOwners]))
         {
-            if (owner.adapter.context.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
+            if (owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
             {
                 owner.scopeRetired = true;
             }
@@ -1523,6 +1731,7 @@ export class ArticleDocumentContextAuthority
             return;
         }
         this.#scopeRevocationPending = true;
+        const cleanupFailures: unknown[] = [];
         try
         {
             while (this.#scopeRetirementQueue.length > 0)
@@ -1534,7 +1743,7 @@ export class ArticleDocumentContextAuthority
                 }
                 this.#currentScopeRetirement = current;
                 const targets = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
-                    owner.adapter.context.siteScope === current.siteScope && owner.principalIdentityId === current.principalIdentityId);
+                    owner.siteScope === current.siteScope && owner.principalIdentityId === current.principalIdentityId);
                 const handles: RetainedArticleDocumentHandle[] = [];
                 for (const owner of targets)
                 {
@@ -1549,7 +1758,15 @@ export class ArticleDocumentContextAuthority
                 {
                     if (!owner.handle)
                     {
-                        owner.adapter.dispose();
+                        try
+                        {
+                            owner.adapter.dispose();
+                        }
+                        catch (error)
+                        {
+                            owner.invalidationFailed = true;
+                            cleanupFailures.push(error);
+                        }
                     }
                 }
             }
@@ -1558,6 +1775,10 @@ export class ArticleDocumentContextAuthority
         {
             this.#scopeRevocationPending = false;
             this.#currentScopeRetirement = null;
+        }
+        if (cleanupFailures.length > 0)
+        {
+            throw new AggregateError(cleanupFailures, 'article-document-retained-scope-cleanup-failed');
         }
     }
 
@@ -1573,9 +1794,10 @@ export class ArticleDocumentContextAuthority
         scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedOwner
     {
         const scopeRetirementSequence = this.#scopeRetirementSequence;
+        const context = adapter.context;
         const principalIdentityId = scope.readPrincipalIdentityId();
-        if (!principalIdentityId?.trim() || scope.readSiteScope() !== adapter.context.siteScope
-            || adapter.context.userScope !== `user:${principalIdentityId}`.replace(/[^a-zA-Z0-9._:-]/gu, '-'))
+        if (!principalIdentityId?.trim() || scope.readSiteScope() !== context.siteScope
+            || context.userScope !== `user:${principalIdentityId}`.replace(/[^a-zA-Z0-9._:-]/gu, '-'))
         {
             throw new Error('article-document-retained-scope-invalid');
         }
@@ -1588,7 +1810,7 @@ export class ArticleDocumentContextAuthority
             throw new Error('article-document-retained-registry-owner-mismatch');
         }
         this.#retainedRegistry = registry;
-        return { registry, adapter, scope, principalIdentityId, scopeRetired: false, handle: null, binding: null,
+        return { registry, adapter, scope, principalIdentityId, siteScope: context.siteScope, scopeRetired: false, handle: null, binding: null,
             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
             lastState: 'live', listeners: new Set() };
@@ -1719,7 +1941,12 @@ export class ArticleDocumentContextAuthority
                     owner.consumerFactory = create;
                     try
                     {
-                        owner.consumer = create(binding);
+                        const consumer = create(binding);
+                        if ([...this.#scopedOwners].some(other => other !== owner && other.consumer === consumer))
+                        {
+                            throw new Error('article-document-retained-consumer-owned-elsewhere');
+                        }
+                        owner.consumer = consumer;
                         this.#assertRetainedConsumerAdmission(owner);
                         if (!owner.consumer || typeof owner.consumer.invalidateDocument !== 'function')
                         {
