@@ -341,7 +341,6 @@ async function compressImageFileOwned(
             }));
             owner.release(rgbaResource);
             owner.hold('encoded-bytes', encoded);
-            owner.ensureActive();
             if (isEncodedImageLikelyValid(encoded, options.format))
             {
                 encodedBlob = new Blob([encoded as unknown as BlobPart], { type: mimeType });
