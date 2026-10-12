@@ -1,0 +1,14 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "artifacts/article-editor/retained-document-source-offer/build-source-offer-manifest.py",
+    "artifacts/article-editor/retained-document-source-offer/01-canonical-group-registry.patch",
+    "artifacts/article-editor/retained-document-source-offer/02-retained-document-producer.patch"
+  ],
+  "outputs": [
+    {
+      "path": "artifacts/article-editor/retained-document-source-offer/source-offer.json",
+      "sha256": "3297202a35907d2e6a97719a9c8c4f8444d1c72aadf4ed73d89023b7b999efe8"
+    }
+  ]
+}
