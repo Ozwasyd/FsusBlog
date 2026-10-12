@@ -7,13 +7,15 @@ import {
     revokeRetainedArticleDocumentScope,
     revokeRetainedArticleDocumentScopeSet,
     sealRetainedArticleDocumentMembership,
-    subscribeRetainedArticleDocumentHandle
+    subscribeRetainedArticleDocumentHandle,
+    subscribeRetainedArticleDocumentRetirement
 } from './openArticleDocumentRegistry';
 
 import type {
     OpenArticleDocumentRegistry,
     RetainedArticleDocumentHandle,
     RetainedArticleDocumentMembershipSeal,
+    RetainedNotificationSubscription,
     RetainedArticleDocumentInspection
 } from './openArticleDocumentRegistry';
 
@@ -227,15 +229,109 @@ export interface ArticleDocumentLifetimeSeal {
     readonly [documentLifetimeSealBrand]: true;
 }
 
+interface NotificationSubscriptionRecord {
+    readonly listener: () => void;
+    running: boolean;
+    failed: boolean;
+    hasFirstFailure: boolean;
+    firstFailure: unknown;
+    pendingUnsubscribe: boolean;
+    failureVersion: number;
+    lastFailure: unknown;
+}
+
+function registerNotificationSubscription(records: Set<NotificationSubscriptionRecord>, listener: () => void,
+    retry: () => void, retryBusy: () => boolean): RetainedNotificationSubscription
+{
+    const record: NotificationSubscriptionRecord = { listener, running: false, failed: false,
+        hasFirstFailure: false, firstFailure: undefined, pendingUnsubscribe: false, failureVersion: 0, lastFailure: undefined };
+    records.add(record);
+    const stop = () =>
+    {
+        record.pendingUnsubscribe = true;
+        if (!record.running && !record.failed)
+        {
+            records.delete(record);
+        }
+    };
+    Object.defineProperties(stop, {
+        retry: { value: () =>
+        {
+            if (retryBusy() || [...records].some(current => current.running))
+            {
+                const error = new Error('retained-notification-retry-in-progress');
+                record.failed = true;
+                record.failureVersion += 1;
+                record.lastFailure = error;
+                if (!record.hasFirstFailure)
+                {
+                    record.hasFirstFailure = true;
+                    record.firstFailure = error;
+                }
+                throw error;
+            }
+            retry();
+        } },
+        inspect: { value: () => ({ failed: record.failed, pendingUnsubscribe: record.pendingUnsubscribe,
+            running: record.running, firstFailure: record.firstFailure }) }
+    });
+    return stop as RetainedNotificationSubscription;
+}
+
+function invokeNotificationSubscription(records: Set<NotificationSubscriptionRecord>, record: NotificationSubscriptionRecord): void
+{
+    if (!records.has(record))
+    {
+        return;
+    }
+    if (record.running)
+    {
+        throw new Error('retained-notification-retry-in-progress');
+    }
+    record.running = true;
+    const failureVersion = record.failureVersion;
+    try
+    {
+        record.listener();
+        if (record.failureVersion !== failureVersion)
+        {
+            throw record.lastFailure;
+        }
+        record.failed = false;
+    }
+    catch (error)
+    {
+        record.failed = true;
+        record.failureVersion += 1;
+        record.lastFailure = error;
+        if (!record.hasFirstFailure)
+        {
+            record.hasFirstFailure = true;
+            record.firstFailure = error;
+        }
+        throw error;
+    }
+    finally
+    {
+        record.running = false;
+        if (record.pendingUnsubscribe && !record.failed)
+        {
+            records.delete(record);
+        }
+    }
+}
+
 export interface ArticleDocumentRetainedBinding {
     readonly handle: RetainedArticleDocumentHandle;
     readonly adapter: ArticleDocumentContextAdapter;
     inspect(): ArticleDocumentRetainedInspection;
-    subscribeLifetime(listener: (observation: ArticleDocumentRetainedInspection) => void): () => void;
+    subscribeLifetime(listener: (observation: ArticleDocumentRetainedInspection) => void): RetainedNotificationSubscription;
+    subscribeRetirement(listener: () => void): RetainedNotificationSubscription;
     attachConsumer<T extends ArticleDocumentRetainedConsumer>(create: (binding: ArticleDocumentRetainedBinding) => T): T;
     sealLifetimeAuthority(): ArticleDocumentLifetimeSeal | null;
     hasLifetimeAuthorityCustody(seal: ArticleDocumentLifetimeSeal): boolean;
     cancelLifetimeAuthority(seal: ArticleDocumentLifetimeSeal): boolean;
+    retryInvalidation(): void;
 }
 
 interface ArticleDocumentRetainedOwner {
@@ -253,9 +349,18 @@ interface ArticleDocumentRetainedOwner {
     invalidationFailed: boolean;
     consumerInvalidationState: ArticleDocumentRetainedInspection['consumerInvalidationState'];
     pendingConsumerInvalidation: Promise<void> | null;
+    readonly consumerInvalidationAttempts: Set<Promise<void>>;
+    consumerInvalidationHasFailure: boolean;
+    consumerInvalidationFirstFailure: unknown;
+    readonly consumerInvalidationFailures: unknown[];
     lastState: RetainedArticleDocumentInspection['state'];
-    readonly listeners: Set<(observation: ArticleDocumentRetainedInspection) => void>;
+    readonly listeners: Set<NotificationSubscriptionRecord>;
     lifetimePublication: object | null;
+    retirementPending: boolean;
+    retirementActivityDepth: number;
+    listenerNotificationDepth: number;
+    readonly retirementListeners: Set<NotificationSubscriptionRecord>;
+    readonly retirementFailures: unknown[];
 }
 
 interface ArticleDocumentOwnerAdmission {
@@ -291,6 +396,9 @@ interface NativeDocumentLifetimePublication {
 interface NativeDocumentLifetimePort {
     readonly seal: () => NativeDocumentLifetimePublication | null;
     readonly has: (publication: NativeDocumentLifetimePublication) => boolean;
+    readonly subscribeRetirement: (listener: () => void) => RetainedNotificationSubscription;
+    readonly retirementActive: () => boolean;
+    readonly notificationActive: () => boolean;
 }
 
 const nativeDocumentLifetimePorts = new WeakMap<ArticleDocumentContextAdapter, NativeDocumentLifetimePort>();
@@ -299,6 +407,8 @@ const nativeDocumentLifetimePorts = new WeakMap<ArticleDocumentContextAdapter, N
 const retainedAdapterGuards = new WeakMap<ArticleDocumentContextAdapter, {
     readonly isAdmitted: () => boolean;
     readonly inspect: () => RetainedArticleDocumentInspection;
+    readonly notificationActive: () => boolean;
+    readonly retryActive: () => boolean;
 }>();
 
 const stableRefPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u;
@@ -814,28 +924,51 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     #taskCancellationDepth = 0;
     #receiptSequence = 0;
     #disposed = false;
-    #contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
+    #contextListeners = new Set<NotificationSubscriptionRecord>();
+    #contextNotificationDepth = 0;
     #lifetimePublication: NativeDocumentLifetimePublication | null = null;
+    #retirementPending = false;
+    #retirementListeners = new Set<NotificationSubscriptionRecord>();
+    #retirementFailures: unknown[] = [];
 
-    public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): () => void
+    public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): RetainedNotificationSubscription
     {
+        const subscription = registerNotificationSubscription(this.#contextListeners,
+            () => listener(this.#disposed ? null : this.#current), () => this.#notifyContext(),
+            () => this.#contextNotificationDepth !== 0 || this.#retirementPending || this.#contextMutationPending || this.#taskCancellationDepth !== 0
+                || retainedAdapterGuards.get(this)?.retryActive() === true);
         if (this.#disposed)
         {
-            listener(null);
-            return () => undefined;
+            this.#notifyContext();
         }
-        this.#contextListeners.add(listener);
-        return () =>
-        {
-            this.#contextListeners.delete(listener);
-        };
+        return subscription;
     }
 
     #notifyContext(): void
     {
-        for (const listener of this.#contextListeners)
+        const failures: unknown[] = [];
+        this.#contextNotificationDepth += 1;
+        try
         {
-            listener(this.#disposed ? null : this.#current);
+            for (const listener of [...this.#contextListeners])
+            {
+                try
+                {
+                    invokeNotificationSubscription(this.#contextListeners, listener);
+                }
+                catch (error)
+                {
+                    failures.push(error);
+                }
+            }
+        }
+        finally
+        {
+            this.#contextNotificationDepth -= 1;
+        }
+        if (failures.length > 0)
+        {
+            throw new AggregateError(failures, 'article-document-context-notification-failed', { cause: failures[0] });
         }
     }
 
@@ -861,7 +994,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         nativeDocumentLifetimePorts.set(this, {
             seal: () =>
             {
-                if (this.#disposed || this.#contextMutationPending)
+                if (this.#disposed || this.#contextMutationPending || this.#retirementPending)
                 {
                     return null;
                 }
@@ -869,8 +1002,51 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
                 return this.#lifetimePublication;
             },
             has: publication => this.#lifetimePublication === publication && this.#current === publication.context
-                && !this.#disposed && !this.#contextMutationPending
+                && !this.#disposed && !this.#contextMutationPending,
+            subscribeRetirement: listener =>
+            {
+                return registerNotificationSubscription(this.#retirementListeners, listener, () => this.#retireLifetimeAuthority(),
+                    () => this.#retirementPending || this.#contextNotificationDepth !== 0 || this.#contextMutationPending || this.#taskCancellationDepth !== 0
+                || retainedAdapterGuards.get(this)?.retryActive() === true);
+            },
+            retirementActive: () => this.#retirementPending || this.#contextMutationPending || this.#disposed,
+            notificationActive: () => this.#retirementPending || this.#contextMutationPending || this.#contextNotificationDepth !== 0
+                || this.#taskCancellationDepth !== 0
         });
+    }
+
+    #retireLifetimeAuthority(): void
+    {
+        if (this.#retirementPending)
+        {
+            throw new Error('article-document-retirement-in-progress');
+        }
+        this.#lifetimePublication = null;
+        this.#retirementPending = true;
+        const failures: unknown[] = [];
+        try
+        {
+            for (const listener of [...this.#retirementListeners])
+            {
+                try
+                {
+                    invokeNotificationSubscription(this.#retirementListeners, listener);
+                }
+                catch (error)
+                {
+                    failures.push(error);
+                }
+            }
+        }
+        finally
+        {
+            this.#retirementPending = false;
+        }
+        if (failures.length > 0)
+        {
+            this.#retirementFailures.push(...failures);
+            throw new AggregateError(failures, 'article-document-pre-retirement-failed', { cause: failures[0] });
+        }
     }
 
     #handoverPrimary(previous: ArticleDocumentContext, target: ArticleDocumentContext,
@@ -880,7 +1056,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-primary-handover-unavailable');
         }
-        this.#lifetimePublication = null;
+        this.#retireLifetimeAuthority();
         this.#contextMutationPending = true;
         let published = false;
         try
@@ -1009,7 +1185,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         producerVersion = 'v1.0'
     ): ArticleDocumentTaskLease
     {
-        if (this.#contextMutationPending)
+        if (this.#contextMutationPending || this.#retirementPending)
         {
             throw new Error('article-document-context-mutation-in-progress');
         }
@@ -1077,11 +1253,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public switchDocument(input: ArticleDocumentSwitchInput): ArticleDocumentEpochReceipt | null
     {
-        if (this.#contextMutationPending)
+        if (this.#contextMutationPending || this.#retirementPending)
         {
             throw new Error('article-document-context-mutation-in-progress');
         }
-        this.#lifetimePublication = null;
+        this.#retireLifetimeAuthority();
         this.#contextMutationPending = true;
         try
         {
@@ -1149,11 +1325,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public updateSource(content: string, sourceRevision?: number): ArticleDocumentContext
     {
-        if (this.#contextMutationPending)
+        if (this.#contextMutationPending || this.#retirementPending)
         {
             throw new Error('article-document-context-mutation-in-progress');
         }
-        this.#lifetimePublication = null;
+        this.#retireLifetimeAuthority();
         this.#contextMutationPending = true;
         try
         {
@@ -1203,11 +1379,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public updateDraftRevision(draftRevision: string | null): ArticleDocumentContext
     {
-        if (this.#contextMutationPending)
+        if (this.#contextMutationPending || this.#retirementPending)
         {
             throw new Error('article-document-context-mutation-in-progress');
         }
-        this.#lifetimePublication = null;
+        this.#retireLifetimeAuthority();
         this.#contextMutationPending = true;
         try
         {
@@ -1279,6 +1455,13 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public cancelAll(reason = 'task-canceled'): readonly string[]
     {
+        if (this.#retirementPending || this.#contextNotificationDepth !== 0 || this.#taskCancellationDepth !== 0
+            || retainedAdapterGuards.get(this)?.notificationActive())
+        {
+            const error = new Error('article-document-retirement-in-progress');
+            this.#retirementFailures.push(error);
+            throw error;
+        }
         assertAbortReason(reason);
         const refs = [...this.#activeTasks.values()].map(task => task.taskRef).sort();
         // Synchronous abort listeners must not register work outside this cancellation snapshot.
@@ -1299,13 +1482,24 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public dispose(): ArticleDocumentEpochReceipt | null
     {
-        this.#lifetimePublication = null;
+        if (this.#retirementPending || this.#contextNotificationDepth !== 0 || this.#taskCancellationDepth !== 0
+            || retainedAdapterGuards.get(this)?.notificationActive())
+        {
+            const error = new Error('article-document-dispose-notification-in-progress');
+            this.#retirementFailures.push(error);
+            throw error;
+        }
+        this.#retireLifetimeAuthority();
         if (retainedAdapterGuards.has(this) && retainedAdapterGuards.get(this)?.inspect().state !== 'revoked')
         {
             throw new Error('article-document-retained-dispose-requires-revocation');
         }
         if (this.#disposed)
         {
+            if ([...this.#contextListeners].some(record => record.failed))
+            {
+                this.#notifyContext();
+            }
             return null;
         }
         const canceledTaskRefs = this.cancelAll('dispose');
@@ -1336,6 +1530,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         operationToken?: object
     ): ArticleDocumentTaskEnvelope
     {
+        if (this.#retirementPending)
+        {
+            throw new Error('article-document-retirement-in-progress');
+        }
         if (!operationToken || taskFinalizationTokens.get(task) !== operationToken || !this.#pendingTasks.has(task))
         {
             throw new Error('article-document-task-finalization-invalid');
@@ -1376,6 +1574,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public settleTask(task: ArticleDocumentTaskLeaseImpl): void
     {
+        if (this.#retirementPending)
+        {
+            throw new Error('article-document-retirement-in-progress');
+        }
         if (task.envelope.status === 'running')
         {
             throw new Error('article-document-task-not-terminal');
@@ -1459,9 +1661,11 @@ export class ArticleDocumentContextAuthority
     #scopeRetirementSequence = 0;
     #scopeRetirementQueue: { siteScope: string; principalIdentityId: string; }[] = [];
     #currentScopeRetirement: { siteScope: string; principalIdentityId: string; } | null = null;
+    #ownerRetirementDepth = 0;
 
     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
     {
+        this.#assertRetirementNotPending();
         this.#assertAuthorityInput(input);
         if (this.#adapter && preparedPrimaryGuards.get(this.#adapter)?.isAdmitted() === false)
         {
@@ -1763,30 +1967,56 @@ export class ArticleDocumentContextAuthority
     /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
     public revokeRetainedScope(siteScope: string, principalIdentityId: string): void
     {
+        this.#assertRetirementNotPending();
         const target = { siteScope, principalIdentityId };
-        // Close the actual target custody before returning even when another scope
-        // is notifying. Canonical notifications and cleanup stay in the drain.
-        for (const owner of new Set([...this.#scopedOwners, ...this.#preparedOwners]))
+        const retiring = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
+            owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId);
+        if (retiring.some(owner => owner.retirementPending))
         {
-            if (owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
+            throw new Error('article-document-owner-retirement-in-progress');
+        }
+        const retirementFailures: unknown[] = [];
+        for (const owner of retiring)
+        {
+            owner.lifetimePublication = null;
+        }
+        for (const owner of retiring)
+        {
+            try
             {
-                owner.lifetimePublication = null;
-                owner.scopeRetired = true;
+                this.#retireOwnerAuthority(owner);
             }
+            catch (error)
+            {
+                retirementFailures.push(error);
+            }
+        }
+        // Every actual target was pre-signaled before scope or cleanup changes.
+        for (const owner of retiring)
+        {
+            owner.scopeRetired = true;
         }
         const isSame = (entry: typeof target): boolean => entry.siteScope === siteScope && entry.principalIdentityId === principalIdentityId;
         if ((this.#currentScopeRetirement && isSame(this.#currentScopeRetirement)) || this.#scopeRetirementQueue.some(isSame))
         {
+            if (retirementFailures.length > 0)
+            {
+                throw new AggregateError(retirementFailures, 'article-document-scope-pre-retirement-failed', { cause: retirementFailures[0] });
+            }
             return;
         }
         this.#scopeRetirementSequence += 1;
         this.#scopeRetirementQueue.push(target);
         if (this.#scopeRevocationPending)
         {
+            if (retirementFailures.length > 0)
+            {
+                throw new AggregateError(retirementFailures, 'article-document-scope-pre-retirement-failed', { cause: retirementFailures[0] });
+            }
             return;
         }
         this.#scopeRevocationPending = true;
-        const cleanupFailures: unknown[] = [];
+        const cleanupFailures: unknown[] = retirementFailures;
         try
         {
             while (this.#scopeRetirementQueue.length > 0)
@@ -1809,7 +2039,14 @@ export class ArticleDocumentContextAuthority
                         handles.push(owner.handle);
                     }
                 }
-                revokeRetainedArticleDocumentScopeSet(handles);
+                try
+                {
+                    revokeRetainedArticleDocumentScopeSet(handles);
+                }
+                catch (error)
+                {
+                    cleanupFailures.push(error);
+                }
                 for (const owner of targets)
                 {
                     if (!owner.handle)
@@ -1840,9 +2077,18 @@ export class ArticleDocumentContextAuthority
 
     #assertRetainedOwnerAdmission(): void
     {
+        this.#assertRetirementNotPending();
         if (this.#scopeRevocationPending)
         {
             throw new Error('article-document-scope-revocation-in-progress');
+        }
+    }
+
+    #assertRetirementNotPending(): void
+    {
+        if (this.#ownerRetirementDepth !== 0)
+        {
+            throw new Error('article-document-owner-retirement-in-progress');
         }
     }
 
@@ -1869,7 +2115,10 @@ export class ArticleDocumentContextAuthority
         return { registry, adapter, scope, principalIdentityId, siteScope: context.siteScope, scopeRetired: false, handle: null, binding: null,
             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
-            lastState: 'live', listeners: new Set(), lifetimePublication: null };
+            consumerInvalidationAttempts: new Set(), consumerInvalidationHasFailure: false, consumerInvalidationFirstFailure: undefined,
+            consumerInvalidationFailures: [],
+            lastState: 'live', listeners: new Set(), lifetimePublication: null, retirementPending: false,
+            retirementActivityDepth: 0, listenerNotificationDepth: 0, retirementListeners: new Set(), retirementFailures: [] };
     }
 
     #readRetainedRegistry(owner: ArticleDocumentRetainedOwner): RetainedArticleDocumentInspection
@@ -1899,12 +2148,50 @@ export class ArticleDocumentContextAuthority
             admissionClosed: owner.scopeRetired || owner.invalidationFailed || registry.state !== 'live' });
     }
 
+    #retireOwnerAuthority(owner: ArticleDocumentRetainedOwner): void
+    {
+        if (owner.retirementPending)
+        {
+            throw new Error('article-document-owner-retirement-in-progress');
+        }
+        owner.lifetimePublication = null;
+        owner.retirementPending = true;
+        this.#ownerRetirementDepth += 1;
+        const failures: unknown[] = [];
+        try
+        {
+            for (const listener of [...owner.retirementListeners])
+            {
+                try
+                {
+                    invokeNotificationSubscription(owner.retirementListeners, listener);
+                }
+                catch (error)
+                {
+                    failures.push(error);
+                }
+            }
+        }
+        finally
+        {
+            owner.retirementPending = false;
+            this.#ownerRetirementDepth -= 1;
+        }
+        if (failures.length > 0)
+        {
+            owner.retirementFailures.push(...failures);
+            owner.invalidationFailed = true;
+            throw new AggregateError(failures, 'article-document-owner-pre-retirement-failed', { cause: failures[0] });
+        }
+    }
+
     #sealLifetimeAuthority(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding): ArticleDocumentLifetimeSeal | null
     {
         const handle = owner.handle;
         const port = nativeDocumentLifetimePorts.get(owner.adapter);
         if (!handle || !port || owner.binding !== binding || owner.scopeRetired || owner.invalidationFailed
-            || owner.attachingConsumer || owner.consumerInvalidationState !== 'not-requested')
+            || owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
+            || owner.consumerInvalidationState !== 'not-requested')
         {
             return null;
         }
@@ -2048,22 +2335,55 @@ export class ArticleDocumentContextAuthority
             sealLifetimeAuthority: () => this.#sealLifetimeAuthority(owner, binding),
             hasLifetimeAuthorityCustody: (seal: ArticleDocumentLifetimeSeal) => this.#hasLifetimeAuthorityCustody(owner, binding, seal),
             cancelLifetimeAuthority: (seal: ArticleDocumentLifetimeSeal) => this.#cancelLifetimeAuthority(owner, binding, seal),
+            retryInvalidation: () =>
+            {
+                if (this.#ownerRetirementDepth !== 0 || owner.retirementPending || owner.retirementActivityDepth !== 0 || owner.listenerNotificationDepth !== 0
+                    || owner.attachingConsumer || nativeDocumentLifetimePorts.get(owner.adapter)?.notificationActive())
+                {
+                    const error = new Error('article-document-invalidation-retry-in-progress');
+                    owner.consumerInvalidationFailures.push(error);
+                    owner.invalidationFailed = true;
+                    if (!owner.consumerInvalidationHasFailure)
+                    {
+                        owner.consumerInvalidationHasFailure = true;
+                        owner.consumerInvalidationFirstFailure = error;
+                    }
+                    throw error;
+                }
+                this.#assertRetirementNotPending();
+                if (this.#readRetainedRegistry(owner).state !== 'revoked')
+                {
+                    throw new Error('article-document-invalidation-retry-not-retired');
+                }
+                this.#notifyRetainedOwner(owner);
+            },
+            subscribeRetirement: (listener: () => void) =>
+            {
+                if (typeof listener !== 'function' || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
+                    || owner.attachingConsumer || owner.scopeRetired || owner.invalidationFailed
+                    || nativeDocumentLifetimePorts.get(owner.adapter)?.retirementActive())
+                {
+                    throw new Error('article-document-retirement-subscription-unavailable');
+                }
+                return registerNotificationSubscription(owner.retirementListeners, listener, () => this.#retireOwnerAuthority(owner),
+                    () => owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
+                        || nativeDocumentLifetimePorts.get(owner.adapter)?.notificationActive() === true);
+            },
             subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
             {
-                owner.listeners.add(listener);
-                return () =>
-                {
-                    owner.listeners.delete(listener);
-                };
+                return registerNotificationSubscription(owner.listeners, () => listener(this.#inspectRetainedOwner(owner)),
+                    () => this.#notifyRetainedOwner(owner),
+                    () => owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
+                        || nativeDocumentLifetimePorts.get(owner.adapter)?.notificationActive() === true);
             },
             attachConsumer: <T extends ArticleDocumentRetainedConsumer>(create: (retained: ArticleDocumentRetainedBinding) => T): T =>
             {
-                if (owner.attachingConsumer)
+                if (owner.attachingConsumer || owner.retirementPending)
                 {
                     throw new Error('article-document-retained-consumer-unavailable');
                 }
                 // Reserve before the first external reader, including cached reads.
-                owner.lifetimePublication = null;
+                this.#retireOwnerAuthority(owner);
                 owner.attachingConsumer = true;
                 try
                 {
@@ -2132,13 +2452,21 @@ export class ArticleDocumentContextAuthority
         this.#scopedOwners.add(owner);
         retainedAdapterGuards.set(owner.adapter, {
             isAdmitted: () => !owner.scopeRetired && !owner.invalidationFailed,
-            inspect: () => this.#readRetainedRegistry(owner)
+            inspect: () => this.#readRetainedRegistry(owner),
+            notificationActive: () => owner.retirementPending || owner.listenerNotificationDepth !== 0,
+            retryActive: () => owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0
+                || owner.listenerNotificationDepth !== 0 || this.#ownerRetirementDepth !== 0
         });
-        const stopSubscription = subscribeRetainedArticleDocumentHandle(handle, () => this.#notifyRetainedOwner(owner));
+        let stopNativeRetirement: (() => void) | undefined;
+        let stopMembershipRetirement: (() => void) | undefined;
+        let stopSubscription: (() => void) | undefined;
         // Subscription is installed before the final external readers. A revoke in
         // this window is observed and its real pending resources remain retained.
         try
         {
+            stopNativeRetirement = nativeDocumentLifetimePorts.get(owner.adapter)?.subscribeRetirement(() => this.#retireOwnerAuthority(owner));
+            stopMembershipRetirement = subscribeRetainedArticleDocumentRetirement(handle, () => this.#retireOwnerAuthority(owner));
+            stopSubscription = subscribeRetainedArticleDocumentHandle(handle, () => this.#notifyRetainedOwner(owner));
             if (this.#readRetainedRegistry(owner).state !== 'live' || owner.scopeRetired || owner.invalidationFailed
                 || owner.adapter.context !== admission.context
                 || (validatePrimary && !validatePrimary()))
@@ -2153,7 +2481,9 @@ export class ArticleDocumentContextAuthority
             // unpublished live admission; actual revocation keeps recovery custody.
             if (inspectRetainedArticleDocumentHandle(handle).state !== 'revoked')
             {
-                stopSubscription();
+                stopSubscription?.();
+                stopMembershipRetirement?.();
+                stopNativeRetirement?.();
                 this.#retainedOwners.delete(handle);
                 this.#ownersByAdapter.delete(owner.adapter);
                 this.#scopedOwners.delete(owner);
@@ -2173,25 +2503,76 @@ export class ArticleDocumentContextAuthority
     #notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
     {
         owner.lifetimePublication = null;
+        owner.retirementActivityDepth += 1;
+        let retirementFailed = false;
+        let retirementError: unknown;
+        try
+        {
+            try
+            {
+                this.#retireOwnerAuthority(owner);
+            }
+            catch (error)
+            {
+                retirementFailed = true;
+                retirementError = error;
+            }
+            try
+            {
+                this.#notifyRetainedOwnerAfterRetirement(owner);
+            }
+            catch (error)
+            {
+                if (retirementFailed)
+                {
+                    throw new AggregateError([retirementError, error], 'article-document-retirement-and-cleanup-failed', { cause: error });
+                }
+                throw error;
+            }
+            if (retirementFailed)
+            {
+                throw retirementError;
+            }
+        }
+        finally
+        {
+            owner.retirementActivityDepth -= 1;
+        }
+    }
+
+    #notifyRetainedOwnerAfterRetirement(owner: ArticleDocumentRetainedOwner): void
+    {
+        owner.lifetimePublication = null;
         const observation = this.#inspectRetainedOwner(owner);
         const state = observation.registry.state;
-        const changedState = state !== owner.lastState;
+        const failures: unknown[] = [];
         owner.lastState = state;
         if (state !== 'live')
         {
-            owner.adapter.cancelAll(state === 'revoked' ? 'retained-owner-revoked' : 'retained-owner-blocked');
+            try
+            {
+                owner.adapter.cancelAll(state === 'revoked' ? 'retained-owner-revoked' : 'retained-owner-blocked');
+            }
+            catch (error)
+            {
+                owner.retirementFailures.push(error);
+                failures.push(error);
+                owner.invalidationFailed = true;
+            }
             if (state === 'revoked')
             {
                 try
                 {
                     owner.adapter.dispose();
                 }
-                catch
+                catch (error)
                 {
+                    owner.retirementFailures.push(error);
+                    failures.push(error);
                     owner.invalidationFailed = true;
                 }
             }
-            if (state === 'revoked' && changedState && owner.consumer)
+            if (state === 'revoked' && owner.consumer)
             {
                 this.#invalidateRetainedConsumer(owner);
             }
@@ -2200,21 +2581,52 @@ export class ArticleDocumentContextAuthority
         {
             try
             {
-                listener(this.#inspectRetainedOwner(owner));
+                owner.listenerNotificationDepth += 1;
+                invokeNotificationSubscription(owner.listeners, listener);
             }
-            catch
+            catch (error)
             {
+                owner.retirementFailures.push(error);
+                failures.push(error);
                 owner.invalidationFailed = true;
             }
+            finally
+            {
+                owner.listenerNotificationDepth -= 1;
+            }
+        }
+        if (failures.length > 0)
+        {
+            throw new AggregateError(failures, 'article-document-owner-notification-failed', { cause: failures[0] });
         }
     }
 
     #invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
     {
         owner.lifetimePublication = null;
-        if (!owner.consumer || owner.consumerInvalidationState !== 'not-requested')
+        if (!owner.consumer || owner.consumerInvalidationState === 'pending' || owner.consumerInvalidationState === 'settled')
         {
             return;
+        }
+        const retainFailure = (error: unknown): void =>
+        {
+            owner.consumerInvalidationFailures.push(error);
+            if (!owner.consumerInvalidationHasFailure)
+            {
+                owner.consumerInvalidationHasFailure = true;
+                owner.consumerInvalidationFirstFailure = error;
+            }
+            owner.invalidationFailed = true;
+        };
+        // Reservation notification and mandatory consumer cleanup are independent
+        // obligations. A failed signal must not skip the actual cleanup producer.
+        try
+        {
+            this.#retireOwnerAuthority(owner);
+        }
+        catch (error)
+        {
+            retainFailure(error);
         }
         owner.consumerInvalidationState = 'pending';
         try
@@ -2225,23 +2637,22 @@ export class ArticleDocumentContextAuthority
                 owner.consumerInvalidationState = 'settled';
                 return;
             }
-            // Preserve the ACTUAL returned cleanup promise; do not invent a task,
-            // recovery token, timeout completion or zero-resource receipt.
             owner.pendingConsumerInvalidation = pending;
+            owner.consumerInvalidationAttempts.add(pending);
             void pending.then(() =>
             {
                 owner.consumerInvalidationState = 'settled';
                 owner.pendingConsumerInvalidation = null;
-            }, () =>
+            }, error =>
             {
                 owner.consumerInvalidationState = 'failed';
-                owner.invalidationFailed = true;
+                retainFailure(error);
             });
         }
-        catch
+        catch (error)
         {
             owner.consumerInvalidationState = 'failed';
-            owner.invalidationFailed = true;
+            retainFailure(error);
         }
     }
 

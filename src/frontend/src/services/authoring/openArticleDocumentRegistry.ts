@@ -85,6 +85,104 @@ export interface RetainedArticleDocumentInspection {
     readonly notificationFailed: boolean;
 }
 
+export interface RetainedNotificationSubscription {
+    (): void;
+    retry(): void;
+    inspect(): { failed: boolean; pendingUnsubscribe: boolean; running: boolean; firstFailure: unknown; };
+}
+
+interface NotificationSubscriptionRecord {
+    readonly listener: () => void;
+    running: boolean;
+    failed: boolean;
+    hasFirstFailure: boolean;
+    firstFailure: unknown;
+    pendingUnsubscribe: boolean;
+    failureVersion: number;
+    lastFailure: unknown;
+}
+
+function registerNotificationSubscription(records: Set<NotificationSubscriptionRecord>, listener: () => void,
+    retry: () => void, retryBusy: () => boolean): RetainedNotificationSubscription
+{
+    const record: NotificationSubscriptionRecord = { listener, running: false, failed: false,
+        hasFirstFailure: false, firstFailure: undefined, pendingUnsubscribe: false, failureVersion: 0, lastFailure: undefined };
+    records.add(record);
+    const stop = () =>
+    {
+        record.pendingUnsubscribe = true;
+        if (!record.running && !record.failed)
+        {
+            records.delete(record);
+        }
+    };
+    Object.defineProperties(stop, {
+        retry: { value: () =>
+        {
+            if (retryBusy() || [...records].some(current => current.running))
+            {
+                const error = new Error('retained-notification-retry-in-progress');
+                record.failed = true;
+                record.failureVersion += 1;
+                record.lastFailure = error;
+                if (!record.hasFirstFailure)
+                {
+                    record.hasFirstFailure = true;
+                    record.firstFailure = error;
+                }
+                throw error;
+            }
+            retry();
+        } },
+        inspect: { value: () => ({ failed: record.failed, pendingUnsubscribe: record.pendingUnsubscribe,
+            running: record.running, firstFailure: record.firstFailure }) }
+    });
+    return stop as RetainedNotificationSubscription;
+}
+
+function invokeNotificationSubscription(records: Set<NotificationSubscriptionRecord>, record: NotificationSubscriptionRecord): void
+{
+    if (!records.has(record))
+    {
+        return;
+    }
+    if (record.running)
+    {
+        throw new Error('retained-notification-retry-in-progress');
+    }
+    record.running = true;
+    const failureVersion = record.failureVersion;
+    try
+    {
+        record.listener();
+        if (record.failureVersion !== failureVersion)
+        {
+            throw record.lastFailure;
+        }
+        record.failed = false;
+    }
+    catch (error)
+    {
+        record.failed = true;
+        record.failureVersion += 1;
+        record.lastFailure = error;
+        if (!record.hasFirstFailure)
+        {
+            record.hasFirstFailure = true;
+            record.firstFailure = error;
+        }
+        throw error;
+    }
+    finally
+    {
+        record.running = false;
+        if (record.pendingUnsubscribe && !record.failed)
+        {
+            records.delete(record);
+        }
+    }
+}
+
 interface RetainedArticleDocumentCell {
     readonly registry: OpenArticleDocumentRegistry;
     readonly handle: RetainedArticleDocumentHandle;
@@ -93,7 +191,12 @@ interface RetainedArticleDocumentCell {
     readonly read: () => RetainedArticleDocumentInspection;
     readonly notify: () => void;
     readonly publication: () => RetainedMembershipPublication | null;
-    readonly listeners: Set<() => void>;
+    readonly retire: () => void;
+    readonly retirementPending: () => boolean;
+    readonly notificationActive: () => boolean;
+    readonly retirementListeners: Set<NotificationSubscriptionRecord>;
+    readonly retirementFailures: unknown[];
+    readonly listeners: Set<NotificationSubscriptionRecord>;
     reason: RetainedArticleDocumentRevocation | null;
     membershipClosed: boolean;
     notificationFailed: boolean;
@@ -167,18 +270,25 @@ export function inspectRetainedArticleDocumentHandle(handle: RetainedArticleDocu
     return cell.read();
 }
 
-export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle, listener: () => void): () => void
+export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle, listener: () => void): RetainedNotificationSubscription
 {
     const cell = retainedArticleDocumentCells.get(handle);
     if (!cell || typeof listener !== 'function')
     {
         throw new Error('retained-article-document-handle-invalid');
     }
-    cell.listeners.add(listener);
-    return () =>
+    return registerNotificationSubscription(cell.listeners, listener, () => cell.notify(), cell.notificationActive);
+}
+
+/** Synchronous pre-change signal from this same original cell/Registry realm. */
+export function subscribeRetainedArticleDocumentRetirement(handle: RetainedArticleDocumentHandle, listener: () => void): RetainedNotificationSubscription
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell || typeof listener !== 'function' || cell.retirementPending() || cell.publication() === null)
     {
-        cell.listeners.delete(listener);
-    };
+        throw new Error('retained-article-document-retirement-subscription-unavailable');
+    }
+    return registerNotificationSubscription(cell.retirementListeners, listener, () => cell.retire(), cell.notificationActive);
 }
 
 /** Only scope retirement is an explicit revocation; close follows canonical removal. */
@@ -199,13 +309,45 @@ export function revokeRetainedArticleDocumentScopeSet(handles: readonly Retained
         }
         return cell;
     });
+    if (cells.some(cell => cell.retirementPending()))
+    {
+        throw new Error('retained-article-document-retirement-in-progress');
+    }
+    const retiredRegistries = new Set<OpenArticleDocumentRegistry>();
+    const failures: unknown[] = [];
+    for (const cell of cells)
+    {
+        if (!retiredRegistries.has(cell.registry))
+        {
+            retiredRegistries.add(cell.registry);
+            try
+            {
+                cell.retire();
+            }
+            catch (error)
+            {
+                failures.push(error);
+            }
+        }
+    }
     for (const cell of cells)
     {
         cell.reason ??= 'scope-revoked';
     }
     for (const cell of cells)
     {
-        cell.notify();
+        try
+        {
+            cell.notify();
+        }
+        catch (error)
+        {
+            failures.push(error);
+        }
+    }
+    if (failures.length > 0)
+    {
+        throw new AggregateError(failures, 'retained-article-document-scope-retirement-failed', { cause: failures[0] });
     }
 }
 
@@ -213,7 +355,8 @@ function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): v
 {
     const observation = cell.read();
     if (cell.notifiedRevision === observation.registryRevision && cell.notifiedReason === observation.reason
-        && cell.notifiedState === observation.state && cell.notifiedFailure === observation.notificationFailed)
+        && cell.notifiedState === observation.state && cell.notifiedFailure === observation.notificationFailed
+        && ![...cell.listeners].some(record => record.failed))
     {
         return;
     }
@@ -225,7 +368,7 @@ function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): v
     {
         try
         {
-            listener();
+            invokeNotificationSubscription(cell.listeners, listener);
         }
         catch
         {
@@ -829,6 +972,7 @@ export class OpenArticleDocumentRegistry
     #retainedNotificationPending = false;
     #retainedNotificationRequested = false;
     #membershipMutationDepth = 0;
+    #membershipRetirementPending = false;
     #membershipPublication: RetainedMembershipPublication | null = { entries: this.entriesByTabId, revision: this.revision };
 
     #runMembershipMutation<T>(operation: () => T): T
@@ -839,6 +983,7 @@ export class OpenArticleDocumentRegistry
         let outcome: { succeeded: true; value: T; } | { succeeded: false; error: unknown; };
         try
         {
+            this.#retireMembershipAuthority();
             outcome = { succeeded: true, value: operation() };
         }
         catch (error)
@@ -882,9 +1027,51 @@ export class OpenArticleDocumentRegistry
         return outcome.value;
     }
 
+    #retireMembershipAuthority(): void
+    {
+        if (this.#membershipRetirementPending)
+        {
+            throw new Error('retained-article-document-retirement-in-progress');
+        }
+        this.#membershipPublication = null;
+        this.#membershipRetirementPending = true;
+        const failures: { cell: RetainedArticleDocumentCell; error: unknown; }[] = [];
+        try
+        {
+            for (const cell of this.#retainedDocumentCells)
+            {
+                for (const listener of [...cell.retirementListeners])
+                {
+                    try
+                    {
+                        invokeNotificationSubscription(cell.retirementListeners, listener);
+                    }
+                    catch (error)
+                    {
+                        failures.push({ cell, error });
+                    }
+                }
+            }
+        }
+        finally
+        {
+            this.#membershipRetirementPending = false;
+        }
+        for (const failure of failures)
+        {
+            failure.cell.notificationFailed = true;
+            failure.cell.retirementFailures.push(failure.error);
+        }
+        if (failures.length > 0)
+        {
+            throw new AggregateError(failures.map(failure => failure.error), 'retained-article-document-pre-retirement-failed',
+                { cause: failures[0].error });
+        }
+    }
+
     #publishMembershipAuthority(): void
     {
-        if (this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        if (this.#membershipMutationDepth !== 0 || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
         {
             return;
         }
@@ -902,7 +1089,7 @@ export class OpenArticleDocumentRegistry
     public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
     {
         const entry = this.entriesByTabId.get(tabId);
-        if (!entry || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        if (!entry || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
         {
             throw new Error('retained-article-document-member-unavailable');
         }
@@ -938,6 +1125,12 @@ export class OpenArticleDocumentRegistry
             listeners: new Set(),
             notify: () => this.#notifyRetainedDocuments(),
             publication: () => this.#membershipPublication,
+            retire: () => this.#retireMembershipAuthority(),
+            retirementPending: () => this.#membershipRetirementPending,
+            notificationActive: () => this.#membershipRetirementPending || this.#retainedNotificationPending
+                || this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending,
+            retirementListeners: new Set(),
+            retirementFailures: [],
             read: () =>
             {
                 const current = this.entriesByTabId.get(tabId);
@@ -1098,7 +1291,7 @@ export class OpenArticleDocumentRegistry
     private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
         next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
     {
-        if (this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        if (this.#ownershipTransactionPending || this.#retainedNotificationPending || this.#membershipRetirementPending)
         {
             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
         }

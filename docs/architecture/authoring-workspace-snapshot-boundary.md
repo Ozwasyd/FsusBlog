@@ -1219,7 +1219,16 @@ native consumer remain. Startup still prepares only: no automatic Writer
 subscription or native/Doc/Auth/journal joint reservation is installed by this
 partial source. Root withdraws its private attempt and returns null without the
 original Doc pre-retirement input. Failure/disposer custody stays in the original
-consumer, and current unaccepted Doc5374 is not consumed.
+consumer. The independently closed original Doc7ab source is now consumed as
+exact two-file postimages: the retained binding owns synchronous
+`subscribeRetirement`, its real stop handle owns `retry()`/`inspect()`, and
+`retryInvalidation()` retries original invalidation. Pure custody reads remain
+unchanged. This makes the producer available; the existing Root consumer still
+needs the actual retained binding from the original Writer adoption return and
+startup seal/reserve wiring. Metadata cannot substitute for that object. Intake
+proof and actual static results are in
+`artifacts/article-editor/issue-2295-doc7ab-intake`; runtime qualification remains
+HOLD/UNRUN.
 
 ### Public native document reservation consumer (#2295)
 

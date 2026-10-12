@@ -1,0 +1,36 @@
+{
+  "baselineMain": "5e636265c5f3f7228281246ca97c5aa424ff965f",
+  "actualUI": "b99c319e9a55dac14fc6dad4515c9801a0a801b9",
+  "source": "7ab33abd390d0876f0181ffc017e673d44e4ac1b",
+  "originalTwoPostimagesExact": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "before": "76761edf0b89bb538a5aa24cc7c87e6df0294d9b",
+      "source": "7ab33abd390d0876f0181ffc017e673d44e4ac1b",
+      "after": "055558e540fa0a2e6b6e26f163e983e32a960bde",
+      "sha256": "25788033238581e8aa3915c6cd2034bc3d9b7ee61f4fa8f569543c0914afe1b3"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "before": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e",
+      "source": "7ab33abd390d0876f0181ffc017e673d44e4ac1b",
+      "after": "b54be3268b4fbe4ca02d1692735b148e82fed4cb",
+      "sha256": "eaf8070e0839c21dc239b10799d7b8d6336897888f3f3d70d1e77a16df122eb0"
+    }
+  ],
+  "originalCheckApply": 0,
+  "actualChangedProductionPaths": 2,
+  "allOtherTrackedProductionUnchanged": true,
+  "protectedProducerBlobs": {
+    "src/frontend/src/composables/useAdminArticleWrite.ts": "57ba52161b0a4c8da51c274dd892a588ad960e69",
+    "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts": "5330aa37e90437a82be2d708ff75363626a9b4bf",
+    "src/frontend/src/layouts/AdminWorkspaceFrame.vue": "6250546d835af95e3296b0443fb5e2971ddeef57",
+    "src/frontend/src/services/authoring/articleWorkspaceNativeDocumentAuthority.ts": "1437503abbf94ed329234a3715053ee0024c3fbe",
+    "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts": "1980ebcc8491794e457850af865aeaa13168e704",
+    "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts": "39d6b43ca1e2f54d7dc53f1119a3828a5bc40fe8",
+    "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts": "4e78c48bd891a856c6f19c2a3492b9920e3c01da",
+    "src/frontend/src/views/admin/article/Write.vue": "c5f410d3e6f602b20fa9883c726b096fe1cb37e5"
+  },
+  "runtime": "ALL HOLD/UNRUN",
+  "newCompositeIndependentReview": "pending"
+}
