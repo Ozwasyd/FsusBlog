@@ -1,0 +1,24 @@
+{
+    "base": "4431aa6e4d9d83a25afbf9eb0b3ec43da0d94d66",
+    "before": {
+        "command": "node tools/frontend/check-authoring-workspace-layout-source.mjs",
+        "exitCode": 1,
+        "status": "source-check-fail",
+        "failure": "session-source: alternate-host-or-registry-construction",
+        "outputSha256": "589da9fd9ed0e36e9fda553b4308a6c1adc5392e73621361b1cd4c96c2281b98",
+        "originalFailureRecordRetained": true
+    },
+    "after": {
+        "coreGuard": "PASS/exit0",
+        "componentGuard": "PASS/exit0",
+        "strictToolLint": "PASS/exit0/0warnings",
+        "staticSourceControls": 23,
+        "positive": 1,
+        "negative": 22
+    },
+    "productionSourcesChanged": false,
+    "frozenAuthorityEvidenceChanged": false,
+    "lastActualTypecheck": "4431 imported actual UI9f92+a775 program FAIL209; unchanged production source; not rerun for tool-only patch",
+    "scope": "AST compiler tooling controls only; never evaluate product or fixture source",
+    "runtimeTestsListQualification": "ALL HOLD/UNRUN"
+}

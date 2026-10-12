@@ -948,3 +948,14 @@ Doc or unaccepted Auth parallel source is copied. Missing authority/provider joi
 still refuse. Actual static strict lint/SCSS/AST PASS; the same real local-alias
 whole imported graph remains FAIL209, zero new/removed and zero Root/Layout findings.
 All existing runtime/qualification/second-owner/full-refset/frozen holds remain.
+
+Correction of the4431 static report:16-file TS/Vue/template parsing and component
+guard passed, but the actual core guard exited1 on original session-source
+AggregateError, misclassified by its Error-only constructor check. Original FAIL
+output/source hashes remain preserved. The narrow later tool policy permits only
+the actual unshadowed standard aggregation/catch/errors/message/cause shape; other
+constructors/aliases/shadows/locations remain forbidden. Static AST controls cover
+one original positive and22 negative source variants without product evaluation.
+Core/component/tool lint now pass, with all16 production postimages and Layout
+files unchanged. This corrects the inaccurate prior all-AST-green statement; no
+runtime/qualification/frozen authority/evidence was run or refreshed.

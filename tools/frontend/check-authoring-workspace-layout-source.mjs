@@ -4,6 +4,8 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isAllowedAuthoringSessionSourceConstruction } from './authoring-workspace-session-construction-policy.mjs';
+
 // Source-only guard for the delivered modules. It never imports candidate product code.
 // Full SFC/DOM/receipt/session governance remains blocked on the original integrations.
 if (process.argv.length !== 2)
@@ -246,7 +248,7 @@ visit(sessionSourceTree, node =>
     {
         exactBindingChecks++;
     }
-    if (ts.isNewExpression(node) && node.expression.getText(sessionSourceTree) !== 'Error')
+    if (ts.isNewExpression(node) && !isAllowedAuthoringSessionSourceConstruction(ts, sessionSourceTree, node))
     {
         failures.push('session-source: alternate-host-or-registry-construction');
     }

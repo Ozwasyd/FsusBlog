@@ -25,8 +25,12 @@ null and rejects missing original auth/member/provider reservations. Query/provi
 restored handle/full-form adoption, second-owner and complete resource/refset gates
 remain open. Prior bounded closure of each end does not accept this new combination.
 
-Static checks:16 actual postimages parse through TS/Vue/template compiler; original
-strict ESLint0 and related SCSS0; existing Layout core/component guards PASS.
+Static checks at4431:16 actual postimages parse through TS/Vue/template compiler;
+original strict ESLint0 and related SCSS0; component guard PASS. Correction: the
+core guard actually FAILED because it misclassified the original AggregateError.
+The earlier all-guards-PASS statement was inaccurate. Original FAIL is retained
+in issue-2299-aggregateerror-source-guard; a later narrow tooling correction passes
+that guard without changing these16 original production sources.
 Actual original strict program with unchanged local UI9f92+a775 source alias remains
 FAIL209 versus prior209, no new/removed findings and no Root/UI/owned Layout findings.
 This is not a passing application build or a reduced/fake type program. All runtime,
