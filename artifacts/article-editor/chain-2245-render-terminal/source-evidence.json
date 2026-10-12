@@ -11,16 +11,16 @@
   "branch": "codex/issue-2245-render-terminal",
   "changes": {
     "src/frontend/src/services/authoring/articleRenderCache.ts": {
-      "sha256": "4a866a3470dac07ccf9eece2e3f42bd81a6a35181535a93c54b68ca3add6c24d",
-      "blob": "a73ea5ce1f27fdbdd25bca7d5d9f0cc85ff85903"
+      "sha256": "590df3bf28a40da96a354aca21845ac5a47bee609af42cf00751db2cc6597977",
+      "blob": "83bb2aa0272926923f70d02f9ec86ac2d80861eb"
     },
     "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
-      "sha256": "610a6854391abfffc4f36c9fa32d3cc5e4e209eed9f5be06fd2bcd3feca87bca",
-      "blob": "c2d33107e8585d7c4e8bfd94dc028148533c6688"
+      "sha256": "fc59d8e220c58ce8fad18f9602fadf71d7267ed978921be47d2c4a9c9d17620b",
+      "blob": "9ceba27a7c1d0e09b771b285f9ea0fd233ff64f8"
     },
     "docs/architecture/overview.md": {
-      "sha256": "537e23e49c82a894d58917da3562e9f5d766f17610bfe7f9aa5a52e9d6d23a83",
-      "blob": "e07dcf6467a6c77ce05ac0f339583fbfbb7dc5dd"
+      "sha256": "b4fda7535ef254a852f3dff69ede30f08a6c17eeb7213ff224f111fa3005a921",
+      "blob": "8bad5dace68eb1ddded6fdff7fa765ae46e1a188"
     }
   },
   "frozen": {
@@ -85,7 +85,7 @@
       "exitCode": 0
     }
   ],
-  "sourceControls": "Nine appended controls, UNRUN/HOLD; all original controls preserved",
+  "sourceControls": "Original nine source controls plus seven complete null/invalid/exception matrix blocks (16 appended blocks), all UNRUN/HOLD; no test-list/collection performed",
   "holds": [
     "runtime",
     "test",
@@ -98,10 +98,11 @@
     "migration/ProjectXML/Git replacement QA"
   ],
   "qualification": false,
-  "remainingProducerGap": "ArticleFsusUiRenderProducer.render rejects without a result ref or explicit failure-cleanup terminal API; original #2246 producer must supply actual per-request future/cleanup capability. Rejection retains original lease and work. Undeclared release future remains in cleanupFailure.cause, never inferred settled.",
+  "remainingProducerGap": "Original producer must bind actual failure/no-resource terminal capability. Whole-invalid output, schema-valid fatal/projection-failed null reference and false/exceptional verification stay pending; no stub, metadata grant or forced drain is added.",
   "remainingCallerGap": "#2246 continuity/runtime currently await cache.refresh cancellation response. Its original caller must consume the same startRefresh work.terminal or delegate pendingRefreshWork; never start a second refresh or settle tool/preview leases on receipt alone.",
   "contentApiWrites": false,
   "newPr": null,
   "oldDraftPrUpdated": false,
-  "checkedSourcePreimage": "119970e3392a998776973398069d28cd48830ed5"
+  "checkedSourcePreimage": "f67f79e91a3f9742d5d4dc28ad7d1de727299fc6",
+  "reviewRepair": "Reviewed P2: distinct unproduced Symbol versus actual fulfilled unknown/null output; no-resource metadata never grants terminal settlement; classify once before external validation/verification, retain exception causes and validate cloned entry before acceptance."
 }

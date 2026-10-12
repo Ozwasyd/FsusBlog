@@ -9,5 +9,6 @@
   "removed": [],
   "ownedDiagnostics": [],
   "localFsusui": "6a73ad6312091ca782f99393140efc8df0fb4fb6",
-  "fullApplicationPassed": false
+  "fullApplicationPassed": false,
+  "checkedSourcePreimage": "f67f79e91a3f9742d5d4dc28ad7d1de727299fc6"
 }

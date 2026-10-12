@@ -90,6 +90,8 @@ export interface ArticleRenderRefreshWork {
     readonly receipt: Promise<ArticleRenderReceipt>;
     /** Resolves only after actual render and required cleanup, then original lease.settle(). */
     readonly terminal: Promise<void>;
+    /** Producer future observation only; fulfilled does not attest cleanup. */
+    readonly productionState: 'pending' | 'fulfilled' | 'rejected';
     readonly resultRef: string | null;
     readonly cleanupFailure: Error | null;
     readonly producerFailure: Error | null;
@@ -459,7 +461,9 @@ export class ArticleRenderCache
             resolveAbort(cancellation);
         };
         task.signal.addEventListener('abort', onAbort, { once: true });
-        let producedResult: ArticleRenderResult | null = null;
+        const notProduced = Symbol('article-render-not-produced');
+        let producedResult: unknown = notProduced;
+        let productionState: ArticleRenderRefreshWork['productionState'] = 'pending';
         let committed = false;
         let releaseAttempted = false;
         let cleanupFailure: Error | null = null;
@@ -470,24 +474,46 @@ export class ArticleRenderCache
         };
         const releaseUncommitted = (): void =>
         {
-            if (committed || releaseAttempted || producedResult === null)
+            if (committed || releaseAttempted || producedResult === notProduced)
             {
                 return;
             }
+            // Reserve before validators/getters/verification callbacks. Their
+            // failure is not permission to retry cleanup or infer no resources.
+            releaseAttempted = true;
+            let releaseInvoked = false;
             try
             {
-                if (producedResult.resultRef !== null && !isRef(producedResult.resultRef))
+                if (!validateArticleRenderResult(producedResult))
                 {
-                    throw new Error('article-render-cleanup-reference-invalid');
+                    producerFailure ??= new Error('article-render-producer-output-invalid', { cause: producedResult });
+                    return;
                 }
-                if (isRef(producedResult.resultRef))
+                const resultRef = producedResult.resultRef;
+                if (resultRef === null)
                 {
-                    releaseAttempted = true;
-                    this.releaseReference(producedResult.resultRef);
+                    // Even a schema-valid fatal/projection-failed null reference
+                    // supplies no producer-bound no-resource/cleanup endpoint.
+                    producerFailure ??= new Error('article-render-no-resource-terminal-unconfirmed', { cause: producedResult });
+                    return;
                 }
+                if (producedResult.contextDigest !== request.context.contextDigest
+                    || producedResult.requestId !== request.requestId
+                    || !identitiesEqual(producedResult.identity, request.identity)
+                    || !this.producer.verify(request, producedResult))
+                {
+                    producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: producedResult });
+                    return;
+                }
+                releaseInvoked = true;
+                this.releaseReference(resultRef);
             }
             catch (error)
             {
+                if (!releaseInvoked)
+                {
+                    producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: error });
+                }
                 rememberCleanupFailure(error);
                 throw error;
             }
@@ -495,7 +521,12 @@ export class ArticleRenderCache
         const produced = Promise.resolve().then(() => this.producer.render(request)).then(value =>
         {
             producedResult = value;
+            productionState = 'fulfilled';
             return value;
+        }, (error: unknown) =>
+        {
+            productionState = 'rejected';
+            throw error;
         });
         if (task.signal.aborted)
         {
@@ -531,7 +562,11 @@ export class ArticleRenderCache
                         const unsigned = { schema: articleRenderCacheSchema, context: request.context,
                             identity: request.identity, result, createdAt: this.clock() };
                         const entry = seal({ ...unsigned, cacheDigest: digest(unsigned) });
-                        if (new TextEncoder().encode(JSON.stringify(entry)).byteLength > this.policy.maxEntryBytes)
+                        if (!validateArticleRenderCacheEntry(entry))
+                        {
+                            producerFailure ??= new Error('article-render-producer-output-invalid', { cause: value });
+                        }
+                        else if (new TextEncoder().encode(JSON.stringify(entry)).byteLength > this.policy.maxEntryBytes)
                         {
                             status = 'failed';
                             reason = 'cache-size-limit';
@@ -564,8 +599,12 @@ export class ArticleRenderCache
                     }
                 }
             }
-            catch
+            catch (cause)
             {
+                if (producedResult !== notProduced && !cleanupFailure)
+                {
+                    producerFailure ??= new Error('article-render-admission-terminal-unconfirmed', { cause });
+                }
                 status = task.signal.aborted ? 'canceled' : 'failed';
                 reason = cleanupFailure ? 'render-cleanup-failed'
                     : task.signal.aborted ? 'render-canceled' : 'render-producer-failed';
@@ -639,9 +678,18 @@ export class ArticleRenderCache
             taskRef: task.taskRef,
             receipt,
             terminal,
+            get productionState(): ArticleRenderRefreshWork['productionState']
+            {
+                return productionState;
+            },
             get resultRef(): string | null
             {
-                return producedResult?.resultRef ?? null;
+                if (producedResult && typeof producedResult === 'object' && 'resultRef' in producedResult)
+                {
+                    const reference = producedResult.resultRef;
+                    return typeof reference === 'string' ? reference : null;
+                }
+                return null;
             },
             get cleanupFailure(): Error | null
             {

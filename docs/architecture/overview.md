@@ -326,6 +326,16 @@ The original producer's release contract is synchronous; an unrepresented native
 or asynchronous cleanup future still needs its original producer API and cannot
 be qualified by this terminal endpoint. Tool/preview leases remain separate:
 awaiting a cache cancellation receipt alone does not settle their actual work.
+The unproduced sentinel is distinct from every fulfilled value, including whole
+null/undefined outputs. `productionState` observes only the actual producer
+Promise; fulfillment is not no-resource or cleanup authority. Invalid structures,
+unbound or unverified references, and every null-reference status (including
+schema-valid fatal/projection-failed metadata) remain pending until the original
+producer supplies its real terminal capability. Validator/getter/verification
+exceptions retain their causes; cleanup classification is reserved before these
+callbacks and is not retried. The cloned cache entry is revalidated before commit,
+so an external verifier cannot mutate a null-reference clone into an accepted
+transfer. Serialized receipts do not carry these private unknown outputs/errors.
 
 `ArticleFsusUiRenderProducer` consumes the public renderer/projection APIs through
 the existing FsusUI boundary. Its canonical result references are released on

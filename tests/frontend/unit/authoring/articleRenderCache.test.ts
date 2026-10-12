@@ -436,10 +436,9 @@ describe('original render future and cleanup settlement (#2245)', () =>
 
     it('rejects an undeclared cleanup future without dropping it or settling the original lease', async () =>
     {
-        const { adapter, cache, producer } = setup();
+        const { adapter, cache, producer } = setup(1);
         const cleanup = deferred<void>();
         producer.release = vi.fn(() => cleanup.promise);
-        vi.mocked(producer.render).mockImplementationOnce(async request => resultFor(request, { requestId: 'foreign-request' }));
         const work = cache.startRefresh();
         await work.receipt;
         await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
@@ -477,12 +476,229 @@ describe('original render future and cleanup settlement (#2245)', () =>
         const { adapter, cache, producer } = setup();
         vi.mocked(producer.render).mockImplementationOnce(async request => resultFor(request, { resultRef: 'invalid ref' }));
         const work = cache.startRefresh();
-        expect((await work.receipt).status).toBe('failed');
-        await expect(work.terminal).rejects.toThrow('article-render-cleanup-reference-invalid');
-        expect(work.cleanupFailure).not.toBeNull();
+        expect((await work.receipt).status).toBe('rejected');
+        await expect(work.terminal).rejects.toThrow('article-render-producer-output-invalid');
+        expect(work.producerFailure).not.toBeNull();
         expect(cache.pendingRefreshWork).toContain(work);
         expect(adapter.pendingTaskRefs).toContain(work.taskRef);
         expect(producer.release).not.toHaveBeenCalled();
+    });
+
+
+    it('keeps every null-reference status pending without a real no-resource terminal capability', async () =>
+    {
+        for (const status of ['valid', 'partial', 'fatal', 'projection-failed'] as const)
+        {
+            const { adapter, cache, producer } = setup();
+            let output!: ArticleRenderResult;
+            vi.mocked(producer.render).mockImplementationOnce(async request =>
+            {
+                output = resultFor(request, { status, resultRef: null, resultDigest: null,
+                    reason: status === 'valid' ? null : 'actual-render-failure',
+                    fallbackRefs: status === 'partial' ? ['fallback:node'] : [] });
+                return output;
+            });
+            const work = cache.startRefresh();
+            const response = await work.receipt;
+            expect(response.status).toBe(status === 'fatal' || status === 'projection-failed' ? 'failed' : 'rejected');
+            await expect(work.terminal).rejects.toThrow(status === 'fatal' || status === 'projection-failed'
+                ? 'article-render-no-resource-terminal-unconfirmed' : 'article-render-producer-output-invalid');
+            expect(work.productionState).toBe('fulfilled');
+            expect(work.producerFailure?.cause).toBe(output);
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
+            expect(producer.release).not.toHaveBeenCalled();
+            cache.dispose();
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        }
+    });
+
+    it('distinguishes real invalid/null outputs from an unfinished producer and preserves each original output', async () =>
+    {
+        const mutations: readonly ((result: ArticleRenderResult) => unknown)[] = [
+            () => null, () => undefined, () => false, () => 42, () => 'invalid', () => Symbol('invalid'), () => [], () => ({}),
+            result => ({ ...result, extra: 'not-the-closed-result' }),
+            result => { const { resultRef: unused, ...rest } = result; void unused; return rest; },
+            result => ({ ...result, status: 'unknown' }),
+            result => ({ ...result, resultRef: 'invalid ref' }),
+            result => ({ ...result, resultRef: null }),
+            result => ({ ...result, resultDigest: null }),
+            result => ({ ...result, identity: { locale: 'same' } }),
+            result => ({ ...result, fallbackRefs: null }),
+            result => ({ ...result, contextDigest: null }),
+            result => ({ ...result, requestId: 'invalid ref' }),
+            result => ({ ...result, reason: 42 }),
+            result => ({ ...result, longTaskRefs: null }),
+            result => ({ ...result, layoutObservationRefs: false })
+        ];
+        for (const mutate of mutations)
+        {
+            const { adapter, cache, producer } = setup();
+            const pending = deferred<ArticleRenderResult>();
+            let request!: ArticleRenderRequest;
+            vi.mocked(producer.render).mockImplementationOnce(input => { request = input; return pending.promise; });
+            const earlier = cache.startRefresh();
+            await Promise.resolve();
+            cache.cancel();
+            await earlier.receipt;
+            expect(earlier.productionState).toBe('pending');
+            let output: unknown;
+            Object.defineProperty(producer, 'render', { value: vi.fn(async (input: ArticleRenderRequest) =>
+            {
+                output = mutate(resultFor(input));
+                return output;
+            }) });
+            const invalid = cache.startRefresh();
+            await invalid.receipt;
+            await expect(invalid.terminal).rejects.toThrow('article-render-producer-output-invalid');
+            expect(invalid.productionState).toBe('fulfilled');
+            expect(invalid.producerFailure?.cause).toBe(output);
+            expect(earlier.productionState).toBe('pending');
+            expect(adapter.pendingTaskRefs).toContain(invalid.taskRef);
+            expect(adapter.pendingTaskRefs).toContain(earlier.taskRef);
+            expect(cache.pendingRefreshWork).toContain(invalid);
+            expect(producer.release).not.toHaveBeenCalled();
+            pending.resolve(resultFor(request));
+            await earlier.terminal;
+            expect(adapter.pendingTaskRefs).not.toContain(earlier.taskRef);
+            expect(adapter.pendingTaskRefs).toContain(invalid.taskRef);
+        }
+    });
+
+    it('retains validator property exceptions without repeating cleanup classification', async () =>
+    {
+        for (const key of ['contextDigest', 'requestId', 'identity', 'status', 'resultRef', 'resultDigest',
+            'reason', 'fallbackRefs', 'longTaskRefs', 'layoutObservationRefs'] as const)
+        {
+            const { adapter, cache, producer } = setup();
+            const actualError = new Error('actual-validator-property-failure');
+            const read = vi.fn(() => { throw actualError; });
+            vi.mocked(producer.render).mockImplementationOnce(async request =>
+            {
+                const output = resultFor(request);
+                Object.defineProperty(output, key, { enumerable: true, get: read });
+                return output;
+            });
+            const work = cache.startRefresh();
+            await work.receipt;
+            await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
+            expect(work.producerFailure?.cause).toBe(actualError);
+            expect(work.cleanupFailure?.cause).toBe(actualError);
+            expect(read).toHaveBeenCalledTimes(2);
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
+            expect(producer.release).not.toHaveBeenCalled();
+        }
+    });
+
+    it('retains false and exceptional original verification rather than releasing unverified references', async () =>
+    {
+        for (const failure of ['false', 'throw', 'false-after-admission', 'throw-after-admission'] as const)
+        {
+            const { adapter, cache, producer } = setup(1);
+            const actualError = new Error('actual-producer-verifier-failure');
+            if (failure.endsWith('-after-admission'))
+            {
+                vi.mocked(producer.verify).mockReturnValueOnce(true);
+            }
+            vi.mocked(producer.verify).mockImplementation(() =>
+            {
+                if (failure.startsWith('throw')) throw actualError;
+                return false;
+            });
+            const work = cache.startRefresh();
+            await work.receipt;
+            await expect(work.terminal).rejects.toThrow(failure.startsWith('throw')
+                ? 'article-render-cleanup-failed' : 'article-render-producer-result-unconfirmed');
+            expect(work.producerFailure).not.toBeNull();
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
+            expect(producer.release).not.toHaveBeenCalled();
+        }
+    });
+
+    it('preserves invalid binding and physical release exceptions without duplicate cleanup', async () =>
+    {
+        for (const mutation of ['context', 'request', 'identity', 'release'] as const)
+        {
+            const { adapter, cache, producer } = setup(1);
+            vi.mocked(producer.render).mockImplementationOnce(async request => resultFor(request, {
+                ...(mutation === 'context' ? { contextDigest: 'f'.repeat(64) } : {}),
+                ...(mutation === 'request' ? { requestId: 'request:foreign' } : {}),
+                ...(mutation === 'identity' ? { identity: { ...identity, locale: 'en-US' } } : {})
+            }));
+            if (mutation === 'release')
+            {
+                vi.mocked(producer.release).mockImplementationOnce(() => { throw new Error('actual-physical-release-failure'); });
+            }
+            const work = cache.startRefresh();
+            await work.receipt;
+            await expect(work.terminal).rejects.toThrow(mutation === 'release'
+                ? 'article-render-cleanup-failed' : 'article-render-producer-result-unconfirmed');
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
+            expect(producer.release).toHaveBeenCalledTimes(mutation === 'release' ? 1 : 0);
+            cache.dispose();
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        }
+    });
+
+    it('retains a whole-null late output after cancellation without replacing the newer valid entry', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        const late = deferred<unknown>();
+        Object.defineProperty(producer, 'render', { value: vi.fn(() => late.promise) });
+        const earlier = cache.startRefresh();
+        await Promise.resolve();
+        cache.cancel();
+        await earlier.receipt;
+        Object.defineProperty(producer, 'render', { value: vi.fn(async (request: ArticleRenderRequest) => resultFor(request)) });
+        const current = cache.startRefresh();
+        await current.terminal;
+        const retained = cache.state.content;
+        late.resolve(null);
+        await expect(earlier.terminal).rejects.toThrow('article-render-producer-output-invalid');
+        expect(earlier.productionState).toBe('fulfilled');
+        expect(earlier.producerFailure?.cause).toBeNull();
+        expect(cache.state.content).toBe(retained);
+        expect(cache.pendingRefreshWork).toContain(earlier);
+        expect(adapter.pendingTaskRefs).toContain(earlier.taskRef);
+        expect(producer.release).not.toHaveBeenCalled();
+    });
+
+
+    it('rejects a callback-mutated clone and validator own-key exceptions without a no-resource grant', async () =>
+    {
+        for (const mutation of ['verify-null-reference', 'ownKeys', 'property-descriptor'] as const)
+        {
+            const { adapter, cache, producer } = setup();
+            const actualError = new Error('actual-result-validation-trap');
+            vi.mocked(producer.render).mockImplementationOnce(async request =>
+            {
+                const output = resultFor(request);
+                if (mutation === 'ownKeys') return new Proxy(output, { ownKeys: () => { throw actualError; } });
+                if (mutation === 'property-descriptor') return new Proxy(output, { getOwnPropertyDescriptor: () => { throw actualError; } });
+                return output;
+            });
+            if (mutation === 'verify-null-reference')
+            {
+                vi.mocked(producer.verify).mockImplementationOnce((_request, output) =>
+                {
+                    Object.assign(output, { resultRef: null });
+                    return true;
+                });
+            }
+            const work = cache.startRefresh();
+            const response = await work.receipt;
+            expect(response.status).not.toBe('committed');
+            await expect(work.terminal).rejects.toThrow(mutation === 'verify-null-reference'
+                ? 'article-render-producer-output-invalid' : 'article-render-cleanup-failed');
+            expect(work.producerFailure).not.toBeNull();
+            expect(cache.state.content).toBeNull();
+            expect(cache.pendingRefreshWork).toContain(work);
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(producer.release).not.toHaveBeenCalled();
+        }
     });
 
 });
