@@ -1,0 +1,45 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "a8cb13c20c3d37977c3935ddd625e2200e17e8b0",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authBroadcastComposition.ts",
+      "blob": "8b010c1cca8f17cc5d05cf3edd474699920ac79e",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authBroadcastRuntime.ts",
+      "blob": "cc87f1e4e53d891601bc2dcbd185547cb0292672",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "blob": "3b01c83fb472a78d58474dd6f4cdcc8decab7295",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/store/user.ts",
+      "blob": "8ab82d319f35614929cc5cb8126ba3abe528aaab",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/store/notificationStream.ts",
+      "blob": "f85ec00a3280c7a23f8a4cef5803a7efab6a0d6b",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "blob": "720120471237c17f0e14876aeca67e02e90e94df",
+      "diagnostics": []
+    }
+  ],
+  "positiveSourceReturn": true,
+  "originalPrivateJoin": true,
+  "allocationBeforeJoin": true,
+  "runtime": "HOLD/UNRUN",
+  "candidateExecuted": false,
+  "positiveOrNegativeControlsRun": false
+}

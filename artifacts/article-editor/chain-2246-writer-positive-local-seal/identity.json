@@ -1,0 +1,12 @@
+{
+  "consumerSource": "91d1a0caa829d6dcac17badcf772d94fd7881ecb",
+  "intake": "8d0cb83cb0ab9d4de70a39ea94ebc564f6198448",
+  "authFinal": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+  "docFinal": "d354ca78d6d19daa6b09f66c988cb04e1f5ab89b",
+  "frontendFiles": 730,
+  "mismatch": [],
+  "positiveLocalSeal": "implemented in source; not executed/qualified",
+  "guarantee": "original producer-observed local principal/article.write/session/Doc/physical continuity through synchronous publication only",
+  "runtime": "HOLD/UNRUN",
+  "independentConsumerReview": "pending"
+}
