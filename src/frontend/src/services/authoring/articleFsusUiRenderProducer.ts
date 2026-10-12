@@ -137,7 +137,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             }
             throw cause;
         });
-        const terminal = (async (): Promise<void> =>
+        const terminal = Promise.resolve().then(async (): Promise<void> =>
         {
             try
             {
@@ -158,7 +158,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
                 // separate failure-cleanup endpoint; rejection is never that proof.
                 throw new Error('article-fsusui-native-cleanup-unconfirmed', { cause: cleanup.runtimeFailure });
             }
-        })();
+        });
         const work: ArticleFsusUiRenderWork = Object.freeze({ request, result, terminal,
             get resultRef()
             {
