@@ -1,0 +1,19 @@
+# Genuine finite native publication seal
+
+UI owning source checkpoint `f4602b96aac974da0191a61622464b211d3d5daf`. UI starts from 4272b9909879a55917b98ae576c1c93032cc3781; Main starts from ff869700fc30176fe824fc378557eb039162f4c7. Owning isolated branches and local FsusUI alias remain. Original Renderer273/Journal082/Writer619/Document26 source and other owner scope are protected. Original native mutating restore and transaction store are unchanged.
+
+Production native getSession supplies sealPreparedSnapshot(preparation, assertAdmission?), hasSealedSnapshotCustody(publication), publishSealedSnapshot(publication). Its exact immutable publication is scoped native-owner-custody. Reservation construction and two real history-array copies precede every final external guard. Construction/allocation/admission failure cancels pending original candidate only. Pure validation/publication pins original transaction private methods and checks genuine session pointer/generation custody. Original synchronous Vue input/selection/projection/IME/mode/panel/mounted-ref events invalidate private authority; original unmount permanently retires before cleanup. No cloned history/body or metadata-certified global root exists.
+
+Main actual preparation offers sealNative(), preallocating its returned finite forwarding operation before native seal callbacks. hasNativeCustody/publishNative/cancelNative delegate actual original native ticket. No resolver or allocation follows native publication. The full factory and complete joint refset still refuse.
+
+## Minimal original producer request: not implemented here
+
+Renderer273 prepare/validate/publish/cancel owns genuine captured custody but reads live document/projection externally during validation. Original Renderer owner must add a private live reservation on its SAME candidate. Suggested signatures (names may follow its original conventions): sealPreparedRendererOwnedCheckpoint(preparation): LivePublication|null; hasSealedRendererOwnedCheckpointCustody(publication): boolean; publishSealedRendererOwnedCheckpoint(publication): OriginalCheckpoint|null; cancelPreparedRendererOwnedCheckpoint(preparation). Last has/publish must use only preallocated genuine private state, without readDocumentState/readProjection/readOwnedCheckpointState, external callback/await/allocation or cleanup. Token must synchronously retire on actual document id/epoch/source revision, projection/commit authority, affecting render props, pipeline generation, deactivate/unmount and failed cleanup events. Consumer metadata/replacement objects are insufficient.
+
+Original Root/Layout/Document member/mount/principal/binding lifetime must supply its own producer-issued pure reservation invalidated by actual retirement events. Main resolver callbacks cannot form that final pure root. Journal082/Writer619 real source/TTL/input validation must finish before the final joint guard; no external callback/await between final all-owner continuity and finite same-identity publication. Sequential partial native/Renderer/Writer/Journal publication is not installed or reported ready. Runtime and all qualification holds remain.
+
+## Current source validation
+
+Original UI Web/Vitest PROJECT compilers pass0/0 (no test execution), three-source lint0, five-file pure TS/SFC AST0 and original Main strict-full local-alias style0. Main full original local-alias program remains RED2/257; complete diagnostic block delta257->257 added0/removed0, positions only normalized. First indentation failure and the style invocation missing local alias are preserved in raw logs and repaired normally, not waived. All three new original controls are UNRUN. See preflight.md and static-results.json.
+
+Rollback only this isolated native seal and corresponding Main forwarding delta; preserve prior producer intake, native allocation P1 repair, existing owner guards and all holds. This is a draft source checkpoint awaiting independent review.

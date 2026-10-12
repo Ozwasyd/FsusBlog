@@ -1012,3 +1012,28 @@ source. Genuine mounted journal/draft custody and renderer future/release join
 remain their original producer responsibilities. Full factory refusal and same
 identity/epoch/revision native restore remain; no metadata/callback declaration
 substitutes for absent production protocols. All runtime qualification stays held.
+
+
+### Finite original native publication seal (#2295)
+
+The existing actual factory preparation now offers `sealNative()`, returning a
+preallocated native-only reservation with `snapshot`,
+`scope: 'native-owner-custody'`, `hasNativeCustody()`, `publishNative()` and
+`cancelNative()`. It delegates the SAME upstream session's genuine seal/private
+custody/publisher/cancel operations. Original mounted/context admission runs
+before native seal; no external resolver callback or allocation follows actual
+native publication. This does not install joint full-host publication or change
+the existing full-factory refusal. Cross identity/epoch/revision still refuses.
+
+The actual Renderer273 custody publisher attests captured private renderer
+custody, while live document/projection validation still calls external readers.
+The original Renderer producer must issue a reservation invalidated synchronously
+by its genuine document/projection/source/pipeline and deactivate/unmount/failed
+cleanup events, and expose callback-free exact-token continuity and preallocated
+publication under that reservation. Application/document/member/mount/principal
+lifetime needs a genuine original synchronous reservation too. Metadata or a
+replaceable consumer object cannot certify those authorities. Journal082 and
+Writer619 private finite publication protocols remain original; their source/TTL
+validation must finish before the final pure joint guard and synchronous publish.
+No partial native/Renderer/Writer/Journal sequence is reported as ready or as a
+complete retained refset. All runtime/resource/restore/eviction holds remain.

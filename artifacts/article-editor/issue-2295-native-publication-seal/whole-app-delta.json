@@ -1,0 +1,9 @@
+{
+  "beforeDiagnostics": 257,
+  "afterDiagnostics": 257,
+  "beforeExit": 2,
+  "afterExit": 2,
+  "added": [],
+  "removed": [],
+  "normalization": "complete diagnostic blocks and multiplicity; only line/column positions normalized"
+}

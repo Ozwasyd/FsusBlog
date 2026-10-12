@@ -1,0 +1,22 @@
+{
+  "logs": {
+    "ui-native-sealed-final-web-types.log": 0,
+    "ui-native-sealed-final-vitest-project-types.log": 0,
+    "ui-native-sealed-final-source-eslint.log": 0,
+    "blog-native-sealed-final-alias-style.log": 0,
+    "native-sealed-final-source-ast-sfc.log": 0,
+    "blog-native-sealed-final-whole-app-types.log": 2,
+    "blog-native-sealed-final-source-style.log": 1,
+    "blog-native-sealed-final-style.log": "exit not captured; indentation failure preserved",
+    "blog-native-sealed-final-exact-ast.log": 0
+  },
+  "UIWebCommand": "node /workspace/FsusUI/node_modules/vue-tsc/bin/vue-tsc.js -p vue/tsconfig.web.json --noEmit --composite false",
+  "UIVitestProjectCommand": "node /workspace/FsusUI/node_modules/vue-tsc/bin/vue-tsc.js -p vue/tsconfig.vitest.json --noEmit --composite false",
+  "MainStyleCommand": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+  "MainWholeAppCommand": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+  "intermediateFailures": "indentation repaired; missing-local-alias style invocation preserved, then actual local-alias original style passes",
+  "newSourceControls": "3 blocks in ORIGINAL test file, all UNRUN",
+  "runtime": "ALL HOLD/UNRUN",
+  "review": "new native seal/Main forwarding pending independent source review",
+  "uiCommittedHead": "f4602b96aac974da0191a61622464b211d3d5daf"
+}

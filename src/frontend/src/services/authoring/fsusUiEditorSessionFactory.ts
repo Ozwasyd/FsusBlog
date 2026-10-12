@@ -56,9 +56,19 @@ export interface ArticleWorkspaceOriginalDraftInspection {
     readonly editorContentDigest: string;
 }
 
+/** Original native custody only; this capability does not certify the complete application join. */
+export interface ArticleWorkspaceSealedNativeSnapshotPublication {
+    readonly snapshot: MarkdownEditorSessionSnapshot;
+    readonly scope: 'native-owner-custody';
+    hasNativeCustody(): boolean;
+    publishNative(): MarkdownEditorSessionSnapshot | null;
+    cancelNative(): boolean;
+}
+
 /** Genuine native candidate operation; no full-host, draft/journal or resource admission. */
 export interface ArticleWorkspaceEditorSnapshotPreparation {
     readonly snapshot: MarkdownEditorSessionSnapshot;
+    sealNative(): ArticleWorkspaceSealedNativeSnapshotPublication;
     commit(): MarkdownEditorSessionSnapshot;
     discard(): boolean;
 }
@@ -192,6 +202,9 @@ export function createFsusUiEditorSessionFactory(
         const editor = binding.editor;
         const prepareNative = session.prepareSnapshot.bind(session);
         const commitNative = session.commitPreparedSnapshot.bind(session);
+        const sealNative = session.sealPreparedSnapshot.bind(session);
+        const hasNative = session.hasSealedSnapshotCustody.bind(session);
+        const publishNative = session.publishSealedSnapshot.bind(session);
         const discardNative = session.discardPreparedSnapshot.bind(session);
         const assertOwner = (): void =>
         {
@@ -216,9 +229,61 @@ export function createFsusUiEditorSessionFactory(
             discardNative(preparation);
             throw error;
         }
-        let state: 'prepared' | 'committing' | 'done' = 'prepared';
+        let state: 'prepared' | 'committing' | 'sealed' | 'done' = 'prepared';
         return Object.freeze({
             snapshot: preparation.snapshot,
+            sealNative: () =>
+            {
+                if (state !== 'prepared')
+                {
+                    throw new Error('public-editor-snapshot-preparation-consumed');
+                }
+                state = 'committing';
+                let publication: ReturnType<typeof sealNative> | undefined;
+                try
+                {
+                    // Allocate the complete operation before the final native/owner callbacks.
+                    const reserved: ArticleWorkspaceSealedNativeSnapshotPublication = Object.freeze({
+                        snapshot: preparation.snapshot,
+                        scope: 'native-owner-custody',
+                        hasNativeCustody: () => state === 'sealed' && publication !== undefined && hasNative(publication),
+                        publishNative: () =>
+                        {
+                            if (state !== 'sealed' || publication === undefined)
+                            {
+                                return null;
+                            }
+                            const snapshot = publishNative(publication);
+                            if (snapshot)
+                            {
+                                state = 'done';
+                            }
+                            return snapshot;
+                        },
+                        cancelNative: () =>
+                        {
+                            if (state === 'done')
+                            {
+                                return false;
+                            }
+                            const canceled = discardNative(preparation);
+                            state = 'done';
+                            return canceled;
+                        }
+                    });
+                    publication = sealNative(preparation, assertOwner);
+                    state = 'sealed';
+                    return reserved;
+                }
+                finally
+                {
+                    if (state === 'committing')
+                    {
+                        discardNative(preparation);
+                        state = 'done';
+                    }
+                }
+            },
             commit: () =>
             {
                 if (state !== 'prepared')
