@@ -329,7 +329,13 @@ original producer proves its actual cleanup ended.
 `pendingRefreshWork` preserves the same actual futures through superseding
 requests and disposal. It creates no second body store, owner or resource ledger.
 Replacement release failure retains the original entry; callback reentry cannot
-authorize transfer. Separate tool/preview/native restoration work still needs its
+authorize transfer.
+A prompt canceled receipt may precede its actual result. That same late output
+is classified after the render future ends. Cleanup verifier return is followed
+by full closed-result/request/reference/digest revalidation; mutation or a
+post-callback validation exception latches this original owner's cleanup failure.
+Even a completed producer endpoint cannot authorize release or settlement over
+that held validation failure. The original work/owned reference/lease stay held. Separate tool/preview/native restoration work still needs its
 own real terminal endpoint. Runtime/native and product qualification remain held.
 
 `ArticleFsusUiRenderProducer` consumes the public renderer/projection APIs through

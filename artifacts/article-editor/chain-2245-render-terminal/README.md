@@ -34,7 +34,7 @@ Separate tool/search/preview/native restoration/viewport/focus and product-mount
 
 ## Source controls and static checks
 
-Twenty appended source control blocks (original nine, seven P2 matrices, four request-terminal blocks) remain UNRUN/HOLD. This is a manual source description, not test-list/collection. All original negative assertions remain; private unit fixtures expose their explicit original call futures with no native resources, while the canonical constructor source control uses the actual producer request-work registry. They do not fabricate a native receipt or qualify product cleanup.
+Twenty-one appended source control blocks (original nine, seven null/invalid matrices, four request-terminal blocks, one late-cleanup revalidation matrix) remain UNRUN/HOLD. This is a manual source description, not test-list/collection. All original negative assertions remain; private unit fixtures expose their explicit original call futures with no native resources, while the canonical constructor source control uses the actual producer request-work registry. They do not fabricate a native receipt or qualify product cleanup.
 
 Controls cover null/invalid structures, all four no-reference statuses, every result getter and own-key/descriptor trap, verifier/binding/release failures, callback clone mutation, late whole-null output, exact request versus matching copied identity, same terminal wait on success/rejection, changed lookup/work/Promise and opaque real terminal failure. Physical cleanup is now authorized by the real owned work, not the earlier shape-only helper; diagnostic errors remain observable if actual cleanup succeeds.
 
@@ -46,3 +46,15 @@ Final source-only checks use actual local FsUI `6a73ad6312091ca782f99393140efc8d
 - `git diff --check`: exit0. Initial lint/static failures are preserved in the task `.tmp` directory, not relabeled as acceptance.
 
 No runtime/test/list/discovery/collection/mount/browser/native/SDK/security/receipt/custody/cohort/race qualification, migration/ProjectXML/Git replacement QA or denied artifact was run. No prior75/58/28/2/252 results are accumulated or refreshed. No issue closure, PR merge/auto-merge, deploy, master push or successful eviction/full lifecycle claim. #2245/#2283 remain WIP.
+
+## Reviewed cleanup-verifier mutation P2
+
+Review preimage: `b605f2f1137fa8d7342769c9182ae24601ae996c`; current composition preimage `4913812bdf5aa6e48c3eaedf393cfde0ebb5c6db`. The original cleanup classifier did not revalidate after the external verifier. The composed path also needed to revisit classification when a canceled receipt returned before the actual result existed.
+
+This source classifies the SAME late output after awaiting the actual producer future, without starting another render. It captures its original reference and whole closed-result digest before verification, then revalidates the full schema, request context/request/identity, reference equality and digest after the callback. A true or false verifier return cannot conceal mutation. Post-verifier validation exceptions retain their actual causes. Classification remains reserved and is not retried.
+
+The cleanup validation failure is latched in this original work's cleanupFailure. After joining the actual producer terminal, the cache checks this failure BEFORE physical reference release or lease settlement. The same actual producer work reference and pending lease remain retained even though the producer endpoint may have fulfilled; no second authority or replacement resource ledger is created.
+
+One additional complete source matrix remains UNRUN: after prompt cancellation a late valid R is changed by verification to null, another reference, a schema-valid fatal/null result, changed identity/context/request/digest, an extra field, or a throwing post-validator property. It asserts no release, no settle/work deletion, held original producer reference R and persistence through dispose. This is source evidence, not an executed counterexample.
+
+The newly reported original producer intrinsic-then derived-observer asynchronous rejection P2 is OPEN with the original Writer owner. Its source is not repaired or declared closed here. Original7cd9 canonical files remain byte-identical. Our broader composition is WIP and may not claim full producer/native cleanup, independent acceptance or successful eviction. All runtime/test/list/native/security/receipt holds remain in force.

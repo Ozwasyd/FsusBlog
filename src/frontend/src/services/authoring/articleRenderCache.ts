@@ -494,6 +494,7 @@ export class ArticleRenderCache
             // Reserve before validators/getters/verification callbacks. Their
             // failure is not permission to retry cleanup or infer no resources.
             releaseAttempted = true;
+            let verifierReturned = false;
             try
             {
                 if (!validateArticleRenderResult(producedResult))
@@ -509,17 +510,41 @@ export class ArticleRenderCache
                     producerFailure ??= new Error('article-render-no-resource-terminal-unconfirmed', { cause: producedResult });
                     return;
                 }
+                const observedDigest = digest(producedResult);
                 if (producedResult.contextDigest !== request.context.contextDigest
                     || producedResult.requestId !== request.requestId
-                    || !identitiesEqual(producedResult.identity, request.identity)
-                    || !this.producer.verify(request, producedResult))
+                    || !identitiesEqual(producedResult.identity, request.identity))
                 {
                     producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: producedResult });
                     return;
                 }
+                const verified = this.producer.verify(request, producedResult);
+                verifierReturned = true;
+                // Verification is an external callback. Its true return cannot
+                // authorize cleanup of a pre-captured reference after mutation.
+                if (!validateArticleRenderResult(producedResult)
+                    || producedResult.resultRef !== resultRef
+                    || producedResult.contextDigest !== request.context.contextDigest
+                    || producedResult.requestId !== request.requestId
+                    || !identitiesEqual(producedResult.identity, request.identity)
+                    || digest(producedResult) !== observedDigest)
+                {
+                    const changed = new Error('article-render-cleanup-verification-changed', { cause: producedResult });
+                    rememberCleanupFailure(changed);
+                    producerFailure ??= changed;
+                    return;
+                }
+                if (!verified)
+                {
+                    producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: producedResult });
+                }
             }
             catch (error)
             {
+                if (verifierReturned)
+                {
+                    rememberCleanupFailure(error);
+                }
                 producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: error });
                 throw error;
             }
@@ -680,6 +705,16 @@ export class ArticleRenderCache
                 producerFailure = new Error('article-render-producer-terminal-unconfirmed', { cause });
             }
             await receipt;
+            // A prompt canceled receipt may have skipped classification because
+            // nothing had been produced yet. Revisit that SAME late output now.
+            try
+            {
+                classifyUncommitted();
+            }
+            catch (cause)
+            {
+                rememberCleanupFailure(cause);
+            }
             // Both success and rejection require the ORIGINAL work for this exact
             // request object. Result shape/source/null does not authorize cleanup.
             const lookupFailure = requestWorkFailure;
@@ -700,6 +735,13 @@ export class ArticleRenderCache
                 || this.producer.getRequestWork?.(request) !== actualWork)
             {
                 throw new Error('article-render-request-terminal-binding-changed');
+            }
+            // A completed producer endpoint cannot overwrite this owner's failed
+            // cleanup verification/custody obligation or permit release/settle.
+            const validationFailure = work.cleanupFailure;
+            if (validationFailure)
+            {
+                throw validationFailure;
             }
             const ownedRef = actualWork.resultRef;
             if (ownedRef !== null && !isRef(ownedRef))
@@ -724,11 +766,6 @@ export class ArticleRenderCache
                     rememberCleanupFailure(cause);
                     throw work.cleanupFailure ?? new Error('article-render-cleanup-failed', { cause });
                 }
-            }
-            const failure = work.cleanupFailure;
-            if (failure)
-            {
-                throw failure;
             }
             // Logical producer/admission errors remain observable. Only the bound
             // real terminal above can discharge their resource obligation.

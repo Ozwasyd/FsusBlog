@@ -844,4 +844,49 @@ describe('original render future and cleanup settlement (#2245)', () =>
         }
     });
 
+
+    it('retains a canceled late result changed by cleanup verification without releasing its captured reference', async () =>
+    {
+        for (const mutation of ['null-reference', 'other-reference', 'legal-null-failure', 'identity', 'context', 'request', 'digest', 'extra-field', 'post-validator-throw'] as const)
+        {
+            const { adapter, cache, producer } = setup();
+            const late = deferred<ArticleRenderResult>();
+            let request!: ArticleRenderRequest;
+            vi.mocked(producer.render).mockImplementationOnce(input => { request = input; return late.promise; });
+            const work = cache.startRefresh();
+            await Promise.resolve();
+            cache.cancel();
+            expect((await work.receipt).status).toBe('canceled');
+            const output = resultFor(request);
+            const originalRef = output.resultRef;
+            const actualError = new Error('actual-post-cleanup-validator-failure');
+            vi.mocked(producer.verify).mockImplementationOnce((_request, result) =>
+            {
+                if (mutation === 'null-reference') Object.assign(result, { resultRef: null });
+                if (mutation === 'other-reference') Object.assign(result, { resultRef: 'result:foreign' });
+                if (mutation === 'legal-null-failure') Object.assign(result, {
+                    status: 'fatal', resultRef: null, resultDigest: null, reason: 'actual-failure', fallbackRefs: [] });
+                if (mutation === 'identity') Object.assign(result, { identity: { ...identity, locale: 'en-US' } });
+                if (mutation === 'context') Object.assign(result, { contextDigest: 'f'.repeat(64) });
+                if (mutation === 'request') Object.assign(result, { requestId: 'request:foreign' });
+                if (mutation === 'extra-field') Object.assign(result, { extra: 'not-the-closed-output' });
+                if (mutation === 'digest') Object.assign(result, { resultDigest: 'f'.repeat(64) });
+                if (mutation === 'post-validator-throw') Object.defineProperty(result, 'status', {
+                    enumerable: true, get: () => { throw actualError; } });
+                return true;
+            });
+            late.resolve(output);
+            await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
+            expect(work.cleanupFailure).not.toBeNull();
+            expect(work.producerWork?.resultRef).toBe(originalRef);
+            expect(producer.verify).toHaveBeenCalledTimes(1);
+            expect(producer.release).not.toHaveBeenCalled();
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
+            cache.dispose();
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(producer.release).not.toHaveBeenCalled();
+        }
+    });
+
 });

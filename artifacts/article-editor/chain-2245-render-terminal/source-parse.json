@@ -1,16 +1,16 @@
 {
   "sourceOnly": true,
-  "checkedSourcePreimage": "755f77d4e",
+  "checkedSourcePreimage": "4913812bdf5aa6e48c3eaedf393cfde0ebb5c6db",
   "executedCandidateModules": false,
   "files": [
     {
       "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
-      "sha256": "5dd624c12467166e0eb4230ef224e75e47b7784c5e637f335b4667e352920b55",
+      "sha256": "aebd3246382673bd3bd7c607158addf375425fca6e5cbc11a2d4fb3b086f9462",
       "parseDiagnostics": []
     },
     {
       "path": "tests/frontend/unit/authoring/articleRenderCache.test.ts",
-      "sha256": "8309bad552f1efec5c49cdab2b0777fbd299fb3a25b4620b69b94aa202081f7b",
+      "sha256": "3f0a58369934f3d669e62d546c7a4af4e24136adb52be15d0cd5b72a2df22749",
       "parseDiagnostics": []
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "recordedAtUtc": "2026-10-12T02:26:05.619397+00:00",
+  "recordedAtUtc": "2026-10-12T02:45:02.596016+00:00",
   "sourceOnly": true,
   "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
   "lastVerifiedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
@@ -11,16 +11,16 @@
   "branch": "codex/issue-2245-render-terminal",
   "changes": {
     "src/frontend/src/services/authoring/articleRenderCache.ts": {
-      "sha256": "5dd624c12467166e0eb4230ef224e75e47b7784c5e637f335b4667e352920b55",
-      "blob": "7ff6b1cdc6324d2cbb350463d5a26db1ca40df65"
+      "sha256": "aebd3246382673bd3bd7c607158addf375425fca6e5cbc11a2d4fb3b086f9462",
+      "blob": "35256e567aaef8d6885fc8d8d0da005d61c8f9f7"
     },
     "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
-      "sha256": "8309bad552f1efec5c49cdab2b0777fbd299fb3a25b4620b69b94aa202081f7b",
-      "blob": "4285da28f49a62bc6c2df2effd1218804b95a73c"
+      "sha256": "3f0a58369934f3d669e62d546c7a4af4e24136adb52be15d0cd5b72a2df22749",
+      "blob": "abd2675d9303d6beeb4b1a0d239ef97596eca9cd"
     },
     "docs/architecture/overview.md": {
-      "sha256": "322308e95ca862c5468e37f06a84aba51b39e740952d85feeac008957177ddf6",
-      "blob": "3fbd5cc6b5847d6b2089785e58a6092b60725566"
+      "sha256": "685cc11b1deabcd4917ed66a3de88bd160a9c75937b7eb660b4edd5a250f6a38",
+      "blob": "89e3d9e732547826663cb59842d9db970351cefa"
     }
   },
   "frozen": {
@@ -77,7 +77,7 @@
       "exitCode": 0
     }
   ],
-  "sourceControls": "20 appended source blocks (nine original + seven null/invalid matrices + four actual-request endpoint blocks), UNRUN/HOLD; no collection/test-list executed",
+  "sourceControls": "21 appended source blocks, all UNRUN/HOLD; latest block is the canceled-late cleanup verifier mutation/revalidation exception matrix",
   "holds": [
     "runtime",
     "test",
@@ -90,13 +90,13 @@
     "migration/ProjectXML/Git replacement QA"
   ],
   "qualification": false,
-  "remainingProducerGap": "Corrected actual request endpoint consumed; opaque native failure/undeclared or thrown unknown obligations still reject it. No stronger failed-native/public runtime cleanup API exists. Supplier independent re-review and all native/product qualification pending.",
+  "remainingProducerGap": "NEW OPEN supplier P2: original producer intrinsic-then derived observer Promise asynchronous rejection custody, sent to original Writer owner. Supplied7cd9 postimages unchanged here; composition is not fully source closed. Opaque native cleanup and all independent/runtime qualifications remain held.",
   "remainingCallerGap": "Same-work continuity/runtime/source-compare exact supplier source consumed. Original product mounts, separate tool/preview/native restoration futures and full-session factory/cleanup acceptance remain open.",
   "contentApiWrites": "Only explicitly authorized own draft PR creation/update; no issue/other PR/comment/label writes",
   "newPr": "https://github.com/Ozwasyd/FsusBlog/pull/4230",
   "oldDraftPrUpdated": false,
-  "checkedSourcePreimage": "755f77d4e85a73cd80393e3c68043bc0a634f516",
-  "reviewRepair": "Own invalid/null correction preserved; actual same request/work/Promise terminal joins success and rejection. Known supplier throw-unknown P2 corrected by exact3916/7cd9 source. Logical diagnostics remain observable; no metadata/source/null cleanup inference.",
+  "checkedSourcePreimage": "4913812bdf5aa6e48c3eaedf393cfde0ebb5c6db",
+  "reviewRepair": "Reviewed cleanup verifier P2: classify the same late output after the real future; snapshot ref/digest before callback; fully revalidate after return; latch actual failure and block physical release/settle even if producer terminal fulfilled. No second authority or store.",
   "currentStackedSupplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
   "supplierActualRepair": "3916a5ea219238d0ebb57a2e4a58dd61980fc867",
   "supersededKnownDefectSupplier": "79da045da19a57b6a73ce4ec735d68120cd49d5f",
