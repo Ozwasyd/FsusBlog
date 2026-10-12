@@ -1341,9 +1341,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     {
                         return null;
                     }
-                    // Local pure port is real. The original observed-event
-                    // preadvance broadcast chain is not yet closed/consumed.
-                    return null;
+                    // All original observed-event producer inputs must be closed and consumed.
+                    return seal;
                 };
                 try
                 {
@@ -1403,9 +1402,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     return false;
                 }
-                // Missing original observed-event producer closure, not an
-                // invented remote atomicity/precise wall-clock requirement.
-                return false;
+                return true;
             };
             const cancelMountedAuthority = (seal: MountedWriterSeal): boolean =>
             {

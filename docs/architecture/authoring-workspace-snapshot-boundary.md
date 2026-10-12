@@ -189,25 +189,31 @@ private checks, and its possible callbacks are fenced by the original auth epoch
 Both original tokens are canceled independently on failure; each genuine cleanup
 failure is retained without skipping the other token's cancellation.
 
-Positive authority intentionally remains refused while the original observed
-broadcast event preadvance chain is not closed/consumed. The accepted auth store
+The original observed broadcast preadvance/delivery/disposer/continuation and
+queued-cleanup production chain is now consumed from its closed source. A valid
+same-principal `article.write`/Document/physical reservation can return a genuine
+positive mounted seal and pass its private custody predicate. Missing, changed,
+retired, failed, mismatched or foreign inputs still refuse. All tickets and
+allocations precede the final original-producer private join; no callback or await
+separates that join from returning the local token. The accepted auth store
 and private-surface port attests producer-observed local principal/permissions/
 session continuity through synchronous publication; it does not attest unknown
 remote revocation or exact server expiry during a blocked JS task. Those are not
 extra prerequisites for this local guard. Server operations keep original backend
 authorization; restore/query require original server permission provenance. No
 local auth token substitutes for that query chain. Physical/Document/Auth
-candidates are canceled and
-`sealMountedAuthority` returns null; `hasMountedAuthorityCustody` does not return
-true from a local readiness boolean or notification cache. The source
+candidates are canceled on any failed admission; `hasMountedAuthorityCustody`
+returns true only for the same producer-issued token and genuine joined private
+custody, never from a local readiness boolean or notification cache. The source
 auth/private-surface watches are ONLY
 negative physical revocation, including same-id changes; they do not attest
 permissions, expiry, step-up or administrative admission. Document's downstream
 lifetime listener is also not its early private authority; the actual Document
-token supplies that private predicate. Completing positive local publication
-requires the original observed-event producer's pre-callback retirement path,
-with the explicitly bounded local guarantee. Until then Main composition, restoration and
-full-ready remain refused. This partial producer wiring grants no runtime or
+token supplies that private predicate. Positive local continuity is bounded to
+the original observed-event pre-callback retirement path. It does not complete
+Main composition, restoration, full host readiness, or qualification. Missing
+other producers and original query/permission provenance still refuse those
+operations. This producer wiring grants no runtime or
 qualification evidence and preserves all existing HOLD gates.
 
 The returned binding exposes `adapter`, `handle`, `inspect()`,
