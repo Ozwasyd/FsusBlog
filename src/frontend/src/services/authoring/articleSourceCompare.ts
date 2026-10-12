@@ -9,7 +9,7 @@ import type { ArticleDocumentContext, ArticleDocumentContextAdapter, ArticleDocu
 import type { ArticleEditorContinuityAdapter, ArticleEditorContinuityReceipt } from './articleEditorContinuity';
 import type { ArticleEditorRuntimeBinding } from './articleEditorRuntimeBinding';
 import type { ArticleEditorSurface } from './articleEditorSurface';
-import type { ArticleRenderIdentity, ArticleRenderState } from './articleRenderCache';
+import type { ArticleRenderIdentity, ArticleRenderRefreshWork, ArticleRenderState } from './articleRenderCache';
 
 export const articleSourceCompareRequestSchema = 'fsusblog.article-source-compare-request.v1' as const;
 
@@ -90,6 +90,7 @@ export class ArticleSourceCompareSession
     private identity: ArticleRenderIdentity | null = null;
     private syncEnabled = false;
     private unsubscribe: (() => void) | null = null;
+    private lastRefreshWork: ArticleRenderRefreshWork | null = null;
     private readonly owner: ArticleDocumentContextAdapter;
     private readonly runtime: ArticleEditorRuntimeBinding;
 
@@ -189,6 +190,17 @@ export class ArticleSourceCompareSession
         return this.state.render?.content ? this.runtime.retainedRender : null;
     }
 
+    /** Exact original work matched to the receipt; close/withdraw never attest its terminal. */
+    public get refreshWork(): ArticleRenderRefreshWork | null
+    {
+        return this.lastRefreshWork;
+    }
+
+    public get pendingRefreshWork(): readonly ArticleRenderRefreshWork[]
+    {
+        return this.runtime.pendingRefreshWork;
+    }
+
     public adaptViewport(viewport: ArticleSourceCompareViewport, binding: LifecycleArguments[1], capture: LifecycleArguments[2], restore: LifecycleArguments[3]): ArticleEditorContinuityReceipt | null
     {
         return this.opening !== null && !isArticleSourceCompareAvailable(viewport) ? this.close(binding, capture, restore) : null;
@@ -208,12 +220,22 @@ export class ArticleSourceCompareSession
         this.createRequest(current.anchor.contentDigest);
         const lease = this.lease!;
         const request = this.currentRequest!;
-        const receipt = await this.runtime.autoRefresh();
+        const response = this.runtime.autoRefresh();
+        // The original threshold/cache starts work synchronously. Hold its actual futures
+        // across the raced response, including work removed after successful completion.
+        const startedWork = this.runtime.pendingRefreshWork;
+        const receipt = await response;
+        const work = receipt === null ? null
+            : startedWork.find(candidate => candidate.taskRef === receipt.task.taskRef) ?? null;
+        if (this.currentRequest === request)
+        {
+            this.lastRefreshWork = work;
+        }
         if (!this.owner.isCurrentContext(request.document) || lease.signal.aborted || this.currentRequest !== request)
         {
             return 'stale';
         }
-        if (receipt?.status !== 'committed' || receipt.task.context.contextDigest !== request.document.contextDigest
+        if (work === null || receipt?.status !== 'committed' || receipt.task.context.contextDigest !== request.document.contextDigest
             || digest(receipt.identity) !== digest(request.identity) || receipt.result?.resultRef === null || !receipt.result?.resultDigest)
         {
             return 'invalid';

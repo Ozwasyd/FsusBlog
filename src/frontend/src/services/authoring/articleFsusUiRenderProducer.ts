@@ -33,6 +33,24 @@ interface RetainedFsusUiResult {
     readonly pair: Readonly<RetainedFsusUiPair>;
 }
 
+/** Per-request work of this original producer, not a native lifetime receipt. */
+export interface ArticleFsusUiRenderWork {
+    readonly request: ArticleRenderRequest;
+    readonly result: Promise<ArticleRenderResult>;
+    readonly terminal: Promise<void>;
+    readonly resultRef: string | null;
+    readonly producerFailure: Error | null;
+    readonly cleanupFailure: Error | null;
+}
+
+interface ArticleFsusUiRenderCleanup {
+    resultRef: string | null;
+    runtimeStarted: boolean;
+    runtimeSucceeded: boolean;
+    runtimeFailure: unknown;
+    endpointFailure: Error | null;
+}
+
 const freezeProjection = <T extends object>(value: T): T =>
 {
     for (const child of Object.values(value))
@@ -49,6 +67,7 @@ const freezeProjection = <T extends object>(value: T): T =>
 export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
 {
     private readonly results = new Map<string, RetainedFsusUiResult>();
+    private readonly requestWork = new WeakMap<ArticleRenderRequest, ArticleFsusUiRenderWork>();
     private sequence = 0;
     private readonly configuration: ArticleFsusUiRenderConfiguration;
     private readonly readSource: (request: ArticleRenderRequest) => string;
@@ -74,6 +93,93 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
 
     public async render(request: ArticleRenderRequest): Promise<ArticleRenderResult>
     {
+        return this.startRender(request).result;
+    }
+
+    public getRequestWork(request: ArticleRenderRequest): ArticleFsusUiRenderWork | null
+    {
+        return this.requestWork.get(request) ?? null;
+    }
+
+    public startRender(request: ArticleRenderRequest): ArticleFsusUiRenderWork
+    {
+        const existing = this.getRequestWork(request);
+        if (existing)
+        {
+            return existing;
+        }
+        const cleanup: ArticleFsusUiRenderCleanup = { resultRef: null,
+            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null, endpointFailure: null };
+        let producerFailure: Error | null = null;
+        let cleanupFailure: Error | null = null;
+        const result = Promise.resolve().then(() => this.renderRequest(request, cleanup)).catch(cause =>
+        {
+            producerFailure = new Error('article-fsusui-producer-failed', { cause });
+            if (cleanup.resultRef !== null)
+            {
+                try
+                {
+                    const released: unknown = this.release(cleanup.resultRef);
+                    if (released !== undefined)
+                    {
+                        if (released instanceof Promise)
+                        {
+                            void released.catch(() => undefined);
+                        }
+                        throw new Error('article-fsusui-cleanup-endpoint-missing', { cause: released });
+                    }
+                    cleanup.resultRef = null;
+                }
+                catch (error)
+                {
+                    cleanupFailure = new Error('article-fsusui-request-cleanup-failed', { cause: error });
+                    throw cleanupFailure;
+                }
+            }
+            throw cause;
+        });
+        const terminal = Promise.resolve().then(async (): Promise<void> =>
+        {
+            try
+            {
+                await result;
+            }
+            catch
+            {
+                // This actual result future includes the failed request's local cleanup.
+            }
+            const failure = work.cleanupFailure;
+            if (failure)
+            {
+                throw failure;
+            }
+            if (cleanup.runtimeStarted && !cleanup.runtimeSucceeded)
+            {
+                // FsusUI's error envelope may hide a native free failure. It has no
+                // separate failure-cleanup endpoint; rejection is never that proof.
+                throw new Error('article-fsusui-native-cleanup-unconfirmed', { cause: cleanup.runtimeFailure });
+            }
+        });
+        const work: ArticleFsusUiRenderWork = Object.freeze({ request, result, terminal,
+            get resultRef()
+            {
+                return cleanup.resultRef;
+            },
+            get producerFailure()
+            {
+                return producerFailure;
+            },
+            get cleanupFailure()
+            {
+                return cleanupFailure ?? cleanup.endpointFailure;
+            } });
+        this.requestWork.set(request, work);
+        void terminal.catch(() => undefined);
+        return work;
+    }
+
+    private async renderRequest(request: ArticleRenderRequest, cleanup: ArticleFsusUiRenderCleanup): Promise<ArticleRenderResult>
+    {
         const failure = (reason: string, status: 'fatal' | 'projection-failed' = 'fatal'): ArticleRenderResult => ({
             contextDigest: request.context.contextDigest, requestId: request.requestId, identity: request.identity,
             status, reason, resultRef: null, resultDigest: null,
@@ -83,7 +189,16 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         {
             throw new Error('render-canceled');
         }
-        const source = this.readSource(request);
+        const source: unknown = this.readSource(request);
+        if (typeof source !== 'string')
+        {
+            if (source instanceof Promise)
+            {
+                void source.catch(() => undefined);
+            }
+            cleanup.endpointFailure = new Error('article-fsusui-source-endpoint-missing', { cause: source });
+            throw cleanup.endpointFailure;
+        }
         if (digest({ schema: articleDocumentContextSchema, content: source }) !== request.context.contentDigest
             || request.identity.rendererVersion !== MARKDOWN_RENDERER_VERSION
             || request.identity.projectionVersion !== MARKDOWN_RENDERER_VERSION
@@ -92,7 +207,10 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             return failure('render-identity-mismatch');
         }
         // The public renderer has no AbortSignal parameter: cancellation guards its admission.
+        cleanup.runtimeStarted = true;
         const rendered = await renderMarkdownWithFsusRuntime({ source, mode: 'editor', ...this.configuration });
+        cleanup.runtimeSucceeded = rendered.ok;
+        cleanup.runtimeFailure = rendered.ok ? null : rendered.error;
         if (request.signal.aborted)
         {
             throw new Error('render-canceled');
@@ -144,6 +262,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         {
             return failure('fsusui-result-invalid');
         }
+        cleanup.resultRef = resultRef;
         this.results.set(resultRef, { request, result, pair: Object.freeze({ render: rendered.value, projection }) });
         return result;
     }
