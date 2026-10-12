@@ -4,7 +4,7 @@ import type { AuthoringWorkspaceMountedAuthoritySources } from '@/services/autho
 import type { RetainedNotificationSubscription } from '@/services/authoring/openArticleDocumentRegistry';
 
 type OriginalMountedWriter = ReturnType<ReturnType<typeof useAdminArticleWrite>['authoringEditorRuntime']['bindEditor']>;
-type WriterAuthorityPort = Pick<OriginalMountedWriter, 'subscribeMountedAuthorityRetirement' | 'sealMountedAuthority' | 'hasMountedAuthorityCustody' | 'cancelMountedAuthority'>;
+type WriterAuthorityPort = Pick<OriginalMountedWriter, 'subscribeMountedAuthorityRetirement' | 'sealMountedAuthority' | 'hasMountedAuthorityCustody' | 'cancelMountedAuthority' | 'readRetainedDocumentBinding'>;
 type WriterSeal = NonNullable<ReturnType<WriterAuthorityPort['sealMountedAuthority']>>;
 
 function hasWriterAuthorityPort(runtime: object): runtime is object & WriterAuthorityPort
@@ -12,7 +12,8 @@ function hasWriterAuthorityPort(runtime: object): runtime is object & WriterAuth
     return 'subscribeMountedAuthorityRetirement' in runtime && typeof runtime.subscribeMountedAuthorityRetirement === 'function'
         && 'sealMountedAuthority' in runtime && typeof runtime.sealMountedAuthority === 'function'
         && 'hasMountedAuthorityCustody' in runtime && typeof runtime.hasMountedAuthorityCustody === 'function'
-        && 'cancelMountedAuthority' in runtime && typeof runtime.cancelMountedAuthority === 'function';
+        && 'cancelMountedAuthority' in runtime && typeof runtime.cancelMountedAuthority === 'function'
+        && 'readRetainedDocumentBinding' in runtime && typeof runtime.readRetainedDocumentBinding === 'function';
 }
 
 interface WriterSubscription {
@@ -20,6 +21,7 @@ interface WriterSubscription {
     readonly seal: WriterAuthorityPort['sealMountedAuthority'];
     readonly has: WriterAuthorityPort['hasMountedAuthorityCustody'];
     readonly cancel: WriterAuthorityPort['cancelMountedAuthority'];
+    readonly borrowDocument: WriterAuthorityPort['readRetainedDocumentBinding'];
     unsubscribe: (() => void) | null;
 }
 interface DocumentSubscription {
@@ -214,7 +216,8 @@ export function createAdminArticleWorkspaceWriterReservation()
         try
         {
             const current: WriterSubscription = { runtime, seal: runtime.sealMountedAuthority.bind(runtime),
-                has: runtime.hasMountedAuthorityCustody.bind(runtime), cancel: runtime.cancelMountedAuthority.bind(runtime), unsubscribe: null };
+                has: runtime.hasMountedAuthorityCustody.bind(runtime), cancel: runtime.cancelMountedAuthority.bind(runtime),
+                borrowDocument: runtime.readRetainedDocumentBinding.bind(runtime), unsubscribe: null };
             writer = current;
             current.unsubscribe = runtime.subscribeMountedAuthorityRetirement(() =>
             {
@@ -233,9 +236,8 @@ export function createAdminArticleWorkspaceWriterReservation()
             busy = false;
         }
     };
-    const attachDocumentBinding = (binding: ArticleDocumentRetainedBinding, runtime: object): void =>
+    const connectDocumentBinding = (binding: ArticleDocumentRetainedBinding): void =>
     {
-        connectWriter(runtime);
         if (document?.binding === binding)
         {
             return;
@@ -244,7 +246,6 @@ export function createAdminArticleWorkspaceWriterReservation()
         {
             throw new Error('article-workspace-original-document-binding-replacement-required');
         }
-        withdraw();
         busy = true;
         try
         {
@@ -268,6 +269,15 @@ export function createAdminArticleWorkspaceWriterReservation()
             busy = false;
         }
     };
+    const attachDocumentBinding = (binding: ArticleDocumentRetainedBinding, runtime: object): void =>
+    {
+        connectWriter(runtime);
+        if (document?.binding !== binding)
+        {
+            withdraw();
+        }
+        connectDocumentBinding(binding);
+    };
     const hasCurrentReservation = (): boolean =>
     {
         const current = reservation;
@@ -289,19 +299,31 @@ export function createAdminArticleWorkspaceWriterReservation()
                 withdraw();
                 connectWriter(originalMountedRuntime);
                 const original = writer;
-                const doc = document;
-                if (!original || !doc?.stop || closed || busy || failed)
+                if (!original || closed || busy || failed)
                 {
                     return null;
                 }
                 cancelReservation();
+                const token = {};
+                attempt = token;
+                // Admission-only borrow can read scope and synchronously retire its original owner.
+                const binding = original.borrowDocument();
+                if (!binding || attempt !== token || writer !== original || closed || busy || failed)
+                {
+                    return null;
+                }
+                connectDocumentBinding(binding);
+                const doc = document;
+                if (!doc?.stop || doc.binding !== binding || attempt !== token || writer !== original || closed || busy || failed)
+                {
+                    return null;
+                }
                 const subscriptionStatus = doc.stop.inspect();
                 if (subscriptionStatus.failed || subscriptionStatus.running || subscriptionStatus.pendingUnsubscribe)
                 {
                     recordFailure(subscriptionStatus.firstFailure);
                     return null;
                 }
-                const token = {};
                 const current: Reservation = { writer: original, document: doc, writerSeal: null, documentSeal: null };
                 const hasCustody = (): boolean => reservation === current && hasCurrentReservation();
                 const output = Object.freeze({ nativeEditor, retainedIdentity: doc.binding.handle,
@@ -312,12 +334,11 @@ export function createAdminArticleWorkspaceWriterReservation()
                             cancelReservation();
                         }
                     } });
-                if (closed || failed || writer !== original || document !== doc)
+                if (attempt !== token || closed || failed || writer !== original || document !== doc)
                 {
                     return null;
                 }
                 obligation = current;
-                attempt = token;
                 sealing = true;
                 try
                 {
@@ -362,6 +383,10 @@ export function createAdminArticleWorkspaceWriterReservation()
             finally
             {
                 reserving = false;
+                if (!reservation)
+                {
+                    attempt = null;
+                }
             }
         }
     });

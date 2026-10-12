@@ -1781,9 +1781,36 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     recoveryCheckpointCreating = false;
                 }
             };
+            /** Borrow only the successfully adopted consumer's original binding; this is not a seal or reacquisition. */
+            const readRetainedDocumentBinding = (): ArticleDocumentRetainedBinding | null =>
+            {
+                if (!retainedPrimaryReady || retainingPrimary || !mountedAuthorityCurrent()
+                    || mountedAdminCancellationFailure || mountedDocumentCancellationFailure
+                    || synchronousCleanupRunning || synchronousCleanupFailed || synchronousCleanupCompleted)
+                {
+                    return null;
+                }
+                const retained = retainedPrimaryBinding.value;
+                if (retained?.adapter !== articleDocumentContextAdapter)
+                {
+                    return null;
+                }
+                // Inspect the real issuer; preserve a thrown original error instead of fabricating a binding.
+                const observation = retained.inspect();
+                if (observation.registry.state !== 'live' || observation.admissionClosed || observation.invalidationFailed
+                    || observation.consumerInvalidationState !== 'not-requested' || !observation.registryRevisionMatchesDocument
+                    || !articleDocumentContextAdapter.isCurrentContext(observation.context)
+                    || !retainedPrimaryReady || retainingPrimary || retainedPrimaryBinding.value !== retained
+                    || !mountedAuthorityCurrent() || mountedAdminCancellationFailure || mountedDocumentCancellationFailure
+                    || synchronousCleanupRunning || synchronousCleanupFailed || synchronousCleanupCompleted)
+                {
+                    return null;
+                }
+                return retained;
+            };
             const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
                 sealMountedAuthority, hasMountedAuthorityCustody, cancelMountedAuthority, subscribeMountedAuthorityRetirement,
-                search: searchRuntime, mountedSource });
+                search: searchRuntime, mountedSource, readRetainedDocumentBinding });
             revokeCurrentMountedAuthority?.();
             revokeCurrentMountedAuthority = revokeMountedAuthority;
             notifyCurrentMountedAuthorityRetirement = notifyMountedAuthorityRetirement;
