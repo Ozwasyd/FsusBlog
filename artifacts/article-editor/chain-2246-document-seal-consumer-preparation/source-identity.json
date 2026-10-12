@@ -1,0 +1,28 @@
+{
+  "writerSource": "b697029cf7debd9f368bd0420a1d120717affa71",
+  "writerPhysicalReview": "parent bounded AST/source CLOSED; no new P1/P2; physical retirement and positive refusal only",
+  "independentWriterLintType": "UNRUN in review environment lacking canonical699/UI8c; author220to220FAIL not independent pass",
+  "documentSource": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+  "documentHead": "fa513d70a62d257e0d5b80933c603af8670f5c3f",
+  "documentState": "independent review in progress, NOT accepted",
+  "productionPaths": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "sourceBlob": "9c5358a9a4e3ecbb517e6f47f2645a825b2f2291",
+      "headBlob": "9c5358a9a4e3ecbb517e6f47f2645a825b2f2291",
+      "currentProductionBlob": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+      "consumed": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "sourceBlob": "cf423ce2ced59fd2133e5e09a4bad7ab2a4149ee",
+      "headBlob": "cf423ce2ced59fd2133e5e09a4bad7ab2a4149ee",
+      "currentProductionBlob": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+      "consumed": false
+    }
+  ],
+  "authState": "902f independent3P2, repair pending, NOT consumed",
+  "positiveWriterAuthority": "refused",
+  "runtime": "HOLD/UNRUN",
+  "frozenEvidenceRefreshed": false
+}
