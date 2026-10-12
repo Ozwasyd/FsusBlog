@@ -1,5 +1,5 @@
 {
-  "recordedAtUtc": "2026-10-12T03:28:13.109443+00:00",
+  "recordedAtUtc": "2026-10-12T03:47:59.760563+00:00",
   "sourceOnly": true,
   "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
   "lastVerifiedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
@@ -51,10 +51,10 @@
   },
   "checks": [
     {
-      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/issue-2245-fsusui node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authoring/articleRenderCache.ts",
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/issue-2245-fsusui node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authoring/articleRenderCache.ts --file src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
       "cwd": "/workspace/issue-2245-render-terminal",
       "exitCode": 0,
-      "files": 1,
+      "files": 2,
       "violations": 0
     },
     {
@@ -77,7 +77,7 @@
       "exitCode": 0
     }
   ],
-  "sourceControls": "Cache22 source blocks UNRUN/HOLD, including pre-return cleanup verifier actual unknown/future throw; supplier observer controls separately UNRUN",
+  "sourceControls": "Cache22 original blocks unchanged, UNRUN/HOLD; upstream subclass/species controls separately UNRUN, no collection or accumulated pass counts",
   "holds": [
     "runtime",
     "test",
@@ -90,48 +90,57 @@
     "migration/ProjectXML/Git replacement QA"
   ],
   "qualification": false,
-  "remainingProducerGap": "NEW OPEN original producer species-subclass/await hidden derived rejection P2 is assigned to original Writer owner. Canonical efec36c9 source is unchanged here and latest combination is not source closed. Independent review, native cleanup and all execution qualifications remain HOLD.",
+  "remainingProducerGap": "Species P2 original author sourcecbd7213c/32f81d94 is consumed, not independently accepted here. Own cached3b98 and original producer reviews plus combination review pending. Opaque native cleanup and all runtime/tests/list/native/security/receipt/product qualification HOLD.",
   "remainingCallerGap": "Same-work continuity/runtime/source-compare exact supplier source consumed. Original product mounts, separate tool/preview/native restoration futures and full-session factory/cleanup acceptance remain open.",
   "contentApiWrites": "Only explicitly authorized own draft PR creation/update; no issue/other PR/comment/label writes",
   "newPr": "https://github.com/Ozwasyd/FsusBlog/pull/4230",
   "oldDraftPrUpdated": false,
-  "checkedSourcePreimage": "9e293a59fa04241113e31b26f1fa123be0471cad",
-  "reviewRepair": "Remove verifierReturned exemption. Every actual cleanup classification exception is latched with original cause/future before propagation. Successful render endpoint never overrides verification obligation; original owned R/work/lease remains held through future resolution/dispose. No second authority.",
-  "currentStackedSupplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
-  "supplierActualRepair": "3c5e3f19b0f9cf1a6aafc6b308a76f43f9a03b0e",
+  "checkedSourcePreimage": "b408f01786f93c9feb33c9526e40956be3359118",
+  "reviewRepair": "Exact original producer constructor/species/subclass refusal intake; unknown source/future custody retained, unsupported derived wrappers not created/awaited. Own cached3b98 and same-request terminal consumer byte-identical. No authority duplication or body adoption.",
+  "currentStackedSupplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+  "supplierActualRepair": "cbd7213c31dd9a189c3a5d80456a7efd110a65f8",
   "supersededKnownDefectSupplier": "79da045da19a57b6a73ce4ec735d68120cd49d5f",
   "publishedOwnP2": "b605f2f1137fa8d7342769c9182ae24601ae996c",
   "exactConsumedPostimages": {
     "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": {
-      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
-      "blob": "b4e4aadb472005bdf34826cbae60cbab111a4d13",
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "f7343067454f71d053ab48ef86cab2aa0c5cd512",
       "matchesSupplier": true
     },
     "src/frontend/src/services/authoring/articleEditorContinuity.ts": {
-      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
       "blob": "510177ab2d41949f16cd7214dab5d2fab67e0214",
       "matchesSupplier": true
     },
     "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts": {
-      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
       "blob": "d8132a6701d34214e8a87ad7b4bbf08fd6d62a01",
       "matchesSupplier": true
     },
     "src/frontend/src/services/authoring/articleSourceCompare.ts": {
-      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
       "blob": "323127c16880f130f01abace6711b1e6f625b6a4",
       "matchesSupplier": true
     },
     "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts": {
-      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
-      "blob": "16c3716c39a7cc4dace1a7a28367f0ba14e640f0",
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "598e2b902afb58613d788a18b6665eb70704299d",
       "matchesSupplier": true
     },
     "tests/frontend/unit/authoring/articleEditorContinuity.test.ts": {
-      "supplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
       "blob": "de79562f03a9a08edf281e1973a20fe8be4c66bf",
       "matchesSupplier": true
     }
   },
-  "preservedOwnCleanupVerifierRepair": "3e40f95b108e5609fa2b4d6c720f3b4c3b0817f8 (immutable historical repair; this follow-up strengthens pre-return failure custody)"
+  "preservedOwnCleanupVerifierRepair": "3e40f95b108e5609fa2b4d6c720f3b4c3b0817f8 (immutable historical repair; this follow-up strengthens pre-return failure custody)",
+  "preservedOwnPreReturnRepair": "d3b98d6b09c99513af16472031fb740d0c5ab4b3",
+  "preservedOwnSourceBlobs": {
+    "src/frontend/src/services/authoring/articleRenderCache.ts": {
+      "matchesD3b98": true
+    },
+    "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
+      "matchesD3b98": true
+    }
+  }
 }

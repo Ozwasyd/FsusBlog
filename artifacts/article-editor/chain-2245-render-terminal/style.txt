@@ -1,1 +1,1 @@
-[frontend-style] ok files=1 eslint=1 stylelint=0 violations=0 new=0
+[frontend-style] ok files=2 eslint=2 stylelint=0 violations=0 new=0
