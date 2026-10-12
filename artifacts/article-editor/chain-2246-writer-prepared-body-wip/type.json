@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+  "exitCode": 2,
+  "seconds": 33.301,
+  "testedSource": "wip-blob:41b4e7ab0f4d9a89afc72dd9b90bf144fde2a8e1",
+  "runtimeQualification": false
+}

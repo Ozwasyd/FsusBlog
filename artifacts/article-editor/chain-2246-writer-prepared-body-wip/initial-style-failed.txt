@@ -1,0 +1,5 @@
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4329:27 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4329:40 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4334:37 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .accepted on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4334:60 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4335:39 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .revision on a type that cannot be resolved.

@@ -1,0 +1,13 @@
+{
+  "base": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+  "baseBlob": "6c75ec510b9b19dda80eea292db6f6d7a7a092bf",
+  "workingBlob": "41b4e7ab0f4d9a89afc72dd9b90bf144fde2a8e1",
+  "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+  "productionCommitted": false,
+  "status": "prepared-first-owner prototype WIP, not existing-consumer/full-ref restoration",
+  "runtimeQualification": false,
+  "patchSha256": "3696d6a581529e666fa69a48c9cb5b98e1c9bc52741d91cb03669ed6f2323bfb",
+  "patchBytes": 24743,
+  "reverseCheckExit": 0,
+  "productionPatchNotAppliedInPublishedTree": true
+}

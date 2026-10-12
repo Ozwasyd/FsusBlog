@@ -1,0 +1,15 @@
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2286:15 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2286:25 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2287:15 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2287:24 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2287:32 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .inspectDocumentState on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2293:23 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .documentIdentity on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2293:77 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .documentIdentity on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2294:23 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .revision on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2294:63 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:2298:72 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4330:27 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4330:40 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4335:37 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .accepted on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4335:60 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:4336:39 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .revision on a type that cannot be resolved.

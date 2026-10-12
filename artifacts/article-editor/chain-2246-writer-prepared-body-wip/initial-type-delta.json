@@ -1,0 +1,18 @@
+{
+  "candidate": {
+    "base": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+    "baseBlob": "6c75ec510b9b19dda80eea292db6f6d7a7a092bf",
+    "workingBlob": "6dbeb65622371613beb138161511972fa1dae23c",
+    "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+    "productionCommitted": false,
+    "status": "prepared-first-owner prototype WIP, not existing-consumer/full-ref restoration",
+    "runtimeQualification": false
+  },
+  "baselineDiagnostics": 221,
+  "diagnostics": 222,
+  "added": [
+    "src/composables/useAdminArticleWrite.ts: TS2339: Property 'dispatchTransaction' does not exist on type 'MarkdownEditorSessionExpose'."
+  ],
+  "removed": [],
+  "runtimeQualification": false
+}

@@ -1,0 +1,467 @@
+diff --git a/src/frontend/src/composables/useAdminArticleWrite.ts b/src/frontend/src/composables/useAdminArticleWrite.ts
+index 6c75ec510..41b4e7ab0 100644
+--- a/src/frontend/src/composables/useAdminArticleWrite.ts
++++ b/src/frontend/src/composables/useAdminArticleWrite.ts
+@@ -76,9 +76,11 @@ import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, t
+ import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
+ import {
+     articleDocumentContextAuthority,
++    articleDocumentContextSchema,
+     type ArticleDocumentContextAdapter,
+     type ArticleDocumentRetainedBinding,
+-    type ArticleDocumentRetainedInspection
++    type ArticleDocumentRetainedInspection,
++    type ArticleDocumentRetainedPreparation
+ } from '@/services/authoring/articleDocumentContext';
+ import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
+ import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
+@@ -96,7 +98,7 @@ import { useAdminStore } from '@/store/admin';
+ import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
+ import { isAbortError } from '@/utils/errors';
+
+-import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
++import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSessionSnapshot, MarkdownEditorSessionExpose } from '@ozwasyd/element-plus';
+
+ interface ArticleParams {
+     title: string;
+@@ -492,13 +494,19 @@ const slugifyTitle = (title: string): string =>
+     return firstNonEmptyText(slug, 'draft-preview');
+ };
+
+-export function useAdminArticleWrite()
++/** First Writer consumer of a genuine prepared document; existing-consumer handover is separate. */
++export interface ArticleWriterPreparedStartup {
++    readonly handle: RetainedArticleDocumentHandle;
++    readonly preparation: ArticleDocumentRetainedPreparation;
++}
++
++export function useAdminArticleWrite(startup?: ArticleWriterPreparedStartup)
+ {
+     // This is the original Writer's effect scope, not another document/form owner.
+     const writerScope = effectScope(true);
+     try
+     {
+-        const writer = writerScope.run(() => createAdminArticleWriteOwner(writerScope));
++        const writer = writerScope.run(() => createAdminArticleWriteOwner(writerScope, startup));
+         if (!writer)
+         {
+             throw new Error('article-writer-effect-scope-unavailable');
+@@ -512,7 +520,7 @@ export function useAdminArticleWrite()
+     }
+ }
+
+-function createAdminArticleWriteOwner(writerScope: EffectScope)
++function createAdminArticleWriteOwner(writerScope: EffectScope, startup?: ArticleWriterPreparedStartup)
+ {
+     const route = useRoute();
+     const router = useRouter();
+@@ -522,7 +530,27 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+         validate: (callback?: FormValidateCallback) => FormValidationResult;
+         scrollToField: (prop: FormItemProp) => void;
+     }>('formRef');
+-    const retainedPrimaryBinding = shallowRef<ArticleDocumentRetainedBinding | null>(null);
++    const documentSiteScope = 'primary-site';
++    const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
++    const documentUserScope = `user:${documentPrincipalIdentityId ?? 'unknown'}`.replace(/[^a-zA-Z0-9._:-]/gu, '-');
++    // Obtain the original authority's real adapter BEFORE any document-dependent effects.
++    const preparedBinding = startup
++        ? articleDocumentContextAuthority.acquireRetainedDocument(startup.handle, startup.preparation) : null;
++    if (preparedBinding)
++    {
++        const actual = preparedBinding.inspect();
++        if (actual.admissionClosed || actual.invalidationFailed || actual.registry.state !== 'live'
++            || !actual.registryRevisionMatchesDocument || actual.principalIdentityId !== documentPrincipalIdentityId
++            || actual.context.siteScope !== documentSiteScope || actual.context.userScope !== documentUserScope
++            || actual.context.sourceRevision !== 0 || actual.context.draftRevision !== null
++            || actual.registry.entry?.editorSessionRef !== actual.context.editorSessionId)
++        {
++            throw new Error('article-writer-prepared-startup-unavailable');
++        }
++    }
++    const retainedPrimaryBinding = shallowRef<ArticleDocumentRetainedBinding | null>(preparedBinding);
++    const preparedBodyLoaded = ref(!preparedBinding);
++    const preparedBodyFailure = shallowRef<unknown>(null);
+     let retainingPrimary = false;
+     let retainedPrimaryReady = false;
+     let componentAttached = true;
+@@ -873,18 +901,18 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+     // Also reclaim the actual channel if original owner acquisition refuses during setup.
+     onScopeDispose(() => recoveryCoordinator.dispose());
+     // Canonical author endpoints resolve the primary site; a browser host is not its authority.
+-    const documentSiteScope = 'primary-site';
+-    const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
+-    const documentUserScope = `user:${documentPrincipalIdentityId ?? 'unknown'}`
+-        .replace(/[^a-zA-Z0-9._:-]/gu, '-');
+-    const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
++    const articleDocumentContextBinding = preparedBinding ? null : articleDocumentContextAuthority.acquire({
+         articleId: articleId.value,
+         siteScope: documentSiteScope,
+         userScope: documentUserScope,
+         content: articleForm.content
+     });
+-    const articleDocumentContextAdapter: ArticleDocumentContextAdapter =
+-        articleDocumentContextBinding.adapter;
++    const articleDocumentContextAdapter: ArticleDocumentContextAdapter = preparedBinding
++        ? preparedBinding.adapter : articleDocumentContextBinding?.adapter
++            ?? (() =>
++            {
++                throw new Error('article-writer-document-binding-unavailable');
++            })();
+     const authoringDocumentContext = shallowRef(articleDocumentContextAdapter.context);
+     const syncAuthoringDocumentContext = (): void =>
+     {
+@@ -1015,12 +1043,18 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
+     let releaseEditorRuntime: (() => void) | null = null;
+     // This slot retains only the original object identity; the mounted source validates its public ports.
+-    let originalMountedEditor: object | null = null;
++    let originalMountedEditor: (ArticleEditorContinuityPort & Partial<MarkdownEditorSessionExpose>) | null = null;
+     let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
+     const authoringEditorRuntime = Object.freeze({
+         bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
+             readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
+         {
++            if (preparedBinding && (!preparedBodyLoaded.value
++                || calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content: articleForm.content })
++                    !== articleDocumentContextAdapter.context.contentDigest))
++            {
++                throw new Error('article-writer-prepared-body-unavailable');
++            }
+             if (!active || editorRuntimeBinding)
+             {
+                 throw new Error('article-editor-runtime-already-bound');
+@@ -2105,7 +2139,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+
+     let draftFormRestoring = false;
+     const applyDraftToForm = (draft: ArticleDraftSnapshot, checkpoint?: {
+-        readonly admit: () => boolean;
++        readonly admit: (expected: ArticleDraftSnapshot) => boolean;
+         readonly preserveServerPause: true;
+     }): boolean =>
+     {
+@@ -2118,6 +2152,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+         suppressDraftSave = true;
+         try
+         {
++            const expected = buildDraftSnapshot(activeRecoveryClientRevision ?? '');
+             if (!checkpoint)
+             {
+                 invalidateDraftCheckpoint();
+@@ -2173,14 +2208,21 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                     }
+                 }
+             ];
+-            for (const write of writes)
++            const fields = ['title', 'content', 'summary', 'coverImageUrl', 'categoryId', 'tagIds',
++                'status', 'scheduledPublishAt', 'rights', 'serverRevision', 'baseRevisionId'] as const;
++            for (const [index, write] of writes.entries())
+             {
+-                if (checkpoint && !checkpoint.admit())
++                if (checkpoint && !checkpoint.admit(expected))
+                 {
+                     return false;
+                 }
++                const field = fields[index];
++                if (field && (field !== 'baseRevisionId' || draft.isEdit))
++                {
++                    Object.assign(expected, { [field]: draft[field] });
++                }
+                 write();
+-                if (checkpoint && !checkpoint.admit())
++                if (checkpoint && !checkpoint.admit(expected))
+                 {
+                     return false;
+                 }
+@@ -2190,7 +2232,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                 // Only the original explicit recovery flow may resolve this pause.
+                 serverDraftSyncPaused.value = false;
+             }
+-            return !checkpoint || checkpoint.admit();
++            return !checkpoint || checkpoint.admit(expected);
+         }
+         finally
+         {
+@@ -2815,7 +2857,66 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+             return;
+         }
+
+-        const data = await getAdminArticleById(articleId.value, buildSignalConfig(signal));
++        const requestedId = articleId.value;
++        const retained = preparedBinding;
++        const context = articleDocumentContextAdapter.context;
++        const formBefore = buildDraftSnapshot(activeRecoveryClientRevision ?? '');
++        const formIdentity = buildDraftSemanticIdentity(formBefore);
++        const pauseBefore = serverDraftSyncPaused.value;
++        const conflictBefore = draftConflictText.value;
++        let expectedRevisionNo = currentRevisionNo.value;
++        const clientRevisionBefore = activeRecoveryClientRevision;
++        const registryBefore = retained?.inspect().registry;
++        const admit = (expected: ArticleDraftSnapshot): boolean =>
++        {
++            const current = retained?.inspect();
++            return active && writerScope.active && componentAttached && !signal.aborted && !fullDraftPrincipalRetired
++                && articleId.value === requestedId && adminStore.adminPrincipal?.id?.trim() === documentPrincipalIdentityId
++                && articleDocumentContextAdapter.isCurrentContext(context)
++                && serverDraftSyncPaused.value === pauseBefore && draftConflictText.value === conflictBefore
++                && currentRevisionNo.value === expectedRevisionNo && activeRecoveryClientRevision === clientRevisionBefore
++                && buildDraftSemanticIdentity(buildDraftSnapshot(activeRecoveryClientRevision ?? '')) === buildDraftSemanticIdentity(expected)
++                && (!retained || retainedPrimaryBinding.value === retained && current?.registry.state === 'live'
++                    && !current.admissionClosed && !current.invalidationFailed && current.registryRevisionMatchesDocument
++                    && current.context.siteScope === documentSiteScope && current.context.userScope === documentUserScope
++                    && current.registry.registryRevision === registryBefore?.registryRevision
++                    && current.registry.entry?.contentDigest === registryBefore?.entry?.contentDigest);
++        };
++        if (retained && !admit(formBefore))
++        {
++            throw new Error('article-writer-prepared-loader-admission-invalid');
++        }
++        const data = await getAdminArticleById(requestedId, buildSignalConfig(signal));
++        if (retained)
++        {
++            if (!admit(formBefore) || buildDraftSemanticIdentity(formBefore) !== formIdentity
++                || data.id !== requestedId || typeof data.content !== 'string'
++                || calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content: data.content }) !== context.contentDigest)
++            {
++                throw new Error('article-writer-prepared-loader-result-invalid');
++            }
++            // Only bootstrap the newly prepared current-detail body. This is not an
++            // old full-ref/server-draft restoration or a manufactured native revision.
++            const draft: ArticleDraftSnapshot = { ...formBefore,
++                title: data.title ?? '', content: data.content, summary: data.summary ?? '', coverImageUrl: data.coverImageUrl ?? '',
++                categoryId: data.category?.id ? Number(data.category.id) : undefined,
++                tagIds: Array.isArray(data.tags) ? data.tags.map(item => Number(item.id)) : [],
++                status: normalizeArticlePublishStatus(data.status), scheduledPublishAt: normalizeDateTimeInput(data.scheduledPublishAt),
++                rights: { ...normalizeArticleRightsForm(data.rights), mode: 'custom' },
++                sourceArticleId: requestedId, baseRevisionId: data.currentRevisionId ?? null, serverRevision: null };
++            if (!applyDraftToForm(draft, { admit, preserveServerPause: true }) || !admit(draft))
++            {
++                throw new Error('article-writer-prepared-loader-superseded');
++            }
++            expectedRevisionNo = data.revisionNo ?? null;
++            currentRevisionNo.value = expectedRevisionNo;
++            if (!admit(draft))
++            {
++                throw new Error('article-writer-prepared-loader-publication-invalid');
++            }
++            preparedBodyLoaded.value = true;
++            return;
++        }
+         if (!signal.aborted)
+         {
+             applyArticleDetailToForm(data);
+@@ -3352,6 +3453,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+     const initData = async () =>
+     {
+         const invocation = ++initInvocation;
++        if (preparedBinding)
++        {
++            preparedBodyLoaded.value = false;
++            preparedBodyFailure.value = null;
++        }
+         pageLoading.value = true;
+         try
+         {
+@@ -3376,6 +3482,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                     }
+                     catch (error: unknown)
+                     {
++                        if (preparedBinding)
++                        {
++                            throw error;
++                        }
+                         if (isAbortError(error) || signal.aborted)
+                         {
+                             return;
+@@ -3387,12 +3497,35 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                         return;
+                     }
+                 }
+-
++                if (preparedBinding)
++                {
++                    // A fresh empty prepared draft has no server-key/body authority.
++                    // Never guess a multi-draft key or clear an existing recovery pause.
++                    if (articleId.value === null)
++                    {
++                        const actual = preparedBinding.inspect();
++                        if (!active || fullDraftPrincipalRetired || signal.aborted || actual.admissionClosed
++                            || actual.principalIdentityId !== documentPrincipalIdentityId
++                            || adminStore.adminPrincipal?.id?.trim() !== documentPrincipalIdentityId
++                            || actual.context.siteScope !== documentSiteScope || actual.context.userScope !== documentUserScope
++                            || !actual.registryRevisionMatchesDocument
++                            || actual.context.contentDigest !== calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content: articleForm.content }))
++                        {
++                            throw new Error('article-writer-prepared-draft-body-unavailable');
++                        }
++                        preparedBodyLoaded.value = true;
++                    }
++                    return;
++                }
+                 await detectDraftCandidates(signal);
+             });
+         }
+         catch (error: unknown)
+         {
++            if (preparedBinding && invocation === initInvocation)
++            {
++                preparedBodyFailure.value = error;
++            }
+             if (!isAbortError(error))
+             {
+                 showErrorToast('无法同步远程配置资源', '无法同步远程配置资源');
+@@ -3403,15 +3536,24 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+         {
+             if (active && invocation === initInvocation)
+             {
+-                suppressDraftSave = false;
+-                articleDocumentContextAdapter.updateSource(articleForm.content);
+-                articleDocumentContextAdapter.updateDraftRevision(
+-                    serverDraftRevision.value === null
+-                        ? null
+-                        : `server:${serverDraftRevision.value}`
+-                );
+-                syncAuthoringDocumentContext();
+-                pageLoading.value = false;
++                if (preparedBinding)
++                {
++                    suppressDraftSave = !preparedBodyLoaded.value;
++                    syncAuthoringDocumentContext();
++                    pageLoading.value = false;
++                }
++                else
++                {
++                    suppressDraftSave = false;
++                    articleDocumentContextAdapter.updateSource(articleForm.content);
++                    articleDocumentContextAdapter.updateDraftRevision(
++                        serverDraftRevision.value === null
++                            ? null
++                            : `server:${serverDraftRevision.value}`
++                    );
++                    syncAuthoringDocumentContext();
++                    pageLoading.value = false;
++                }
+             }
+         }
+     };
+@@ -3884,6 +4026,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+     {
+         if (next !== previous)
+         {
++            if (!articleDocumentContextBinding)
++            {
++                throw new Error('article-writer-retained-switch-requires-original-owner');
++            }
+             articleDocumentContextBinding.switchDocument({
+                 articleId: next,
+                 content: '',
+@@ -4049,6 +4195,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+             documentBinding: retained,
+             readView: () =>
+             {
++                if (preparedBinding && !preparedBodyLoaded.value)
++                {
++                    throw new Error('article-writer-prepared-body-unavailable');
++                }
+                 const observation = inspectPrimary(retained);
+                 return Object.freeze({ documentContext: observation.context, content: articleForm.content,
+                     loading: pageLoading.value, saving: submitting.value, inspection: observation,
+@@ -4149,16 +4299,46 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                 {
+                     throw new Error('article-writer-retained-primary-already-adopted');
+                 }
+-                const retained = existing ?? articleDocumentContextAuthority.adoptPrimaryRetainedDocument(
+-                    articleWorkspaceTabRouter.getRegistry(), handle, articleDocumentContextBinding, {
+-                        readPrincipalIdentityId: () => adminStore.adminPrincipal?.id?.trim() ?? null,
+-                        readSiteScope: () => documentSiteScope
+-                    });
++                let retained = existing;
++                if (!retained)
++                {
++                    if (!articleDocumentContextBinding)
++                    {
++                        throw new Error('article-writer-prepared-handle-replacement-unavailable');
++                    }
++                    retained = articleDocumentContextAuthority.adoptPrimaryRetainedDocument(
++                        articleWorkspaceTabRouter.getRegistry(), handle, articleDocumentContextBinding, {
++                            readPrincipalIdentityId: () => adminStore.adminPrincipal?.id?.trim() ?? null,
++                            readSiteScope: () => documentSiteScope
++                        });
++                }
+                 // Preserve actual issued custody if consumer attachment subsequently refuses.
+                 retainedPrimaryBinding.value = retained;
+                 // Establish original cleanup/lifetime custody before any mount validation callback.
+                 const consumer = retained.attachConsumer(createPrimaryConsumer);
+-                requirePrimaryRuntime(retained);
++                const runtime = requirePrimaryRuntime(retained);
++                if (preparedBinding)
++                {
++                    const before = inspectPrimary(retained, true);
++                    const entry = before.registry.entry;
++                    const mounted = entry && runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
++                    const nativePort = originalMountedEditor;
++                    if (!mounted || !nativePort || mounted !== nativePort)
++                    {
++                        throw new Error('article-writer-prepared-native-body-unavailable');
++                    }
++                    const nativeRead = nativePort.dispatchTransaction({
++                        changes: [], history: 'skip', origin: 'programmatic',
++                        documentIdentity: { id: before.context.documentId, epoch: before.context.documentEpoch },
++                        expectedRevision: before.context.sourceRevision
++                    });
++                    if (!nativeRead.accepted || nativeRead.value !== articleForm.content
++                        || nativeRead.revision !== before.context.sourceRevision
++                        || inspectPrimary(retained, true).context.contextDigest !== before.context.contextDigest)
++                    {
++                        throw new Error('article-writer-prepared-native-body-mismatch');
++                    }
++                }
+                 retainedPrimaryReady = true;
+                 return consumer;
+             }
+@@ -4237,7 +4417,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                 attachmentEditor = null;
+             },
+             () => authoringAttachments.dispose(),
+-            () => articleDocumentContextBinding.release(),
++            () => articleDocumentContextBinding?.release(),
+             () => initTask.cancel(),
+             () => submitTask.cancel(),
+             () => taxonomyTask.cancel(),
+@@ -4293,6 +4473,28 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+         }
+     });
+
++    if (preparedBinding)
++    {
++        try
++        {
++            // Attach the original first consumer before onMounted starts any loader.
++            // An already attached different consumer is refused by the 17c authority.
++            preparedBinding.attachConsumer(createPrimaryConsumer);
++        }
++        catch (error)
++        {
++            try
++            {
++                disposeOriginalWriter();
++            }
++            catch (cleanupError)
++            {
++                throw new AggregateError([error, cleanupError], 'article-writer-prepared-attachment-cleanup-failed', { cause: cleanupError });
++            }
++            throw error;
++        }
++    }
++
+     return {
+         formRef,
+         taskFeedback,
+@@ -4355,6 +4557,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+         authoringEditorRuntime,
+         authoringRetainedPrimaryRuntime,
+         authoringDraftCheckpointRuntime,
++        preparedBodyLoaded: computed(() => preparedBodyLoaded.value),
++        preparedBodyFailure: computed(() => preparedBodyFailure.value),
+         currentRevisionId,
+         currentRevisionNo,
+         articleRightsUsingSiteDefaults,
