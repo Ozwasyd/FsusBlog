@@ -1501,3 +1501,424 @@ describe('original failed-cleanup custody observation source control', () =>
         }
     });
 });
+
+async function requireJournalPublication(binding: ReturnType<ArticleRecoveryJournal['bindCheckpointSource']>)
+{
+    const preparation = await binding.preparePublication();
+    if (!preparation)
+    {
+        throw new Error('journal_publication_not_prepared');
+    }
+    return preparation;
+}
+
+async function requireJournalCheckpoint(binding: ReturnType<ArticleRecoveryJournal['bindCheckpointSource']>)
+{
+    const checkpoint = await binding.prepare();
+    if (!checkpoint)
+    {
+        throw new Error('journal_checkpoint_not_issued');
+    }
+    return checkpoint;
+}
+
+describe('original journal two-phase publication source controls', () =>
+{
+    it('completes real original persistence before staging and publishes without external reads or IO', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const source = checkpointSource();
+        let forbidReads = false;
+        const journal = new ArticleRecoveryJournal({ indexedDB, now: () =>
+        {
+            if (forbidReads)
+            {
+                throw new Error('publication_called_clock');
+            }
+            return 1_780_000_000_000;
+        } });
+        const binding = journal.bindCheckpointSource(() =>
+        {
+            if (forbidReads)
+            {
+                throw new Error('publication_called_reader');
+            }
+            return source;
+        });
+        const candidate = await requireJournalPublication(binding);
+        expect(await rawGetAll(indexedDB)).toHaveLength(1);
+        expect(Object.isFrozen(candidate)).toBe(true);
+        expect(Object.isFrozen(candidate.info)).toBe(true);
+        expect(Object.isFrozen(candidate.checkpoint)).toBe(true);
+        expect(binding.inspectReference(candidate.info.checkpointRef)).toBeNull();
+        expect(binding.hasReferenceCustody(candidate.info.checkpointRef, candidate.info)).toBe(false);
+        expect(binding.publishPrepared(candidate, candidate.info)).toBeNull();
+        const info = binding.validatePrepared(candidate, source.content);
+        expect(info).toBe(candidate.info);
+        const noIO = (): never =>
+        {
+            throw new Error('publication_called_io_or_random');
+        };
+        const open = vi.spyOn(indexedDB, 'open').mockImplementation(noIO);
+        const uuid = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(noIO);
+        forbidReads = true;
+        try
+        {
+            expect(binding.hasPreparedCustody(candidate, candidate.info)).toBe(true);
+            expect(binding.publishPrepared(candidate, candidate.info)).toBe(candidate.checkpoint);
+            expect(binding.hasPreparedCustody(candidate, candidate.info)).toBe(false);
+            expect(binding.hasReferenceCustody(candidate.info.checkpointRef, candidate.info)).toBe(true);
+            expect(binding.publishPrepared(candidate, candidate.info)).toBeNull();
+            expect(binding.cancelPrepared(candidate)).toBe(false);
+            expect(binding.cancelPrepared(undefined!)).toBe(false);
+            expect(binding.validatePrepared(undefined!, source.content)).toBeNull();
+            expect(open).not.toHaveBeenCalled();
+            expect(uuid).not.toHaveBeenCalled();
+        }
+        finally
+        {
+            forbidReads = false;
+            open.mockRestore();
+            uuid.mockRestore();
+        }
+        expect((await binding.restore(candidate.checkpoint))?.content).toBe(source.content);
+        binding.release();
+    });
+
+    it('keeps A and its unchanged TTL through candidate rejection and cancellation, retiring A only at publication', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        let now = 1_780_000_000_000;
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB, now: () => now }).bindCheckpointSource(() => source);
+        const original = await requireJournalCheckpoint(binding);
+        const infoA = binding.inspect(original)!;
+        const rawA = await rawGetAll(indexedDB);
+        now += 60_000;
+        const rejected = await requireJournalPublication(binding);
+        expect(await rawGetAll(indexedDB)).toEqual(rawA);
+        expect(rejected.info.expiresAt).toBe(infoA.expiresAt);
+        expect(binding.validatePrepared(rejected, 'different actual native body')).toBeNull();
+        expect(binding.hasReferenceCustody(infoA.checkpointRef, infoA)).toBe(true);
+        const canceled = await requireJournalPublication(binding);
+        expect(binding.cancelPrepared(canceled)).toBe(true);
+        expect(binding.cancelPrepared(canceled)).toBe(false);
+        expect(binding.validate(original)).toBe(true);
+        const candidate = await requireJournalPublication(binding);
+        expect(binding.validatePrepared(candidate, source.content)).toBe(candidate.info);
+        expect(binding.hasReferenceCustody(infoA.checkpointRef, infoA)).toBe(true);
+        expect(binding.publishPrepared(candidate, candidate.info)).toBe(candidate.checkpoint);
+        expect(binding.hasReferenceCustody(infoA.checkpointRef, infoA)).toBe(false);
+        expect(binding.validate(original)).toBe(false);
+        expect(binding.validate(candidate.checkpoint)).toBe(true);
+        expect(await rawGetAll(indexedDB)).toEqual(rawA);
+        binding.release();
+    });
+
+    it('refuses changed protected persisted facts without overwriting the prior record or custody', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        let source = checkpointSource();
+        const originalSource = source;
+        const binding = new ArticleRecoveryJournal({ indexedDB }).bindCheckpointSource(() => source);
+        const original = await requireJournalCheckpoint(binding);
+        const info = binding.inspect(original)!;
+        const raw = await rawGetAll(indexedDB);
+        source = { ...source, clientRevision: 'client-replacement-2295', editorRevision: 12, content: 'changed actual source' };
+        expect(await binding.preparePublication()).toBeNull();
+        expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+        expect(await rawGetAll(indexedDB)).toEqual(raw);
+        source = originalSource;
+        expect((await binding.restore(original))?.content).toBe(source.content);
+        binding.release();
+    });
+
+    it('retains A when actual original storage is unavailable or locator issuance fails', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB }).bindCheckpointSource(() => source);
+        const original = await requireJournalCheckpoint(binding);
+        const info = binding.inspect(original)!;
+        const raw = await rawGetAll(indexedDB);
+        const unavailable = vi.spyOn(indexedDB, 'open').mockImplementationOnce(() =>
+        {
+            throw new DOMException('original storage unavailable', 'InvalidStateError');
+        });
+        try
+        {
+            expect(await binding.preparePublication()).toBeNull();
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+        }
+        finally
+        {
+            unavailable.mockRestore();
+        }
+        const failedLocator = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementationOnce(() =>
+        {
+            throw new Error('original locator issuance failed');
+        });
+        try
+        {
+            expect(await binding.preparePublication()).toBeNull();
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+            expect(await rawGetAll(indexedDB)).toEqual(raw);
+        }
+        finally
+        {
+            failedLocator.mockRestore();
+            binding.release();
+        }
+    });
+
+    it('cancels a held real persistence operation without invalidating A or queuing another candidate', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB }).bindCheckpointSource(() => source);
+        const original = await requireJournalCheckpoint(binding);
+        const info = binding.inspect(original)!;
+        const raw = await rawGetAll(indexedDB);
+        const held = holdNextRecoveryHash(source.content);
+        const controller = new AbortController();
+        try
+        {
+            const pending = binding.preparePublication(controller.signal);
+            await held.held;
+            expect(binding.cancelPrepared(null!)).toBe(false);
+            expect(await binding.preparePublication()).toBeNull();
+            controller.abort();
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+            held.resume();
+            expect(await pending).toBeNull();
+            expect(await rawGetAll(indexedDB)).toEqual(raw);
+            expect(binding.validate(original)).toBe(true);
+        }
+        finally
+        {
+            held.release();
+            binding.release();
+        }
+    });
+
+    it('refuses required cleanup without deleting unrelated expired rows or invalidating A', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const now = 1_780_000_000_000;
+        const source = checkpointSource();
+        const journal = new ArticleRecoveryJournal({ indexedDB, now: () => now });
+        const binding = journal.bindCheckpointSource(() => source);
+        const original = await requireJournalCheckpoint(binding);
+        const info = binding.inspect(original)!;
+        const rawA = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+        await rawPut(indexedDB, {
+            ...rawA, id: `${String(rawA.identityHash)}:${String(rawA.articleKey)}:tab-expired-2295`,
+            tabId: 'tab-expired-2295', expiresAt: now - 1
+        });
+        const before = await rawGetAll(indexedDB);
+        expect(await binding.preparePublication()).toBeNull();
+        expect(await rawGetAll(indexedDB)).toEqual(before);
+        expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+        expect((await journal.list(source.identityId, source.articleId)).removedInvalidRecords).toBe(1);
+        expect(binding.validate(original)).toBe(true);
+        const retry = await requireJournalPublication(binding);
+        expect(binding.cancelPrepared(retry)).toBe(true);
+        binding.release();
+    });
+
+    it('does not revoke another binding on an actual quota-failed original put', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const otherSource = { ...checkpointSource(), tabId: 'tab-quota-2295' };
+        const other = journal.bindCheckpointSource(() => otherSource);
+        const original = await requireJournalCheckpoint(binding);
+        const info = binding.inspect(original)!;
+        const before = await rawGetAll(indexedDB);
+        const quota = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementationOnce(() =>
+        {
+            throw new DOMException('original quota exceeded', 'QuotaExceededError');
+        });
+        try
+        {
+            expect(await other.preparePublication()).toBeNull();
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+            expect(await rawGetAll(indexedDB)).toEqual(before);
+        }
+        finally
+        {
+            quota.mockRestore();
+            other.release();
+            binding.release();
+        }
+    });
+
+    it('rejects copied/foreign candidates and copied info while preserving the legitimate prepared and live slots', async () =>
+    {
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const foreign = journal.bindCheckpointSource(() => source);
+        const original = await requireJournalCheckpoint(binding);
+        const originalInfo = binding.inspect(original)!;
+        const candidate = await requireJournalPublication(binding);
+        const foreignCandidate = await requireJournalPublication(foreign);
+        const copy = { ...candidate };
+        expect(binding.validatePrepared(copy, source.content)).toBeNull();
+        expect(binding.cancelPrepared(copy)).toBe(false);
+        expect(binding.cancelPrepared(foreignCandidate)).toBe(false);
+        expect(binding.validatePrepared(foreignCandidate, source.content)).toBeNull();
+        expect(binding.validatePrepared(candidate, source.content)).toBe(candidate.info);
+        expect(binding.hasPreparedCustody(copy, candidate.info)).toBe(false);
+        expect(binding.hasPreparedCustody(candidate, { ...candidate.info })).toBe(false);
+        expect(binding.publishPrepared(candidate, { ...candidate.info })).toBeNull();
+        expect(binding.hasPreparedCustody(candidate, candidate.info)).toBe(true);
+        expect(binding.hasReferenceCustody(originalInfo.checkpointRef, { ...originalInfo })).toBe(false);
+        expect(binding.hasReferenceCustody(originalInfo.checkpointRef, originalInfo)).toBe(true);
+        expect(await binding.preparePublication()).toBeNull();
+        binding.release();
+        foreign.release();
+    });
+
+    it('refuses publication during source validation reentry and cancels only the candidate on source failure', async () =>
+    {
+        const source = checkpointSource();
+        let reenter: (() => void) | null = null;
+        let failSource = false;
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() =>
+        {
+            reenter?.();
+            if (failSource)
+            {
+                throw new Error('original mounted source unavailable');
+            }
+            return source;
+        });
+        const original = await requireJournalCheckpoint(binding);
+        const infoA = binding.inspect(original)!;
+        const candidate = await requireJournalPublication(binding);
+        reenter = () =>
+        {
+            expect(binding.hasPreparedCustody(candidate, candidate.info)).toBe(false);
+            expect(binding.publishPrepared(candidate, candidate.info)).toBeNull();
+            expect(binding.validatePrepared(candidate, source.content)).toBeNull();
+        };
+        expect(binding.validatePrepared(candidate, source.content)).toBe(candidate.info);
+        reenter = null;
+        failSource = true;
+        expect(binding.validatePrepared(candidate, source.content)).toBeNull();
+        expect(binding.publishPrepared(candidate, candidate.info)).toBeNull();
+        expect(binding.hasReferenceCustody(infoA.checkpointRef, infoA)).toBe(true);
+        failSource = false;
+        expect(binding.validate(original)).toBe(true);
+        binding.release();
+    });
+
+    it.each(['documentEpoch', 'editorRevision'] as const)('refuses stale %s at final source validation', async (field) =>
+    {
+        let source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        const candidate = await requireJournalPublication(binding);
+        source = { ...source, [field]: source[field] + 1 };
+        expect(binding.validatePrepared(candidate, source.content)).toBeNull();
+        expect(binding.hasPreparedCustody(candidate, candidate.info)).toBe(false);
+        expect(binding.publishPrepared(candidate, candidate.info)).toBeNull();
+        binding.release();
+    });
+
+    it('refuses expired preparation and authoritative invalidation/release', async () =>
+    {
+        let now = 1_780_000_000_000;
+        const source = checkpointSource();
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory(), now: () => now });
+        const binding = journal.bindCheckpointSource(() => source);
+        const expired = await requireJournalPublication(binding);
+        now += ARTICLE_RECOVERY_JOURNAL_TTL_MS;
+        expect(binding.validatePrepared(expired, source.content)).toBeNull();
+        expect(binding.publishPrepared(expired, expired.info)).toBeNull();
+        await journal.list(source.identityId, source.articleId);
+        const invalidated = await requireJournalPublication(binding);
+        expect(binding.validatePrepared(invalidated, source.content)).toBe(invalidated.info);
+        journal.invalidateCheckpoints();
+        expect(binding.publishPrepared(invalidated, invalidated.info)).toBeNull();
+        const released = await requireJournalPublication(binding);
+        binding.release();
+        expect(binding.validatePrepared(released, source.content)).toBeNull();
+        expect(binding.publishPrepared(released, released.info)).toBeNull();
+    });
+
+    it('revokes an unpublished candidate on original observed corruption/deletion', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const source = checkpointSource();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const binding = journal.bindCheckpointSource(() => source);
+        const candidate = await requireJournalPublication(binding);
+        expect(binding.validatePrepared(candidate, source.content)).toBe(candidate.info);
+        const raw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+        raw.sourceHash = '0'.repeat(64);
+        await rawPut(indexedDB, raw);
+        expect((await journal.list(source.identityId, source.articleId)).removedInvalidRecords).toBe(1);
+        expect(binding.hasPreparedCustody(candidate, candidate.info)).toBe(false);
+        expect(binding.publishPrepared(candidate, candidate.info)).toBeNull();
+        binding.release();
+    });
+
+    it('preserves prepared B when a delayed observation of canceled prepared A settles', async () =>
+    {
+        let now = 1_780_000_000_000;
+        const indexedDB = new IDBFactory();
+        const source = checkpointSource();
+        const journal = new ArticleRecoveryJournal({ indexedDB, now: () => now });
+        const binding = journal.bindCheckpointSource(() => source);
+        const candidateA = await requireJournalPublication(binding);
+        const held = holdNextRecoveryHash(source.content);
+        try
+        {
+            const oldObservation = journal.list(source.identityId, source.articleId);
+            await held.held;
+            expect(binding.cancelPrepared(candidateA)).toBe(true);
+            now += 1;
+            const candidateB = await requireJournalPublication(binding);
+            expect(binding.validatePrepared(candidateB, source.content)).toBe(candidateB.info);
+            held.resume();
+            await oldObservation;
+            expect(binding.hasPreparedCustody(candidateB, candidateB.info)).toBe(true);
+            expect(binding.publishPrepared(candidateB, candidateB.info)).toBe(candidateB.checkpoint);
+        }
+        finally
+        {
+            held.release();
+            binding.release();
+        }
+    });
+
+    it('preserves published B when a delayed restore of original live A settles', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const source = checkpointSource();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const binding = journal.bindCheckpointSource(() => source);
+        const original = await requireJournalCheckpoint(binding);
+        const held = holdNextRecoveryHash(source.content);
+        try
+        {
+            const oldRestore = binding.restore(original);
+            await held.held;
+            const candidate = await requireJournalPublication(binding);
+            expect(binding.validatePrepared(candidate, source.content)).toBe(candidate.info);
+            expect(binding.publishPrepared(candidate, candidate.info)).toBe(candidate.checkpoint);
+            held.resume();
+            expect(await oldRestore).toBeNull();
+            expect(binding.validate(candidate.checkpoint)).toBe(true);
+            expect((await binding.restore(candidate.checkpoint))?.content).toBe(source.content);
+        }
+        finally
+        {
+            held.release();
+            binding.release();
+        }
+    });
+});

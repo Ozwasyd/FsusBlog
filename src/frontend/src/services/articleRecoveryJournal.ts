@@ -127,6 +127,7 @@ export interface ArticleRecoveryJournalCheckpointSource extends ArticleRecoveryJ
 }
 
 declare const articleRecoveryCheckpointBrand: unique symbol;
+declare const articleRecoveryCheckpointPreparationBrand: unique symbol;
 
 /** Process-local capability, accepted only by the issuing original journal binding. */
 export interface ArticleRecoveryJournalCheckpoint {
@@ -168,6 +169,27 @@ export interface ArticleRecoveryJournalCheckpointReferenceBinding extends Articl
     restoreReference(reference: string): Promise<Readonly<ArticleRecoveryJournalRecord> | null>;
 }
 
+/** Candidate backed by original storage; its token/reference are not live until publication. */
+export interface ArticleRecoveryJournalCheckpointPreparation {
+    readonly [articleRecoveryCheckpointPreparationBrand]: true;
+    readonly checkpoint: ArticleRecoveryJournalCheckpoint;
+    readonly info: ArticleRecoveryJournalCheckpointInfo;
+}
+
+/** Same owner, one candidate alongside its current custody; no second journal or body store. */
+export interface ArticleRecoveryJournalCheckpointPublicationBinding extends ArticleRecoveryJournalCheckpointReferenceBinding {
+    /** Preserve live custody and protected stored rows; refuse an overwrite or required cleanup. */
+    preparePublication(signal?: AbortSignal): Promise<ArticleRecoveryJournalCheckpointPreparation | null>;
+    /** Fresh actual Writer/native source and expiry admission; failure cancels only this candidate. */
+    validatePrepared(preparation: ArticleRecoveryJournalCheckpointPreparation, content: string): ArticleRecoveryJournalCheckpointInfo | null;
+    /** Pure continuity of the exact validated candidate/info; not a fresh source or clock read. */
+    hasPreparedCustody(preparation: ArticleRecoveryJournalCheckpointPreparation, info: ArticleRecoveryJournalCheckpointInfo): boolean;
+    /** Pure private publication after all external admission; no await/callback between validation and publication. */
+    publishPrepared(preparation: ArticleRecoveryJournalCheckpointPreparation, info: ArticleRecoveryJournalCheckpointInfo): ArticleRecoveryJournalCheckpoint | null;
+    /** Drop only this exact candidate, retaining the prior checkpoint and original persisted row. */
+    cancelPrepared(preparation: ArticleRecoveryJournalCheckpointPreparation): boolean;
+}
+
 interface ArticleRecoveryCheckpointCustody {
     token: ArticleRecoveryJournalCheckpoint;
     source: Omit<ArticleRecoveryJournalCheckpointSource, 'content'>;
@@ -178,7 +200,17 @@ interface ArticleRecoveryCheckpointCustody {
 interface ArticleRecoveryCheckpointBindingState {
     readSource: () => ArticleRecoveryJournalCheckpointSource | null;
     custody: ArticleRecoveryCheckpointCustody | null;
+    preparation: ArticleRecoveryCheckpointPreparationState | null;
     generation: number;
+}
+
+interface ArticleRecoveryCheckpointPreparationState {
+    handle: ArticleRecoveryJournalCheckpointPreparation | null;
+    custody: ArticleRecoveryCheckpointCustody | null;
+    previousCustody: ArticleRecoveryCheckpointCustody | null;
+    generation: number;
+    validating: boolean;
+    validated: boolean;
 }
 
 function sameCheckpointSource(
@@ -690,13 +722,13 @@ export class ArticleRecoveryJournal
      */
     bindCheckpointSource(
         readSource: () => ArticleRecoveryJournalCheckpointSource | null
-    ): ArticleRecoveryJournalCheckpointReferenceBinding
+    ): ArticleRecoveryJournalCheckpointPublicationBinding
     {
         if (this.#checkpointBindings.size >= ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_ENTRIES)
         {
             throw new Error('article_recovery_checkpoint_binding_capacity');
         }
-        const state: ArticleRecoveryCheckpointBindingState = { readSource, custody: null, generation: 0 };
+        const state: ArticleRecoveryCheckpointBindingState = { readSource, custody: null, preparation: null, generation: 0 };
         this.#checkpointBindings.add(state);
         return Object.freeze({
             prepare: (signal?: AbortSignal) => this.prepareCheckpoint(state, signal),
@@ -715,6 +747,32 @@ export class ArticleRecoveryJournal
                 // No source/clock/callback, allocation, body copy or alternate custody is consulted.
                 return this.#checkpointBindings.has(state) && custody !== null
                     && custody.info === info && custody.info.checkpointRef === reference;
+            },
+            preparePublication: (signal?: AbortSignal) => this.prepareCheckpointPublication(state, signal),
+            validatePrepared: (preparation: ArticleRecoveryJournalCheckpointPreparation, content: string) => this.validatePreparedCheckpoint(state, preparation, content),
+            hasPreparedCustody: (preparation: ArticleRecoveryJournalCheckpointPreparation, info: ArticleRecoveryJournalCheckpointInfo) => this.#hasPreparedCheckpointCustody(state, preparation, info),
+            publishPrepared: (preparation: ArticleRecoveryJournalCheckpointPreparation, info: ArticleRecoveryJournalCheckpointInfo) =>
+            {
+                const custody = state.preparation?.custody;
+                if (!custody || !this.#hasPreparedCheckpointCustody(state, preparation, info))
+                {
+                    return null;
+                }
+                // Everything used below is preallocated in this original private slot.
+                // No reader, clock, signal, hash, storage, listener cleanup or other owner is called.
+                state.custody = custody;
+                state.preparation = null;
+                state.generation += 1;
+                return custody.token;
+            },
+            cancelPrepared: (preparation: ArticleRecoveryJournalCheckpointPreparation) =>
+            {
+                if (!preparation || state.preparation?.handle !== preparation)
+                {
+                    return false;
+                }
+                state.preparation = null;
+                return true;
             },
             validateReference: (reference: string, content: string) =>
             {
@@ -757,6 +815,7 @@ export class ArticleRecoveryJournal
     {
         state.generation += 1;
         state.custody = null;
+        state.preparation = null;
     }
 
     private readCheckpointSource(state: ArticleRecoveryCheckpointBindingState): ArticleRecoveryJournalCheckpointSource | null
@@ -774,6 +833,231 @@ export class ArticleRecoveryJournal
         catch
         {
             return null;
+        }
+    }
+
+    #preparationCurrent(state: ArticleRecoveryCheckpointBindingState, preparation: ArticleRecoveryCheckpointPreparationState): boolean
+    {
+        return this.#checkpointBindings.has(state) && state.preparation === preparation
+            && state.generation === preparation.generation && state.custody === preparation.previousCustody;
+    }
+
+    #hasPreparedCheckpointCustody(
+        state: ArticleRecoveryCheckpointBindingState,
+        handle: ArticleRecoveryJournalCheckpointPreparation,
+        info: ArticleRecoveryJournalCheckpointInfo
+    ): boolean
+    {
+        const preparation = state.preparation;
+        return preparation !== null && this.#preparationCurrent(state, preparation)
+            && preparation.handle === handle && preparation.custody?.info === info
+            && preparation.validated && !preparation.validating;
+    }
+
+    private async retainCheckpointDatabase(state: ArticleRecoveryCheckpointBindingState, generation: number, indexedDB: IDBFactory): Promise<void>
+    {
+        if (this.#checkpointDatabase)
+        {
+            return;
+        }
+        const database = await openDatabase(indexedDB);
+        database.onversionchange = () =>
+        {
+            if (this.#checkpointDatabase !== database)
+            {
+                database.close();
+                return;
+            }
+            this.invalidateCheckpoints();
+            database.close();
+            if (this.#checkpointDatabase === database)
+            {
+                this.#checkpointDatabase = null;
+            }
+        };
+        database.onclose = () =>
+        {
+            if (this.#checkpointDatabase === database)
+            {
+                this.invalidateCheckpoints();
+            }
+        };
+        if (state.generation !== generation || !this.#checkpointBindings.has(state))
+        {
+            database.close();
+            return;
+        }
+        this.#checkpointDatabase = database;
+    }
+
+    private createCheckpointCustody(source: ArticleRecoveryJournalCheckpointSource, record: ArticleRecoveryJournalRecord): ArticleRecoveryCheckpointCustody | null
+    {
+        const { content: sourceContent, owner, mountedEditor, identityId, ...publicSource } = source;
+        const { content: recordContent, ...recordMetadata } = record;
+        if (sourceContent !== recordContent || typeof globalThis.crypto.randomUUID !== 'function'
+            || this.#checkpointSequence >= Number.MAX_SAFE_INTEGER)
+        {
+            return null;
+        }
+        const checkpointRef = `article-recovery:${globalThis.crypto.randomUUID()}:${++this.#checkpointSequence}`;
+        return {
+            token: Object.freeze({}) as ArticleRecoveryJournalCheckpoint,
+            source: Object.freeze({ ...publicSource, owner, mountedEditor, identityId }),
+            record: Object.freeze(recordMetadata),
+            info: Object.freeze({ ...publicSource, checkpointRef, identityHash: record.identityHash, sourceHash: record.sourceHash, expiresAt: record.expiresAt })
+        };
+    }
+
+    private async readPersistedCheckpointRecord(indexedDB: IDBFactory, recordId: string): Promise<ArticleRecoveryJournalRecord | null>
+    {
+        const database = await openDatabase(indexedDB);
+        try
+        {
+            const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readonly');
+            const completed = transactionDone(transaction);
+            // Both request and transaction failures are handled even when the request rejects first.
+            const [raw] = await Promise.all([
+                requestResult<unknown>(transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE).get(recordId)), completed
+            ]);
+            const stored = normalizeStoredRecord(raw, this.now());
+            return stored ? await hydrateStoredRecord(stored) : null;
+        }
+        finally
+        {
+            database.close();
+        }
+    }
+
+    private async prepareCheckpointPublication(
+        state: ArticleRecoveryCheckpointBindingState,
+        signal?: AbortSignal
+    ): Promise<ArticleRecoveryJournalCheckpointPreparation | null>
+    {
+        if (signal?.aborted || this.#preparingCheckpoint || state.preparation || !this.#checkpointBindings.has(state))
+        {
+            return null;
+        }
+        const preparation: ArticleRecoveryCheckpointPreparationState = {
+            handle: null, custody: null, previousCustody: state.custody, generation: state.generation, validating: false, validated: false
+        };
+        state.preparation = preparation;
+        this.#preparingCheckpoint = true;
+        const cancel = (): void =>
+        {
+            if (state.preparation === preparation)
+            {
+                state.preparation = null;
+            }
+        };
+        try
+        {
+            signal?.addEventListener('abort', cancel, { once: true });
+            const source = this.readCheckpointSource(state);
+            const indexedDB = this.resolveIndexedDb();
+            if (!source || !indexedDB || signal?.aborted || !this.#preparationCurrent(state, preparation))
+            {
+                return null;
+            }
+            await this.retainCheckpointDatabase(state, preparation.generation, indexedDB);
+            if (signal?.aborted || !this.#preparationCurrent(state, preparation))
+            {
+                return null;
+            }
+            // Reuse exact protected original rows without rewriting or renewing their TTL.
+            // A changed protected row or required cleanup refuses before any storage mutation.
+            const persisted = await this.persist(source, true);
+            if (persisted.status !== 'stored' || !persisted.record || signal?.aborted || !this.#preparationCurrent(state, preparation))
+            {
+                return null;
+            }
+            const record = await this.readPersistedCheckpointRecord(indexedDB, persisted.record.id);
+            const current = this.readCheckpointSource(state);
+            if (!record || !current || signal?.aborted || !this.#preparationCurrent(state, preparation)
+                || Object.entries(persisted.record).some(([key, value]) => record[key as keyof ArticleRecoveryJournalRecord] !== value)
+                || !sameCheckpointSource(source, current) || source.content !== current.content || record.expiresAt <= this.now())
+            {
+                return null;
+            }
+            const custody = this.createCheckpointCustody(source, record);
+            const issuedSource = this.readCheckpointSource(state);
+            if (!custody || !issuedSource || signal?.aborted || !this.#preparationCurrent(state, preparation)
+                || !sameCheckpointSource(source, issuedSource) || source.content !== issuedSource.content)
+            {
+                return null;
+            }
+            preparation.custody = custody;
+            preparation.handle = Object.freeze({ checkpoint: custody.token, info: custody.info }) as ArticleRecoveryJournalCheckpointPreparation;
+        }
+        catch
+        {
+            cancel();
+        }
+        finally
+        {
+            try
+            {
+                // AbortSignal is only the asynchronous preparation lifetime; later cancellation uses cancelPrepared.
+                signal?.removeEventListener('abort', cancel);
+            }
+            catch
+            {
+                cancel();
+            }
+            if (!preparation.handle || !this.#preparationCurrent(state, preparation))
+            {
+                cancel();
+            }
+            this.#preparingCheckpoint = false;
+            if (![...this.#checkpointBindings].some(binding => binding.custody !== null || binding.preparation !== null))
+            {
+                this.#checkpointDatabase?.close();
+                this.#checkpointDatabase = null;
+            }
+        }
+        return this.#preparationCurrent(state, preparation) ? preparation.handle : null;
+    }
+
+    private validatePreparedCheckpoint(
+        state: ArticleRecoveryCheckpointBindingState,
+        handle: ArticleRecoveryJournalCheckpointPreparation,
+        content: string
+    ): ArticleRecoveryJournalCheckpointInfo | null
+    {
+        const preparation = state.preparation;
+        if (!handle || preparation?.handle !== handle || !preparation.custody
+            || preparation.validating || !this.#preparationCurrent(state, preparation))
+        {
+            return null;
+        }
+        preparation.validated = false;
+        preparation.validating = true;
+        try
+        {
+            const now = this.now();
+            const source = this.readCheckpointSource(state);
+            const custody = preparation.custody;
+            if (!source || !sameCheckpointSource(custody.source, source) || custody.record.expiresAt <= now
+                || synchronousRecoverySourceHash(source.content) !== custody.record.sourceHash
+                || typeof content !== 'string' || !canonicalRecoveryContent(content)
+                || synchronousRecoverySourceHash(content) !== custody.record.sourceHash
+                || !this.#preparationCurrent(state, preparation))
+            {
+                return null;
+            }
+            preparation.validated = true;
+            return custody.info;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            preparation.validating = false;
+            if (!preparation.validated && state.preparation === preparation)
+            {
+                state.preparation = null;
+            }
         }
     }
 
@@ -994,7 +1278,7 @@ export class ArticleRecoveryJournal
         }
     }
 
-    private async persist(input: ArticleRecoveryJournalWriteInput): Promise<ArticleRecoveryJournalWriteResult>
+    private async persist(input: ArticleRecoveryJournalWriteInput, protectCheckpoints = false): Promise<ArticleRecoveryJournalWriteResult>
     {
         const indexedDB = this.resolveIndexedDb();
         if (!indexedDB || !input.identityId.trim())
@@ -1024,6 +1308,7 @@ export class ArticleRecoveryJournal
             const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
             const rawRecords = await requestResult(store.getAll()) as unknown[];
             const activeRecords: ArticleRecoveryJournalStoredRecord[] = [];
+            let requiresCleanup = false;
             for (const raw of rawRecords)
             {
                 const record = normalizeStoredRecord(raw, now);
@@ -1031,12 +1316,48 @@ export class ArticleRecoveryJournal
                 {
                     activeRecords.push(record);
                 }
+                else if (protectCheckpoints)
+                {
+                    // A failed candidate must not perform unrelated authoritative cleanup.
+                    // Original write/list still own cleanup; retry preparation after that cleanup.
+                    requiresCleanup = true;
+                }
                 else if (typeof raw === 'object' && raw !== null && typeof (raw as { id?: unknown; }).id === 'string')
                 {
                     store.delete((raw as { id: string; }).id);
                 }
             }
+            if (requiresCleanup)
+            {
+                await transactionDone(transaction);
+                return { status: 'unavailable', record: null };
+            }
             const previous = activeRecords.find(record => record.id === id);
+            const protectedCustodies = protectCheckpoints ? [...this.#checkpointBindings]
+                .flatMap(binding => [binding.custody, binding.preparation?.custody])
+                .filter((custody): custody is ArticleRecoveryCheckpointCustody => custody?.record.id === id) : [];
+            if (protectedCustodies.length > 0)
+            {
+                if (previous?.articleId !== input.articleId || previous.tabId !== input.tabId
+                    || previous.baseRevisionId !== input.baseRevisionId || previous.serverRevision !== input.serverRevision
+                    || previous.clientRevision !== input.clientRevision || previous.sourceHash !== sourceHash
+                    || previous.contentBytes !== contentBytes || previous.storedBytes !== storedBytes
+                    || protectedCustodies.some(custody => Object.entries(custody.record)
+                        .some(([key, value]) => previous[key as keyof ArticleRecoveryJournalStoredRecord] !== value)))
+                {
+                    await transactionDone(transaction);
+                    return { status: 'unavailable', record: null };
+                }
+                await transactionDone(transaction);
+                const { payload: preservedPayload, payloadCodec, ...metadata } = previous;
+                if (preservedPayload.byteLength !== storedBytes || payloadCodec !== ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC)
+                {
+                    return { status: 'unavailable', record: null };
+                }
+                // This is the original already committed record, not a new write or TTL renewal.
+                // The preparation then rereads its actual payload through the original integrity hydrator.
+                return { status: 'stored', record: { ...metadata, content: input.content } };
+            }
             const scopeCount = activeRecords.filter(record => (
                 record.identityHash === identityHash
         && record.articleKey === articleKey
@@ -1109,7 +1430,7 @@ export class ArticleRecoveryJournal
 
     async list(identityId: string, articleId: number | null): Promise<ArticleRecoveryJournalReadResult>
     {
-        const checkpointCustodies = [...this.#checkpointBindings].map(binding => ({ binding, custody: binding.custody }));
+        const checkpointCustodies = [...this.#checkpointBindings].map(binding => ({ binding, custody: binding.custody, preparation: binding.preparation }));
         const indexedDB = this.resolveIndexedDb();
         if (!indexedDB || !identityId.trim())
         {
@@ -1165,6 +1486,21 @@ export class ArticleRecoveryJournal
                     this.invalidateCheckpointBinding(binding);
                 }
             }
+            for (const { binding, preparation } of checkpointCustodies)
+            {
+                const custody = preparation?.custody;
+                if (!custody || binding.preparation !== preparation
+                    || custody.record.identityHash !== identityHash || custody.record.articleKey !== articleKey)
+                {
+                    continue;
+                }
+                const candidate = candidates.find(record => record.id === custody.record.id);
+                if (!candidate || Object.entries(custody.record).some(([key, value]) => candidate[key as keyof ArticleRecoveryJournalRecord] !== value))
+                {
+                    // Like live custody, only the preparation captured by this observation is revoked.
+                    binding.preparation = null;
+                }
+            }
             const removedInvalidRecords = await deleteRecordIds(database, invalidRecords, this.now(), (id) =>
             {
                 // This is an actual conditional storage deletion, not a stale read's observation.
@@ -1178,6 +1514,10 @@ export class ArticleRecoveryJournal
                     if (binding.custody?.record.id === id)
                     {
                         this.invalidateCheckpointBinding(binding);
+                    }
+                    else if (binding.preparation?.custody?.record.id === id)
+                    {
+                        binding.preparation = null;
                     }
                 }
             });
@@ -1348,6 +1688,9 @@ interface ArticleRecoveryFlushOperation {
 
 export class ArticleRecoveryFlushOwner
 {
+    private readonly writer: (
+        input: ArticleRecoveryJournalWriteInput
+    ) => Promise<ArticleRecoveryJournalWriteResult>;
     private latest: ArticleRecoveryJournalWriteInput | null = null;
     private latestSequence = 0;
     private lastStoredSequence = 0;
@@ -1356,11 +1699,13 @@ export class ArticleRecoveryFlushOwner
     private pending: ArticleRecoveryFlushOperation | null = null;
 
     constructor(
-        private readonly writer: (
+        writer: (
             input: ArticleRecoveryJournalWriteInput
         ) => Promise<ArticleRecoveryJournalWriteResult>
     )
-    {}
+    {
+        this.writer = writer;
+    }
 
     stage(input: ArticleRecoveryJournalWriteInput): void
     {

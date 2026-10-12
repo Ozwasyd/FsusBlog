@@ -1,0 +1,79 @@
+{
+  "uiBase": "8c77ed45302afcccfa13b1a4422a0cdfa331b453",
+  "MainBase": "bbed9ae73cc790abf7ff32b28abbd271add08ec3",
+  "rendererSource": "056a9c7351effc1b071e520ec742a205ae08a7da",
+  "rendererHead": "27313cf06d72bbae14e301bf9411560772fa22db",
+  "journalSource": "abf2d49056eeba7879c4981ec3d01cfe4fe61b4a",
+  "journalHead": "082ba73fc508a07572dd53487ef626a1f2449be5",
+  "rendererFourExactPostimages": true,
+  "journalProductionDocExactPostimages": true,
+  "journalControls": "exact original additive delta plus preserved Main34-line private custody control",
+  "mainControlSha256": "8a00ffe41cefc00510fdb78440d57490eb11af28976f8fba0861db73be92db8b",
+  "journalCompilerPrerequisite": "original e788 flush-owner explicit field/constructor assignment, no invented repair; privateStorageRegistry unchanged",
+  "protectedBlobs": {
+    "/workspace/session-2295-ui:vue/packages/components/markdown-editor/src/markdown-editor.vue": "819e3af2b498b1b205512469ba7061a317ca74f3",
+    "/workspace/session-2295-ui:vue/packages/components/markdown-editor/src/markdown-editor-session.ts": "aa8b738a3fcef7f95180fec5e545030103336135",
+    "/workspace/session-2295-ui:vue/packages/components/markdown-editor/src/markdown-editor-transaction.ts": "8188c7dfb1d691ff70ce06592438506d78a20ffc",
+    "/workspace/session-2295-ui:vue/packages/components/markdown-editor/src/markdown-editor.ts": "d47b7f4b58747e8b828bd9b79c9e37a114e33610",
+    "/workspace/session-2295-ui:vue/packages/components/markdown-editor/__tests__/markdown-editor.test.tsx": "3b990adb4f71e10f7240677db2a1dec078452f62",
+    "/workspace/session-2295-blog:src/frontend/src/composables/useAdminArticleWrite.ts": "fce247d0084a60a524025887276207bd96440fe5",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts": "6cdea5472725e9681355fa934ba49d12b4cb2e9c",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts": "2fdb127bd87d34ad69d4a163d003fa61bbb0b45c",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts": "b338af6792ee255dbe6f92fc901f1e124549c774",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts": "b2cf010348defe45ea0f039063a7d260a0b1b028",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/articleDocumentContext.ts": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/authoringTabGroupRegistry.ts": "4e78c48bd891a856c6f19c2a3492b9920e3c01da",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/authoringSessionHost.ts": "3a59ddfd6763130b3e637eddc91b3f614def65b0",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/articleRenderCache.ts": "d9d579c7cb6d486c122dc1320bb9a01e92f8fb30",
+    "/workspace/session-2295-blog:src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": "f7343067454f71d053ab48ef86cab2aa0c5cd512"
+  },
+  "postimages": [
+    {
+      "repo": "session-2295-ui",
+      "path": ".changeset/markdown-renderer-retained-projection.md",
+      "blob": "291878fec0f001050f56de27824a7bc058278b6c",
+      "sha256": "f10d31810b33f00952d70f44efec0cb48c12f9ce4537dcf5456ed676f52b25c0"
+    },
+    {
+      "repo": "session-2295-ui",
+      "path": "docs/components/markdown-renderer.md",
+      "blob": "2b0b50d1ec2a4a3d5af225d4c2780b9bf032f439",
+      "sha256": "47a596a9726a4845e7ca8beb5567be5c17eefaca9250566de03b65ce9fb1b809"
+    },
+    {
+      "repo": "session-2295-ui",
+      "path": "vue/packages/components/markdown-renderer/src/markdown-renderer-session-resources.ts",
+      "blob": "ae7ee1c976d7c468f5aeb467ae5a1a0af3858841",
+      "sha256": "27754f79d9912df06b50aab55b1c4deb3782d59f791988e54c88920f6791a458"
+    },
+    {
+      "repo": "session-2295-ui",
+      "path": "vue/packages/components/markdown-renderer/src/markdown-renderer.vue",
+      "blob": "bfbf64fb8e270763d809d503f327f21214b96b83",
+      "sha256": "8f0a9e4d66590a59283b41d4abb3cb229a6e44f109438f5fe0c00b1c13b9ba42"
+    },
+    {
+      "repo": "session-2295-blog",
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "blob": "808468e4efe9f72b92ba3799a7df233cda48ad30",
+      "sha256": "c7c2385d1c63eac5ba615f84a253e5d68c882aa90c9682918f71e7a83afd21bd"
+    },
+    {
+      "repo": "session-2295-blog",
+      "path": "docs/security/private-surface-runtime.md",
+      "blob": "18ca2d0f3f456fee5c49ff426747cd8058f2e731",
+      "sha256": "f12b8b25614bbed06c266430cdc53490460ef288581ab78953c5510d9522124d"
+    },
+    {
+      "repo": "session-2295-blog",
+      "path": "tests/frontend/unit/services/articleRecoveryJournal.test.ts",
+      "blob": "1edaf1704894ba6cd0babadc15a048642cbcb617",
+      "sha256": "8b33e3b3bfe61fd9414d35a9c263ae80494d9bd688193342205c632ddacf62e9"
+    }
+  ],
+  "checkApplyExit": 0,
+  "runtime": "ALL UNRUN/HOLD",
+  "sourceReview": "producer local custody bounded CLOSED per parent only; complete join/liveauthority/storageatomic/fullhost not qualified",
+  "actualUIIntakeHead": "4272b9909879a55917b98ae576c1c93032cc3781"
+}
