@@ -178,7 +178,7 @@
     "root_source_postimages": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "092662c55ca787d70ec033294d7382c3757f2880d9ebfa948cfd810d15aa577c",
+        "sha256": "72ba2476bd0bfc2dad1a915c4f3be4039c1c29d6d86a09a54542509228fe8a9b",
         "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
       },
       {
@@ -317,7 +317,7 @@
     ],
     "root_listener": "Only private reservation=null and current.withdrawn=true assignments; no Writer cancel/release, external callbacks, reads, allocation or async. Original runtime has one subscription; Root reuses same runtime slot.",
     "cleanup": "Withdraw before original unsubscribe; retained original function/physical runtime slot, first/latest cause and closed state on failure; real retry invokes SAME original unsubscribe. No new seal after pending failure, no physical-cleanup receipt.",
-    "document_limit": "Original Doc pre-retirement notification producer still absent. Root performs real Writer registration, then withdraws its private attempt and returns null for FULL mounted reservation. No published hasCustody blanket, auth/member/history grant, Doc callback shim or full-ready inference.",
+    "document_limit": "Original Doc7ab subscribeRetirement and retry/inspect producer is now exact-consumed. Root can subscribe/seal/join when it receives the ACTUAL Writer adoption consumer.documentBinding; current physical/runtime call chain does not forward it, so missing handoff explicitly refuses prepare/full reservation.",
     "current_type_gaps": "Copied exact Writer requires newer original Doc retained/lifetime, admin principal seal and journal checkpoint-publication APIs absent in this consumer. Compiler/lint errors are real and retained; no shims/owner rewrites/flags weakened.",
     "must_scope": [
       "2295.must4: no route/index-only activation; original Registry/Host receipt still required",
@@ -338,5 +338,55 @@
     "runtime": "ALL_HOLD_UNRUN",
     "qualification": false,
     "activation": false
+  },
+  "root_doc_retirement_join": {
+    "main_inspected_baseline": "e40caa54335c43d1746b248203b6ea6c230f886b",
+    "main_doc_intake_review": "bounded SOURCE CLOSED; exact2 Doc7ab postimages; protected original Root/Writer/factory/composition preserved in that Main intake; independent combination status not full readiness",
+    "doc_source": "7ab33abd390d0876f0181ffc017e673d44e4ac1b",
+    "actual_ui": "b99c319e9a55dac14fc6dad4515c9801a0a801b9",
+    "root_paths": [
+      {
+        "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "sha256": "72ba2476bd0bfc2dad1a915c4f3be4039c1c29d6d86a09a54542509228fe8a9b"
+      },
+      {
+        "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
+        "sha256": "f5c043d6061f3233c4c482f5f7b61b19e79b5d9137def959c323cdbc609a0cc7"
+      }
+    ],
+    "consumed_main_related_closure": [
+      "articleDocumentContext.ts",
+      "openArticleDocumentRegistry.ts",
+      "store/admin.ts",
+      "privateSurfaceRuntime.ts",
+      "articleRecoveryJournal.ts",
+      "privateStorageRegistry.ts",
+      "articleEditorRuntimeBinding.ts",
+      "articleEditorContinuity.ts",
+      "articleWriterMountedEditorSource.ts"
+    ],
+    "no_authority_refresh": "Only exact original source prerequisites; no Main/Writer/Doc owner rewrite or routes/generated/frozen catalog/package publication. Source UI worktree aliases original producer; existing installed dependency link reused, no install.",
+    "receiver": "Root public attachOriginalDocumentBinding(binding: ArticleDocumentRetainedBinding, runtime: object) -> controller.attachDocumentBinding; original Writer subscription registered first, then original binding.subscribeRetirement with private Root assignment-only listener BEFORE seals/publication.",
+    "stop_custody": "Actual original RetainedNotificationSubscription stop held; withdrawal precedes stop(); failures retain stop/current original binding, first/latest cause. retryDisposal invokes original stop.retry() and inspect(); no post-event subscribeLifetime substitute.",
+    "seals": "After genuine prepare, actual physical port.sealMountedAuthority calls Root reserve. Root uses ORIGINAL Doc sealLifetimeAuthority and ORIGINAL Writer sealMountedAuthority, retains their genuine tokens for cancellation failure. hasCurrentReservation joins pinned original pure has calls/private Root continuity. Root Frame requires both actual port has and this live Root join. No replacement Doc issuer.",
+    "input_gap": {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "actual_public_return": "authoringRetainedPrimaryRuntime.adoptPrimaryRetainedDocument(handle) already returns consumer.documentBinding",
+      "missing_forwarding": "authoringEditorRuntime.bindEditor -> mountedRuntime Object.freeze return has no public real retained documentBinding accessor; Layout Write source.reserve currently passes physical.bound, not adoption consumer. Writer owner must expose the SAME already-adopted binding on that runtime or forward that actual consumer to Root receiver.",
+      "requested_real_port": "same mountedRuntime.readRetainedDocumentBinding(): ArticleDocumentRetainedBinding | null, backed only by original retainedPrimaryBinding/private adoption/runtime guard; no new issuer, metadata lookup or calling adoption in Root. Name/final semantics stay original Writer owner.",
+      "stop": "Missing handoff throws article-workspace-original-adopted-document-binding-required; no complete host-ready/Renderer checkpoint/restore grant."
+    },
+    "qualification": false,
+    "activation": false,
+    "ordinary_preflight": [
+      "original binding pre-retirement listener withdraws Root before custody/context/consumer cleanup",
+      "stop failure retains original handle/cause; stop.retry and inspect use same producer, no new subscribe replaces failed custody",
+      "Writer/Doc notifications during seal fence private attempt and prevent publication",
+      "late token after synchronous withdrawal stays retained for actual cancellation retry",
+      "stale reservation cancel cannot cancel a newer Root reservation",
+      "real prepare then actual port seal + Root pure join; missing original adoption binding refuses",
+      "cancel failures retain Writer/native Doc tokens and both original obligations; no false completion"
+    ],
+    "runtime": "ALL_HOLD_UNRUN"
   }
 }

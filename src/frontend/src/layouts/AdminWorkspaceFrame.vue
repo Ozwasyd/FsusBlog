@@ -652,10 +652,38 @@ async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDoc
     {
         throw new Error('article-workspace-primary-mount-port-changed');
     }
+    if (!writerReservation.hasDocumentBinding())
+    {
+        throw new Error('article-workspace-original-adopted-document-binding-required');
+    }
+    const hasSeal = 'sealMountedAuthority' in port;
+    verify();
+    const hasCustody = 'hasMountedAuthorityCustody' in port;
+    verify();
+    if (!hasSeal || !hasCustody)
+    {
+        throw new Error('article-workspace-original-mounted-seal-port-required');
+    }
+    const seal = port.sealMountedAuthority;
+    verify();
+    const has = port.hasMountedAuthorityCustody;
+    verify();
+    if (typeof seal !== 'function' || typeof has !== 'function')
+    {
+        throw new Error('article-workspace-original-mounted-seal-port-required');
+    }
+    const reservation: unknown = seal.call(port, entry.editorSessionRef);
+    verify();
+    if (!reservation || !has.call(port, reservation) || !writerReservation.hasCurrentReservation())
+    {
+        throw new Error('article-workspace-original-mounted-reservation-unavailable');
+    }
+    verify();
 }
 
 defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
                readSnapshotPreparationFailure: () => snapshotPreparationFailure,
+               attachOriginalDocumentBinding: writerReservation.attachDocumentBinding,
                readWriterReservationFailure: writerReservation.readFailure,
                retryWriterReservationDisposal: writerReservation.retryDisposal });
 
