@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, onScopeDispose, ref } from 'vue';
 
 import { getAdminMe, logoutAdmin } from '@/api/auth';
 import { clearLocalFixtureAdminSession } from '@/services/localFixtureSession';
 import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
+import type { PrivateSurfaceAuthoritySeal } from '@/services/privateSurfaceRuntime';
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime';
 import { isAuthFailureError } from '@/utils/errorKinds';
 import { isAbortError } from '@/utils/errors';
@@ -16,12 +17,25 @@ export const ADMIN_NEGATIVE_CACHE_MS = 5 * 60 * 1000;
 export const ADMIN_ACTIVE_TTL_MS = 60 * 1000;
 
 export interface AdminPrincipalSnapshot {
-    id: string;
-    displayName: string;
-    source: AdminPrincipalSource;
-    permissions: readonly string[];
-    adminSessionStatus: AdminSessionStatus;
-    totpStepUpRequired?: boolean;
+    readonly id: string;
+    readonly displayName: string;
+    readonly source: AdminPrincipalSource;
+    readonly permissions: readonly string[];
+    readonly adminSessionStatus: AdminSessionStatus;
+    readonly totpStepUpRequired?: boolean;
+}
+
+declare const adminPrincipalSealBrand: unique symbol;
+
+/** Original producer custody, never a server permission or a serializable credential. */
+export type AdminPrincipalSeal = Readonly<{
+    [adminPrincipalSealBrand]: true;
+}>;
+
+interface AdminPrincipalAuthority {
+    readonly identityId: string;
+    readonly surfaceSeal: PrivateSurfaceAuthoritySeal;
+    readonly checkedAt: number;
 }
 
 export interface AnonymousCommentPolicySnapshot {
@@ -80,6 +94,10 @@ const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.
     commentMaxUtf8Bytes: 4096
 });
 
+// Capture the original owner's pure predicate once; final custody must not
+// consult reactive/public runtime projections or a replaceable method property.
+const hasPrivateSurfaceAuthorityCustody = privateSurfaceRuntime.hasAuthorityCustody.bind(privateSurfaceRuntime);
+
 export const useAdminStore = defineStore('admin', () =>
 {
     const adminPrincipal = ref<AdminPrincipalSnapshot | null>(null);
@@ -92,6 +110,71 @@ export const useAdminStore = defineStore('admin', () =>
     let adminSessionGeneration = 0;
     let logoutRequest: Promise<AdminLogoutOutcome> | null = null;
     let logoutBroadcast: (() => void) | null = null;
+    const authoritySeals = new WeakMap<AdminPrincipalSeal, AdminPrincipalAuthority>();
+    let principalAuthority: AdminPrincipalAuthority | null = null;
+    let principalMutation: object | null = null;
+    let producerDisposed = false;
+    let authorityExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const retirePrincipalAuthority = (): void =>
+    {
+        const authority = principalAuthority;
+        principalAuthority = null;
+        principalMutation = null;
+        if (authorityExpiryTimer !== null)
+        {
+            clearTimeout(authorityExpiryTimer);
+            authorityExpiryTimer = null;
+        }
+        if (authority)
+        {
+            privateSurfaceRuntime.cancelAuthority(authority.surfaceSeal);
+        }
+    };
+
+    onScopeDispose(() =>
+    {
+        producerDisposed = true;
+        retirePrincipalAuthority();
+    });
+
+    /** Seal only the original active, fresh, non-step-up principal and surface. */
+    const sealAdminPrincipalAuthority = (expectedIdentityId: string): AdminPrincipalSeal | null =>
+    {
+        const authority = principalAuthority;
+        if (!authority || principalMutation || producerDisposed || authority.identityId !== expectedIdentityId)
+        {
+            return null;
+        }
+        // Clock reads belong to admission, never to the final custody lookup.
+        if (Date.now() - authority.checkedAt >= ADMIN_ACTIVE_TTL_MS)
+        {
+            retirePrincipalAuthority();
+            return null;
+        }
+        if (!hasPrivateSurfaceAuthorityCustody(authority.surfaceSeal))
+        {
+            return null;
+        }
+        const seal = Object.freeze({}) as AdminPrincipalSeal;
+        if (principalAuthority !== authority || principalMutation
+            || !hasPrivateSurfaceAuthorityCustody(authority.surfaceSeal))
+        {
+            return null;
+        }
+        authoritySeals.set(seal, authority);
+        return seal;
+    };
+
+    /** Pure private join; copied, cancelled, replaced and surface-retired seals refuse. */
+    const hasAdminPrincipalAuthorityCustody = (seal: AdminPrincipalSeal): boolean =>
+    {
+        const authority = authoritySeals.get(seal);
+        return authority !== undefined && authority === principalAuthority && principalMutation === null
+            && hasPrivateSurfaceAuthorityCustody(authority.surfaceSeal);
+    };
+
+    const cancelAdminPrincipalAuthority = (seal: AdminPrincipalSeal): boolean => authoritySeals.delete(seal);
 
     const adminSessionStatus = computed<AdminSessionStatus>(() =>
     {
@@ -124,23 +207,101 @@ export const useAdminStore = defineStore('admin', () =>
 
     const setAdminPrincipal = (snapshot: AdminPrincipalSnapshot | null): void =>
     {
-        adminPrincipal.value = snapshot ? {
-      ...snapshot,
-      permissions: [...snapshot.permissions]
-    } : null;
-        adminState.value = snapshot?.adminSessionStatus ?? 'missing';
-        adminCheckedAt.value = Date.now();
-        if (snapshot)
+        retirePrincipalAuthority();
+        const mutation = {};
+        principalMutation = mutation;
+        let surfaceSeal: PrivateSurfaceAuthoritySeal | null = null;
+        try
         {
-            lastLogoutOutcome.value = null;
+            // Copy and freeze before publication; caller-owned arrays and Pinia
+            // projections must never mutate the admitted original snapshot.
+            const principal = snapshot ? Object.freeze({
+                ...snapshot,
+                permissions: Object.freeze([...snapshot.permissions])
+            }) : null;
+            const checkedAt = Date.now();
+            surfaceSeal = privateSurfaceRuntime.sealAuthority();
+            if (principalMutation !== mutation)
+            {
+                return;
+            }
+            adminPrincipal.value = principal;
+            if (principalMutation !== mutation)
+            {
+                return;
+            }
+            adminState.value = principal?.adminSessionStatus ?? 'missing';
+            if (principalMutation !== mutation)
+            {
+                return;
+            }
+            adminCheckedAt.value = checkedAt;
+            if (principalMutation !== mutation)
+            {
+                return;
+            }
+            if (principal)
+            {
+                lastLogoutOutcome.value = null;
+            }
+            if (principalMutation !== mutation)
+            {
+                return;
+            }
+            if (principal?.adminSessionStatus === 'active' && principal.source === 'independent'
+                && principal.id.length > 0 && principal.permissions.length > 0
+                && principal.totpStepUpRequired !== true && surfaceSeal
+                && privateSurfaceRuntime.hasAuthorityCustody(surfaceSeal))
+            {
+                const authority = { identityId: principal.id, surfaceSeal, checkedAt };
+                authorityExpiryTimer = setTimeout(() =>
+                {
+                    if (principalAuthority === authority)
+                    {
+                        retirePrincipalAuthority();
+                    }
+                }, ADMIN_ACTIVE_TTL_MS);
+                if (principalMutation === mutation && !producerDisposed && privateSurfaceRuntime.hasAuthorityCustody(surfaceSeal))
+                {
+                    principalAuthority = authority;
+                    surfaceSeal = null;
+                }
+            }
+        }
+        finally
+        {
+            if (principalMutation === mutation)
+            {
+                principalMutation = null;
+            }
+            if (surfaceSeal)
+            {
+                privateSurfaceRuntime.cancelAuthority(surfaceSeal);
+            }
         }
     };
 
     const clearAdminPrincipal = (state: AdminSessionState = 'missing'): void =>
     {
+        retirePrincipalAuthority();
+        const mutation = {};
+        principalMutation = mutation;
+        const checkedAt = state === 'unknown' ? 0 : Date.now();
         adminPrincipal.value = null;
+        if (principalMutation !== mutation)
+        {
+            return;
+        }
         adminState.value = state;
-        adminCheckedAt.value = Date.now();
+        if (principalMutation !== mutation)
+        {
+            return;
+        }
+        adminCheckedAt.value = checkedAt;
+        if (principalMutation === mutation)
+        {
+            principalMutation = null;
+        }
     };
 
     const markMissing = (): void =>
@@ -152,9 +313,7 @@ export const useAdminStore = defineStore('admin', () =>
     {
         if (adminState.value === 'missing')
         {
-            adminPrincipal.value = null;
-            adminState.value = 'unknown';
-            adminCheckedAt.value = 0;
+            clearAdminPrincipal('unknown');
         }
     };
 
@@ -198,6 +357,7 @@ export const useAdminStore = defineStore('admin', () =>
             return adminSessionRequest;
         }
 
+        retirePrincipalAuthority();
         const controller = new AbortController();
         const generation = adminSessionGeneration;
         adminSessionController = controller;
@@ -241,6 +401,7 @@ export const useAdminStore = defineStore('admin', () =>
 
     const cancelAdminSessionRequest = (): void =>
     {
+        retirePrincipalAuthority();
         adminSessionGeneration += 1;
         adminSessionController?.abort();
         adminSessionController = null;
@@ -264,6 +425,7 @@ export const useAdminStore = defineStore('admin', () =>
             return logoutRequest;
         }
 
+        retirePrincipalAuthority();
         logoutRequest = (async () =>
         {
             const previousOutcome = lastLogoutOutcome.value;
@@ -351,9 +513,9 @@ export const useAdminStore = defineStore('admin', () =>
     };
 
     return {
-        adminPrincipal,
-        adminState,
-        adminCheckedAt,
+        adminPrincipal: computed(() => adminPrincipal.value),
+        adminState: computed(() => adminState.value),
+        adminCheckedAt: computed(() => adminCheckedAt.value),
         lastLogoutOutcome,
         anonymousCommentPolicy,
         adminSessionStatus,
@@ -369,6 +531,9 @@ export const useAdminStore = defineStore('admin', () =>
         publicOnlyMode,
         totpStepUpRequired,
         hasPermission,
+        sealAdminPrincipalAuthority,
+        hasAdminPrincipalAuthorityCustody,
+        cancelAdminPrincipalAuthority,
         setAdminPrincipal,
         clearAdminPrincipal,
         markMissing,

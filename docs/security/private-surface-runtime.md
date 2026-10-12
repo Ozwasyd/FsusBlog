@@ -2,11 +2,21 @@
 
 `PrivateSurfaceRuntime` is the shared in-memory boundary for account and admin pages. On user/admin logout, session expiry, or cross-tab account switch, it executes this order; generation semantics are canonical in [Private request generations](private-request-generations.md):
 
-1. Enter `clearing` synchronously and create a random `authGeneration`; it contains no account, admin, Cookie, or session identifier and is absent from BroadcastChannel messages.
+1. Retire the original private authority epoch before reactive writes, generation allocation, request aborts, termination handlers, or cleanup callbacks. Enter `clearing` synchronously and create a random `authGeneration`; it contains no account, admin, Cookie, or session identifier and is absent from BroadcastChannel messages.
 2. Notify termination handlers synchronously, abort account/admin requests, and stop Notification Stream, challenge-proof runtime, page Workers, timers, and subscriptions.
 3. Before the next render, `App.vue` removes the private route tree and mounts no stale replacement during cleanup.
 4. The private-storage registry clears the relevant Pinia state, browser caches, and temporary credentials. Delete admin-scope `fsusblog-article-recovery-journal` IndexedDB on admin/account logout, account switch, session expiry, privacy cleanup, and shared-device cleanup; article publish/delete/explicit discard use narrower article-owner scope cleanup.
 5. After cleanup, `router.replace` enters a safe route: account logout/switch goes home, expiry goes to login, and admin logout goes to the identity page or home.
+
+## Original producer custody
+
+The original `PrivateSurfaceRuntime` issues process-local, frozen identity tokens through `sealAuthority()`, checks them with `hasAuthorityCustody(seal)`, and releases individual reservations with `cancelAuthority(seal)`. The lookup reads only private epoch/token state. While clearing, admission refuses; a later completed transition uses a fresh epoch, so an old token cannot revive. Reset also retires the epoch before changing any projection. `authGeneration` and `isClearing` expose computed read-only projections, keeping their writable refs inside the original owner.
+
+The original admin store exposes `sealAdminPrincipalAuthority(expectedIdentityId)`, `hasAdminPrincipalAuthorityCustody(seal)`, and `cancelAdminPrincipalAuthority(seal)`. Admission requires its committed independent, active, non-step-up principal with nonempty permissions and an unretired original surface reservation. Consumers check their exact required permission against this store before admission; custody itself grants no permission and does not attest Writer, Document, Root, or Renderer lifetime. Tokens belong to the same store instance; copies, serialization, cancellation, replacement, and A-B-A transitions never retain custody. Cancellation releases one token without clearing the principal or other reservations.
+
+Principal replacement/clear, missing-cache invalidation, request cancellation/revalidation, logout, and store disposal retire custody before owner-controlled reactive writes, aborts, or callbacks. Snapshot fields and the copied permission array are frozen. Principal, session state, and checked-at are getter-only projections; consumers must use the original setters rather than Pinia state assignment or patching. A reentrant setter prevents an older mutation from finishing its remaining writes or issuing authority. Final admin lookup joins only its private committed record and the captured original surface predicate, with no reactive reads, allocation, clock reads, or consumer callbacks.
+
+The existing `ADMIN_ACTIVE_TTL_MS` is a refresh-cache bound, not a server expiry timestamp. Admission checks this freshness bound; an owner timer retires issued custody when its callback runs without changing the existing session conclusion. Explicit expired snapshots and `session-expired` transitions revoke synchronously. The admin snapshot supplies no absolute server expiry, and delayed browser timers cannot establish exact wall-clock expiry during a blocked task. This custody API therefore attests producer-observed state and retirement, not unobserved server revocation or exact wall-clock expiry. Runtime expiry and reentrancy qualification remain separate requirements.
 
 ## Risk and no-restart rollback
 

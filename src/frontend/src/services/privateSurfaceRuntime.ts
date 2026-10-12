@@ -1,4 +1,4 @@
-import { readonly, ref, shallowRef, type Ref } from 'vue';
+import { computed, ref, shallowRef, type Ref } from 'vue';
 
 import { privateRequestRuntime } from '@/services/privateRequestRuntime';
 import type { PrivateStateCleanupTrigger } from '@/services/privateStorageRegistry';
@@ -10,6 +10,13 @@ export type PrivateSurfaceTransition = Extract<
 
 export type PrivateSurfaceTerminationHandler = (reason: PrivateSurfaceTransition) => void | Promise<void>;
 export type PrivateSurfaceNavigationHandler = (reason: PrivateSurfaceTransition) => void | Promise<void>;
+
+declare const privateSurfaceAuthoritySealBrand: unique symbol;
+
+/** Process-local custody only; copying or serializing this token loses authority. */
+export type PrivateSurfaceAuthoritySeal = Readonly<{
+    [privateSurfaceAuthoritySealBrand]: true;
+}>;
 
 function createOpaqueGeneration(): string
 {
@@ -25,14 +32,45 @@ function createOpaqueGeneration(): string
 
 class PrivateSurfaceRuntime
 {
-    private readonly generationState = shallowRef(createOpaqueGeneration());
-    private readonly clearingState = ref(false);
+    readonly #generationState = shallowRef(createOpaqueGeneration());
+    readonly #clearingState = ref(false);
+    readonly #authoritySeals = new WeakMap<PrivateSurfaceAuthoritySeal, object>();
+    #authorityEpoch: object | null = {};
+    #authorityTransition: object | null = null;
     private readonly terminationHandlers = new Set<PrivateSurfaceTerminationHandler>();
     private navigationHandler: PrivateSurfaceNavigationHandler | null = null;
     private transition: Promise<void> | null = null;
 
-    readonly authGeneration: Readonly<Ref<string>> = readonly(this.generationState);
-    readonly isClearing: Readonly<Ref<boolean>> = readonly(this.clearingState);
+    readonly authGeneration: Readonly<Ref<string>> = computed(() => this.#generationState.value);
+    readonly isClearing: Readonly<Ref<boolean>> = computed(() => this.#clearingState.value);
+
+    /** Reserve this original surface epoch; no auth admission is implied. */
+    sealAuthority(): PrivateSurfaceAuthoritySeal | null
+    {
+        if (this.#authorityEpoch === null)
+        {
+            return null;
+        }
+        const epoch = this.#authorityEpoch;
+        const seal = Object.freeze({}) as PrivateSurfaceAuthoritySeal;
+        if (epoch !== this.#authorityEpoch)
+        {
+            return null;
+        }
+        this.#authoritySeals.set(seal, epoch);
+        return seal;
+    }
+
+    /** Pure private lookup: no reactive reads, allocation, clock, or callbacks. */
+    hasAuthorityCustody(seal: PrivateSurfaceAuthoritySeal): boolean
+    {
+        return this.#authorityEpoch !== null && this.#authoritySeals.get(seal) === this.#authorityEpoch;
+    }
+
+    cancelAuthority(seal: PrivateSurfaceAuthoritySeal): boolean
+    {
+        return this.#authoritySeals.delete(seal);
+    }
 
     setNavigationHandler(handler: PrivateSurfaceNavigationHandler | null): void
     {
@@ -50,10 +88,15 @@ class PrivateSurfaceRuntime
         clearPrivateState: () => void | Promise<void>
     ): Promise<void>
     {
-    // These writes are deliberately synchronous: Vue removes the old private
-    // route tree on the next render tick before storage cleanup can yield.
-        this.clearingState.value = true;
-        this.generationState.value = createOpaqueGeneration();
+        // Revoke before reactive observers, entropy allocation, request aborts,
+        // termination, or cleanup can reenter the original producer.
+        this.#authorityEpoch = null;
+        const authorityTransition = {};
+        this.#authorityTransition = authorityTransition;
+        // These writes are deliberately synchronous: Vue removes the old private
+        // route tree on the next render tick before storage cleanup can yield.
+        this.#clearingState.value = true;
+        this.#generationState.value = createOpaqueGeneration();
         privateRequestRuntime.advanceForAuthTransition(reason);
         const previousTransition = this.transition;
         const currentTransition = (async () =>
@@ -102,9 +145,10 @@ class PrivateSurfaceRuntime
                 // old private tree. A later successful transition can recover it.
                 if (this.transition === currentTransition)
                 {
-                    if (navigationComplete)
+                    if (navigationComplete && authorityTransition === this.#authorityTransition)
                     {
-                        this.clearingState.value = false;
+                        this.#authorityEpoch = {};
+                        this.#clearingState.value = false;
                     }
                     this.transition = null;
                 }
@@ -117,11 +161,18 @@ class PrivateSurfaceRuntime
 
     resetForTests(): void
     {
+        this.#authorityEpoch = null;
+        const authorityTransition = {};
+        this.#authorityTransition = authorityTransition;
         this.terminationHandlers.clear();
         this.navigationHandler = null;
         this.transition = null;
-        this.clearingState.value = false;
-        this.generationState.value = createOpaqueGeneration();
+        this.#generationState.value = createOpaqueGeneration();
+        if (authorityTransition === this.#authorityTransition)
+        {
+            this.#authorityEpoch = {};
+            this.#clearingState.value = false;
+        }
     }
 }
 
