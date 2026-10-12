@@ -1,0 +1,42 @@
+{
+  "writerSource": "b697029cf7debd9f368bd0420a1d120717affa71",
+  "currentHead": "26cc912d40c81baf890cfb545da44c4d7c364864",
+  "authOwnerSource": "59434d862035228830aa13e5529407f48535f226",
+  "authOwnerHead": "902fdaea1d4a64f5241778323a0fd20d1431614c",
+  "ownerState": "parent independent3P2; not accepted; author repairing",
+  "paths": [
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "ownerSourceBlob": "c1e892d30ffbf74d7acbe99ddfa2471b531099b9",
+      "ownerHeadBlob": "c1e892d30ffbf74d7acbe99ddfa2471b531099b9",
+      "currentProductionBlob": "101e78249b17901956bb2d249290801a0a42811d",
+      "consumed": false
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "ownerSourceBlob": "ea56c63a4b2247c0baa21f145c7afd13e26975bd",
+      "ownerHeadBlob": "ea56c63a4b2247c0baa21f145c7afd13e26975bd",
+      "currentProductionBlob": "81964e4adf69a875e92612276caf8221e04f38d4",
+      "consumed": false
+    },
+    {
+      "path": "docs/security/private-surface-runtime.md",
+      "ownerSourceBlob": "ddeef019101cd2b433d82f5fd3935a8b2af7c099",
+      "ownerHeadBlob": "ddeef019101cd2b433d82f5fd3935a8b2af7c099",
+      "currentProductionBlob": "18ca2d0f3f456fee5c49ff426747cd8058f2e731",
+      "consumed": false
+    }
+  ],
+  "actualPinia": {
+    "version": "3.0.4",
+    "source": "/workspace/FsusBlog-static-candidate-c808-2246/src/frontend/node_modules/pinia/dist/pinia.mjs",
+    "sha256": "967352979c21dbdc79b32b32009157577e53e07586e351cf25163154c92c502f",
+    "setupReturnedFunctionWrapLine": 1502,
+    "actionAfterCallbackLine": 1419
+  },
+  "rootPositiveAuthority": "still refused; Document seal and accepted auth/expiry authority unavailable",
+  "sourceCounterexample": "static source trace only, not run",
+  "runtime": "HOLD/UNRUN",
+  "productionChanged": false,
+  "qualificationOrFrozenEvidenceRefreshed": false
+}
