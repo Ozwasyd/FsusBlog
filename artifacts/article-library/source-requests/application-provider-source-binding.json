@@ -1,0 +1,294 @@
+{
+  "schema": "fsusblog.article-library-application-source-intake.v1",
+  "kind": "bounded-read-only-source-intake-not-a-provider-authority-or-qualification",
+  "consumer_product_source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+  "consumer_tree": "9b77e68c39372200dc6288338ca465dec44676aa",
+  "query_owner_pr": 4092,
+  "query_owner_source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
+  "query_owner_tree": "ab06cfa761b9d77a1070bac341c705d361186db6",
+  "source_status": "BLOCKED_NO_COMPLETE_ORIGINAL_APPLICATION_PRODUCER",
+  "provider_installed": false,
+  "query_executed": false,
+  "qualification": false,
+  "activation": false,
+  "actual_mount_graph": [
+    "App.vue private RouterView -> AccountLayout.vue (account shell)",
+    "AccountLayout.vue default RouterView -> appRouteRecords.ts /user/manage default AdminWorkspaceFrame.vue",
+    "AdminWorkspaceFrame.vue -> AccountRouteFrame routed Writer + independent ArticleLibraryRail"
+  ],
+  "graph_findings": [
+    "There is no RootLayout.vue in the inspected consumer frontend tree; the actual root component is App.vue.",
+    "Manage route record supplies components/children only; no props.default binding for workspaceSnapshotCaller/libraryPresentation.",
+    "AccountLayout default RouterView has no provider source or Rail group/page/reveal/open event consumer.",
+    "Root connector conditional is genuine but no inspected application source constructs or supplies AdminArticleWorkspaceSnapshotCaller; missing input leaves restoration unavailable and Rail unconnected."
+  ],
+  "consumer_bindings": [
+    {
+      "path": "src/frontend/src/App.vue",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "fef36114664a755d5c3947914ed61d19ee82780e",
+      "sha256": "76e0935de05667a4ac341c5eaf2dc9f09cf06afa8d15e0202e4b8142ee894923",
+      "symbols": [
+        "RouterView",
+        "privateRouteViewKey",
+        "showAppRoute"
+      ]
+    },
+    {
+      "path": "src/frontend/src/layouts/AccountLayout.vue",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "ae97d22fa0f31ec2e85af5b0f643547040ccd459",
+      "sha256": "7c6b734cabe0419884bff168c538fc9688fa9f2606a13ee7945e71a99b867461",
+      "symbols": [
+        "RouterView default outlet; no caller/presentation/intent forwarding"
+      ]
+    },
+    {
+      "path": "src/frontend/src/router/appRouteRecords.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "aa22fdfc70174785543e7e97461a6d852619c21d",
+      "sha256": "022947a8f203278d06bf686da86309f83b661e712b349d389d8053e6a1e28890",
+      "symbols": [
+        "/user/manage default AdminWorkspaceFrame",
+        "ManageWriteArticle",
+        "ManageEditArticle"
+      ]
+    },
+    {
+      "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "09eab6ad276af22bd9d1abaa4371827732cd0dc2",
+      "sha256": "9f1f2c2a6418c399a292a096feccd58b682586b301341ca63a8bd3c75097ac6f",
+      "symbols": [
+        "workspaceSnapshotCaller",
+        "libraryPresentation",
+        "connectAdminArticleWorkspaceSnapshotStartup",
+        "prepareCurrentPrimaryMountedEditor"
+      ]
+    },
+    {
+      "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "4d762d61c183c603a7f424700854ee335c8a50a8",
+      "sha256": "2bfa391b70f6aff8f4f4db9c4e38c7ae50e78c5b89caff900b3f463ac8f2875c",
+      "symbols": [
+        "AdminArticleWorkspaceSnapshotCaller",
+        "connectAdminArticleWorkspaceSnapshotStartup",
+        "required resolutionPort.resolveBatch"
+      ]
+    },
+    {
+      "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "0c4a817bf0fad5ce11045946082d64f8f896f335",
+      "sha256": "d5bf54ad19abdad1776175d177f04000f906f6d6001ee1ed8d94f001ed3600c6",
+      "symbols": [
+        "AdminArticleWorkspaceStartupPorts"
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/articleLibraryPresentation.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "84c1b60d2f10254082b59efef6690446e7c300ac",
+      "sha256": "edf2efdabaad53a2673912d948a8da33252bfc3c7887c10ecbb24441bd079e52",
+      "symbols": [
+        "ArticleLibraryPresentation",
+        "ArticleLibraryEntry",
+        "ArticleLibraryGroup"
+      ]
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRestore.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "54b6f35898ddb3ec514c8366a56d7c55857b6662",
+      "sha256": "b8f8c6d3947514f650170b6f4b2bf40403e3ca121b044f1b7bab1b21f6a38346",
+      "symbols": [
+        "AuthoringWorkspaceSnapshotResolutionPort",
+        "AuthoringWorkspaceSnapshotResolutionFact",
+        "AuthoringWorkspaceSnapshotResolution",
+        "prepareAuthoringWorkspaceSnapshotRestore"
+      ]
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "425f2221d1da49ddee4e9d44314ce190205a62c6",
+      "sha256": "b24a3d5bc1f1c71caf9f1cdfe690330e430292cac676bc7a8accc4d26a7be247",
+      "symbols": [
+        "ArticleWorkspaceMountedEditorSource"
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "5f91d2c1a8154f6627050b66393e668a9ee58be5",
+      "sha256": "ce2885086930584288ebcd709dcc93e39bcd45c9fc0d07ee10a1adfbe74464b6",
+      "symbols": [
+        "getArticleWorkspaceMountedEditorSource",
+        "getAuthoringWorkspaceLayoutPort",
+        "getArticleWorkspacePrimaryMountPort"
+      ]
+    },
+    {
+      "path": "src/frontend/src/api/article.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "c5d3aff7ea0d41c8378bfa600713bd872118ca47",
+      "sha256": "f8ce4425caa5d7cab3b6b2bac0f65af0c32c419033785abd1c00204fe72b607a",
+      "symbols": [
+        "getAdminArticles"
+      ]
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "511f8d1e0c16859ac7bccd01033d8ce9e6760943",
+      "sha256": "c49608b7bfc74466e157017e1d22bb9ef202e006964174fe1d4f9fd957171cd4",
+      "symbols": [
+        "binary_get_admin_article"
+      ]
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "c0066c6be277d0571df62de67fe933fc556d7d58",
+      "sha256": "4826cca8243b9a90894307f07ecdb9abdcb796264b7275991a3ba9cb8f432b31",
+      "symbols": [
+        "AuthoringWorkspaceSnapshotIndexedDbStorage"
+      ]
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts",
+      "source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+      "blob": "1112f212ab498a67b97020368cc5d4c7037a9874",
+      "sha256": "0bc2042bdf2b55a42321f88297e70f3c6924ad9f2c2764da6c0f73725fdf412a",
+      "symbols": [
+        "AuthoringWorkspaceSnapshotBroadcastChannel",
+        "AuthoringWorkspaceSnapshotWebLocks"
+      ]
+    }
+  ],
+  "external_read_only_query_bindings": [
+    {
+      "path": "src/frontend/src/services/authoring/authorQueryRequestCoordinator.ts",
+      "source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
+      "blob": "17ccd4736667029e67bda9757f265bc4c1d807b6",
+      "sha256": "2ac1becfdbb053f6c6d7e86c3697259f25b03343e9d4682bd9f356ae23831988",
+      "symbols": [
+        "AuthorQueryRequestCoordinator.begin",
+        "AuthorQueryRequestLease.assertCurrent",
+        "release"
+      ]
+    },
+    {
+      "path": "src/shared/Contracts/Articles/AuthorArticleQueryContracts.cs",
+      "source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
+      "blob": "8fa0c13c8b75c223ce8dfde8c0c274fb6141ebcc",
+      "sha256": "1cdfb38d689e1f38211fcf53ef67eb90d155ac0fc7cfdc5189be6f5b15def693",
+      "symbols": [
+        "AuthorArticleQueryRequest",
+        "AuthorArticleQueryCandidate.Slug",
+        "AuthorArticleQueryContract.SchemaVersion=1",
+        "MaxLimit=50"
+      ]
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthorArticleQuerySourceInspection.cs",
+      "source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
+      "blob": "881ac56f32e21afc1fc8a1f5e9b37a6536760d2b",
+      "sha256": "951faa39d72d311bd54292787c0843f94875ad7479406e7d4ae70ee9c039f78c",
+      "symbols": [
+        "IAuthorArticleQuerySourceReader",
+        "AuthorArticleQuerySourceFields",
+        "AuthorArticleQuerySourceInspectionResult",
+        "SlugUnavailable",
+        "QueryCursorUnavailable"
+      ]
+    },
+    {
+      "path": "src/backend/Services/ArticleService.AuthorArticleQuerySource.cs",
+      "source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
+      "blob": "b102d1fe46901b7c5dbbdb280ca1e5ebf0db5788",
+      "sha256": "4fc925c03792eab903cff869a2a8c8c040203c7ab18092a9bcd9129f8c740182",
+      "symbols": [
+        "IAuthorArticleQuerySourceReader.ReadCoordinatesForIdsAsync",
+        "ReadFieldsAsync"
+      ]
+    },
+    {
+      "path": "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.ArchivedQueryObservation.cs",
+      "source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
+      "blob": "e394e2561330a7d41252af9b9252b54135bc72fc",
+      "sha256": "72950226b4eaa788080f87981434bc28d4e343d91057735d558b5811cbd9eeac",
+      "symbols": [
+        "original Archived query permission observation"
+      ]
+    }
+  ],
+  "original_interface_text": {
+    "AdminArticleWorkspaceSnapshotCaller": {
+      "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
+      "text": "export interface AdminArticleWorkspaceSnapshotCaller {\n    readonly startup: Omit<AdminArticleWorkspaceStartupPorts, 'sync'>;\n    readonly cacheStorage: WorkspaceSnapshotCacheStorage;\n    readonly channel: WorkspaceSnapshotCoordinationChannel | null;\n    readonly ownerRef: string;\n    readonly flushLease: WorkspaceSnapshotFlushLease | null;\n}"
+    },
+    "AdminArticleWorkspaceStartupPorts": {
+      "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
+      "text": "export interface AdminArticleWorkspaceStartupPorts {\n    readonly sync: AuthoringWorkspaceSnapshotSync;\n    readonly resolutionPort: AuthoringWorkspaceSnapshotRestoreCommands['resolutionPort'];\n    readonly mountedEditors: ArticleWorkspaceMountedEditorSource;\n    /** Actual original physical Write operation; a stub cannot satisfy native admission. */\n    readonly prepareMountedEditor: AuthoringWorkspacePrimaryMountPort['prepareMountedEditor'];\n    readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;\n    readonly createGroupIdentity: () => AuthoringGroupCommandIdentity;\n    readonly operationEpoch: number;\n    /** The original composition owner cancels this operation and disposes its sync/session resources. */\n    readonly signal: AbortSignal;\n    readonly assertRuntimeCapability: AuthoringWorkspaceSnapshotRestoreCommands['assertRuntimeCapability'];\n    readonly applyShell: AuthoringWorkspaceSnapshotRestoreCommands['applyShell'];\n    readonly isCurrent: AuthoringWorkspaceSnapshotRestoreCommands['isCurrent'];\n    /** Actual layout authority: real measurements, identities and synchronous before/after notifications. */\n    readonly layout?: Omit<AuthoringWorkspaceLayoutSource, 'groups' | 'sessions' | 'mountedEditors' | 'measure'> & {\n        measure(projection: Parameters<AuthoringWorkspaceLayoutSource['measure']>[0],\n            mountedLayout: AuthoringWorkspaceLayoutPort): ReturnType<AuthoringWorkspaceLayoutSource['measure']>;\n    };\n}"
+    },
+    "AuthoringWorkspaceSnapshotResolutionPort": {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRestore.ts",
+      "text": "export interface AuthoringWorkspaceSnapshotResolutionPort {\n    // The integration owner binds this to one current permission/lifecycle/draft batch query, never snapshot facts.\n    resolveBatch(request: {\n        scope: AuthoringWorkspaceSnapshotScope;\n        sourceDigest: string;\n        snapshotRevision: number;\n        snapshotDigest: string;\n        tabs: AuthoringWorkspaceSnapshotTab[];\n    }, signal: AbortSignal): Promise<unknown>;\n}"
+    },
+    "AuthoringWorkspaceSnapshotResolutionFact": {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRestore.ts",
+      "text": "export interface AuthoringWorkspaceSnapshotResolutionFact {\n    tabId: string;\n    state: ResolutionState;\n    currentIdentity: ArticleDocumentIdentity | null;\n    documentContext: ArticleDocumentContextRef | null;\n    permissionRef: string | null;\n}"
+    },
+    "AuthoringWorkspaceSnapshotResolution": {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRestore.ts",
+      "text": "export interface AuthoringWorkspaceSnapshotResolutionFact {\n    tabId: string;\n    state: ResolutionState;\n    currentIdentity: ArticleDocumentIdentity | null;\n    documentContext: ArticleDocumentContextRef | null;\n    permissionRef: string | null;\n}"
+    },
+    "ArticleWorkspaceMountedEditorSource": {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts",
+      "text": "export interface ArticleWorkspaceMountedEditorSource {\n    readMountedEditor(editorSessionRef: string): MarkdownEditorSessionExpose | null;\n    readDocumentBinding(editorSessionRef: string): {\n        readonly identity: ArticleDocumentIdentity;\n        readonly documentContext: ArticleDocumentContextRef;\n    } | null;\n}"
+    }
+  },
+  "missing_original_edges": [
+    {
+      "owner": "Query2231 / Cache2232",
+      "required": "Complete original verified response/cache consumer and registered typed transport",
+      "observed": "Latest inspected4092 frontend supplies request sequencing only. Original internal observed fields contain no Slug and are expressly not ranked product responses or admission receipts; SlugUnavailable remains closed. No complete verified query response/cache supplier exists in the inspected consumer tree.",
+      "interface": "Keep original v1 mandatory Slug, server owner/site/permission/history/ranking/cursor/revision binding. Only its owner may project one admitted <=50 metadata page into existing ArticleLibraryPresentation and accept group/page/revealCurrent intents.",
+      "forbidden_substitution": "Do not use internal coordinates/ObservedFields, SourceInspection.NextAfterArticleId, getAdminArticles page/total or article.updatedAt as query cursor/recent/permission/cache authority."
+    },
+    {
+      "owner": "Original permission/lifecycle/document/draft producer; Snapshot integration3735",
+      "required": "AuthoringWorkspaceSnapshotResolutionPort.resolveBatch(request, signal)",
+      "observed": "Only original interface, validator/consumer and Root mandatory check are present; there is no production implementation in the inspected consumer source. Query v1 metadata and its permission observation do not supply full current document/draft/session facts.",
+      "interface": "One bounded batch <=100, exactly one fact per requested tab. Response schema/scopeDigest/sourceDigest/snapshotRevision/snapshotDigest/contentDigest must match. Admitted facts need exact currentIdentity, real documentEpoch/sourceRevision/draftRevision and permissionRef; denied/missing/deleted/archived/draft-replaced carry null private coordinates. Saved snapshot facts, null fake batches and N+1 body reads cannot substitute."
+    },
+    {
+      "owner": "Original Shared/protocol/backend producers",
+      "required": "Canonical Snapshot270/271 enum/decoder/endpoint join and original upload275/285 roster/golden reconciliation",
+      "observed": "Existing consumed HTTP source refers to named Snapshot frames absent from actual consumer canonical244 four frame outputs. Already-produced payload codec is not active frame/endpoint authority.",
+      "interface": "The existing current-canonical-closure request retains the four frame-output source roster and coordinated six-symbol join. No consumer allocation or generated/catalog edits."
+    },
+    {
+      "owner": "Original application capability composition / Main / Layout",
+      "required": "All mandatory original startup ports, real caller storage/lifetime ownership and committed shell command",
+      "observed": "Root consumes supplied capability/resolveBatch/mounted/signal/identity/shell resources; no complete original startup source constructs this set at the actual application graph.",
+      "interface": "Reuse AdminArticleWorkspaceSnapshotCaller and Omit<AdminArticleWorkspaceStartupPorts, sync> exactly; connector creates original API/Cache/Sync. Actual Writer public mounted/layout/primary physical ports exist; restored-body/read-only/second-mount adoption stays with Main. No fake capability assertion, guessed scope/source digest/group identity or manufactured shell receipt."
+    }
+  ],
+  "minimal_future_application_join": {
+    "status": "BLOCKED_BY_ORIGINAL_PRODUCERS_NOT_IMPLEMENTED",
+    "entry": "Actual AccountLayout default RouterView / manage frame application composition; App private lifetime boundary already owns auth-generation remount.",
+    "inputs": "Original complete capability producer supplies the existing workspaceSnapshotCaller to that frame exactly once; no second startup installer. Original Query/Cache consumer supplies the existing libraryPresentation plus group/page/reveal handlers under its own authority.",
+    "lifetime": "Root already fences source replacement/auth/caller abort/unmount and owns connector cleanup; original Query/Cache owns its private request/cache invalidation and source-current publication. Preserve actual primary Writer physical port and Main body-adoption ownership.",
+    "nonready": "Until those actual producers exist, keep existing unconnected Rail and unavailable restoration; do not allocate unused storage/channel/leases or execute HTTP merely to make an input object."
+  },
+  "verification": {
+    "source_binding": "Git object/byte comparisons only",
+    "ordinary_entry": "Original ./tools/test.sh frontend-unit-shard with existing Vitest config/shared setup; no new entry and no import/list/discovery executed.",
+    "source_execution": "UNRUN_HELD",
+    "runtime_tests_list_security_native_receipt": "UNRUN_HELD",
+    "canonical_generators": "UNRUN_HELD"
+  }
+}

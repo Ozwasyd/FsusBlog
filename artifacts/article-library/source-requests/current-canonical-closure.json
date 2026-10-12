@@ -199,5 +199,12 @@
       }
     ],
     "original_offer_path": "artifacts/article-editor/issue-2299-primary-physical-mount-source/root-owner-only.patch"
+  },
+  "application_provider_intake": {
+    "binding_path": "artifacts/article-library/source-requests/application-provider-source-binding.json",
+    "consumer_product_source": "4e6333bd0e99dc6bd0c9cf8847458dfbe79da53e",
+    "query_inspected_source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
+    "status": "BLOCKED_NO_COMPLETE_ORIGINAL_APPLICATION_PRODUCER",
+    "scope": "Actual App -> AccountLayout -> manage frame graph checked. Latest4092 remains internal bounded source/coordinator, not complete v1 response/cache or resolveBatch. No provider shim, store, query, body adoption or authority activation added."
   }
 }
