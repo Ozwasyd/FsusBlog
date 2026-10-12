@@ -786,6 +786,111 @@ describe('unresolved server choice survives status and read-path changes', () =>
         requireWorkspaceServerObservation(observed);
     });
 });
+describe('server choice generation fences delayed reads and reentrant acceptance', () => {
+    it.each(['accept-before-same', 'accept-before-newer', 'accept-before-failure', 'accept-after', 'new-conflict'] as const)
+    ('keeps explicit choice scoped to its original intent through %s', async path => {
+        // Ordinary UNRUN declarations: no test transport result is runtime authority or acceptance evidence.
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        let release!: () => void;
+        let entered!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const ready = new Promise<void>(resolve => { entered = resolve; });
+        server.read = async () => {
+            const result = await originalRead();
+            if (server.reads === 3) {
+                entered();
+                await gate;
+                if (path === 'accept-before-failure')
+                    throw new Error('old_conflict_read_failed');
+            }
+            return result;
+        };
+        const channel = new ChannelHub().create();
+        const { sync, api } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        await sync.setOnline(false);
+        sync.onInteraction('tabs', layout(2));
+        await server.write({ expectedRevision: 1, layout: layout(3) });
+        await sync.setOnline(true);
+        expect(sync.getState().status).toBe('conflict');
+        if (path === 'accept-before-newer')
+            await server.write({ expectedRevision: 2, layout: layout(4) });
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: server.current!.revision, leaseUntil: now });
+        await ready;
+        if (path !== 'accept-after') {
+            sync.acceptServerAfterConflict();
+            expect(sync.getCurrentSessionLayout()).toEqual(layout(3));
+            expect(sync.getState()).toMatchObject({ status: 'current', dirty: false });
+        }
+        if (path === 'new-conflict') {
+            sync.onInteraction('tabs', layout(5));
+            await server.write({ expectedRevision: 2, layout: layout(6) });
+            await sync.flush(); // Genuine CAS refusal creates a distinct choice, not a channel hint.
+            expect(sync.getState().status).toBe('conflict');
+        }
+        release();
+        await vi.advanceTimersByTimeAsync(0);
+        if (path === 'accept-after' || path === 'new-conflict') {
+            expect(sync.getState().status).toBe('conflict');
+            expect(sync.getServerObservation()).toBeNull();
+            expect(sync.getCurrentSessionLayout()).toEqual(layout(path === 'new-conflict' ? 5 : 2));
+            await expect(sync.reset(true, 2, api.resetConfirmation(2))).rejects.toThrow('reset_requires_current_server');
+            sync.acceptServerAfterConflict();
+        }
+        expect(sync.getState()).toMatchObject({ status: 'current', dirty: false, serverRevision: server.current!.revision });
+        expect(sync.getCurrentSessionLayout()).toEqual(server.current!.layout);
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('fresh_server_observation_missing');
+        requireWorkspaceServerObservation(observed);
+        expect(sync.getReceipt().events.filter(event => event.kind === 'accepted-server'))
+            .toHaveLength(path === 'new-conflict' ? 2 : 1);
+        expect(server.resets).toBe(0);
+    });
+    it.each(['clone-setter', 'clone-reentrant-accept', 'accepted-listener'] as const)
+    ('preserves layout changes from a synchronous %s during explicit acceptance', async path => {
+        const { sync, server } = setup();
+        await sync.start();
+        await sync.setOnline(false);
+        sync.onInteraction('tabs', layout(2));
+        await server.write({ expectedRevision: 1, layout: layout(3) });
+        await sync.setOnline(true);
+        if (path !== 'accepted-listener') {
+            const clone = globalThis.structuredClone.bind(globalThis);
+            const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+                cloning.mockRestore();
+                if (path === 'clone-reentrant-accept')
+                    sync.acceptServerAfterConflict();
+                sync.onInteraction('tabs', layout(7));
+                return clone(value);
+            });
+            try {
+                sync.acceptServerAfterConflict();
+            } finally {
+                cloning.mockRestore();
+            }
+            expect(sync.getState()).toMatchObject({ status: path === 'clone-setter' ? 'conflict' : 'current', dirty: true });
+            if (path === 'clone-setter')
+                expect(sync.getServerObservation()).toBeNull();
+            expect(sync.getReceipt().events.filter(event => event.kind === 'accepted-server'))
+                .toHaveLength(path === 'clone-setter' ? 0 : 1);
+        } else {
+            const unsubscribe = sync.subscribe(() => {
+                unsubscribe();
+                expect(sync.getState()).toMatchObject({ status: 'current', dirty: false });
+                sync.onInteraction('tabs', layout(7));
+            });
+            sync.acceptServerAfterConflict();
+            expect(sync.getState()).toMatchObject({ status: 'current', dirty: true });
+        }
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        expect(server.writes).toHaveLength(1);
+        expect(server.resets).toBe(0);
+    });
+});
 describe('verified non-authoritative cache', () => {
     it('stores server success only and reports missing/current/stale with finite expiry', async () => {
         const { api, cache, storage } = setup();

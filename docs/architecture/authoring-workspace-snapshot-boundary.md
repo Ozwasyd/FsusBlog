@@ -616,3 +616,32 @@ before explicit choice and only a live verified candidate afterwards. These are
 source declarations, not runtime evidence. This intent correction awaits
 independent review; all attack/tests/list/auth/security/runtime/native/receipt
 holds and remaining canonical/batch/host/session/shell acceptance remain.
+
+
+## Conflict choice generation correction source
+
+Independent exact `92a2537c5441dcbdea912eb37f76769283e8fce9` review source-closed
+implicit selection through failed/retried reads, but identified a delayed GET
+that could relatch an already accepted choice using its old conflict trigger.
+
+Sync now keeps one opaque current-session intent generation. Genuine CAS or
+verified revision conflicts replace it; explicit successful acceptance and stop
+invalidate it. Each read binds the generation at dispatch and checks it after
+server/cache awaits and before failure publication. A stale completion retains
+refresh duty for a fresh bounded read, without recreating the resolved choice
+or touching a later conflict. Trigger labels and equal revisions cannot grant
+choice authority. Existing live server provenance, read tickets, admission,
+unknown-result handling, coalescing and bounded retry rules remain required.
+
+Adoption stages the layout copy, revalidates server provenance, then checks the
+original intent, lifecycle and local layout generation. Explicit acceptance
+also requires the same pending candidate. Publication and intent resolution
+finish synchronously before listeners run; a reentrant layout setter cannot be
+silently overwritten, and an older acceptance cannot clear a newer intent.
+
+Eight additional ordinary UNRUN cells cover acceptance before a delayed same
+or newer GET, an old failed GET and retry, acceptance after GET, a later genuine
+CAS conflict, synchronous clone/listener layout setters, and nested acceptance
+that invalidates an outer acceptance. These declarations
+are not runtime receipts. This remaining P2 awaits independent exact-source
+review; all tests/list/attack/auth/security/runtime/native/receipt holds remain.
