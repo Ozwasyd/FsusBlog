@@ -182,17 +182,31 @@ groups deduplicate the SAME error identity without reading arbitrary external
 `AggregateError.errors`. A sole first failure is rethrown unchanged; multiple
 failures preserve that first identity as cause and all distinct later errors.
 
-Positive authority intentionally remains refused because accepted complete live
-auth custody is unavailable. Physical/Document candidates are canceled and
+The Writer also consumes the original admin producer's stable function-valued
+seal/has/cancel getters, joining a genuine nominal admin token to that SAME
+physical/Document reservation. Fresh `article.write` admission precedes final
+private checks, and its possible callbacks are fenced by the original auth epoch.
+Both original tokens are canceled independently on failure; each genuine cleanup
+failure is retained without skipping the other token's cancellation.
+
+Positive authority intentionally remains refused while the original observed
+broadcast event preadvance chain is not closed/consumed. The accepted auth store
+and private-surface port attests producer-observed local principal/permissions/
+session continuity through synchronous publication; it does not attest unknown
+remote revocation or exact server expiry during a blocked JS task. Those are not
+extra prerequisites for this local guard. Server operations keep original backend
+authorization; restore/query require original server permission provenance. No
+local auth token substitutes for that query chain. Physical/Document/Auth
+candidates are canceled and
 `sealMountedAuthority` returns null; `hasMountedAuthorityCustody` does not return
 true from a local readiness boolean or notification cache. The source
 auth/private-surface watches are ONLY
 negative physical revocation, including same-id changes; they do not attest
 permissions, expiry, step-up or administrative admission. Document's downstream
 lifetime listener is also not its early private authority; the actual Document
-token supplies that private predicate. Completing the joint authority requires
-accepted real auth tokens and callback-free original custody with its explicitly
-limited expiry/permission scope. Until then Main composition, restoration and
+token supplies that private predicate. Completing positive local publication
+requires the original observed-event producer's pre-callback retirement path,
+with the explicitly bounded local guarantee. Until then Main composition, restoration and
 full-ready remain refused. This partial producer wiring grants no runtime or
 qualification evidence and preserves all existing HOLD gates.
 
