@@ -934,3 +934,17 @@ assigns its pending cancellation slot before revoking producer custody, refusing
 synchronous cancel/reserve reentry. Actual Root product files stay with their owner;
 only the exact source offer changes here. Source AST/order checks and strict owned
 lint pass; runtime/race controls are UNRUN and independent rereview remains pending.
+
+The coordinating parent subsequently reports e581 P1/P2 and original Root8426
+bounded Frame retirement separately SOURCE CLOSED. The Layout branch now consumes
+the exact Root8426 Frame/source implementation and minimum genuine dependency
+closure (16 original postimages), while preserving all four closed Layout files
+byte-for-byte. The exact original source map is in
+artifacts/article-editor/issue-2299-root-layout-source-combination. The actual
+combination retains the same physical phase/installer and separately pinned
+temporary/permanent retirement capabilities; it is awaiting its own independent
+review. Docd354/Main292 membership/lifetime interfaces are read only; no Writer,
+Doc or unaccepted Auth parallel source is copied. Missing authority/provider joins
+still refuse. Actual static strict lint/SCSS/AST PASS; the same real local-alias
+whole imported graph remains FAIL209, zero new/removed and zero Root/Layout findings.
+All existing runtime/qualification/second-owner/full-refset/frozen holds remain.

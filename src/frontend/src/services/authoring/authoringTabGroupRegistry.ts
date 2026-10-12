@@ -43,6 +43,21 @@ export interface AuthoringGroupCommandIdentity {
     idempotencyKey: string;
 }
 
+export type AuthoringTabGroupStartupRetirementReason = 'restore-failed' | 'restore-cancelled';
+
+/** Admission custody only; this is not a restore, resource-release or zero-write receipt. */
+export interface AuthoringTabGroupStartupCustodyObservation {
+    status: 'pending' | 'handed-off' | 'retired';
+    reason: AuthoringTabGroupStartupRetirementReason | null;
+}
+
+/** A frozen process-local handle held by the one startup controller for this owner. */
+export interface AuthoringTabGroupStartupCustody {
+    inspect(): Readonly<AuthoringTabGroupStartupCustodyObservation>;
+    sealHandoff(): Readonly<AuthoringTabGroupStartupCustodyObservation>;
+    retire(reason: AuthoringTabGroupStartupRetirementReason): Readonly<AuthoringTabGroupStartupCustodyObservation>;
+}
+
 export interface AuthoringSnapshotGroupAdapter {
     applyGroups(groups: AuthoringWorkspaceSnapshotGroup[], activeGroupId: string,
         splitRatioPermille: number, signal: AbortSignal): Promise<string>;
@@ -299,6 +314,7 @@ export class AuthoringTabGroupRegistry
     readonly #ratioScope: AuthoringWorkspaceRatioScope;
     #pending = false;
     #recoveryRequired = false;
+    #startupCustody: Readonly<AuthoringTabGroupStartupCustodyObservation> | null = null;
 
     public constructor(articleRegistry: OpenArticleDocumentRegistry, options: AuthoringTabGroupOptions)
     {
@@ -364,6 +380,102 @@ export class AuthoringTabGroupRegistry
         return articleRegistry === this.#articleRegistry && owners.get(articleRegistry) === this;
     }
 
+    /** Claim before the first asynchronous restore stage; a Group can serve only one startup. */
+    public beginStartupCustody(): AuthoringTabGroupStartupCustody
+    {
+        if (this.#startupCustody !== null)
+        {
+            throw new Error('authoring-tab-group-startup-already-claimed');
+        }
+        const expectedPublication = this.#publicationCell.value;
+        if (this.#pending || this.#recoveryRequired || this.#state.revision !== 0 || this.#processed.size !== 0
+            || this.#articleRegistry.getRevision() !== 0 || this.#articleRegistry.listEntries().length !== 0
+            || !this.verifyBinding(this.#articleRegistry))
+        {
+            throw new Error('authoring-tab-group-startup-requires-unstarted-owner');
+        }
+        const pending: Readonly<AuthoringTabGroupStartupCustodyObservation> = Object.freeze({ status: 'pending', reason: null });
+        const custody = Object.freeze({
+            inspect: () => this.#requireStartupCustody(),
+            sealHandoff: () =>
+            {
+                const current = this.#requireStartupCustody();
+                if (current.status === 'retired')
+                {
+                    throw new Error('authoring-tab-group-startup-retired');
+                }
+                if (current.status === 'handed-off')
+                {
+                    return current;
+                }
+                if (this.#pending || this.#recoveryRequired || !this.verifyBinding(this.#articleRegistry)
+                    || !verifyAuthoringTabGroupRegistryState(this.exportState(), this.#articleRegistry.exportState()))
+                {
+                    throw new Error('authoring-tab-group-startup-handoff-unavailable');
+                }
+                if (this.#startupCustody !== current)
+                {
+                    throw new Error('authoring-tab-group-startup-handoff-superseded');
+                }
+                // The controller must first verify its actual restore/session/factory result.
+                // This seals only Group custody and never manufactures a host-ready result.
+                this.#startupCustody = Object.freeze({ status: 'handed-off', reason: null });
+                return this.#startupCustody;
+            },
+            retire: (reason: AuthoringTabGroupStartupRetirementReason) =>
+            {
+                if (reason !== 'restore-failed' && reason !== 'restore-cancelled')
+                {
+                    throw new Error('authoring-tab-group-startup-retirement-reason-invalid');
+                }
+                const current = this.#requireStartupCustody();
+                if (current.status === 'handed-off')
+                {
+                    throw new Error('authoring-tab-group-startup-already-handed-off');
+                }
+                if (current.status !== 'retired')
+                {
+                    // Keep publication, command history, Registry/ratio identity and all refs.
+                    // In-flight work remains owned; this is no rollback or resource release.
+                    this.#startupCustody = Object.freeze({ status: 'retired', reason });
+                }
+                return this.#requireStartupCustody();
+            }
+        });
+        if (this.#startupCustody !== null)
+        {
+            throw new Error('authoring-tab-group-startup-already-claimed');
+        }
+        // All public reads, validation and allocation precede the original Registry's
+        // immutable lifetime guard. Public snapshots cannot prove that it was unused,
+        // especially after an open/close/detach ABA with no Group publication change.
+        if (this.#publicationCell.value !== expectedPublication || this.#pending || this.#recoveryRequired
+            || expectedPublication.state.revision !== 0 || expectedPublication.commandHistory.size !== 0
+            || owners.get(this.#articleRegistry) !== this || !this.#publicationCell.isUnusedForStartup(expectedPublication))
+        {
+            throw new Error('authoring-tab-group-startup-requires-unstarted-owner');
+        }
+        this.#startupCustody = pending;
+        return custody;
+    }
+
+    #requireStartupCustody(): Readonly<AuthoringTabGroupStartupCustodyObservation>
+    {
+        if (this.#startupCustody === null)
+        {
+            throw new Error('authoring-tab-group-startup-not-claimed');
+        }
+        return this.#startupCustody;
+    }
+
+    #requireOperationAdmission(): void
+    {
+        if (this.#startupCustody?.status === 'retired')
+        {
+            throw new Error('authoring-tab-group-startup-retired');
+        }
+    }
+
     /** Confirms the typed transition came from this owner's actual committed cache. */
     public verifyCommittedTransition(transition: AuthoringSnapshotGroupTransition): boolean
     {
@@ -390,14 +502,17 @@ export class AuthoringTabGroupRegistry
     /** Original restore callback; caller supplies its actual operation identities. */
     public createSnapshotAdapter(createIdentity: () => AuthoringGroupCommandIdentity): AuthoringSnapshotGroupAdapter
     {
+        this.#requireOperationAdmission();
         const applyGroupsWithReceipt = (groups: AuthoringWorkspaceSnapshotGroup[], activeGroupId: string,
             splitRatioPermille: number, signal: AbortSignal): Promise<AuthoringSnapshotGroupTransition> => new Promise<AuthoringSnapshotGroupTransition>((resolve, reject) =>
         {
             try
             {
+                this.#requireOperationAdmission();
                 signal.throwIfAborted();
                 const projection = this.exportProjection();
                 const identity = createIdentity();
+                this.#requireOperationAdmission();
                 if (!exactKeys(identity, ['commandId', 'idempotencyKey']) || !isRef(identity.commandId) || !isRef(identity.idempotencyKey)
                 || !Array.isArray(groups) || groups.length < 1 || groups.length > 2
                 || Object.keys(groups).length !== groups.length)
@@ -473,6 +588,7 @@ export class AuthoringTabGroupRegistry
     /** Prepare every fallible group operation before calling the synchronous owner port. */
     public execute(input: unknown, ratioChange?: AuthoringWorkspaceRatioChange): AuthoringTabGroupCommandResult
     {
+        this.#requireOperationAdmission();
         if (this.#pending)
         {
             throw new Error('authoring-group-operation-pending');
@@ -573,6 +689,7 @@ export class AuthoringTabGroupRegistry
             };
             // One canonical commit publishes entries, revisions and the registered
             // group cell. No group assignment follows its successful return.
+            this.#requireOperationAdmission();
             const receipt = this.#articleRegistry.executeGroupOwnershipTransaction(ownerCommand, expected,
                 { state: after, commandHistory: processedNext, ratioScope: this.#ratioScope, splitRatioRef: nextRatioRef }, ratioChange);
             if (receipt.status !== 'applied')

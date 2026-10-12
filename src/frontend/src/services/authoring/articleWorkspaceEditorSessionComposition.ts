@@ -20,8 +20,12 @@ import type {
 import type { OpenArticleDocumentEntry } from './openArticleDocumentRegistry';
 import type { MarkdownEditorSessionRestoreProof, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
 
+/** Original Root/Layout physical retained mount operation, never a ready receipt. */
+export type ArticleWorkspaceMountedEditorPreparation = (entry: Readonly<OpenArticleDocumentEntry>) => Promise<void>;
+
 let installed: {
     readonly resolveMountedEditor: ArticleWorkspaceMountedEditorResolver;
+    readonly prepareMountedEditor: ArticleWorkspaceMountedEditorPreparation | undefined;
     readonly host: AuthoringSessionHost;
     readonly factory: ArticleWorkspaceFsusUiEditorSessionFactory;
     readonly assertActive: () => void;
@@ -34,17 +38,23 @@ let installed: {
  * Current upstream gaps still reject admission through the original host.
  */
 export function installArticleWorkspaceEditorSessions(
-    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver
+    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver,
+    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation
 ): AuthoringSessionHost
 {
     if (installed)
     {
-        if (installed.resolveMountedEditor !== resolveMountedEditor)
+        if (installed.resolveMountedEditor !== resolveMountedEditor
+            || (prepareMountedEditor && installed.prepareMountedEditor !== prepareMountedEditor))
         {
             throw new Error('article-workspace-session-composition-already-installed');
         }
         installed.assertActive();
         return installed.host;
+    }
+    if (prepareMountedEditor !== undefined && typeof prepareMountedEditor !== 'function')
+    {
+        throw new Error('article-workspace-mounted-preparation-owner-unavailable');
     }
 
     let retired = false;
@@ -68,16 +78,48 @@ export function installArticleWorkspaceEditorSessions(
     {
         retired = true;
     };
-    installed = { resolveMountedEditor, host, factory, assertActive, retire };
+    installed = { resolveMountedEditor, prepareMountedEditor, host, factory, assertActive, retire };
     try
     {
-        articleWorkspaceTabRouter.setSessionPort(createArticleWorkspaceSessionPort(host, {
+        const hostPort = createArticleWorkspaceSessionPort(host, {
             nextUsedTick: () =>
             {
                 assertActive();
                 return ++usedTick;
             }
-        }));
+        });
+        articleWorkspaceTabRouter.setSessionPort(prepareMountedEditor
+            ? {
+                waitForReady: async (entry) =>
+                {
+                    assertActive();
+                    const registry = articleWorkspaceTabRouter.getRegistry();
+                    const sourceDigest = calculateOpenArticleDocumentDigest(entry);
+                    const current = registry.getEntry(entry.tabId);
+                    if (!current || calculateOpenArticleDocumentDigest(current) !== sourceDigest)
+                    {
+                        throw new Error('article-workspace-mounted-preparation-entry-stale');
+                    }
+                    // Borrow only the actual original entry metadata. The original
+                    // mount owner supplies its handle/body/component/cancellation custody.
+                    const target = Object.freeze(structuredClone(entry));
+                    assertActive();
+                    await prepareMountedEditor(target);
+                    assertActive();
+                    const prepared = registry.getEntry(entry.tabId);
+                    if (articleWorkspaceTabRouter.getRegistry() !== registry || !prepared
+                        || calculateOpenArticleDocumentDigest(prepared) !== sourceDigest
+                        || calculateOpenArticleDocumentDigest(target) !== sourceDigest)
+                    {
+                        throw new Error('article-workspace-mounted-preparation-entry-stale');
+                    }
+                    assertActive();
+                    // The SAME original bridge/factory reads the real native mount
+                    // and resources. Completion of preparation grants no readiness.
+                    return hostPort.waitForReady(prepared);
+                }
+            }
+            : hostPort);
     }
     catch (error)
     {

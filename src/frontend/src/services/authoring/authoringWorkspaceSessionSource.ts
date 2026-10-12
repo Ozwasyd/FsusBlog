@@ -1,4 +1,4 @@
-import { installArticleWorkspaceEditorSessions } from './articleWorkspaceEditorSessionComposition';
+import { installArticleWorkspaceEditorSessions, retireArticleWorkspaceEditorSessions, type ArticleWorkspaceMountedEditorPreparation } from './articleWorkspaceEditorSessionComposition';
 import { articleWorkspaceTabRouter } from './articleWorkspaceTabRouter';
 
 import type { AuthoringSessionHost, AuthoringSessionHostState, AuthoringSessionRecordState } from './authoringSessionHost';
@@ -8,6 +8,8 @@ import type { ArticleWorkspaceMountedEditorResolver } from './fsusUiEditorSessio
 export interface AuthoringWorkspaceSessionSource {
     readonly groups: AuthoringTabGroupRegistry;
     readonly host: AuthoringSessionHost;
+    /** Retire this Root source and the SAME original composition admission; no mount/disposal receipt. */
+    retire(): void;
     readSession(editorSessionRef: string): AuthoringSessionRecordState | null;
     readHostState(): AuthoringSessionHostState;
 }
@@ -19,7 +21,8 @@ export interface AuthoringWorkspaceSessionSource {
  */
 export function connectAuthoringWorkspaceSessionSource(
     groups: AuthoringTabGroupRegistry,
-    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver): AuthoringWorkspaceSessionSource
+    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver,
+    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation): AuthoringWorkspaceSessionSource
 {
     const assertBinding = (): void =>
     {
@@ -31,18 +34,59 @@ export function connectAuthoringWorkspaceSessionSource(
     // The sole installer binds its host to this exact router's article registry.
     // Refuse a foreign group before installation can mutate the router port.
     assertBinding();
-    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor);
-    assertBinding();
-    return Object.freeze({ groups, host,
-        readSession: (editorSessionRef: string): AuthoringSessionRecordState | null =>
+    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor, prepareMountedEditor);
+    let retired = false;
+    let retirementComplete = false;
+    const retire = (): void =>
+    {
+        // Close Root reads before invoking any original retirement operation.
+        retired = true;
+        if (!retirementComplete)
         {
-            assertBinding();
-            return host.getSession(editorSessionRef);
-        },
-        readHostState: (): AuthoringSessionHostState =>
-        {
-            assertBinding();
-            return host.exportState();
+            retireArticleWorkspaceEditorSessions(host);
+            retirementComplete = true;
         }
-    });
+    };
+    const assertCurrent = (): void =>
+    {
+        if (retired)
+        {
+            throw new Error('authoring-workspace-session-source-retired');
+        }
+        assertBinding();
+        if (retired)
+        {
+            throw new Error('authoring-workspace-session-source-retired');
+        }
+    };
+    const withCurrentSource = <Value>(read: () => Value): Value =>
+    {
+        try
+        {
+            assertCurrent();
+            const value = read();
+            assertCurrent();
+            return value;
+        }
+        catch (error: unknown)
+        {
+            try
+            {
+                retire();
+            }
+            catch (retirementError: unknown)
+            {
+                throw new AggregateError([error, retirementError],
+                    'authoring-workspace-session-source-retirement-incomplete', { cause: retirementError });
+            }
+            throw error;
+        }
+    };
+    // A failed post-install check/freeze still owns the actual Host returned above.
+    return withCurrentSource(() => Object.freeze({ groups, host, retire,
+        readSession: (editorSessionRef: string): AuthoringSessionRecordState | null =>
+            withCurrentSource(() => host.getSession(editorSessionRef)),
+        readHostState: (): AuthoringSessionHostState =>
+            withCurrentSource(() => host.exportState())
+    }));
 }

@@ -7,6 +7,18 @@ import { FrameType } from '@wasm/protocol/frame';
 
 const endpoint = '/api/binary/author/workspace/default';
 
+/** Read server-selected binding coordinates before a source-bound mutation port exists. */
+export function readAuthoringWorkspaceSnapshotHttp(signal?: AbortSignal): Promise<unknown>
+{
+    return requestBinaryOnly({
+        binaryUrl: endpoint,
+        privateScope: 'admin',
+        frameType: FrameType.AuthoringWorkspaceSnapshotResponse,
+        signal,
+        requestOptions: { method: 'GET', cache: 'no-store' }
+    });
+}
+
 /** Binds the existing verified-observation API to its private typed HTTP boundary. */
 export function createAuthoringWorkspaceSnapshotHttpTransport(sourceDigest: string): AuthoringWorkspaceSnapshotTransport
 {
@@ -16,16 +28,7 @@ export function createAuthoringWorkspaceSnapshotHttpTransport(sourceDigest: stri
     }
 
     return {
-        read(signal)
-        {
-            return requestBinaryOnly({
-                binaryUrl: endpoint,
-                privateScope: 'admin',
-                frameType: FrameType.AuthoringWorkspaceSnapshotResponse,
-                signal,
-                requestOptions: { method: 'GET', cache: 'no-store' }
-            });
-        },
+        read: readAuthoringWorkspaceSnapshotHttp,
         write(command, signal)
         {
             return requestBinaryOnly({
