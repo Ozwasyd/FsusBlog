@@ -151,7 +151,8 @@
     "Original snapshot permission/lifecycle/draft resolveBatch",
     "Original retained mount-before-restore and full session factory",
     "Original committed shell command/lifetime binding",
-    "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged"
+    "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged",
+    "Original Snapshot API private custody/issuance lifetime source correction: exact owner offer pending; root connector consumption is conditional and runtime/auth/security qualification remains held."
   ],
   "qualification": false,
   "activation": false,
@@ -159,7 +160,7 @@
     "source": "6efe4eddda4fed46e270d3938a01cd30ba4d0922",
     "connection": "src/frontend/src/api/authoringWorkspaceSnapshotConnection.ts",
     "http_transport": "src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts",
-    "review": "UPSTREAM_INDEPENDENT_SOURCE_REVIEW_PENDING",
+    "review": "Normal fixed-interface connector path has bounded source review; original Snapshot API custody/issuance lifetime correction remains pending. No unconditional safety, ready or qualification claim.",
     "root_caller": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
     "sole_root_port_source": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
     "pipeline": "Original real admin principal + server-selected scope/artifact digest -> original complete API fresh-read verifier -> original Cache/Sync -> stable existing root startup ports; original runtime capability and resolveBatch remain mandatory. No host installation in this helper.",
