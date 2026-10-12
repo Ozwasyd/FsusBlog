@@ -1,0 +1,44 @@
+{
+  "consumerBase": "1b8cb055dfd92cb4ee3381e69d6f1dd06000032d",
+  "originalOffer": "170e2af038cd3c35d275c62d7ce3a5a2e21a472a",
+  "uiLocalAlias": "d60b94b5828962ddb3bd8b7a2d78f949fef4c599",
+  "style": {
+    "exit": 0,
+    "productionFiles": 4,
+    "violations": 0,
+    "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authoring/articleRenderCache.ts --file src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts --file src/frontend/src/services/authoring/articleEditorContinuity.ts --file src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts"
+  },
+  "ast": {
+    "exit": 0,
+    "sourceFiles": 7,
+    "candidateModulesEvaluated": false,
+    "script": "/workspace/session-evidence-2295/static-source.cjs"
+  },
+  "wholeApplication": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 258,
+    "afterDiagnostics": 258,
+    "added": [],
+    "removed": [],
+    "normalization": "Complete diagnostic blocks incl multiline messages/multiplicity; only original (line,column) positions normalized. Same original Main full application entry, same local UI d60.",
+    "supplierEvidence": "730 files / 221 diagnostics is separate and is not this current Main result.",
+    "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application"
+  },
+  "runtime": "ALL UNRUN/HOLD",
+  "localSourceReview": "Main composite pending; cache/producer bounded source closed per parent; caller independent review pending",
+  "actualOriginalEnvironmentProbe": {
+    "shellGitDiffSourceHashProbeExit": 0,
+    "head": "1b8cb055dfd92cb4ee3381e69d6f1dd06000032d",
+    "sevenPostimagesExact": true,
+    "twelveProtectedBlobsExact": true,
+    "alternativeEnvironmentOrCredentialRepair": false
+  },
+  "initialIntakeProofFailure": "Absent original supplier tests in Main base caused git rev-parse proof error after apply. Corrected null beforeBlob, reverse check and full postimage/protected blob check0; no source suppression/second apply.",
+  "rawOutputFiles": [
+    "blog-terminal-170-original-before-whole-app-types.txt",
+    "blog-terminal-170-original-after-whole-app-types.txt",
+    "blog-terminal-170-original-style.txt",
+    "blog-terminal-170-original-ast.txt"
+  ]
+}

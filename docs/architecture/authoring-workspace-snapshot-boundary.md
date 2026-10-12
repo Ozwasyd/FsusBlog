@@ -899,3 +899,31 @@ intact. This read-only method deliberately validates an already issued reference
 without performing that unsafe replacement. All full-factory/resources/disposal/
 eviction/cross-draft/storage/security/privacy/receipt/race/backuprestore/IME/native
 qualification holds remain, and every source test is UNRUN.
+
+
+### Same original cache/producer terminal consumption
+
+The Main source now consumes the original Writer170e terminal postimages on the
+existing cache, producer, continuity and runtime binding. Cache awaits the actual
+getRequestWork(theSameRequest).terminal for both success and rejection, then
+performs original transfer/late release before lease.settle. Prompt canceled
+receipts, invalid/null results and finished metadata do not settle work. Actual
+validation, lookup, cleanup and unknown native/source failures keep error/pending
+custody. Continuity.startRefresh and runtime.pendingRefreshWork expose this SAME
+cache work; no second render/cache/body/history/authority is created.
+
+Exact seven-path source/protected-blob map, current Main static evidence, original
+whole-file zero-execution preflight and remaining real owner interfaces live in
+artifacts/article-editor/issue-2295-cache-terminal-intake. Three original supplier
+control files are added as UNRUN source only. Cache/producer bounded closure does
+not migrate to the caller or Main composite. SourceCompare, Writer body prototype
+and Documentad35 handover are not consumed.
+
+Main's installer/resolver accepts actual already-mounted owners. Original Rail
+startup must supply genuine handle/preparation before Writer adapter construction.
+Public native retained restore requires the original same-owner/identity/epoch/
+revision token; changing identity props currently resets revision/history, so it
+is not history-preserving adoption. Original full-ref replacement/failure custody
+and real loader base/server/client version admission remain separate owner gaps.
+Complete host snapshots, resource pause/disposal/eviction and restored-body
+readiness remain refused/unqualified. Every runtime and qualification HOLD stays.

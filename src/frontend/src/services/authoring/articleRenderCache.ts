@@ -28,6 +28,13 @@ export interface ArticleRenderRequest {
     readonly signal: AbortSignal;
 }
 
+/** Read-only consumer slice of the original producer's actual per-request work. */
+export interface ArticleRenderProducerRequestWork {
+    readonly request: ArticleRenderRequest;
+    readonly terminal: Promise<void>;
+    readonly resultRef: string | null;
+}
+
 // References are owned and verified by the FsusUI consumer, never draft content.
 export interface ArticleRenderResult {
     readonly contextDigest: string;
@@ -47,6 +54,8 @@ export interface ArticleRenderProducer {
     // Must check the actual public result/projection and its retained reference.
     verify(request: ArticleRenderRequest, result: ArticleRenderResult): boolean;
     release(resultRef: string): void;
+    /** Missing capability is held, never replaced with an inferred terminal. */
+    getRequestWork?(request: ArticleRenderRequest): ArticleRenderProducerRequestWork | null;
 }
 
 export interface ArticleRenderCacheEntry {
@@ -82,6 +91,20 @@ export interface ArticleRenderState {
     readonly lastValidTime: number | null;
     readonly failure: string | null;
     readonly actionIds: readonly ('render-refresh' | 'render-cancel' | 'render-retry')[];
+}
+
+/** Original refresh work, distinct from the public cancellation/admission response. */
+export interface ArticleRenderRefreshWork {
+    readonly taskRef: string;
+    readonly receipt: Promise<ArticleRenderReceipt>;
+    /** Resolves only after actual render and required cleanup, then original lease.settle(). */
+    readonly terminal: Promise<void>;
+    /** Producer future observation only; fulfilled does not attest cleanup. */
+    readonly productionState: 'pending' | 'fulfilled' | 'rejected';
+    readonly resultRef: string | null;
+    readonly cleanupFailure: Error | null;
+    readonly producerFailure: Error | null;
+    readonly producerWork: ArticleRenderProducerRequestWork | null;
 }
 
 export interface ArticleRenderCachePolicy {
@@ -250,6 +273,10 @@ export class ArticleRenderCache
     private readonly receiptLog: ArticleRenderReceipt[] = [];
     private readonly unsubscribe: () => void;
     private disposed = false;
+    private entryReleasePending = false;
+    private entryReleaseFailure: Error | null = null;
+    // Original futures/failed cleanup custody only; no second body or resource ledger.
+    private readonly refreshWork = new Set<ArticleRenderRefreshWork>();
     private readonly adapter: ArticleDocumentContextAdapter;
     private readonly producer: ArticleRenderProducer;
     private readonly policy: ArticleRenderCachePolicy;
@@ -404,7 +431,17 @@ export class ArticleRenderCache
         this.unsubscribe?.();
     }
 
+    public get pendingRefreshWork(): readonly ArticleRenderRefreshWork[]
+    {
+        return [...this.refreshWork];
+    }
+
     public async refresh(): Promise<ArticleRenderReceipt>
+    {
+        return this.startRefresh().receipt;
+    }
+
+    public startRefresh(): ArticleRenderRefreshWork
     {
         if (this.disposed)
         {
@@ -434,107 +471,392 @@ export class ArticleRenderCache
             resolveAbort(cancellation);
         };
         task.signal.addEventListener('abort', onAbort, { once: true });
-        let result: ArticleRenderResult | null = null;
-        let uncommittedRef: string | null = null;
-        let status: ArticleRenderReceipt['status'] = 'rejected';
-        let reason: string | null = 'render-result-invalid';
-        try
+        const notProduced = Symbol('article-render-not-produced');
+        let producedResult: unknown = notProduced;
+        let productionState: ArticleRenderRefreshWork['productionState'] = 'pending';
+        let committed = false;
+        let committedRef: string | null = null;
+        let producerWork: ArticleRenderProducerRequestWork | null = null;
+        let requestWorkFailure: Error | null = null;
+        let releaseAttempted = false;
+        let cleanupFailure: Error | null = null;
+        let producerFailure: Error | null = null;
+        const rememberCleanupFailure = (cause: unknown): void =>
         {
-            // Even a producer ignoring AbortSignal cannot hold cancellation open or commit late.
-            const produced = Promise.resolve().then(() => this.producer.render(request)).then(value =>
+            cleanupFailure ??= new Error('article-render-cleanup-failed', { cause });
+        };
+        const classifyUncommitted = (): void =>
+        {
+            if (committed || releaseAttempted || producedResult === notProduced)
             {
-                if (task.signal.aborted && value && isRef(value.resultRef))
-                {
-                    this.producer.release(value.resultRef);
-                }
-                return value;
-            });
-            const value = await Promise.race([produced, canceled]);
-            uncommittedRef = value !== cancellation && value && isRef(value.resultRef) ? value.resultRef : null;
-            if (value === cancellation)
-            {
-                status = 'canceled';
-                reason = 'render-canceled';
+                return;
             }
-            else if (task.isCurrent() && identitiesEqual(this.identity, request.identity)
-                && validateArticleRenderResult(value) && value.contextDigest === request.context.contextDigest
-                && value.requestId === request.requestId && identitiesEqual(value.identity, request.identity)
-                && this.producer.verify(request, value))
+            // Reserve before validators/getters/verification callbacks. Their
+            // failure is not permission to retry cleanup or infer no resources.
+            releaseAttempted = true;
+            try
             {
-                result = seal(structuredClone(value));
-                if (value.status === 'fatal' || value.status === 'projection-failed')
+                if (!validateArticleRenderResult(producedResult))
                 {
-                    status = 'failed';
-                    reason = value.reason;
-                    task.complete();
+                    producerFailure ??= new Error('article-render-producer-output-invalid', { cause: producedResult });
+                    return;
                 }
-                else
+                const resultRef = producedResult.resultRef;
+                if (resultRef === null)
                 {
-                    const unsigned = { schema: articleRenderCacheSchema, context: request.context,
-                        identity: request.identity, result, createdAt: this.clock() };
-                    const entry = seal({ ...unsigned, cacheDigest: digest(unsigned) });
-                    if (new TextEncoder().encode(JSON.stringify(entry)).byteLength > this.policy.maxEntryBytes)
+                    // Even a schema-valid fatal/projection-failed null reference
+                    // supplies no producer-bound no-resource/cleanup endpoint.
+                    producerFailure ??= new Error('article-render-no-resource-terminal-unconfirmed', { cause: producedResult });
+                    return;
+                }
+                const observedDigest = digest(producedResult);
+                if (producedResult.contextDigest !== request.context.contextDigest
+                    || producedResult.requestId !== request.requestId
+                    || !identitiesEqual(producedResult.identity, request.identity))
+                {
+                    producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: producedResult });
+                    return;
+                }
+                const verified = this.producer.verify(request, producedResult);
+                // Verification is an external callback. Its true return cannot
+                // authorize cleanup of a pre-captured reference after mutation.
+                if (!validateArticleRenderResult(producedResult)
+                    || producedResult.resultRef !== resultRef
+                    || producedResult.contextDigest !== request.context.contextDigest
+                    || producedResult.requestId !== request.requestId
+                    || !identitiesEqual(producedResult.identity, request.identity)
+                    || digest(producedResult) !== observedDigest)
+                {
+                    const changed = new Error('article-render-cleanup-verification-changed', { cause: producedResult });
+                    rememberCleanupFailure(changed);
+                    producerFailure ??= changed;
+                    return;
+                }
+                if (!verified)
+                {
+                    producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: producedResult });
+                }
+            }
+            catch (error)
+            {
+                // A synchronous validator/verifier can throw unfinished work.
+                // Reserve its ACTUAL cause before propagating; return/complete of
+                // the separate render endpoint cannot attest this obligation.
+                rememberCleanupFailure(error);
+                producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: error });
+                throw error;
+            }
+        };
+        const produced = Promise.resolve().then(() =>
+        {
+            const rendering = this.producer.render(request);
+            try
+            {
+                producerWork = this.producer.getRequestWork?.(request) ?? null;
+            }
+            catch (cause)
+            {
+                // Still await the original rendering future; lookup failure must
+                // not replace it with an early rejected wrapper and lose custody.
+                requestWorkFailure = new Error('article-render-request-work-lookup-failed', { cause });
+            }
+            return rendering;
+        }).then(value =>
+        {
+            producedResult = value;
+            productionState = 'fulfilled';
+            return value;
+        }, (error: unknown) =>
+        {
+            productionState = 'rejected';
+            throw error;
+        });
+        if (task.signal.aborted)
+        {
+            onAbort();
+        }
+        const receipt = (async (): Promise<ArticleRenderReceipt> =>
+        {
+            let result: ArticleRenderResult | null = null;
+            let status: ArticleRenderReceipt['status'] = 'rejected';
+            let reason: string | null = 'render-result-invalid';
+            try
+            {
+                const value = await Promise.race([produced, canceled]);
+                if (value === cancellation)
+                {
+                    status = 'canceled';
+                    reason = 'render-canceled';
+                }
+                else if (task.isCurrent() && identitiesEqual(this.identity, request.identity)
+                    && validateArticleRenderResult(value) && value.contextDigest === request.context.contextDigest
+                    && value.requestId === request.requestId && identitiesEqual(value.identity, request.identity)
+                    && this.producer.verify(request, value))
+                {
+                    result = seal(structuredClone(value));
+                    if (value.status === 'fatal' || value.status === 'projection-failed')
                     {
                         status = 'failed';
-                        reason = 'cache-size-limit';
+                        reason = value.reason;
                         task.complete();
                     }
-                    else if (task.accept(result).accepted)
+                    else
                     {
-                        this.clearEntry();
-                        this.entry = entry;
-                        this.entryRequest = request;
-                        status = 'committed';
-                        reason = null;
+                        const unsigned = { schema: articleRenderCacheSchema, context: request.context,
+                            identity: request.identity, result, createdAt: this.clock() };
+                        const entry = seal({ ...unsigned, cacheDigest: digest(unsigned) });
+                        if (!validateArticleRenderCacheEntry(entry))
+                        {
+                            producerFailure ??= new Error('article-render-producer-output-invalid', { cause: value });
+                        }
+                        else if (new TextEncoder().encode(JSON.stringify(entry)).byteLength > this.policy.maxEntryBytes)
+                        {
+                            status = 'failed';
+                            reason = 'cache-size-limit';
+                            task.complete();
+                        }
+                        else if (task.accept(result).accepted)
+                        {
+                            try
+                            {
+                                this.clearEntry();
+                            }
+                            catch (error)
+                            {
+                                rememberCleanupFailure(error);
+                                throw error;
+                            }
+                            // Release is an external producer callback. Its return
+                            // cannot authorize commit after reentry/owner retirement.
+                            if (!this.disposed && this.active === task && !task.signal.aborted
+                                && this.adapter.isCurrentContext(request.context)
+                                && identitiesEqual(this.identity, request.identity))
+                            {
+                                this.entry = entry;
+                                this.entryRequest = request;
+                                committed = true;
+                                committedRef = entry.result.resultRef;
+                                status = 'committed';
+                                reason = null;
+                            }
+                        }
                     }
                 }
             }
-        }
-        catch
-        {
-            status = task.signal.aborted ? 'canceled' : 'failed';
-            reason = task.signal.aborted ? 'render-canceled' : 'render-producer-failed';
-        }
-        finally
-        {
-            task.signal.removeEventListener('abort', onAbort);
-            if (uncommittedRef !== null && status !== 'committed')
+            catch (cause)
             {
-                this.producer.release(uncommittedRef);
+                if (producedResult !== notProduced && !cleanupFailure)
+                {
+                    producerFailure ??= new Error('article-render-admission-terminal-unconfirmed', { cause });
+                }
+                status = task.signal.aborted ? 'canceled' : 'failed';
+                reason = cleanupFailure ? 'render-cleanup-failed'
+                    : task.signal.aborted ? 'render-canceled' : 'render-producer-failed';
             }
-        }
-        if (task.envelope.status === 'running')
-        {
-            task.cancel(reason ?? 'render-result-rejected');
-        }
-        if (this.active === task)
-        {
-            this.active = null;
-            this.refreshState = status === 'committed' ? 'idle' : status === 'canceled' ? 'canceled' : 'failed';
-            this.failure = status === 'failed' || status === 'rejected' ? reason : null;
-        }
-        const unsigned = { schema: articleRenderReceiptSchema, task: task.envelope, identity: request.identity,
-            result, status, reason, startedAt, completedAt: Math.max(startedAt, this.clock()) };
-        const receipt = seal({ ...unsigned, receiptDigest: digest(unsigned) });
-        if (!this.disposed && sameDocument(request.context, this.adapter.context))
-        {
-            this.receiptLog.push(receipt);
-            while (this.receiptLog.length > this.policy.maxReceipts)
+            finally
             {
-                this.receiptLog.shift();
+                task.signal.removeEventListener('abort', onAbort);
+                try
+                {
+                    classifyUncommitted();
+                }
+                catch
+                {
+                    status = 'failed';
+                    reason = cleanupFailure ? 'render-cleanup-failed' : 'render-producer-failed';
+                }
             }
-        }
-        return receipt;
+            if (task.envelope.status === 'running')
+            {
+                task.cancel(reason ?? 'render-result-rejected');
+            }
+            if (this.active === task)
+            {
+                this.active = null;
+                this.refreshState = status === 'committed' ? 'idle' : status === 'canceled' ? 'canceled' : 'failed';
+                this.failure = status === 'failed' || status === 'rejected' ? reason : null;
+            }
+            const unsigned = { schema: articleRenderReceiptSchema, task: task.envelope, identity: request.identity,
+                result, status, reason, startedAt, completedAt: Math.max(startedAt, this.clock()) };
+            const receipt = seal({ ...unsigned, receiptDigest: digest(unsigned) });
+            if (!this.disposed && sameDocument(request.context, this.adapter.context))
+            {
+                this.receiptLog.push(receipt);
+                while (this.receiptLog.length > this.policy.maxReceipts)
+                {
+                    this.receiptLog.shift();
+                }
+            }
+            return receipt;
+        })();
+        const terminal = Promise.resolve().then(async (): Promise<void> =>
+        {
+            // Await the real producer future, never the cancellation race alone.
+            try
+            {
+                await produced;
+            }
+            catch (cause)
+            {
+                // No returned ref or explicit failure-cleanup endpoint exists.
+                // Preserve that producer's obligation rather than infer cleanup.
+                producerFailure = new Error('article-render-producer-terminal-unconfirmed', { cause });
+            }
+            await receipt;
+            // A prompt canceled receipt may have skipped classification because
+            // nothing had been produced yet. Revisit that SAME late output now.
+            try
+            {
+                classifyUncommitted();
+            }
+            catch (cause)
+            {
+                rememberCleanupFailure(cause);
+            }
+            // Both success and rejection require the ORIGINAL work for this exact
+            // request object. Result shape/source/null does not authorize cleanup.
+            const lookupFailure = requestWorkFailure;
+            if (lookupFailure)
+            {
+                throw lookupFailure;
+            }
+            const actualWork = producerWork ?? this.producer.getRequestWork?.(request);
+            const actualTerminal = actualWork?.terminal;
+            if (actualWork?.request !== request || !Object.isFrozen(actualWork)
+                || !(actualTerminal instanceof Promise))
+            {
+                throw work.producerFailure ?? new Error('article-render-request-terminal-unconfirmed');
+            }
+            producerWork = actualWork;
+            await actualTerminal;
+            if (actualWork.request !== request || actualWork.terminal !== actualTerminal
+                || this.producer.getRequestWork?.(request) !== actualWork)
+            {
+                throw new Error('article-render-request-terminal-binding-changed');
+            }
+            // A completed producer endpoint cannot overwrite this owner's failed
+            // cleanup verification/custody obligation or permit release/settle.
+            const validationFailure = work.cleanupFailure;
+            if (validationFailure)
+            {
+                throw validationFailure;
+            }
+            const ownedRef = actualWork.resultRef;
+            if (ownedRef !== null && !isRef(ownedRef))
+            {
+                throw new Error('article-render-producer-cleanup-reference-invalid');
+            }
+            if (committed)
+            {
+                if (committedRef === null || ownedRef !== committedRef)
+                {
+                    throw new Error('article-render-transferred-reference-unconfirmed');
+                }
+            }
+            else if (ownedRef !== null)
+            {
+                try
+                {
+                    this.releaseReference(ownedRef);
+                }
+                catch (cause)
+                {
+                    rememberCleanupFailure(cause);
+                    throw work.cleanupFailure ?? new Error('article-render-cleanup-failed', { cause });
+                }
+            }
+            // Logical producer/admission errors remain observable. Only the bound
+            // real terminal above can discharge their resource obligation.
+            task.settle();
+            this.refreshWork.delete(work);
+        });
+        const work: ArticleRenderRefreshWork = Object.freeze({
+            taskRef: task.taskRef,
+            receipt,
+            terminal,
+            get productionState(): ArticleRenderRefreshWork['productionState']
+            {
+                return productionState;
+            },
+            get resultRef(): string | null
+            {
+                if (producedResult && typeof producedResult === 'object' && 'resultRef' in producedResult)
+                {
+                    const reference = producedResult.resultRef;
+                    return typeof reference === 'string' ? reference : null;
+                }
+                return null;
+            },
+            get cleanupFailure(): Error | null
+            {
+                return cleanupFailure;
+            },
+            get producerFailure(): Error | null
+            {
+                return producerFailure;
+            },
+            get producerWork(): ArticleRenderProducerRequestWork | null
+            {
+                return producerWork;
+            }
+        });
+        this.refreshWork.add(work);
+        // Observe internal rejection without changing the exported rejected future.
+        // Failed work/ref custody remains in this same cache and original lease.
+        void terminal.catch(() => undefined);
+        return work;
     }
 
     private clearEntry(): void
     {
+        if (this.entryReleasePending || this.entryReleaseFailure)
+        {
+            throw this.entryReleaseFailure ?? new Error('article-render-entry-release-pending');
+        }
         const old = this.entry;
+        this.entryReleasePending = true;
+        try
+        {
+            if (old?.result.resultRef)
+            {
+                this.releaseReference(old.result.resultRef);
+            }
+        }
+        catch (cause)
+        {
+            this.entryReleaseFailure = new Error('article-render-entry-release-failed', { cause });
+            throw this.entryReleaseFailure;
+        }
+        finally
+        {
+            this.entryReleasePending = false;
+        }
+        // A release failure must retain the original entry/reference custody.
         this.entry = null;
         this.entryRequest = null;
-        if (old?.result.resultRef)
+    }
+
+    private releaseReference(resultRef: string): void
+    {
+        const cleanup: unknown = this.producer.release(resultRef);
+        if (cleanup !== undefined)
         {
-            this.producer.release(old.result.resultRef);
+            const failure = new Error('article-render-cleanup-endpoint-missing', { cause: cleanup });
+            // The original contract is synchronous. Keep an undeclared future
+            // in failure custody; do not silently treat its return as cleanup.
+            try
+            {
+                if (cleanup instanceof Promise)
+                {
+                    void Promise.prototype.then.call(cleanup, undefined, () => undefined);
+                }
+            }
+            catch (observationFailure)
+            {
+                throw new AggregateError([failure], 'article-render-cleanup-observer-unconfirmed',
+                    { cause: observationFailure });
+            }
+            throw failure;
         }
     }
 }

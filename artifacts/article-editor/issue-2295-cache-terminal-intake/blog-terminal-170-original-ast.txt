@@ -1,0 +1,7 @@
+src/frontend/src/services/authoring/articleRenderCache.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/articleEditorContinuity.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts: AST 0 diagnostics
+tests/frontend/unit/authoring/articleRenderCache.test.ts: AST 0 diagnostics
+tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts: AST 0 diagnostics
+tests/frontend/unit/authoring/articleEditorContinuity.test.ts: AST 0 diagnostics

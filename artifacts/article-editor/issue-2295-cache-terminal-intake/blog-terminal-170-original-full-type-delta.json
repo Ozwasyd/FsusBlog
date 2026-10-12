@@ -1,0 +1,10 @@
+{
+  "beforeExit": 2,
+  "afterExit": 2,
+  "beforeDiagnostics": 258,
+  "afterDiagnostics": 258,
+  "added": [],
+  "removed": [],
+  "normalization": "Complete diagnostic blocks incl multiline messages/multiplicity; only original (line,column) positions normalized. Same original Main full application entry, same local UI d60.",
+  "supplierEvidence": "730 files / 221 diagnostics is separate and is not this current Main result."
+}

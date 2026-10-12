@@ -33,6 +33,90 @@ interface RetainedFsusUiResult {
     readonly pair: Readonly<RetainedFsusUiPair>;
 }
 
+/** Per-request work of this original producer, not a native lifetime receipt. */
+export interface ArticleFsusUiRenderWork {
+    readonly request: ArticleRenderRequest;
+    readonly result: Promise<ArticleRenderResult>;
+    readonly terminal: Promise<void>;
+    readonly resultRef: string | null;
+    readonly producerFailure: Error | null;
+    readonly cleanupFailure: Error | null;
+}
+
+interface ArticleFsusUiRenderCleanup {
+    resultRef: string | null;
+    runtimeStarted: boolean;
+    runtimeSucceeded: boolean;
+    runtimeFailure: unknown;
+    endpointFailure: Error | null;
+    knownFailure: Error | null;
+    observerPromises: Promise<unknown>[];
+}
+
+const observerPromiseConstructor = Promise;
+const observerPromisePrototype = Promise.prototype;
+const observerOwnDescriptor = Object.getOwnPropertyDescriptor;
+const observerPrototypeOf = Object.getPrototypeOf;
+const observerThenDescriptor = observerOwnDescriptor(observerPromisePrototype, 'then');
+const observerSpeciesDescriptor = observerOwnDescriptor(Promise, Symbol.species);
+
+const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: string, cause: unknown): Error =>
+{
+    const previous = cleanup.endpointFailure;
+    cleanup.endpointFailure = new Error(message, { cause: previous ? { previous, cause } : cause });
+    try
+    {
+        // Discard fulfillment values explicitly: forwarding them would assimilate
+        // their then getter again in the derived Promise. Neither observer is proof.
+        if (typeof cause === 'object' && cause !== null && observerPrototypeOf(cause) === observerPromisePrototype)
+        {
+            // Do not invoke an arbitrary constructor/species getter or create its
+            // subclass. Awaiting such a derivative can manufacture another ignored
+            // species Promise. Unsupported futures keep their original custody.
+            const constructor = observerOwnDescriptor(cause, 'constructor')
+                ?? observerOwnDescriptor(observerPromisePrototype, 'constructor');
+            const species = observerOwnDescriptor(observerPromiseConstructor, Symbol.species);
+            if (constructor?.value !== observerPromiseConstructor || constructor.get || constructor.set
+                || !observerSpeciesDescriptor?.get || species?.get !== observerSpeciesDescriptor.get || species.set
+                || Object.prototype.hasOwnProperty.call(species, 'value'))
+            {
+                throw new Error('article-fsusui-observer-species-unavailable', { cause: { constructor, species } });
+            }
+            const thenMethod: unknown = observerThenDescriptor?.value;
+            if (typeof thenMethod !== 'function')
+            {
+                throw new Error('article-fsusui-observer-method-unavailable');
+            }
+            const observerPromise: unknown = Reflect.apply(thenMethod, cause, [() => undefined, () => undefined]);
+            if (!(observerPromise instanceof observerPromiseConstructor)
+                || observerPrototypeOf(observerPromise) !== observerPromisePrototype)
+            {
+                throw new Error('article-fsusui-observer-promise-unavailable', { cause: observerPromise });
+            }
+            cleanup.observerPromises.push(observerPromise);
+            const completion = (async (): Promise<void> =>
+            {
+                try
+                {
+                    await observerPromise;
+                }
+                catch (observationFailure)
+                {
+                    cleanup.endpointFailure = new Error('article-fsusui-rejection-observer-unconfirmed',
+                        { cause: { endpointFailure: cleanup.endpointFailure, observerPromise, observationFailure } });
+                }
+            })();
+            cleanup.observerPromises.push(completion);
+        }
+    }
+    catch (observationFailure)
+    {
+        cleanup.endpointFailure = new Error('article-fsusui-rejection-observer-unconfirmed',
+            { cause: { endpointFailure: cleanup.endpointFailure, observationFailure } });
+    }
+    return cleanup.endpointFailure;
+};
+
 const freezeProjection = <T extends object>(value: T): T =>
 {
     for (const child of Object.values(value))
@@ -49,6 +133,7 @@ const freezeProjection = <T extends object>(value: T): T =>
 export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
 {
     private readonly results = new Map<string, RetainedFsusUiResult>();
+    private readonly requestWork = new WeakMap<ArticleRenderRequest, ArticleFsusUiRenderWork>();
     private sequence = 0;
     private readonly configuration: ArticleFsusUiRenderConfiguration;
     private readonly readSource: (request: ArticleRenderRequest) => string;
@@ -74,6 +159,107 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
 
     public async render(request: ArticleRenderRequest): Promise<ArticleRenderResult>
     {
+        return this.startRender(request).result;
+    }
+
+    public getRequestWork(request: ArticleRenderRequest): ArticleFsusUiRenderWork | null
+    {
+        return this.requestWork.get(request) ?? null;
+    }
+
+    public startRender(request: ArticleRenderRequest): ArticleFsusUiRenderWork
+    {
+        const existing = this.getRequestWork(request);
+        if (existing)
+        {
+            return existing;
+        }
+        const cleanup: ArticleFsusUiRenderCleanup = { resultRef: null,
+            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null,
+            endpointFailure: null, knownFailure: null, observerPromises: [] };
+        let producerFailure: Error | null = null;
+        let cleanupFailure: Error | null = null;
+        const result = Promise.resolve().then(() => this.renderRequest(request, cleanup)).catch(cause =>
+        {
+            producerFailure = new Error('article-fsusui-producer-failed', { cause });
+            if (cleanup.endpointFailure === null && (cleanup.knownFailure === null || cause !== cleanup.knownFailure))
+            {
+                preserveUnknownEndpoint(cleanup, 'article-fsusui-producer-cleanup-unconfirmed', cause);
+            }
+            if (cleanup.resultRef !== null)
+            {
+                try
+                {
+                    const released: unknown = this.release(cleanup.resultRef);
+                    if (released !== undefined)
+                    {
+                        throw preserveUnknownEndpoint(cleanup, 'article-fsusui-cleanup-endpoint-missing', released);
+                    }
+                    cleanup.resultRef = null;
+                }
+                catch (error)
+                {
+                    cleanupFailure = new Error('article-fsusui-request-cleanup-failed', { cause: error });
+                    throw cleanupFailure;
+                }
+            }
+            throw cause;
+        });
+        const terminal = Promise.resolve().then(async (): Promise<void> =>
+        {
+            try
+            {
+                await result;
+            }
+            catch
+            {
+                // This actual result future includes the failed request's local cleanup.
+            }
+            const failure = work.cleanupFailure;
+            if (failure)
+            {
+                throw failure;
+            }
+            const rejected = work.producerFailure;
+            if (rejected && (cleanup.knownFailure === null || rejected.cause !== cleanup.knownFailure))
+            {
+                // Only an error minted by this actual request can attest a known local
+                // failure. External Error/Promise/thenable/primitive throws remain unknown.
+                throw rejected;
+            }
+            if (cleanup.runtimeStarted && !cleanup.runtimeSucceeded)
+            {
+                // FsusUI's error envelope may hide a native free failure. It has no
+                // separate failure-cleanup endpoint; rejection is never that proof.
+                throw new Error('article-fsusui-native-cleanup-unconfirmed', { cause: cleanup.runtimeFailure });
+            }
+        });
+        const work: ArticleFsusUiRenderWork = Object.freeze({ request, result, terminal,
+            get resultRef()
+            {
+                return cleanup.resultRef;
+            },
+            get producerFailure()
+            {
+                return producerFailure;
+            },
+            get cleanupFailure()
+            {
+                return cleanupFailure ?? cleanup.endpointFailure;
+            } });
+        this.requestWork.set(request, work);
+        void terminal.catch(() => undefined);
+        return work;
+    }
+
+    private async renderRequest(request: ArticleRenderRequest, cleanup: ArticleFsusUiRenderCleanup): Promise<ArticleRenderResult>
+    {
+        const cancel = (): never =>
+        {
+            const error = new Error('render-canceled');
+            cleanup.knownFailure = error;
+            throw error;
+        };
         const failure = (reason: string, status: 'fatal' | 'projection-failed' = 'fatal'): ArticleRenderResult => ({
             contextDigest: request.context.contextDigest, requestId: request.requestId, identity: request.identity,
             status, reason, resultRef: null, resultDigest: null,
@@ -81,9 +267,28 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         });
         if (request.signal.aborted)
         {
-            throw new Error('render-canceled');
+            cancel();
         }
-        const source = this.readSource(request);
+        let source: unknown;
+        try
+        {
+            source = this.readSource(request);
+        }
+        catch (cause)
+        {
+            // A synchronous callback can legally throw an unfinished future.
+            // Publish its actual custody before any rejection-observer callback.
+            preserveUnknownEndpoint(cleanup, 'article-fsusui-source-cleanup-unconfirmed', cause);
+            throw cause;
+        }
+        if (typeof source !== 'string')
+        {
+            throw preserveUnknownEndpoint(cleanup, 'article-fsusui-source-endpoint-missing', source);
+        }
+        if (request.signal.aborted)
+        {
+            cancel();
+        }
         if (digest({ schema: articleDocumentContextSchema, content: source }) !== request.context.contentDigest
             || request.identity.rendererVersion !== MARKDOWN_RENDERER_VERSION
             || request.identity.projectionVersion !== MARKDOWN_RENDERER_VERSION
@@ -92,10 +297,13 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             return failure('render-identity-mismatch');
         }
         // The public renderer has no AbortSignal parameter: cancellation guards its admission.
+        cleanup.runtimeStarted = true;
         const rendered = await renderMarkdownWithFsusRuntime({ source, mode: 'editor', ...this.configuration });
+        cleanup.runtimeSucceeded = rendered.ok;
+        cleanup.runtimeFailure = rendered.ok ? null : rendered.error;
         if (request.signal.aborted)
         {
-            throw new Error('render-canceled');
+            cancel();
         }
         if (!rendered.ok)
         {
@@ -116,13 +324,14 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
                 return failure('projection-identity-mismatch', 'projection-failed');
             }
         }
-        catch
+        catch (cause)
         {
+            preserveUnknownEndpoint(cleanup, 'article-fsusui-projection-cleanup-unconfirmed', cause);
             return failure('fsusui-projection-failed', 'projection-failed');
         }
         if (request.signal.aborted)
         {
-            throw new Error('render-canceled');
+            cancel();
         }
         const size = new TextEncoder().encode(JSON.stringify({ render: rendered.value, projection })).byteLength;
         if (size > this.maxResultBytes || this.results.size >= 2)
@@ -144,6 +353,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         {
             return failure('fsusui-result-invalid');
         }
+        cleanup.resultRef = resultRef;
         this.results.set(resultRef, { request, result, pair: Object.freeze({ render: rendered.value, projection }) });
         return result;
     }
