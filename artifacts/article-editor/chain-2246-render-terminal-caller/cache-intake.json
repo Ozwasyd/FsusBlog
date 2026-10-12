@@ -1,0 +1,20 @@
+{
+  "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
+  "supplier": "f67f79e91a3f9742d5d4dc28ad7d1de727299fc6",
+  "paths": [
+    "artifacts/article-editor/chain-2245-render-terminal/README.md",
+    "artifacts/article-editor/chain-2245-render-terminal/source-evidence.json",
+    "artifacts/article-editor/chain-2245-render-terminal/source-parse.json",
+    "artifacts/article-editor/chain-2245-render-terminal/style.txt",
+    "artifacts/article-editor/chain-2245-render-terminal/type-base.txt",
+    "artifacts/article-editor/chain-2245-render-terminal/type-delta.json",
+    "artifacts/article-editor/chain-2245-render-terminal/type.txt",
+    "docs/architecture/overview.md",
+    "src/frontend/src/services/authoring/articleRenderCache.ts",
+    "tests/frontend/unit/authoring/articleRenderCache.test.ts"
+  ],
+  "postimagesExact": true,
+  "patchCheckExit": 0,
+  "indexApplyExit": 0,
+  "runtimeQualification": false
+}

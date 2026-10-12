@@ -1,0 +1,31 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleSourceCompare.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleEditorContinuity.test.ts",
+      "parseDiagnostics": []
+    }
+  ],
+  "sourceASTOnly": true,
+  "candidateModulesExecuted": false,
+  "sourceControlsRun": false
+}
