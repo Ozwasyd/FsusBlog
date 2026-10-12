@@ -1,0 +1,21 @@
+{
+  "candidateModulesImported": false,
+  "original13Controls": "UNRUN; original source parsed from 619/tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts, no new test entry/runner copied into Main",
+  "candidateCases": [
+    "committed ref remains live during candidate preparation",
+    "copy/foreign/wrong native/version/member source refusal",
+    "clientRevision changes at final private publication fence",
+    "reentry/retirement/cancel/legacy capture-restore exclusion",
+    "original field setter and UUID/owner reader failures preserve committed custody",
+    "private publish no reader/alloc/native/journal/form write"
+  ],
+  "MainAdaptationCases": [
+    "mounted original draft getter byte-identical",
+    "native capture signature/implementation expected assertAdmission forwarded byte-identical",
+    "private original hasDraftReferenceCustody byte-identical",
+    "hasReferenceCustody once only plus five direct same-issued delegates",
+    "final082 Journal/doc exact; old6ff incorrect donor Journal excluded",
+    "fullhost capture/ref restoration still refused for absent joint liveauthority boundary"
+  ],
+  "status": "SOURCE MATRIX / ALL UNRUN"
+}

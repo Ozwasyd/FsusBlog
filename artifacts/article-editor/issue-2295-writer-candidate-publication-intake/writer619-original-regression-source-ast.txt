@@ -1,0 +1,1 @@
+/workspace/session-evidence-2295/writer619-original-regression-source.ts: AST 0 diagnostics

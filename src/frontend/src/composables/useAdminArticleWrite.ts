@@ -64,7 +64,7 @@ import {
     type ArticleRecoveryDivergence,
     type ArticleRecoveryFlushResult,
     type ArticleRecoveryJournalRecord,
-    type ArticleRecoveryJournalCheckpointReferenceBinding,
+    type ArticleRecoveryJournalCheckpointPublicationBinding,
     type ArticleRecoveryJournalCheckpointSource,
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
@@ -1051,7 +1051,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             }
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
-            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
             let recoveryCheckpointCreating = false;
             const release = (): void =>
             {
@@ -1127,7 +1127,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     () => active && writerScope.active && componentAttached && editorRuntimeBinding === binding && originalMountedEditor === editor
                         ? authoringDraftCheckpointRuntime : null)
                 : null;
-            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding & {
+            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointPublicationBinding & {
                 /** Native retained snapshot only; complete application factory custody remains unavailable. */
                 captureRetainedSnapshot(reference: string, assertAdmission?: () => void): MarkdownEditorSessionSnapshot;
             } =>
@@ -1182,7 +1182,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 };
                 // Reserve before the first caller-held mounted read can reenter this method.
                 recoveryCheckpointCreating = true;
-                let journal: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+                let journal: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
                 let unsubscribe: (() => void) | null = null;
                 let stopIdentityWatch: (() => void) | null = null;
                 let checkpoint: ReturnType<typeof bindRecoveryCheckpoint> | null = null;
@@ -1233,6 +1233,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                         hasReferenceCustody: (reference, info) => issued.hasReferenceCustody(reference, info),
                         validateReference: (reference, content) => issued.validateReference(reference, content),
                         restoreReference: reference => issued.restoreReference(reference),
+                        preparePublication: signal => issued.preparePublication(signal),
+                        validatePrepared: (candidate, content) => issued.validatePrepared(candidate, content),
+                        hasPreparedCustody: (candidate, info) => issued.hasPreparedCustody(candidate, info),
+                        publishPrepared: (candidate, info) => issued.publishPrepared(candidate, info),
+                        cancelPrepared: candidate => issued.cancelPrepared(candidate),
                         captureRetainedSnapshot: (reference, assertAdmission?: () => void) =>
                         {
                             const source = readSource();
@@ -2270,16 +2275,53 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         baseRevisionId: owner.baseRevisionId, serverRevision: owner.serverRevision, revisionNo: owner.revisionNo,
         serverDraftSyncPaused: owner.serverDraftSyncPaused, fullDraftDigest: owner.semanticIdentity
     });
-    let fullDraftCustody: { readonly snapshot: ReturnType<typeof freezeFullDraftSnapshot>;
-        readonly owner: NonNullable<ReturnType<typeof readFullDraftOwner>>; readonly info: ReturnType<typeof fullDraftInfo>; } | null = null;
+    interface FullDraftCustody {
+        readonly snapshot: ReturnType<typeof freezeFullDraftSnapshot>;
+        readonly owner: NonNullable<ReturnType<typeof readFullDraftOwner>>;
+        readonly info: ReturnType<typeof fullDraftInfo>;
+    }
+    let fullDraftCustody: FullDraftCustody | null = null;
+    // One pending candidate in this SAME original owner; committed custody stays untouched.
+    interface PreparedDraftCustody {
+        custody: FullDraftCustody | null;
+        previous: FullDraftCustody | null;
+        readonly generation: number;
+        readonly retained: ArticleDocumentRetainedBinding;
+        state: 'preparing' | 'prepared' | 'validating' | 'validated' | 'published' | 'canceled';
+    }
+    let preparedDraftCustody: PreparedDraftCustody | null = null;
     let fullDraftGeneration = 0;
     let fullDraftSequence = 0;
     let fullDraftCapturing = false;
     let fullDraftRestoring = false;
     let fullDraftPrincipalRetired = false;
     let fullDraftReleased = false;
+    const cancelPreparedDraft = (candidate: PreparedDraftCustody): boolean =>
+    {
+        if (preparedDraftCustody !== candidate)
+        {
+            return false;
+        }
+        preparedDraftCustody = null;
+        candidate.state = 'canceled';
+        candidate.custody = null;
+        candidate.previous = null;
+        return true;
+    };
+    // Private scalars/references only: no borrowed reader, allocation, reactive setter or native operation.
+    const hasPreparedDraftCustody = (candidate: PreparedDraftCustody): boolean =>
+        preparedDraftCustody === candidate && fullDraftCustody === candidate.previous
+        && fullDraftGeneration === candidate.generation && active && componentAttached
+        && !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
+        && (!candidate.custody || candidate.custody.owner.runtime === originalMountedRuntime
+            && candidate.custody.owner.mounted === originalMountedEditor
+            && candidate.custody.owner.clientRevision === activeRecoveryClientRevision);
     const invalidateDraftCheckpoint = (): void =>
     {
+        if (preparedDraftCustody)
+        {
+            cancelPreparedDraft(preparedDraftCustody);
+        }
         fullDraftCustody = null;
         if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
         {
@@ -2288,6 +2330,68 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         else
         {
             fullDraftGeneration += 1;
+        }
+    };
+    const sameFullDraftOwner = (current: ReturnType<typeof readFullDraftOwner>, owner: FullDraftCustody['owner']): boolean =>
+        !!current && current.runtime === owner.runtime && current.mounted === owner.mounted
+        && current.session === owner.session && current.identityId === owner.identityId
+        && current.document.contextDigest === owner.document.contextDigest
+        && current.semanticIdentity === owner.semanticIdentity && current.draftKey === owner.draftKey
+        && current.registryRevision === owner.registryRevision && current.associationRevision === owner.associationRevision
+        && current.editorSessionRef === owner.editorSessionRef && current.clientRevision === owner.clientRevision
+        && current.revisionNo === owner.revisionNo && current.baseRevisionId === owner.baseRevisionId
+        && current.serverRevision === owner.serverRevision && current.serverDraftSyncPaused === owner.serverDraftSyncPaused;
+    const validatePreparedDraft = (candidate: PreparedDraftCustody): boolean =>
+    {
+        if ((candidate.state !== 'prepared' && candidate.state !== 'validated') || !hasPreparedDraftCustody(candidate))
+        {
+            // Reentry cannot consume/cancel the validation currently on this stack.
+            if (candidate.state !== 'validating')
+            {
+                cancelPreparedDraft(candidate);
+            }
+            return false;
+        }
+        candidate.state = 'validating';
+        let admitted = false;
+        try
+        {
+            const custody = candidate.custody;
+            const current = readFullDraftOwner();
+            if (!custody || !sameFullDraftOwner(current, custody.owner) || !hasPreparedDraftCustody(candidate)
+                || retainedPrimaryBinding.value !== candidate.retained || candidate.retained.adapter !== articleDocumentContextAdapter)
+            {
+                return false;
+            }
+            const retained = candidate.retained.inspect();
+            if (retained.admissionClosed || retained.invalidationFailed || retained.registry.state !== 'live'
+                || !retained.registryRevisionMatchesDocument || retained.context !== custody.owner.document
+                || retained.principalIdentityId !== custody.owner.identityId)
+            {
+                return false;
+            }
+            // The retained reader can reenter original native/form/membership owners.
+            // Re-read them afterward, then finish with the private slot/generation checks.
+            const after = readFullDraftOwner();
+            admitted = sameFullDraftOwner(after, custody.owner) && retainedPrimaryBinding.value === candidate.retained
+                && candidate.state === 'validating' && candidate.custody === custody && hasPreparedDraftCustody(candidate);
+            return admitted;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            if (admitted)
+            {
+                candidate.state = 'validated';
+            }
+            else
+            {
+                // Failed candidates are discarded; the committed slot is not touched.
+                cancelPreparedDraft(candidate);
+            }
         }
     };
     const inspectDraftReference = (reference: string) =>
@@ -2326,9 +2430,86 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
     const authoringDraftCheckpointRuntime = Object.freeze({
+        /** Prepare actual same-owner/same-revision form custody without invalidating the old reference. */
+        prepareDraftCheckpoint: () =>
+        {
+            const retained = retainedPrimaryBinding.value;
+            if (retained?.adapter !== articleDocumentContextAdapter || preparedDraftCustody
+                || fullDraftReleased || fullDraftPrincipalRetired || !active || !componentAttached
+                || fullDraftCapturing || fullDraftRestoring || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
+            {
+                return null;
+            }
+            // Reserve before original native/scope/form readers or randomUUID can reenter.
+            const candidate: PreparedDraftCustody = { custody: null, previous: fullDraftCustody,
+                generation: fullDraftGeneration, retained, state: 'preparing' };
+            preparedDraftCustody = candidate;
+            try
+            {
+                const owner = readFullDraftOwner();
+                if (!owner || !hasPreparedDraftCustody(candidate) || typeof globalThis.crypto?.randomUUID !== 'function')
+                {
+                    return null;
+                }
+                const draft = buildDraftSnapshot(owner.clientRevision ?? '');
+                if (fullDraftIdentity(draft, owner.clientRevision, owner.revisionNo) !== owner.semanticIdentity
+                    || !hasPreparedDraftCustody(candidate))
+                {
+                    return null;
+                }
+                const snapshot = freezeFullDraftSnapshot(draft);
+                const reference = `article-draft-state:${globalThis.crypto.randomUUID()}:${++fullDraftSequence}`;
+                const info = fullDraftInfo(reference, owner);
+                const custody: FullDraftCustody = Object.freeze({ snapshot, owner, info });
+                if (!hasPreparedDraftCustody(candidate))
+                {
+                    return null;
+                }
+                candidate.custody = custody;
+                candidate.state = 'prepared';
+                const preparation = Object.freeze({
+                    info,
+                    validate: () => validatePreparedDraft(candidate),
+                    /** Private custody after the preceding fresh validation; not native/full-host qualification. */
+                    hasCustody: () => candidate.state === 'validated' && hasPreparedDraftCustody(candidate),
+                    publish: () =>
+                    {
+                        if (candidate.state !== 'validated' || !candidate.custody || !hasPreparedDraftCustody(candidate))
+                        {
+                            if (candidate.state !== 'validating' && candidate.state !== 'preparing')
+                            {
+                                cancelPreparedDraft(candidate);
+                            }
+                            return null;
+                        }
+                        // No callback, reader, allocation, form write or cleanup after publication.
+                        fullDraftCustody = candidate.custody;
+                        preparedDraftCustody = null;
+                        candidate.state = 'published';
+                        candidate.custody = null;
+                        candidate.previous = null;
+                        return info;
+                    },
+                    cancel: () => cancelPreparedDraft(candidate)
+                });
+                return validatePreparedDraft(candidate) ? preparation : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                if (candidate.state !== 'validated')
+                {
+                    cancelPreparedDraft(candidate);
+                }
+            }
+        },
         captureDraftCheckpoint: () =>
         {
-            if (fullDraftReleased || fullDraftPrincipalRetired || fullDraftCapturing || fullDraftRestoring || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
+            if (preparedDraftCustody || fullDraftReleased || fullDraftPrincipalRetired || fullDraftCapturing || fullDraftRestoring
+                || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
             {
                 return null;
             }
@@ -2374,7 +2555,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
         restoreDraftReference: (reference: string) =>
         {
-            if (fullDraftRestoring || fullDraftCapturing || draftFormRestoring)
+            if (preparedDraftCustody || fullDraftRestoring || fullDraftCapturing || draftFormRestoring)
             {
                 return null;
             }
@@ -2414,7 +2595,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         },
         releaseDraftCheckpoint: (reference: string): boolean =>
         {
-            if (typeof reference !== 'string' || fullDraftCustody?.info.draftStateRef !== reference)
+            if (preparedDraftCustody || typeof reference !== 'string' || fullDraftCustody?.info.draftStateRef !== reference)
             {
                 return false;
             }
@@ -2522,7 +2703,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const performRestoreLocalDraft = async (): Promise<void> =>
     {
-        if (draftFormRestoring || fullDraftRestoring)
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
         {
             throw new Error('article-draft-recovery-during-checkpoint-restore');
         }
@@ -2590,7 +2771,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const performDiscardLocalDraft = async (): Promise<void> =>
     {
-        if (draftFormRestoring || fullDraftRestoring)
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
         {
             throw new Error('article-draft-recovery-during-checkpoint-restore');
         }
@@ -2639,7 +2820,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const restoreLocalDraft = async (): Promise<void> =>
     {
-        if (draftFormRestoring || fullDraftRestoring)
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
         {
             throw new Error('article-draft-recovery-during-checkpoint-restore');
         }
@@ -2657,7 +2838,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const discardLocalDraft = async (): Promise<void> =>
     {
-        if (draftFormRestoring || fullDraftRestoring)
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
         {
             throw new Error('article-draft-recovery-during-checkpoint-restore');
         }
@@ -4044,7 +4225,15 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         try
         {
             unsubscribeRetainedContext = retained.adapter.subscribeContext(syncAuthoringDocumentContext);
-            unsubscribeRetainedLifetime = retained.subscribeLifetime(() => syncAuthoringDocumentContext());
+            unsubscribeRetainedLifetime = retained.subscribeLifetime(() =>
+            {
+                // Genuine member/lifetime notification cancels only the pending candidate.
+                if (preparedDraftCustody)
+                {
+                    cancelPreparedDraft(preparedDraftCustody);
+                }
+                syncAuthoringDocumentContext();
+            });
         }
         catch (error)
         {
