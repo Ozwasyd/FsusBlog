@@ -88,11 +88,12 @@
 
 <script setup lang="ts">
 import { FsusResizeSeparator } from '@ozwasyd/element-plus';
-import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue';
+import { computed, inject, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, shallowRef, watch } from 'vue';
 
 import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
 import type { AuthoringWorkspaceGeometryPlan } from '@/services/authoring/authoringWorkspaceGeometryPolicy';
 import type { AuthoringWorkspaceLayoutPort, AuthoringWorkspaceOutletExpectation } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceMountedAuthorityBeforeReadKey } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import { copyAuthoringWorkspaceLayoutObservation, copyAuthoringWorkspaceLayoutProjection, createAuthoringWorkspaceLayoutController, unavailableAuthoringWorkspaceLayout } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceLayoutObservation, AuthoringWorkspaceLayoutProjection, AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceSeparatorProps } from '@/services/authoring/authoringWorkspaceSeparatorAdapter';
@@ -100,6 +101,8 @@ import type { AuthoringWorkspaceSeparatorProps } from '@/services/authoring/auth
 import type { ResizeSeparatorCancelPayload, ResizeSeparatorPayload } from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'AuthoringWorkspaceLayout' });
+const revokeMountedBeforeRead = inject(authoringWorkspaceMountedAuthorityBeforeReadKey, null);
+onBeforeUpdate(() => revokeMountedBeforeRead?.());
 
 const props = defineProps<{
     source: AuthoringWorkspaceLayoutSource | null;
@@ -185,6 +188,7 @@ function cancelPublicSeparator(): void
 
 function refresh(): void
 {
+    revokeMountedBeforeRead?.();
     if (disposed || invalidating)
     {
         return;
@@ -232,6 +236,7 @@ function refresh(): void
 
 function invalidate(): void
 {
+    revokeMountedBeforeRead?.();
     generation++;
     renderState.value = fallbackRenderState();
     if (invalidating)
@@ -405,8 +410,16 @@ const separatorStyle = computed(() => geometry.value?.status === 'planned'
 // These are this component's own elements, not private FsusUI DOM. The caller
 // measures the public reserved region and its actual frame in the same CSS space.
 defineExpose({ refresh, invalidate,
-               readFrameRect: () => frameElement.value?.getBoundingClientRect() ?? null,
-               readSeparatorRect: () => separatorRegion.value?.getBoundingClientRect() ?? null
+               readFrameRect: () =>
+               {
+                   revokeMountedBeforeRead?.();
+                   return frameElement.value?.getBoundingClientRect() ?? null;
+               },
+               readSeparatorRect: () =>
+               {
+                   revokeMountedBeforeRead?.();
+                   return separatorRegion.value?.getBoundingClientRect() ?? null;
+               }
 } satisfies AuthoringWorkspaceLayoutPort);
 </script>
 

@@ -1,0 +1,49 @@
+{
+    "request": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
+    "layoutBase": "2f38650f6c86414cd88a13404af50de7939ed077",
+    "rootBase": "bb9d2de4abc428ed1a64b8e2d9450506722efdaf",
+    "rootUpstreamReview": "parent reports bounded bb9 bridge SOURCE CLOSED/no newmustfix; this Root caller offer pending independent review",
+    "scope": "three-file Root offer only; no Root source overwrite",
+    "paths": [
+        {
+            "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+            "baseBlob": "09eab6ad276af22bd9d1abaa4371827732cd0dc2",
+            "postimageSha256": "9cd534a6d1f3d85dfa8e8daccc976328eb0fa1adac0450dc1866e9d8c0aea776",
+            "productionEdited": false
+        },
+        {
+            "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
+            "baseBlob": "0c4a817bf0fad5ce11045946082d64f8f896f335",
+            "postimageSha256": "67910eda06dab446bab20bb2590f31f2f1bc5cfb4fedd179ead19c2811d13917",
+            "productionEdited": false
+        },
+        {
+            "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
+            "baseBlob": "2ca3e52eab57573f47990282231d074ccff5a497",
+            "postimageSha256": "738b32b88a589cafd0e91d84327621da6bc40680cb40a4f8b34f79d3d536102b",
+            "productionEdited": false
+        }
+    ],
+    "patchSha256": "0df56a4ceeff708de0c16a457423ddfbc94973c3888add536887b8128d2a0acf",
+    "missingOriginalAuthMembershipProducers": true,
+    "runtime": "ALL HOLD/UNRUN",
+    "ownedSource": [
+        {
+            "path": "src/frontend/src/views/admin/article/Write.vue",
+            "sha256": "3968c1f09b81684870ae31b4209d215e17840b1a7894f84ad4838472e53acee2"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
+            "sha256": "7d98f6daba3cb5b121145bdab24a15d78e80f1fa1d98d33513321910b27c8bfb"
+        },
+        {
+            "path": "src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue",
+            "sha256": "12ef084de61545c7f3c4dcf99fd697dae1330bb3fc62c4283d19ce729b7a759e"
+        },
+        {
+            "path": "src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue",
+            "sha256": "f50b6c1a8570596c03d91f6c1a0618b3c1028cb79fe36f4fe74ed3e1ce3e542c"
+        }
+    ],
+    "layoutPatchSha256": "9b3bebc770f6da09c3dbfa9a990ec05ec1789a93a7c084e5e28f6db31b48941f"
+}

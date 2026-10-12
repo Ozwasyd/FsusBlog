@@ -1,0 +1,107 @@
+--- a/src/frontend/src/layouts/AdminWorkspaceFrame.vue
++++ b/src/frontend/src/layouts/AdminWorkspaceFrame.vue
+@@ -97,6 +97,7 @@
+         custody: AuthoringTabGroupStartupCustody | null;
+         resolver: ArticleWorkspaceMountedEditorResolver | null;
+         sessions: AuthoringWorkspaceSessionSource | null;
++        readonly revokeMountedAuthority: () => void;
+         readonly invalidateLayouts: Set<() => void>;
+     };
+     readonly task: Promise<{
+@@ -284,6 +285,7 @@
+         custody: null,
+         resolver: null,
+         sessions: null,
++        revokeMountedAuthority: ports.beforeMountedAuthorityChange.bind(ports),
+         invalidateLayouts: new Set()
+     };
+     // Reserve the sole installation before any original capability callback can re-enter it.
+@@ -320,6 +322,7 @@
+     installation.revoking = true;
+     try
+     {
++        installation.resources.revokeMountedAuthority();
+         for (const invalidate of [...installation.resources.invalidateLayouts])
+         {
+             try
+@@ -354,7 +357,8 @@
+             // The original owner revokes admission and retains its actual Host/factory; no disposal claim.
+             try
+             {
+-                retireArticleWorkspaceEditorSessions(sessions.host);
++                installation.resources.revokeMountedAuthority();
++                sessions.retire();
+             }
+             catch (error: unknown)
+             {
+@@ -392,6 +396,7 @@
+ const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
+ const snapshotCaller = props.workspaceSnapshotCaller;
+ let viewStartupPorts = props.workspaceStartup;
++let viewMountedAuthorityChange = viewStartupPorts?.beforeMountedAuthorityChange.bind(viewStartupPorts);
+ let viewStartupSignal = viewStartupPorts?.signal;
+ let viewLayoutPorts = viewStartupPorts?.layout;
+ if (snapshotCaller && viewStartupPorts)
+@@ -417,6 +422,7 @@
+ let layoutEpoch = 0;
+ function notifyWorkspaceLayoutInvalidation(): void
+ {
++    viewMountedAuthorityChange?.();
+     // These are visual revocation subscribers only, never another group/session authority.
+     for (const listener of [...layoutInvalidationListeners])
+     {
+@@ -458,6 +464,7 @@
+ }
+ function captureRouteOutlet(instance: unknown): void
+ {
++    viewMountedAuthorityChange?.();
+     if (routeOutletInstance.value === instance)
+     {
+         return;
+@@ -774,7 +781,9 @@
+ }
+ function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPorts): void
+ {
++    viewMountedAuthorityChange?.();
+     viewStartupPorts = selectedPorts;
++    viewMountedAuthorityChange = selectedPorts.beforeMountedAuthorityChange.bind(selectedPorts);
+     viewStartupSignal = selectedPorts.signal;
+     viewLayoutPorts = selectedPorts.layout;
+     const startupPorts = selectedPorts;
+@@ -889,6 +898,7 @@
+ onBeforeUnmount(() =>
+ {
+     mounted = false;
++    viewMountedAuthorityChange?.();
+     invalidateWorkspaceLayout();
+     if (snapshotCaller)
+     {
+--- a/src/frontend/src/layouts/adminArticleWorkspaceStartup.ts
++++ b/src/frontend/src/layouts/adminArticleWorkspaceStartup.ts
+@@ -10,6 +10,8 @@
+     readonly sync: AuthoringWorkspaceSnapshotSync;
+     readonly resolutionPort: AuthoringWorkspaceSnapshotRestoreCommands['resolutionPort'];
+     readonly mountedEditors: ArticleWorkspaceMountedEditorSource;
++    /** Pinned actual mounted owner; revoke before callbacks, never cache an auth boolean. */
++    readonly beforeMountedAuthorityChange: () => void;
+     /** Actual original physical Write operation; a stub cannot satisfy native admission. */
+     readonly prepareMountedEditor: AuthoringWorkspacePrimaryMountPort['prepareMountedEditor'];
+     readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;
+--- a/src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts
++++ b/src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts
+@@ -262,6 +262,7 @@
+             throw new Error('article-workspace-snapshot-batch-source-required');
+         }
+         const mountedEditors = checked(() => original.mountedEditors);
++        const beforeMountedAuthorityChange = checked(() => original.beforeMountedAuthorityChange.bind(original));
+         const mountOwner = checked(() => original.prepareMountedEditor);
+         if (typeof mountOwner !== 'function')
+         {
+@@ -414,6 +415,7 @@
+         const ports = Object.freeze<AdminArticleWorkspaceStartupPorts>({
+             sync, resolutionPort, mountedEditors, groupOptions, createGroupIdentity, operationEpoch,
+             signal, layout,
++            beforeMountedAuthorityChange: () => beforeMountedAuthorityChange(),
+             prepareMountedEditor: async (entry, commandSignal) =>
+             {
+                 assertCurrent();

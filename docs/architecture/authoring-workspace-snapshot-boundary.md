@@ -909,3 +909,19 @@ graph remains FAIL209, zero added and zero owned diagnostics. Root offer syntax 
 exact patch application are static checks only. All tests/list/mount/browser/native/
 auth/receipt/security/privacy/race/IME/resource/full-refset qualifications stay HOLD/
 UNRUN. No factory resource refusal or startup final-publication order is weakened.
+
+The same physical port now has a bounded Root mounted seal with pure private
+has, exact-token cancellation, pre-read/pre-change revocation and permanent startup
+retirement. Actual Write/Layout/outlet/ref/context/route/DOM boundaries revoke
+before original external callbacks; Root must connect its private route/retained
+identity/startup changes through the published port before callbacks. Source data
+is not an auth boolean cache: the optional Root source must supply actual original
+Membership/Document/Writer/Principal opaque reservations with private pre-mutation
+revocation. Those producers are absent in this branch; default null refuses seal.
+Main36's composition admission token does not fill those missing authorities.
+The exact Root-only offer against bb9 uses its same sessions.retire(), with pinned
+pre-revocation first. Root author product files remain unchanged here. See
+artifacts/article-editor/issue-2299-root-mounted-authority-seal for the concrete
+required interfaces and unimplemented producer joins. Pure has AST/source checks
+are not native/DOM/auth or joint-authority qualification. All existing HOLD/UNRUN
+and complete provider/full-refset/second-owner boundaries remain open.

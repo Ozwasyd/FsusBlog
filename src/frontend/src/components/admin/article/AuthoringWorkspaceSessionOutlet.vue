@@ -19,12 +19,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue';
+import { computed, inject, onBeforeUnmount, onBeforeUpdate, onMounted, shallowRef, watch } from 'vue';
 
+import { authoringWorkspaceMountedAuthorityBeforeReadKey } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceOutletExpectation } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { OpenArticleDocumentEntry } from '@/services/authoring/openArticleDocumentRegistry';
 
 defineOptions({ name: 'AuthoringWorkspaceSessionOutlet' });
+const revokeMountedBeforeRead = inject(authoringWorkspaceMountedAuthorityBeforeReadKey, null);
+onBeforeUpdate(() => revokeMountedBeforeRead?.());
 
 const props = defineProps<{
     expectation: AuthoringWorkspaceOutletExpectation | null;
@@ -101,6 +104,7 @@ function fallback(value: Snapshot): Readonly<{ target: HTMLElement | null; visib
 // without acquiring, rebinding, releasing or constructing another native editor.
 const placement = computed(() =>
 {
+    revokeMountedBeforeRead?.();
     const value = snapshot();
     const expected = value.expectation;
     if (!expected)
