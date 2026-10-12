@@ -149,6 +149,7 @@ const lifetimes = new WeakMap<AdminArticleWorkspaceStartupPorts, SnapshotLifetim
 let installation: {
     readonly source: AdminArticleWorkspaceSnapshotCaller;
     readonly task: Promise<AdminArticleWorkspaceStartupPorts>;
+    lifetime?: SnapshotLifetime;
 } | undefined;
 
 /** Connect the actual HTTP owner to the existing root installer input; install no host here. */
@@ -207,6 +208,12 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             return pass;
         }
     };
+    if (installation?.source !== source)
+    {
+        throw new Error('article-workspace-snapshot-cleanup-owner-unavailable');
+    }
+    // Failed preparation never returns ports; retain its SAME partial owners for managed retry too.
+    installation.lifetime = lifetime;
     const onAbort = (): void =>
     {
         void lifetime.dispose().catch((error: unknown) =>
@@ -336,4 +343,15 @@ export function readAdminArticleWorkspaceSnapshotDisposalFailure(ports: AdminArt
 export function readAdminArticleWorkspaceSnapshotCleanupStatus(ports: AdminArticleWorkspaceStartupPorts): SnapshotCleanupStatus | undefined
 {
     return lifetimes.get(ports)?.inspectCleanup();
+}
+
+/** Retry actual cleanup after preparation rejected; this cannot retry preparation or reopen admission. */
+export function retryAdminArticleWorkspaceSnapshotCleanup(source: AdminArticleWorkspaceSnapshotCaller): Promise<void> | undefined
+{
+    return installation?.source === source ? installation.lifetime?.dispose() : undefined;
+}
+
+export function readAdminArticleWorkspaceSnapshotCallerCleanupStatus(source: AdminArticleWorkspaceSnapshotCaller): SnapshotCleanupStatus | undefined
+{
+    return installation?.source === source ? installation.lifetime?.inspectCleanup() : undefined;
 }

@@ -2,7 +2,7 @@
   "schema": "fsusblog.article-library-disposal-source-review.v1",
   "kind": "source-reasoning-not-runtime-test-receipt-or-qualification",
   "committed_before": "62564bb29270a2bfc53e0ba5c24a2f30f24ecb42",
-  "candidate_source_sha256": "8e4793bbdf99f03dcd6427b2f53070277a17c0a55bc298f9eba05be92cf38e0b",
+  "candidate_source_sha256": "202bbe2b2ab67f07a0815bebbb15db5915a03fe3f19999f6382d4d9d4d12e56c",
   "original_sync_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts",
   "original_cache_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
   "matrix": [
@@ -220,5 +220,6 @@
     "Original cache scope clearing is best-effort by its existing API; command fulfillment is not a physical storage-deletion receipt.",
     "An arbitrary foreign async callback waiting on its own cleanup outcome may remain pending; no timeout or false terminal state is manufactured.",
     "Snapshot original API private custody source is exact efddb offer; its new reset concurrency ordering finding remains pending original-owner repair/review."
-  ]
+  ],
+  "failed_preparation_custody": "Original one preparation reservation retains the actual lifetime before constructors/awaits; source-identity cleanup retry remains reachable even when no ports return. It never retries preparation or resets closed state."
 }
