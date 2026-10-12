@@ -947,4 +947,79 @@ describe('original retained document authority source controls', () =>
         expect(() => authority.discardRetainedPreparation(preparation)).toThrow('not-unused');
         expect(() => primary.adapter.beginTask('render', 'producer:late')).toThrow('owner-unavailable');
     });
+    it('joins lifetime seals to the original binding, membership, adapter and consumer custody', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const first = create(authority, registry, 1, 'first');
+        const second = create(authority, registry, 2, 'second');
+        const seal = first.sealLifetimeAuthority()!;
+        expect(first.hasLifetimeAuthorityCustody(seal)).toBe(true);
+        expect(second.hasLifetimeAuthorityCustody(seal)).toBe(false);
+        expect(second.cancelLifetimeAuthority(seal)).toBe(false);
+        expect(first.hasLifetimeAuthorityCustody({ ...seal })).toBe(false);
+        expect(first.cancelLifetimeAuthority(seal)).toBe(true);
+        expect(first.hasLifetimeAuthorityCustody(seal)).toBe(false);
+        expect(first.cancelLifetimeAuthority(seal)).toBe(false);
+    });
+
+    it('retires original native context custody before source guards and real task abort callbacks', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const pending = retained.adapter.beginTask('attachment', 'producer:actual');
+        const seal = retained.sealLifetimeAuthority()!;
+        let observed = false;
+        pending.signal.addEventListener('abort', () =>
+        {
+            observed = true;
+            expect(retained.hasLifetimeAuthorityCustody(seal)).toBe(false);
+        });
+        retained.adapter.updateSource('# actual next source');
+        expect(observed).toBe(true);
+        expect(retained.hasLifetimeAuthorityCustody(seal)).toBe(false);
+        expect(retained.sealLifetimeAuthority()).toBeNull();
+        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
+    });
+
+    it('retires original owner seals before attachment factory and final consumer cleanup callbacks', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const beforeAttach = retained.sealLifetimeAuthority()!;
+        let currentSeal = beforeAttach;
+        let cleanupObserved = false;
+        retained.attachConsumer(() =>
+        {
+            expect(retained.hasLifetimeAuthorityCustody(beforeAttach)).toBe(false);
+            return { invalidateDocument: () =>
+            {
+                cleanupObserved = true;
+                expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(false);
+            } };
+        });
+        currentSeal = retained.sealLifetimeAuthority()!;
+        expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(true);
+        authority.revokeRetainedScope('site:test', 'test');
+        expect(cleanupObserved).toBe(true);
+        expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(false);
+    });
+
+    it('checks sealed lifetime custody without calling public context getters or raw scope readers', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        let reads = 0;
+        const originalScope = { readPrincipalIdentityId: () => { reads += 1; return 'test'; },
+            readSiteScope: () => { reads += 1; return 'site:test'; } };
+        const prepared = authority.prepareRetainedDocument(registry, input(1), originalScope);
+        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
+        const seal = retained.sealLifetimeAuthority()!;
+        const before = reads;
+        Object.defineProperty(retained.adapter, 'context', { get: () => { throw new Error('external-context-reader'); } });
+        expect(retained.hasLifetimeAuthorityCustody(seal)).toBe(true);
+        expect(reads).toBe(before);
+        expect(retained.cancelLifetimeAuthority(seal)).toBe(true);
+        expect(reads).toBe(before);
+    });
 });

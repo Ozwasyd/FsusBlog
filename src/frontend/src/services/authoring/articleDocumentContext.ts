@@ -1,15 +1,19 @@
 import {
     calculateOpenArticleDocumentDigest,
+    cancelRetainedArticleDocumentMembershipSeal,
+    hasSealedRetainedArticleDocumentMembershipCustody,
     inspectRetainedArticleDocumentHandle,
     retainedArticleDocumentHandleBelongsTo,
     revokeRetainedArticleDocumentScope,
     revokeRetainedArticleDocumentScopeSet,
+    sealRetainedArticleDocumentMembership,
     subscribeRetainedArticleDocumentHandle
 } from './openArticleDocumentRegistry';
 
 import type {
     OpenArticleDocumentRegistry,
     RetainedArticleDocumentHandle,
+    RetainedArticleDocumentMembershipSeal,
     RetainedArticleDocumentInspection
 } from './openArticleDocumentRegistry';
 
@@ -217,12 +221,21 @@ export interface ArticleDocumentRetainedConsumer {
     invalidateDocument(observation: ArticleDocumentRetainedInspection): void | Promise<void>;
 }
 
+declare const documentLifetimeSealBrand: unique symbol;
+
+export interface ArticleDocumentLifetimeSeal {
+    readonly [documentLifetimeSealBrand]: true;
+}
+
 export interface ArticleDocumentRetainedBinding {
     readonly handle: RetainedArticleDocumentHandle;
     readonly adapter: ArticleDocumentContextAdapter;
     inspect(): ArticleDocumentRetainedInspection;
     subscribeLifetime(listener: (observation: ArticleDocumentRetainedInspection) => void): () => void;
     attachConsumer<T extends ArticleDocumentRetainedConsumer>(create: (binding: ArticleDocumentRetainedBinding) => T): T;
+    sealLifetimeAuthority(): ArticleDocumentLifetimeSeal | null;
+    hasLifetimeAuthorityCustody(seal: ArticleDocumentLifetimeSeal): boolean;
+    cancelLifetimeAuthority(seal: ArticleDocumentLifetimeSeal): boolean;
 }
 
 interface ArticleDocumentRetainedOwner {
@@ -242,6 +255,7 @@ interface ArticleDocumentRetainedOwner {
     pendingConsumerInvalidation: Promise<void> | null;
     lastState: RetainedArticleDocumentInspection['state'];
     readonly listeners: Set<(observation: ArticleDocumentRetainedInspection) => void>;
+    lifetimePublication: object | null;
 }
 
 interface ArticleDocumentOwnerAdmission {
@@ -269,6 +283,17 @@ const primaryHandoverPorts = new WeakMap<ArticleDocumentContextAdapter, {
 // A borrowed primary remains writable while prepared, but actual retirement
 // closes admission synchronously even when canonical cleanup is still queued.
 const preparedPrimaryGuards = new WeakMap<ArticleDocumentContextAdapter, { readonly isAdmitted: () => boolean; }>();
+
+interface NativeDocumentLifetimePublication {
+    readonly context: ArticleDocumentContext;
+}
+
+interface NativeDocumentLifetimePort {
+    readonly seal: () => NativeDocumentLifetimePublication | null;
+    readonly has: (publication: NativeDocumentLifetimePublication) => boolean;
+}
+
+const nativeDocumentLifetimePorts = new WeakMap<ArticleDocumentContextAdapter, NativeDocumentLifetimePort>();
 
 // An adapter guard belongs to its original handle custody, never an article index.
 const retainedAdapterGuards = new WeakMap<ArticleDocumentContextAdapter, {
@@ -790,6 +815,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     #receiptSequence = 0;
     #disposed = false;
     #contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
+    #lifetimePublication: NativeDocumentLifetimePublication | null = null;
 
     public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): () => void
     {
@@ -832,6 +858,19 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         primaryHandoverPorts.set(this, {
             handover: (previous, target, validate, bind, publish) => this.#handoverPrimary(previous, target, validate, bind, publish)
         });
+        nativeDocumentLifetimePorts.set(this, {
+            seal: () =>
+            {
+                if (this.#disposed || this.#contextMutationPending)
+                {
+                    return null;
+                }
+                this.#lifetimePublication ??= { context: this.#current };
+                return this.#lifetimePublication;
+            },
+            has: publication => this.#lifetimePublication === publication && this.#current === publication.context
+                && !this.#disposed && !this.#contextMutationPending
+        });
     }
 
     #handoverPrimary(previous: ArticleDocumentContext, target: ArticleDocumentContext,
@@ -841,6 +880,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-primary-handover-unavailable');
         }
+        this.#lifetimePublication = null;
         this.#contextMutationPending = true;
         let published = false;
         try
@@ -1041,6 +1081,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-context-mutation-in-progress');
         }
+        this.#lifetimePublication = null;
         this.#contextMutationPending = true;
         try
         {
@@ -1112,6 +1153,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-context-mutation-in-progress');
         }
+        this.#lifetimePublication = null;
         this.#contextMutationPending = true;
         try
         {
@@ -1165,6 +1207,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-context-mutation-in-progress');
         }
+        this.#lifetimePublication = null;
         this.#contextMutationPending = true;
         try
         {
@@ -1256,6 +1299,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public dispose(): ArticleDocumentEpochReceipt | null
     {
+        this.#lifetimePublication = null;
         if (retainedAdapterGuards.has(this) && retainedAdapterGuards.get(this)?.inspect().state !== 'revoked')
         {
             throw new Error('article-document-retained-dispose-requires-revocation');
@@ -1396,6 +1440,16 @@ export class ArticleDocumentContextAuthority
     #primaryHandovers = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentPrimaryHandover>();
     #retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
     #ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
+    #lifetimeSeals = new WeakMap<ArticleDocumentLifetimeSeal, {
+        readonly owner: ArticleDocumentRetainedOwner;
+        readonly binding: ArticleDocumentRetainedBinding;
+        readonly handle: RetainedArticleDocumentHandle;
+        readonly membership: RetainedArticleDocumentMembershipSeal;
+        readonly ownerPublication: object;
+        readonly nativePublication: NativeDocumentLifetimePublication;
+        readonly nativePort: NativeDocumentLifetimePort;
+        readonly consumer: ArticleDocumentRetainedConsumer | null;
+    }>();
     #scopedOwners = new Set<ArticleDocumentRetainedOwner>();
     #scopeRevocationPending = false;
     #retainedRegistry: OpenArticleDocumentRegistry | null = null;
@@ -1716,6 +1770,7 @@ export class ArticleDocumentContextAuthority
         {
             if (owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId)
             {
+                owner.lifetimePublication = null;
                 owner.scopeRetired = true;
             }
         }
@@ -1747,6 +1802,7 @@ export class ArticleDocumentContextAuthority
                 const handles: RetainedArticleDocumentHandle[] = [];
                 for (const owner of targets)
                 {
+                    owner.lifetimePublication = null;
                     owner.scopeRetired = true;
                     if (owner.handle)
                     {
@@ -1813,7 +1869,7 @@ export class ArticleDocumentContextAuthority
         return { registry, adapter, scope, principalIdentityId, siteScope: context.siteScope, scopeRetired: false, handle: null, binding: null,
             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
-            lastState: 'live', listeners: new Set() };
+            lastState: 'live', listeners: new Set(), lifetimePublication: null };
     }
 
     #readRetainedRegistry(owner: ArticleDocumentRetainedOwner): RetainedArticleDocumentInspection
@@ -1825,6 +1881,7 @@ export class ArticleDocumentContextAuthority
         if (owner.scope.readPrincipalIdentityId() !== owner.principalIdentityId
             || owner.scope.readSiteScope() !== owner.adapter.context.siteScope)
         {
+            owner.lifetimePublication = null;
             revokeRetainedArticleDocumentScope(owner.handle);
         }
         return inspectRetainedArticleDocumentHandle(owner.handle);
@@ -1840,6 +1897,80 @@ export class ArticleDocumentContextAuthority
             pendingTaskRefs: owner.adapter.pendingTaskRefs, invalidationFailed: owner.invalidationFailed,
             consumerInvalidationState: owner.consumerInvalidationState,
             admissionClosed: owner.scopeRetired || owner.invalidationFailed || registry.state !== 'live' });
+    }
+
+    #sealLifetimeAuthority(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding): ArticleDocumentLifetimeSeal | null
+    {
+        const handle = owner.handle;
+        const port = nativeDocumentLifetimePorts.get(owner.adapter);
+        if (!handle || !port || owner.binding !== binding || owner.scopeRetired || owner.invalidationFailed
+            || owner.attachingConsumer || owner.consumerInvalidationState !== 'not-requested')
+        {
+            return null;
+        }
+        const before = this.#inspectRetainedOwner(owner);
+        if (before.admissionClosed || !before.registryRevisionMatchesDocument)
+        {
+            return null;
+        }
+        const membership = sealRetainedArticleDocumentMembership(handle);
+        if (!membership)
+        {
+            return null;
+        }
+        try
+        {
+            const after = this.#inspectRetainedOwner(owner);
+            const native = port.seal();
+            if (native?.context !== before.context || native.context !== after.context
+                || after.admissionClosed || !after.registryRevisionMatchesDocument
+                || after.registry.registryRevision !== before.registry.registryRevision)
+            {
+                cancelRetainedArticleDocumentMembershipSeal(membership);
+                return null;
+            }
+            owner.lifetimePublication ??= {};
+            const seal = Object.freeze({}) as ArticleDocumentLifetimeSeal;
+            this.#lifetimeSeals.set(seal, { owner, binding, handle, membership,
+                ownerPublication: owner.lifetimePublication, nativePublication: native, nativePort: port, consumer: owner.consumer });
+            if (!this.#hasLifetimeAuthorityCustody(owner, binding, seal))
+            {
+                this.#cancelLifetimeAuthority(owner, binding, seal);
+                return null;
+            }
+            return seal;
+        }
+        catch (error)
+        {
+            cancelRetainedArticleDocumentMembershipSeal(membership);
+            throw error;
+        }
+    }
+
+    #hasLifetimeAuthorityCustody(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding,
+        seal: ArticleDocumentLifetimeSeal): boolean
+    {
+        const custody = this.#lifetimeSeals.get(seal);
+        return !!custody && custody.owner === owner && custody.binding === binding && owner.binding === binding
+            && owner.handle === custody.handle && owner.lifetimePublication === custody.ownerPublication
+            && this.#retainedOwners.get(custody.handle) === owner && this.#ownersByAdapter.get(owner.adapter) === owner
+            && owner.consumer === custody.consumer && !owner.scopeRetired && !owner.invalidationFailed && !owner.attachingConsumer
+            && owner.consumerInvalidationState === 'not-requested'
+            && hasSealedRetainedArticleDocumentMembershipCustody(custody.membership)
+            && custody.nativePort.has(custody.nativePublication);
+    }
+
+    #cancelLifetimeAuthority(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding,
+        seal: ArticleDocumentLifetimeSeal): boolean
+    {
+        const custody = this.#lifetimeSeals.get(seal);
+        if (custody?.owner !== owner || custody.binding !== binding)
+        {
+            return false;
+        }
+        this.#lifetimeSeals.delete(seal);
+        cancelRetainedArticleDocumentMembershipSeal(custody.membership);
+        return true;
     }
 
     #assertRetainedConsumerAdmission(owner: ArticleDocumentRetainedOwner): void
@@ -1907,6 +2038,9 @@ export class ArticleDocumentContextAuthority
         owner.handle = handle;
         const binding: ArticleDocumentRetainedBinding = Object.freeze({ handle, adapter: owner.adapter,
             inspect: () => this.#inspectRetainedOwner(owner),
+            sealLifetimeAuthority: () => this.#sealLifetimeAuthority(owner, binding),
+            hasLifetimeAuthorityCustody: (seal: ArticleDocumentLifetimeSeal) => this.#hasLifetimeAuthorityCustody(owner, binding, seal),
+            cancelLifetimeAuthority: (seal: ArticleDocumentLifetimeSeal) => this.#cancelLifetimeAuthority(owner, binding, seal),
             subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
             {
                 owner.listeners.add(listener);
@@ -1922,6 +2056,7 @@ export class ArticleDocumentContextAuthority
                     throw new Error('article-document-retained-consumer-unavailable');
                 }
                 // Reserve before the first external reader, including cached reads.
+                owner.lifetimePublication = null;
                 owner.attachingConsumer = true;
                 try
                 {
@@ -2030,6 +2165,7 @@ export class ArticleDocumentContextAuthority
 
     #notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
     {
+        owner.lifetimePublication = null;
         const observation = this.#inspectRetainedOwner(owner);
         const state = observation.registry.state;
         const changedState = state !== owner.lastState;
@@ -2068,6 +2204,7 @@ export class ArticleDocumentContextAuthority
 
     #invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
     {
+        owner.lifetimePublication = null;
         if (!owner.consumer || owner.consumerInvalidationState !== 'not-requested')
         {
             return;

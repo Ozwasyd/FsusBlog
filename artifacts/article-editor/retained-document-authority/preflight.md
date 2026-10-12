@@ -343,3 +343,17 @@ guards and actual canonical Map. Three original same-module negative source case
 are written only. No test/config/setup/import entry changes or execution; every
 runtime/test/list/discovery/native/security/privacy/receipt/qualification HOLD
 remains, and new exact source must be independently reviewed.
+
+## Original Document lifetime seal source increment
+
+Implements the exact original Document request at Main36d835. The original retained
+binding issues/cancels lifetime seals; pure final has joins original membership
+private token and original adapter context/owner/binding/consumer pointers without
+cell.read, public context getters, raw scope readers or observation allocation.
+Adapter mutation/handover/dispose and real owner retirement/notify/consumer phases
+retire before external guards/read/cleanup. Existing handover/failure/task custody
+and original guards remain. Four appended original same-file source cases cover
+foreign/copy/cancel, source abort ordering, consumer phase ordering and callback-
+free has. All source cases are UNRUN through the unchanged COMPLETE original unit
+entry/config/setup/import preflight. No runtime/native/security/privacy/receipt/
+fullfactory/mount/browser/qualification holds lifted, no frozen evidence refreshed.

@@ -126,6 +126,24 @@ an asynchronous rejection records failure and preserves the actual reference.
 This is producer completion observation, not native disposal or release permission.
 Original `adapter.subscribeContext` remains the context-change subscription.
 
+The original retained binding also issues `sealLifetimeAuthority()` and exposes
+`hasLifetimeAuthorityCustody(seal)` / `cancelLifetimeAuthority(seal)`. Its opaque
+seal joins the authentic owner/binding/handle, original membership seal, actual
+consumer pointer and the adapter's private context publication. Fresh scope/member
+and matching revision inspection precedes issuance. Pure final has only joins
+those private pointers and original producer facts; it never calls `cell.read`,
+`adapter.context`, a scope reader, clone, observer, or an allocating inspection.
+It does not infer mounted/auth/native resource authority from this document seal.
+
+Actual adapter mutation/handover/disposal retires the private native publication
+before external guards, cancellation or notifications. Owner scope retirement,
+notification entry and consumer attachment/release retire original owner authority
+before their first external read/cleanup callback. Failure and queued cleanup retain
+existing custody; no cancellation or null seal settles real work. A stale source
+reference prevents resealing. These producer tokens are not downstream boolean
+listener caches or full-ready receipts; all original guards and handover semantics
+remain, with new source review and every original runtime qualification held.
+
 `inspect().registry` reads canonical membership and permission/lifecycle facts;
 `registryRevisionMatchesDocument` separately reports whether the canonical
 source/draft reference coordinates match the original adapter. Ordinary source
