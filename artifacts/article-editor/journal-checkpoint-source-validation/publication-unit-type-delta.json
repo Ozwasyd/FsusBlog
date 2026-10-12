@@ -1,0 +1,9 @@
+{
+  "base": "e788d215448c417c214d2c3399352ea173004159",
+  "baseExit": 2,
+  "headExit": 2,
+  "baseDiagnostics": 3,
+  "headDiagnostics": 3,
+  "removed": [],
+  "added": []
+}

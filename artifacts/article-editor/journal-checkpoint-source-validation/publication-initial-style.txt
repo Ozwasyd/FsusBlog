@@ -1,0 +1,5 @@
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:770:21 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:919:20 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe array destructuring of a tuple element with an `any` value.
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:1027:13 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:1338:83 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:1341:21 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.

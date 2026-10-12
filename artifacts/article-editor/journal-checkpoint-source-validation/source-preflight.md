@@ -235,3 +235,134 @@ two-service strict-full style PASS (`cleanup-failure-final-style.txt`); standalo
 owner compiler PASS. Whole original unit-source/private-storage compiler remains
 RED with exactly the three master diagnostics (`cleanup-failure-compiler.txt`).
 All original execution/admission/qualification holds remain intact.
+
+## Original owner two-phase custody source offer
+
+This increment continues the exact original #4225 branch at
+`e788d215448c417c214d2c3399352ea173004159`; original verified master base remains
+`9d72a1c93b297f719d8695a642cdfb1615cf1d51`. Remote master was read back as
+`29051db2a80db7770dfe78a1db6e4c6998337324` for this increment. Its AGENTS and the
+two original owner files are unchanged against the original master base. No
+rebase, independent acceptance, authority/seal refresh or qualification is inferred.
+The first pushed implementation checkpoint is
+`abf2d49056eeba7879c4981ec3d01cfe4fe61b4a`.
+
+Actual Main sources inspected are native receiver
+`dc684a4b176b646d20a9e9dec943d4a4b6d6a113` and subsequent Document26 intake
+`bbed9ae73cc790abf7ff32b28abbd271add08ec3`. Their original complete factory still
+refuses full host refs. The actual original native producer source advertised by
+Main is UI `59b9a1facc1862e590604973703ffc3d92fb85f9`. Main's exact journal
+`hasReferenceCustody` method and interface entry are retained verbatim here;
+e788's legal explicit flush-writer field/constructor assignment is also retained.
+No Main, Writer, renderer, UI, native transaction/history or Document source is
+changed by this offer.
+
+The SAME `bindCheckpointSource()` now returns the additive
+`ArticleRecoveryJournalCheckpointPublicationBinding`. Its actual API is:
+
+```typescript
+preparePublication(signal?: AbortSignal): Promise<ArticleRecoveryJournalCheckpointPreparation | null>;
+validatePrepared(preparation: ArticleRecoveryJournalCheckpointPreparation, content: string): ArticleRecoveryJournalCheckpointInfo | null;
+hasPreparedCustody(preparation: ArticleRecoveryJournalCheckpointPreparation, info: ArticleRecoveryJournalCheckpointInfo): boolean;
+publishPrepared(preparation: ArticleRecoveryJournalCheckpointPreparation, info: ArticleRecoveryJournalCheckpointInfo): ArticleRecoveryJournalCheckpoint | null;
+cancelPrepared(preparation: ArticleRecoveryJournalCheckpointPreparation): boolean;
+```
+
+The immutable branded preparation exposes the original candidate `checkpoint` and
+`info`. They are not live admission. The existing live token/reference lookup
+cannot resolve an unpublished candidate. Fresh validation compares actual source
+facts and actual native bytes against the original completed persistence, with
+original expiry checks. It reserves before clock/source callbacks; validation
+and publication reentry refuse. Its result is the exact original info object,
+not a native digest. The actual native digest remains the caller's original
+canonical document digest, never the journal's namespaced source hash.
+
+There is one candidate beside one current custody per original binding, at most
+32 bindings, and the existing single preparation-in-flight gate. Only scalar
+metadata and original owner objects remain after preparation; no source body is
+cached. Original persistence has a private protected-row mode: under its original
+readwrite transaction, it reuses a protected row only on exact stored metadata
+and input match, without put/TTL renewal. A changed protected row, or a row
+requiring original cleanup, refuses without mutation. Fresh unprotected writes
+still use the original schema/key/TTL/capacity producer. Original list/write
+cleanup remains authoritative; genuine cleanup can be performed before retry.
+Cancel does not promise rollback of an unprotected original write already
+committed before cancellation. A protected existing row is not overwritten to
+pretend two differing durable checkpoints coexist at one original key.
+
+Candidate validation/cancellation failure does not replace or invalidate current
+custody. Original authoritative write/cleanup/expiry/release/coordination boundaries
+retain their original effects. Prepared storage readback uses the original store,
+normalizer and payload-integrity hydrator, never a second journal. Stale list
+observations are also fenced to the exact captured preparation; actual deletion
+revokes its affected candidate. Prior reviewed live A-to-B stale-read fences remain.
+
+Pure private continuity requires exact candidate/info identity, generation,
+previous live custody and a completed validation reservation. `publishPrepared`
+uses language-private checks and preallocated custody, with no source/clock/hash/
+storage/signal/listener cleanup/other owner callback or allocation. Main must
+complete every participant's external preparation/admission first, then use a
+synchronous callback-free private continuity/publication sequence. Pure custody
+checks are not fresh source/expiry/disk admission. Writer must forward these five
+methods from its SAME original journal binding and expose the extended port;
+Main owns its real native/draft/renderer join. Full atomic host refs remain refused
+until those original producers/callers actually integrate their respective source.
+
+## Current two-phase static evidence and held original controls
+
+Only ordinary source compilation and the original frontend style entrypoint run:
+
+```bash
+node src/frontend/node_modules/typescript/bin/tsc --noEmit --strict --noUnusedLocals --noUnusedParameters --erasableSyntaxOnly --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM --skipLibCheck src/frontend/src/services/articleRecoveryJournal.ts
+node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/articleRecoveryJournal.ts --file src/frontend/src/services/privateStorageRegistry.ts
+git diff --check
+```
+
+Standalone owner compiler PASS (`publication-source-types.txt`, empty stdout);
+original two-owner strict-full style PASS, two files/zero violations
+(`publication-final-style.txt`). Initial five style findings are preserved in
+`publication-initial-style.txt` and repaired without suppressions. Diff check PASS.
+
+The current **original complete Main application** compiler is run before/after
+in an isolated exact Main bbed checkout against the actual exact UI 59b9 checkout:
+
+```bash
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/journal-publication-ui-static node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application
+```
+
+The original producer generates its original application alias project, extending
+the original `tsconfig.app.json`. Before uses exact bbed; after replaces only
+`src/frontend/src/services/articleRecoveryJournal.ts` with this owner source.
+No configuration or other source is changed. Resolved erasableSyntaxOnly,
+strict/noUnusedLocals/noUnusedParameters/noUncheckedSideEffectImports all remain
+true (ES2022/ESNext/Bundler). Existing installed dependencies are linked from the
+original workspaces; UI entrypoints resolve to the actual 59b9 source checkout.
+No package publication, private registry, credential or lifecycle installation.
+
+Before: RED exit 2 / 258 complete diagnostic blocks. After: RED exit 2 / 257.
+The only removed block is original journal constructor TS1294 at `(1359,9)`,
+from e788's existing compiler repair. Remaining 257 complete blocks are identical;
+zero added blocks. No current owner protocol diagnostic. This is not a full
+application PASS or acceptance. Raw before/after, original generated config,
+resolved option facts and complete-block delta are the `publication-main-*` files.
+
+Compiler-only validation includes the **whole original unit source file** plus
+private-storage owner against both exact e788 and this current owner. Temporary
+strict/noUnused/erasableSyntaxOnly/noEmit configurations and raw diagnostics are
+the `publication-unit-*` files. Both RED exit 2 / three identical complete blocks
+after only the known worktree prefix normalization: existing unit TS6133 at 432,
+TS2349 at 579 and fixture constructor TS1294 at 600. No added or removed block;
+no new regression-source diagnostic. This isolated source compiler is supplemental,
+never a replacement for the complete original Main application configuration.
+
+Regression SOURCE is added to the existing original journal file for real
+producer/readback-before-staging, callback/IO-free publication, protected-row/TTL
+preservation, native mismatch/cancel/actual quota/storage/random failures, required
+cleanup refusal, exact/copy/foreign capabilities, reentrant validation/publication,
+stale epoch/revision/expiry, original invalidation/release/deletion and delayed
+prepared/live A-to-B observation controls. Every control is UNRUN. The original
+whole-file Vitest entrypoint, shared setup and matrix shell are inspected only as
+source. Setup creates a happy-dom window and loads the real protocol/locale graph;
+no test/list/discovery/setup/candidate import, native/browser/security/receipt/
+backupmigration or other runtime execution is authorized or performed. Parent
+original preflight review and every execution hold remain unchanged.

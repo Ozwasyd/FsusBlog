@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "erasableSyntaxOnly": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [],
+    "baseUrl": "/workspace/FsusBlog/src/frontend",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@/*": [
+        "/workspace/FsusBlog/src/frontend/src/*"
+      ],
+      "vitest": [
+        "/workspace/FsusBlog/src/frontend/node_modules/vitest"
+      ],
+      "fake-indexeddb": [
+        "/workspace/FsusBlog/src/frontend/node_modules/fake-indexeddb"
+      ]
+    }
+  },
+  "files": [
+    "/workspace/FsusBlog/tests/frontend/unit/services/articleRecoveryJournal.test.ts",
+    "/workspace/FsusBlog/src/frontend/src/services/privateStorageRegistry.ts"
+  ]
+}

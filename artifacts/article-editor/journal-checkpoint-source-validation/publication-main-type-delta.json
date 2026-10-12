@@ -1,0 +1,16 @@
+{
+  "mainSource": "bbed9ae73cc790abf7ff32b28abbd271add08ec3",
+  "uiSource": "59b9a1facc1862e590604973703ffc3d92fb85f9",
+  "sourceReplacement": [
+    "src/frontend/src/services/articleRecoveryJournal.ts"
+  ],
+  "beforeExit": 2,
+  "afterExit": 2,
+  "beforeDiagnostics": 258,
+  "afterDiagnostics": 257,
+  "removed": [
+    "src/services/articleRecoveryJournal.ts(1359,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled."
+  ],
+  "added": [],
+  "unchanged": 257
+}
