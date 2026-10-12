@@ -2814,6 +2814,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             && candidate.custody.owner.clientRevision === activeRecoveryClientRevision);
     const invalidateDraftCheckpoint = (): void =>
     {
+        if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
+        {
+            notifyCurrentMountedAuthorityRetirement?.();
+        }
         if (preparedDraftCustody)
         {
             cancelPreparedDraft(preparedDraftCustody);
