@@ -1,6 +1,7 @@
 import type { ArticleDocumentContext, ArticleDocumentContextAdapter } from './articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from './articleEditorContinuity';
 import type { ArticleWorkspaceMountedEditorSource } from './articleWorkspaceMountedEditorResolver';
+import type { ArticleWorkspaceOriginalDraftCheckpoint } from './fsusUiEditorSessionFactory';
 import type { OpenArticleDocumentRegistry } from './openArticleDocumentRegistry';
 
 /** Project the original context into the existing workspace reference vocabulary; this is not an identity or permission issuer. */
@@ -20,7 +21,8 @@ export function createArticleWriterMountedEditorSource(
     registry: OpenArticleDocumentRegistry,
     editor: ArticleEditorContinuityPort,
     readMountedEditor: () => ArticleEditorMountedSessionPort | null,
-    isActive: () => boolean
+    isActive: () => boolean,
+    readOriginalDraft?: () => ArticleWorkspaceOriginalDraftCheckpoint | null
 ): ArticleWorkspaceMountedEditorSource
 {
     const readMounted = (editorSessionRef: string): ArticleEditorMountedSessionPort | null =>
@@ -53,6 +55,18 @@ export function createArticleWriterMountedEditorSource(
     };
     return Object.freeze({
         readMountedEditor: readMounted,
+        readDraftCheckpoint: (editorSessionRef: string) =>
+        {
+            const mounted = readMounted(editorSessionRef);
+            const document = owner.context;
+            if (!mounted || !readOriginalDraft)
+            {
+                return null;
+            }
+            const draft = readOriginalDraft();
+            return draft && readMounted(editorSessionRef) === mounted && isActive() && owner.isCurrentContext(document)
+                ? draft : null;
+        },
         readDocumentBinding: (editorSessionRef: string) =>
         {
             const mounted = readMounted(editorSessionRef);
