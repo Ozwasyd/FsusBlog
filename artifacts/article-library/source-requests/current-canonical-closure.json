@@ -288,18 +288,18 @@
     "acceptance": "UNACCEPTED_PENDING_ORIGINAL_LAYOUT_AND_ROOT_COMPOSITION_RE_REVIEW"
   },
   "root_writer_subscription_join": {
-    "producer_source": "42492ee508165008d247ea8e7d36bdef89d9132f",
-    "producer_blob": "92eac34f148fbcedeb635596880a9a587b7e07a7",
+    "producer_source": "d80934e854f2dd3b338162fe924cf19e0662f66f",
+    "producer_blob": "e04178efa688b01a07cdfda8a8deec82e0244af6",
     "producer_path": "src/frontend/src/composables/useAdminArticleWrite.ts",
-    "producer_review": "Original public borrow port independently accepted only in limited scope; inspect()/isCurrentContext() can read scope and trigger retirement/cleanup. NOT a pure reader or full Root admission acceptance.",
+    "producer_review": "Original d809 two resource P2s independently closed with no new source issue in bounded producer scope; original4249 limited NONPURE borrow contract unchanged. No full Root/native/resource qualification.",
     "owned_root_paths": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "93bc933fbc7bc7d8cc71baf892e5a104e94893c949f94e0b60e2c97e23c6a9ba"
+        "sha256": "c262cf7d9f35facc7f5b6fd3adb4572af553711038bcbe8cfe68ccc9c4423ac5"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "2e915cb74d12a06a96e2f8cefc8fe325e43beb912affde12c498a01e9ac4ff81"
+        "sha256": "d6c91ca49bf0bad5356b6e2dc2d3450a908fcad7f1c8f84966d94a39ba2a58ba"
       }
     ],
     "actual_call_path": "Root creates one frame-local controller and provides original authoringWorkspaceMountedAuthoritySourcesKey. Exact original Layout Write e581 invokes source.reserve with its actual physical Writer runtime/native tuple; Root registers actual Writer subscription before a private reservation attempt.",
@@ -347,11 +347,11 @@
     "root_paths": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "93bc933fbc7bc7d8cc71baf892e5a104e94893c949f94e0b60e2c97e23c6a9ba"
+        "sha256": "c262cf7d9f35facc7f5b6fd3adb4572af553711038bcbe8cfe68ccc9c4423ac5"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "2e915cb74d12a06a96e2f8cefc8fe325e43beb912affde12c498a01e9ac4ff81"
+        "sha256": "d6c91ca49bf0bad5356b6e2dc2d3450a908fcad7f1c8f84966d94a39ba2a58ba"
       }
     ],
     "consumed_main_related_closure": [
@@ -401,8 +401,8 @@
     ],
     "runtime": "ALL_HOLD_UNRUN",
     "prior_root_candidate": "4c0b671c194392ef7fa025f20e74a900c3cbabc6 independently REJECTED with2P2 at cancel-false and unconditional Doc stop.retry; source repairs are successor candidates, not accepted. Independent parent47c5/candidate types197FAIL0delta Root0 stays distinct from author193/308.",
-    "writer_borrow_source": "42492ee508165008d247ea8e7d36bdef89d9132f",
-    "writer_borrow_blob": "92eac34f148fbcedeb635596880a9a587b7e07a7",
+    "writer_borrow_source": "d80934e854f2dd3b338162fe924cf19e0662f66f",
+    "writer_borrow_blob": "e04178efa688b01a07cdfda8a8deec82e0244af6",
     "writer_borrow_review": "Original public borrow port independently accepted only in limited scope; inspect()/isCurrentContext() can read scope and trigger retirement/cleanup. NOT a pure reader or full Root admission acceptance.",
     "p2_repairs": {
       "cancel_false": "Original Writer AND Doc cancel must return true before Root clears each original token. False/throw retains exact token and obligation; failed stays set and original first/latest cause retained. A no-op later false never completes prior physical failure. No producer repair/replacement or false receipt.",
@@ -417,5 +417,32 @@
       "types": "independent197 FAIL Root0 stays distinct from author193/308"
     },
     "admission_exception_custody": "Root reserve outer catch covers actual connect/cancel/nonpure reader/Doc subscribe/allocation/seal/final fence failures; exact original error recorded before withdrawal/rethrow, retained original tokens/subscriptions unchanged. Actual physical Write may convert reserve throw to null; Frame preserves post-seal verify then throws original Root first failure through private throwIfAdmissionFailed, without readFailure/Doc inspect. Frame original preparation function catch (no additional async boundary) retains direct original prepare/getter/fence exception and withdraws Root; simultaneous actual admission+fence failures aggregate both with original admission cause. No generic unavailable replaces retained original failure."
+  },
+  "root_writer_resource_handoff": {
+    "root_parent": "667185b7e244b0cede823cdb3c84eada21140f2e",
+    "writer_source": "d80934e854f2dd3b338162fe924cf19e0662f66f",
+    "writer_blob": "e04178efa688b01a07cdfda8a8deec82e0244af6",
+    "exact_consumption": "ONLY necessary Writer postimage; no Main/factory/native/Layout/Doc owner rewrite or package publication",
+    "public_root_port": "AdminWorkspaceFrame.readOriginalWriterResources(editorSessionRef: string, nativeEditor: object): AdminArticleWorkspaceWriterResources | null; exported type derives actual mountedRuntime.resources",
+    "actual_binding": "Original physical Write source.reserve receives physical.bound/physical.native and editorSessionRef; Root pins runtime.resources once in its actual Writer subscription and remembers ONE physical tuple. Getter checks SAME private writer/native/ref and idle/open/failure fences, then returns exact original resources object identity. No clone/wrapped resource methods, per-article map or replacement owner.",
+    "pause_retirement": "Original d809 pause/requestCancellation calls original notifyCurrentMountedAuthorityRetirement BEFORE phase/scope mutations; unchanged Root assignment-only pre-retirement listener withdraws actual reservation/attempt. Root retains its physical resource binding through that logical withdrawal so the same partial port remains observable; successful original unsubscribe clears that private pointer. Main must pin original port BEFORE native/source callbacks which can withdraw other authority.",
+    "raw_port": "Only original inspect/pause/resume/requestCancellation/settleObservedWork exposed. No permanent release/dispose runtime transfer. Controls and settlement stay original producer operations. Root never calls them during borrow, pure join/listener or creates aggregate complete/paused/settled receipt.",
+    "partial_limits": "Original scope/timer/job/PoW lease/promise census32 plus issuance reservation, half-resume real pause rollback, critical retirement observers remain original. complete is false; image/native loan, PoW shutdown ack, coordination reversible pause and external effects/network settlement unsupported. Abort is NOT settlement.",
+    "main_factory_handoff": {
+      "current_path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "current_contract": "ArticleWorkspaceMountedEditorBinding has only editor/identity/documentContext/revision; inspectResourceSources observes native census/renderer/attachment only. Main implementation not changed here.",
+      "required_composition": "Original Main factory/resolver must borrow this Root public port with binding.editor (same physical native object) and actual editorSessionRef, pin the returned SAME instance under its original native binding guards, and include its original partial observations/controls alongside native sources. Native aggregate cannot replace Writer; complete false/unsupported/pending original settlement must remain admitted only as partial, not full host readiness."
+    },
+    "source_review": "New Root transfer source candidate pending independent review;667 admission/cause/retirement guards retained",
+    "runtime": "ALL_HOLD_UNRUN",
+    "qualification": false,
+    "activation": false,
+    "ordinary_preflight": [
+      "same real runtime/ref/native tuple returns exact original resource instance; wrong tuple/root busy/closed/failed rejects",
+      "original resources.pause/requestCancellation notifies same Root listener before producer phase/scope change; private withdrawal does not replace resource owner",
+      "same port remains observable/settle-callable under original producer after pause; captured raw port carries no permanent dispose",
+      "failed original pause/resume/half-resume rollback and pending lease/promise census retain original cause/complete false; Root invents no counts or settlement",
+      "real Main factory binds SAME resources alongside real native source; native-only aggregate cannot satisfy missing Writer/image/PoW/coordination/external acknowledgements"
+    ]
   }
 }
