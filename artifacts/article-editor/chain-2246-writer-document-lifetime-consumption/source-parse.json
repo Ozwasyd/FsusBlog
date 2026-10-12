@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "bf7dad8705fdaa21c403762918c9370fbc4bafc3",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "76761edf0b89bb538a5aa24cc7c87e6df0294d9b",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "blob": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e",
+      "diagnostics": []
+    }
+  ],
+  "actualSameBindingCalls": [
+    "authority.cancel(authority.seal)",
+    "retained.hasLifetimeAuthorityCustody.bind(retained)",
+    "retained.cancelLifetimeAuthority.bind(retained)",
+    "retained.sealLifetimeAuthority()",
+    "document.has(document.seal)"
+  ],
+  "originalReleaseFirst": [
+    "mountedAuthorityReleased = true;",
+    "mountedAuthorityCustody = null;"
+  ],
+  "auth": "not consumed, positive issuance refused",
+  "candidateExecuted": false,
+  "testsRun": false,
+  "runtime": "HOLD/UNRUN"
+}

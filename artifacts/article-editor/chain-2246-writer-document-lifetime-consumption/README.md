@@ -1,0 +1,29 @@
+# Actual Document/member authority consumed by original Writer (bounded source WIP)
+
+Actual consumer source `fce8ddaa153f7fb836eb46ad30a69e05810004ee`, original branch/draft4233. Original producer intake `e07ed9e5c142460e4e39f112aba4b544870fdfe3` receives EXACT two production postimages from final original owner `d354ca78d6d19daa6b09f66c988cb04e1f5ab89b`, identical to reviewed source `272a771baa33a9c9c06ec02250a9d97ff786b0c8`. Parent confirms Registry successful/failed mutation drain and Document nonnull-publication/consumer P2 closed/no new mustfix. Original primary/cancel/cleanup semantics are preserved byte-for-byte. `intake.json` records check/index/diff0, actual pre/postimage hashes and no owner rewrite. Superseded711/fa513 is not consumed as accepted source.
+
+## Real original same-binding connection
+
+Writer imports nominal `ArticleDocumentLifetimeSeal` from the actual original module. Its mounted runtime obtains ONLY its actual `retainedPrimaryBinding.value`, requiring the SAME actual adapter; invokes `retained.sealLifetimeAuthority()` and captures that frozen binding's original has/cancel bound methods. It creates no Doc/member/index/identity/authority store. The real token already joins original member/cell/publication, binding/owner/consumer and native adapter private context publication; no cloned metadata or downstream listener flag substitutes for this chain.
+
+This token is held in one bounded original mounted reservation before native/mounted/context reads. After every borrowed boundary and after physical token allocation, it rechecks the exact actual original private predicate, same local reservation, original physical generation/mount/runtime/binding and actual source/native identity/revision. Its private has calls the actual captured Doc predicate, not `inspect`, list/read/clone or a recomputed entry. Genuine Doc invalidation therefore refuses even before a delayed Writer notification. All accepted original issuer bytes remain unchanged; Root does not rewrite the private membership or lifetime predicates.
+
+Auth is still unavailable/unaccepted and has a complete live-authority gap. Writer therefore NEVER publishes a positive joint token: after the genuine Doc/physical preparation it returns null and calls actual same-binding Doc cancellation. This real Doc consumption does not promote auth5b8/902, cacheTTL or observed retirement to complete permissions/absolute expiry, live authority, full-ready or restoration.
+
+## Invalidation and actual cleanup order
+
+Local physical custody is removed, generation/lifetime retired BEFORE producer cancellation and before the original recovery release callback. Cancellation receives the exact original nominal token from that binding; it does not delete a member, dispose a context or settle native/Journal/render work. Cancel's genuine boolean result/exception is preserved. If cancellation throws, the original issuer/token/error remain in bounded failure custody, future seal preparation refuses, and a later noop cannot convert the failure into success.
+
+Seal admission/physical read failure and Doc cancellation failure both survive as actual errors (aggregate when both occurred), with preparation reservation reset. Reentry during reads/release cannot publish another token. Release still attempts its original recovery and physical cleanup if Doc cancellation failed, reporting combined errors where appropriate. Original Writer disposal retains the failure and attempts every original independent cleanup operation. Before-unmount closes component state even on cancellation error; unmount still attempts original disposal and preserves both failures. Replacement retirement occurs before allocating new binding resources. None of these steps fabricates cleanup completion, rollback or future settlement. Actual original pending work remains with its owners.
+
+## Exact current allowed static matrix
+
+Run `/workspace/.tmp/chain2246-writer-document-lifetime-consumption`; official Node24.16.0/locked TS6, actual local UI8c77 alias, canonical69992a overlays unchanged; no package publication or owner-runtime execution.
+
+- Original strict-full checks THREE actual production files (Writer/Document/Registry): exit0/files=3/eslint=3/violations0. First3 actual optional-chain/unbound-method findings are retained and fixed by the real bound original methods and optional chain, with no rule/config/threshold change.
+- Pure TS AST3 files0 diagnostics; actual same-binding calls and original release first two retirement statements recorded, no candidate module imports or tests.
+- Original whole app local alias typecheck remains RED exit2/220 complete diagnostics; baselineb697 sameUI8c220, added0/removed0/owned0. These are author static checks, not an independent acceptance pass.
+- Exact730 committed frontend source files matchfce8, mismatch0. Seven other owner postimages (auth/private surface/Journal/cache/producer/factory/composition) unchanged. Old619 client fence and Journal808 six delegates retained.
+- `git diff --check`0. All tests/list/discovery/collection/negative controls/mount/native/browser/SDK/auth/security/receipt/full-ref/restore/storage/live/qualification UNRUN/HOLD. No frozen authority or previous runtime receipt refreshed/reclassified.
+
+New consumer needs bounded independent review. Parent's prior Writer26 physical-retirement/refusal source closure stays limited; its independent lint/type were UNRUN, not author220FAIL promoted to independent pass. Full auth/private pure port, live/expiry/permission authority, Root/layout/native/renderer/Journal full-ref join and actual runtime qualification remain missing. All nine execution issues unaccepted; tracking1809 incomplete. No Main installed/available or whole-chain readiness claimed, no merge/closure/master push/deployment/final conflict phase.
