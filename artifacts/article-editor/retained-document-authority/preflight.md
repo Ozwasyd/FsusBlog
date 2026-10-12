@@ -272,3 +272,30 @@ original application compiler exits2, fixed5cf baseline249/current249 diagnostic
 0added/removed complete headline messages and0owned diagnostics. AST/diff checks
 PASS; fixed Registry/Group/ratio/Snapshot postimages match5cf byte-for-byte.
 Source controls29 authority/10 Registry remain UNRUN; no execution qualification.
+
+## Loaded primary handover source increment
+
+Continues original producer17c2e with only original authority/consumer registration,
+its dedicated source controls and boundary documentation. New
+`preparePrimaryRetainedHandover` requires real original primary binding and Registry
+handle, sole live primary binding, matching article/draft/source/draft coordinates.
+It pins the actual loaded context and canonical target identity/epoch. Existing
+`acquireRetainedDocument(handle, preparation)` consumes that genuine preparation
+on the same adapter, retaining its editor-session identity/content digest and
+actual pending tasks; unused discard does not dispose the borrowed primary.
+Registered retained consumers cannot move between owners.
+
+Eight appended original-module source cases cover genuine identity handover/one
+receipt/late result rejection/pending settlement, unused discard, copied/foreign
+provenance, unmatched revision/draft, intervening edit, synchronous primary release
+on cancellation, published notification failure custody and duplicate consumer
+refusal. They add no imports/config/mock/setup/test invocation. The COMPLETE
+original Vitest entry/setup/import preflight above still applies; every case is
+UNRUN, with all tests/list/discovery/candidate-import/native/browser/mount/security/
+privacy/receipt/race/DB/storage/full-ref/resource settlement qualification HOLD.
+
+This seam does not prove body freshness or restore native state. Mismatched
+revision/draft requires original Writer/body/draft/Registry source-publication
+capability; arbitrary string metadata, revision relabeling or new draft IDs cannot
+fill it. It does not transfer already retained adapter/consumer custody. Static
+results and exact source/consumer offers are recorded separately in PR4228 WIP.
