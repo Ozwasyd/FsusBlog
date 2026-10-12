@@ -2306,7 +2306,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         && fullDraftGeneration === candidate.generation && active && componentAttached
         && !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
         && (!candidate.custody || candidate.custody.owner.runtime === originalMountedRuntime
-            && candidate.custody.owner.mounted === originalMountedEditor);
+            && candidate.custody.owner.mounted === originalMountedEditor
+            && candidate.custody.owner.clientRevision === activeRecoveryClientRevision);
     const invalidateDraftCheckpoint = (): void =>
     {
         if (preparedDraftCustody)

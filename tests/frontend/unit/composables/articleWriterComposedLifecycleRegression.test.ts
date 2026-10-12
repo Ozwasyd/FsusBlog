@@ -302,6 +302,32 @@ describe('Writer composed attachment/tool/owner lifecycle regression', () => {
         expect(draft.inspectDraftReference(prepared!.info.draftStateRef)).toBe(prepared!.info);
     });
 
+    it('refuses private publication after the original save synchronously assigns a client revision', async () => {
+        const f = await openWriter();
+        f.authoring.articleForm.title = 'Actual nonempty original form';
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        const prepared = draft.prepareDraftCheckpoint();
+        expect(old).not.toBeNull();
+        expect(prepared).not.toBeNull();
+        expect(prepared!.info.clientRevision).toBeNull();
+        expect(prepared!.validate()).toBe(true);
+        f.authoring.saveDraftNow();
+        // No await: the real save has changed the ordinary client revision, but
+        // its journal/server continuation has not completed or changed form/native revision.
+        expect(prepared!.hasCustody()).toBe(false);
+        f.readMount(() => { throw new Error('private-publication-read-native-owner'); });
+        expect(prepared!.publish()).toBeNull();
+        expect(prepared!.cancel()).toBe(false);
+        f.readMount(null);
+        // Original explicit release proves the committed slot was not replaced.
+        // Do not fresh-inspect an old version and label it valid after the real save.
+        expect(draft.releaseDraftCheckpoint(old!.draftStateRef)).toBe(true);
+        expect(prepared!.validate()).toBe(false);
+    });
+
     it('preserves committed custody when actual mounted preparation reads fail', async () => {
         const f = await openWriter();
         f.associate();

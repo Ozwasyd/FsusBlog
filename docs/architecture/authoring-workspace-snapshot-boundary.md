@@ -112,7 +112,11 @@ cannot be retried. A fresh candidate may then be prepared against the still
 current original owner.
 
 `hasCustody()` checks private candidate/committed-slot/generation/lifetime/mount
-references after validation; it is not fresh native/member or full-host evidence.
+references and the exact current ordinary client revision after validation. A
+synchronous original save can change that non-reactive revision before its
+journal/server continuation runs; the private predicate denies publication of
+the previously validated version immediately, without a borrowed reader. It is
+not fresh native/member or full-host evidence.
 `publish()` performs only those private checks and the original slot assignments;
 it invokes no external reader/callback, allocation, form setter or cleanup. A
 successful publication supersedes the old draft reference exactly once. Cancel
