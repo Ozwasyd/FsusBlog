@@ -54,6 +54,7 @@ import { resolveAccountRouteMotionPolicy } from '@/layouts/accountRouteMotion';
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
 import { cancelAdminArticleWorkspaceSnapshotStartup, connectAdminArticleWorkspaceSnapshotStartup, disposeAdminArticleWorkspaceSnapshotStartup, type AdminArticleWorkspaceSnapshotCaller } from '@/layouts/adminArticleWorkspaceSnapshotCaller';
 import type { AdminArticleWorkspaceStartupPorts } from '@/layouts/adminArticleWorkspaceStartup';
+import { createAdminArticleWorkspaceWriterReservation } from '@/layouts/adminArticleWorkspaceWriterReservation';
 import {
     isAccountContentMode,
     isAccountPageKind,
@@ -70,7 +71,7 @@ import {
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { AuthoringTabGroupRegistry, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
-import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
@@ -471,6 +472,8 @@ const workspaceLayoutSource = shallowRef<AuthoringWorkspaceLayoutSource | null>(
 // Keep original owner objects unproxied while preventing descendants from replacing the ref.
 provide(authoringWorkspaceLayoutSourceKey, shallowReadonly(workspaceLayoutSource));
 provide(authoringWorkspacePrimaryMountOnlyKey, computed(() => isArticleWorkspaceRouteValue.value && workspaceStartupState.value === 'starting'));
+const writerReservation = createAdminArticleWorkspaceWriterReservation();
+provide(authoringWorkspaceMountedAuthoritySourcesKey, shallowReadonly(shallowRef(writerReservation.sources)));
 const layoutInvalidationListeners = new Set<() => void>();
 const routeOutletInstance = shallowRef<unknown>(null);
 let mounted = true;
@@ -500,6 +503,7 @@ function notifyWorkspaceLayoutInvalidation(): void
 }
 function revokeViewMountedAuthority(): void
 {
+    writerReservation.withdraw();
     try
     {
         viewMountedAuthorityChange?.();
@@ -518,6 +522,7 @@ function revokeViewMountedAuthority(): void
 
 function retireViewMountedAuthority(): void
 {
+    writerReservation.withdraw();
     try
     {
         viewMountedAuthorityRetire?.();
@@ -650,7 +655,9 @@ async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDoc
 }
 
 defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
-               readSnapshotPreparationFailure: () => snapshotPreparationFailure });
+               readSnapshotPreparationFailure: () => snapshotPreparationFailure,
+               readWriterReservationFailure: writerReservation.readFailure,
+               retryWriterReservationDisposal: writerReservation.retryDisposal });
 
 function hasPublicWorkspaceLayout(value: unknown, verify: () => void): value is { getAuthoringWorkspaceLayoutPort(): unknown; }
 {
@@ -1004,6 +1011,15 @@ watch([() => props.workspaceStartup, () => props.workspaceSnapshotCaller], () =>
 onBeforeUnmount(() =>
 {
     mounted = false;
+    writerReservation.withdraw();
+    try
+    {
+        writerReservation.dispose();
+    }
+    catch (error: unknown)
+    {
+        snapshotPreparationFailure = error;
+    }
     retireViewMountedAuthority();
     revokeViewMountedAuthority();
     invalidateWorkspaceLayout();

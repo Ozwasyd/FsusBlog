@@ -1,0 +1,53 @@
+{
+  "baseline": "ac93c4ec0d1d5d55a6654dff0f127f72634f1a27",
+  "originalRootSource": "ff8a223a644d97605a5b2c930dfd974b92244582",
+  "originalWriterSource": "3ae559a87ebe4354aac77887265f746e144fb4b7",
+  "actualOwningCheckApply": 0,
+  "actualChangedPaths": 3,
+  "unchangedWriteContext": 2,
+  "files": [
+    {
+      "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "changed": true,
+      "new": false,
+      "donorBlob": "6250546d835af95e3296b0443fb5e2971ddeef57",
+      "preimageBlob": "37bda2fbd81cf08616c850431df9138d8f72c022",
+      "sha256": "092662c55ca787d70ec033294d7382c3757f2880d9ebfa948cfd810d15aa577c"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "changed": false,
+      "new": false,
+      "donorBlob": "c5f410d3e6f602b20fa9883c726b096fe1cb37e5",
+      "preimageBlob": "c5f410d3e6f602b20fa9883c726b096fe1cb37e5",
+      "sha256": "9c67e9ad4a822de0af5c9c0c34c4e403b4ed90c4d1b3818e3232cbacf1e3c1e7"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
+      "changed": false,
+      "new": false,
+      "donorBlob": "89cbc6fa6974b6ee4234ec6d3f9b43078b1b3096",
+      "preimageBlob": "89cbc6fa6974b6ee4234ec6d3f9b43078b1b3096",
+      "sha256": "7d98f6daba3cb5b121145bdab24a15d78e80f1fa1d98d33513321910b27c8bfb"
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "changed": true,
+      "new": false,
+      "donorBlob": "57ba52161b0a4c8da51c274dd892a588ad960e69",
+      "preimageBlob": "a8cb13c20c3d37977c3935ddd625e2200e17e8b0",
+      "sha256": "4442527b0547af765b6c932eba5221329bf99e62dc7d4ec8a72b5396644c237e"
+    },
+    {
+      "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
+      "changed": true,
+      "new": true,
+      "donorBlob": "5330aa37e90437a82be2d708ff75363626a9b4bf",
+      "preimageBlob": null,
+      "sha256": "61d2cc2e1d32ee5f416bf665f348550a8d2556e9cf396588fe1c4747d53d50dd"
+    }
+  ],
+  "nativeConsumerAndDocRegistryProtected": "unchanged currentMain sources",
+  "scope": "public seal->reserve registers originalWriter before withdrawn attempt; startup only prepare, stillnull withoutDoc/Auth/journal joins",
+  "runtime": "ALL HOLD/UNRUN"
+}

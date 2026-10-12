@@ -1212,6 +1212,15 @@ the current new locale composite still needs independent review/qualification.
 No parallel Auth/Writer, native/resource completion receipt,
 or missing provider/refset/resource authority is supplied by this source intake.
 
+Original Root ff8 now registers the accepted original Writer3ae retirement port
+through a frame-local reservation consumer and the existing public Write seal
+path. Write/context already match that source; current stronger Main inputs and
+native consumer remain. Startup still prepares only: no automatic Writer
+subscription or native/Doc/Auth/journal joint reservation is installed by this
+partial source. Root withdraws its private attempt and returns null without the
+original Doc pre-retirement input. Failure/disposer custody stays in the original
+consumer, and current unaccepted Doc5374 is not consumed.
+
 ### Public native document reservation consumer (#2295)
 
 The same installed factory now borrows `session.documentAuthority` from the
