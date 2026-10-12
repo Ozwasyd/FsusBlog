@@ -285,9 +285,9 @@ describe('Writer composed attachment/tool/owner lifecycle regression', () => {
         try {
             expect(() => draft.restoreDraftReference(captured!.draftStateRef)).toThrow('actual-form-setter-failed');
         } finally { Object.defineProperty(form, 'tagIds', descriptor); }
-        // A real subsequent native edit advances the original source watch after suppression cleanup.
+        // A direct edit of the SAME original form is observed only if suppression really cleaned up.
         const before = f.authoring.authoringDocumentContextAdapter.context.sourceRevision;
-        f.dispatch({ changes: [{ from: 0, to: 0, insert: 'after failed restore' }], history: 'separate', origin: 'programmatic' });
+        f.authoring.articleForm.content += 'after failed restore';
         expect(f.authoring.authoringDocumentContextAdapter.context.sourceRevision).toBeGreaterThan(before);
         expect(draft.captureDraftCheckpoint()).toBeNull(); // canonical publication is now genuinely lagging
     });
