@@ -1,0 +1,10 @@
+{
+  "before": 254,
+  "after": 254,
+  "added": [],
+  "removed": [],
+  "normalization": "diagnostic positions only; complete blocks/multiplicity",
+  "beforeLog": "blog-layout-e387-main22-after-types.log",
+  "baselineApplicationSourceIdentical": "5dbe source == ef7 production/test/tool/config; unchanged UI f253 alias",
+  "afterLog": "blog-auth819e-writer91d1-after-types.log"
+}

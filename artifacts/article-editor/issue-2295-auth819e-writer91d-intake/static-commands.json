@@ -1,0 +1,9 @@
+{
+  "style": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authBroadcastComposition.ts --file src/frontend/src/services/authBroadcastRuntime.ts --file src/frontend/src/services/privateSurfaceRuntime.ts --file src/frontend/src/store/admin.ts --file src/frontend/src/store/user.ts --file src/frontend/src/store/notificationStream.ts --file src/frontend/src/composables/useAdminArticleWrite.ts",
+  "ast": "node /workspace/session-evidence-2295/static-source.cjs src/frontend/src/services/authBroadcastComposition.ts src/frontend/src/services/authBroadcastRuntime.ts src/frontend/src/services/privateSurfaceRuntime.ts src/frontend/src/store/admin.ts src/frontend/src/store/user.ts src/frontend/src/store/notificationStream.ts src/frontend/src/composables/useAdminArticleWrite.ts",
+  "types": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+  "environment": {
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/session-2295-ui"
+  },
+  "noCandidateEvaluation": true
+}

@@ -1110,9 +1110,10 @@ The actual original `authoringEditorRuntime.bindEditor` runtime now supplies
 Document272a/d354 lifetime seal and private has/cancel, preserving failed issuer/
 token cancellation custody. Original physical release retires local custody before
 callbacks; negative auth/private-surface/context/lifetime events revoke locally.
-Genuine auth authority remains unavailable: positive seal returns null and has
-returns false, including when Document custody succeeds. This does not complete
-Root mounting, provider Queryv1/resolveBatch/canonical, startup/fullready or refsets.
+With original Auth819e inputs consumed, the original Writer91d can return its
+genuine seal after the same principal/article.write/Doc/physical private join.
+Missing, foreign, retired, failed or mismatched inputs still refuse. This does not
+complete Root mounting, provider Queryv1/resolveBatch/canonical, fullready or refsets.
 
 Original Writer cleanup attempts all operations before combining failures. Only
 its own private error-group identities are expanded; external thrown objects and
@@ -1142,8 +1143,8 @@ idle/absolute expiry; current validation result/admin-me snapshot exposes no pro
 lifetime to this guard. Frontend refresh TTL is not a server deadline. No deadline,
 backend write or remote atomic promise is invented. Precise original clauses/DAG and
 source refs are in `artifacts/article-editor/issue-2295-auth-publication-contract-boundary`.
-Current auth-missing positive mounted seal null/has false and all runtime/security/
-receipt/native/resource/restore/eviction/fullready holds stay unchanged.
+The current positive mounted seal proves only this observed-local private join;
+all runtime/security/receipt/native/resource/restore/eviction/fullready holds stay.
 
 
 ### Actual original Auth5e pure-port consumption (#2295)
@@ -1155,14 +1156,15 @@ inside the pure join. Fresh original principal and `article.write` admission pre
 same auth/Doc/physical reservation checks; both original tokens cancel independently
 attempt-all with failed issuer/token/cause custody retained.
 
-The current observed-event broadcast successor86466 remains unaccepted/unconsumed.
-Positive mounted authority publication still returns null and has false; local pure
-port availability is not complete event coverage. No unapplied positive proposal,
-server deadline/remote atomic promise or backend change is included. Source/protection,
-actual original full-program delta and zero-execution preflight are retained in
-`artifacts/article-editor/issue-2295-auth5e-writer2cf-intake`. Other Main adapters,
-Doc/Registry/Group and native guards are preserved; fullready/provider/qualification
-and all runtime/security/receipt/restore/eviction holds remain.
+The original observed-event successor now consumed is final Auth819e, including
+its genuine delivery/disposer/queued-cleanup ownership. Writer91d returns only its
+original token after the final private guard; no callback/allocation/await follows
+that guard before the return. Dual cancellation and real failed-token/cause custody
+remain unchanged. Earlier Auth5e/Writer2cf evidence stays pinned to that earlier
+source; current intake proof/checks/preflight are in
+`artifacts/article-editor/issue-2295-auth819e-writer91d-intake`. Other Main adapters,
+Doc/Registry/Group and native guards are preserved. No server deadline/remote atomic
+promise or backend change is included; all fullready/provider/qualification holds stay.
 
 ### Original Root/Layout source consumption with retained Main owners (#2299)
 
@@ -1184,8 +1186,9 @@ are applied. Missing provider, mounted authority, original token reservations an
 complete resource/refset admission continue to refuse. Precise source identities,
 preserved owners, actual failing whole-program delta and zero-execution preflight
 are in `artifacts/article-editor/issue-2299-layout-e387-main-intake`. Original donor
-closure does not accept this newer composite; all execution/qualification holds
-remain, and there is no package publication or authority refresh.
+closure does not qualify this newer composite. Parent reports Main6f exact source
+provenance/adaptation closed; all execution/qualification holds remain, and there
+is no package publication or authority refresh.
 
 Original upstream offer d615cc2064c4c14946d341d43f2eebf473d7bd8d now pins the
 actual ResizeSeparator a775 source. Its eight new files and five additive entry
@@ -1198,8 +1201,9 @@ calculation/focused contract. No standalone table generator or catalog projectio
 can substitute for it. Precise applicability and minimum owner scope are recorded
 in `artifacts/article-editor/issue-2299-upstream-source-applicability`.
 
-Parent reports original Auth819e six-owner local source closure; previous broadcast
-repair is no longer an upstream source blocker. This Main still has not consumed
-that combination or the original Writer positive-seal successor. Its present
-rejection remains until exact original source consumption; no parallel Auth/Writer
-or missing provider/refset/resource authority is supplied by this source review.
+Parent reports original Auth819e six-owner local source closure and Writer91d
+positive source closure. This Main now consumes those exact original postimages
+through their owning patches, keeping newer Registry/Doc and Layout adapters.
+Actual positive local token capability is separate from source-review/qualification
+of this new composite. No parallel Auth/Writer, native/resource completion receipt,
+or missing provider/refset/resource authority is supplied by this source intake.

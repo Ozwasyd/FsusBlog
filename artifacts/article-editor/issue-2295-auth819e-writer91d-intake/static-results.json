@@ -1,0 +1,31 @@
+{
+  "baselineMain": "ef7b3f9b9b65a299fe4f3a7a7b2382e5ebd2a539",
+  "actualUi": "f2533351ddf729d797b372d8ee6eba85e2f4234b",
+  "sourceAST": {
+    "files": 7,
+    "exit": 0
+  },
+  "strictFull": {
+    "files": 7,
+    "exit": 0,
+    "violations": 0
+  },
+  "wholeOriginalApplication": {
+    "exit": 2,
+    "before": 254,
+    "after": 254,
+    "added": 0,
+    "removed": 0,
+    "completeDiagnosticBlocks": "positions only normalization and multiplicity"
+  },
+  "retainedLayoutFailures": {
+    "introducedByPriorLayoutIncrement": 11,
+    "missingPublicSeparatorExports": 8,
+    "missingLocaleKeys": 3,
+    "priorLayoutStrictFullExit": 1,
+    "priorLayoutStrictFindings": 29
+  },
+  "supplierResults": "219 and independent AST7PASS/lint/typeUNRUN distinct; never migrated to Main",
+  "currentCompositeIndependentReview": "pending",
+  "runtime": "ALL HOLD/UNRUN"
+}
