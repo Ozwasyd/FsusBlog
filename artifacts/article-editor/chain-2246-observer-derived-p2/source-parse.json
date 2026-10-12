@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts",
+      "parseDiagnostics": []
+    }
+  ],
+  "testedSource": "3c5e3f19b0f9cf1a6aafc6b308a76f43f9a03b0e",
+  "sourceASTOnly": true,
+  "candidateModulesExecuted": false,
+  "sourceControlsRun": false
+}
