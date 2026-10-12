@@ -86,3 +86,9 @@ product-module evaluation, native mount, browser, geometry, receipt/tamper/race,
 security/privacy/IME, baseline admission or frozen authority/evidence refresh.
 The historical Layout actual graph FAIL209 and Main's reported FAIL29 are different
 programs and do not prove a regression delta. All existing holds remain HOLD/UNRUN.
+
+The historical locale synchronization gap described above is addressed by the
+later original-owner source repair at
+artifacts/article-editor/issue-2299-admin-schema-source-repair: reusable static
+producer plus its one application table entry output. The original blocked offer
+and its exact e387/d615 records remain historical; qualification holds are unchanged.

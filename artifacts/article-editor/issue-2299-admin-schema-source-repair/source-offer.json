@@ -1,0 +1,118 @@
+{
+    "base": "d615cc2064c4c14946d341d43f2eebf473d7bd8d",
+    "mainReadOnlySource": "ef7b3f9b9b65a299fe4f3a7a7b2382e5ebd2a539",
+    "scope": "ordinary app admin locale schema source fix through static producer; no Main writer changes",
+    "freezeAssessment": {
+        "appTable": "ordinary application LOCALE_DOMAIN_SCHEMA_DIGESTS, derived by original focused contract; Object.freeze is runtime immutability, not a frozen SOURCE-registration literal",
+        "sourceDependencyRoster": "table module is in finite-input dependency roster; its changed app bytes do not authorize refreshing the distinct frozen registration/fixture/receipt",
+        "protectedFiles": [
+            {
+                "path": "config/testing/release-final-execution-authority-index.json",
+                "sha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+                "unchanged": true
+            },
+            {
+                "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "sha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+                "unchanged": true
+            },
+            {
+                "path": "tests/browser-contract/public-shell-finite-input-owner.mjs",
+                "sha256": "7087375c2be055460248f44424bc005c28d170286350222780d18d07c6954b20",
+                "unchanged": true
+            },
+            {
+                "path": "tools/test-matrix/register-public-shell-finite-input.mjs",
+                "sha256": "df39fabd0f004cd9bb45d3ec811dc85b3840b882c6fe677403ad1df33b71f6a1",
+                "unchanged": true
+            },
+            {
+                "path": "artifacts/change-contract/public-shell-finite-input-generated-binding.json",
+                "sha256": "b825b82a410b5f34e1ed1366c7b12b6abcf913501f69fc268dbc1aa3cf3219a6",
+                "unchanged": true
+            },
+            {
+                "path": "tests/frontend/unit/locales/localeDomainBundleStore.test.ts",
+                "sha256": "8a9e431c1089a2a096cc244fcb676bacc0c90c7412fabaff81f22c8e16107498",
+                "unchanged": true
+            }
+        ],
+        "authorityRefresh": "NONE; qualification remains HOLD/UNRUN"
+    },
+    "producer": {
+        "path": "tools/frontend/sync-locale-domain-schema.mjs",
+        "algorithm": "original source leafKind/schemaDigest compiler-AST compatibility guard + literal AST static interpretation; no source eval/import",
+        "algorithmAstSha256": "52736241ae9f8104f5b1437744b33df1a601474ce9b4283758e31557e14eefc7",
+        "constants": "seed/multiplier read from validated original function AST, no hardcoded derived digest",
+        "inputCount": 12,
+        "localeCount": 10,
+        "writeScope": "selected actual domain schema string only",
+        "controls": "14 PASS:2 positive/12 negative; source AST only",
+        "checkCLI": "node tools/frontend/sync-locale-domain-schema.mjs --check --domain admin",
+        "writeCLI": "node tools/frontend/sync-locale-domain-schema.mjs --write --domain admin",
+        "controlsCLI": "node tools/frontend/check-locale-domain-schema-source-controls.mjs"
+    },
+    "actualResults": {
+        "before": "FAIL/exit1 old declared d73ace vs derived91f19; raw output retained",
+        "write": "PASS/exit0, changed:true, only one source literal diff",
+        "checkAfter": "PASS/exit0",
+        "secondWrite": "PASS/exit0 changed:false; byte fixed point",
+        "originalStaticLocaleGate": "[locale-domain-static] ok artifacts=100 locales=10 domains=10",
+        "coreGuard": "PASS/exit0",
+        "componentGuard": "PASS/exit0",
+        "strictRepositoryLint": "PASS/exit0/0warnings",
+        "fullTypecheck": "not rerun; one literal source string only; prior distinct Layout209/Main29 failures remain historical",
+        "reusablePublicExportCheck": {
+            "command": "node tools/frontend/sync-locale-domain-schema.mjs --check --domain public",
+            "status": "PASS/exit0, changed:false",
+            "schemaDigest": "fnv1a64:4d3917b2cfcdec05",
+            "localeCount": 10,
+            "purpose": "public uses original EXPORT_NAMES publicMessages mapping; confirms reusable selected-domain static path"
+        }
+    },
+    "sourceBefore": {
+        "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+        "sha256": "f1df3330feca361abe269bc93d32e8e20ead096a027fd0babd0dd2a6804bd75c"
+    },
+    "sourceAfter": {
+        "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+        "sha256": "8a13559e874f4abfc301aaf486fd49250e3720953483bd9c9ae3bdf8c389aaf5"
+    },
+    "holds": "runtime/focused tests/list/browser/native/receipt/tamper/race/security/privacy/IME/resource/fullready/frozen qualification ALL HOLD/UNRUN; no fixture/expected/authority refresh; independent source review pending",
+    "consumerPatches": [
+        {
+            "path": "admin-schema-source-repair.patch",
+            "sha256": "22cacdab548df53ca6b728f25e2daa5f27be4635e9d605f3a961f0b549585401",
+            "files": 3,
+            "base": "d615cc2064c4c14946d341d43f2eebf473d7bd8d",
+            "scope": "producer+controls+one original schema entry; catalogs already at donor",
+            "applyFlag": "--unidiff-zero; original exact base/postimages only"
+        },
+        {
+            "path": "main-ef7-admin-contract-closure.patch",
+            "sha256": "091bcf1373266cd425ab877c785e9e51fdbc4439b66c223f824795570ca11c69",
+            "files": 13,
+            "base": "ef7b3f9b9b65a299fe4f3a7a7b2382e5ebd2a539",
+            "scope": "ten original3-key locale additions + genuine producer/controls + schema entry; no other owners",
+            "staticApplication": "PASS isolated Mainef7 original preimages;13 exact postimages; real static producer CHECK PASS; runtime/test/list UNRUN",
+            "applyFlag": "--unidiff-zero; original exact base/postimages only"
+        }
+    ],
+    "postimages": [
+        {
+            "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+            "sha256": "8a13559e874f4abfc301aaf486fd49250e3720953483bd9c9ae3bdf8c389aaf5",
+            "gitBlob": "a296923328e085cb5a8284223c9e15636d11934e"
+        },
+        {
+            "path": "tools/frontend/sync-locale-domain-schema.mjs",
+            "sha256": "ec2eead367e9d9b74d8c6f7737b324bf81532129167069833bda74682326228e",
+            "gitBlob": "920182aa570f224b0cf08676ed639cb18907aadc"
+        },
+        {
+            "path": "tools/frontend/check-locale-domain-schema-source-controls.mjs",
+            "sha256": "e5a1e0a41e5dc179ef7759cf8b17756d7576155c95515c1160a2da8d4a2ac82d",
+            "gitBlob": "59029022250be35eae38d3b7d0b79132f3cfad5d"
+        }
+    ]
+}
