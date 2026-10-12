@@ -55,10 +55,10 @@ interface ArticleFsusUiRenderCleanup {
 
 const observerPromiseConstructor = Promise;
 const observerPromisePrototype = Promise.prototype;
-const observerThen = Promise.prototype.then;
 const observerOwnDescriptor = Object.getOwnPropertyDescriptor;
 const observerPrototypeOf = Object.getPrototypeOf;
-const observerSpeciesGetter = observerOwnDescriptor(Promise, Symbol.species)?.get;
+const observerThenDescriptor = observerOwnDescriptor(observerPromisePrototype, 'then');
+const observerSpeciesDescriptor = observerOwnDescriptor(Promise, Symbol.species);
 
 const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: string, cause: unknown): Error =>
 {
@@ -77,12 +77,22 @@ const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: s
                 ?? observerOwnDescriptor(observerPromisePrototype, 'constructor');
             const species = observerOwnDescriptor(observerPromiseConstructor, Symbol.species);
             if (constructor?.value !== observerPromiseConstructor || constructor.get || constructor.set
-                || !observerSpeciesGetter || species?.get !== observerSpeciesGetter || species.set
+                || !observerSpeciesDescriptor?.get || species?.get !== observerSpeciesDescriptor.get || species.set
                 || Object.prototype.hasOwnProperty.call(species, 'value'))
             {
                 throw new Error('article-fsusui-observer-species-unavailable', { cause: { constructor, species } });
             }
-            const observerPromise: Promise<unknown> = observerThen.call(cause, () => undefined, () => undefined);
+            const thenMethod: unknown = observerThenDescriptor?.value;
+            if (typeof thenMethod !== 'function')
+            {
+                throw new Error('article-fsusui-observer-method-unavailable');
+            }
+            const observerPromise: unknown = Reflect.apply(thenMethod, cause, [() => undefined, () => undefined]);
+            if (!(observerPromise instanceof observerPromiseConstructor)
+                || observerPrototypeOf(observerPromise) !== observerPromisePrototype)
+            {
+                throw new Error('article-fsusui-observer-promise-unavailable', { cause: observerPromise });
+            }
             cleanup.observerPromises.push(observerPromise);
             const completion = (async (): Promise<void> =>
             {
