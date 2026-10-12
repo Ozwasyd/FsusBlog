@@ -1,0 +1,43 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "a58d64b0306cdddfb3807ce2e4759e4f9d0c17f1",
+      "diagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts",
+      "blob": "6bcd7609413203b5c6f4f5e6536625707dfd9916",
+      "diagnostics": []
+    }
+  ],
+  "clientRevisionAssignmentSites": [
+    {
+      "line": 1838,
+      "text": "activeRecoveryClientRevision = null"
+    },
+    {
+      "line": 1920,
+      "text": "activeRecoveryClientRevision = clientRevision"
+    },
+    {
+      "line": 2626,
+      "text": "activeRecoveryClientRevision = null"
+    },
+    {
+      "line": 2710,
+      "text": "activeRecoveryClientRevision = clientRevision"
+    },
+    {
+      "line": 3998,
+      "text": "activeRecoveryClientRevision = null"
+    },
+    {
+      "line": 4090,
+      "text": "activeRecoveryClientRevision = clientRevision"
+    }
+  ],
+  "candidateExecuted": false,
+  "testsRun": false,
+  "runtime": "HOLD/UNRUN"
+}

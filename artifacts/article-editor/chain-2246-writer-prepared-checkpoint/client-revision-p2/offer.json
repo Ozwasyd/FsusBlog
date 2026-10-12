@@ -1,0 +1,12 @@
+{
+  "source": "6195837a61c4b4098a879cb151f4f3da45f996f5",
+  "writerPreimage": "6c75ec510b9b19dda80eea292db6f6d7a7a092bf",
+  "writerPostimage": "a58d64b0306cdddfb3807ce2e4759e4f9d0c17f1",
+  "main": "bbed9ae73cc790abf7ff32b28abbd271add08ec3",
+  "mainWriter": "fce247d0084a60a524025887276207bd96440fe5",
+  "mainApplyCheck": 0,
+  "patchSha256": "24ca122a9317a0a92bd046a8ba9934f6c62e0615a01b6ec9d3807b384f7cc7f9",
+  "patchNormalization": "space-only blank context lines only",
+  "runtime": "HOLD/UNRUN",
+  "independentReview": "repaired head pending"
+}

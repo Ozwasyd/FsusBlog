@@ -1,0 +1,11 @@
+{
+  "baseline": 221,
+  "testedSource": "6195837a61c4b4098a879cb151f4f3da45f996f5",
+  "current": 221,
+  "added": [],
+  "removed": [],
+  "ownedWriter": 0,
+  "exitCode": 2,
+  "runtime": "HOLD/UNRUN",
+  "baselineSource": "ed95f7969dce8f911d73d56a37603e048cb1da7d"
+}
