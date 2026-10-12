@@ -325,3 +325,9 @@ and preparation ownership bypass. Original whole-file entry/config/setup/import
 preflight remains unchanged; source cases are written only, with all test/list/
 discovery/import/native/browser/mount/security/privacy/receipt/race/DB/storage/
 fullfactory qualifications HOLD. New repaired-head source review is required.
+
+Borrowed-primary cleanup may invoke its actual context listeners. A real listener
+failure now records original owner failure custody, drains the remaining queued
+scopes, then reports aggregate actual errors instead of dropping the queue. One
+additional original-module source case checks that failure with real queued owner
+retirement and preserved pending tasks. This case also remains UNRUN/HOLD.

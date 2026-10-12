@@ -1731,6 +1731,7 @@ export class ArticleDocumentContextAuthority
             return;
         }
         this.#scopeRevocationPending = true;
+        const cleanupFailures: unknown[] = [];
         try
         {
             while (this.#scopeRetirementQueue.length > 0)
@@ -1757,7 +1758,15 @@ export class ArticleDocumentContextAuthority
                 {
                     if (!owner.handle)
                     {
-                        owner.adapter.dispose();
+                        try
+                        {
+                            owner.adapter.dispose();
+                        }
+                        catch (error)
+                        {
+                            owner.invalidationFailed = true;
+                            cleanupFailures.push(error);
+                        }
                     }
                 }
             }
@@ -1766,6 +1775,10 @@ export class ArticleDocumentContextAuthority
         {
             this.#scopeRevocationPending = false;
             this.#currentScopeRetirement = null;
+        }
+        if (cleanupFailures.length > 0)
+        {
+            throw new AggregateError(cleanupFailures, 'article-document-retained-scope-cleanup-failed');
         }
     }
 

@@ -910,4 +910,41 @@ describe('original retained document authority source controls', () =>
         expect(() => authority.discardRetainedPreparation(preparation)).toThrow();
         expect(() => primary.adapter.updateSource('# after publication failure')).toThrow('owner-unavailable');
     });
+    it('drains queued original scopes after a real borrowed-primary disposal listener failure', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const make = (articleId: number, principal: string) =>
+        {
+            const originalScope = { readPrincipalIdentityId: () => principal, readSiteScope: () => `site:${principal}` };
+            const prepared = authority.prepareRetainedDocument(registry,
+                { articleId, siteScope: `site:${principal}`, userScope: `user:${principal}`, content: '# original' }, originalScope);
+            return authority.acquireRetainedDocument(admit(registry, prepared.context, principal), prepared);
+        };
+        const outer = make(2, 'outer');
+        const tail = make(3, 'tail');
+        const tailTask = tail.adapter.beginTask('attachment', 'producer:tail');
+        let tailCleanup = false;
+        tail.attachConsumer(() => ({ invalidateDocument: () => { tailCleanup = true; } }));
+        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
+        const handle = admit(registry, canonical.context, 'restored');
+        const primary = authority.acquire(input(1));
+        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
+        const primaryTask = primary.adapter.beginTask('refresh', 'producer:primary');
+        primary.adapter.subscribeContext(() => { throw new Error('actual-borrowed-cleanup-failure'); });
+        outer.attachConsumer(() => ({ invalidateDocument: () =>
+        {
+            authority.revokeRetainedScope('site:test', 'test');
+            authority.revokeRetainedScope('site:tail', 'tail');
+        } }));
+        expect(() => authority.revokeRetainedScope('site:outer', 'outer')).toThrow('scope-cleanup-failed');
+        expect(tailCleanup).toBe(true);
+        expect(tail.inspect().registry.state).toBe('revoked');
+        expect(tailTask.signal.aborted).toBe(true);
+        expect(tail.inspect().pendingTaskRefs).toContain(tailTask.taskRef);
+        expect(primaryTask.signal.aborted).toBe(true);
+        expect(primary.adapter.pendingTaskRefs).toContain(primaryTask.taskRef);
+        expect(() => authority.discardRetainedPreparation(preparation)).toThrow('not-unused');
+        expect(() => primary.adapter.beginTask('render', 'producer:late')).toThrow('owner-unavailable');
+    });
 });

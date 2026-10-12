@@ -82,7 +82,11 @@ the original unused offer can retry if all original context facts still match.
 An explicit module-private marker records ONLY actual target context publication.
 That marker, not any context difference, determines failed-publication custody and
 discard refusal. Strict adoption cannot bypass an unbound handover pin. These
-facts do not settle tasks or prove native/full-ref restoration.
+facts do not settle tasks or prove native/full-ref restoration. If a borrowed
+primary's real disposal listener fails, its failure custody remains retained while
+the original drain processes the remaining queued scopes. Only afterward does
+revocation report the aggregate actual cleanup failures; no failed cleanup is
+recorded as settled or silently discarded.
 
 This handover does not validate a loaded body against a snapshot, grant full native
 restore or label arbitrary source as current. A different article/draft, unmatched
