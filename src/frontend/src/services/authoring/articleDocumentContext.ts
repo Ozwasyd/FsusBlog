@@ -1430,7 +1430,7 @@ export class ArticleDocumentContextAuthority
             {
                 throw new Error('article-document-primary-already-retained');
             }
-            if (previous.binding.inspect().registry.state === 'revoked')
+            if (previous.binding.inspect().registry.state === 'revoked' || previous.scopeRetired)
             {
                 throw new Error('article-document-retained-owner-revoked');
             }
@@ -1464,7 +1464,7 @@ export class ArticleDocumentContextAuthority
                 throw new Error('article-document-retained-preparation-conflict');
             }
             const observation = existing.binding.inspect();
-            if (observation.registry.state === 'revoked')
+            if (observation.registry.state === 'revoked' || existing.scopeRetired)
             {
                 throw new Error('article-document-retained-owner-revoked');
             }
@@ -1620,6 +1620,19 @@ export class ArticleDocumentContextAuthority
             admissionClosed: owner.scopeRetired || owner.invalidationFailed || registry.state !== 'live' });
     }
 
+    #assertRetainedConsumerAdmission(owner: ArticleDocumentRetainedOwner): void
+    {
+        if (owner.scopeRetired || owner.invalidationFailed)
+        {
+            throw new Error('article-document-retained-consumer-unavailable');
+        }
+        const observation = this.#readRetainedRegistry(owner);
+        if (owner.scopeRetired || owner.invalidationFailed || observation.state !== 'live')
+        {
+            throw new Error('article-document-retained-consumer-admission-changed');
+        }
+    }
+
     #reserveRetainedOwner(handle: RetainedArticleDocumentHandle, adapter: ArticleDocumentContextAdapter): ArticleDocumentOwnerAdmission
     {
         if (this.#pendingHandleAdmissions.has(handle) || this.#pendingAdapterAdmissions.has(adapter)
@@ -1682,53 +1695,61 @@ export class ArticleDocumentContextAuthority
             },
             attachConsumer: <T extends ArticleDocumentRetainedConsumer>(create: (retained: ArticleDocumentRetainedBinding) => T): T =>
             {
-                if (owner.scopeRetired || this.#readRetainedRegistry(owner).state !== 'live' || owner.attachingConsumer)
+                if (owner.attachingConsumer)
                 {
                     throw new Error('article-document-retained-consumer-unavailable');
                 }
-                if (owner.scopeRetired)
-                {
-                    throw new Error('article-document-retained-consumer-unavailable');
-                }
-                if (owner.consumerFactory && !owner.consumer)
-                {
-                    throw new Error('article-document-retained-consumer-attachment-unsettled');
-                }
-                if (owner.invalidationFailed)
-                {
-                    throw new Error('article-document-retained-consumer-unavailable');
-                }
-                if (owner.consumer)
-                {
-                    if (owner.consumerFactory !== create)
-                    {
-                        throw new Error('article-document-retained-consumer-already-attached');
-                    }
-                    return owner.consumer as T;
-                }
+                // Reserve before the first external reader, including cached reads.
                 owner.attachingConsumer = true;
-                owner.consumerFactory = create;
                 try
                 {
-                    owner.consumer = create(binding);
-                    if (!owner.consumer || typeof owner.consumer.invalidateDocument !== 'function')
+                    if (owner.consumerFactory && !owner.consumer)
                     {
-                        throw new Error('article-document-retained-consumer-invalid');
+                        throw new Error('article-document-retained-consumer-attachment-unsettled');
                     }
-                    if (this.#readRetainedRegistry(owner).state !== 'live')
+                    this.#assertRetainedConsumerAdmission(owner);
+                    if (owner.consumer)
                     {
-                        if (this.#readRetainedRegistry(owner).state === 'revoked')
+                        if (owner.consumerFactory !== create)
                         {
-                            this.#invalidateRetainedConsumer(owner);
+                            throw new Error('article-document-retained-consumer-already-attached');
                         }
-                        throw new Error('article-document-retained-consumer-admission-changed');
+                        return owner.consumer as T;
                     }
-                    return owner.consumer as T;
-                }
-                catch (error)
-                {
-                    owner.invalidationFailed = true;
-                    throw error;
+                    owner.consumerFactory = create;
+                    try
+                    {
+                        owner.consumer = create(binding);
+                        this.#assertRetainedConsumerAdmission(owner);
+                        if (!owner.consumer || typeof owner.consumer.invalidateDocument !== 'function')
+                        {
+                            throw new Error('article-document-retained-consumer-invalid');
+                        }
+                        // The method property may be a getter. Both it and the
+                        // subsequent original scope readers can retire admission.
+                        this.#assertRetainedConsumerAdmission(owner);
+                        return owner.consumer as T;
+                    }
+                    catch (error)
+                    {
+                        owner.invalidationFailed = true;
+                        // Keep the returned consumer and exact factory. If real
+                        // canonical revocation already finished before the factory
+                        // returned, complete its missed notification now. Queued
+                        // retirement leaves cleanup to the original drain.
+                        try
+                        {
+                            if (inspectRetainedArticleDocumentHandle(handle).state === 'revoked')
+                            {
+                                this.#invalidateRetainedConsumer(owner);
+                            }
+                        }
+                        catch
+                        {
+                            owner.invalidationFailed = true;
+                        }
+                        throw error;
+                    }
                 }
                 finally
                 {
@@ -1749,7 +1770,8 @@ export class ArticleDocumentContextAuthority
         // this window is observed and its real pending resources remain retained.
         try
         {
-            if (this.#readRetainedRegistry(owner).state !== 'live' || owner.adapter.context !== admission.context
+            if (this.#readRetainedRegistry(owner).state !== 'live' || owner.scopeRetired || owner.invalidationFailed
+                || owner.adapter.context !== admission.context
                 || (validatePrimary && !validatePrimary()))
             {
                 this.#notifyRetainedOwner(owner);
