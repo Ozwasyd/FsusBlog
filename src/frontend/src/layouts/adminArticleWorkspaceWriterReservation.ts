@@ -1,32 +1,57 @@
 import type { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
+import type { ArticleDocumentRetainedBinding, ArticleDocumentLifetimeSeal } from '@/services/authoring/articleDocumentContext';
 import type { AuthoringWorkspaceMountedAuthoritySources } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import type { RetainedNotificationSubscription } from '@/services/authoring/openArticleDocumentRegistry';
 
-// Derive the actual original port; this is not an SDK or Writer declaration.
 type OriginalMountedWriter = ReturnType<ReturnType<typeof useAdminArticleWrite>['authoringEditorRuntime']['bindEditor']>;
-type WriterRetirementPort = Pick<OriginalMountedWriter, 'subscribeMountedAuthorityRetirement'>;
+type WriterAuthorityPort = Pick<OriginalMountedWriter, 'subscribeMountedAuthorityRetirement' | 'sealMountedAuthority' | 'hasMountedAuthorityCustody' | 'cancelMountedAuthority' | 'readRetainedDocumentBinding'>;
+type WriterSeal = NonNullable<ReturnType<WriterAuthorityPort['sealMountedAuthority']>>;
 
-function hasWriterRetirementPort(runtime: object): runtime is object & WriterRetirementPort
+function hasWriterAuthorityPort(runtime: object): runtime is object & WriterAuthorityPort
 {
-    return 'subscribeMountedAuthorityRetirement' in runtime
-        && typeof runtime.subscribeMountedAuthorityRetirement === 'function';
+    return 'subscribeMountedAuthorityRetirement' in runtime && typeof runtime.subscribeMountedAuthorityRetirement === 'function'
+        && 'sealMountedAuthority' in runtime && typeof runtime.sealMountedAuthority === 'function'
+        && 'hasMountedAuthorityCustody' in runtime && typeof runtime.hasMountedAuthorityCustody === 'function'
+        && 'cancelMountedAuthority' in runtime && typeof runtime.cancelMountedAuthority === 'function'
+        && 'readRetainedDocumentBinding' in runtime && typeof runtime.readRetainedDocumentBinding === 'function';
 }
 
 interface WriterSubscription {
-    readonly runtime: object & WriterRetirementPort;
+    readonly runtime: object & WriterAuthorityPort;
+    readonly seal: WriterAuthorityPort['sealMountedAuthority'];
+    readonly has: WriterAuthorityPort['hasMountedAuthorityCustody'];
+    readonly cancel: WriterAuthorityPort['cancelMountedAuthority'];
+    readonly borrowDocument: WriterAuthorityPort['readRetainedDocumentBinding'];
     unsubscribe: (() => void) | null;
-    withdrawn: boolean;
+}
+interface DocumentSubscription {
+    readonly binding: ArticleDocumentRetainedBinding;
+    readonly seal: ArticleDocumentRetainedBinding['sealLifetimeAuthority'];
+    readonly has: ArticleDocumentRetainedBinding['hasLifetimeAuthorityCustody'];
+    readonly cancel: ArticleDocumentRetainedBinding['cancelLifetimeAuthority'];
+    stop: RetainedNotificationSubscription | null;
+}
+interface Reservation {
+    readonly writer: WriterSubscription;
+    readonly document: DocumentSubscription;
+    writerSeal: WriterSeal | null;
+    documentSeal: ArticleDocumentLifetimeSeal | null;
 }
 
-/** One physical Writer subscription, never an article/session index or a mounted grant. */
+/** One actual physical producer join; no article/session index, document issuer or body owner. */
 export function createAdminArticleWorkspaceWriterReservation()
 {
-    let subscription: WriterSubscription | null = null;
-    let reservation: object | null = null;
+    let writer: WriterSubscription | null = null;
+    let document: DocumentSubscription | null = null;
+    let reservation: Reservation | null = null;
+    let obligation: Reservation | null = null;
+    let attempt: object | null = null;
     let closed = false;
-    let disposing = false;
+    let busy = false;
+    let sealing = false;
+    let reserving = false;
     let failed = false;
     let hasFailure = false;
-    let registering = false;
     let firstFailure: unknown;
     let latestFailure: unknown;
     const recordFailure = (error: unknown): void =>
@@ -41,35 +66,173 @@ export function createAdminArticleWorkspaceWriterReservation()
     };
     const withdraw = (): void =>
     {
+        // Also fence a seal currently inside an original producer callback.
         reservation = null;
-        if (subscription)
-        {
-            subscription.withdrawn = true;
-        }
+        attempt = null;
     };
-    const releaseSubscription = (): void =>
+    const cancelReservation = (): void =>
     {
-        // Withdraw before invoking the original disposer, including failure retry notifications.
         withdraw();
-        if (disposing || !subscription)
+        const current = obligation;
+        if (sealing)
+        {
+            // A synchronous producer callback cannot discard a token still being transferred.
+            return;
+        }
+        if (!current)
         {
             return;
         }
-        const current = subscription;
-        const release = current.unsubscribe;
-        if (!release)
+        const errors: unknown[] = [];
+        if (current.writerSeal)
         {
-            throw latestFailure;
+            try
+            {
+                if (current.writer.cancel(current.writerSeal) !== true)
+                {
+                    throw new Error('article-workspace-writer-cancellation-not-confirmed', { cause: firstFailure });
+                }
+                current.writerSeal = null;
+            }
+            catch (error: unknown)
+            {
+                recordFailure(error);
+                errors.push(error);
+            }
         }
-        disposing = true;
+        if (current.documentSeal)
+        {
+            try
+            {
+                if (current.document.cancel(current.documentSeal) !== true)
+                {
+                    throw new Error('article-workspace-document-cancellation-not-confirmed', { cause: firstFailure });
+                }
+                current.documentSeal = null;
+            }
+            catch (error: unknown)
+            {
+                recordFailure(error);
+                errors.push(error);
+            }
+        }
+        if (errors.length)
+        {
+            throw new AggregateError(errors, 'article-workspace-reservation-cancellation-incomplete', { cause: errors[0] });
+        }
+        obligation = null;
+    };
+    const releaseSubscriptions = (retry: boolean): void =>
+    {
+        withdraw();
+        if (busy)
+        {
+            return;
+        }
+        busy = true;
+        const errors: unknown[] = [];
         try
         {
-            release();
-            if (subscription === current)
+            try
             {
-                subscription = null;
+                cancelReservation();
+            }
+            catch (error: unknown)
+            {
+                errors.push(error);
+            }
+            const doc = document;
+            if (doc?.stop)
+            {
+                try
+                {
+                    doc.stop();
+                    const stopped = doc.stop.inspect();
+                    // Healthy stop removes only this subscription; retry can retire the whole Doc owner.
+                    if (retry && stopped.failed && stopped.pendingUnsubscribe && !stopped.running)
+                    {
+                        doc.stop.retry();
+                    }
+                    const status = doc.stop.inspect();
+                    if (status.failed || status.running)
+                    {
+                        throw status.firstFailure;
+                    }
+                    if (document === doc)
+                    {
+                        document = null;
+                    }
+                }
+                catch (error: unknown)
+                {
+                    recordFailure(error);
+                    errors.push(error);
+                }
+            }
+            else if (doc)
+            {
+                errors.push(latestFailure);
+            }
+            const original = writer;
+            if (original?.unsubscribe)
+            {
+                try
+                {
+                    original.unsubscribe();
+                    if (writer === original)
+                    {
+                        writer = null;
+                    }
+                }
+                catch (error: unknown)
+                {
+                    recordFailure(error);
+                    errors.push(error);
+                }
+            }
+            else if (original)
+            {
+                errors.push(latestFailure);
+            }
+            if (errors.length)
+            {
+                throw new AggregateError(errors, 'article-workspace-retirement-subscriptions-incomplete', { cause: errors[0] });
             }
             failed = false;
+        }
+        finally
+        {
+            busy = false;
+        }
+    };
+    const connectWriter = (runtime: object): void =>
+    {
+        if (closed || busy || sealing || failed)
+        {
+            throw new Error('article-workspace-reservation-connection-unavailable');
+        }
+        if (writer?.runtime === runtime)
+        {
+            return;
+        }
+        releaseSubscriptions(false);
+        if (!hasWriterAuthorityPort(runtime))
+        {
+            throw new Error('article-workspace-original-writer-authority-port-required');
+        }
+        busy = true;
+        try
+        {
+            const current: WriterSubscription = { runtime, seal: runtime.sealMountedAuthority.bind(runtime),
+                has: runtime.hasMountedAuthorityCustody.bind(runtime), cancel: runtime.cancelMountedAuthority.bind(runtime),
+                borrowDocument: runtime.readRetainedDocumentBinding.bind(runtime), unsubscribe: null };
+            writer = current;
+            current.unsubscribe = runtime.subscribeMountedAuthorityRetirement(() =>
+            {
+                // Synchronous Root-private assignments only; never reenter Writer cleanup.
+                reservation = null;
+                attempt = null;
+            });
         }
         catch (error: unknown)
         {
@@ -78,77 +241,193 @@ export function createAdminArticleWorkspaceWriterReservation()
         }
         finally
         {
-            disposing = false;
+            busy = false;
         }
     };
-    const sources: AuthoringWorkspaceMountedAuthoritySources = Object.freeze<AuthoringWorkspaceMountedAuthoritySources>({
-        reserve: (editorSessionRef, originalMountedRuntime, nativeEditor, revokeBeforeChange) =>
+    const connectDocumentBinding = (binding: ArticleDocumentRetainedBinding): void =>
+    {
+        if (document?.binding === binding)
+        {
+            return;
+        }
+        if (document || closed || busy || sealing || failed)
+        {
+            throw new Error('article-workspace-original-document-binding-replacement-required');
+        }
+        busy = true;
+        try
+        {
+            const current: DocumentSubscription = { binding, seal: binding.sealLifetimeAuthority.bind(binding),
+                has: binding.hasLifetimeAuthorityCustody.bind(binding), cancel: binding.cancelLifetimeAuthority.bind(binding), stop: null };
+            document = current;
+            current.stop = binding.subscribeRetirement(() =>
+            {
+                // Original pre-retirement source, not post-event subscribeLifetime observation.
+                reservation = null;
+                attempt = null;
+            });
+        }
+        catch (error: unknown)
+        {
+            recordFailure(error);
+            throw error;
+        }
+        finally
+        {
+            busy = false;
+        }
+    };
+    const attachDocumentBinding = (binding: ArticleDocumentRetainedBinding, runtime: object): void =>
+    {
+        connectWriter(runtime);
+        if (document?.binding !== binding)
         {
             withdraw();
-            if (closed || registering || disposing || failed)
+        }
+        connectDocumentBinding(binding);
+    };
+    const hasCurrentReservation = (): boolean =>
+    {
+        const current = reservation;
+        return current !== null && !closed && !busy && !failed && writer === current.writer && document === current.document
+            && current.writerSeal !== null && current.documentSeal !== null
+            && current.writer.has(current.writerSeal) && current.document.has(current.documentSeal)
+            && reservation === current && !closed && !busy && !failed;
+    };
+    const sources = Object.freeze<AuthoringWorkspaceMountedAuthoritySources>({
+        reserve: (editorSessionRef, originalMountedRuntime, nativeEditor) =>
+        {
+            if (closed || busy || sealing || reserving || failed)
             {
                 return null;
             }
-            if (subscription?.runtime !== originalMountedRuntime)
+            reserving = true;
+            try
             {
-                releaseSubscription();
-                if (!hasWriterRetirementPort(originalMountedRuntime))
+                withdraw();
+                connectWriter(originalMountedRuntime);
+                const original = writer;
+                if (!original || closed || busy || failed)
                 {
-                    throw new Error('article-workspace-original-writer-retirement-port-required');
+                    return null;
                 }
-                // Only the real validated function is projected, without inventing Writer authority.
-                const runtime = originalMountedRuntime;
-                const current: WriterSubscription = { runtime, unsubscribe: null, withdrawn: false };
-                subscription = current;
-                registering = true;
+                cancelReservation();
+                const token = {};
+                attempt = token;
+                // Admission-only borrow can read scope and synchronously retire its original owner.
+                const binding = original.borrowDocument();
+                if (!binding || attempt !== token || writer !== original || closed || busy || failed)
+                {
+                    return null;
+                }
+                connectDocumentBinding(binding);
+                const doc = document;
+                if (!doc?.stop || doc.binding !== binding || attempt !== token || writer !== original || closed || busy || failed)
+                {
+                    return null;
+                }
+                const subscriptionStatus = doc.stop.inspect();
+                if (subscriptionStatus.failed || subscriptionStatus.running || subscriptionStatus.pendingUnsubscribe)
+                {
+                    recordFailure(subscriptionStatus.firstFailure);
+                    return null;
+                }
+                const current: Reservation = { writer: original, document: doc, writerSeal: null, documentSeal: null };
+                const hasCustody = (): boolean => reservation === current && hasCurrentReservation();
+                const output = Object.freeze({ nativeEditor, retainedIdentity: doc.binding.handle,
+                    hasCustody, cancel: () =>
+                    {
+                        if (obligation === current)
+                        {
+                            cancelReservation();
+                        }
+                    } });
+                if (attempt !== token || closed || failed || writer !== original || document !== doc)
+                {
+                    return null;
+                }
+                obligation = current;
+                sealing = true;
                 try
                 {
-                    const subscribe = runtime.subscribeMountedAuthorityRetirement.bind(runtime);
-                    current.unsubscribe = subscribe(() =>
+                    current.documentSeal = doc.seal();
+                    if (attempt !== token || !current.documentSeal)
                     {
-                        // Producer callback: private assignments ONLY. Never cancel/release Writer.
-                        reservation = null;
-                        current.withdrawn = true;
-                    });
+                        cancelReservation();
+                        return null;
+                    }
+                    current.writerSeal = original.seal(editorSessionRef);
+                    if (attempt !== token || !current.writerSeal || !doc.has(current.documentSeal)
+                        || !original.has(current.writerSeal) || closed || failed || document !== doc || writer !== original)
+                    {
+                        cancelReservation();
+                        return null;
+                    }
+                    sealing = false;
+                    reservation = current;
+                    if (!hasCustody())
+                    {
+                        cancelReservation();
+                        return null;
+                    }
+                    return output;
                 }
                 catch (error: unknown)
                 {
                     recordFailure(error);
+                    // Actual tokens stay retained for caller retry; never erase a failed cancellation.
+                    withdraw();
                     throw error;
                 }
                 finally
                 {
-                    registering = false;
+                    sealing = false;
+                    if (reservation !== current && !failed)
+                    {
+                        cancelReservation();
+                    }
                 }
             }
-            const current = subscription;
-            if (!current || current.withdrawn || closed || failed)
+            catch (error: unknown)
             {
-                return null;
+                // Admission includes the nonpure borrow before seals; keep its exact original cause.
+                recordFailure(error);
+                withdraw();
+                throw error;
             }
-            // Subscription is installed before acquiring/publishing any Root candidate.
-            reservation = { editorSessionRef, nativeEditor, revokeBeforeChange, runtime: current.runtime };
-            // Original Doc pre-retirement notification is not supplied yet. This is a
-            // withdrawn private attempt, NOT a published native/member/principal reservation.
-            withdraw();
-            return null;
+            finally
+            {
+                reserving = false;
+                if (!reservation)
+                {
+                    attempt = null;
+                }
+            }
         }
     });
-    return Object.freeze({
-        sources,
-        withdraw,
+    return Object.freeze({ sources, withdraw, attachDocumentBinding, hasCurrentReservation,
+        throwIfAdmissionFailed: (): void =>
+        {
+            // Private failure custody only: no reader, scope inspection or producer callback.
+            if (hasFailure)
+            {
+                throw firstFailure;
+            }
+        },
+        hasDocumentBinding: () => !!document?.stop && !closed && !failed,
         dispose: (): void =>
         {
             closed = true;
-            releaseSubscription();
+            releaseSubscriptions(false);
         },
         retryDisposal: (): void =>
         {
             closed = true;
-            releaseSubscription();
+            releaseSubscriptions(true);
         },
         readFailure: () => Object.freeze({ failed, firstFailure, latestFailure,
-            retainedSubscription: subscription !== null, pendingReservation: reservation !== null }),
-        limitation: 'original-document-pre-retirement-producer-unavailable' as const
+            retainedSubscription: writer !== null, retainedDocumentSubscription: document !== null,
+            documentNotification: document?.stop?.inspect() ?? null,
+            retainedCancellation: obligation !== null, pendingReservation: reservation !== null })
     });
 }

@@ -1212,23 +1212,23 @@ the current new locale composite still needs independent review/qualification.
 No parallel Auth/Writer, native/resource completion receipt,
 or missing provider/refset/resource authority is supplied by this source intake.
 
-Original Root ff8 now registers the accepted original Writer3ae retirement port
-through a frame-local reservation consumer and the existing public Write seal
-path. Write/context already match that source; current stronger Main inputs and
-native consumer remain. Startup still prepares only: no automatic Writer
-subscription or native/Doc/Auth/journal joint reservation is installed by this
-partial source. Root withdraws its private attempt and returns null without the
-original Doc pre-retirement input. Failure/disposer custody stays in the original
-consumer. The independently closed original Doc7ab source is now consumed as
-exact two-file postimages: the retained binding owns synchronous
-`subscribeRetirement`, its real stop handle owns `retry()`/`inspect()`, and
-`retryInvalidation()` retries original invalidation. Pure custody reads remain
-unchanged. This makes the producer available; the existing Root consumer still
-needs the actual retained binding from the original Writer adoption return and
-startup seal/reserve wiring. Metadata cannot substitute for that object. Intake
-proof and actual static results are in
-`artifacts/article-editor/issue-2295-doc7ab-intake`; runtime qualification remains
-HOLD/UNRUN.
+Original Root667 now consumes the same Doc7ab pre-retirement and Writer4249
+admission-only binding reader through its frame-local reservation consumer.
+Startup awaits the original physical prepare, invokes the existing Write seal,
+and verifies original Root/Writer/Doc private reservation custody. Original
+reader/seal failures and their causes propagate through preparation; healthy Doc
+stop is not retried, and retry only uses actual failed pending unsubscribe state.
+Both original token cancellations must return true; failed tokens/subscriptions
+remain held for retry. Binding inspect/isCurrent is admission-only, never a pure
+join or retirement callback. The newer Main native/Renderer/ref admission paths,
+Doc/Registry and original host/router remain unchanged by this intake.
+
+The independently closed Doc7ab exact two-file postimages supply synchronous
+`subscribeRetirement`, real stop `retry()`/`inspect()`, and `retryInvalidation()`.
+Current Write physical preparation still needs to call the original retained
+primary adoption before Root can borrow that issued binding; metadata cannot
+substitute for it. Root667 source is a real producer join, not full-host resource,
+restoration, recovery or ready qualification. Runtime remains HOLD/UNRUN.
 
 ### Public native document reservation consumer (#2295)
 
