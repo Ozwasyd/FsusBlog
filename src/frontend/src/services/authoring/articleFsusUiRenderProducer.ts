@@ -49,7 +49,29 @@ interface ArticleFsusUiRenderCleanup {
     runtimeSucceeded: boolean;
     runtimeFailure: unknown;
     endpointFailure: Error | null;
+    knownFailure: Error | null;
 }
+
+const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: string, cause: unknown): Error =>
+{
+    const previous = cleanup.endpointFailure;
+    cleanup.endpointFailure = new Error(message, { cause: previous ? { previous, cause } : cause });
+    try
+    {
+        // Observe genuine Promise rejection without assimilating an arbitrary thenable
+        // or invoking its then/catch getter. Observation never confirms its cleanup.
+        if (cause instanceof Promise)
+        {
+            void Promise.prototype.then.call(cause, undefined, () => undefined);
+        }
+    }
+    catch (observationFailure)
+    {
+        cleanup.endpointFailure = new Error('article-fsusui-rejection-observer-unconfirmed',
+            { cause: { endpointFailure: cleanup.endpointFailure, observationFailure } });
+    }
+    return cleanup.endpointFailure;
+};
 
 const freezeProjection = <T extends object>(value: T): T =>
 {
@@ -109,12 +131,16 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             return existing;
         }
         const cleanup: ArticleFsusUiRenderCleanup = { resultRef: null,
-            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null, endpointFailure: null };
+            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null, endpointFailure: null, knownFailure: null };
         let producerFailure: Error | null = null;
         let cleanupFailure: Error | null = null;
         const result = Promise.resolve().then(() => this.renderRequest(request, cleanup)).catch(cause =>
         {
             producerFailure = new Error('article-fsusui-producer-failed', { cause });
+            if (cleanup.endpointFailure === null && (cleanup.knownFailure === null || cause !== cleanup.knownFailure))
+            {
+                preserveUnknownEndpoint(cleanup, 'article-fsusui-producer-cleanup-unconfirmed', cause);
+            }
             if (cleanup.resultRef !== null)
             {
                 try
@@ -122,11 +148,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
                     const released: unknown = this.release(cleanup.resultRef);
                     if (released !== undefined)
                     {
-                        if (released instanceof Promise)
-                        {
-                            void released.catch(() => undefined);
-                        }
-                        throw new Error('article-fsusui-cleanup-endpoint-missing', { cause: released });
+                        throw preserveUnknownEndpoint(cleanup, 'article-fsusui-cleanup-endpoint-missing', released);
                     }
                     cleanup.resultRef = null;
                 }
@@ -152,6 +174,13 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             if (failure)
             {
                 throw failure;
+            }
+            const rejected = work.producerFailure;
+            if (rejected && (cleanup.knownFailure === null || rejected.cause !== cleanup.knownFailure))
+            {
+                // Only an error minted by this actual request can attest a known local
+                // failure. External Error/Promise/thenable/primitive throws remain unknown.
+                throw rejected;
             }
             if (cleanup.runtimeStarted && !cleanup.runtimeSucceeded)
             {
@@ -180,6 +209,12 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
 
     private async renderRequest(request: ArticleRenderRequest, cleanup: ArticleFsusUiRenderCleanup): Promise<ArticleRenderResult>
     {
+        const cancel = (): never =>
+        {
+            const error = new Error('render-canceled');
+            cleanup.knownFailure = error;
+            throw error;
+        };
         const failure = (reason: string, status: 'fatal' | 'projection-failed' = 'fatal'): ArticleRenderResult => ({
             contextDigest: request.context.contextDigest, requestId: request.requestId, identity: request.identity,
             status, reason, resultRef: null, resultDigest: null,
@@ -187,17 +222,27 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         });
         if (request.signal.aborted)
         {
-            throw new Error('render-canceled');
+            cancel();
         }
-        const source: unknown = this.readSource(request);
+        let source: unknown;
+        try
+        {
+            source = this.readSource(request);
+        }
+        catch (cause)
+        {
+            // A synchronous callback can legally throw an unfinished future.
+            // Publish its actual custody before any rejection-observer callback.
+            preserveUnknownEndpoint(cleanup, 'article-fsusui-source-cleanup-unconfirmed', cause);
+            throw cause;
+        }
         if (typeof source !== 'string')
         {
-            if (source instanceof Promise)
-            {
-                void source.catch(() => undefined);
-            }
-            cleanup.endpointFailure = new Error('article-fsusui-source-endpoint-missing', { cause: source });
-            throw cleanup.endpointFailure;
+            throw preserveUnknownEndpoint(cleanup, 'article-fsusui-source-endpoint-missing', source);
+        }
+        if (request.signal.aborted)
+        {
+            cancel();
         }
         if (digest({ schema: articleDocumentContextSchema, content: source }) !== request.context.contentDigest
             || request.identity.rendererVersion !== MARKDOWN_RENDERER_VERSION
@@ -213,7 +258,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         cleanup.runtimeFailure = rendered.ok ? null : rendered.error;
         if (request.signal.aborted)
         {
-            throw new Error('render-canceled');
+            cancel();
         }
         if (!rendered.ok)
         {
@@ -234,13 +279,14 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
                 return failure('projection-identity-mismatch', 'projection-failed');
             }
         }
-        catch
+        catch (cause)
         {
+            preserveUnknownEndpoint(cleanup, 'article-fsusui-projection-cleanup-unconfirmed', cause);
             return failure('fsusui-projection-failed', 'projection-failed');
         }
         if (request.signal.aborted)
         {
-            throw new Error('render-canceled');
+            cancel();
         }
         const size = new TextEncoder().encode(JSON.stringify({ render: rendered.value, projection })).byteLength;
         if (size > this.maxResultBytes || this.results.size >= 2)

@@ -32,6 +32,90 @@ const setup = (initialSource = '# Article\n\nBody', maxResultBytes = 65536) =>
 };
 
 describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
+    // Original public callback can legally throw a future (never return type); all UNRUN.
+    it.each(['promise', 'thenable', 'then-getter', 'error-with-future', 'observer-failure',
+        'null', 'undefined', 'string', 'number', 'symbol'] as const)(
+        'keeps thrown %s source obligations unconfirmed before and after the actual future ends', async kind => {
+            const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
+                editorSessionId: `session:source-throw:${kind}`, siteScope: 'site:consumer', userScope: 'user:consumer', content: '# Article' });
+            let actualRequest: ArticleRenderRequest | null = null;
+            let finish!: () => void;
+            let finishObserver!: () => void;
+            let sourceEnded = false;
+            let thenReads = 0;
+            const future = new Promise<void>(resolve => { finish = resolve; });
+            const observerFuture = new Promise<void>(resolve => { finishObserver = resolve; });
+            void future.then(() => { sourceEnded = true; });
+            const thenable = Object.defineProperty({}, 'then', { get: () => { thenReads += 1; throw observerFuture; } });
+            const values: Record<typeof kind, unknown> = { promise: future,
+                thenable: { then: () => { thenReads += 1; return future; } }, 'then-getter': thenable,
+                'error-with-future': new Error('source-error-with-pending-work', { cause: future }),
+                'observer-failure': future, null: null, undefined: undefined, string: 'unknown-work', number: 17, symbol: Symbol('unknown-work') };
+            if (kind === 'observer-failure') {
+                Object.defineProperty(future, 'constructor', { configurable: true, get: () => { throw observerFuture; } });
+            }
+            const thrown = values[kind];
+            const producer = new ArticleFsusUiRenderProducer(request => {
+                actualRequest = request;
+                throw thrown;
+            }, configuration, 65536);
+            const cache = new ArticleRenderCache(adapter, identity, producer,
+                { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 8 });
+            const cacheWork = cache.startRefresh();
+            await cacheWork.receipt;
+            if (!actualRequest) throw new Error('original-producer-request-missing');
+            const work = producer.getRequestWork(actualRequest)!;
+            await expect(work.result).rejects.toBe(thrown);
+            await expect(work.terminal).rejects.toThrow(kind === 'observer-failure'
+                ? 'article-fsusui-rejection-observer-unconfirmed' : 'article-fsusui-source-cleanup-unconfirmed');
+            expect(work.producerFailure?.cause).toBe(thrown);
+            if (kind === 'observer-failure') {
+                expect(work.cleanupFailure?.cause).toMatchObject({ endpointFailure: { cause: future }, observationFailure: observerFuture });
+            } else {
+                expect(work.cleanupFailure?.cause).toBe(thrown);
+            }
+            expect(thenReads).toBe(0); expect(sourceEnded).toBe(false);
+            await expect(cacheWork.terminal).rejects.toThrow('article-render-producer-terminal-unconfirmed');
+            if (kind === 'observer-failure') {
+                Object.defineProperty(future, 'constructor', { configurable: true, value: Promise });
+            }
+            finish(); finishObserver(); await future; await observerFuture;
+            await expect(work.terminal).rejects.toThrow();
+            expect(adapter.pendingTaskRefs).toContain(cacheWork.taskRef);
+            cache.dispose(); adapter.dispose();
+        });
+
+    it.each(['return-source', 'throw-future'] as const)('preserves actual disposal reentry with %s', async outcome => {
+        const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
+            editorSessionId: `session:source-disposal:${outcome}`, siteScope: 'site:consumer', userScope: 'user:consumer', content: '# Article' });
+        let actualRequest: ArticleRenderRequest | null = null;
+        let finish!: () => void;
+        const future = new Promise<void>(resolve => { finish = resolve; });
+        const producer = new ArticleFsusUiRenderProducer(request => {
+            actualRequest = request;
+            adapter.dispose();
+            if (outcome === 'throw-future') throw future;
+            return '# Article';
+        }, configuration, 65536);
+        const cache = new ArticleRenderCache(adapter, identity, producer,
+            { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 8 });
+        const cacheWork = cache.startRefresh(); await cacheWork.receipt;
+        if (!actualRequest) throw new Error('original-producer-request-missing');
+        const work = producer.getRequestWork(actualRequest)!;
+        if (outcome === 'throw-future') {
+            await expect(work.terminal).rejects.toThrow('article-fsusui-source-cleanup-unconfirmed');
+            expect(work.cleanupFailure?.cause).toBe(future);
+        } else {
+            await expect(work.result).rejects.toThrow('render-canceled');
+            await work.terminal;
+            expect(work.cleanupFailure).toBeNull();
+        }
+        // Only this producer-local request is known ended; no scope/cache lease proof.
+        await expect(cacheWork.terminal).rejects.toThrow('article-render-producer-terminal-unconfirmed');
+        finish(); await future;
+        cache.dispose();
+    });
+
     // Source control only: the actual constructor receives an undeclared future, UNRUN.
     it('retains an undeclared source future without treating no native call as cleanup proof', async () => {
         const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
@@ -59,7 +143,7 @@ describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
     });
 
     // Source control only: UNRUN under current runtime/test/list/native holds.
-    it('exposes the actual failed reader request cleanup without faking cache settlement', async () => {
+    it('retains ordinary reader Error cleanup without faking producer or cache settlement', async () => {
         const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
             editorSessionId: 'session:failed-reader', siteScope: 'site:consumer', userScope: 'user:consumer', content: '# Article' });
         let actualRequest: ArticleRenderRequest | null = null;
@@ -79,7 +163,8 @@ describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
         expect(producer.getRequestWork({ ...work.request })).toBeNull();
         expect(producer.startRender(actualRequest)).toBe(work);
         await expect(work.result).rejects.toBe(failure);
-        await work.terminal;
+        await expect(work.terminal).rejects.toThrow('article-fsusui-source-cleanup-unconfirmed');
+        expect(work.cleanupFailure?.cause).toBe(failure);
         expect(work.resultRef).toBeNull();
         // #2245 has not yet consumed this original producer endpoint.
         await expect(cacheWork.terminal).rejects.toThrow('article-render-producer-terminal-unconfirmed');
