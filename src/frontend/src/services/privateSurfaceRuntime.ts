@@ -11,6 +11,16 @@ export type PrivateSurfaceTransition = Extract<
 export type PrivateSurfaceTerminationHandler = (reason: PrivateSurfaceTransition) => void | Promise<void>;
 export type PrivateSurfaceNavigationHandler = (reason: PrivateSurfaceTransition) => void | Promise<void>;
 
+/** The superseded operation cannot confirm that its requested cleanup ran. */
+export class PrivateSurfaceCleanupIncompleteError extends Error
+{
+    constructor()
+    {
+        super('Private-surface cleanup completion was not confirmed before supersession.');
+        this.name = 'PrivateSurfaceCleanupIncompleteError';
+    }
+}
+
 declare const privateSurfaceAuthoritySealBrand: unique symbol;
 
 /** Process-local custody only; copying or serializing this token loses authority. */
@@ -114,27 +124,27 @@ class PrivateSurfaceRuntime
         {
             if (this.#transition !== reservation)
             {
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
             this.#clearingState.value = true;
             if (this.#transition !== reservation)
             {
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
             const generation = createOpaqueGeneration();
             if (this.#transition !== reservation)
             {
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
             this.#generationState.value = generation;
             if (this.#transition !== reservation)
             {
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
             privateRequestRuntime.advanceForAuthTransition(reason);
             if (this.#transition !== reservation)
             {
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
             if (previousTransition?.completion)
             {
@@ -145,7 +155,7 @@ class PrivateSurfaceRuntime
             }
             if (this.#transition !== reservation)
             {
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
 
             const terminationOutcomes: Promise<void>[] = [];
@@ -156,7 +166,7 @@ class PrivateSurfaceRuntime
                     // Observe already-started outcomes without waiting on a
                     // callback that may itself depend on the newer transition.
                     void Promise.allSettled(terminationOutcomes);
-                    return;
+                    throw new PrivateSurfaceCleanupIncompleteError();
                 }
                 try
                 {
@@ -175,7 +185,7 @@ class PrivateSurfaceRuntime
             if (this.#transition !== reservation)
             {
                 void Promise.allSettled(terminationOutcomes);
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
             let clearOutcome: Promise<void>;
             try
@@ -192,29 +202,41 @@ class PrivateSurfaceRuntime
             if (this.#transition !== reservation)
             {
                 void Promise.allSettled([...terminationOutcomes, clearOutcome]);
-                return;
+                throw new PrivateSurfaceCleanupIncompleteError();
             }
             let navigationComplete = this.navigationHandler === null;
             try
             {
                 const outcomes = await Promise.allSettled([...terminationOutcomes, clearOutcome]);
+                const clearResult = outcomes.at(-1);
+                // Completion is independent of state ownership. A newer
+                // reservation cannot turn a cleanup rejection into fulfillment.
+                const requireCleanupCompletion = (): void =>
+                {
+                    if (clearResult?.status === 'rejected')
+                    {
+                        throw clearResult.reason;
+                    }
+                    if (clearResult?.status !== 'fulfilled')
+                    {
+                        throw new PrivateSurfaceCleanupIncompleteError();
+                    }
+                };
                 if (this.#transition !== reservation)
                 {
+                    requireCleanupCompletion();
                     return;
                 }
-                const clearResult = outcomes.at(-1);
                 const navigationOutcome = Promise.resolve(this.navigationHandler?.(reason));
                 if (this.#transition !== reservation)
                 {
                     void Promise.allSettled([navigationOutcome]);
+                    requireCleanupCompletion();
                     return;
                 }
                 await navigationOutcome;
                 navigationComplete = true;
-                if (clearResult?.status === 'rejected')
-                {
-                    throw clearResult.reason;
-                }
+                requireCleanupCompletion();
             }
             finally
             {
