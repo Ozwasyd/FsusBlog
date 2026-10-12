@@ -1,0 +1,11 @@
+{
+  "baselineSource": "3916a5ea219238d0ebb57a2e4a58dd61980fc867",
+  "testedSource": "3c5e3f19b0f9cf1a6aafc6b308a76f43f9a03b0e",
+  "baselineDiagnosticCount": 221,
+  "diagnosticCount": 221,
+  "added": [],
+  "removed": [],
+  "normalization": "path/code/message, excluding line/column only",
+  "typeExit": 2,
+  "runtimeQualification": false
+}

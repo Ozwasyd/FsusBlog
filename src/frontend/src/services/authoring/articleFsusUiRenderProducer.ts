@@ -50,6 +50,7 @@ interface ArticleFsusUiRenderCleanup {
     runtimeFailure: unknown;
     endpointFailure: Error | null;
     knownFailure: Error | null;
+    observerPromises: Promise<unknown>[];
 }
 
 const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: string, cause: unknown): Error =>
@@ -58,11 +59,25 @@ const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: s
     cleanup.endpointFailure = new Error(message, { cause: previous ? { previous, cause } : cause });
     try
     {
-        // Observe genuine Promise rejection without assimilating an arbitrary thenable
-        // or invoking its then/catch getter. Observation never confirms its cleanup.
+        // Discard fulfillment values explicitly: forwarding them would assimilate
+        // their then getter again in the derived Promise. Neither observer is proof.
         if (cause instanceof Promise)
         {
-            void Promise.prototype.then.call(cause, undefined, () => undefined);
+            const observerPromise: Promise<unknown> = Promise.prototype.then.call(cause, () => undefined, () => undefined);
+            cleanup.observerPromises.push(observerPromise);
+            const completion = (async (): Promise<void> =>
+            {
+                try
+                {
+                    await observerPromise;
+                }
+                catch (observationFailure)
+                {
+                    cleanup.endpointFailure = new Error('article-fsusui-rejection-observer-unconfirmed',
+                        { cause: { endpointFailure: cleanup.endpointFailure, observerPromise, observationFailure } });
+                }
+            })();
+            cleanup.observerPromises.push(completion);
         }
     }
     catch (observationFailure)
@@ -131,7 +146,8 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             return existing;
         }
         const cleanup: ArticleFsusUiRenderCleanup = { resultRef: null,
-            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null, endpointFailure: null, knownFailure: null };
+            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null,
+            endpointFailure: null, knownFailure: null, observerPromises: [] };
         let producerFailure: Error | null = null;
         let cleanupFailure: Error | null = null;
         const result = Promise.resolve().then(() => this.renderRequest(request, cleanup)).catch(cause =>
