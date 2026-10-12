@@ -339,7 +339,7 @@
   ],
   "partial_and_async_cases": [
     {
-      "case": "No Sync adopted: independently close each actual cache/channel handle",
+      "case": "No Sync adopted: independently attempt actual channel close and require adopted scope clear before actual storage close",
       "runtime_status": "UNRUN_HELD"
     },
     {
@@ -383,9 +383,11 @@
     "Every runtime, auth/security, test/list, native, and receipt cell remains UNRUN/HOLD.",
     "Command return/status is not independent native/task/storage qualification.",
     "Arbitrary foreign async self-wait remains a retained pending obligation; no timeout or invented terminal completion.",
-    "Snapshot06560 has upstream source findings under original-owner repair; exact consumption is not whole API admission."
+    "Snapshot9fb0e2c correction is exact original consumption awaiting independent re-review; not whole API admission."
   ],
   "failed_preparation_custody": "Same original preparation reservation retains partial lifetime; source-identity managed retry available without returned ports.",
   "ordering_correction": "Root forwards the real original storage methods and retains only cleanup bookkeeping: accepted writes drain before remove; only successful actual remove authorizes close; swallowed original best-effort clear errors are rethrown by the strict Root prerequisite.",
-  "normal_path": "Original Sync clear and Root strict clear share the real in-flight remove; successful storage close idempotent bookkeeping is set only after actual original close returns."
+  "normal_path": "Original Sync clear and Root strict clear share the real in-flight remove; successful storage close idempotent bookkeeping is set only after actual original close returns.",
+  "original_sync_blob": "1112f212ab498a67b97020368cc5d4c7037a9874",
+  "original_sync_offer": "9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465"
 }
