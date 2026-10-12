@@ -1,0 +1,12 @@
+{
+  "beforeExit": 2,
+  "afterExit": 2,
+  "beforeDiagnostics": 257,
+  "afterDiagnostics": 256,
+  "added": [],
+  "removed": [
+    "src/services/privateSurfaceRuntime.ts(POSITION): error TS2454: Variable 'currentTransition' is used before being assigned."
+  ],
+  "normalization": "complete diagnostic blocks/multiplicity; positions only normalized",
+  "supplier219Separate": true
+}

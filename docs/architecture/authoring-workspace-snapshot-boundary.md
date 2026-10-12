@@ -1144,3 +1144,22 @@ backend write or remote atomic promise is invented. Precise original clauses/DAG
 source refs are in `artifacts/article-editor/issue-2295-auth-publication-contract-boundary`.
 Current auth-missing positive mounted seal null/has false and all runtime/security/
 receipt/native/resource/restore/eviction/fullready holds stay unchanged.
+
+
+### Actual original Auth5e pure-port consumption (#2295)
+
+Original admin store/private surface Auth5e source now supplies real function-valued
+getter ports for observed-local principal continuity. Writer captures the SAME
+store's seal/has/cancel functions before final checks, avoiding Pinia action callbacks
+inside the pure join. Fresh original principal and `article.write` admission precede
+same auth/Doc/physical reservation checks; both original tokens cancel independently
+attempt-all with failed issuer/token/cause custody retained.
+
+The current observed-event broadcast successor86466 remains unaccepted/unconsumed.
+Positive mounted authority publication still returns null and has false; local pure
+port availability is not complete event coverage. No unapplied positive proposal,
+server deadline/remote atomic promise or backend change is included. Source/protection,
+actual original full-program delta and zero-execution preflight are retained in
+`artifacts/article-editor/issue-2295-auth5e-writer2cf-intake`. Other Main adapters,
+Doc/Registry/Group and native guards are preserved; fullready/provider/qualification
+and all runtime/security/receipt/restore/eviction holds remain.

@@ -1,0 +1,43 @@
+{
+  "receiverBase": "bfab71063ab8f92afa67abcbc0a45ec4cca69b45",
+  "authSource": "5e555854c65fef7a394e1bf08d08e3f96f961e50",
+  "writerFinal": "aee5ef45372957396b06bdac89990caccd4a8edd",
+  "paths": [
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "preimage": "101e78249b17901956bb2d249290801a0a42811d",
+      "postimage": "86e63819220a94932ba66d64a52e4727abe8f838"
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "preimage": "81964e4adf69a875e92612276caf8221e04f38d4",
+      "postimage": "720120471237c17f0e14876aeca67e02e90e94df"
+    }
+  ],
+  "patchSha256": "156aa908f2b24e6f0987c3f133ab5ef64bf38a33795bdd0fedeb7375792c2aa0",
+  "writerSource": "2cf148525f1fde439aa9d5c890ede00fe30e9b4c",
+  "writerBefore": "dfcf87bdf6b313a6b329f7fae57508f9fb186b4c",
+  "actualAfter": [
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "blob": "86e63819220a94932ba66d64a52e4727abe8f838",
+      "sha256": "e087804e4d411bf68275a40d575643f7b78ad0475a91305b04978eb769d6c60a"
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "blob": "720120471237c17f0e14876aeca67e02e90e94df",
+      "sha256": "52edd9df8fc233f21862ac849d70f3d57fac61f5ebb804808f43fdbb840f4aae"
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "0fb6c6047c827cd6357915e500dbaa6c114d2009",
+      "sha256": "630d64aa2021f3be30b45ed510c701c39e9d11738f368c06ef3b364e926fdaef"
+    }
+  ],
+  "MainGuardAnchorsRetained": true,
+  "otherTrackedPathsUnchanged": 7651,
+  "onlyThreeProductionPaths": true,
+  "normalPatchChecksApplyDiffCheck": 0,
+  "broadcast86466Excluded": true,
+  "nextPositiveUnappliedPatchExcluded": true
+}
