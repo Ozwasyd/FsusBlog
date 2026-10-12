@@ -182,9 +182,24 @@
             "sha256": "90f213596331f03f542780161300ea257f95467dbb475285a4d37a86138e4017"
         },
         {
+            "path": "live-pr-static-contract-corrected.log",
+            "bytes": 43,
+            "sha256": "a72447439bc40e377ff624cade5ab309c920033962c6bcb083f22a168bf1aa61"
+        },
+        {
+            "path": "live-pr-static-contract-initial.log",
+            "bytes": 354,
+            "sha256": "4af91ee48995a3ce403936f97afc7d8bf7d5d9c8a96f6e3b9589cd98201a296b"
+        },
+        {
             "path": "open-pr-source-inspection.json",
             "bytes": 95840,
             "sha256": "19b123a8fada6091b22e6571ec4dbbea85429495b35314ecd78457dddd2d3094"
+        },
+        {
+            "path": "publication-static-observations.json",
+            "bytes": 1191,
+            "sha256": "dc70acaca4d9350e5983999255bd3d521d4b4efa3bdc25ebda29ece91fed90b4"
         },
         {
             "path": "result-boundaries.log",

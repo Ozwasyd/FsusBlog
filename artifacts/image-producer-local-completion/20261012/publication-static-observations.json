@@ -1,0 +1,25 @@
+{
+    "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+    "checkedPublicationRevision": "0116ce3df7e83890df36b87fd5f869afe90339e6",
+    "pullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/4239",
+    "draft": true,
+    "state": "open",
+    "releaseLabels": [
+        "release-note:added"
+    ],
+    "bodySha256": "eff1848ecb15baa2129ec591343f1759db1a35b9d081e9a56b9f33ad051aac4d",
+    "originalStaticCommand": "node tools/governance/check-change-contract.mjs --github-event /tmp/image-producer-static/pr-event.json",
+    "staticContractExitCode": 0,
+    "staticContractOutput": "live-pr-static-contract-corrected.log",
+    "initialFailurePreserved": "live-pr-static-contract-initial.log",
+    "contractManifest": {
+        "path": "artifacts/change-contract/image-producer-local-completion-external-naming.json",
+        "sha256": "bfae6b372cb7c247efb23233820e457e3ac5a3c43ecf4994dcd6282aadedb496"
+    },
+    "producerSourceUnchangedFromCompiler": true,
+    "independentReview": "PENDING",
+    "runtimeAndQualification": "HOLD/UNRUN",
+    "rulesetRead": "HTTP403; no acceptance claim",
+    "remoteCheckPassClaim": false,
+    "mergePublicationDeployment": "NOT PERFORMED"
+}
