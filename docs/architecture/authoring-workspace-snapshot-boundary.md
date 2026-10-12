@@ -1163,3 +1163,26 @@ actual original full-program delta and zero-execution preflight are retained in
 `artifacts/article-editor/issue-2295-auth5e-writer2cf-intake`. Other Main adapters,
 Doc/Registry/Group and native guards are preserved; fullready/provider/qualification
 and all runtime/security/receipt/restore/eviction holds remain.
+
+### Original Root/Layout source consumption with retained Main owners (#2299)
+
+The actual Main tree consumes seventeen original Root/Layout postimages from
+e3877fc3af4819111cfd6725bc17017183fb72d0 and five required original support modules.
+Root startup, authenticated snapshot caller, session source, HTTP connection and
+layout outlet now use the existing sole session installer and the original group
+owner. Current Registry membership/document handles, composition admission seals,
+Writer/Auth pure ports and native factory remain unchanged. No second registry,
+host, editor, history, readiness issuer or resource acknowledgement is introduced.
+The Separator adapter additionally rejects a missing observation before reading
+its scope/ref; no fallback snapshot or synthetic successful interaction exists.
+
+This composite is source-reviewable but not build-ready: the current local FsusUI
+alias lacks the original public ResizeSeparator component and its payload/range
+types. Current locale leaves also lack three workspaceLayout names; donor locale
+schema admission is not closed, so neither leaf copies nor digest/catalog changes
+are applied. Missing provider, mounted authority, original token reservations and
+complete resource/refset admission continue to refuse. Precise source identities,
+preserved owners, actual failing whole-program delta and zero-execution preflight
+are in `artifacts/article-editor/issue-2299-layout-e387-main-intake`. Original donor
+closure does not accept this newer composite; all execution/qualification holds
+remain, and there is no package publication or authority refresh.

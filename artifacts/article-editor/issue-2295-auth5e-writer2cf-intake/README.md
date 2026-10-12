@@ -6,7 +6,10 @@ original preimages101e782/admin and81964e4/private surface, exact after86e638/72
 Writer source2cf148525f1fde439aa9d5c890ede00fe30e9b4c/finalaee5ef45372957396b06bdac89990caccd4a8edd
 owning diff applied normally against exact dfcf87bdf actual Main Writer; after
 0fb6c6047c827cd6357915e500dbaa6c114d2009 exact. Main adapter/mounted/draft/native
-admission/private-reference guards preserved; other7651 tracked paths unchanged.
+admission/private-reference guards preserved. The initial source-only apply check
+reported7651 unchanged paths; the final14f tree preserves7650 existing paths and
+also changes one architecture document plus fifteen evidence artifacts. These
+different stages must not be described as the same final-tree protection count.
 No full branch/whole-file overwrite of parallel sources, helper/Doc/Registry/Group/
 composition/factory/UI/backend changes. Source postimages/proof are retained.
 
