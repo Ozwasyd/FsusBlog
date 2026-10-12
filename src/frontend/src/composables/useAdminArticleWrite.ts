@@ -1060,9 +1060,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
     // Original Writer physical custody only. This hook is not auth/member authority.
     let revokeCurrentMountedAuthority: (() => void) | null = null;
+    let notifyCurrentMountedAuthorityRetirement: (() => void) | null = null;
     let mountedComponentActive = true;
     onDeactivated(() =>
     {
+        notifyCurrentMountedAuthorityRetirement?.();
         mountedComponentActive = false;
         revokeCurrentMountedAuthority?.();
     });
@@ -1073,6 +1075,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     });
     onBeforeUnmount(() =>
     {
+        notifyCurrentMountedAuthorityRetirement?.();
         mountedComponentActive = false;
         try
         {
@@ -1158,6 +1161,97 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             let mountedAuthorityGeneration = 0;
             let mountedAuthorityReleased = false;
             let mountedAuthorityPreparing = false;
+            // One original Root reservation consumer per physical Writer runtime.
+            interface MountedAuthorityRetirementSubscription {
+                readonly listener: () => void;
+                disposeRequested: boolean;
+            }
+            let mountedAuthorityRetirementSubscription: MountedAuthorityRetirementSubscription | null = null;
+            let mountedAuthorityRetirementFailure: { readonly subscription: MountedAuthorityRetirementSubscription; readonly failure: unknown; } | null = null;
+            let mountedAuthorityRetirementNotifying = false;
+            let mountedAuthorityRetirementNotified = false;
+            const retirementReentrancyFailure = new Error('article-writer-mounted-retirement-reentrant');
+            const notifyMountedAuthorityRetirement = (): void =>
+            {
+                if (mountedAuthorityRetirementNotifying)
+                {
+                    throw retirementReentrancyFailure;
+                }
+                if (mountedAuthorityRetirementNotified)
+                {
+                    return;
+                }
+                const subscription = mountedAuthorityRetirementSubscription;
+                if (!subscription)
+                {
+                    return;
+                }
+                mountedAuthorityRetirementNotifying = true;
+                try
+                {
+                    // Root withdraws its reservation before Writer custody/liveness changes
+                    // or original cancellation/recovery/native cleanup callbacks run.
+                    subscription.listener();
+                    mountedAuthorityRetirementNotified = true;
+                    mountedAuthorityRetirementFailure = null;
+                    if (subscription.disposeRequested)
+                    {
+                        mountedAuthorityRetirementSubscription = null;
+                    }
+                }
+                catch (error)
+                {
+                    const previous = mountedAuthorityRetirementFailure;
+                    mountedAuthorityRetirementFailure = previous ?? { subscription, failure: error };
+                    if (previous && previous.failure !== error)
+                    {
+                        throw combineWriterFailures([previous.failure, error], 'article-writer-mounted-retirement-retry-failed');
+                    }
+                    throw error;
+                }
+                finally
+                {
+                    mountedAuthorityRetirementNotifying = false;
+                }
+            };
+            /** Single original Root reservation subscription; synchronous, no replay or readiness receipt.
+             * A failed listener keeps its original slot/error and blocks issuance until a real retry succeeds.
+             * The callback withdraws Root custody; it must not reenter Writer cancellation/release.
+             * Disposal from inside the callback commits only after that callback succeeds.
+             */
+            const subscribeMountedAuthorityRetirement = (listener: () => void): (() => void) =>
+            {
+                if (typeof listener !== 'function' || mountedAuthorityReleased || mountedAuthorityRetirementNotifying
+                    || mountedAuthorityRetirementSubscription || mountedAuthorityRetirementFailure)
+                {
+                    throw new Error('article-writer-mounted-retirement-subscription-invalid');
+                }
+                const subscription: MountedAuthorityRetirementSubscription = { listener, disposeRequested: false };
+                mountedAuthorityRetirementSubscription = subscription;
+                mountedAuthorityRetirementNotified = false;
+                return () =>
+                {
+                    if (mountedAuthorityRetirementSubscription !== subscription)
+                    {
+                        return;
+                    }
+                    if (mountedAuthorityRetirementNotifying)
+                    {
+                        subscription.disposeRequested = true;
+                        return;
+                    }
+                    // A failing disposer cannot discard the original retry obligation.
+                    if (mountedAuthorityRetirementFailure)
+                    {
+                        notifyMountedAuthorityRetirement();
+                    }
+                    if (mountedAuthorityRetirementSubscription === subscription)
+                    {
+                        mountedAuthorityRetirementSubscription = null;
+                    }
+                };
+            };
+
             const cancelMountedDocumentAuthority = (): boolean =>
             {
                 if (mountedDocumentCancellationFailure)
@@ -1185,6 +1279,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             };
             const revokeMountedAuthority = (): void =>
             {
+                notifyMountedAuthorityRetirement();
                 mountedAuthorityCustody = null;
                 // Retire before any original external callback; old generations cannot revive.
                 if (mountedAuthorityGeneration === Number.MAX_SAFE_INTEGER)
@@ -1198,7 +1293,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 cancelMountedAuthorities();
             };
             const mountedAuthorityCurrent = (): boolean =>
-                !mountedAuthorityReleased && active && componentAttached && mountedComponentActive && writerScope.active
+                !mountedAuthorityReleased && !mountedAuthorityRetirementNotifying && !mountedAuthorityRetirementFailure
+                && active && componentAttached && mountedComponentActive && writerScope.active
                 && !fullDraftPrincipalRetired && !fullDraftReleased
                 && editorRuntimeBinding === binding && originalMountedEditor === editor && originalMountedRuntime === mountedRuntime;
             const cancelMountedAuthorities = (): boolean =>
@@ -1258,6 +1354,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     return null;
                 }
+                mountedAuthorityRetirementNotified = false;
                 mountedAuthorityPreparing = true;
                 const generation = mountedAuthorityGeneration;
                 let candidate: MountedWriterCustody | null = null;
@@ -1410,17 +1507,20 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     return false;
                 }
+                notifyMountedAuthorityRetirement();
                 mountedAuthorityCustody = null;
                 return cancelMountedAuthorities();
             };
             const release = (): void =>
             {
+                notifyMountedAuthorityRetirement();
                 // This is actual producer retirement, BEFORE recovery release can reenter/throw.
                 mountedAuthorityReleased = true;
                 mountedAuthorityCustody = null;
                 if (revokeCurrentMountedAuthority === revokeMountedAuthority)
                 {
                     revokeCurrentMountedAuthority = null;
+                    notifyCurrentMountedAuthorityRetirement = null;
                 }
                 let cancellationFailed = false;
                 let cancellationFailure: unknown;
@@ -1682,10 +1782,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
             };
             const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
-                sealMountedAuthority, hasMountedAuthorityCustody, cancelMountedAuthority,
+                sealMountedAuthority, hasMountedAuthorityCustody, cancelMountedAuthority, subscribeMountedAuthorityRetirement,
                 search: searchRuntime, mountedSource });
             revokeCurrentMountedAuthority?.();
             revokeCurrentMountedAuthority = revokeMountedAuthority;
+            notifyCurrentMountedAuthorityRetirement = notifyMountedAuthorityRetirement;
             originalMountedEditor = editor;
             originalMountedRuntime = mountedRuntime;
             return mountedRuntime;
@@ -3014,6 +3115,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const unsubscribeDraftCheckpointContext = articleDocumentContextAdapter.subscribeContext(invalidateDraftCheckpoint);
     onScopeDispose(() =>
     {
+        notifyCurrentMountedAuthorityRetirement?.();
         fullDraftReleased = true;
         invalidateDraftCheckpoint();
         unsubscribeDraftCheckpointContext();
@@ -4798,6 +4900,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             return;
         }
+        // Notification failure leaves physical cleanup custody available for a real retry.
+        notifyCurrentMountedAuthorityRetirement?.();
         try
         {
             revokeCurrentMountedAuthority?.();
@@ -4897,6 +5001,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     };
     onUnmounted(() =>
     {
+        notifyCurrentMountedAuthorityRetirement?.();
         componentAttached = false;
         let cancellationFailed = false;
         let cancellationFailure: unknown;
