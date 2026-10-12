@@ -1,0 +1,31 @@
+{
+  "testedSource": "8f519bd1acfe3e623c7f55fd773aee2176d4aa8c",
+  "files": [
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleSourceCompare.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleRenderCache.test.ts",
+      "parseDiagnostics": []
+    }
+  ],
+  "candidateExecuted": false,
+  "testsRun": false
+}

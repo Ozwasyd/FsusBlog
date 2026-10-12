@@ -1,0 +1,9 @@
+{
+  "testedSource": "8f519bd1acfe3e623c7f55fd773aee2176d4aa8c",
+  "supplier": "9c3b5a3be56051f721af40549560891ece259e61",
+  "producer": "cbd7213c31dd9a189c3a5d80456a7efd110a65f8",
+  "frontendFiles": 730,
+  "mismatch": [],
+  "comparison": "exact committed source; body prototype outside candidate",
+  "runtimeQualification": false
+}
