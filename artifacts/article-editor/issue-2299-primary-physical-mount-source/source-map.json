@@ -31,7 +31,7 @@
     "missingProductionProvider": "connectAdminArticleWorkspaceSnapshotStartup has declaration only in entire Root625 frontend; original startup.prepareMountedEditor still needs real route-outlet/native-view operation binding",
     "nativeRetainedAdoption": "Original useAdminArticleWrite is one route-owned adapter; no actual restored handle/full-form/view adoption API in this source; nonmatching/read-only entries refuse",
     "runtime": "ALL HOLD/UNRUN",
-    "patchSha256": "03cb917112e572dc181b1ab4dfc04a731d4abf0142f1e26fb86f9e1cdd9300dd",
+    "patchSha256": "45fa6f9944317b8083378cff4323c9643c1822c7480ff360746fbe2cc6a778ed",
     "layoutBase": "1374af6fa184933b4448d7e457a374cf14f8fd52",
     "ownedSource": [
         {

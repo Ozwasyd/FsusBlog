@@ -113,7 +113,7 @@
 -import { installArticleWorkspaceEditorSessions } from './articleWorkspaceEditorSessionComposition';
 +import { installArticleWorkspaceEditorSessions, type ArticleWorkspaceMountedEditorPreparation } from './articleWorkspaceEditorSessionComposition';
  import { articleWorkspaceTabRouter } from './articleWorkspaceTabRouter';
- 
+
  import type { AuthoringSessionHost, AuthoringSessionHostState, AuthoringSessionRecordState } from './authoringSessionHost';
 @@ -19,7 +19,8 @@
   */
