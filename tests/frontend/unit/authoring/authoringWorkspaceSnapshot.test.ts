@@ -712,6 +712,80 @@ describe('admitted barriers and retained peer refresh obligations', () => {
         expect(sync.getServerObservation()).toBeNull();
     });
 });
+// Sticky-conflict source matrix only; retry/reconnect do not represent user authorization.
+describe('unresolved server choice survives status and read-path changes', () => {
+    it.each([
+        { kind: 'reset', path: 'queued-once' }, { kind: 'reset', path: 'periodic' },
+        { kind: 'reset', path: 'channel' }, { kind: 'reset', path: 'reconnect' },
+        { kind: 'write', path: 'queued-once' }, { kind: 'write', path: 'periodic' },
+        { kind: 'write', path: 'channel' }, { kind: 'write', path: 'reconnect' }
+    ] as const)('retains real $kind conflict through failed $path refresh until explicit choice', async ({ kind, path }) => {
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        const originalWrite = server.write.bind(server);
+        const failures = new Set(path === 'queued-once' ? [3] : [3, 4]);
+        server.read = async () => {
+            const result = await originalRead();
+            if (failures.has(server.reads))
+                throw new Error('conflict_refresh_failed');
+            return result;
+        };
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        if (kind === 'reset')
+            server.beforeReset = () => gate;
+        else
+            server.write = async command => { await gate; return originalWrite(command); };
+        const hub = new ChannelHub();
+        const channel = hub.create();
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        if (kind === 'write')
+            sync.onInteraction('tabs', layout(2));
+        const local = sync.getCurrentSessionLayout();
+        const pending = kind === 'reset' ? sync.reset(true, 1, api.resetConfirmation(1)) : sync.flush();
+        const peer = await originalWrite({ expectedRevision: 1, layout: layout(3) });
+        expect(peer.status).toBe('applied');
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: peer.revision, leaseUntil: now });
+        release();
+        await pending;
+        expect(sync.getCurrentSessionLayout()).toEqual(local);
+        expect(sync.getServerObservation()).toBeNull();
+        if (path !== 'queued-once') {
+            expect(sync.getState().status).toBe('failed');
+            await expect(sync.reset(true, 1, api.resetConfirmation(1))).rejects.toThrow('reset_requires_current_server');
+            const writes = server.writes.length;
+            await sync.flush();
+            expect(server.writes).toHaveLength(writes);
+            failures.clear();
+            if (path === 'periodic')
+                await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+            else if (path === 'reconnect') {
+                await sync.setOnline(false);
+                await sync.setOnline(true);
+            } else {
+                const latest = await originalWrite({ expectedRevision: 2, layout: layout(4) });
+                channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+                    scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+                    kind: 'invalidated', revision: latest.revision, leaseUntil: now });
+                await vi.advanceTimersByTimeAsync(0);
+            }
+        }
+        expect(sync.getState().status).toBe('conflict');
+        expect(sync.getCurrentSessionLayout()).toEqual(local);
+        expect(sync.getServerObservation()).toBeNull();
+        expect(sync.getReceipt().events.some(event => event.kind === 'accepted-server')).toBe(false);
+        sync.acceptServerAfterConflict();
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: path === 'channel' ? 3 : 2, dirty: false });
+        expect(sync.getCurrentSessionLayout()).toEqual(server.current?.layout);
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('explicit_choice_missing');
+        requireWorkspaceServerObservation(observed);
+    });
+});
 describe('verified non-authoritative cache', () => {
     it('stores server success only and reports missing/current/stale with finite expiry', async () => {
         const { api, cache, storage } = setup();

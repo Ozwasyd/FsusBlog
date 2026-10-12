@@ -66,6 +66,7 @@ export class AuthoringWorkspaceSnapshotSync
     private readonly unsubscribe: () => void;
     private observation: AuthoringWorkspaceServerObservation | null = null;
     private pendingServer: AuthoringWorkspaceServerObservation | null = null;
+    private serverChoiceRequired = false;
     private memory = defaultWorkspaceSnapshotLayout();
     private cacheRead: WorkspaceSnapshotCacheRead | null = null;
     private status: WorkspaceSnapshotSyncStatus = 'loading';
@@ -113,7 +114,7 @@ export class AuthoringWorkspaceSnapshotSync
     }
     public getServerObservation(): AuthoringWorkspaceServerObservation | null
     {
-        return this.online && !this.stopped && (this.status === 'current' || this.status === 'defaulted')
+        return this.online && !this.stopped && !this.serverChoiceRequired && (this.status === 'current' || this.status === 'defaulted')
             && this.hasAuthority(this.observation) ? this.observation : null;
     }
     public getPlaceholder(): WorkspaceSnapshotCacheRead | null
@@ -294,22 +295,35 @@ export class AuthoringWorkspaceSnapshotSync
                 }
                 if (result.status === 'conflict')
                 {
+                    this.serverChoiceRequired = true;
                     this.status = 'conflict';
                     this.reason = 'stale_revision';
                     this.record('cas-conflict');
                     await this.readServer('conflict');
                     return;
                 }
-                this.observation = result;
+                if (!this.serverChoiceRequired)
+                {
+                    this.observation = result;
+                }
                 const cacheStatus = await this.cache.verifyAndReplace(result);
                 if (!this.isCurrentOperation(epoch) || !this.hasAuthority(result))
                 {
                     return;
                 }
                 this.cacheStatus = cacheStatus;
-                this.dirty = this.generation !== generation;
-                this.status = this.online ? 'current' : this.dirty ? 'offline-unsynced' : 'cached-placeholder';
-                this.reason = this.online ? null : 'offline';
+                if (this.serverChoiceRequired)
+                {
+                    this.pendingServer = result;
+                    this.status = 'conflict';
+                    this.reason = 'server_revision_changed';
+                }
+                else
+                {
+                    this.dirty = this.generation !== generation;
+                    this.status = this.online ? 'current' : this.dirty ? 'offline-unsynced' : 'cached-placeholder';
+                    this.reason = this.online ? null : 'offline';
+                }
                 this.send('invalidated', result.revision);
                 this.record('server-applied');
             }
@@ -366,12 +380,13 @@ export class AuthoringWorkspaceSnapshotSync
     }
     public acceptServerAfterConflict(): void
     {
-        if (this.stopped || this.status !== 'conflict' || !this.pendingServer)
+        if (this.stopped || !this.serverChoiceRequired || this.status !== 'conflict' || !this.pendingServer)
         {
             return;
         }
         // Explicit choice discards only current-session layout; it never sends a force-overwrite command.
-        this.adopt(this.pendingServer);
+        this.adopt(this.pendingServer, true);
+        this.serverChoiceRequired = false;
         this.pendingServer = null;
         this.record('accepted-server');
     }
@@ -383,7 +398,7 @@ export class AuthoringWorkspaceSnapshotSync
         }
         this.clearDebounce();
         if (!this.online || this.dirty || this.flushTask || this.resetting
-            || expectedRevision !== this.observation?.revision || this.status === 'conflict')
+            || expectedRevision !== this.observation?.revision || this.serverChoiceRequired || this.status === 'conflict')
         {
             throw new AuthoringWorkspaceSnapshotError('reset_requires_current_server');
         }
@@ -405,12 +420,13 @@ export class AuthoringWorkspaceSnapshotSync
             }
             if (result.status === 'conflict')
             {
+                this.serverChoiceRequired = true;
                 this.status = 'conflict';
                 this.reason = 'stale_revision';
                 await this.readServer('conflict');
                 return;
             }
-            if (this.generation === generation)
+            if (this.serverChoiceRequired || this.generation === generation)
             {
                 this.adopt(result);
             }
@@ -471,6 +487,7 @@ export class AuthoringWorkspaceSnapshotSync
         this.listeners.clear();
         this.observation = null;
         this.pendingServer = null;
+        this.serverChoiceRequired = false;
         this.readAfterMutation = false;
         this.mutationOutcomeUnknown = false;
         this.cacheRead = null;
@@ -504,7 +521,7 @@ export class AuthoringWorkspaceSnapshotSync
         try
         {
             // A queued peer hint must not silently accept server state after a real CAS conflict.
-            const refreshed = await this.readServer(this.status === 'conflict' ? 'conflict' : 'channel');
+            const refreshed = await this.readServer(this.serverChoiceRequired ? 'conflict' : 'channel');
             if (!refreshed && this.isCurrentOperation(epoch))
             {
                 this.readAfterMutation = true;
@@ -550,13 +567,14 @@ export class AuthoringWorkspaceSnapshotSync
                 this.status = 'blocked';
                 this.reason = server.receipt.reason;
                 this.observation = null;
-                if (!this.dirty)
+                if (!this.dirty && !this.serverChoiceRequired)
                 {
                     this.memory = defaultWorkspaceSnapshotLayout();
                 }
             }
-            else if (trigger === 'conflict' || (this.dirty && server.revision !== this.observation?.revision))
+            else if (this.serverChoiceRequired || trigger === 'conflict' || (this.dirty && server.revision !== this.observation?.revision))
             {
+                this.serverChoiceRequired = true;
                 this.pendingServer = server;
                 this.status = 'conflict';
                 this.reason = 'server_revision_changed';
@@ -602,9 +620,16 @@ export class AuthoringWorkspaceSnapshotSync
             return false;
         }
     }
-    private adopt(server: AuthoringWorkspaceServerObservation): void
+    private adopt(server: AuthoringWorkspaceServerObservation, explicitChoice = false): void
     {
         requireWorkspaceServerObservation(server);
+        if (this.serverChoiceRequired && !explicitChoice)
+        {
+            this.pendingServer = server;
+            this.status = 'conflict';
+            this.reason = 'server_revision_changed';
+            return;
+        }
         this.observation = server;
         this.memory = structuredClone(server.snapshot?.layout ?? defaultWorkspaceSnapshotLayout());
         this.dirty = false;
@@ -613,7 +638,7 @@ export class AuthoringWorkspaceSnapshotSync
     }
     private canFlush(): boolean
     {
-        return !this.stopped && !this.resetting && this.online && this.dirty && this.hasAuthority(this.observation)
+        return !this.stopped && !this.resetting && !this.serverChoiceRequired && this.online && this.dirty && this.hasAuthority(this.observation)
             && (this.status === 'current' || this.status === 'defaulted');
     }
     private isCurrentOperation(epoch: number): boolean
