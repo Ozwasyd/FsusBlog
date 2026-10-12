@@ -127,6 +127,7 @@ export class BinaryTransportError extends AppError
 }
 
 let workerSingleton: Worker | null = null;
+let retiredWorkerCleanup: { worker: Worker; owners: LocalTransportOwner[]; cause: unknown; } | null = null;
 let requestSeq = 0;
 const DECODE_WORKER_TIMEOUT_MS = 15000;
 const WORKER_IDLE_TTL_MS = 30000;
@@ -247,6 +248,7 @@ class LocalTransportOwner
             workerTerminal,
             sharedWorker: workerSingleton !== null,
             sharedWorkerIdleTimer: workerIdleTimer !== null,
+            sharedWorkerCleanupPending: retiredWorkerCleanup !== null,
             networkTerminal: 'unavailable',
             sharedWasmInitialization: 'unavailable'
         });
@@ -326,7 +328,8 @@ function resetWorker(error: unknown): void
     clearWorkerIdleTimer();
     const lostWorker = workerSingleton;
     workerSingleton = null;
-    const pending = Array.from(pendingRequests.keys());
+    const affected = Array.from(pendingRequests.values()).filter((entry) => entry.task.state === 'pending');
+    const pending = affected.map((entry) => entry.task.requestId);
     for (let i = 0; i < pending.length; i += 1)
     {
         const request = clearPendingRequest(pending[i], false);
@@ -341,7 +344,22 @@ function resetWorker(error: unknown): void
         queued.task.owner.record('worker', error);
     }
 
-    lostWorker?.terminate();
+    if (lostWorker)
+    {
+        try
+        {
+            lostWorker.terminate();
+        }
+        catch (cleanupError)
+        {
+            const owners = Array.from(new Set(affected.map((entry) => entry.task.owner)));
+            retiredWorkerCleanup = { worker: lostWorker, owners, cause: cleanupError };
+            for (const owner of owners)
+            {
+                owner.record('cleanup', cleanupError);
+            }
+        }
+    }
 }
 
 function clearWorkerIdleTimer(): void
@@ -503,6 +521,26 @@ function handleWorkerFatalError(reason: unknown): void
 function getWorker(): Worker
 {
     clearWorkerIdleTimer();
+    // Shared acquisition retries the original broken worker's cleanup before any replacement.
+    // A request's cancel method never receives this shared termination authority.
+    if (retiredWorkerCleanup)
+    {
+        const cleanup = retiredWorkerCleanup;
+        try
+        {
+            cleanup.worker.terminate();
+            retiredWorkerCleanup = null;
+        }
+        catch (error)
+        {
+            cleanup.cause = error;
+            for (const owner of cleanup.owners)
+            {
+                owner.record('cleanup', error);
+            }
+            throw error;
+        }
+    }
     if (!workerSingleton)
     {
         workerSingleton = new Worker(toTrustedApplicationWorkerScriptUrl(

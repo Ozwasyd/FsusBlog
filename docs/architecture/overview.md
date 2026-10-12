@@ -61,6 +61,14 @@ listener/timeout cleanup and a failed cancel send. A failed private-lease releas
 remains unknown because its retired no-op cannot prove cleanup. Terminal snapshots
 are immutable; subsequent inspections retain later observations on the same handle.
 
+If termination of a broken shared worker throws, the shared owner retains that
+same worker and its failure instead of allocating replacements without bound.
+The next shared acquisition retries that original cleanup before replacement;
+the request handle's cancellation has no shared termination authority. The
+`sharedWorkerCleanupPending` observation reports the actual retained holder.
+Posted original work remains terminal-unknown even after a later termination call
+returns successfully.
+
 The underlying network producer does not expose a terminal observer for its
 shared deduplicated reads, and shared Wasm initialization has no request-scoped
 terminal authority. Both are explicitly `unavailable` on this bounded handle.

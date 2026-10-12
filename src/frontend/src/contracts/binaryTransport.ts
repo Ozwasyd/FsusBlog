@@ -66,6 +66,7 @@ export interface BinaryTransportResources {
     workerTerminal: 'not-used' | 'pending' | 'observed' | 'unknown';
     sharedWorker: boolean;
     sharedWorkerIdleTimer: boolean;
+    sharedWorkerCleanupPending: boolean;
     /** The network producer exposes only its public waiter result, including deduped reads. */
     networkTerminal: 'unavailable';
     sharedWasmInitialization: 'unavailable';
