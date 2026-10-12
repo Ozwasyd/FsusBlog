@@ -53,6 +53,13 @@ interface ArticleFsusUiRenderCleanup {
     observerPromises: Promise<unknown>[];
 }
 
+const observerPromiseConstructor = Promise;
+const observerPromisePrototype = Promise.prototype;
+const observerThen = Promise.prototype.then;
+const observerOwnDescriptor = Object.getOwnPropertyDescriptor;
+const observerPrototypeOf = Object.getPrototypeOf;
+const observerSpeciesGetter = observerOwnDescriptor(Promise, Symbol.species)?.get;
+
 const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: string, cause: unknown): Error =>
 {
     const previous = cleanup.endpointFailure;
@@ -61,9 +68,21 @@ const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: s
     {
         // Discard fulfillment values explicitly: forwarding them would assimilate
         // their then getter again in the derived Promise. Neither observer is proof.
-        if (cause instanceof Promise)
+        if (typeof cause === 'object' && cause !== null && observerPrototypeOf(cause) === observerPromisePrototype)
         {
-            const observerPromise: Promise<unknown> = Promise.prototype.then.call(cause, () => undefined, () => undefined);
+            // Do not invoke an arbitrary constructor/species getter or create its
+            // subclass. Awaiting such a derivative can manufacture another ignored
+            // species Promise. Unsupported futures keep their original custody.
+            const constructor = observerOwnDescriptor(cause, 'constructor')
+                ?? observerOwnDescriptor(observerPromisePrototype, 'constructor');
+            const species = observerOwnDescriptor(observerPromiseConstructor, Symbol.species);
+            if (constructor?.value !== observerPromiseConstructor || constructor.get || constructor.set
+                || !observerSpeciesGetter || species?.get !== observerSpeciesGetter || species.set
+                || Object.prototype.hasOwnProperty.call(species, 'value'))
+            {
+                throw new Error('article-fsusui-observer-species-unavailable', { cause: { constructor, species } });
+            }
+            const observerPromise: Promise<unknown> = observerThen.call(cause, () => undefined, () => undefined);
             cleanup.observerPromises.push(observerPromise);
             const completion = (async (): Promise<void> =>
             {
