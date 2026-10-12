@@ -33,7 +33,9 @@ import type {
     MarkdownEditorSessionRenderRestoreProof,
     MarkdownEditorSessionRestoreProof,
     MarkdownEditorSessionRendererResourceSource,
-    MarkdownEditorSessionSnapshot
+    MarkdownEditorSessionSnapshot,
+    MarkdownRendererCheckpointHandle,
+    MarkdownRendererCheckpointPreparation
 } from '@ozwasyd/element-plus';
 
 /** Supplied by the existing mounted editor/document owner, never route discovery. */
@@ -84,7 +86,8 @@ export interface ArticleWorkspaceEditorSnapshotPreparation {
 /** Original ref custody only. Root/Renderer/resource admission is still required by the host. */
 export interface ArticleWorkspaceSnapshotReferenceAdmission {
     readonly references: Readonly<AuthoringSessionSnapshotRefs>;
-    readonly scope: 'native-draft-journal-reference-custody';
+    readonly scope: 'native-renderer-draft-journal-reference-custody';
+    readonly rendererCheckpointRef: string;
     readonly complete: false;
     readonly recoverable: false;
     readonly missingAuthorities: readonly string[];
@@ -104,6 +107,8 @@ interface SnapshotReferenceAttempt {
     latestCause: unknown;
     nativePreparation: ArticleWorkspaceEditorSnapshotPreparation | null;
     nativeReservation: ArticleWorkspaceNativeDocumentReservation | null;
+    rendererHandle: MarkdownRendererCheckpointHandle | null;
+    rendererPreparation: MarkdownRendererCheckpointPreparation | null;
 }
 
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
@@ -183,13 +188,34 @@ export function createFsusUiEditorSessionFactory(
         {
             try
             {
-                attempt.nativePreparation?.discard();
-                attempt.nativePreparation = null;
+                const handle = attempt.rendererHandle;
+                const preparation = attempt.rendererPreparation;
+                if (handle && preparation
+                    && handle.cancelPreparedRendererOwnedCheckpoint(preparation) !== true)
+                {
+                    throw new Error('public-editor-reference-renderer-cancellation-not-confirmed');
+                }
+                attempt.rendererPreparation = null;
+                attempt.rendererHandle = null;
             }
             catch (cause)
             {
                 failed = true;
                 firstCause = cause;
+                recordReferenceFailure(attempt, cause);
+            }
+            try
+            {
+                attempt.nativePreparation?.discard();
+                attempt.nativePreparation = null;
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    firstCause = cause;
+                }
+                failed = true;
                 recordReferenceFailure(attempt, cause);
             }
             try
@@ -213,7 +239,7 @@ export function createFsusUiEditorSessionFactory(
                 failed = true;
                 recordReferenceFailure(attempt, cause);
             }
-            if (!attempt.nativePreparation && !attempt.nativeReservation && referenceAttempt === attempt)
+            if (!attempt.rendererPreparation && !attempt.nativePreparation && !attempt.nativeReservation && referenceAttempt === attempt)
             {
                 referenceAttempt = null;
             }
@@ -221,7 +247,7 @@ export function createFsusUiEditorSessionFactory(
             {
                 throw firstCause;
             }
-            return !attempt.nativePreparation && !attempt.nativeReservation;
+            return !attempt.rendererPreparation && !attempt.nativePreparation && !attempt.nativeReservation;
         }
         finally
         {
@@ -441,7 +467,7 @@ export function createFsusUiEditorSessionFactory(
             }
             const attempt: SnapshotReferenceAttempt = { active: true, preparing: true, canceling: false,
                 failed: false, firstCause: undefined, latestCause: undefined,
-                nativePreparation: null, nativeReservation: null };
+                nativePreparation: null, nativeReservation: null, rendererHandle: null, rendererPreparation: null };
             referenceAttempt = attempt;
             try
             {
@@ -485,6 +511,15 @@ export function createFsusUiEditorSessionFactory(
                 {
                     throw new Error('public-editor-reference-native-authority-unavailable');
                 }
+                const rendererHandle = session.getRendererCheckpointHandle();
+                if (!rendererHandle)
+                {
+                    throw new Error('public-editor-reference-full-renderer-checkpoint-handle-unavailable');
+                }
+                attempt.rendererHandle = rendererHandle;
+                const prepareRenderer = rendererHandle.prepareRendererOwnedCheckpoint.bind(rendererHandle);
+                const sealRenderer = rendererHandle.sealPreparedRendererOwnedCheckpoint.bind(rendererHandle);
+                const hasRenderer = rendererHandle.hasSealedRendererOwnedCheckpointCustody.bind(rendererHandle);
                 const draftObservation = factory.inspectOriginalDraftCheckpoint(entry, draftStateRef);
                 const draftInfo = draftObservation.info;
                 const journalInfo = assertRecoveryReference(entry, binding, inspectJournal, crashJournalRef);
@@ -536,18 +571,38 @@ export function createFsusUiEditorSessionFactory(
                     throw new Error('public-editor-reference-set-invalid');
                 }
                 const publication = preparation.sealNative();
+                // Native seal admission completes its renderer/view reads BEFORE acquiring the
+                // exact Renderer checkpoint seal. Hold this same handle/preparation across all phases.
+                attempt.rendererPreparation = prepareRenderer();
+                const rendererPreparation = attempt.rendererPreparation;
+                if (!rendererPreparation)
+                {
+                    throw new Error('public-editor-reference-renderer-checkpoint-prepare-refused');
+                }
+                const checkpoint = rendererPreparation.checkpoint;
+                if (checkpoint.documentIdentity.id !== native.documentIdentity.id
+                    || checkpoint.documentIdentity.epoch !== native.documentIdentity.epoch
+                    || checkpoint.revision !== native.revision || checkpoint.lastValidRenderRef !== render.ref)
+                {
+                    throw new Error('public-editor-reference-renderer-checkpoint-owner-mismatch');
+                }
+                const rendererPublication = sealRenderer(rendererPreparation);
+                if (!rendererPublication)
+                {
+                    throw new Error('public-editor-reference-renderer-checkpoint-seal-refused');
+                }
                 const hasNative = publication.hasNativeCustody.bind(publication);
                 const nativeReservation = attempt.nativeReservation;
                 const hasNativeDocument = nativeReservation.hasCustody.bind(nativeReservation);
                 const privateCurrent = (): boolean => referenceAttempt === attempt && attempt.active
                     && !attempt.preparing && !attempt.canceling && !attempt.failed && !referenceAdmissionRetired;
-                const hasCustody = (): boolean => privateCurrent() && hasNative() && hasNativeDocument()
+                const hasCustody = (): boolean => privateCurrent() && hasNative() && hasRenderer(rendererPublication) && hasNativeDocument()
                     && hasDraft(draftStateRef, draftInfo) && hasJournal(crashJournalRef, journalInfo)
-                    && hasNative() && hasNativeDocument() && privateCurrent();
+                    && hasNative() && hasRenderer(rendererPublication) && hasNativeDocument() && privateCurrent();
                 const admission: ArticleWorkspaceSnapshotReferenceAdmission = Object.freeze({
-                    references, scope: 'native-draft-journal-reference-custody', complete: false, recoverable: false,
+                    references, rendererCheckpointRef: checkpoint.ref,
+                    scope: 'native-renderer-draft-journal-reference-custody', complete: false, recoverable: false,
                     missingAuthorities: Object.freeze([
-                        'markdown-editor-session:full-document-renderer-checkpoint-seal-public-port',
                         'root:final-mounted-authority-port',
                         'session:complete-resource-and-disposed-restoration-authority'
                     ]),
@@ -557,7 +612,7 @@ export function createFsusUiEditorSessionFactory(
                 });
                 // These original inspectors may invalidate. Finish them before the final
                 // private join, and never call them from hasCustody or the retirement receiver.
-                if (inspectDraft(draftStateRef) !== draftInfo
+                if (session.getRendererCheckpointHandle() !== rendererHandle || inspectDraft(draftStateRef) !== draftInfo
                     || assertRecoveryReference(entry, binding, inspectJournal, crashJournalRef) !== journalInfo)
                 {
                     throw new Error('public-editor-reference-original-custody-revoked');
@@ -967,8 +1022,8 @@ export function createFsusUiEditorSessionFactory(
                 {
                     assertCurrent(entry, session, context);
                     // Scoped reference admission now binds actual native/panel/draft/journal refs.
-                    // The original Renderer checkpoint public port, final Root joint authority
-                    // and complete resource/restoration admission are still required here.
+                    // The same original public Renderer checkpoint is joined by that scoped path.
+                    // Final Root authority and complete resource/restoration admission remain required here.
                     // Refuse before capture so an existing snapshot is preserved.
                     throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,full-recovery-refset');
                 },

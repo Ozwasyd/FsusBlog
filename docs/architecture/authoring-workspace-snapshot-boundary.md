@@ -1277,10 +1277,18 @@ attempts all original obligations and supports retry through the same host.
 Only one pending reference operation is held, with no article/session index.
 
 This candidate has `complete:false` and `recoverable:false`; it is never passed
-to host attach/capture or router readiness. Original Renderer5b94 now owns a real
-checkpoint-bound seal in its mounted SFC, but the sole public MarkdownEditorSession
-still lacks a same-full-document renderer checkpoint prepare/seal/has/cancel port.
-The original Root's final mounted authority port is a separate required join.
+to host attach/capture or router readiness. The public session now forwards the actual
+same-mounted full-document Renderer357 checkpoint handle through the original
+MarkdownEditor getter. Admission holds that single handle and its original
+preparation/publication, matches document identity/epoch/revision and the exact
+last-valid-render ref against the native candidate, and joins its original pure
+seal custody. Native seal admission finishes view/render reads before Renderer
+seal acquisition. Subsequent pure has never inspects or reacquires the handle;
+failed/retired cancellation keeps that actual handle/preparation and requires
+original cancellation confirmation while attempting the remaining cleanup.
+The candidate exposes the actual renderer checkpoint ref with
+`native-renderer-draft-journal-reference-custody` scope. The original Root's
+final mounted authority port is a separate required join.
 Complete resource authority and restoration after disposal remain unavailable.
 These missing ports prevent full-host readiness, pause/disposal qualification and
 eviction; no component-tree discovery, internal SDK import or substitute issuer
