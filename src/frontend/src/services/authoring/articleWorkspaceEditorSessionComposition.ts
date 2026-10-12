@@ -8,7 +8,6 @@ import {
     type ArticleWorkspaceMountedEditorResolver,
     type ArticleWorkspaceFsusUiEditorSessionFactory,
     type ArticleWorkspaceEditorResourceSources,
-    type ArticleWorkspaceOriginalDraftCheckpoint,
     type ArticleWorkspaceOriginalDraftInspection
 } from './fsusUiEditorSessionFactory';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
@@ -157,7 +156,6 @@ export function inspectArticleWorkspaceEditorResourceSources(
 /** Correlate an already issued original draft reference with actual native bytes; no capture/restore/ready grant. */
 export function inspectArticleWorkspaceOriginalDraftCheckpoint(
     entry: OpenArticleDocumentEntry,
-    draft: ArticleWorkspaceOriginalDraftCheckpoint,
     reference: string
 ): ArticleWorkspaceOriginalDraftInspection
 {
@@ -166,7 +164,7 @@ export function inspectArticleWorkspaceOriginalDraftCheckpoint(
         throw new Error('article-workspace-session-composition-not-installed');
     }
     installed.assertActive();
-    return installed.factory.inspectOriginalDraftCheckpoint(entry, draft, reference);
+    return installed.factory.inspectOriginalDraftCheckpoint(entry, reference);
 }
 
 /** Capture the upstream retained token through the same installed factory. */

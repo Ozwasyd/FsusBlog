@@ -879,15 +879,16 @@ current slot/retirement/reservation flags and exact original info object; it
 never replaces prior fresh owner/content inspection.
 
 The same installed factory/composition exposes inspectOriginalDraftCheckpoint /
-inspectArticleWorkspaceOriginalDraftCheckpoint. Pass the ACTUAL original Writer
-authoringDraftCheckpointRuntime and its already issued original reference. The
+inspectArticleWorkspaceOriginalDraftCheckpoint. Pass only its already issued original reference. The actual runtime is borrowed
+through the SAME original mounted Writer source, not a caller-supplied runtime. The
 factory pins actual methods, checks original full document/draft/session/epoch/
 revision/association, validates native bytes through original validateDraftReference,
 then rechecks original draft inspection, final actual mount and genuine private
 slot continuity. Return is read-only original info plus actual native digest,
 not a complete snapshot, restoration, readiness, pause or safe-eviction receipt.
-The actual Root/Write caller must borrow the same runtime, not reconstruct its
-fields or invent a source from a token/string.
+The actual Root/Write caller forwards readDraftCheckpoint from that SAME original
+source. Missing/changed runtime ownership refuses. A caller cannot choose an
+arbitrary inspect/validate/self-certification object through this inspection API.
 
 Full snapshot remains refused: complete controlled resources and a qualified
 full recovery ref replacement/restoration protocol are not available. In

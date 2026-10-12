@@ -34,6 +34,7 @@ export interface ArticleWorkspaceMountedEditorBinding {
     readonly identity: ArticleDocumentIdentity;
     readonly documentContext: ArticleDocumentContextRef;
     readonly editorRevision: number;
+    readonly draftCheckpoint?: ArticleWorkspaceOriginalDraftCheckpoint | null;
 }
 
 export type ArticleWorkspaceMountedEditorResolver = (
@@ -56,7 +57,7 @@ export interface ArticleWorkspaceOriginalDraftInspection {
 }
 
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
-    inspectOriginalDraftCheckpoint(entry: OpenArticleDocumentEntry, draft: ArticleWorkspaceOriginalDraftCheckpoint, reference: string): ArticleWorkspaceOriginalDraftInspection;
+    inspectOriginalDraftCheckpoint(entry: OpenArticleDocumentEntry, reference: string): ArticleWorkspaceOriginalDraftInspection;
     inspectResourceSources(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorResourceSources;
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
     restoreRetainedSnapshot(entry: OpenArticleDocumentEntry, snapshot: MarkdownEditorSessionSnapshot): MarkdownEditorSessionRestoreProof;
@@ -175,12 +176,17 @@ export function createFsusUiEditorSessionFactory(
     }
 
     return {
-        inspectOriginalDraftCheckpoint(entry, draft, reference)
+        inspectOriginalDraftCheckpoint(entry, reference)
         {
+            const { binding, session } = resolveSession(entry);
+            const draft = binding.draftCheckpoint;
+            if (!draft)
+            {
+                throw new Error('public-editor-original-mounted-draft-owner-unavailable');
+            }
             const inspect = draft.inspectDraftReference.bind(draft);
             const validate = draft.validateDraftReference.bind(draft);
             const hasCustody = draft.hasDraftReferenceCustody.bind(draft);
-            const { binding, session } = resolveSession(entry);
             const identity = Object.freeze({ ...binding.identity });
             const context = Object.freeze({ ...binding.documentContext });
             const revision = binding.editorRevision;
@@ -206,6 +212,7 @@ export function createFsusUiEditorSessionFactory(
                 const current = resolveSession(entry);
                 assertBinding(current.binding, identity, context);
                 if (current.session !== session || current.binding.editor !== editor || current.binding.editorRevision !== revision
+                    || current.binding.draftCheckpoint !== draft
                     || !hasCustody(reference, info))
                 {
                     throw new Error('public-editor-original-draft-owner-stale');

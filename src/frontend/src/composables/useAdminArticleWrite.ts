@@ -1123,7 +1123,9 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             };
             const mountedSource = readMountedEditor
                 ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
-                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
+                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding,
+                    () => active && writerScope.active && componentAttached && editorRuntimeBinding === binding && originalMountedEditor === editor
+                        ? authoringDraftCheckpointRuntime : null)
                 : null;
             const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding & {
                 /** Native retained snapshot only; complete application factory custody remains unavailable. */
