@@ -54,12 +54,21 @@ const browserClock: WorkspaceSnapshotSyncClock = {
 /// Coordinates only revisions/leases; every layout write remains server CAS and every cache write is server verified.
 export class AuthoringWorkspaceSnapshotSync
 {
+    private readonly api: AuthoringWorkspaceSnapshotApi;
+    private readonly cache: AuthoringWorkspaceSnapshotCache;
+    private readonly channel: WorkspaceSnapshotCoordinationChannel | null;
+    private readonly ownerRef: string;
+    private readonly lease: WorkspaceSnapshotFlushLease | null;
+    private readonly clock: WorkspaceSnapshotSyncClock;
     private readonly scopeDigest: string;
     private readonly abort = new AbortController();
     private readonly listeners = new Set<() => void>();
     private readonly unsubscribe: () => void;
     private observation: AuthoringWorkspaceServerObservation | null = null;
     private pendingServer: AuthoringWorkspaceServerObservation | null = null;
+    private serverChoiceRequired = false;
+    // One opaque current-session identity; old reads cannot resolve or recreate a different intent.
+    private serverChoiceGeneration = {};
     private memory = defaultWorkspaceSnapshotLayout();
     private cacheRead: WorkspaceSnapshotCacheRead | null = null;
     private status: WorkspaceSnapshotSyncStatus = 'loading';
@@ -77,14 +86,22 @@ export class AuthoringWorkspaceSnapshotSync
     private flushTask: Promise<void> | null = null;
     private reading = 0;
     private peerLeaseUntil = 0;
-    private readAfterFlush = false;
+    private readAfterMutation = false;
+    private peerReadPending = false;
+    private mutationOutcomeUnknown = false;
     private readonly events: {
         kind: string;
         revision: number | null;
         status: WorkspaceSnapshotSyncStatus;
     }[] = [];
-    public constructor(private readonly api: AuthoringWorkspaceSnapshotApi, private readonly cache: AuthoringWorkspaceSnapshotCache, private readonly channel: WorkspaceSnapshotCoordinationChannel | null, private readonly ownerRef: string, private readonly lease: WorkspaceSnapshotFlushLease | null = null, private readonly clock: WorkspaceSnapshotSyncClock = browserClock)
+    public constructor(api: AuthoringWorkspaceSnapshotApi, cache: AuthoringWorkspaceSnapshotCache, channel: WorkspaceSnapshotCoordinationChannel | null, ownerRef: string, lease: WorkspaceSnapshotFlushLease | null = null, clock: WorkspaceSnapshotSyncClock = browserClock)
     {
+        this.api = api;
+        this.cache = cache;
+        this.channel = channel;
+        this.ownerRef = ownerRef;
+        this.lease = lease;
+        this.clock = clock;
         if (!workspaceSnapshotId(ownerRef))
         {
             throw new AuthoringWorkspaceSnapshotError('invalid_flush_owner');
@@ -99,7 +116,7 @@ export class AuthoringWorkspaceSnapshotSync
     }
     public getServerObservation(): AuthoringWorkspaceServerObservation | null
     {
-        return this.online && !this.stopped && (this.status === 'current' || this.status === 'defaulted')
+        return this.online && !this.stopped && !this.serverChoiceRequired && (this.status === 'current' || this.status === 'defaulted')
             && this.hasAuthority(this.observation) ? this.observation : null;
     }
     public getPlaceholder(): WorkspaceSnapshotCacheRead | null
@@ -280,22 +297,35 @@ export class AuthoringWorkspaceSnapshotSync
                 }
                 if (result.status === 'conflict')
                 {
+                    this.requireServerChoice();
                     this.status = 'conflict';
                     this.reason = 'stale_revision';
                     this.record('cas-conflict');
                     await this.readServer('conflict');
                     return;
                 }
-                this.observation = result;
+                if (!this.serverChoiceRequired)
+                {
+                    this.observation = result;
+                }
                 const cacheStatus = await this.cache.verifyAndReplace(result);
                 if (!this.isCurrentOperation(epoch) || !this.hasAuthority(result))
                 {
                     return;
                 }
                 this.cacheStatus = cacheStatus;
-                this.dirty = this.generation !== generation;
-                this.status = this.online ? 'current' : this.dirty ? 'offline-unsynced' : 'cached-placeholder';
-                this.reason = this.online ? null : 'offline';
+                if (this.serverChoiceRequired)
+                {
+                    this.pendingServer = result;
+                    this.status = 'conflict';
+                    this.reason = 'server_revision_changed';
+                }
+                else
+                {
+                    this.dirty = this.generation !== generation;
+                    this.status = this.online ? 'current' : this.dirty ? 'offline-unsynced' : 'cached-placeholder';
+                    this.reason = this.online ? null : 'offline';
+                }
                 this.send('invalidated', result.revision);
                 this.record('server-applied');
             }
@@ -303,6 +333,7 @@ export class AuthoringWorkspaceSnapshotSync
             {
                 if (this.isCurrentOperation(epoch))
                 {
+                    this.mutationOutcomeUnknown = true;
                     this.status = this.online ? 'failed' : 'offline-unsynced';
                     this.reason = 'server_write_failed';
                     this.record('server-write-failed');
@@ -345,24 +376,21 @@ export class AuthoringWorkspaceSnapshotSync
         finally
         {
             this.flushTask = null;
-            if (this.readAfterFlush && !this.stopped)
-            {
-                this.readAfterFlush = false;
-                await this.readServer('channel');
-            }
+            await this.readDeferredChannel(epoch);
             this.scheduleFlush();
         }
     }
     public acceptServerAfterConflict(): void
     {
-        if (this.stopped || this.status !== 'conflict' || !this.pendingServer)
+        if (this.stopped || !this.serverChoiceRequired || this.status !== 'conflict' || !this.pendingServer)
         {
             return;
         }
         // Explicit choice discards only current-session layout; it never sends a force-overwrite command.
-        this.adopt(this.pendingServer);
-        this.pendingServer = null;
-        this.record('accepted-server');
+        if (this.adopt(this.pendingServer, true))
+        {
+            this.record('accepted-server');
+        }
     }
     public async reset(confirmed: boolean, expectedRevision: number, confirmationDigest: string): Promise<void>
     {
@@ -372,10 +400,15 @@ export class AuthoringWorkspaceSnapshotSync
         }
         this.clearDebounce();
         if (!this.online || this.dirty || this.flushTask || this.resetting
-            || expectedRevision !== this.observation?.revision || this.status === 'conflict')
+            || expectedRevision !== this.observation?.revision || this.serverChoiceRequired || this.status === 'conflict')
         {
             throw new AuthoringWorkspaceSnapshotError('reset_requires_current_server');
         }
+        if (confirmationDigest !== this.api.resetConfirmation(expectedRevision))
+        {
+            throw new AuthoringWorkspaceSnapshotError('reset_confirmation_mismatch');
+        }
+        this.abort.signal.throwIfAborted();
         const generation = this.generation;
         const epoch = this.lifecycleEpoch;
         this.resetting = true;
@@ -389,14 +422,19 @@ export class AuthoringWorkspaceSnapshotSync
             }
             if (result.status === 'conflict')
             {
+                this.requireServerChoice();
                 this.status = 'conflict';
                 this.reason = 'stale_revision';
                 await this.readServer('conflict');
                 return;
             }
-            if (this.generation === generation)
+            if (this.serverChoiceRequired || this.generation === generation)
             {
-                this.adopt(result);
+                const choiceGeneration = this.serverChoiceGeneration;
+                if (!this.adopt(result))
+                {
+                    this.recoverRejectedAdoption(result, epoch, choiceGeneration);
+                }
             }
             else
             {
@@ -414,12 +452,25 @@ export class AuthoringWorkspaceSnapshotSync
             this.send('invalidated', result.revision);
             this.record('server-reset');
         }
+        catch (error)
+        {
+            if (this.isCurrentOperation(epoch))
+            {
+                // Without a verified CAS response, even a transport failure may follow a server commit.
+                this.mutationOutcomeUnknown = true;
+                this.status = 'failed';
+                this.reason = error instanceof AuthoringWorkspaceSnapshotError ? error.reason : 'server_reset_outcome_unknown';
+                this.record('server-reset-failed');
+            }
+            throw error;
+        }
         finally
         {
             if (!this.stopped && epoch === this.lifecycleEpoch)
             {
                 this.resetting = false;
                 this.record('reset-end');
+                await this.readDeferredChannel(epoch);
                 this.scheduleFlush();
             }
         }
@@ -442,6 +493,10 @@ export class AuthoringWorkspaceSnapshotSync
         this.listeners.clear();
         this.observation = null;
         this.pendingServer = null;
+        this.serverChoiceRequired = false;
+        this.serverChoiceGeneration = {};
+        this.readAfterMutation = false;
+        this.mutationOutcomeUnknown = false;
         this.cacheRead = null;
         this.memory = defaultWorkspaceSnapshotLayout();
         this.dirty = false;
@@ -462,29 +517,59 @@ export class AuthoringWorkspaceSnapshotSync
         }
         this.cache.close();
     }
-    private async readServer(trigger: 'startup' | 'reconnect' | 'conflict' | 'channel'): Promise<void>
+    private async readDeferredChannel(epoch: number, retryOnce = true): Promise<void>
     {
-        if (this.stopped || !this.online)
+        if (!this.readAfterMutation || !this.isCurrentOperation(epoch) || this.flushTask || this.resetting || this.peerReadPending)
         {
             return;
         }
+        this.readAfterMutation = false;
+        this.peerReadPending = true;
+        try
+        {
+            // A queued peer hint must not silently accept server state after a real CAS conflict.
+            const refreshed = await this.readServer(this.serverChoiceRequired ? 'conflict' : 'channel');
+            if (!refreshed && this.isCurrentOperation(epoch))
+            {
+                this.readAfterMutation = true;
+            }
+        }
+        finally
+        {
+            this.peerReadPending = false;
+        }
+        if (this.readAfterMutation && retryOnce)
+        {
+            // One immediate retry; any remaining obligation stays for the existing periodic boundary.
+            await this.readDeferredChannel(epoch, false);
+        }
+    }
+    private async readServer(trigger: 'startup' | 'reconnect' | 'conflict' | 'channel'): Promise<boolean>
+    {
+        if (this.stopped || !this.online)
+        {
+            return false;
+        }
         const ticket = ++this.reading;
         const epoch = this.lifecycleEpoch;
+        const choiceGeneration = this.serverChoiceGeneration;
         try
         {
             const server = await this.api.read(this.abort.signal);
-            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server)
+                || choiceGeneration !== this.serverChoiceGeneration)
             {
-                return;
+                return false;
             }
             if (this.observation && server.revision < this.observation.revision)
             {
-                return;
+                return false;
             }
             const cacheStatus = await this.cache.verifyAndReplace(server);
-            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server)
+                || choiceGeneration !== this.serverChoiceGeneration)
             {
-                return;
+                return false;
             }
             this.cacheStatus = cacheStatus;
             if (server.status === 'blocked')
@@ -492,13 +577,17 @@ export class AuthoringWorkspaceSnapshotSync
                 this.status = 'blocked';
                 this.reason = server.receipt.reason;
                 this.observation = null;
-                if (!this.dirty)
+                if (!this.dirty && !this.serverChoiceRequired)
                 {
                     this.memory = defaultWorkspaceSnapshotLayout();
                 }
             }
-            else if (trigger === 'conflict' || (this.dirty && server.revision !== this.observation?.revision))
+            else if (this.serverChoiceRequired || (this.dirty && server.revision !== this.observation?.revision))
             {
+                if (!this.serverChoiceRequired)
+                {
+                    this.requireServerChoice();
+                }
                 this.pendingServer = server;
                 this.status = 'conflict';
                 this.reason = 'server_revision_changed';
@@ -511,33 +600,108 @@ export class AuthoringWorkspaceSnapshotSync
             }
             else
             {
-                this.adopt(server);
+                if (!this.adopt(server))
+                {
+                    this.recoverRejectedAdoption(server, epoch, choiceGeneration);
+                    return false;
+                }
+            }
+            if (server.status !== 'blocked')
+            {
+                // Fresh verified state restores authority; it does not manufacture the missing CAS receipt.
+                this.mutationOutcomeUnknown = false;
             }
             this.record(`server-read-${trigger}`);
+            return true;
         }
         catch (error)
         {
-            if (!this.isCurrentOperation(epoch) || ticket !== this.reading)
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || choiceGeneration !== this.serverChoiceGeneration)
             {
-                return;
+                return false;
+            }
+            if (error instanceof AuthoringWorkspaceSnapshotError && error.reason === 'server_read_superseded')
+            {
+                if (trigger === 'channel')
+                {
+                    // Preserve the peer obligation even if the mutation has already failed or settled.
+                    this.readAfterMutation = true;
+                    await this.readDeferredChannel(epoch);
+                }
+                return false;
             }
             this.status = this.cacheRead?.status === 'cached-placeholder' && !this.dirty ? 'cached-placeholder' : 'failed';
-            this.reason = error instanceof AuthoringWorkspaceSnapshotError ? error.reason : 'server_read_failed';
+            this.reason = this.mutationOutcomeUnknown ? 'server_mutation_outcome_unknown'
+                : error instanceof AuthoringWorkspaceSnapshotError ? error.reason : 'server_read_failed';
             this.record('server-read-failed');
+            return false;
         }
     }
-    private adopt(server: AuthoringWorkspaceServerObservation): void
+    private requireServerChoice(): void
     {
-        requireWorkspaceServerObservation(server);
+        this.serverChoiceGeneration = {};
+        this.serverChoiceRequired = true;
+        this.pendingServer = null;
+    }
+    private recoverRejectedAdoption(server: AuthoringWorkspaceServerObservation, epoch: number, choiceGeneration: object): void
+    {
+        if (!this.isCurrentOperation(epoch))
+        {
+            return;
+        }
+        // Automatic adoption refusal still owes a fresh read, including startup/reconnect callers.
+        this.readAfterMutation = true;
+        if (choiceGeneration !== this.serverChoiceGeneration || !this.hasAuthority(server)
+            || !this.isCurrentOperation(epoch) || choiceGeneration !== this.serverChoiceGeneration || this.serverChoiceRequired)
+        {
+            return;
+        }
+        // Keep the actual verified baseline without adopting layout or resolving a user's choice.
         this.observation = server;
-        this.memory = structuredClone(server.snapshot?.layout ?? defaultWorkspaceSnapshotLayout());
+        this.status = server.status === 'missing' ? 'defaulted' : 'current';
+        this.reason = 'server_layout_adoption_deferred';
+    }
+    private adopt(server: AuthoringWorkspaceServerObservation, explicitChoice = false): boolean
+    {
+        const epoch = this.lifecycleEpoch;
+        const generation = this.generation;
+        const choiceGeneration = this.serverChoiceGeneration;
+        requireWorkspaceServerObservation(server);
+        if (!this.isCurrentOperation(epoch) || generation !== this.generation || choiceGeneration !== this.serverChoiceGeneration)
+        {
+            return false;
+        }
+        if (this.serverChoiceRequired && !explicitChoice)
+        {
+            this.pendingServer = server;
+            this.status = 'conflict';
+            this.reason = 'server_revision_changed';
+            return true;
+        }
+        const memory = structuredClone(server.snapshot?.layout ?? defaultWorkspaceSnapshotLayout());
+        requireWorkspaceServerObservation(server);
+        if (!this.isCurrentOperation(epoch) || generation !== this.generation || choiceGeneration !== this.serverChoiceGeneration
+            || (explicitChoice && (!this.serverChoiceRequired || this.pendingServer !== server)))
+        {
+            return false;
+        }
+        // Publish and resolve the same intent before any listener can reenter.
+        if (explicitChoice)
+        {
+            this.serverChoiceRequired = false;
+            this.serverChoiceGeneration = {};
+            this.pendingServer = null;
+        }
+        this.observation = server;
+        this.memory = memory;
         this.dirty = false;
         this.status = server.status === 'missing' ? 'defaulted' : 'current';
         this.reason = null;
+        return true;
     }
     private canFlush(): boolean
     {
-        return !this.stopped && !this.resetting && this.online && this.dirty && this.hasAuthority(this.observation)
+        return !this.stopped && !this.resetting && !this.serverChoiceRequired && this.online && this.dirty && this.hasAuthority(this.observation)
             && (this.status === 'current' || this.status === 'defaulted');
     }
     private isCurrentOperation(epoch: number): boolean
@@ -583,6 +747,7 @@ export class AuthoringWorkspaceSnapshotSync
         this.periodic = this.clock.setTimeout(() =>
         {
             this.periodic = null;
+            void this.readDeferredChannel(this.lifecycleEpoch);
             void this.flush('periodic');
             this.schedulePeriodic();
         }, workspaceSnapshotSyncPolicy.safetyFlushMs);
@@ -646,14 +811,8 @@ export class AuthoringWorkspaceSnapshotSync
                     this.status = 'conflict';
                     this.reason = 'peer_revision_changed';
                 }
-                if (this.flushTask)
-                {
-                    this.readAfterFlush = true;
-                }
-                else
-                {
-                    void this.readServer('channel');
-                }
+                this.readAfterMutation = true;
+                void this.readDeferredChannel(this.lifecycleEpoch);
             }
             this.record(`channel-${String(value.kind)}`);
         }
@@ -709,8 +868,11 @@ export class AuthoringWorkspaceSnapshotBroadcastChannel implements WorkspaceSnap
 }
 export class AuthoringWorkspaceSnapshotWebLocks implements WorkspaceSnapshotFlushLease
 {
-    public constructor(private readonly locks: LockManager)
-    { }
+    private readonly locks: LockManager;
+    public constructor(locks: LockManager)
+    {
+        this.locks = locks;
+    }
     public async run(name: string, operation: () => Promise<void>): Promise<boolean>
     {
         return this.locks.request(`fsusblog.authoring-workspace:${name}`, { ifAvailable: true }, async (lock) =>

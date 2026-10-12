@@ -189,3 +189,493 @@ Slot/layout admission, model/command composition, production read grants, full
 resource/UI/scale qualification and snapshot reference reconciliation remain
 open. Local fixture provenance and test admission are not production or terminal
 acceptance evidence.
+
+## Snapshot ratio conversion source
+
+The independent snapshot consumer imports the actual sole ratio owner from
+`a4212c5739c74381a3b9ecbe2942c6d0bbf9277b` without modifying its source.
+This replaces the earlier `c1141feb` dependency; the runtime-private issuer
+correction is statically reviewed, while all 21 declared controls remain UNRUN.
+`projectAuthoringWorkspaceSnapshotRatio(scope, ratioRef)` resolves the exact
+current ref and returns only its requested `splitRatioPermille`. Missing,
+foreign, staged or disposed refs never fall back to current/default or an
+effective geometry clamp. No opaque scope/ref/change is serialized to the server.
+
+`prepareAuthoringWorkspaceSnapshotRatio(plan, scope, expectedRatioRef)` requires
+the original prepared server-plan provenance before delegating the scalar to
+the real owner's `prepare`. It returns that owner's change directly: no new
+ratio owner/ref, wrapper receipt or local/cache restore authority is created.
+Workspace lifecycle still owns opening and releasing the genuine ratio scope.
+
+The original group transaction must consume the real `readPrepared` result:
+`expectedRatioRef`, `ratioRef`, `revision` and `splitRatioPermille`. It must stage
+all fallible group/registry publication, then jointly publish synchronously
+without callbacks/await, or discard the proposed ratio on cancellation/refusal.
+This ratio conversion module does not call `commit`, `discard`, `applyGroups` or any runtime
+factory and does not claim cross-owner atomicity or readiness. The original
+#2298 joint-publication contract remains a dependency to be supplied through
+root. At exact original head `4b19fca33b145a0c8af4b93a8ee20a1029be2721`,
+the replay-before-count repair is reported statically closed, but
+`authoringTabGroupRegistry.ts` still declares `AuthoringSplitRatioRef = string`,
+validates ratio refs with `isRef`, and clones command/projection state through
+`structuredClone`. These paths cannot preserve or verify the real opaque ratio
+capability. No string encoding, copied handle or substitute group owner is
+admitted. The original owner's proposed opaque integration is not published
+at that head and is not consumed here.
+
+The real group bootstrap must explicitly accept the restored one/two group IDs:
+the official router opens restored tabs into those saved owners before
+`applyGroups`. The common transaction's exact article Registry +1 transition
+must also be bound to a genuine verified group receipt before the snapshot
+restore advances its revision guard. The present digest-only `applyGroups`
+port does not provide that binding; reading the latest Registry revision or
+trusting a ratio-only commit cannot substitute for it. Existing
+transport/factory/restore source is unchanged. All held behavioral/receipt/
+restore/DB/race/native qualification and the upstream declared controls remain
+UNRUN; static compilation is source-only.
+
+## Snapshot group receipt source composition
+
+The subsequent source composition consumes exact original group offer
+`418611fa6bedf623823b33c415b491215b746c7d`, including the original
+`68e4cdd4` R5/R6/R7/R8 source repairs, instance `verifyBinding`, and typed receipt interface
+first supplied by `f44c8196` and the unchanged corrected
+ratio issuer from `a4212c57`. It supersedes the missing opaque interface described
+at the earlier `4b19fca33` checkpoint above. The real group owner now supplies
+explicit one/two-group bootstrap, `createSnapshotAdapter`,
+`applyGroupsWithReceipt`, and `verifyCommittedTransition` against its own private
+committed cache. No original group, Registry, ratio or integration source is
+modified by this consumer.
+
+Snapshot restore retains the compatible digest callback field but never uses
+it to authorize group restoration. After the existing server provenance,
+operation guard, empty-workspace and refreshed permission/lifecycle checks,
+absence of the concrete original group owner or typed receipt callback blocks
+before any session creation. The typed callback returns the original command
+and genuine receipt; serializable receipt coordinates are copied once without
+copying any opaque handle. Restore binds the real owner's committed-cache
+verification and independent result verifier to Registry snapshots captured
+immediately before and after the call. It also checks the exact group revision,
+ordered requested groups/tabs/active refs, requested ratio, current owner result,
+and precisely one article Registry revision increment. Only that verified +1
+advances the local guard; a latest-revision read, replay, digest-only result or
+ratio-only commit cannot authorize it. Server provenance, operation epoch and
+abort guards remain active throughout the asynchronous boundary.
+
+The callback receives a copied, recursively frozen group request, including
+ordered tab arrays and active refs. Digest verification and subsequent
+activation both consume this same request; callback code cannot substitute an
+activation target after the receipt has been verified. No callback-owned
+mutable group projection is read again for activation.
+
+This is source wiring, not restore readiness or a runtime receipt witness.
+Original group R5/R6/R7/R8 repairs are independently statically closed for this
+exact dependency; behavioral qualification remains UNRUN. Independent review
+of snapshot `2d6c15d5` closed the old +1 guard P1 and found two consumer P2s:
+callback request mutation (addressed by the frozen copy above) and Registry
+instance binding (addressed in source by the original `418611fa` capability).
+Independent review of `fefa4f618` statically closed those consumer paths;
+runtime remains UNRUN. `instanceof`, identical snapshots and a genuine
+foreign owner's cached receipt do not prove that the owner belongs to the
+router's Registry instance. Restore captures the actual router and Registry
+before caller callbacks and uses that instance for all entry/state
+reads. The authority guard rejects router/Registry replacement and invokes
+the actual owner's `verifyBinding` against that captured instance before any
+restore mutation and after callbacks, including the typed group transition.
+This original method compares private object identity and the canonical unique
+owner registration, returning false for a foreign instance; no string, digest,
+getter reconstruction or local owner map substitutes for it. The earlier
+missing-API checkpoint at `68e4cdd4` is superseded without introducing the
+proposed duplicate `isBoundToArticleRegistry` method. The
+concrete runtime capability gate is retained;
+shell commands/receipts and production bootstrap still require original-owner
+integration and qualification. All 21 ratio controls, original group/ownership
+controls, the added digest-only/foreign-owner refusal source controls and all held runtime,
+restore, DB, race, security/privacy and native execution remain UNRUN. The old
+57-case results and earlier 256-diagnostic comparison apply only to their old
+candidates and are not inherited by this composition.
+
+### Ratio lifetime at every restore boundary
+
+The subsequent consumer correction distinguishes instance binding from ratio
+lifetime. It pins the original owner's live scope/ref and Registry predecessor
+before `assertRuntimeCapability`. Every ordinary boundary resolves the same
+real owner projection and checks the same expected opaque ref; missing/disposed
+scopes or a separately published ref fail closed, even if the numeric ratio is
+unchanged. There is no current-ref fallback or silently adopted replacement.
+The final shell boundary and the final return guard repeat this check.
+
+| Caller boundary | Check after return / before further restore work |
+| --- | --- |
+| `assertRuntimeCapability` | Server/epoch/abort, fixed Registry binding, pinned live ratio/ref and Registry predecessor |
+| `isCurrent` in each guard | Recheck server provenance/abort, binding and real owner ratio resolution after the callback; exact expected ref at ordinary boundaries |
+| Refreshed `resolveBatch` await | Same ordinary guard before session creation |
+| Each `openOrActivate` await | Same live ref, verified session result, exact expected Registry +1 |
+| `applyGroupsWithReceipt` await | Real live scope, unchanged Registry instance, committed cache/original command/request and before/after +1 proof; only this proven transition may advance the expected ratio ref |
+| `activateTab` await | Same newly bound live ref and exact expected Registry +1 |
+| `applyShell` await | Same live ref and Registry revision, regardless of the returned digest |
+| Final return | Same ordinary guard after building the immutable result |
+
+The typed group transition's live projection is validated against its actual
+committed receipt state before the ref is rebound. Reading a newer projection
+does not by itself authorize adopting its ref. The two shell refusal source
+controls use genuine empty-workspace group commits, then revoke the actual
+scope or publish another genuine same-value ref. Their shell digest is
+untrusted refusal input, not a qualified runtime receipt. They explicitly do
+not fabricate rollback of already committed state. Both controls and all 21
+ratio controls remain UNRUN; the lifetime correction requires independent
+static review and actual admitted qualification.
+
+### Original-chain bootstrap source and remaining host ports
+
+Independent review statically closed the lifetime correction at exact
+`14d34f2e0aec3577af9665e6901d9fb2fedc5e32`, with no new P1/P2 in that reviewed
+scope. This does not qualify later bootstrap source or actual restoration.
+
+`authoringWorkspaceSnapshotBootstrap.ts` connects the existing sync/restore
+chain without another read pipeline or authority store.
+`prepareAuthoringWorkspaceSnapshotBootstrap` consumes only
+`sync.getServerObservation()`, rejects absent/offline/cache-only observations
+and dirty/resetting startup state, and delegates to the original immutable
+server-plan preparation. It rechecks exact observation identity and the
+original plan's provenance after the permission/lifecycle await.
+`bindAuthoringWorkspaceSnapshotBootstrapGroups` takes an already constructed
+original Group owner, verifies its exact router Registry binding and live
+projection, requires an empty workspace with the explicit reconciled one/two
+group IDs in order, and returns that owner's actual snapshot adapter. It does
+not create groups, ratio scopes, sessions, operation identities, shell state,
+receipts or success digests. The original caller still supplies its real
+operation identity source and runtime/epoch guard.
+
+Read-only upstream source checkpoints:
+
+- Session receiver `cb154e1001f4d45977e1529b6c72cc59d0d02049` supplies
+  `ArticleWorkspaceMountedEditorSource` and
+  `createArticleWorkspaceMountedEditorResolver` in
+  `articleWorkspaceMountedEditorResolver.ts`, and the sole
+  `installArticleWorkspaceEditorSessions` in
+  `articleWorkspaceEditorSessionComposition.ts`. Writer must supply actual
+  retained `readMountedEditor` / `readDocumentBinding`; no mount map is invented
+  here. `fsusUiEditorSessionFactory.ts` still throws at full capture and returns
+  blocked at full restoration for absent panel/renderer-restoration/draft/
+  crash-journal owners. Same-mounted renderer support is not full hydration.
+- Actual UI source `8afe8523b35f296a0131951b55b7e466a7a0f486` supplies public
+  `inspectDocumentState` from the original editor owner. It is read, not promoted
+  to factory readiness or used as replacement for the pinned static UI baseline.
+- Layout source `722b29f401226f5abf31ce6a541d37d27759bf74` supplies
+  `createAuthoringWorkspaceGroupLayoutPorts` in
+  `authoringWorkspaceGroupLayoutPorts.ts` using the actual Group/ratio. Its
+  `AdminWorkspaceFrame.vue` still has route/tab-strip composition without the
+  session installer or snapshot startup call. Those application-owned files
+  are not changed by this snapshot receiver.
+
+The minimum real shell dependency belongs to original host/Writer/layout:
+
+1. A live view owner bound to the exact workspace Registry/ratio scope and
+   active session, with bounded shell revision and readable current
+   `libraryOpen/libraryView/outlineOpen/inspectorOpen/inspectorView` state.
+2. A cancellable official shell command accepting the prepared plan's
+   scope/source/server revision/operation epoch plus the owner's expected
+   revision, returning the original command and its genuine committed shell
+   transition. It changes only product view/open state, without restoring
+   article selection/scroll/history or writing legacy preferences.
+3. Actual owner instance/cache verification and independent before/after
+   verification, followed by a live-owner check across loaders/render awaits.
+   A returned 64-character digest or `nextTick` alone is insufficient.
+
+These are required capabilities for the host owner to publish, not an invented
+implemented shell schema/API. Current `useArticleWriteInspector.ts` exposes
+local view refs plus `open/switchTo/close` with asynchronous loaders/scroll/focus
+effects, and `ArticleWriteInspectorShell.vue` exposes props/events. Neither
+provides this typed committed transition or view-owner revision/custody.
+`AccountRouteFrame.vue` has navigation sidebar composition, not an authoring
+library state owner. No direct ref/store/DOM hydration or success wrapper is
+added. The original backend also still must bind the production
+`AuthoringWorkspaceSnapshotResolutionPort.resolveBatch` to one current
+permission/lifecycle/draft query; no per-article body fetch substitutes for it.
+
+Production startup additionally requires the original authenticated user/site
+and current server source/build binding for the existing HTTP API factory,
+actual retained Writer mounts, the complete session factory and shell command
+owner. The new helpers are callable source composition, not an installed
+application bootstrap, restore-ready claim or a receipt witness. Their source
+controls and all runtime/list/native/receipt qualification remain UNRUN.
+
+## Authenticated HTTP connection source
+
+`connectAuthoringWorkspaceSnapshotHttp(signal)` is a callable original HTTP
+consumer, not an installed startup or runtime admission. It obtains the real
+independent admin principal from `getAdminMe`, requires an active non-step-up
+session with `article.write`, and binds its safe integer ID to the snapshot
+endpoint's returned `scope.userId`. That wire field denotes the independent
+admin principal here, never the account-user store. The site ID and SourceDigest
+come from the actual authenticated snapshot GET; the frontend supplies neither
+a hard-coded site nor a Git/fixture/local digest. The original Server derives
+that digest from its stamped Server/Shared artifacts.
+
+One initial GET discovers coordinates without minting an observation. A second
+real GET must pass the unchanged complete `AuthoringWorkspaceSnapshotApi`
+verifier with that same scope/source binding and a current/missing result. Drift,
+blocked state, abort and auth changes refuse the connection. This sequence writes
+no snapshot or cache, resets nothing and never adopts the first payload as a
+cached authority. The existing Sync must obtain its own current API observation.
+
+The connection retains one original admin request lease and a synchronous watch
+of the original private-surface auth generation. Auth invalidation or `dispose`
+revokes API observations, aborts connection work and releases the lease/watch.
+Each later original transport operation checks that lifetime before and after
+the await and combines its caller signal. The sole host must propagate its abort,
+call `assertCurrent` in its existing epoch guard, dispose on replacement/unmount,
+and construct/start the existing Sync once. No host SFC, second store, session
+installer or full-factory/shell admission is supplied by this connector.
+
+The typed HTTP source still directly consumes the original named Snapshot
+request/response frames. Rail #4227 at `f906f5e42f5f7e779ba6d8651a5b1dfef0965efa`
+uses a current canonical 244-frame source missing both names. Its five HTTP
+unsafe-assignment/argument findings are consequences of those missing members,
+not corrected by source-only import formatting. The original Shared owner must
+join both feature families and produce the real enum/decoder/endpoint closure;
+no numeric/string lookup fallback, generated edit, generator, golden-order
+allocation or frozen SOURCE refresh is performed here.
+
+`resolveBatch` remains missing its real producer. It needs one bounded current
+permission/lifecycle/draft batch bound to scope, artifact SourceDigest and
+snapshot revision/digest, with exactly one fact per requested tab. Admitted
+facts require actual current identity, document epoch, source/draft revision and
+permission reference; missing/deleted/archived/denied/replaced facts carry only
+closed reasons. Existing query/pin/Canvas metadata or permission batches do not
+publish that complete contract or the original document/session bindings. The
+integration and document/draft owners must supply it; no per-article body fetch,
+saved permission, invented endpoint/wire contract or local resolution list is
+implemented. All auth/security/test/list/runtime/native/receipt qualifications
+remain HOLD/UNRUN.
+
+## Snapshot API issuance custody correction source
+
+The authenticated connection source at `6efe4eddda4fed46e270d3938a01cd30ba4d0922`
+received independent bounded source review with no new connector P1/P2, but
+inherited an API P2: TypeScript-private transport/lifecycle/verify fields could
+be replaced at runtime, allowing a retained genuine response to be reissued
+after connection disposal. That finding is not a fake-digest or cache case and
+is not closed by freezing only the connection's outer object.
+
+The API now keeps fixed constructor-captured transport functions, scope/source,
+clock, connection guard, lifecycle/ticket counters, validation and issuance in
+native ECMAScript private slots/methods. Its instance and public prototype are
+frozen, and subclass construction is refused; reflective old names cannot
+replace those bindings. The real connector passes its original lifetime guard
+into that custody and calls `close()` on disposal. Close permanently latches
+the instance; later invalidation or a guard ABA cannot reopen it. Ordinary
+`invalidateObservations()` retains the original authenticated reconnect use.
+
+Read/write/reset check the fixed lifetime and operation ticket before/after
+transport invocation, await settlement and exceptions. Caller layout validation
+and cloning are fenced, and the owned proposal is revalidated before dispatch.
+Receipt validation, clock callbacks and cloning are also fenced; the owned
+receipt is validated again and a final live check precedes the synchronous
+original provenance publication. A competing reentrant operation cannot silently
+adopt another ticket. Confirmation generation has the same live boundaries;
+close/invalidation perform only internal revocation.
+
+The single original process-local provenance registry becomes a WeakMap of
+observation to its fixed live check, rather than an unchecked WeakSet. Requiring
+an observation verifies that original instance/lifetime and unchanged registry
+membership. New issuance and every later consumer lookup therefore require
+live custody; no serialized receipt, saved valid response, reset or second store
+reconstructs it. A late rejected write may already have committed at the server;
+this correction fabricates neither rollback nor whole-workspace success.
+
+Pending ordinary source counterexamples cover captured-port/reflection attempts,
+retained response/dispose/ABA, all three pending transport entries, clock/cloning
+and exception reentry, guard failure and a newer read ticket. The existing reset
+interleaving fixture delays inside its original method instead of replacing that
+method after binding; its CAS and assertion sequence is preserved. These bodies
+are only static source declarations: no attack, candidate import, tests/list or
+auth/security/runtime/native/receipt qualification runs. Independent correction
+review, canonical frame join, real batch/host/session/shell and full restore
+acceptance remain WIP.
+
+## Read sequencing and real mutation settlement correction source
+
+Independent exact `efddb5f4b324f66e633bcce838ee15d048ea7213` review closed the
+original transport-replacement/dispose/old-response P2 at source and reported
+no new P1. It found a new P2: a unified read ticket also cancelled a same-lifetime
+pending reset/write whenever a later read merely started. A peer invalidation
+could start that read during Sync reset, discarding its real applied/conflict
+receipt before the read even returned. The correction below awaits independent
+review; all attack/runtime/test/list/security/native/receipt holds remain.
+
+Read tickets now arbitrate reads only. Mutation start invalidates older reads,
+and verified mutation settlement invalidates overlapping pending reads again.
+Mutation verification still uses the fixed original lifetime, signal, immutable
+binding, original closed receipt/CAS/layout checks, owned-copy validation and
+monotonic published revision; a later read intent cannot cancel that real result.
+No status, revision, receipt or CAS outcome is synthesized. A result older than
+an already published genuine newer server revision still refuses as
+`stale_server_response`, preserving the original publication rule. Permanent
+close, private custody, live provenance lookup and exception fences remain.
+
+Sync reuses its one deferred-peer-read boolean for both flush and reset. A peer
+hint during either mutation never hydrates state or starts a competing channel
+read. After real CAS/cache processing and clearing the pending mutation, one
+deferred read consumes actual server state. A current conflict uses the existing
+conflict path and keeps explicit server choice; close/stop discards the pending
+hint and cannot drain it. No queue, store, local authority or reset fallback is
+created.
+
+Expected `server_read_superseded` cancellation cannot mark a same-lifetime Sync
+as failed. An obsolete channel read during a still-pending mutation requests
+the same bounded deferred reread; lifetime/close/transport failures keep their
+existing handling.
+
+The additional ordinary source matrix declares twenty UNRUN cells:
+
+| Ordering / condition | Required result in the declared controls |
+| --- | --- |
+| read → read | Older ticket refuses without revoking newer provenance. |
+| read → write/reset | Earlier read refuses; genuine applied CAS result remains live. |
+| write/reset → pending read | Real applied/conflict result is processed; late overlapping read refuses. |
+| same-revision read returns before mutation | Mutation keeps its genuine status and supersedes that read observation. |
+| newer server revision already published | Older mutation publication refuses; server effect is not rolled back or rewritten. |
+| pending mutation → close/invalidate | Original lifetime rejection remains; permanent close never reopens. |
+| flush/reset → peer invalidation | One bounded reread follows CAS handling; applied/conflict paths use actual fixture CAS order. |
+| reset → peer → close/stop | No queued read or false reset-success publication follows closure. |
+| old channel read → successful reset | Its expected cancellation does not overwrite the processed CAS status. |
+
+These are static source declarations only, not executed observations. The
+fixture's before/after reset gates control actual existing CAS timing; its
+explicit result return type adds no assertion or fabricated data. Exact source,
+strict compiler and lint evidence do not replace runtime qualification.
+
+## Admission and unknown-outcome refresh correction source
+
+Independent exact `06560cbca5f72027d07d9682b3d5c6ba53703d57` review closed the
+main same-lifetime CAS-ticket P2, but found two remaining source P2s: rejected
+input/confirmation/cancellation advanced a read barrier without dispatch, and
+a delayed cancelled channel read could lose its refresh duty after reset ended
+with an unknown transport outcome, leaving old R1 displayed as current.
+
+The API now advances its mutation-start read barrier inside the already-admitted
+request callback immediately before invoking the fixed original transport
+function. All input/copy/confirmation/signal/lifetime checks precede that point.
+Rejected commands cannot supersede unrelated pending reads. Invocation failure
+is still an unknown transport outcome, not a fabricated no-op or CAS result.
+The verified-settlement barrier, real CAS verification, monotonic publication,
+private custody and irreversible close remain unchanged.
+
+Sync checks reset confirmation/cancellation before pending state. A failed reset
+without a verified response records failed/unknown state and propagates the
+actual error; an uncertain write retains its existing failed handling. Unknown
+outcome is a bounded current-session flag, never a mutation receipt. Only a
+fresh current/missing server observation restores that authority; read failure
+or cancellation cannot claim the missing result was applied or absent.
+
+Every peer invalidation and cancelled channel read retains the single refresh
+duty even after mutation completion. One peer-read-in-progress flag coalesces
+overlap. The drain makes at most one immediate retry, retains unfinished duty
+and uses the original periodic boundary for further real reads. Stop discards
+the duty; offline/epoch/lifetime checks prevent late adoption. New hints during
+a read cannot vanish on completion. No queue, persistence, timer owner or local
+authority is introduced. Conflict refresh still preserves explicit server choice.
+
+Eighteen additional ordinary UNRUN cells cover six rejected-input cases, two
+admission-time caller cancellations, Sync confirmation rejection, eight unknown
+write/reset cases (actual fixture CAS committed/not committed and fresh read
+success/failure), and stop during the delayed peer read. The fixture reset
+counter observes invocation only. No result/digest or qualified runtime receipt
+is fabricated. Source closure of these remaining P2s awaits independent review;
+all tests/list/attack/auth/security/runtime/native/receipt holds continue.
+
+## Unresolved conflict choice correction source
+
+Independent exact `9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465` review source-closed
+both admission/unknown-refresh P2s, but found a remaining P2: a genuine reset
+conflict's queued read failure changed status to failed, so the next retry chose
+channel mode and could automatically adopt server layout while dirty was false.
+
+Sync now records unresolved server choice independently of transient status.
+Genuine write/reset CAS conflicts and verified revision-conflict reads set that
+bounded intent. Read failure, retry, periodic/channel reads and reconnect do not
+clear it; successful reads refresh only the pending server candidate. Automatic
+adoption, new flush/reset and restore-observation exposure are gated while it
+remains. An already-dispatched applied result cannot clear that newer intent.
+Blocked responses also preserve the local layout while a choice is unresolved.
+
+Only the explicit `acceptServerAfterConflict()` path adopts a live verified
+candidate with explicit-choice admission, then clears the intent. Stop clears
+the ending lifetime without reopening it. No status string, transport error or
+successful GET is user authorization. The existing one refresh-duty flag,
+unknown-result handling, bounded retries and periodic boundary remain; API
+private custody, permanent close, actual CAS/revision rules and admission are
+unchanged. No persistence, second owner or local authoritative layout is added.
+
+Eight additional ordinary UNRUN cells cover actual reset/write conflicts through
+queued-read failure with immediate success, retained duty with periodic success,
+new peer channel and offline/reconnect. Each asserts no layout adoption or write
+before explicit choice and only a live verified candidate afterwards. These are
+source declarations, not runtime evidence. This intent correction awaits
+independent review; all attack/tests/list/auth/security/runtime/native/receipt
+holds and remaining canonical/batch/host/session/shell acceptance remain.
+
+
+## Conflict choice generation correction source
+
+Independent exact `92a2537c5441dcbdea912eb37f76769283e8fce9` review source-closed
+implicit selection through failed/retried reads, but identified a delayed GET
+that could relatch an already accepted choice using its old conflict trigger.
+
+Sync now keeps one opaque current-session intent generation. Genuine CAS or
+verified revision conflicts replace it; explicit successful acceptance and stop
+invalidate it. Each read binds the generation at dispatch and checks it after
+server/cache awaits and before failure publication. A stale completion retains
+refresh duty for a fresh bounded read, without recreating the resolved choice
+or touching a later conflict. Trigger labels and equal revisions cannot grant
+choice authority. Existing live server provenance, read tickets, admission,
+unknown-result handling, coalescing and bounded retry rules remain required.
+
+Adoption stages the layout copy, revalidates server provenance, then checks the
+original intent, lifecycle and local layout generation. Explicit acceptance
+also requires the same pending candidate. Publication and intent resolution
+finish synchronously before listeners run; a reentrant layout setter cannot be
+silently overwritten, and an older acceptance cannot clear a newer intent.
+
+Eight additional ordinary UNRUN cells cover acceptance before a delayed same
+or newer GET, an old failed GET and retry, acceptance after GET, a later genuine
+CAS conflict, synchronous clone/listener layout setters, and nested acceptance
+that invalidates an outer acceptance. These declarations
+are not runtime receipts. This remaining P2 awaits independent exact-source
+review; all tests/list/attack/auth/security/runtime/native/receipt holds remain.
+
+
+## Automatic adoption refusal recovery source
+
+Independent exact `2638f4ed937e0af6224315336e5f28ce972ee6fe` review source-closed
+the delayed-GET intent-generation P2, but found reset ignoring `adopt(false)`:
+a genuine applied R2 revoked R1, while a reentrant clone setter correctly
+preserved new local layout but left the obsolete R1 baseline without refresh.
+
+All three adoption call sites are now accounted for. Explicit acceptance keeps
+its refusal semantics and unresolved choice. Reset handles refusal explicitly;
+automatic read refusal, including startup/reconnect, uses the same recovery.
+Recovery retains the existing bounded fresh-read duty. Only a still-live actual
+server observation, original lifecycle and same choice generation permit
+updating the baseline without adopting layout. An unresolved/newer user choice
+is never cleared or replaced by this path. Dirty layout stays in memory;
+subsequent real server reads restore current authority or expose a genuine
+new revision conflict. Failed refresh retains duty for the existing bounded
+retry and periodic boundary. There is no forced clone/adoption, local snapshot
+authority, reset fallback, new queue, timer owner or synthetic result.
+
+The real verified reset receipt may still be cached/broadcast/recorded even
+when layout adoption is deferred; it proves the actual CAS result, not whole
+workspace restoration. Fresh-read failure remains a read failure, not an
+invented unknown reset result. Original provenance, generation checks, admission,
+unknown-mutation refresh and explicit conflict selection remain required.
+
+Six additional ordinary UNRUN cells cover applied-reset clone reentry with
+fresh refresh, failed immediate refresh followed by periodic recovery, a new
+actual peer CAS conflict, cache denial, and automatic startup/reconnect refusal.
+They assert retained layout, live baseline, correct subsequent CAS revision,
+no extra reset and no implicit acceptance. The new P2 awaits independent exact
+source review. All tests/list/discovery/attack/auth/security/runtime/native/
+receipt holds and upstream canonical/batch/host/session/shell WIP remain.

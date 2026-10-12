@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthoringWorkspaceSnapshotApi, defaultWorkspaceSnapshotLayout, validateWorkspaceSnapshot, validateWorkspaceSnapshotLayout, workspaceSnapshotBytes, workspaceSnapshotDigest, type AuthoringWorkspaceSnapshot, type AuthoringWorkspaceSnapshotLayout, type AuthoringWorkspaceSnapshotReceipt, type AuthoringWorkspaceSnapshotResult, type AuthoringWorkspaceSnapshotScope, type AuthoringWorkspaceSnapshotTransport } from '@/api/authoringWorkspaceSnapshot';
+import { AuthoringWorkspaceSnapshotApi, requireWorkspaceServerObservation, defaultWorkspaceSnapshotLayout, validateWorkspaceSnapshot, validateWorkspaceSnapshotLayout, workspaceSnapshotBytes, workspaceSnapshotDigest, type AuthoringWorkspaceSnapshot, type AuthoringWorkspaceSnapshotLayout, type AuthoringWorkspaceSnapshotReceipt, type AuthoringWorkspaceSnapshotResult, type AuthoringWorkspaceSnapshotScope, type AuthoringWorkspaceSnapshotTransport } from '@/api/authoringWorkspaceSnapshot';
 import { AuthoringWorkspaceSnapshotCache, AuthoringWorkspaceSnapshotIndexedDbStorage, workspaceSnapshotCachePolicy, type WorkspaceSnapshotCacheStorage } from '@/services/authoring/authoringWorkspaceSnapshotCache';
 import { AuthoringWorkspaceSnapshotSync, workspaceSnapshotSyncPolicy, type WorkspaceSnapshotCoordinationChannel } from '@/services/authoring/authoringWorkspaceSnapshotSync';
 import { applyAuthoringWorkspaceSnapshotRestore, prepareAuthoringWorkspaceSnapshotRestore, verifyAuthoringWorkspaceSnapshotRestorePlan, workspaceSnapshotRestorePolicy, type AuthoringWorkspaceSnapshotResolution, type AuthoringWorkspaceSnapshotResolutionPort } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
 import { migrateAuthoringWorkspaceSnapshotLegacy, workspaceSnapshotLegacyInventory } from '@/services/authoring/authoringWorkspaceSnapshotMigration';
 import { authoringWorkspaceSnapshotStatusModel, AuthoringWorkspaceSnapshotResetController } from '@/services/authoring/authoringWorkspaceSnapshotStatus';
 import { ArticleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
+import { AuthoringTabGroupRegistry } from '@/services/authoring/authoringTabGroupRegistry';
+import { authoringWorkspaceRatioOwner } from '@/services/authoring/authoringWorkspaceRatioOwner';
+import { bindAuthoringWorkspaceSnapshotBootstrapGroups, prepareAuthoringWorkspaceSnapshotBootstrap } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
 const scope = { userId: 1, siteId: 'site:primary' };
 const sourceDigest = 'a'.repeat(64);
 const now = 1800000000000;
@@ -45,10 +48,13 @@ class Server implements AuthoringWorkspaceSnapshotTransport {
         layout: AuthoringWorkspaceSnapshotLayout;
     }[] = [];
     public reads = 0;
+    public resets = 0;
     public failRead = false;
     public failWrite = false;
     public afterWrite: (() => void) | null = null;
-    public async read(): Promise<unknown> {
+    public beforeReset: (() => Promise<void>) | null = null;
+    public afterReset: (() => Promise<void>) | null = null;
+    public async read(): Promise<AuthoringWorkspaceSnapshotResult> {
         this.reads++;
         if (this.failRead)
             throw new Error('server_read_failed');
@@ -57,7 +63,7 @@ class Server implements AuthoringWorkspaceSnapshotTransport {
     public async write(command: {
         expectedRevision: number;
         layout: AuthoringWorkspaceSnapshotLayout;
-    }): Promise<unknown> {
+    }): Promise<AuthoringWorkspaceSnapshotResult> {
         this.writes.push(structuredClone(command));
         if (this.failWrite)
             throw new Error('server_write_failed');
@@ -73,14 +79,20 @@ class Server implements AuthoringWorkspaceSnapshotTransport {
     public async reset(command: {
         expectedRevision: number;
         confirmationDigest: string;
-    }): Promise<unknown> {
+    }): Promise<AuthoringWorkspaceSnapshotResult> {
+        this.resets++;
+        if (this.beforeReset)
+            await this.beforeReset();
         const value = defaultWorkspaceSnapshotLayout();
         const revision = this.current?.revision ?? 0;
         const inputDigest = workspaceSnapshotDigest({ expectedRevision: command.expectedRevision, layout: value });
         if (command.expectedRevision !== revision)
             return response(null, 'reset', 'conflict', revision, inputDigest);
         this.current = snapshot(value, revision + 1);
-        return response(this.current, 'reset', 'applied', revision, inputDigest);
+        const result = response(this.current, 'reset', 'applied', revision, inputDigest);
+        if (this.afterReset)
+            await this.afterReset();
+        return result;
     }
 }
 class CacheStorage implements WorkspaceSnapshotCacheStorage {
@@ -179,6 +191,827 @@ describe('server snapshot boundaries', () => {
         forged.receipt.byteCount++;
         const bad = new AuthoringWorkspaceSnapshotApi({ read: async () => forged, write: vi.fn(), reset: vi.fn() }, scope, sourceDigest, () => now);
         await expect(bad.read()).rejects.toThrow('receipt_digest_mismatch');
+    });
+});
+// Pending ordinary controls only: no runtime/attack/list execution or auth qualification is claimed.
+describe('sealed snapshot API custody and irreversible lifetime', () => {
+    it('pins genuine port functions and refuses reflection, old-response replay and close ABA', async () => {
+        const server = new Server();
+        const oldResponse = await server.read();
+        let active = true;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => now, () => {
+            if (!active)
+                throw new Error('connection_expired');
+        });
+        server.current = snapshot(layout(), 2);
+        server.read = vi.fn(async () => oldResponse);
+        const observed = await api.read();
+        expect(observed.revision).toBe(2);
+        expect(server.read).not.toHaveBeenCalled();
+        expect(Object.isFrozen(api)).toBe(true);
+        expect(Object.isFrozen(AuthoringWorkspaceSnapshotApi.prototype)).toBe(true);
+        for (const name of ['transport', 'lifecycleGeneration', 'readSequence', 'verify', 'checkLifecycle', 'now', 'assertConnection', 'closed', 'scope', 'sourceDigest', 'read', 'close', 'invalidateObservations'])
+            expect(Reflect.defineProperty(api, name, { value: () => oldResponse })).toBe(false);
+        expect(Reflect.set(AuthoringWorkspaceSnapshotApi.prototype, 'read', () => oldResponse)).toBe(false);
+        const confirmation = api.resetConfirmation(2);
+        const reads = server.reads;
+        active = false;
+        api.close();
+        api.close();
+        active = true;
+        api.invalidateObservations();
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        await expect(api.write(2, layout())).rejects.toThrow('workspace_snapshot_connection_closed');
+        await expect(api.reset(2, confirmation)).rejects.toThrow('workspace_snapshot_connection_closed');
+        expect(() => api.resetConfirmation(2)).toThrow('workspace_snapshot_connection_closed');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+        expect(server.reads).toBe(reads);
+        expect(server.writes).toHaveLength(0);
+        expect(server.current.revision).toBe(2);
+    });
+    it('latches an external lifetime failure even if the supplied guard later allows again', async () => {
+        const server = new Server();
+        let active = true;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => now, () => {
+            if (!active)
+                throw new Error('connection_expired');
+        });
+        const observed = await api.read();
+        active = false;
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('connection_expired');
+        active = true;
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+    });
+    it.each(['read', 'write', 'reset'] as const)('refuses %s publication when closed after dispatch but before a valid old response returns', async action => {
+        const server = new Server();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const port: AuthoringWorkspaceSnapshotTransport = {
+            read: async () => { const result = await server.read(); await gate; return result; },
+            write: async command => { const result = await server.write(command); await gate; return result; },
+            reset: async command => { const result = await server.reset(command); await gate; return result; }
+        };
+        const api = new AuthoringWorkspaceSnapshotApi(port, scope, sourceDigest, () => now);
+        const pending = action === 'read' ? api.read() : action === 'write' ? api.write(1, layout())
+            : api.reset(1, api.resetConfirmation(1));
+        api.close();
+        release();
+        await expect(pending).rejects.toThrow('workspace_snapshot_connection_closed');
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+    });
+    it('rechecks lifetime after the clock callback during verification before it can issue', async () => {
+        const server = new Server();
+        let closeDuringClock = false;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => {
+            if (closeDuringClock)
+                api.close();
+            return now;
+        });
+        const observed = await api.read();
+        closeDuringClock = true;
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+    });
+    it('checks exception reentry and keeps ordinary invalidation distinct from permanent close', async () => {
+        const server = new Server();
+        let invalidateDuringClock = false;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => {
+            if (invalidateDuringClock) {
+                api.invalidateObservations();
+                throw new Error('clock_failed');
+            }
+            return now;
+        });
+        const observed = await api.read();
+        invalidateDuringClock = true;
+        await expect(api.read()).rejects.toThrow('server_observation_superseded');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+        invalidateDuringClock = false;
+        requireWorkspaceServerObservation(await api.read());
+        api.close();
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+    });
+    it('cannot publish after cloning a valid retained response reenters close', async () => {
+        const server = new Server();
+        const raw = await server.read();
+        const api = new AuthoringWorkspaceSnapshotApi({ read: async () => raw,
+            write: server.write.bind(server), reset: server.reset.bind(server) }, scope, sourceDigest, () => now);
+        const clone = globalThis.structuredClone.bind(globalThis);
+        const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+            const result = clone(value);
+            if (value === raw)
+                api.close();
+            return result;
+        });
+        try {
+            await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        } finally {
+            cloning.mockRestore();
+        }
+        expect(() => Reflect.apply(requireWorkspaceServerObservation, undefined, [raw])).toThrow('server_observation_required');
+    });
+    it('refuses a stale ticket when a verification callback starts a newer genuine read', async () => {
+        const server = new Server();
+        let reenter = false;
+        let newer: Promise<Awaited<ReturnType<AuthoringWorkspaceSnapshotApi['read']>>> | undefined;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => {
+            if (reenter) {
+                reenter = false;
+                newer = api.read();
+            }
+            return now;
+        });
+        await api.read();
+        reenter = true;
+        await expect(api.read()).rejects.toThrow('server_read_superseded');
+        expect(newer).toBeDefined();
+        if (!newer)
+            throw new Error('newer_read_missing');
+        requireWorkspaceServerObservation(await newer);
+    });
+});
+// Source-only concurrency matrix; genuine fixture CAS replies are kept intact, all controls UNRUN.
+describe('read barriers, real CAS settlement and deferred peer rereads', () => {
+    it('keeps read-read latest-ticket refusal before it can revoke the newer observation', async () => {
+        const server = new Server();
+        const old = await server.read();
+        let deliver!: (value: unknown) => void;
+        const firstReply = new Promise<unknown>(resolve => { deliver = resolve; });
+        let first = true;
+        const api = new AuthoringWorkspaceSnapshotApi({
+            read: () => { if (first) { first = false; return firstReply; } return server.read(); },
+            write: server.write.bind(server), reset: server.reset.bind(server)
+        }, scope, sourceDigest, () => now);
+        const pending = api.read();
+        await server.write({ expectedRevision: 1, layout: layout(2) });
+        const newer = await api.read();
+        deliver(old);
+        await expect(pending).rejects.toThrow('server_read_superseded');
+        requireWorkspaceServerObservation(newer);
+    });
+    it.each(['write', 'reset'] as const)('invalidates reads begun before %s while retaining the real applied result', async kind => {
+        const server = new Server();
+        const old = await server.read();
+        let deliver!: (value: unknown) => void;
+        const gate = new Promise<unknown>(resolve => { deliver = resolve; });
+        const api = new AuthoringWorkspaceSnapshotApi({ read: () => gate,
+            write: server.write.bind(server), reset: server.reset.bind(server) }, scope, sourceDigest, () => now);
+        const pending = api.read();
+        const result = await (kind === 'write' ? api.write(1, layout(2)) : api.reset(1, api.resetConfirmation(1)));
+        expect(result).toMatchObject({ status: 'applied', revision: 2 });
+        deliver(old);
+        await expect(pending).rejects.toThrow('server_read_superseded');
+        requireWorkspaceServerObservation(result);
+    });
+    it.each([
+        { kind: 'write', conflict: false }, { kind: 'write', conflict: true },
+        { kind: 'reset', conflict: false }, { kind: 'reset', conflict: true }
+    ] as const)('preserves $kind CAS conflict=$conflict when a later read is still pending', async ({ kind, conflict }) => {
+        const server = new Server();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const api = new AuthoringWorkspaceSnapshotApi({
+            read: async () => { const result = await server.read(); await gate; return result; },
+            write: server.write.bind(server), reset: server.reset.bind(server)
+        }, scope, sourceDigest, () => now);
+        if (conflict)
+            await server.write({ expectedRevision: 1, layout: layout(3) });
+        const pendingMutation = kind === 'write' ? api.write(1, layout(2)) : api.reset(1, api.resetConfirmation(1));
+        const pendingRead = api.read();
+        const result = await pendingMutation;
+        expect(result).toMatchObject({ status: conflict ? 'conflict' : 'applied', revision: 2 });
+        expect(result.receipt.action).toBe(kind);
+        requireWorkspaceServerObservation(result);
+        release();
+        await expect(pendingRead).rejects.toThrow('server_read_superseded');
+        requireWorkspaceServerObservation(result);
+    });
+    it.each([
+        { kind: 'write', conflict: false }, { kind: 'write', conflict: true },
+        { kind: 'reset', conflict: false }, { kind: 'reset', conflict: true }
+    ] as const)('accepts $kind conflict=$conflict after a genuine same-revision read completes first', async ({ kind, conflict }) => {
+        const server = new Server();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const api = new AuthoringWorkspaceSnapshotApi({ read: server.read.bind(server),
+            write: async command => { const result = await server.write(command); await gate; return result; },
+            reset: async command => { const result = await server.reset(command); await gate; return result; }
+        }, scope, sourceDigest, () => now);
+        if (conflict)
+            await server.write({ expectedRevision: 1, layout: layout(3) });
+        const pending = kind === 'write' ? api.write(1, layout(2)) : api.reset(1, api.resetConfirmation(1));
+        const read = await api.read();
+        expect(read.revision).toBe(2);
+        release();
+        const result = await pending;
+        expect(result).toMatchObject({ status: conflict ? 'conflict' : 'applied', revision: 2 });
+        requireWorkspaceServerObservation(result);
+        expect(() => requireWorkspaceServerObservation(read)).toThrow('server_observation_required');
+    });
+    it.each(['write', 'reset'] as const)('retains monotonic publication for %s when a truly newer server revision was already issued', async kind => {
+        const server = new Server();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const api = new AuthoringWorkspaceSnapshotApi({ read: server.read.bind(server),
+            write: async command => { const result = await server.write(command); await gate; return result; },
+            reset: async command => { const result = await server.reset(command); await gate; return result; }
+        }, scope, sourceDigest, () => now);
+        const pending = kind === 'write' ? api.write(1, layout(2)) : api.reset(1, api.resetConfirmation(1));
+        const peer = await server.write({ expectedRevision: 2, layout: layout(3) });
+        expect(peer.status).toBe('applied');
+        const newer = await api.read();
+        expect(newer.revision).toBe(3);
+        release();
+        await expect(pending).rejects.toThrow('stale_server_response');
+        requireWorkspaceServerObservation(newer);
+        expect(server.current?.revision).toBe(3);
+    });
+    it.each(['close', 'invalidate'] as const)('still rejects mutation settlement after lifetime %s', async mode => {
+        const server = new Server();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const api = new AuthoringWorkspaceSnapshotApi({ read: server.read.bind(server), write: server.write.bind(server),
+            reset: async command => { const result = await server.reset(command); await gate; return result; }
+        }, scope, sourceDigest, () => now);
+        const pending = api.reset(1, api.resetConfirmation(1));
+        if (mode === 'close')
+            api.close();
+        else
+            api.invalidateObservations();
+        release();
+        await expect(pending).rejects.toThrow(mode === 'close' ? 'workspace_snapshot_connection_closed' : 'server_observation_superseded');
+    });
+    it('keeps the existing flush peer deferral with a real applied CAS followed by a newer peer CAS', async () => {
+        const hub = new ChannelHub();
+        const channel = hub.create();
+        const server = new Server();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const originalWrite = server.write.bind(server);
+        let waitForOwnReply = true;
+        server.write = async command => {
+            const result = await originalWrite(command);
+            if (waitForOwnReply) {
+                waitForOwnReply = false;
+                await gate;
+            }
+            return result;
+        };
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        sync.onInteraction('tabs', layout(2));
+        const pending = sync.flush();
+        const peer = await originalWrite({ expectedRevision: 2, layout: layout(3) });
+        expect(peer.status).toBe('applied');
+        const reads = server.reads;
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: peer.revision, leaseUntil: now });
+        expect(server.reads).toBe(reads);
+        release();
+        await pending;
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 3, dirty: false });
+        const events = sync.getReceipt().events.map(event => event.kind);
+        expect(events.indexOf('server-applied')).toBeLessThan(events.indexOf('server-read-channel'));
+        requireWorkspaceServerObservation(await api.read());
+    });
+    it('does not report a processed reset as failed when its earlier channel read is cancelled', async () => {
+        const hub = new ChannelHub();
+        const channel = hub.create();
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        let hold = false;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        server.read = async () => {
+            const result = await originalRead();
+            if (hold)
+                await gate;
+            return result;
+        };
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        hold = true;
+        // An untrusted ahead-of-server hint starts a read, never supplies authoritative layout.
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: 2, leaseUntil: now });
+        hold = false;
+        await sync.reset(true, 1, api.resetConfirmation(1));
+        release();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 2, dirty: false });
+        expect(sync.getReceipt().events.some(event => event.kind === 'server-read-failed')).toBe(false);
+    });
+    it.each(['applied', 'conflict', 'closed'] as const)('defers peer invalidation during reset and handles its real $0 CAS path first', async outcome => {
+        const hub = new ChannelHub();
+        const channel = hub.create();
+        const { api, server, sync } = setup(new Server(), new CacheStorage(), channel);
+        await sync.start();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        if (outcome === 'conflict')
+            server.beforeReset = () => gate;
+        else
+            server.afterReset = () => gate;
+        const pending = sync.reset(true, 1, api.resetConfirmation(1));
+        const peer = await server.write({ expectedRevision: outcome === 'conflict' ? 1 : 2, layout: layout(3) });
+        expect(peer.status).toBe('applied');
+        const reads = server.reads;
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: peer.revision, leaseUntil: now });
+        expect(server.reads).toBe(reads);
+        if (outcome === 'closed') {
+            api.close();
+            await sync.stop(false);
+        }
+        release();
+        if (outcome === 'closed') {
+            await expect(pending).rejects.toThrow('workspace_snapshot_connection_closed');
+            expect(server.reads).toBe(reads);
+            expect(sync.getReceipt().events.some(event => event.kind === 'server-reset')).toBe(false);
+        } else {
+            await pending;
+            if (outcome === 'conflict') {
+                expect(sync.getState().status).toBe('conflict');
+                sync.acceptServerAfterConflict();
+                expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 2 });
+            } else {
+                expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 3 });
+                const events = sync.getReceipt().events.map(event => event.kind);
+                expect(events.indexOf('server-reset')).toBeLessThan(events.indexOf('server-read-channel'));
+            }
+        }
+    });
+});
+// Admission/cancellation/unknown-result declarations only; none is imported or executed here.
+describe('admitted barriers and retained peer refresh obligations', () => {
+    it.each(['write-revision', 'write-layout', 'write-abort', 'reset-revision', 'reset-confirmation', 'reset-abort'] as const)('does not cancel a legitimate pending read for rejected %s', async scenario => {
+        const server = new Server();
+        const raw = await server.read();
+        let deliver!: (value: AuthoringWorkspaceSnapshotResult) => void;
+        const gate = new Promise<AuthoringWorkspaceSnapshotResult>(resolve => { deliver = resolve; });
+        const api = new AuthoringWorkspaceSnapshotApi({ read: () => gate,
+            write: server.write.bind(server), reset: server.reset.bind(server) }, scope, sourceDigest, () => now);
+        const pending = api.read();
+        const controller = new AbortController();
+        if (scenario.endsWith('abort'))
+            controller.abort();
+        const value = layout();
+        if (scenario === 'write-layout')
+            value.splitRatioPermille = 199;
+        const rejected = scenario.startsWith('write')
+            ? api.write(scenario === 'write-revision' ? -1 : 1, value, controller.signal)
+            : api.reset(scenario === 'reset-revision' ? -1 : 1,
+                scenario === 'reset-confirmation' ? 'invalid' : api.resetConfirmation(1), controller.signal);
+        await expect(rejected).rejects.toThrow();
+        expect(server.writes).toHaveLength(0);
+        expect(server.resets).toBe(0);
+        deliver(raw);
+        const observed = await pending;
+        requireWorkspaceServerObservation(observed);
+        expect(observed.revision).toBe(1);
+    });
+    it.each(['write', 'reset'] as const)('does not advance the barrier when %s caller cancellation occurs inside admission', async kind => {
+        const server = new Server();
+        const raw = await server.read();
+        let deliver!: (value: AuthoringWorkspaceSnapshotResult) => void;
+        const gate = new Promise<AuthoringWorkspaceSnapshotResult>(resolve => { deliver = resolve; });
+        const controller = new AbortController();
+        let cancel = false;
+        const api = new AuthoringWorkspaceSnapshotApi({ read: () => gate,
+            write: server.write.bind(server), reset: server.reset.bind(server) }, scope, sourceDigest, () => now, () => {
+            if (cancel)
+                controller.abort();
+        });
+        const pending = api.read();
+        const confirmation = api.resetConfirmation(1);
+        cancel = true;
+        await expect(kind === 'write' ? api.write(1, layout(), controller.signal)
+            : api.reset(1, confirmation, controller.signal)).rejects.toThrow();
+        cancel = false;
+        expect(server.writes).toHaveLength(0);
+        expect(server.resets).toBe(0);
+        deliver(raw);
+        requireWorkspaceServerObservation(await pending);
+    });
+    it('rejects a Sync confirmation before entering pending mutation state', async () => {
+        const { api, server, sync } = setup();
+        await sync.start();
+        const observed = sync.getServerObservation();
+        await expect(sync.reset(true, 1, 'invalid')).rejects.toThrow('reset_confirmation_mismatch');
+        expect(server.resets).toBe(0);
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 1, resetting: false });
+        expect(sync.getServerObservation()).toBe(observed);
+        expect(api.resetConfirmation(1)).toHaveLength(64);
+    });
+    it.each([
+        { kind: 'write', committed: false, refreshFailure: false }, { kind: 'write', committed: true, refreshFailure: false },
+        { kind: 'write', committed: false, refreshFailure: true }, { kind: 'write', committed: true, refreshFailure: true },
+        { kind: 'reset', committed: false, refreshFailure: false }, { kind: 'reset', committed: true, refreshFailure: false },
+        { kind: 'reset', committed: false, refreshFailure: true }, { kind: 'reset', committed: true, refreshFailure: true }
+    ] as const)('retains peer duty after unknown $kind committed=$committed refreshFailure=$refreshFailure', async ({ kind, committed, refreshFailure }) => {
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        const originalWrite = server.write.bind(server);
+        const originalReset = server.reset.bind(server);
+        let delayRead = false;
+        let failRefresh = false;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        server.read = async () => {
+            const result = await originalRead();
+            if (delayRead) {
+                delayRead = false;
+                await gate;
+            } else if (failRefresh)
+                throw new Error('peer_refresh_unavailable');
+            return result;
+        };
+        if (kind === 'write')
+            server.write = async command => {
+                if (committed)
+                    await originalWrite(command);
+                throw new Error('mutation_delivery_unknown');
+            };
+        else
+            server.reset = async command => {
+                if (committed)
+                    await originalReset(command);
+                throw new Error('mutation_delivery_unknown');
+            };
+        const hub = new ChannelHub();
+        const channel = hub.create();
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        delayRead = true;
+        // Untrusted hints trigger reads only; real fixture CAS decides whether server state changed.
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: 2, leaseUntil: now });
+        if (kind === 'write') {
+            sync.onInteraction('tabs', layout(2));
+            await sync.flush();
+        } else
+            await expect(sync.reset(true, 1, api.resetConfirmation(1))).rejects.toThrow('mutation_delivery_unknown');
+        expect(sync.getState().status).toBe('failed');
+        expect(sync.getServerObservation()).toBeNull();
+        failRefresh = refreshFailure;
+        release();
+        await vi.advanceTimersByTimeAsync(0);
+        if (refreshFailure) {
+            expect(sync.getState()).toMatchObject({ status: 'failed', reason: 'server_mutation_outcome_unknown' });
+            expect(sync.getServerObservation()).toBeNull();
+            const reads = server.reads;
+            failRefresh = false;
+            await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+            expect(server.reads).toBeGreaterThan(reads);
+        }
+        if (kind === 'write' && committed) {
+            expect(sync.getState().status).toBe('conflict');
+            sync.acceptServerAfterConflict();
+        }
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: committed ? 2 : 1 });
+        const observed = sync.getServerObservation();
+        expect(observed).not.toBeNull();
+        if (!observed)
+            throw new Error('verified_refresh_missing');
+        requireWorkspaceServerObservation(observed);
+        expect(sync.getReceipt().events.some(event => event.kind === (kind === 'write' ? 'server-applied' : 'server-reset'))).toBe(false);
+    });
+    it('discards a delayed peer refresh obligation when the original Sync stops', async () => {
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        let delay = false;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        server.read = async () => {
+            const result = await originalRead();
+            if (delay) {
+                delay = false;
+                await gate;
+            }
+            return result;
+        };
+        server.reset = async () => { throw new Error('mutation_delivery_unknown'); };
+        const channel = new ChannelHub().create();
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        delay = true;
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: 2, leaseUntil: now });
+        await expect(sync.reset(true, 1, api.resetConfirmation(1))).rejects.toThrow('mutation_delivery_unknown');
+        const reads = server.reads;
+        await sync.stop(false);
+        release();
+        await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+        expect(server.reads).toBe(reads);
+        expect(sync.getServerObservation()).toBeNull();
+    });
+});
+// Sticky-conflict source matrix only; retry/reconnect do not represent user authorization.
+describe('unresolved server choice survives status and read-path changes', () => {
+    it.each([
+        { kind: 'reset', path: 'queued-once' }, { kind: 'reset', path: 'periodic' },
+        { kind: 'reset', path: 'channel' }, { kind: 'reset', path: 'reconnect' },
+        { kind: 'write', path: 'queued-once' }, { kind: 'write', path: 'periodic' },
+        { kind: 'write', path: 'channel' }, { kind: 'write', path: 'reconnect' }
+    ] as const)('retains real $kind conflict through failed $path refresh until explicit choice', async ({ kind, path }) => {
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        const originalWrite = server.write.bind(server);
+        const failures = new Set(path === 'queued-once' ? [3] : [3, 4]);
+        server.read = async () => {
+            const result = await originalRead();
+            if (failures.has(server.reads))
+                throw new Error('conflict_refresh_failed');
+            return result;
+        };
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        if (kind === 'reset')
+            server.beforeReset = () => gate;
+        else
+            server.write = async command => { await gate; return originalWrite(command); };
+        const hub = new ChannelHub();
+        const channel = hub.create();
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        if (kind === 'write')
+            sync.onInteraction('tabs', layout(2));
+        const local = sync.getCurrentSessionLayout();
+        const pending = kind === 'reset' ? sync.reset(true, 1, api.resetConfirmation(1)) : sync.flush();
+        const peer = await originalWrite({ expectedRevision: 1, layout: layout(3) });
+        expect(peer.status).toBe('applied');
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: peer.revision, leaseUntil: now });
+        release();
+        await pending;
+        expect(sync.getCurrentSessionLayout()).toEqual(local);
+        expect(sync.getServerObservation()).toBeNull();
+        if (path !== 'queued-once') {
+            expect(sync.getState().status).toBe('failed');
+            await expect(sync.reset(true, 1, api.resetConfirmation(1))).rejects.toThrow('reset_requires_current_server');
+            const writes = server.writes.length;
+            await sync.flush();
+            expect(server.writes).toHaveLength(writes);
+            failures.clear();
+            if (path === 'periodic')
+                await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+            else if (path === 'reconnect') {
+                await sync.setOnline(false);
+                await sync.setOnline(true);
+            } else {
+                const latest = await originalWrite({ expectedRevision: 2, layout: layout(4) });
+                channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+                    scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+                    kind: 'invalidated', revision: latest.revision, leaseUntil: now });
+                await vi.advanceTimersByTimeAsync(0);
+            }
+        }
+        expect(sync.getState().status).toBe('conflict');
+        expect(sync.getCurrentSessionLayout()).toEqual(local);
+        expect(sync.getServerObservation()).toBeNull();
+        expect(sync.getReceipt().events.some(event => event.kind === 'accepted-server')).toBe(false);
+        sync.acceptServerAfterConflict();
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: path === 'channel' ? 3 : 2, dirty: false });
+        expect(sync.getCurrentSessionLayout()).toEqual(server.current?.layout);
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('explicit_choice_missing');
+        requireWorkspaceServerObservation(observed);
+    });
+});
+describe('server choice generation fences delayed reads and reentrant acceptance', () => {
+    it.each(['accept-before-same', 'accept-before-newer', 'accept-before-failure', 'accept-after', 'new-conflict'] as const)
+    ('keeps explicit choice scoped to its original intent through %s', async path => {
+        // Ordinary UNRUN declarations: no test transport result is runtime authority or acceptance evidence.
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        let release!: () => void;
+        let entered!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const ready = new Promise<void>(resolve => { entered = resolve; });
+        server.read = async () => {
+            const result = await originalRead();
+            if (server.reads === 3) {
+                entered();
+                await gate;
+                if (path === 'accept-before-failure')
+                    throw new Error('old_conflict_read_failed');
+            }
+            return result;
+        };
+        const channel = new ChannelHub().create();
+        const { sync, api } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        await sync.setOnline(false);
+        sync.onInteraction('tabs', layout(2));
+        await server.write({ expectedRevision: 1, layout: layout(3) });
+        await sync.setOnline(true);
+        expect(sync.getState().status).toBe('conflict');
+        if (path === 'accept-before-newer')
+            await server.write({ expectedRevision: 2, layout: layout(4) });
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: server.current!.revision, leaseUntil: now });
+        await ready;
+        if (path !== 'accept-after') {
+            sync.acceptServerAfterConflict();
+            expect(sync.getCurrentSessionLayout()).toEqual(layout(3));
+            expect(sync.getState()).toMatchObject({ status: 'current', dirty: false });
+        }
+        if (path === 'new-conflict') {
+            sync.onInteraction('tabs', layout(5));
+            await server.write({ expectedRevision: 2, layout: layout(6) });
+            await sync.flush(); // Genuine CAS refusal creates a distinct choice, not a channel hint.
+            expect(sync.getState().status).toBe('conflict');
+        }
+        release();
+        await vi.advanceTimersByTimeAsync(0);
+        if (path === 'accept-after' || path === 'new-conflict') {
+            expect(sync.getState().status).toBe('conflict');
+            expect(sync.getServerObservation()).toBeNull();
+            expect(sync.getCurrentSessionLayout()).toEqual(layout(path === 'new-conflict' ? 5 : 2));
+            await expect(sync.reset(true, 2, api.resetConfirmation(2))).rejects.toThrow('reset_requires_current_server');
+            sync.acceptServerAfterConflict();
+        }
+        expect(sync.getState()).toMatchObject({ status: 'current', dirty: false, serverRevision: server.current!.revision });
+        expect(sync.getCurrentSessionLayout()).toEqual(server.current!.layout);
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('fresh_server_observation_missing');
+        requireWorkspaceServerObservation(observed);
+        expect(sync.getReceipt().events.filter(event => event.kind === 'accepted-server'))
+            .toHaveLength(path === 'new-conflict' ? 2 : 1);
+        expect(server.resets).toBe(0);
+    });
+    it.each(['clone-setter', 'clone-reentrant-accept', 'accepted-listener'] as const)
+    ('preserves layout changes from a synchronous %s during explicit acceptance', async path => {
+        const { sync, server } = setup();
+        await sync.start();
+        await sync.setOnline(false);
+        sync.onInteraction('tabs', layout(2));
+        await server.write({ expectedRevision: 1, layout: layout(3) });
+        await sync.setOnline(true);
+        if (path !== 'accepted-listener') {
+            const clone = globalThis.structuredClone.bind(globalThis);
+            const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+                cloning.mockRestore();
+                if (path === 'clone-reentrant-accept')
+                    sync.acceptServerAfterConflict();
+                sync.onInteraction('tabs', layout(7));
+                return clone(value);
+            });
+            try {
+                sync.acceptServerAfterConflict();
+            } finally {
+                cloning.mockRestore();
+            }
+            expect(sync.getState()).toMatchObject({ status: path === 'clone-setter' ? 'conflict' : 'current', dirty: true });
+            if (path === 'clone-setter')
+                expect(sync.getServerObservation()).toBeNull();
+            expect(sync.getReceipt().events.filter(event => event.kind === 'accepted-server'))
+                .toHaveLength(path === 'clone-setter' ? 0 : 1);
+        } else {
+            const unsubscribe = sync.subscribe(() => {
+                unsubscribe();
+                expect(sync.getState()).toMatchObject({ status: 'current', dirty: false });
+                sync.onInteraction('tabs', layout(7));
+            });
+            sync.acceptServerAfterConflict();
+            expect(sync.getState()).toMatchObject({ status: 'current', dirty: true });
+        }
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        expect(server.writes).toHaveLength(1);
+        expect(server.resets).toBe(0);
+    });
+});
+describe('automatic adoption refusal retains verified baseline and bounded refresh', () => {
+    it.each(['fresh-read', 'failed-read-periodic', 'new-conflict', 'cache-denied'] as const)
+    ('preserves reentrant layout after genuine applied reset through %s', async path => {
+        // Source-only UNRUN controls; fixture replies are not runtime receipts or restore qualification.
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        let failRefresh = false;
+        server.read = async () => {
+            const result = await originalRead();
+            if (failRefresh)
+                throw new Error('server_read_failed');
+            return result;
+        };
+        const { sync, api, storage } = setup(server);
+        await sync.start();
+        const old = sync.getServerObservation()!;
+        const clone = globalThis.structuredClone.bind(globalThis);
+        let reentered = false;
+        let peer: Promise<AuthoringWorkspaceSnapshotResult> | undefined;
+        const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+            if (value && typeof value === 'object' && 'tabs' in value && 'groups' in value && 'shell' in value) {
+                cloning.mockRestore();
+                reentered = true;
+                sync.onInteraction('tabs', layout(7));
+                if (path === 'failed-read-periodic')
+                    failRefresh = true;
+                if (path === 'cache-denied')
+                    storage.fail = true;
+                if (path === 'new-conflict')
+                    peer = server.write({ expectedRevision: 2, layout: layout(9) });
+            }
+            return clone(value);
+        });
+        try {
+            await sync.reset(true, 1, api.resetConfirmation(1));
+        } finally {
+            cloning.mockRestore();
+        }
+        if (peer)
+            expect((await peer).status).toBe('applied');
+        expect(reentered).toBe(true);
+        expect(server.resets).toBe(1);
+        expect(() => requireWorkspaceServerObservation(old)).toThrow('server_observation_required');
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        expect(sync.getState().dirty).toBe(true);
+        expect(sync.getReceipt().events.some(event => event.kind === 'server-reset')).toBe(true);
+        expect(sync.getReceipt().events.some(event => event.kind === 'accepted-server')).toBe(false);
+        if (path === 'new-conflict') {
+            expect(sync.getState().status).toBe('conflict');
+            expect(sync.getServerObservation()).toBeNull();
+            const writes = server.writes.length;
+            await sync.flush();
+            expect(server.writes).toHaveLength(writes);
+            await expect(sync.reset(true, 2, api.resetConfirmation(2))).rejects.toThrow('reset_requires_current_server');
+            sync.acceptServerAfterConflict();
+            expect(sync.getCurrentSessionLayout()).toEqual(layout(9));
+            expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 3, dirty: false });
+            return;
+        }
+        expect(server.writes).toHaveLength(0);
+        if (path === 'failed-read-periodic') {
+            expect(sync.getState()).toMatchObject({ status: 'failed', reason: 'server_read_failed', serverRevision: 2, dirty: true });
+            expect(sync.getServerObservation()).toBeNull();
+            const reads = server.reads;
+            failRefresh = false;
+            await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+            expect(server.reads).toBeGreaterThan(reads);
+        }
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 2, dirty: true });
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('verified_reset_baseline_missing');
+        requireWorkspaceServerObservation(observed);
+        await sync.flush();
+        expect(server.writes).toHaveLength(1);
+        expect(server.writes[0].expectedRevision).toBe(2);
+        expect(server.current!.layout).toEqual(layout(7));
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 3, dirty: false });
+    });
+    it.each(['startup', 'reconnect'] as const)
+    ('retains a usable actual baseline and fresh-read duty after automatic %s refusal', async path => {
+        const { sync, server } = setup();
+        if (path === 'reconnect') {
+            await sync.start();
+            await sync.setOnline(false);
+        }
+        const clone = globalThis.structuredClone.bind(globalThis);
+        let reentered = false;
+        const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+            if (value && typeof value === 'object' && 'tabs' in value && 'groups' in value && 'shell' in value) {
+                cloning.mockRestore();
+                reentered = true;
+                sync.onInteraction('tabs', layout(7));
+            }
+            return clone(value);
+        });
+        try {
+            if (path === 'startup')
+                await sync.start();
+            else
+                await sync.setOnline(true);
+        } finally {
+            cloning.mockRestore();
+        }
+        expect(reentered).toBe(true);
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 1, dirty: true, reason: 'server_layout_adoption_deferred' });
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('verified_read_baseline_missing');
+        requireWorkspaceServerObservation(observed);
+        await sync.flush();
+        expect(server.writes).toHaveLength(1);
+        expect(server.writes[0].expectedRevision).toBe(1);
+        expect(server.current!.layout).toEqual(layout(7));
+        const reads = server.reads;
+        await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+        expect(server.reads).toBeGreaterThan(reads);
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 2, dirty: false });
+        expect(server.resets).toBe(0);
     });
 });
 describe('verified non-authoritative cache', () => {
@@ -431,12 +1264,8 @@ describe('bounded CAS sync, multi-tab and offline current-session state', () => 
         await sync.start();
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        const original = server.reset.bind(server);
-        vi.spyOn(server, 'reset').mockImplementation(async command => {
-            const result = await original(command);
-            await gate;
-            return result;
-        });
+        // The original API pins port methods; defer the actual fixture CAS response inside that method.
+        server.afterReset = () => gate;
         const resetting = sync.reset(true, 1, api.resetConfirmation(1));
         expect(authoringWorkspaceSnapshotStatusModel(sync).canReset).toBe(false);
         sync.onInteraction('tabs', layout(20));
@@ -572,6 +1401,148 @@ describe('server-only immutable restore planning and permission reconciliation',
         expect(router.getRegistry().listEntries()).toHaveLength(0);
         expect(commands.applyGroups).not.toHaveBeenCalled();
     });
+    it('startup cached/default memory and unsynced interactions cannot authorize a bootstrap plan', async () => {
+        const offline = setup();
+        await offline.sync.start(false);
+        const resolveBatch = vi.fn();
+        await expect(prepareAuthoringWorkspaceSnapshotBootstrap(offline.sync, { resolveBatch }, 0, new AbortController().signal))
+            .rejects.toThrow('current_server_read_required');
+        expect(resolveBatch).not.toHaveBeenCalled();
+        const current = setup();
+        await current.sync.start();
+        const changed = current.sync.getCurrentSessionLayout();
+        changed.shell.inspectorOpen = !changed.shell.inspectorOpen;
+        current.sync.onInteraction('shell', changed);
+        await expect(prepareAuthoringWorkspaceSnapshotBootstrap(current.sync, { resolveBatch }, 0, new AbortController().signal))
+            .rejects.toThrow('restore_superseded');
+        expect(resolveBatch).not.toHaveBeenCalled();
+    });
+    it('bootstrap binds the real empty owner with explicitly reconciled group IDs', async () => {
+        const { sync } = setup();
+        await sync.start();
+        const observed = sync.getServerObservation()!;
+        const plan = await prepareAuthoringWorkspaceSnapshotBootstrap(sync, { resolveBatch: async () => resolution(observed) }, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(router.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const before = router.getRegistry().exportState();
+        const identity = vi.fn(() => ({ commandId: 'bootstrap:groups', idempotencyKey: 'bootstrap:groups' }));
+        try
+        {
+            const bound = bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, router, groupOwner, identity);
+            expect(bound.groupOwner).toBe(groupOwner);
+            expect(identity).not.toHaveBeenCalled();
+            expect(router.getRegistry().exportState()).toEqual(before);
+            expect(() => bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, new ArticleWorkspaceTabRouter(), groupOwner, identity))
+                .toThrow('restore_registry_binding_changed');
+        }
+        finally
+        {
+            authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+        }
+    });
+    it('a digest-only group callback cannot restore or create sessions', async () => {
+        const { api } = setup();
+        const observed = await api.read();
+        const port = { resolveBatch: async () => resolution(observed) };
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const open = vi.spyOn(router, 'openOrActivate');
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(),
+            applyGroups: vi.fn(async () => 'a'.repeat(64)), applyShell: vi.fn(), isCurrent: () => true };
+        await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('restore_group_receipt_capability_required');
+        expect(open).not.toHaveBeenCalled();
+        expect(commands.applyGroups).not.toHaveBeenCalled();
+        expect(commands.applyShell).not.toHaveBeenCalled();
+        expect(router.getRegistry().listEntries()).toHaveLength(0);
+    });
+    it('a genuine foreign group owner is refused before session creation or group publication', async () => {
+        const { api } = setup();
+        const observed = await api.read();
+        const port = { resolveBatch: async () => resolution(observed) };
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const foreignRouter = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(foreignRouter.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const adapter = groupOwner.createSnapshotAdapter(() => ({ commandId: 'restore:foreign', idempotencyKey: 'restore:foreign' }));
+        const open = vi.spyOn(router, 'openOrActivate');
+        const before = router.getRegistry().exportState();
+        const foreignBefore = foreignRouter.getRegistry().exportState();
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), groupOwner,
+            applyGroups: vi.fn(adapter.applyGroups), applyGroupsWithReceipt: vi.fn(adapter.applyGroupsWithReceipt),
+            applyShell: vi.fn(), isCurrent: () => true };
+        try
+        {
+            await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('restore_registry_binding_changed');
+            expect(open).not.toHaveBeenCalled();
+            expect(commands.applyGroupsWithReceipt).not.toHaveBeenCalled();
+            expect(commands.applyShell).not.toHaveBeenCalled();
+            expect(router.getRegistry().exportState()).toEqual(before);
+            expect(foreignRouter.getRegistry().exportState()).toEqual(foreignBefore);
+        }
+        finally
+        {
+            authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+        }
+    });
+    it.each(['dispose', 'replace'] as const)('shell callback cannot %s the live ratio identity and return restored', async (action) => {
+        // An untrusted shell digest is refusal input, never a qualified shell/runtime receipt.
+        const { api, server } = setup();
+        server.current = null;
+        const observed = await api.read();
+        const port = { resolveBatch: vi.fn() };
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
+        const router = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(router.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const adapter = groupOwner.createSnapshotAdapter(() => ({ commandId: 'restore:empty', idempotencyKey: 'restore:empty' }));
+        let disposed = false;
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), groupOwner, ...adapter,
+            applyShell: vi.fn(async () => {
+                if (action === 'dispose')
+                {
+                    authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+                    disposed = true;
+                }
+                else
+                {
+                    const projection = groupOwner.exportProjection();
+                    const change = authoringWorkspaceRatioOwner.prepare(ratioScope, projection.splitRatioRef, plan.layout.splitRatioPermille);
+                    const result = groupOwner.execute({ schema: 'fsusblog.authoring-tab-group-command.v1',
+                        kind: 'set-split-ratio-ref', commandId: 'shell:ratio', idempotencyKey: 'shell:ratio',
+                        expectedRevision: projection.state.revision, expectedArticleRegistryRevision: router.getRevision(),
+                        expectedRatioRevision: projection.state.splitRatio.revision, splitRatioPermille: plan.layout.splitRatioPermille }, change);
+                    expect(result.status).toBe('applied');
+                }
+                return 'a'.repeat(64);
+            }), isCurrent: () => true };
+        try
+        {
+            await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal))
+                .rejects.toThrow(action === 'dispose' ? 'invalid-scope' : 'restore_ratio_binding_changed');
+            expect(commands.applyShell).toHaveBeenCalledOnce();
+            expect(router.getRegistry().listEntries()).toHaveLength(0);
+            // Refusal does not fabricate rollback of the genuine already-committed group transition.
+            expect(router.getRegistry().getRevision()).toBe(action === 'dispose' ? 1 : 2);
+        }
+        finally
+        {
+            if (!disposed)
+            {
+                authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+            }
+        }
+    });
     it('late readiness after reset and operation epoch changes cannot reach group/shell restoration', async () => {
         // Synthetic command interleavings exercise consumer refusal, never actual FsusUI qualification or acceptance.
         const { api } = setup();
@@ -579,6 +1550,12 @@ describe('server-only immutable restore planning and permission reconciliation',
         const port = { resolveBatch: async () => resolution(observed) };
         const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, port, 0, new AbortController().signal);
         const router = new ArticleWorkspaceTabRouter();
+        const ratioScope = authoringWorkspaceRatioOwner.openWorkspace();
+        const groupOwner = new AuthoringTabGroupRegistry(router.getRegistry(), {
+            initialGroupId: plan.layout.activeGroupId, initialGroupIds: plan.layout.groups.map(group => group.groupId),
+            ratioScope, splitRatioRef: authoringWorkspaceRatioOwner.read(ratioScope).ratioRef, historyCapacity: 8
+        });
+        const adapter = groupOwner.createSnapshotAdapter(() => ({ commandId: 'restore:groups', idempotencyKey: 'restore:groups' }));
         const original = router.openOrActivate.bind(router);
         vi.spyOn(router, 'openOrActivate').mockImplementation(async (input) => {
             const receipt = await original(input);
@@ -586,15 +1563,24 @@ describe('server-only immutable restore planning and permission reconciliation',
             router.reset();
             return receipt;
         });
-        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), applyGroups: vi.fn(), applyShell: vi.fn(), isCurrent: () => true };
-        await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('server_observation_required');
-        expect(commands.applyGroups).not.toHaveBeenCalled();
-        expect(commands.applyShell).not.toHaveBeenCalled();
-        const freshRouter = new ArticleWorkspaceTabRouter();
-        const freshObserved = await api.read();
-        const freshPlan = await prepareAuthoringWorkspaceSnapshotRestore(freshObserved, port, 0, new AbortController().signal);
-        await expect(applyAuthoringWorkspaceSnapshotRestore(freshPlan, { ...commands, router: freshRouter, isCurrent: () => false }, new AbortController().signal)).rejects.toThrow('restore_superseded');
-        expect(freshRouter.getRegistry().listEntries()).toHaveLength(0);
+        const commands = { router, resolutionPort: port, assertRuntimeCapability: vi.fn(), groupOwner,
+            applyGroups: vi.fn(adapter.applyGroups), applyGroupsWithReceipt: vi.fn(adapter.applyGroupsWithReceipt), applyShell: vi.fn(), isCurrent: () => true };
+        try
+        {
+            await expect(applyAuthoringWorkspaceSnapshotRestore(plan, commands, new AbortController().signal)).rejects.toThrow('server_observation_required');
+            expect(commands.applyGroups).not.toHaveBeenCalled();
+            expect(commands.applyGroupsWithReceipt).not.toHaveBeenCalled();
+            expect(commands.applyShell).not.toHaveBeenCalled();
+            const freshRouter = new ArticleWorkspaceTabRouter();
+            const freshObserved = await api.read();
+            const freshPlan = await prepareAuthoringWorkspaceSnapshotRestore(freshObserved, port, 0, new AbortController().signal);
+            await expect(applyAuthoringWorkspaceSnapshotRestore(freshPlan, { ...commands, router: freshRouter, isCurrent: () => false }, new AbortController().signal)).rejects.toThrow('restore_superseded');
+            expect(freshRouter.getRegistry().listEntries()).toHaveLength(0);
+        }
+        finally
+        {
+            authoringWorkspaceRatioOwner.releaseWorkspace(ratioScope);
+        }
     });
     it('existing/revoked sessions cannot be reopened through the dependency activated-existing branch', async () => {
         const { api } = setup();
