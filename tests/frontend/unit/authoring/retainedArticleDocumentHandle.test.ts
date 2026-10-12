@@ -406,4 +406,55 @@ describe('original Registry retained document handle source controls', () =>
         expect(calls).toBeGreaterThan(before);
         expect(stop.inspect().failed).toBe(false);
     });
+
+    it('rejects Registry post-listener retry at entry and retains even a caught reentry failure', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        let reenter = true;
+        let first: unknown;
+        let calls = 0;
+        const stop = subscribeRetainedArticleDocumentHandle(handle, () =>
+        {
+            calls += 1;
+            if (reenter)
+            {
+                const before = calls;
+                try { stop.retry(); } catch (error) { first = error; }
+                expect(calls).toBe(before);
+            }
+        });
+        registry.execute(open(registry, 2));
+        expect(stop.inspect().failed).toBe(true);
+        expect(stop.inspect().firstFailure).toBe(first);
+        stop();
+        const before = calls;
+        reenter = false;
+        stop.retry();
+        expect(calls).toBe(before + 1);
+        expect(stop.inspect().failed).toBe(false);
+        expect(stop.inspect().pendingUnsubscribe).toBe(true);
+        expect(stop.inspect().firstFailure).toBe(first);
+    });
+
+    it('rejects sibling pre retry before original retirement dispatch and keeps its first cause', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        let siblingCalls = 0;
+        const sibling = subscribeRetainedArticleDocumentRetirement(handle, () => { siblingCalls += 1; });
+        let rejected: unknown;
+        subscribeRetainedArticleDocumentHandle(handle, () =>
+        {
+            const before = siblingCalls;
+            try { sibling.retry(); } catch (error) { rejected ??= error; }
+            expect(siblingCalls).toBe(before);
+        });
+        registry.execute(open(registry, 2));
+        expect(rejected).toBeInstanceOf(Error);
+        expect(sibling.inspect().failed).toBe(true);
+        expect(sibling.inspect().firstFailure).toBe(rejected);
+    });
 });

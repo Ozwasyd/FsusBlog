@@ -98,13 +98,15 @@ interface NotificationSubscriptionRecord {
     hasFirstFailure: boolean;
     firstFailure: unknown;
     pendingUnsubscribe: boolean;
+    failureVersion: number;
+    lastFailure: unknown;
 }
 
 function registerNotificationSubscription(records: Set<NotificationSubscriptionRecord>, listener: () => void,
-    retry: () => void): RetainedNotificationSubscription
+    retry: () => void, retryBusy: () => boolean): RetainedNotificationSubscription
 {
     const record: NotificationSubscriptionRecord = { listener, running: false, failed: false,
-        hasFirstFailure: false, firstFailure: undefined, pendingUnsubscribe: false };
+        hasFirstFailure: false, firstFailure: undefined, pendingUnsubscribe: false, failureVersion: 0, lastFailure: undefined };
     records.add(record);
     const stop = () =>
     {
@@ -115,7 +117,23 @@ function registerNotificationSubscription(records: Set<NotificationSubscriptionR
         }
     };
     Object.defineProperties(stop, {
-        retry: { value: retry },
+        retry: { value: () =>
+        {
+            if (retryBusy() || [...records].some(current => current.running))
+            {
+                const error = new Error('retained-notification-retry-in-progress');
+                record.failed = true;
+                record.failureVersion += 1;
+                record.lastFailure = error;
+                if (!record.hasFirstFailure)
+                {
+                    record.hasFirstFailure = true;
+                    record.firstFailure = error;
+                }
+                throw error;
+            }
+            retry();
+        } },
         inspect: { value: () => ({ failed: record.failed, pendingUnsubscribe: record.pendingUnsubscribe,
             running: record.running, firstFailure: record.firstFailure }) }
     });
@@ -133,14 +151,21 @@ function invokeNotificationSubscription(records: Set<NotificationSubscriptionRec
         throw new Error('retained-notification-retry-in-progress');
     }
     record.running = true;
+    const failureVersion = record.failureVersion;
     try
     {
         record.listener();
+        if (record.failureVersion !== failureVersion)
+        {
+            throw record.lastFailure;
+        }
         record.failed = false;
     }
     catch (error)
     {
         record.failed = true;
+        record.failureVersion += 1;
+        record.lastFailure = error;
         if (!record.hasFirstFailure)
         {
             record.hasFirstFailure = true;
@@ -168,6 +193,7 @@ interface RetainedArticleDocumentCell {
     readonly publication: () => RetainedMembershipPublication | null;
     readonly retire: () => void;
     readonly retirementPending: () => boolean;
+    readonly notificationActive: () => boolean;
     readonly retirementListeners: Set<NotificationSubscriptionRecord>;
     readonly retirementFailures: unknown[];
     readonly listeners: Set<NotificationSubscriptionRecord>;
@@ -251,7 +277,7 @@ export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDo
     {
         throw new Error('retained-article-document-handle-invalid');
     }
-    return registerNotificationSubscription(cell.listeners, listener, () => cell.notify());
+    return registerNotificationSubscription(cell.listeners, listener, () => cell.notify(), cell.notificationActive);
 }
 
 /** Synchronous pre-change signal from this same original cell/Registry realm. */
@@ -262,7 +288,7 @@ export function subscribeRetainedArticleDocumentRetirement(handle: RetainedArtic
     {
         throw new Error('retained-article-document-retirement-subscription-unavailable');
     }
-    return registerNotificationSubscription(cell.retirementListeners, listener, () => cell.retire());
+    return registerNotificationSubscription(cell.retirementListeners, listener, () => cell.retire(), cell.notificationActive);
 }
 
 /** Only scope retirement is an explicit revocation; close follows canonical removal. */
@@ -1101,6 +1127,8 @@ export class OpenArticleDocumentRegistry
             publication: () => this.#membershipPublication,
             retire: () => this.#retireMembershipAuthority(),
             retirementPending: () => this.#membershipRetirementPending,
+            notificationActive: () => this.#membershipRetirementPending || this.#retainedNotificationPending
+                || this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending,
             retirementListeners: new Set(),
             retirementFailures: [],
             read: () =>

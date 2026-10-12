@@ -1242,4 +1242,85 @@ describe('original retained document authority source controls', () =>
         await pending;
         expect(retained.inspect().consumerInvalidationState).toBe('settled');
     });
+
+    it('rejects owner post-listener invalidation retry before cancel or disposal and preserves pending cleanup', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        let reads = 0;
+        const readers = { readPrincipalIdentityId: () => { reads += 1; return 'test'; }, readSiteScope: () => 'site:test' };
+        const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
+        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
+        let calls = 0;
+        const pending = new Promise<void>(() => undefined);
+        retained.attachConsumer(() => ({ invalidateDocument: () => { calls += 1; return pending; } }));
+        const cancel = retained.adapter.cancelAll.bind(retained.adapter);
+        const dispose = retained.adapter.dispose.bind(retained.adapter);
+        let cancels = 0;
+        let disposals = 0;
+        retained.adapter.cancelAll = reason => { cancels += 1; return cancel(reason); };
+        retained.adapter.dispose = () => { disposals += 1; return dispose(); };
+        const rejected: unknown[] = [];
+        retained.subscribeLifetime(() =>
+        {
+            const before = [cancels, disposals, calls, reads];
+            try { retained.retryInvalidation(); } catch (error) { rejected.push(error); }
+            expect([cancels, disposals, calls, reads]).toEqual(before);
+        });
+        authority.revokeRetainedScope('site:test', 'test');
+        expect(rejected.length).toBeGreaterThan(0);
+        expect((rejected[0] as Error).message).toBe('article-document-invalidation-retry-in-progress');
+        expect(calls).toBe(1);
+        expect(retained.inspect().consumerInvalidationState).toBe('pending');
+        expect(retained.inspect().invalidationFailed).toBe(true);
+        expect(retained.sealLifetimeAuthority()).toBeNull();
+    });
+
+    it('retains caught context retry reentry as an actual failure until a later callback succeeds', () =>
+    {
+        const retained = create(new ArticleDocumentContextAuthority(), new OpenArticleDocumentRegistry(), 1, 'first');
+        let reenter = true;
+        let first: unknown;
+        let calls = 0;
+        const stop = retained.adapter.subscribeContext(() =>
+        {
+            calls += 1;
+            if (reenter)
+            {
+                try { stop.retry(); } catch (error) { first = error; }
+            }
+        });
+        expect(() => retained.adapter.updateSource('# published')).toThrow('context-notification-failed');
+        expect(calls).toBe(1);
+        expect(stop.inspect().failed).toBe(true);
+        expect(stop.inspect().firstFailure).toBe(first);
+        stop();
+        expect(stop.inspect().pendingUnsubscribe).toBe(true);
+        reenter = false;
+        stop.retry();
+        expect(calls).toBe(2);
+        expect(stop.inspect().failed).toBe(false);
+        expect(stop.inspect().firstFailure).toBe(first);
+    });
+
+    it('rejects cancel and dispose before native post-listener mutation and preserves the published context', () =>
+    {
+        const retained = create(new ArticleDocumentContextAuthority(), new OpenArticleDocumentRegistry(), 1, 'first');
+        const pending = retained.adapter.beginTask('attachment', 'producer:actual');
+        const rejected: unknown[] = [];
+        retained.adapter.subscribeContext(context =>
+        {
+            const before = retained.adapter.context;
+            try { retained.adapter.cancelAll(); } catch (error) { rejected.push(error); }
+            try { retained.adapter.dispose(); } catch (error) { rejected.push(error); }
+            expect(retained.adapter.context).toBe(before);
+            expect(context).toBe(before);
+        });
+        retained.adapter.updateSource('# published');
+        expect(rejected).toHaveLength(2);
+        expect((rejected[0] as Error).message).toBe('article-document-retirement-in-progress');
+        expect((rejected[1] as Error).message).toBe('article-document-dispose-notification-in-progress');
+        expect(pending.signal.aborted).toBe(true);
+        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
+    });
 });
