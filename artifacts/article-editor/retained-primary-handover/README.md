@@ -1,9 +1,9 @@
 # Genuine loaded primary handover source offer
 
-Producer `ad35a65010e5b101cb12a248ae4cd5c05df7b60d` follows the original source-closed
+Repaired producer `590f2c83d2c80e5260ed711bb5a63713cc733b50` follows the original source-closed
 17c producer, without repeating or inheriting its qualification. This four-path
 increment adds the original authority's `preparePrimaryRetainedHandover` and
-consumer registration repair, eight dedicated source cases (UNRUN), nearest
+consumer registration repair, twelve dedicated handover source cases (UNRUN), nearest
 boundary docs and original complete entry preflight notes. No Writer/Main/Rail,
 Registry/Group/native/server/lock/frozen authority implementation changes.
 
@@ -34,7 +34,13 @@ article/draft/source/draft coordinates must ALREADY match. Mounted editor-sessio
 identity/content digest remain original. It cancels old context tasks and rechecks
 actual lifetime after synchronous abort callbacks, publishes one switch receipt,
 then installs original retained custody and notifies original context listeners.
-The same real pending work stays until producer settlement. Unused discard does
+The same real pending work stays until producer settlement. A genuine prepared-primary
+guard closes admission synchronously during nested retirement before queued cleanup;
+original scope custody stays anchored independently of later context edits. Sole-binding
+validation is repeated throughout consumption and final binding. An explicit module-private
+publication marker distinguishes actual target assignment from a normal intervening edit;
+unused edited pins can be discarded without disposing the borrowed adapter. Retired or
+published custody cannot be discarded, and strict adoption cannot bypass an unused pin. Unused discard does
 not dispose its borrowed primary. Failed published notification retires document
 admission and retains obligations; no rollback can undo an actual abort or notify.
 
@@ -53,10 +59,10 @@ Full-ref restoration/eviction and complete resource/producer settlement remain
 unavailable here, rather than being satisfied by a synthetic handover receipt.
 
 Static source observations: original unchanged strict-full authority command
-PASS1file/0violations (initial optional-chain finding recorded/fixed); pure AST2
+PASS1file/0violations (initial optional-chain and P2 brace-style findings recorded/fixed); pure AST2
 files/0parse diagnostics with no candidate import; original whole application
 local FsusUI alias compiler RED2/249 diagnostics, exact headline multiplicities
-unchanged from recorded17c baseline with same UI8db source. Raw observations are
+unchanged from recordedad35 baseline with same UI8db source. Raw observations are
 under `static-evidence`. No full application/native/runtime green claim.
 
 The raw patch retains standard blank context syntax. An aggregate publisher
@@ -65,3 +71,8 @@ is distinct from the PASS actual applied source check, with no config exemption.
 All original tests/list/discovery/candidate-import/browser/mount/native/security/
 privacy/receipt/race/DB/storage/fullfactory qualification remains HOLD/UNRUN.
 Independent review of this new original source/actual composition remains pending.
+
+Independent review of originalad35/03c75 found THREE P2 lifetime gaps; those heads
+are not accepted for consumption. This updated original offer contains their
+source repairs and requires independent review at the repaired exact source.
+It still changes only the original four source/test/doc/preflight paths in Main.
