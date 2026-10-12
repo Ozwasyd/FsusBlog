@@ -400,3 +400,52 @@ actual retained Writer mounts, the complete session factory and shell command
 owner. The new helpers are callable source composition, not an installed
 application bootstrap, restore-ready claim or a receipt witness. Their source
 controls and all runtime/list/native/receipt qualification remain UNRUN.
+
+## Authenticated HTTP connection source
+
+`connectAuthoringWorkspaceSnapshotHttp(signal)` is a callable original HTTP
+consumer, not an installed startup or runtime admission. It obtains the real
+independent admin principal from `getAdminMe`, requires an active non-step-up
+session with `article.write`, and binds its safe integer ID to the snapshot
+endpoint's returned `scope.userId`. That wire field denotes the independent
+admin principal here, never the account-user store. The site ID and SourceDigest
+come from the actual authenticated snapshot GET; the frontend supplies neither
+a hard-coded site nor a Git/fixture/local digest. The original Server derives
+that digest from its stamped Server/Shared artifacts.
+
+One initial GET discovers coordinates without minting an observation. A second
+real GET must pass the unchanged complete `AuthoringWorkspaceSnapshotApi`
+verifier with that same scope/source binding and a current/missing result. Drift,
+blocked state, abort and auth changes refuse the connection. This sequence writes
+no snapshot or cache, resets nothing and never adopts the first payload as a
+cached authority. The existing Sync must obtain its own current API observation.
+
+The connection retains one original admin request lease and a synchronous watch
+of the original private-surface auth generation. Auth invalidation or `dispose`
+revokes API observations, aborts connection work and releases the lease/watch.
+Each later original transport operation checks that lifetime before and after
+the await and combines its caller signal. The sole host must propagate its abort,
+call `assertCurrent` in its existing epoch guard, dispose on replacement/unmount,
+and construct/start the existing Sync once. No host SFC, second store, session
+installer or full-factory/shell admission is supplied by this connector.
+
+The typed HTTP source still directly consumes the original named Snapshot
+request/response frames. Rail #4227 at `f906f5e42f5f7e779ba6d8651a5b1dfef0965efa`
+uses a current canonical 244-frame source missing both names. Its five HTTP
+unsafe-assignment/argument findings are consequences of those missing members,
+not corrected by source-only import formatting. The original Shared owner must
+join both feature families and produce the real enum/decoder/endpoint closure;
+no numeric/string lookup fallback, generated edit, generator, golden-order
+allocation or frozen SOURCE refresh is performed here.
+
+`resolveBatch` remains missing its real producer. It needs one bounded current
+permission/lifecycle/draft batch bound to scope, artifact SourceDigest and
+snapshot revision/digest, with exactly one fact per requested tab. Admitted
+facts require actual current identity, document epoch, source/draft revision and
+permission reference; missing/deleted/archived/denied/replaced facts carry only
+closed reasons. Existing query/pin/Canvas metadata or permission batches do not
+publish that complete contract or the original document/session bindings. The
+integration and document/draft owners must supply it; no per-article body fetch,
+saved permission, invented endpoint/wire contract or local resolution list is
+implemented. All auth/security/test/list/runtime/native/receipt qualifications
+remain HOLD/UNRUN.
