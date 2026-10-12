@@ -1,0 +1,26 @@
+{
+  "base": "c3b19411ba5aba2a83325f3c64be5004f521839a",
+  "source": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
+  "finalHead": "d354ca78d6d19daa6b09f66c988cb04e1f5ab89b",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "preimage": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+      "postimage": "76761edf0b89bb538a5aa24cc7c87e6df0294d9b",
+      "sourceHeadIdentical": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "preimage": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+      "postimage": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e",
+      "sourceHeadIdentical": true
+    }
+  ],
+  "applyCheck": 0,
+  "applyIndex": 0,
+  "diffCheck": 0,
+  "exactPostimages": true,
+  "localOwnerRewrite": false,
+  "independentSourceClosure": "parent confirms Registry mutation success/error drain and Document nonnull publication/consumer P2 closed, no new mustfix",
+  "runtime": "HOLD/UNRUN"
+}
