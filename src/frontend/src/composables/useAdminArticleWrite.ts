@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch } from 'vue';
+import { computed, effectScope, onActivated, onBeforeUnmount, onDeactivated, onMounted, onScopeDispose, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -64,7 +64,7 @@ import {
     type ArticleRecoveryDivergence,
     type ArticleRecoveryFlushResult,
     type ArticleRecoveryJournalRecord,
-    type ArticleRecoveryJournalCheckpointReferenceBinding,
+    type ArticleRecoveryJournalCheckpointPublicationBinding,
     type ArticleRecoveryJournalCheckpointSource,
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
@@ -76,7 +76,10 @@ import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, t
 import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
 import {
     articleDocumentContextAuthority,
-    type ArticleDocumentContextAdapter
+    type ArticleDocumentContextAdapter,
+    type ArticleDocumentRetainedBinding,
+    type ArticleDocumentRetainedInspection,
+    type ArticleDocumentLifetimeSeal
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
@@ -88,13 +91,21 @@ import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articleP
 import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
 import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
 import { createArticleWriterMountedEditorSource } from '@/services/authoring/articleWriterMountedEditorSource';
-import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
+import { calculateOpenArticleDocumentDigest, type RetainedArticleDocumentHandle } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
-import { useAdminStore } from '@/store/admin';
+import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
+import { useAdminStore, type AdminPrincipalSeal } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
 
-import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
+import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSession, MarkdownEditorSessionExpose, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
+
+const mountedWriterAuthorityBrand: unique symbol = Symbol('article-writer-mounted-authority');
+
+/** Accepted only by the issuing original mounted runtime, never copied metadata. */
+export interface MountedWriterSeal {
+    readonly [mountedWriterAuthorityBrand]: true;
+}
 
 interface ArticleParams {
     title: string;
@@ -492,16 +503,76 @@ const slugifyTitle = (title: string): string =>
 
 export function useAdminArticleWrite()
 {
+    // This is the original Writer's effect scope, not another document/form owner.
+    const writerScope = effectScope(true);
+    try
+    {
+        const writer = writerScope.run(() => createAdminArticleWriteOwner(writerScope));
+        if (!writer)
+        {
+            throw new Error('article-writer-effect-scope-unavailable');
+        }
+        return writer;
+    }
+    catch (error)
+    {
+        writerScope.stop();
+        throw error;
+    }
+}
+
+function createAdminArticleWriteOwner(writerScope: EffectScope)
+{
+    // Expand ONLY this original Writer's own groups. Arbitrary thrown objects or
+    // external AggregateError.errors getters are never inspected or flattened.
+    const writerFailureGroups = new WeakMap<object, readonly unknown[]>();
+    const combineWriterFailures = (failures: readonly unknown[], message: string): unknown =>
+    {
+        const errors: unknown[] = [];
+        const seen = new Set<unknown>();
+        for (const failure of failures)
+        {
+            const own = ((typeof failure === 'object' && failure !== null) || typeof failure === 'function')
+                ? writerFailureGroups.get(failure) : undefined;
+            for (const error of own ?? [failure])
+            {
+                if (!seen.has(error))
+                {
+                    seen.add(error);
+                    errors.push(error);
+                }
+            }
+        }
+        if (errors.length === 1)
+        {
+            return errors[0];
+        }
+        const combined = new AggregateError(errors, message, { cause: errors[0] });
+        writerFailureGroups.set(combined, Object.freeze(errors));
+        return combined;
+    };
     const route = useRoute();
     const router = useRouter();
     const powProvider = usePow();
     const adminStore = useAdminStore();
+    // Actual original function-valued getters: capture once, outside final checks.
+    const sealAdminAuthority = adminStore.sealAdminPrincipalAuthority;
+    const hasAdminAuthority = adminStore.hasAdminPrincipalAuthorityCustody;
+    const cancelAdminAuthority = adminStore.cancelAdminPrincipalAuthority;
     const formRef = useTemplateRef<{
         validate: (callback?: FormValidateCallback) => FormValidationResult;
         scrollToField: (prop: FormItemProp) => void;
     }>('formRef');
+    const retainedPrimaryBinding = shallowRef<ArticleDocumentRetainedBinding | null>(null);
+    let retainingPrimary = false;
+    let retainedPrimaryReady = false;
+    let componentAttached = true;
     const articleId = computed(() =>
     {
+        if (retainedPrimaryBinding.value)
+        {
+            return retainedPrimaryBinding.value.adapter.context.articleId;
+        }
         const raw = route.params.id ?? route.query.id;
         const parsed = Number(raw);
         return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
@@ -840,6 +911,8 @@ export function useAdminArticleWrite()
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
+    // Also reclaim the actual channel if original owner acquisition refuses during setup.
+    onScopeDispose(() => recoveryCoordinator.dispose());
     // Canonical author endpoints resolve the primary site; a browser host is not its authority.
     const documentSiteScope = 'primary-site';
     const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
@@ -982,14 +1055,55 @@ export function useAdminArticleWrite()
     });
     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
     let releaseEditorRuntime: (() => void) | null = null;
+    // This slot retains only the original object identity; the mounted source validates its public ports.
+    let originalMountedEditor: object | null = null;
+    let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
+    // Original Writer physical custody only. This hook is not auth/member authority.
+    let revokeCurrentMountedAuthority: (() => void) | null = null;
+    let notifyCurrentMountedAuthorityRetirement: (() => void) | null = null;
+    let mountedComponentActive = true;
+    onDeactivated(() =>
+    {
+        notifyCurrentMountedAuthorityRetirement?.();
+        mountedComponentActive = false;
+        revokeCurrentMountedAuthority?.();
+    });
+    onActivated(() =>
+    {
+        revokeCurrentMountedAuthority?.();
+        mountedComponentActive = true;
+    });
+    onBeforeUnmount(() =>
+    {
+        notifyCurrentMountedAuthorityRetirement?.();
+        mountedComponentActive = false;
+        try
+        {
+            revokeCurrentMountedAuthority?.();
+        }
+        finally
+        {
+            componentAttached = false;
+        }
+    });
+    onScopeDispose(() => revokeCurrentMountedAuthority?.());
+    const unsubscribeMountedAuthorityContext = articleDocumentContextAdapter.subscribeContext(() => revokeCurrentMountedAuthority?.());
+    onScopeDispose(unsubscribeMountedAuthorityContext);
+    // Revocation-only observation of real auth/private-surface source. These watches
+    // cannot issue an auth token or attest permissions, expiry or admin admission.
+    watch(() => [adminStore.adminPrincipal, adminStore.adminState, adminStore.adminSessionStatus,
+        adminStore.permissions, privateSurfaceRuntime.authGeneration.value, privateSurfaceRuntime.isClearing.value],
+    () => revokeCurrentMountedAuthority?.(), { deep: true, flush: 'sync' });
     const authoringEditorRuntime = Object.freeze({
-        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
+        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort> & Partial<MarkdownEditorSessionExpose>, options: ArticleEditorRuntimeBindingOptions,
             readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
         {
             if (!active || editorRuntimeBinding)
             {
                 throw new Error('article-editor-runtime-already-bound');
             }
+            // Retire an old physical owner before allocating any replacement resources.
+            revokeCurrentMountedAuthority?.();
             const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
                 withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true });
             let binding: ArticleEditorRuntimeBinding;
@@ -1016,28 +1130,443 @@ export function useAdminArticleWrite()
             }
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
-            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
             let recoveryCheckpointCreating = false;
-            const release = (): void =>
+            // One reservation in this actual mounted runtime, not a second mount/session store.
+            interface MountedDocumentAuthority {
+                readonly binding: ArticleDocumentRetainedBinding;
+                readonly seal: ArticleDocumentLifetimeSeal;
+                readonly has: ArticleDocumentRetainedBinding['hasLifetimeAuthorityCustody'];
+                readonly cancel: ArticleDocumentRetainedBinding['cancelLifetimeAuthority'];
+            }
+            interface MountedAdminAuthority {
+                readonly seal: AdminPrincipalSeal;
+            }
+            interface MountedWriterCustody {
+                readonly seal: MountedWriterSeal;
+                readonly runtime: object;
+                readonly editor: object;
+                readonly binding: ArticleEditorRuntimeBinding;
+                readonly editorSessionRef: string;
+                readonly session: MarkdownEditorSession;
+                readonly generation: number;
+                readonly document: MountedDocumentAuthority;
+                readonly auth: MountedAdminAuthority;
+            }
+            let mountedAuthorityCustody: MountedWriterCustody | null = null;
+            let mountedDocumentAuthority: MountedDocumentAuthority | null = null;
+            let mountedAdminAuthority: MountedAdminAuthority | null = null;
+            let mountedAdminCancellationFailure: { readonly authority: MountedAdminAuthority; readonly failure: unknown; } | null = null;
+            let mountedDocumentCancellationFailure: { readonly authority: MountedDocumentAuthority; readonly failure: unknown; } | null = null;
+            let mountedAuthorityGeneration = 0;
+            let mountedAuthorityReleased = false;
+            let mountedAuthorityPreparing = false;
+            // One original Root reservation consumer per physical Writer runtime.
+            interface MountedAuthorityRetirementSubscription {
+                readonly listener: () => void;
+                disposeRequested: boolean;
+            }
+            let mountedAuthorityRetirementSubscription: MountedAuthorityRetirementSubscription | null = null;
+            let mountedAuthorityRetirementFailure: { readonly subscription: MountedAuthorityRetirementSubscription; readonly failure: unknown; } | null = null;
+            let mountedAuthorityRetirementNotifying = false;
+            let mountedAuthorityRetirementNotified = false;
+            const retirementReentrancyFailure = new Error('article-writer-mounted-retirement-reentrant');
+            const notifyMountedAuthorityRetirement = (): void =>
             {
-                if (editorRuntimeBinding !== binding)
+                if (mountedAuthorityRetirementNotifying)
+                {
+                    throw retirementReentrancyFailure;
+                }
+                if (mountedAuthorityRetirementNotified)
                 {
                     return;
                 }
-                recoveryCheckpoint?.release();
-                editorRuntimeBinding = null;
-                releaseEditorRuntime = null;
-                if (previewOwners.value?.binding === binding)
+                const subscription = mountedAuthorityRetirementSubscription;
+                if (!subscription)
                 {
-                    previewOwners.value = null;
-                    previewTask.cancel();
-                    previewCurrentAuthorities.cancel();
+                    return;
                 }
-                searchRuntime.dispose();
-                surfaceRuntime?.dispose();
-                surfaceRuntime = null;
-                binding.dispose();
-                releaseAttachmentEditor();
+                mountedAuthorityRetirementNotifying = true;
+                try
+                {
+                    // Root withdraws its reservation before Writer custody/liveness changes
+                    // or original cancellation/recovery/native cleanup callbacks run.
+                    subscription.listener();
+                    mountedAuthorityRetirementNotified = true;
+                    mountedAuthorityRetirementFailure = null;
+                    if (subscription.disposeRequested)
+                    {
+                        mountedAuthorityRetirementSubscription = null;
+                    }
+                }
+                catch (error)
+                {
+                    const previous = mountedAuthorityRetirementFailure;
+                    mountedAuthorityRetirementFailure = previous ?? { subscription, failure: error };
+                    if (previous && previous.failure !== error)
+                    {
+                        throw combineWriterFailures([previous.failure, error], 'article-writer-mounted-retirement-retry-failed');
+                    }
+                    throw error;
+                }
+                finally
+                {
+                    mountedAuthorityRetirementNotifying = false;
+                }
+            };
+            /** Single original Root reservation subscription; synchronous, no replay or readiness receipt.
+             * A failed listener keeps its original slot/error and blocks issuance until a real retry succeeds.
+             * The callback withdraws Root custody; it must not reenter Writer cancellation/release.
+             * Disposal from inside the callback commits only after that callback succeeds.
+             */
+            const subscribeMountedAuthorityRetirement = (listener: () => void): (() => void) =>
+            {
+                if (typeof listener !== 'function' || mountedAuthorityReleased || mountedAuthorityRetirementNotifying
+                    || mountedAuthorityRetirementSubscription || mountedAuthorityRetirementFailure)
+                {
+                    throw new Error('article-writer-mounted-retirement-subscription-invalid');
+                }
+                const subscription: MountedAuthorityRetirementSubscription = { listener, disposeRequested: false };
+                mountedAuthorityRetirementSubscription = subscription;
+                mountedAuthorityRetirementNotified = false;
+                return () =>
+                {
+                    if (mountedAuthorityRetirementSubscription !== subscription)
+                    {
+                        return;
+                    }
+                    if (mountedAuthorityRetirementNotifying)
+                    {
+                        subscription.disposeRequested = true;
+                        return;
+                    }
+                    // A failing disposer cannot discard the original retry obligation.
+                    if (mountedAuthorityRetirementFailure)
+                    {
+                        notifyMountedAuthorityRetirement();
+                    }
+                    if (mountedAuthorityRetirementSubscription === subscription)
+                    {
+                        mountedAuthorityRetirementSubscription = null;
+                    }
+                };
+            };
+
+            const cancelMountedDocumentAuthority = (): boolean =>
+            {
+                if (mountedDocumentCancellationFailure)
+                {
+                    throw mountedDocumentCancellationFailure.failure;
+                }
+                const authority = mountedDocumentAuthority;
+                // Remove original local custody BEFORE invoking actual producer cancellation.
+                mountedDocumentAuthority = null;
+                if (!authority)
+                {
+                    return false;
+                }
+                try
+                {
+                    return authority.cancel(authority.seal);
+                }
+                catch (error)
+                {
+                    // Keep the real issuer/token on failure; never turn a later
+                    // noop into successful cancellation or admit another seal.
+                    mountedDocumentCancellationFailure = { authority, failure: error };
+                    throw error;
+                }
+            };
+            const revokeMountedAuthority = (): void =>
+            {
+                notifyMountedAuthorityRetirement();
+                mountedAuthorityCustody = null;
+                // Retire before any original external callback; old generations cannot revive.
+                if (mountedAuthorityGeneration === Number.MAX_SAFE_INTEGER)
+                {
+                    mountedAuthorityReleased = true;
+                }
+                else
+                {
+                    mountedAuthorityGeneration += 1;
+                }
+                cancelMountedAuthorities();
+            };
+            const mountedAuthorityCurrent = (): boolean =>
+                !mountedAuthorityReleased && !mountedAuthorityRetirementNotifying && !mountedAuthorityRetirementFailure
+                && active && componentAttached && mountedComponentActive && writerScope.active
+                && !fullDraftPrincipalRetired && !fullDraftReleased
+                && editorRuntimeBinding === binding && originalMountedEditor === editor && originalMountedRuntime === mountedRuntime;
+            const cancelMountedAuthorities = (): boolean =>
+            {
+                const auth = mountedAdminAuthority;
+                mountedAdminAuthority = null;
+                let canceledAuth = false;
+                let canceledDocument = false;
+                const failures: unknown[] = [];
+                try
+                {
+                    if (mountedAdminCancellationFailure)
+                    {
+                        throw mountedAdminCancellationFailure.failure;
+                    }
+                    if (auth)
+                    {
+                        canceledAuth = cancelAdminAuthority(auth.seal);
+                    }
+                }
+                catch (error)
+                {
+                    if (auth)
+                    {
+                        mountedAdminCancellationFailure = { authority: auth, failure: error };
+                    }
+                    failures.push(error);
+                }
+                try
+                {
+                    canceledDocument = cancelMountedDocumentAuthority();
+                }
+                catch (error)
+                {
+                    failures.push(error);
+                }
+                if (failures.length > 0)
+                {
+                    throw combineWriterFailures(failures, 'article-writer-mounted-authority-cancellation-failed');
+                }
+                return canceledAuth || canceledDocument;
+            };
+            const hasJoinedMountedAuthority = (custody: MountedWriterCustody): boolean =>
+                mountedAuthorityCustody === custody && mountedAdminAuthority === custody.auth
+                && mountedDocumentAuthority === custody.document && mountedAuthorityCurrent()
+                && custody.runtime === originalMountedRuntime && custody.editor === originalMountedEditor
+                && custody.binding === editorRuntimeBinding && custody.generation === mountedAuthorityGeneration
+                && hasAdminAuthority(custody.auth.seal) && custody.document.has(custody.document.seal)
+                && mountedAuthorityCustody === custody && mountedAdminAuthority === custody.auth
+                && mountedDocumentAuthority === custody.document && mountedAuthorityCurrent()
+                && custody.generation === mountedAuthorityGeneration;
+            const sealMountedAuthority = (editorSessionRef: string): MountedWriterSeal | null =>
+            {
+                if (mountedAuthorityPreparing || mountedDocumentCancellationFailure || mountedAdminCancellationFailure
+                    || mountedAuthorityCustody || !mountedAuthorityCurrent()
+                    || typeof editorSessionRef !== 'string' || !editorSessionRef)
+                {
+                    return null;
+                }
+                mountedAuthorityRetirementNotified = false;
+                mountedAuthorityPreparing = true;
+                const generation = mountedAuthorityGeneration;
+                let candidate: MountedWriterCustody | null = null;
+                let operationFailed = false;
+                let operationFailure: unknown;
+                let result: MountedWriterSeal | null = null;
+                const prepare = (): MountedWriterSeal | null =>
+                {
+                    if (!documentPrincipalIdentityId)
+                    {
+                        return null;
+                    }
+                    const authSeal = sealAdminAuthority(documentPrincipalIdentityId);
+                    if (!authSeal)
+                    {
+                        return null;
+                    }
+                    const auth: MountedAdminAuthority = { seal: authSeal };
+                    mountedAdminAuthority = auth;
+                    // Fresh route permission admission can invoke tracked callbacks;
+                    // recheck the exact original epoch after that call.
+                    if (!adminStore.hasPermission('article.write') || !hasAdminAuthority(authSeal)
+                        || mountedAdminAuthority !== auth || !mountedAuthorityCurrent()
+                        || generation !== mountedAuthorityGeneration)
+                    {
+                        return null;
+                    }
+                    const retained = retainedPrimaryBinding.value;
+                    if (retained?.adapter !== articleDocumentContextAdapter)
+                    {
+                        return null;
+                    }
+                    // These are the SAME original frozen binding's real methods,
+                    // not a structural provider or a membership selector/index.
+                    const has = retained.hasLifetimeAuthorityCustody.bind(retained);
+                    const cancel = retained.cancelLifetimeAuthority.bind(retained);
+                    const documentSeal = retained.sealLifetimeAuthority();
+                    if (!documentSeal)
+                    {
+                        return null;
+                    }
+                    mountedDocumentAuthority = { binding: retained, seal: documentSeal, has, cancel };
+                    const document = mountedDocumentAuthority;
+                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
+                        || retainedPrimaryBinding.value !== retained || !has(documentSeal)
+                        || mountedAdminAuthority !== auth || !hasAdminAuthority(authSeal))
+                    {
+                        return null;
+                    }
+                    const context = articleDocumentContextAdapter.context;
+                    const mounted = mountedSource?.readMountedEditor(editorSessionRef);
+                    if (mounted !== editor || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
+                        || mountedDocumentAuthority !== document || !has(documentSeal)
+                        || mountedAdminAuthority !== auth || !hasAdminAuthority(authSeal))
+                    {
+                        return null;
+                    }
+                    const session = mounted.getSession(editorSessionRef);
+                    const native = session.inspectDocumentState();
+                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
+                        || native.documentIdentity.id !== context.documentId || native.documentIdentity.epoch !== context.documentEpoch
+                        || native.revision !== context.sourceRevision || !articleDocumentContextAdapter.isCurrentContext(context)
+                        || mountedSource?.readMountedEditor(editorSessionRef) !== mounted || mounted.getSession(editorSessionRef) !== session
+                        || !has(documentSeal) || mountedDocumentAuthority !== document
+                        || !hasAdminAuthority(authSeal) || mountedAdminAuthority !== auth
+                        || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
+                    {
+                        return null;
+                    }
+                    const seal = Object.freeze<MountedWriterSeal>({ [mountedWriterAuthorityBrand]: true });
+                    candidate = Object.freeze({ seal, runtime: mountedRuntime, editor, binding, editorSessionRef, session, generation, document, auth });
+                    if (!has(documentSeal) || mountedDocumentAuthority !== document
+                        || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
+                    {
+                        return null;
+                    }
+                    mountedAuthorityCustody = candidate;
+                    // Actual observed local auth/Doc/physical continuity only.
+                    // No callback/await/allocation after the final original private join.
+                    if (!hasJoinedMountedAuthority(candidate))
+                    {
+                        return null;
+                    }
+                    // All original observed-event producer inputs must be closed and consumed.
+                    return seal;
+                };
+                try
+                {
+                    result = prepare();
+                }
+                catch (error)
+                {
+                    operationFailed = true;
+                    operationFailure = error;
+                }
+                if (result !== null)
+                {
+                    mountedAuthorityPreparing = false;
+                    return result;
+                }
+                // Failure cancels BOTH original tokens, preserving real failures.
+                mountedAuthorityCustody = null;
+                let cancellationFailed = false;
+                let cancellationFailure: unknown;
+                try
+                {
+                    cancelMountedAuthorities();
+                }
+                catch (error)
+                {
+                    cancellationFailed = true;
+                    cancellationFailure = error;
+                }
+                finally
+                {
+                    mountedAuthorityPreparing = false;
+                }
+                if (operationFailed && cancellationFailed)
+                {
+                    throw combineWriterFailures([operationFailure, cancellationFailure], 'article-writer-mounted-seal-and-cancellation-failed');
+                }
+                if (operationFailed)
+                {
+                    throw operationFailure;
+                }
+                if (cancellationFailed)
+                {
+                    throw cancellationFailure;
+                }
+                return null;
+            };
+            const hasMountedAuthorityCustody = (seal: MountedWriterSeal): boolean =>
+            {
+                const custody = mountedAuthorityCustody;
+                if (!seal || custody?.seal !== seal || mountedAuthorityPreparing || !mountedAuthorityCurrent()
+                    || custody.runtime !== originalMountedRuntime || custody.editor !== originalMountedEditor
+                    || custody.binding !== editorRuntimeBinding || custody.generation !== mountedAuthorityGeneration)
+                {
+                    return false;
+                }
+                if (!hasJoinedMountedAuthority(custody))
+                {
+                    return false;
+                }
+                return true;
+            };
+            const cancelMountedAuthority = (seal: MountedWriterSeal): boolean =>
+            {
+                if (!seal || mountedAuthorityCustody?.seal !== seal)
+                {
+                    return false;
+                }
+                notifyMountedAuthorityRetirement();
+                mountedAuthorityCustody = null;
+                return cancelMountedAuthorities();
+            };
+            const release = (): void =>
+            {
+                notifyMountedAuthorityRetirement();
+                // This is actual producer retirement, BEFORE recovery release can reenter/throw.
+                mountedAuthorityReleased = true;
+                mountedAuthorityCustody = null;
+                if (revokeCurrentMountedAuthority === revokeMountedAuthority)
+                {
+                    revokeCurrentMountedAuthority = null;
+                    notifyCurrentMountedAuthorityRetirement = null;
+                }
+                let cancellationFailed = false;
+                let cancellationFailure: unknown;
+                try
+                {
+                    cancelMountedAuthorities();
+                }
+                catch (error)
+                {
+                    cancellationFailed = true;
+                    cancellationFailure = error;
+                }
+                try
+                {
+                    if (editorRuntimeBinding === binding)
+                    {
+                        recoveryCheckpoint?.release();
+                        editorRuntimeBinding = null;
+                        releaseEditorRuntime = null;
+                        originalMountedEditor = null;
+                        originalMountedRuntime = null;
+                        if (previewOwners.value?.binding === binding)
+                        {
+                            previewOwners.value = null;
+                            previewTask.cancel();
+                            previewCurrentAuthorities.cancel();
+                        }
+                        searchRuntime.dispose();
+                        surfaceRuntime?.dispose();
+                        surfaceRuntime = null;
+                        binding.dispose();
+                        releaseAttachmentEditor();
+                    }
+                }
+                catch (error)
+                {
+                    if (cancellationFailed)
+                    {
+                        throw combineWriterFailures([cancellationFailure, error], 'article-writer-mounted-cancellation-and-release-failed');
+                    }
+                    throw error;
+                }
+                if (cancellationFailed)
+                {
+                    throw cancellationFailure;
+                }
             };
             releaseEditorRuntime = release;
             const bindSurfacePreference = (readPreference: () => ArticleEditorSurfacePreference | null): ArticleEditorSurfaceRuntime =>
@@ -1086,9 +1615,11 @@ export function useAdminArticleWrite()
             };
             const mountedSource = readMountedEditor
                 ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
-                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
+                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding,
+                    () => active && writerScope.active && componentAttached && editorRuntimeBinding === binding && originalMountedEditor === editor
+                        ? authoringDraftCheckpointRuntime : null)
                 : null;
-            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding & {
+            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointPublicationBinding & {
                 /** Native retained snapshot only; complete application factory custody remains unavailable. */
                 captureRetainedSnapshot(reference: string, assertAdmission?: () => void): MarkdownEditorSessionSnapshot;
             } =>
@@ -1143,7 +1674,7 @@ export function useAdminArticleWrite()
                 };
                 // Reserve before the first caller-held mounted read can reenter this method.
                 recoveryCheckpointCreating = true;
-                let journal: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+                let journal: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
                 let unsubscribe: (() => void) | null = null;
                 let stopIdentityWatch: (() => void) | null = null;
                 let checkpoint: ReturnType<typeof bindRecoveryCheckpoint> | null = null;
@@ -1194,6 +1725,11 @@ export function useAdminArticleWrite()
                         hasReferenceCustody: (reference, info) => issued.hasReferenceCustody(reference, info),
                         validateReference: (reference, content) => issued.validateReference(reference, content),
                         restoreReference: reference => issued.restoreReference(reference),
+                        preparePublication: signal => issued.preparePublication(signal),
+                        validatePrepared: (candidate, content) => issued.validatePrepared(candidate, content),
+                        hasPreparedCustody: (candidate, info) => issued.hasPreparedCustody(candidate, info),
+                        publishPrepared: (candidate, info) => issued.publishPrepared(candidate, info),
+                        cancelPrepared: candidate => issued.cancelPrepared(candidate),
                         captureRetainedSnapshot: (reference, assertAdmission?: () => void) =>
                         {
                             const source = readSource();
@@ -1245,8 +1781,15 @@ export function useAdminArticleWrite()
                     recoveryCheckpointCreating = false;
                 }
             };
-            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
+            const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
+                sealMountedAuthority, hasMountedAuthorityCustody, cancelMountedAuthority, subscribeMountedAuthorityRetirement,
                 search: searchRuntime, mountedSource });
+            revokeCurrentMountedAuthority?.();
+            revokeCurrentMountedAuthority = revokeMountedAuthority;
+            notifyCurrentMountedAuthorityRetirement = notifyMountedAuthorityRetirement;
+            originalMountedEditor = editor;
+            originalMountedRuntime = mountedRuntime;
+            return mountedRuntime;
         }
     });
     const initTask = useAbortableTask({
@@ -1780,6 +2323,7 @@ export function useAdminArticleWrite()
             }
             if (recoveryRecord)
             {
+                invalidateDraftCheckpoint();
                 const confirmed = await articleRecoveryJournal.confirm({
                     id: recoveryRecord.id,
                     clientRevision: recoveryRecord.clientRevision,
@@ -1864,6 +2408,7 @@ export function useAdminArticleWrite()
         finally
         {
             task.complete();
+            task.settle();
         }
     };
 
@@ -2016,6 +2561,7 @@ export function useAdminArticleWrite()
         {
             parentSignal?.removeEventListener('abort', abortParent);
             task.complete();
+            task.settle();
         }
     };
 
@@ -2061,26 +2607,523 @@ export function useAdminArticleWrite()
         await refreshArticleRecoveryCandidates(signal);
     };
 
-    const applyDraftToForm = (draft: ArticleDraftSnapshot): void =>
+    let draftFormRestoring = false;
+    const applyDraftToForm = (draft: ArticleDraftSnapshot, checkpoint?: {
+        readonly admit: () => boolean;
+        readonly preserveServerPause: true;
+    }): boolean =>
     {
-        suppressDraftSave = true;
-        articleForm.title = draft.title;
-        articleForm.content = draft.content;
-        articleForm.summary = draft.summary;
-        articleForm.coverImageUrl = draft.coverImageUrl;
-        articleForm.categoryId = draft.categoryId;
-        articleForm.tagIds = [...draft.tagIds];
-        articleForm.status = draft.status;
-        articleForm.scheduledPublishAt = draft.scheduledPublishAt;
-        articleForm.rights = { ...draft.rights };
-        serverDraftRevision.value = draft.serverRevision;
-        if (draft.isEdit)
+        if (draftFormRestoring)
         {
-            currentRevisionId.value = draft.baseRevisionId;
+            throw new Error('article-draft-form-restore-reentrant');
         }
-        serverDraftSyncPaused.value = false;
-        suppressDraftSave = false;
+        draftFormRestoring = true;
+        const previousSuppression = suppressDraftSave;
+        suppressDraftSave = true;
+        try
+        {
+            if (!checkpoint)
+            {
+                invalidateDraftCheckpoint();
+            }
+            // Each setter can invoke synchronous user/component watchers. Never continue
+            // past a superseded checkpoint or overwrite the edit made by that watcher.
+            const writes = [
+                () =>
+                {
+                    articleForm.title = draft.title;
+                },
+                () =>
+                {
+                    articleForm.content = draft.content;
+                },
+                () =>
+                {
+                    articleForm.summary = draft.summary;
+                },
+                () =>
+                {
+                    articleForm.coverImageUrl = draft.coverImageUrl;
+                },
+                () =>
+                {
+                    articleForm.categoryId = draft.categoryId;
+                },
+                () =>
+                {
+                    articleForm.tagIds = [...draft.tagIds];
+                },
+                () =>
+                {
+                    articleForm.status = draft.status;
+                },
+                () =>
+                {
+                    articleForm.scheduledPublishAt = draft.scheduledPublishAt;
+                },
+                () =>
+                {
+                    articleForm.rights = { ...draft.rights };
+                },
+                () =>
+                {
+                    serverDraftRevision.value = draft.serverRevision;
+                },
+                () =>
+                {
+                    if (draft.isEdit)
+                    {
+                        currentRevisionId.value = draft.baseRevisionId;
+                    }
+                }
+            ];
+            for (const write of writes)
+            {
+                if (checkpoint && !checkpoint.admit())
+                {
+                    return false;
+                }
+                write();
+                if (checkpoint && !checkpoint.admit())
+                {
+                    return false;
+                }
+            }
+            if (!checkpoint?.preserveServerPause)
+            {
+                // Only the original explicit recovery flow may resolve this pause.
+                serverDraftSyncPaused.value = false;
+            }
+            return !checkpoint || checkpoint.admit();
+        }
+        finally
+        {
+            suppressDraftSave = active && writerScope.active ? previousSuppression : true;
+            draftFormRestoring = false;
+        }
     };
+
+    // One bounded immutable checkpoint in the ORIGINAL full-draft owner; no persistence/body store.
+    const freezeFullDraftSnapshot = (draft: ArticleDraftSnapshot) => Object.freeze({ ...draft,
+        tagIds: Object.freeze([...draft.tagIds]), rights: Object.freeze({ ...draft.rights }) });
+    const fullDraftIdentity = (draft: ArticleDraftSnapshot, clientRevision: string | null, revisionNo: number | null) =>
+        calculateOpenArticleDocumentDigest({ semantic: buildDraftSemanticIdentity(draft), categoryId: draft.categoryId,
+            clientRevision, revisionNo, serverDraftSyncPaused: serverDraftSyncPaused.value, documentContextDigest: draft.documentContextDigest });
+    const currentFullDraftIdentity = () => fullDraftIdentity(
+        buildDraftSnapshot(activeRecoveryClientRevision ?? ''), activeRecoveryClientRevision, currentRevisionNo.value);
+    const readFullDraftOwner = () =>
+    {
+        const document = articleDocumentContextAdapter.context;
+        const identityId = adminStore.adminPrincipal?.id?.trim() ?? null;
+        const runtime = originalMountedRuntime;
+        const registry = articleWorkspaceTabRouter.getRegistry();
+        const entry = registry.getEntryByIdentity({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId });
+        if (!active || !writerScope.active || !componentAttached || fullDraftPrincipalRetired || serverDraftSyncPaused.value
+            || !identityId || identityId !== documentPrincipalIdentityId
+            || document.siteScope !== documentSiteScope || document.userScope !== documentUserScope
+            || articleId.value !== document.articleId || runtime?.binding !== editorRuntimeBinding
+            || entry?.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
+            || entry.documentContext.documentEpoch !== document.documentEpoch
+            || entry.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
+            || entry.documentContext.draftRevision !== document.draftRevision)
+        {
+            return null;
+        }
+        const retained = retainedPrimaryBinding.value?.inspect();
+        if (retained && (retained.admissionClosed || retained.registry.state !== 'live' || retained.invalidationFailed
+            || retained.context.contextDigest !== document.contextDigest || !retained.registryRevisionMatchesDocument))
+        {
+            return null;
+        }
+        const registryRevision = registry.getRevision();
+        const mounted = runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
+        const nativeBinding = runtime.mountedSource?.readDocumentBinding(entry.editorSessionRef);
+        if (!mounted || mounted !== originalMountedEditor || nativeBinding?.identity.documentId !== document.documentId
+            || nativeBinding.documentContext.documentEpoch !== document.documentEpoch
+            || nativeBinding.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
+            || nativeBinding.documentContext.draftRevision !== document.draftRevision)
+        {
+            return null;
+        }
+        const session = mounted.getSession(entry.editorSessionRef);
+        const native = session.inspectDocumentState();
+        const semanticIdentity = currentFullDraftIdentity();
+        if (!active || !writerScope.active || fullDraftPrincipalRetired || serverDraftSyncPaused.value
+            || runtime !== originalMountedRuntime || runtime.binding !== editorRuntimeBinding
+            || adminStore.adminPrincipal?.id?.trim() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
+            || registry.getRevision() !== registryRevision || registry.getEntry(entry.tabId)?.lifecycleRevision !== entry.lifecycleRevision
+            || native.documentIdentity.id !== document.documentId || native.documentIdentity.epoch !== document.documentEpoch
+            || native.revision !== document.sourceRevision || mounted.getSession(entry.editorSessionRef) !== session)
+        {
+            return null;
+        }
+        return Object.freeze({ document, identityId, runtime, mounted, session, registryRevision,
+            associationRevision: entry.lifecycleRevision, editorSessionRef: entry.editorSessionRef,
+            draftKey: draftKey.value, clientRevision: activeRecoveryClientRevision, revisionNo: currentRevisionNo.value,
+            baseRevisionId: currentRevisionId.value, serverRevision: serverDraftRevision.value,
+            serverDraftSyncPaused: serverDraftSyncPaused.value, semanticIdentity });
+    };
+    const fullDraftInfo = (reference: string, owner: NonNullable<ReturnType<typeof readFullDraftOwner>>) => Object.freeze({
+        draftStateRef: reference, documentContext: owner.document, principalIdentityId: owner.identityId,
+        siteScope: owner.document.siteScope, draftKey: owner.draftKey, editorSessionRef: owner.editorSessionRef,
+        registryRevision: owner.registryRevision, associationRevision: owner.associationRevision,
+        nativeRevision: owner.document.sourceRevision, clientRevision: owner.clientRevision,
+        baseRevisionId: owner.baseRevisionId, serverRevision: owner.serverRevision, revisionNo: owner.revisionNo,
+        serverDraftSyncPaused: owner.serverDraftSyncPaused, fullDraftDigest: owner.semanticIdentity
+    });
+    interface FullDraftCustody {
+        readonly snapshot: ReturnType<typeof freezeFullDraftSnapshot>;
+        readonly owner: NonNullable<ReturnType<typeof readFullDraftOwner>>;
+        readonly info: ReturnType<typeof fullDraftInfo>;
+    }
+    let fullDraftCustody: FullDraftCustody | null = null;
+    // One pending candidate in this SAME original owner; committed custody stays untouched.
+    interface PreparedDraftCustody {
+        custody: FullDraftCustody | null;
+        previous: FullDraftCustody | null;
+        readonly generation: number;
+        readonly retained: ArticleDocumentRetainedBinding;
+        state: 'preparing' | 'prepared' | 'validating' | 'validated' | 'published' | 'canceled';
+    }
+    let preparedDraftCustody: PreparedDraftCustody | null = null;
+    let fullDraftGeneration = 0;
+    let fullDraftSequence = 0;
+    let fullDraftCapturing = false;
+    let fullDraftRestoring = false;
+    let fullDraftPrincipalRetired = false;
+    let fullDraftReleased = false;
+    const cancelPreparedDraft = (candidate: PreparedDraftCustody): boolean =>
+    {
+        if (preparedDraftCustody !== candidate)
+        {
+            return false;
+        }
+        preparedDraftCustody = null;
+        candidate.state = 'canceled';
+        candidate.custody = null;
+        candidate.previous = null;
+        return true;
+    };
+    // Private scalars/references only: no borrowed reader, allocation, reactive setter or native operation.
+    const hasPreparedDraftCustody = (candidate: PreparedDraftCustody): boolean =>
+        preparedDraftCustody === candidate && fullDraftCustody === candidate.previous
+        && fullDraftGeneration === candidate.generation && active && componentAttached
+        && !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
+        && (!candidate.custody || candidate.custody.owner.runtime === originalMountedRuntime
+            && candidate.custody.owner.mounted === originalMountedEditor
+            && candidate.custody.owner.clientRevision === activeRecoveryClientRevision);
+    const invalidateDraftCheckpoint = (): void =>
+    {
+        if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
+        {
+            notifyCurrentMountedAuthorityRetirement?.();
+        }
+        if (preparedDraftCustody)
+        {
+            cancelPreparedDraft(preparedDraftCustody);
+        }
+        fullDraftCustody = null;
+        if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
+        {
+            fullDraftReleased = true;
+        }
+        else
+        {
+            fullDraftGeneration += 1;
+        }
+    };
+    const sameFullDraftOwner = (current: ReturnType<typeof readFullDraftOwner>, owner: FullDraftCustody['owner']): boolean =>
+        !!current && current.runtime === owner.runtime && current.mounted === owner.mounted
+        && current.session === owner.session && current.identityId === owner.identityId
+        && current.document.contextDigest === owner.document.contextDigest
+        && current.semanticIdentity === owner.semanticIdentity && current.draftKey === owner.draftKey
+        && current.registryRevision === owner.registryRevision && current.associationRevision === owner.associationRevision
+        && current.editorSessionRef === owner.editorSessionRef && current.clientRevision === owner.clientRevision
+        && current.revisionNo === owner.revisionNo && current.baseRevisionId === owner.baseRevisionId
+        && current.serverRevision === owner.serverRevision && current.serverDraftSyncPaused === owner.serverDraftSyncPaused;
+    const validatePreparedDraft = (candidate: PreparedDraftCustody): boolean =>
+    {
+        if ((candidate.state !== 'prepared' && candidate.state !== 'validated') || !hasPreparedDraftCustody(candidate))
+        {
+            // Reentry cannot consume/cancel the validation currently on this stack.
+            if (candidate.state !== 'validating')
+            {
+                cancelPreparedDraft(candidate);
+            }
+            return false;
+        }
+        candidate.state = 'validating';
+        let admitted = false;
+        try
+        {
+            const custody = candidate.custody;
+            const current = readFullDraftOwner();
+            if (!custody || !sameFullDraftOwner(current, custody.owner) || !hasPreparedDraftCustody(candidate)
+                || retainedPrimaryBinding.value !== candidate.retained || candidate.retained.adapter !== articleDocumentContextAdapter)
+            {
+                return false;
+            }
+            const retained = candidate.retained.inspect();
+            if (retained.admissionClosed || retained.invalidationFailed || retained.registry.state !== 'live'
+                || !retained.registryRevisionMatchesDocument || retained.context !== custody.owner.document
+                || retained.principalIdentityId !== custody.owner.identityId)
+            {
+                return false;
+            }
+            // The retained reader can reenter original native/form/membership owners.
+            // Re-read them afterward, then finish with the private slot/generation checks.
+            const after = readFullDraftOwner();
+            admitted = sameFullDraftOwner(after, custody.owner) && retainedPrimaryBinding.value === candidate.retained
+                && candidate.state === 'validating' && candidate.custody === custody && hasPreparedDraftCustody(candidate);
+            return admitted;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            if (admitted)
+            {
+                candidate.state = 'validated';
+            }
+            else
+            {
+                // Failed candidates are discarded; the committed slot is not touched.
+                cancelPreparedDraft(candidate);
+            }
+        }
+    };
+    const inspectDraftReference = (reference: string) =>
+    {
+        const custody = fullDraftCustody;
+        const generation = fullDraftGeneration;
+        if (fullDraftReleased || fullDraftPrincipalRetired || typeof reference !== 'string' || custody?.info.draftStateRef !== reference)
+        {
+            return null;
+        }
+        try
+        {
+            const current = readFullDraftOwner();
+            if (current?.runtime !== custody.owner.runtime || current.mounted !== custody.owner.mounted
+                || current.session !== custody.owner.session || current.identityId !== custody.owner.identityId
+                || current.document.contextDigest !== custody.owner.document.contextDigest
+                || current.semanticIdentity !== custody.owner.semanticIdentity || current.draftKey !== custody.owner.draftKey
+                || current.registryRevision !== custody.owner.registryRevision || current.associationRevision !== custody.owner.associationRevision
+                || fullDraftCustody !== custody || fullDraftGeneration !== generation)
+            {
+                if (fullDraftCustody === custody)
+                {
+                    invalidateDraftCheckpoint();
+                }
+                return null;
+            }
+            return custody.info;
+        }
+        catch
+        {
+            if (fullDraftCustody === custody)
+            {
+                invalidateDraftCheckpoint();
+            }
+            return null;
+        }
+    };
+    const authoringDraftCheckpointRuntime = Object.freeze({
+        /** Prepare actual same-owner/same-revision form custody without invalidating the old reference. */
+        prepareDraftCheckpoint: () =>
+        {
+            const retained = retainedPrimaryBinding.value;
+            if (retained?.adapter !== articleDocumentContextAdapter || preparedDraftCustody
+                || fullDraftReleased || fullDraftPrincipalRetired || !active || !componentAttached
+                || fullDraftCapturing || fullDraftRestoring || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
+            {
+                return null;
+            }
+            // Reserve before original native/scope/form readers or randomUUID can reenter.
+            const candidate: PreparedDraftCustody = { custody: null, previous: fullDraftCustody,
+                generation: fullDraftGeneration, retained, state: 'preparing' };
+            preparedDraftCustody = candidate;
+            try
+            {
+                const owner = readFullDraftOwner();
+                if (!owner || !hasPreparedDraftCustody(candidate) || typeof globalThis.crypto?.randomUUID !== 'function')
+                {
+                    return null;
+                }
+                const draft = buildDraftSnapshot(owner.clientRevision ?? '');
+                if (fullDraftIdentity(draft, owner.clientRevision, owner.revisionNo) !== owner.semanticIdentity
+                    || !hasPreparedDraftCustody(candidate))
+                {
+                    return null;
+                }
+                const snapshot = freezeFullDraftSnapshot(draft);
+                const reference = `article-draft-state:${globalThis.crypto.randomUUID()}:${++fullDraftSequence}`;
+                const info = fullDraftInfo(reference, owner);
+                const custody: FullDraftCustody = Object.freeze({ snapshot, owner, info });
+                if (!hasPreparedDraftCustody(candidate))
+                {
+                    return null;
+                }
+                candidate.custody = custody;
+                candidate.state = 'prepared';
+                const preparation = Object.freeze({
+                    info,
+                    validate: () => validatePreparedDraft(candidate),
+                    /** Private custody after the preceding fresh validation; not native/full-host qualification. */
+                    hasCustody: () => candidate.state === 'validated' && hasPreparedDraftCustody(candidate),
+                    publish: () =>
+                    {
+                        if (candidate.state !== 'validated' || !candidate.custody || !hasPreparedDraftCustody(candidate))
+                        {
+                            if (candidate.state !== 'validating' && candidate.state !== 'preparing')
+                            {
+                                cancelPreparedDraft(candidate);
+                            }
+                            return null;
+                        }
+                        // No callback, reader, allocation, form write or cleanup after publication.
+                        fullDraftCustody = candidate.custody;
+                        preparedDraftCustody = null;
+                        candidate.state = 'published';
+                        candidate.custody = null;
+                        candidate.previous = null;
+                        return info;
+                    },
+                    cancel: () => cancelPreparedDraft(candidate)
+                });
+                return validatePreparedDraft(candidate) ? preparation : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                if (candidate.state !== 'validated')
+                {
+                    cancelPreparedDraft(candidate);
+                }
+            }
+        },
+        captureDraftCheckpoint: () =>
+        {
+            if (preparedDraftCustody || fullDraftReleased || fullDraftPrincipalRetired || fullDraftCapturing || fullDraftRestoring
+                || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
+            {
+                return null;
+            }
+            fullDraftCapturing = true;
+            invalidateDraftCheckpoint();
+            const generation = fullDraftGeneration;
+            try
+            {
+                const owner = readFullDraftOwner();
+                if (!owner || typeof globalThis.crypto?.randomUUID !== 'function')
+                {
+                    return null;
+                }
+                const draft = buildDraftSnapshot(owner.clientRevision ?? '');
+                if (fullDraftIdentity(draft, owner.clientRevision, owner.revisionNo) !== owner.semanticIdentity)
+                {
+                    return null;
+                }
+                const snapshot = freezeFullDraftSnapshot(draft);
+                const reference = `article-draft-state:${globalThis.crypto.randomUUID()}:${++fullDraftSequence}`;
+                if (fullDraftReleased || fullDraftGeneration !== generation)
+                {
+                    return null;
+                }
+                fullDraftCustody = Object.freeze({ snapshot, owner, info: fullDraftInfo(reference, owner) });
+                return inspectDraftReference(reference);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                fullDraftCapturing = false;
+            }
+        },
+        inspectDraftReference,
+        /** Original private slot continuity only; never replaces preceding fresh owner/body inspection. */
+        hasDraftReferenceCustody: (reference: string, info: ReturnType<typeof fullDraftInfo>): boolean =>
+            !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
+            && fullDraftCustody?.info === info && fullDraftCustody.info.draftStateRef === reference,
+        validateDraftReference: (reference: string, nativeSource: string): boolean =>
+            !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
+        restoreDraftReference: (reference: string) =>
+        {
+            if (preparedDraftCustody || fullDraftRestoring || fullDraftCapturing || draftFormRestoring)
+            {
+                return null;
+            }
+            // Reserve before inspection/materialization can invoke original native or user readers.
+            fullDraftRestoring = true;
+            const custody = fullDraftCustody;
+            const generation = fullDraftGeneration;
+            const admit = (): boolean =>
+            {
+                if (!custody || fullDraftCustody !== custody || fullDraftGeneration !== generation
+                    || fullDraftPrincipalRetired || fullDraftReleased || serverDraftSyncPaused.value)
+                {
+                    return false;
+                }
+                const info = inspectDraftReference(reference);
+                return info === custody.info && fullDraftCustody === custody && fullDraftGeneration === generation
+                    && !fullDraftPrincipalRetired && !fullDraftReleased && !serverDraftSyncPaused.value;
+            };
+            try
+            {
+                if (!custody || !admit())
+                {
+                    return null;
+                }
+                const draft = { ...custody.snapshot, tagIds: [...custody.snapshot.tagIds], rights: { ...custody.snapshot.rights } };
+                if (!admit() || !applyDraftToForm(draft, { admit, preserveServerPause: true }))
+                {
+                    return null;
+                }
+                return admit() ? custody.info : null;
+            }
+            finally
+            {
+                // Exceptions propagate; refusal never fabricates rollback or overwrites newer edits.
+                fullDraftRestoring = false;
+            }
+        },
+        releaseDraftCheckpoint: (reference: string): boolean =>
+        {
+            if (preparedDraftCustody || typeof reference !== 'string' || fullDraftCustody?.info.draftStateRef !== reference)
+            {
+                return false;
+            }
+            invalidateDraftCheckpoint();
+            return true;
+        },
+        invalidateDraftCheckpoint
+    });
+    watch(() => adminStore.adminPrincipal?.id?.trim() ?? null, (identity, previous) =>
+    {
+        if (identity !== previous)
+        {
+            revokeCurrentMountedAuthority?.();
+            // Retirement is permanent for this original owner, including A→null/B→A.
+            fullDraftPrincipalRetired = true;
+            invalidateDraftCheckpoint();
+        }
+    }, { flush: 'sync' });
+    watch(serverDraftSyncPaused, invalidateDraftCheckpoint, { flush: 'sync' });
+    watch(currentFullDraftIdentity, invalidateDraftCheckpoint, { flush: 'sync' });
+    const unsubscribeDraftCheckpointContext = articleDocumentContextAdapter.subscribeContext(invalidateDraftCheckpoint);
+    onScopeDispose(() =>
+    {
+        notifyCurrentMountedAuthorityRetirement?.();
+        fullDraftReleased = true;
+        invalidateDraftCheckpoint();
+        unsubscribeDraftCheckpointContext();
+    });
 
     const clearArticleRecoveryScope = async (): Promise<void> =>
     {
@@ -2127,6 +3170,7 @@ export function useAdminArticleWrite()
         finally
         {
             task.complete();
+            task.settle();
         }
     };
 
@@ -2161,6 +3205,10 @@ export function useAdminArticleWrite()
 
     const performRestoreLocalDraft = async (): Promise<void> =>
     {
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -2225,6 +3273,10 @@ export function useAdminArticleWrite()
 
     const performDiscardLocalDraft = async (): Promise<void> =>
     {
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -2270,6 +3322,10 @@ export function useAdminArticleWrite()
 
     const restoreLocalDraft = async (): Promise<void> =>
     {
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         if (articleRecoveryComparisonRequired.value)
         {
             articleRecoveryOperationError.value = '此版本与较新的权威正文坐标不同，请先比较再明确恢复';
@@ -2284,6 +3340,10 @@ export function useAdminArticleWrite()
 
     const discardLocalDraft = async (): Promise<void> =>
     {
+        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         await runArticleRecoveryOperation(
             'discard',
             '正文丢弃失败，所选版本仍保留，请重试',
@@ -2293,6 +3353,7 @@ export function useAdminArticleWrite()
 
     const clearLocalDraft = async (): Promise<void> =>
     {
+        invalidateDraftCheckpoint();
         clearDraftSaveTimer();
         await clearArticleRecoveryScope();
         pendingDraft.value = null;
@@ -2417,6 +3478,7 @@ export function useAdminArticleWrite()
             signal?.removeEventListener('abort', abortParent);
             task.complete();
             assetLibraryLoading.value = false;
+            task.settle();
         }
     };
 
@@ -2605,6 +3667,7 @@ export function useAdminArticleWrite()
             task.complete();
             suppressDraftSave = false;
             revisionRollbacking.value = false;
+            task.settle();
         }
     };
 
@@ -3608,37 +4671,372 @@ export function useAdminArticleWrite()
         void initData();
     });
 
+    let unsubscribeRetainedContext: (() => void) | null = null;
+    let unsubscribeRetainedLifetime: (() => void) | null = null;
+    const inspectPrimary = (retained: ArticleDocumentRetainedBinding, requirePublication = false): ArticleDocumentRetainedInspection =>
+    {
+        const observation = retained.inspect();
+        if (!active || !writerScope.active || retainedPrimaryBinding.value !== retained
+            || retained.adapter !== articleDocumentContextAdapter || observation.registry.state !== 'live'
+            || observation.admissionClosed || observation.invalidationFailed || !articleDocumentContextAdapter.isCurrentContext(observation.context)
+            || (requirePublication && !observation.registryRevisionMatchesDocument))
+        {
+            throw new Error('article-writer-retained-primary-unavailable');
+        }
+        return observation;
+    };
+    const requirePrimaryMount = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        const observation = inspectPrimary(retained);
+        const runtime = originalMountedRuntime;
+        const editor = originalMountedEditor;
+        const entry = observation.registry.entry;
+        if (!componentAttached || !runtime || !editor || !entry || runtime.binding !== editorRuntimeBinding
+            || runtime.mountedSource?.readMountedEditor(entry.editorSessionRef) !== editor)
+        {
+            throw new Error('article-writer-retained-primary-mount-unavailable');
+        }
+        inspectPrimary(retained);
+        return runtime;
+    };
+    const requirePrimaryRuntime = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        const observation = inspectPrimary(retained);
+        const runtime = requirePrimaryMount(retained);
+        const entry = observation.registry.entry;
+        if (!entry)
+        {
+            throw new Error('article-writer-retained-primary-mount-unavailable');
+        }
+        const nativeBinding = runtime.mountedSource?.readDocumentBinding(entry.editorSessionRef);
+        if (nativeBinding?.identity.articleId !== observation.context.articleId
+            || nativeBinding.identity.draftId !== observation.context.draftId
+            || nativeBinding.identity.documentId !== observation.context.documentId
+            || nativeBinding.documentContext.documentEpoch !== observation.context.documentEpoch
+            || nativeBinding.documentContext.sourceRevision !== `source-revision:${observation.context.sourceRevision}`
+            || nativeBinding.documentContext.draftRevision !== observation.context.draftRevision)
+        {
+            throw new Error('article-writer-retained-primary-native-context-unavailable');
+        }
+        inspectPrimary(retained);
+        return runtime;
+    };
+    // The original producer retains this same stable factory and its actual resources.
+    const createPrimaryConsumer = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        try
+        {
+            unsubscribeRetainedContext = retained.adapter.subscribeContext(syncAuthoringDocumentContext);
+            unsubscribeRetainedLifetime = retained.subscribeLifetime(() =>
+            {
+                // Local physical revocation only; this late listener is NOT a
+                // replacement for Document's early private lifetime/member seal.
+                revokeCurrentMountedAuthority?.();
+                // Genuine member/lifetime notification cancels only the pending candidate.
+                if (preparedDraftCustody)
+                {
+                    cancelPreparedDraft(preparedDraftCustody);
+                }
+                syncAuthoringDocumentContext();
+            });
+        }
+        catch (error)
+        {
+            unsubscribeRetainedContext?.();
+            unsubscribeRetainedContext = null;
+            throw error;
+        }
+        return Object.freeze({
+            documentBinding: retained,
+            readView: () =>
+            {
+                const observation = inspectPrimary(retained);
+                return Object.freeze({ documentContext: observation.context, content: articleForm.content,
+                    loading: pageLoading.value, saving: submitting.value, inspection: observation,
+                    componentAttached, effectsActive: writerScope.active });
+            },
+            setContent: (content: string) =>
+            {
+                requirePrimaryRuntime(retained);
+                articleForm.content = content;
+            },
+            bindMountedEditor: (editor: ArticleEditorContinuityPort) =>
+            {
+                const runtime = requirePrimaryRuntime(retained);
+                if (originalMountedEditor !== editor)
+                {
+                    throw new Error('article-writer-retained-primary-editor-replaced');
+                }
+                return runtime;
+            },
+            consumeTransaction: (result: Parameters<ArticleEditorRuntimeBinding['consumeTransaction']>[0]) =>
+            {
+                // Native commits/emits first; the original Writer model is still at beforeRevision.
+                const before = inspectPrimary(retained);
+                const runtime = requirePrimaryMount(retained);
+                const entry = before.registry.entry;
+                const mounted = entry && runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
+                if (!entry || !mounted || !result.accepted || !result.positionMap
+                    || result.documentIdentity.id !== before.context.documentId
+                    || result.documentIdentity.epoch !== before.context.documentEpoch
+                    || result.beforeRevision !== before.context.sourceRevision
+                    || !Number.isSafeInteger(result.revision) || result.revision < result.beforeRevision)
+                {
+                    return false;
+                }
+                const native = mounted.getSession(entry.editorSessionRef).inspectDocumentState();
+                if (native.documentIdentity.id !== result.documentIdentity.id
+                    || native.documentIdentity.epoch !== result.documentIdentity.epoch || native.revision !== result.revision)
+                {
+                    return false;
+                }
+                if (inspectPrimary(retained).context.contextDigest !== before.context.contextDigest)
+                {
+                    return false;
+                }
+                // Consume the actual public map through the original runtime exactly once; no dispatch/rollback.
+                if (!runtime.binding.consumeTransaction(result))
+                {
+                    return false;
+                }
+                requirePrimaryRuntime(retained);
+                return inspectPrimary(retained).context.sourceRevision === result.revision && articleForm.content === result.value;
+            },
+            consumeSelection: (...args: Parameters<ArticleEditorRuntimeBinding['consumeSelection']>) =>
+                requirePrimaryRuntime(retained).binding.consumeSelection(...args),
+            consumeFocus: (...args: Parameters<ArticleEditorRuntimeBinding['consumeFocus']>) =>
+                requirePrimaryRuntime(retained).binding.consumeFocus(...args),
+            admitAcceptedCapture: (input: Parameters<ArticleAttachmentContextAdapter['admitAcceptedCapture']>[0]) =>
+            {
+                requirePrimaryRuntime(retained);
+                return authoringAttachmentRuntime.admitAcceptedCapture(input);
+            },
+            saveDraft: () =>
+            {
+                requirePrimaryRuntime(retained);
+                inspectPrimary(retained, true);
+                saveDraftNow();
+            },
+            submit: () =>
+            {
+                requirePrimaryRuntime(retained);
+                inspectPrimary(retained, true);
+                return submitForm();
+            },
+            invalidateDocument: () =>
+            {
+                // Only the original handle's actual terminal observation authorizes final cleanup.
+                if (retained.inspect().registry.state !== 'revoked')
+                {
+                    throw new Error('article-writer-retained-primary-invalidation-unavailable');
+                }
+                disposeOriginalWriter();
+            }
+        });
+    };
+    const authoringRetainedPrimaryRuntime = Object.freeze({
+        adoptPrimaryRetainedDocument: (handle: RetainedArticleDocumentHandle) =>
+        {
+            if (!active || !componentAttached || retainingPrimary || !originalMountedRuntime)
+            {
+                throw new Error('article-writer-retained-primary-adoption-unavailable');
+            }
+            retainingPrimary = true;
+            const wasReady = retainedPrimaryReady;
+            try
+            {
+                const existing = retainedPrimaryBinding.value;
+                if (existing && existing.handle !== handle)
+                {
+                    throw new Error('article-writer-retained-primary-already-adopted');
+                }
+                const retained = existing ?? articleDocumentContextAuthority.adoptPrimaryRetainedDocument(
+                    articleWorkspaceTabRouter.getRegistry(), handle, articleDocumentContextBinding, {
+                        readPrincipalIdentityId: () => adminStore.adminPrincipal?.id?.trim() ?? null,
+                        readSiteScope: () => documentSiteScope
+                    });
+                // Preserve actual issued custody if consumer attachment subsequently refuses.
+                retainedPrimaryBinding.value = retained;
+                // Establish original cleanup/lifetime custody before any mount validation callback.
+                const consumer = retained.attachConsumer(createPrimaryConsumer);
+                requirePrimaryRuntime(retained);
+                retainedPrimaryReady = true;
+                return consumer;
+            }
+            catch (error)
+            {
+                if (!wasReady && retainedPrimaryBinding.value)
+                {
+                    // Keep issued document custody; failed caller setup must release its real Writer resources.
+                    try
+                    {
+                        disposeOriginalWriter();
+                    }
+                    catch (cleanupError)
+                    {
+                        throw combineWriterFailures([error, cleanupError], 'article-writer-adoption-and-cleanup-failed');
+                    }
+                }
+                throw error;
+            }
+            finally
+            {
+                retainingPrimary = false;
+            }
+        }
+    });
+    let synchronousCleanupRunning = false;
+    let synchronousCleanupCompleted = false;
+    let synchronousCleanupFailed = false;
+    let synchronousCleanupFailure: unknown;
+    const synchronousCleanupErrors: unknown[] = [];
+    const disposeOriginalWriter = (): void =>
+    {
+        if (synchronousCleanupRunning)
+        {
+            throw new Error('article-writer-cleanup-reentrant');
+        }
+        if (synchronousCleanupFailed)
+        {
+            throw synchronousCleanupFailure;
+        }
+        if (synchronousCleanupCompleted)
+        {
+            return;
+        }
+        // Notification failure leaves physical cleanup custody available for a real retry.
+        notifyCurrentMountedAuthorityRetirement?.();
+        try
+        {
+            revokeCurrentMountedAuthority?.();
+        }
+        catch (error)
+        {
+            // Preserve real cancellation failure without skipping the existing
+            // independent original cleanup operations below.
+            synchronousCleanupFailure = error;
+            synchronousCleanupFailed = true;
+            synchronousCleanupErrors.push(error);
+        }
+        synchronousCleanupRunning = true;
+        active = false;
+        invalidateDraftCheckpoint();
+        retainedPrimaryReady = false;
+        suppressDraftSave = true;
+        // Attempt each original cleanup independently; a thrown port must not strand the channel/scope.
+        const operations = [
+            () =>
+            {
+                unsubscribeRetainedContext?.();
+                unsubscribeRetainedContext = null;
+            },
+            () =>
+            {
+                unsubscribeRetainedLifetime?.();
+                unsubscribeRetainedLifetime = null;
+            },
+            () =>
+            {
+                unsubscribeArticleRecoveryCoordination?.();
+                unsubscribeArticleRecoveryCoordination = null;
+            },
+            () =>
+            {
+                disposeArticleRecoveryLifecycle?.();
+                disposeArticleRecoveryLifecycle = null;
+            },
+            () => recoveryCoordinator.dispose(),
+            () => previewCurrentAuthorities.dispose(),
+            () => releaseEditorRuntime?.(),
+            () =>
+            {
+                attachmentEditor = null;
+            },
+            () => authoringAttachments.dispose(),
+            () => articleDocumentContextBinding.release(),
+            () => initTask.cancel(),
+            () => submitTask.cancel(),
+            () => taxonomyTask.cancel(),
+            () => previewTask.cancel(),
+            () => prepublishTask.cancel(),
+            () => aiAssistTask.cancel(),
+            () => assetTask.cancel(),
+            () => imageUploadFlow.cancel(),
+            () => imageUploadFlow.clearPending?.(),
+            () => clearDraftSaveTimer(),
+            () => writerScope.stop()
+        ];
+        try
+        {
+            for (const operation of operations)
+            {
+                try
+                {
+                    operation();
+                }
+                catch (error)
+                {
+                    synchronousCleanupErrors.push(error);
+                    if (!synchronousCleanupFailed)
+                    {
+                        synchronousCleanupFailure = error;
+                        synchronousCleanupFailed = true;
+                    }
+                }
+            }
+            if (synchronousCleanupFailed)
+            {
+                // Actual failed custody is retained; do not turn a later noop into a cleanup success.
+                // Construct the complete outcome only AFTER every original operation was attempted.
+                synchronousCleanupFailure = combineWriterFailures(synchronousCleanupErrors, 'article-writer-cleanup-failed');
+                throw synchronousCleanupFailure;
+            }
+            articleForm.title = '';
+            articleForm.content = '';
+            articleForm.summary = '';
+            articleForm.rights = createDefaultArticleRightsForm();
+            synchronousCleanupCompleted = true;
+        }
+        finally
+        {
+            synchronousCleanupRunning = false;
+        }
+        // Synchronous cleanup completion does not settle canceled producers or native resources.
+    };
     onUnmounted(() =>
     {
-        active = false;
-        suppressDraftSave = true;
-        unsubscribeArticleRecoveryCoordination?.();
-        unsubscribeArticleRecoveryCoordination = null;
-        disposeArticleRecoveryLifecycle?.();
-        disposeArticleRecoveryLifecycle = null;
-        recoveryCoordinator.dispose();
-        previewCurrentAuthorities.dispose();
-        releaseEditorRuntime?.();
-        attachmentEditor = null;
-        authoringAttachments.dispose();
-        articleDocumentContextBinding.release();
-        initTask.cancel();
-        submitTask.cancel();
-        taxonomyTask.cancel();
-        previewTask.cancel();
-        prepublishTask.cancel();
-        aiAssistTask.cancel();
-        assetTask.cancel();
-        imageUploadFlow.cancel();
-        if (typeof imageUploadFlow.clearPending === 'function')
+        notifyCurrentMountedAuthorityRetirement?.();
+        componentAttached = false;
+        let cancellationFailed = false;
+        let cancellationFailure: unknown;
+        try
         {
-            imageUploadFlow.clearPending();
+            revokeCurrentMountedAuthority?.();
         }
-        clearDraftSaveTimer();
-        articleForm.title = '';
-        articleForm.content = '';
-        articleForm.summary = '';
-        articleForm.rights = createDefaultArticleRightsForm();
+        catch (error)
+        {
+            cancellationFailed = true;
+            cancellationFailure = error;
+        }
+        try
+        {
+            if (!retainedPrimaryReady)
+            {
+                disposeOriginalWriter();
+            }
+        }
+        catch (error)
+        {
+            if (cancellationFailed)
+            {
+                throw combineWriterFailures([cancellationFailure, error], 'article-writer-mounted-cancellation-and-unmount-failed');
+            }
+            throw error;
+        }
+        if (cancellationFailed)
+        {
+            throw cancellationFailure;
+        }
     });
 
     return {
@@ -3701,6 +5099,8 @@ export function useAdminArticleWrite()
         authoringDocumentContextAdapter: articleDocumentContextAdapter,
         authoringAttachmentRuntime,
         authoringEditorRuntime,
+        authoringRetainedPrimaryRuntime,
+        authoringDraftCheckpointRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,
