@@ -1186,3 +1186,20 @@ preserved owners, actual failing whole-program delta and zero-execution prefligh
 are in `artifacts/article-editor/issue-2299-layout-e387-main-intake`. Original donor
 closure does not accept this newer composite; all execution/qualification holds
 remain, and there is no package publication or authority refresh.
+
+Original upstream offer d615cc2064c4c14946d341d43f2eebf473d7bd8d now pins the
+actual ResizeSeparator a775 source. Its eight new files and five additive entry
+hunks check against current UIf253 without overwriting shared entries; actual UI
+remains unchanged pending original source review. The locale gap is an original
+three-string-leaf addition across ten dictionaries without admin schema table
+synchronization. Current and donor shape calculations are source diagnostics;
+the original locale owner must supply the synchronized closure under the existing
+calculation/focused contract. No standalone table generator or catalog projection
+can substitute for it. Precise applicability and minimum owner scope are recorded
+in `artifacts/article-editor/issue-2299-upstream-source-applicability`.
+
+Parent reports original Auth819e six-owner local source closure; previous broadcast
+repair is no longer an upstream source blocker. This Main still has not consumed
+that combination or the original Writer positive-seal successor. Its present
+rejection remains until exact original source consumption; no parallel Auth/Writer
+or missing provider/refset/resource authority is supplied by this source review.

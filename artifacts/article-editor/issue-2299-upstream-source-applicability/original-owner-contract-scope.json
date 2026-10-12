@@ -1,0 +1,104 @@
+{
+  "actualMain": "6f0fc72c6f02382e634cc7e42564bb65dbef7336",
+  "actualUi": "f2533351ddf729d797b372d8ee6eba85e2f4234b",
+  "originalOffer": "d615cc2064c4c14946d341d43f2eebf473d7bd8d",
+  "actualSeparatorContract": {
+    "rootExports": [
+      "FsusResizeSeparator",
+      "ResizeSeparatorPayload",
+      "ResizeSeparatorCancelPayload",
+      "ResizeSeparatorCoordinateRange"
+    ],
+    "payloadFields": [
+      "value: number",
+      "source: 'pointer' | 'keyboard'",
+      "pointerId: number | null"
+    ],
+    "coordinateFields": [
+      "start: number",
+      "end: number"
+    ],
+    "events": [
+      "start",
+      "proposal",
+      "end",
+      "cancel"
+    ],
+    "instance": "cancel(): void; actual source defineExpose",
+    "consumerScope": "original geometry/layout/adapter source imports these public symbols; no session/history/editor source touched by packet",
+    "compatibility": "only source ABI/import review; not project compile or candidate import; original source pending reviewer"
+  },
+  "contractSourceReferences": [
+    {
+      "path": "docs/i18n.md",
+      "actualMainBlob": "deccb06e1a2f2ee84a6332e078b76086d4dfa645"
+    },
+    {
+      "path": "src/frontend/src/locales/keys.ts",
+      "actualMainBlob": "3212888e1b23367a65bd4c3d95b17767c48fd946"
+    },
+    {
+      "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+      "actualMainBlob": "80704616530ba196a9f66c95c0b495452b80a725"
+    },
+    {
+      "path": "tests/frontend/unit/locales/localeDomainBundleStore.test.ts",
+      "actualMainBlob": "f2f2c51dc8e58be11c04a23fa03c303e1198a8b2"
+    },
+    {
+      "path": "tools/contracts/generate-locale-catalog.mjs",
+      "actualMainBlob": "2c35518850b4811bcd6e869b4cf37c65ffec85de"
+    },
+    {
+      "path": "tools/frontend/check-locale-domain-static.mjs",
+      "actualMainBlob": "5e0a474afd4704ea657d079d77b83aa807d88213"
+    },
+    {
+      "path": "src/shared/Contracts/Localization/locale-catalog.json",
+      "actualMainBlob": "2567212c343754282fd7724154197aa0d46a653b"
+    },
+    {
+      "path": "src/frontend/src/locales/localeDomains.ts",
+      "actualMainBlob": "5c578238693471e7d14bebc07c1cdb5bec2d90dc"
+    },
+    {
+      "path": "src/frontend/vitest.config.ts",
+      "actualMainBlob": "3aace05462d69ea05d6320774bdbef69bb171c02"
+    },
+    {
+      "path": "tests/frontend/support/unit/setup.ts",
+      "actualMainBlob": "8c23a6a81aa9d714a4655f5eab228258cb0bf5e0"
+    }
+  ],
+  "localeContract": {
+    "canonical": "docs/i18n.md: zh-CN owns structural schema; other nine locales satisfy LocaleSchema, all UI copy remains typed resolver-owned",
+    "calculation": "localeDomainBundleStore.ts original leafKind/localeDomainSchemaDigest; sorting names/leaf kinds and UTF16 FNV1a64, excludes translated string values",
+    "loader": "loadLocaleDomain() original module/export identity and schema check before cache admission; retain fail-closed rejection",
+    "focusedCheck": "tests/frontend/unit/locales/localeDomainBundleStore.test.ts original loads all locale/domain pairs, derives canonical table then equality and actual store admission; UNRUN",
+    "catalogGeneratorOutputs": [
+      "src/frontend/src/locales/localeCatalog.ts",
+      "src/frontend/src/locales/localeFontCatalog.ts",
+      "src/shared/Contracts/Localization/LocaleCatalog.g.cs"
+    ],
+    "schemaTableProducer": "No standalone table writer found. Existing focused check derives/prints/checks table, does not write it. Owner must supply genuine source synchronization under that existing contract; no new Main table writer/inferred bypass."
+  },
+  "minimumOriginalOwnerScope": {
+    "source": {
+      "tenCanonicalAdminLeaves": "Only workspaceLayout.leading/trailing/resize; use final actual merged originals, preserve all existing translations/keys/identities",
+      "bundleStore": "Only canonical admin schema table entry synchronized through original calculation/check contract with exact source mapping; preserve other nine entries and all loader/identity/cache/fail-closed algorithms"
+    },
+    "controls": "Existing all-domain equality/admission test already covers drift; no weakened assertions/new passing fixture needed. Root must review original focused whole-file command before execution.",
+    "documents": "Original copy-update contract may explain schema synchronization along the existing check; no metadata/catalog authority change needed.",
+    "excluded": [
+      "locale-catalog.json",
+      "generated locale/catalog/font/C# outputs",
+      "localeRuntimeCoordinator",
+      "route-domain map",
+      "private auth/session/native/resource/refset authorities",
+      "new generator/config/runner/filter/debt budget"
+    ]
+  },
+  "independentMain6fReview": "parent reports exact source provenance/adaptation closed; bounded to that tree, not whole ready or child issue closure",
+  "runtime": "ALL HOLD/UNRUN",
+  "actualProductionMutations": false
+}
