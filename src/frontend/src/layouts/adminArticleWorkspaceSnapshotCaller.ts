@@ -268,6 +268,12 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             throw new Error('article-workspace-original-mounted-authority-revoker-required');
         }
         const beforeMountedAuthorityChange = checked(() => mountedAuthorityChange.bind(original));
+        const mountedAuthorityRetire = checked(() => original.retireMountedAuthority);
+        if (typeof mountedAuthorityRetire !== 'function')
+        {
+            throw new Error('article-workspace-original-mounted-authority-retirement-required');
+        }
+        const retireMountedAuthority = checked(() => mountedAuthorityRetire.bind(original));
         const mountOwner = checked(() => original.prepareMountedEditor);
         if (typeof mountOwner !== 'function')
         {
@@ -421,6 +427,7 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             sync, resolutionPort, mountedEditors, groupOptions, createGroupIdentity, operationEpoch,
             signal, layout,
             beforeMountedAuthorityChange: () => beforeMountedAuthorityChange(),
+            retireMountedAuthority: () => retireMountedAuthority(),
             prepareMountedEditor: async (entry, commandSignal) =>
             {
                 assertCurrent();

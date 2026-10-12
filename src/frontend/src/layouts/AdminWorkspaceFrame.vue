@@ -90,6 +90,7 @@ let workspaceInstallation: {
     groupRetirementFailure?: unknown;
     layoutInvalidationFailure?: unknown;
     mountedAuthorityRevocationFailure?: unknown;
+    mountedAuthorityRetirementFailure?: unknown;
     snapshotDisposalFailure?: unknown;
     stopObservingCancellation?: () => void;
     /** Retain the exact original owners, their custody handle and the actual in-flight task. */
@@ -99,6 +100,7 @@ let workspaceInstallation: {
         resolver: ArticleWorkspaceMountedEditorResolver | null;
         sessions: AuthoringWorkspaceSessionSource | null;
         readonly revokeMountedAuthority: () => void;
+        readonly retireMountedAuthority: () => void;
         readonly invalidateLayouts: Set<() => void>;
     };
     readonly task: Promise<{
@@ -263,13 +265,14 @@ async function startArticleWorkspace(
 
 /** Sole host installer: failed/partial startup cannot be retried against a now-started Registry. */
 function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts, signal: AbortSignal,
-                                        revokeMountedAuthority: () => void): NonNullable<typeof workspaceInstallation>['task']
+                                        revokeMountedAuthority: () => void, retireMountedAuthority: () => void): NonNullable<typeof workspaceInstallation>['task']
 {
     const installed = workspaceInstallation;
     if (installed)
     {
         if (installed.ports !== ports || installed.signal !== signal
-            || installed.resources.revokeMountedAuthority !== revokeMountedAuthority)
+            || installed.resources.revokeMountedAuthority !== revokeMountedAuthority
+            || installed.resources.retireMountedAuthority !== retireMountedAuthority)
         {
             return Promise.reject(new Error('article-workspace-startup-owner-changed'));
         }
@@ -289,6 +292,7 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         resolver: null,
         sessions: null,
         revokeMountedAuthority,
+        retireMountedAuthority,
         invalidateLayouts: new Set()
     };
     // Reserve the sole installation before any original capability callback can re-enter it.
@@ -322,12 +326,13 @@ function revokeStartupMountedAuthority(installation: NonNullable<typeof workspac
     }
 }
 
-function createMountedAuthorityRevoker(ports: AdminArticleWorkspaceStartupPorts): () => void
+function createMountedAuthorityOperation(ports: AdminArticleWorkspaceStartupPorts, kind: 'change' | 'retire'): () => void
 {
-    const original = ports.beforeMountedAuthorityChange;
+    const original = kind === 'retire' ? ports.retireMountedAuthority : ports.beforeMountedAuthorityChange;
     if (typeof original !== 'function')
     {
-        throw new Error('article-workspace-original-mounted-authority-revoker-required');
+        throw new Error(kind === 'retire' ? 'article-workspace-original-mounted-authority-retirement-required'
+            : 'article-workspace-original-mounted-authority-revoker-required');
     }
     const operation = original.bind(ports);
     let revoking = false;
@@ -382,6 +387,15 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
         {
             // Successful startup transferred admission custody; do not retire its ongoing owner.
             return;
+        }
+        // Permanent Write retirement is a distinct pinned capability, never transient revoke.
+        try
+        {
+            installation.resources.retireMountedAuthority();
+        }
+        catch (error: unknown)
+        {
+            installation.mountedAuthorityRetirementFailure = error;
         }
         if (custody)
         {
@@ -439,7 +453,8 @@ const route = useRoute();
 const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
 const snapshotCaller = props.workspaceSnapshotCaller;
 let viewStartupPorts = props.workspaceStartup;
-let viewMountedAuthorityChange = viewStartupPorts ? createMountedAuthorityRevoker(viewStartupPorts) : undefined;
+let viewMountedAuthorityChange = viewStartupPorts ? createMountedAuthorityOperation(viewStartupPorts, 'change') : undefined;
+let viewMountedAuthorityRetire = viewStartupPorts ? createMountedAuthorityOperation(viewStartupPorts, 'retire') : undefined;
 let viewStartupSignal = viewStartupPorts?.signal;
 let viewLayoutPorts = viewStartupPorts?.layout;
 if (snapshotCaller && viewStartupPorts)
@@ -488,6 +503,24 @@ function revokeViewMountedAuthority(): void
     try
     {
         viewMountedAuthorityChange?.();
+    }
+    catch (error: unknown)
+    {
+        snapshotPreparationFailure = error;
+        layoutRevoked = true;
+        layoutEpoch++;
+        if (viewStartupPorts)
+        {
+            markWorkspaceInstallationFailed(viewStartupPorts);
+        }
+    }
+}
+
+function retireViewMountedAuthority(): void
+{
+    try
+    {
+        viewMountedAuthorityRetire?.();
     }
     catch (error: unknown)
     {
@@ -846,7 +879,9 @@ function markWorkspaceStartupUnavailable(): void
 function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPorts): void
 {
     const mountedRevoker = selectedPorts === viewStartupPorts && viewMountedAuthorityChange
-        ? viewMountedAuthorityChange : createMountedAuthorityRevoker(selectedPorts);
+        ? viewMountedAuthorityChange : createMountedAuthorityOperation(selectedPorts, 'change');
+    const mountedRetirer = selectedPorts === viewStartupPorts && viewMountedAuthorityRetire
+        ? viewMountedAuthorityRetire : createMountedAuthorityOperation(selectedPorts, 'retire');
     revokeViewMountedAuthority();
     if (!mounted || layoutRevoked)
     {
@@ -854,13 +889,14 @@ function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPort
     }
     viewStartupPorts = selectedPorts;
     viewMountedAuthorityChange = mountedRevoker;
+    viewMountedAuthorityRetire = mountedRetirer;
     viewStartupSignal = selectedPorts.signal;
     viewLayoutPorts = selectedPorts.layout;
     const startupPorts = selectedPorts;
     const startupSignal = selectedPorts.signal;
     workspaceStartupState.value = 'starting';
     startupSignal.addEventListener('abort', markWorkspaceStartupUnavailable);
-    void Promise.resolve().then(() => installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker)).then(({ plan, sessions }) =>
+    void Promise.resolve().then(() => installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker, mountedRetirer)).then(({ plan, sessions }) =>
     {
         if (!mounted)
         {
@@ -968,6 +1004,7 @@ watch([() => props.workspaceStartup, () => props.workspaceSnapshotCaller], () =>
 onBeforeUnmount(() =>
 {
     mounted = false;
+    retireViewMountedAuthority();
     revokeViewMountedAuthority();
     invalidateWorkspaceLayout();
     if (snapshotCaller)

@@ -12,6 +12,8 @@ export interface AdminArticleWorkspaceStartupPorts {
     readonly mountedEditors: ArticleWorkspaceMountedEditorSource;
     /** Pinned actual mounted owner; revoke before callbacks, never cache an auth boolean. */
     readonly beforeMountedAuthorityChange: () => void;
+    /** Actual Write permanent retirement; generic revocation is insufficient. */
+    readonly retireMountedAuthority: () => void;
     /** Actual original physical Write operation; a stub cannot satisfy native admission. */
     readonly prepareMountedEditor: AuthoringWorkspacePrimaryMountPort['prepareMountedEditor'];
     readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;

@@ -178,17 +178,17 @@
     "root_source_postimages": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "3724da1e10b93704a4e8f6147ba072499e3fa0c0cc5ca734e0ec5f7848ea27e1",
+        "sha256": "9aaae97c560f5002d7154084ed9e527e2dcb6966e4d8ed251d80ec280e1ea185",
         "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
-        "sha256": "67910eda06dab446bab20bb2590f31f2f1bc5cfb4fedd179ead19c2811d13917",
+        "sha256": "b17706428b4ff1cd2229d598f128dca99b98d2c1d4d0ea95be791db7698d0a0a",
         "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
-        "sha256": "3f6c0df45895b4a7906678500f421c5c05a23c6c5ce16f565c9c2942bb920442",
+        "sha256": "6326984132969c318fa6345eac97eff4356020cba36f12310474ff6c7a520f3c",
         "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
       },
       {
@@ -213,7 +213,7 @@
     "source_interface": "AuthoringWorkspaceSessionSource.retire(): void",
     "implemented": "After actual install returned a Host, failed binding/source construction or source read validation closes this Root source before calling the original admission retirement. Reads check local retirement and original group/router binding before/after. Native disposal/settlement is not asserted. Retirement succeeds bookkeeping only after original return; throw preserves closed state and real retry of same Host; validation plus retirement errors aggregate original causes.",
     "actual_existing_caller": "AdminWorkspaceFrame.startArticleWorkspace -> connectAuthoringWorkspaceSessionSource(groupOwner, resolver, original physical preparation); Root gets resources.sessions only after the call returned, so local post-install failure cleanup is now real.",
-    "caller_join_stop": "ACTUAL Root caller applied: pin genuine mandatory beforeMountedAuthorityChange in view/resources; revoke before invalidation/ref/unmount callbacks and before SAME sessions.retire(). Reentry guards and captured original revocation error prevent recursive revocation or skipped session retirement. Original handed-off ongoing owner exception preserved. Layout private seal four-file producer increment remains pending independent acceptance and not imported; no fake auth/member provider.",
+    "caller_join_stop": "ACTUAL Root e581 repair candidate: distinct actual permanent Write retireMountedAuthority privately pinned in view/resources, invoked before custody.retire and same sessions.retire, and before view teardown callbacks. Temporary revoke remains separately named/implemented. Both Root candidate and original Layout e581 four-file repair remain unaccepted awaiting re-review; no other Layout producer copied.",
     "main_producer_request": {
       "source": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
       "path": "artifacts/article-editor/issue-2295-composition-admission-seal/original-producer-requests.json",
@@ -247,28 +247,28 @@
     "activation": false
   },
   "root_mounted_retirement_offer": {
-    "source": "56961eeec2192e1b0038a3c0b0310a2964f52edd",
+    "source": "e5816353729fc35b2e59c7f29fd08e83c08af644",
     "core_source": "f0ef50a6cdc2565e5f274fcba94f567ea9052551",
     "root_base": "bb9d2de4abc428ed1a64b8e2d9450506722efdaf",
     "offer_path": "artifacts/article-editor/issue-2299-root-mounted-authority-seal/root-owner-only.patch",
-    "offer_sha256": "3482ce0a79f1a66508b8ce9e2d2283191cc2d71696361cfe1b0b4e20506742ea",
-    "source_kind": "exact Root offer hunks applied then Root-owned failure/reentry/callback-reservation reconciliation",
+    "offer_sha256": "c289dcf531c26e2c7ceb20b86a67cbb73c32582227987fabe3e2dd15a5aea1e7",
+    "source_kind": "Original e581 repair offer reconciled onto unaccepted a554 Root candidate; mandatory separate permanent Write retirement private-pinned and called before custody/same sessions.retire and view teardown",
     "root_paths": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "3724da1e10b93704a4e8f6147ba072499e3fa0c0cc5ca734e0ec5f7848ea27e1"
+        "sha256": "9aaae97c560f5002d7154084ed9e527e2dcb6966e4d8ed251d80ec280e1ea185"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
-        "sha256": "3f6c0df45895b4a7906678500f421c5c05a23c6c5ce16f565c9c2942bb920442"
+        "sha256": "6326984132969c318fa6345eac97eff4356020cba36f12310474ff6c7a520f3c"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
-        "sha256": "67910eda06dab446bab20bb2590f31f2f1bc5cfb4fedd179ead19c2811d13917"
+        "sha256": "b17706428b4ff1cd2229d598f128dca99b98d2c1d4d0ea95be791db7698d0a0a"
       }
     ],
-    "layout_seal_scope": "Original Layout four files at56961/f0ef remain pending independent source review; not copied, accepted or ready in this consumer",
-    "required_real_input": "beforeMountedAuthorityChange must be pinned to actual original mounted owner pre-change/retirement revocation; no absent/no-op fallback. Required real Registry/Document/Writer/principal producer join remains missing. Callback invocation is not mounted authority/grant/receipt.",
+    "layout_seal_scope": "Original e581 four-file Layout seal/prepare-lock repair is under independent review; not copied, accepted or installed in this consumer",
+    "required_real_input": "Separate original beforeMountedAuthorityChange (temporary revoke) and retireMountedAuthority (actual Write permanent retirement) functions are required, pinned privately under existing guards and remain cleanup-callable after cancellation. Permanent operation occurs before custody.retire/same sessions.retire and on view teardown. No alias of temporary revoke, fake auth/member callback or default provider.",
     "runtime": "ALL_HOLD_UNRUN",
     "ordinary_preflight": [
       "successful genuine revoker runs before same Source.retire, then original Source reads refuse",
@@ -277,9 +277,14 @@
       "view unmount revokes before invalidation and Snapshot cancel/dispose; failure cannot skip those owned attempts",
       "missing real revoker rejects before original connect/startup work; no no-op injection",
       "handed-off ongoing owner not retired just by view remount",
-      "partial source failure remains bb9 bridge cleanup; clear-witness and Snapshot1e245 semantic blocks unchanged"
+      "partial source failure remains bb9 bridge cleanup; clear-witness and Snapshot1e245 semantic blocks unchanged",
+      "permanent original Write retirement called before custody.retire/same sessions.retire; transient revoke never fulfills permanent obligation",
+      "permanent Write operation throws/reenters: cause retained, Root admission closed, group/session cleanup still attempted, future same operation remains callable",
+      "missing separate permanent method rejects despite temporary method existing; real provider unchanged unavailable"
     ],
     "qualification": false,
-    "activation": false
+    "activation": false,
+    "repair_source": "e5816353729fc35b2e59c7f29fd08e83c08af644",
+    "acceptance": "UNACCEPTED_PENDING_ORIGINAL_LAYOUT_AND_ROOT_COMPOSITION_RE_REVIEW"
   }
 }
