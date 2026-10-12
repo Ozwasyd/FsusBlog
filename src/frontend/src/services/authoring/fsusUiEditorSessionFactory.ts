@@ -81,6 +81,8 @@ export interface ArticleWorkspaceSealedNativeSnapshotPublication {
     readonly snapshot: MarkdownEditorSessionSnapshot;
     readonly scope: 'native-owner-custody';
     hasNativeCustody(): boolean;
+    /** Same actual published native pointer/generation only; not full-ref/resource authority. */
+    hasPublishedNativeCustody(): boolean;
     publishNative(): MarkdownEditorSessionSnapshot | null;
     cancelNative(): boolean;
 }
@@ -352,6 +354,7 @@ export function createFsusUiEditorSessionFactory(
         const commitNative = session.commitPreparedSnapshot.bind(session);
         const sealNative = session.sealPreparedSnapshot.bind(session);
         const hasNative = session.hasSealedSnapshotCustody.bind(session);
+        const hasPublishedNative = session.hasRetainedSnapshotCustody.bind(session);
         const publishNative = session.publishSealedSnapshot.bind(session);
         const discardNative = session.discardPreparedSnapshot.bind(session);
         const assertOwner = (): void =>
@@ -378,6 +381,7 @@ export function createFsusUiEditorSessionFactory(
             throw error;
         }
         let state: 'prepared' | 'committing' | 'sealed' | 'done' = 'prepared';
+        let published = false;
         return Object.freeze({
             snapshot: preparation.snapshot,
             sealNative: () =>
@@ -395,6 +399,7 @@ export function createFsusUiEditorSessionFactory(
                         snapshot: preparation.snapshot,
                         scope: 'native-owner-custody',
                         hasNativeCustody: () => state === 'sealed' && publication !== undefined && hasNative(publication),
+                        hasPublishedNativeCustody: () => published && hasPublishedNative(preparation.snapshot),
                         publishNative: () =>
                         {
                             if (state !== 'sealed' || publication === undefined)
@@ -404,6 +409,7 @@ export function createFsusUiEditorSessionFactory(
                             const snapshot = publishNative(publication);
                             if (snapshot)
                             {
+                                published = snapshot === preparation.snapshot;
                                 state = 'done';
                             }
                             return snapshot;

@@ -1312,3 +1312,37 @@ Complete resource authority and restoration after disposal remain unavailable.
 These missing ports prevent full-host readiness, pause/disposal qualification and
 eviction; no component-tree discovery, internal SDK import or substitute issuer
 is used to bypass them.
+
+### Closed source paths and remaining owner interfaces
+
+Parent reports finite source closure, with no new P1/P2, for UI357 intake,
+actual UI session getter, Main Renderer consumer, Root667/Writer4249 intake,
+original void-prepare/one-join startup wiring, and the same Root seal transfer
+into the factory. These are distinct from runtime qualification. The independent
+startup full-project typecheck has no retained log and remains UNRUN; our own
+bound application compiler has 243 existing failures with zero diagnostic delta.
+
+The actual activation path is original prepare -> same physical Writer Registry
+adoption -> same Frame seal/Doc/Writer admission -> original host bridge. The
+separate reference-admission API joins actual Root/native/Renderer/draft/journal
+custody and allocates body-free metadata; it is not called by full host capture.
+`createSession.captureSnapshot` still refuses, and full restore still returns
+blocked. Atomic full-reference publication and full restore through that host are
+additional Main implementation work, not a missing runtime permission or remote
+authorization guarantee. The bounded native publisher now provides
+`hasPublishedNativeCustody()` using the actual native session's pure published
+pointer/generation query, without owner availability or view/source reads.
+
+| Original owner | Actual source boundary | Missing source interface or existing behavior |
+| --- | --- | --- |
+| Renderer | `markdown-renderer-session-resources.ts`, `markdown-renderer.vue` | Participant inspect/pause/resume currently throw through `requireSourceCensus`; complete census and reversible owned watch/listener/frame/pipeline/heavy controls are missing. Scoped checkpoint prepare/seal/has already exists. |
+| Pipeline/worker | `use-render-pipeline/index.ts`, `worker-pool.ts` | Actual pause/resume already exists; adapter resources remain unknown and worker/native/shared attribution must be supplied by the real provider, or explicitly unsupported. Local cancel/settlement cannot claim remote execution reversal. |
+| Heavy/activation | `use-markdown-heavy-feature-lifecycle/index.ts`, `markdown-heavy-feature-resource.ts`, activation/gateway loaders | Timer/network cancellation is explicitly unavailable. Original adapter-owned requests, timers, import and continuation lifecycle require local census/control/settlement ports. |
+| Native surface/framework | `markdown-editor.vue` | `surfaceResourceOwnerComplete=false` reflects missing reversible Vue/template/IME/input/viewport listener ownership; readonly/disabled does not detach it. Existing imperative controls are partial. |
+| Attachment/provider | `markdown-editor.vue`, `markdown-editor-attachment-embed-owner.ts` | Real source participant exists, pending uploads refuse pause, opaque consumer resources lack a control/settlement port. `attachmentResourceOwnerReviewed=false` is a separate review/qualification hold, not proof of absent source. |
+| Writer/Root | `useAdminArticleWrite.ts`, existing Root startup/session binding | Original permanent cleanup exists; a retained-session save/draft/image/network/effectScope census and reversible pause/resume port is absent. Root must forward that exact producer port. Server draft pause or abort signal alone is no completion acknowledgement. |
+| Native/Renderer restoration | Original transaction/session and Renderer checkpoint owners | Same-owner/same-revision retained restoration exists. After unmount the original transaction pin is released, participant disposal is not recoverable, and validated same-process owner handover/reattach/full-ref restore is absent. No cross-startup memory restoration requirement is introduced. |
+
+Unqualified labels and runtime/list/native holds are not automatically source
+gaps, and old diagnostic dependency strings are not interface inventories.
+All complete/recoverable/eviction guards remain; unknown resources remain unknown.
