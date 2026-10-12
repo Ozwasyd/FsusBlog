@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthoringWorkspaceSnapshotApi, defaultWorkspaceSnapshotLayout, validateWorkspaceSnapshot, validateWorkspaceSnapshotLayout, workspaceSnapshotBytes, workspaceSnapshotDigest, type AuthoringWorkspaceSnapshot, type AuthoringWorkspaceSnapshotLayout, type AuthoringWorkspaceSnapshotReceipt, type AuthoringWorkspaceSnapshotResult, type AuthoringWorkspaceSnapshotScope, type AuthoringWorkspaceSnapshotTransport } from '@/api/authoringWorkspaceSnapshot';
+import { AuthoringWorkspaceSnapshotApi, requireWorkspaceServerObservation, defaultWorkspaceSnapshotLayout, validateWorkspaceSnapshot, validateWorkspaceSnapshotLayout, workspaceSnapshotBytes, workspaceSnapshotDigest, type AuthoringWorkspaceSnapshot, type AuthoringWorkspaceSnapshotLayout, type AuthoringWorkspaceSnapshotReceipt, type AuthoringWorkspaceSnapshotResult, type AuthoringWorkspaceSnapshotScope, type AuthoringWorkspaceSnapshotTransport } from '@/api/authoringWorkspaceSnapshot';
 import { AuthoringWorkspaceSnapshotCache, AuthoringWorkspaceSnapshotIndexedDbStorage, workspaceSnapshotCachePolicy, type WorkspaceSnapshotCacheStorage } from '@/services/authoring/authoringWorkspaceSnapshotCache';
 import { AuthoringWorkspaceSnapshotSync, workspaceSnapshotSyncPolicy, type WorkspaceSnapshotCoordinationChannel } from '@/services/authoring/authoringWorkspaceSnapshotSync';
 import { applyAuthoringWorkspaceSnapshotRestore, prepareAuthoringWorkspaceSnapshotRestore, verifyAuthoringWorkspaceSnapshotRestorePlan, workspaceSnapshotRestorePolicy, type AuthoringWorkspaceSnapshotResolution, type AuthoringWorkspaceSnapshotResolutionPort } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
@@ -51,6 +51,7 @@ class Server implements AuthoringWorkspaceSnapshotTransport {
     public failRead = false;
     public failWrite = false;
     public afterWrite: (() => void) | null = null;
+    public afterReset: (() => Promise<void>) | null = null;
     public async read(): Promise<unknown> {
         this.reads++;
         if (this.failRead)
@@ -83,7 +84,10 @@ class Server implements AuthoringWorkspaceSnapshotTransport {
         if (command.expectedRevision !== revision)
             return response(null, 'reset', 'conflict', revision, inputDigest);
         this.current = snapshot(value, revision + 1);
-        return response(this.current, 'reset', 'applied', revision, inputDigest);
+        const result = response(this.current, 'reset', 'applied', revision, inputDigest);
+        if (this.afterReset)
+            await this.afterReset();
+        return result;
     }
 }
 class CacheStorage implements WorkspaceSnapshotCacheStorage {
@@ -182,6 +186,144 @@ describe('server snapshot boundaries', () => {
         forged.receipt.byteCount++;
         const bad = new AuthoringWorkspaceSnapshotApi({ read: async () => forged, write: vi.fn(), reset: vi.fn() }, scope, sourceDigest, () => now);
         await expect(bad.read()).rejects.toThrow('receipt_digest_mismatch');
+    });
+});
+// Pending ordinary controls only: no runtime/attack/list execution or auth qualification is claimed.
+describe('sealed snapshot API custody and irreversible lifetime', () => {
+    it('pins genuine port functions and refuses reflection, old-response replay and close ABA', async () => {
+        const server = new Server();
+        const oldResponse = await server.read();
+        let active = true;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => now, () => {
+            if (!active)
+                throw new Error('connection_expired');
+        });
+        server.current = snapshot(layout(), 2);
+        server.read = vi.fn(async () => oldResponse);
+        const observed = await api.read();
+        expect(observed.revision).toBe(2);
+        expect(server.read).not.toHaveBeenCalled();
+        expect(Object.isFrozen(api)).toBe(true);
+        expect(Object.isFrozen(AuthoringWorkspaceSnapshotApi.prototype)).toBe(true);
+        for (const name of ['transport', 'lifecycleGeneration', 'readSequence', 'verify', 'checkLifecycle', 'now', 'assertConnection', 'closed', 'scope', 'sourceDigest', 'read', 'close', 'invalidateObservations'])
+            expect(Reflect.defineProperty(api, name, { value: () => oldResponse })).toBe(false);
+        expect(Reflect.set(AuthoringWorkspaceSnapshotApi.prototype, 'read', () => oldResponse)).toBe(false);
+        const confirmation = api.resetConfirmation(2);
+        const reads = server.reads;
+        active = false;
+        api.close();
+        api.close();
+        active = true;
+        api.invalidateObservations();
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        await expect(api.write(2, layout())).rejects.toThrow('workspace_snapshot_connection_closed');
+        await expect(api.reset(2, confirmation)).rejects.toThrow('workspace_snapshot_connection_closed');
+        expect(() => api.resetConfirmation(2)).toThrow('workspace_snapshot_connection_closed');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+        expect(server.reads).toBe(reads);
+        expect(server.writes).toHaveLength(0);
+        expect(server.current.revision).toBe(2);
+    });
+    it('latches an external lifetime failure even if the supplied guard later allows again', async () => {
+        const server = new Server();
+        let active = true;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => now, () => {
+            if (!active)
+                throw new Error('connection_expired');
+        });
+        const observed = await api.read();
+        active = false;
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('connection_expired');
+        active = true;
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+    });
+    it.each(['read', 'write', 'reset'] as const)('refuses %s publication when closed after dispatch but before a valid old response returns', async action => {
+        const server = new Server();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const port: AuthoringWorkspaceSnapshotTransport = {
+            read: async () => { const result = await server.read(); await gate; return result; },
+            write: async command => { const result = await server.write(command); await gate; return result; },
+            reset: async command => { const result = await server.reset(command); await gate; return result; }
+        };
+        const api = new AuthoringWorkspaceSnapshotApi(port, scope, sourceDigest, () => now);
+        const pending = action === 'read' ? api.read() : action === 'write' ? api.write(1, layout())
+            : api.reset(1, api.resetConfirmation(1));
+        api.close();
+        release();
+        await expect(pending).rejects.toThrow('workspace_snapshot_connection_closed');
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+    });
+    it('rechecks lifetime after the clock callback during verification before it can issue', async () => {
+        const server = new Server();
+        let closeDuringClock = false;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => {
+            if (closeDuringClock)
+                api.close();
+            return now;
+        });
+        const observed = await api.read();
+        closeDuringClock = true;
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+    });
+    it('checks exception reentry and keeps ordinary invalidation distinct from permanent close', async () => {
+        const server = new Server();
+        let invalidateDuringClock = false;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => {
+            if (invalidateDuringClock) {
+                api.invalidateObservations();
+                throw new Error('clock_failed');
+            }
+            return now;
+        });
+        const observed = await api.read();
+        invalidateDuringClock = true;
+        await expect(api.read()).rejects.toThrow('server_observation_superseded');
+        expect(() => requireWorkspaceServerObservation(observed)).toThrow('server_observation_required');
+        invalidateDuringClock = false;
+        requireWorkspaceServerObservation(await api.read());
+        api.close();
+        await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+    });
+    it('cannot publish after cloning a valid retained response reenters close', async () => {
+        const server = new Server();
+        const raw = await server.read();
+        const api = new AuthoringWorkspaceSnapshotApi({ read: async () => raw,
+            write: server.write.bind(server), reset: server.reset.bind(server) }, scope, sourceDigest, () => now);
+        const clone = globalThis.structuredClone.bind(globalThis);
+        const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+            const result = clone(value);
+            if (value === raw)
+                api.close();
+            return result;
+        });
+        try {
+            await expect(api.read()).rejects.toThrow('workspace_snapshot_connection_closed');
+        } finally {
+            cloning.mockRestore();
+        }
+        expect(() => Reflect.apply(requireWorkspaceServerObservation, undefined, [raw])).toThrow('server_observation_required');
+    });
+    it('refuses a stale ticket when a verification callback starts a newer genuine read', async () => {
+        const server = new Server();
+        let reenter = false;
+        let newer: Promise<Awaited<ReturnType<AuthoringWorkspaceSnapshotApi['read']>>> | undefined;
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => {
+            if (reenter) {
+                reenter = false;
+                newer = api.read();
+            }
+            return now;
+        });
+        await api.read();
+        reenter = true;
+        await expect(api.read()).rejects.toThrow('server_read_superseded');
+        expect(newer).toBeDefined();
+        if (!newer)
+            throw new Error('newer_read_missing');
+        requireWorkspaceServerObservation(await newer);
     });
 });
 describe('verified non-authoritative cache', () => {
@@ -434,12 +576,8 @@ describe('bounded CAS sync, multi-tab and offline current-session state', () => 
         await sync.start();
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        const original = server.reset.bind(server);
-        vi.spyOn(server, 'reset').mockImplementation(async command => {
-            const result = await original(command);
-            await gate;
-            return result;
-        });
+        // The original API pins port methods; defer the actual fixture CAS response inside that method.
+        server.afterReset = () => gate;
         const resetting = sync.reset(true, 1, api.resetConfirmation(1));
         expect(authoringWorkspaceSnapshotStatusModel(sync).canReset).toBe(false);
         sync.onInteraction('tabs', layout(20));

@@ -35,7 +35,7 @@ export async function connectAuthoringWorkspaceSnapshotHttp(signal?: AbortSignal
             return;
         }
         closed = true;
-        api?.invalidateObservations();
+        api?.close();
         stopWatching();
         requestSignal.removeEventListener('abort', dispose);
         lifetime.abort();
@@ -94,7 +94,7 @@ export async function connectAuthoringWorkspaceSnapshotHttp(signal?: AbortSignal
             read: callerSignal => invoke(currentSignal => transport.read(currentSignal), callerSignal),
             write: (command, callerSignal) => invoke(currentSignal => transport.write(command, currentSignal), callerSignal),
             reset: (command, callerSignal) => invoke(currentSignal => transport.reset(command, currentSignal), callerSignal)
-        }, { userId: scope.userId, siteId: scope.siteId }, receipt.sourceDigest);
+        }, { userId: scope.userId, siteId: scope.siteId }, receipt.sourceDigest, Date.now, assertCurrent);
 
         // A fresh real GET must pass the original complete receipt/snapshot verifier.
         // Source/site drift fails that binding; no cached first result or default is adopted.
