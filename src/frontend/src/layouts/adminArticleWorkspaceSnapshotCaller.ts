@@ -20,7 +20,128 @@ export interface AdminArticleWorkspaceSnapshotCaller {
 interface SnapshotLifetime {
     assertCurrent(): void;
     dispose(): Promise<void>;
+    inspectCleanup(): SnapshotCleanupStatus;
     disposalFailure?: unknown;
+}
+
+type SnapshotCleanupRole = 'abort' | 'watch' | 'listener' | 'connection' | 'sync' | 'channel' | 'cache';
+type SnapshotCleanupResult = 'fulfilled' | 'not-acquired';
+
+/** Diagnostics of original cleanup commands only, never a native or storage-deletion receipt. */
+export interface SnapshotCleanupStatus {
+    readonly closed: boolean;
+    readonly active: boolean;
+    readonly obligations: readonly {
+        readonly role: SnapshotCleanupRole;
+        readonly state: 'pending' | SnapshotCleanupResult;
+        readonly attempts: number;
+        readonly hasFailure: boolean;
+        readonly firstFailure: unknown;
+        readonly lastFailure: unknown;
+    }[];
+}
+
+function createSnapshotCleanup(revoke: () => void)
+{
+    const obligations = new Map<SnapshotCleanupRole, {
+        run(): SnapshotCleanupResult | void | Promise<SnapshotCleanupResult | void>;
+        state: 'pending' | SnapshotCleanupResult;
+        attempts: number;
+        hasFailure: boolean;
+        firstFailure: unknown;
+        lastFailure: unknown;
+    }>();
+    let closed = false;
+    let active: Promise<void> | undefined;
+    const order: readonly SnapshotCleanupRole[] = ['abort', 'watch', 'listener', 'connection', 'sync', 'channel', 'cache'];
+    const attempt = async (role: SnapshotCleanupRole): Promise<void> =>
+    {
+        const obligation = obligations.get(role);
+        if (obligation?.state !== 'pending')
+        {
+            return;
+        }
+        obligation.attempts = Math.min(Number.MAX_SAFE_INTEGER, obligation.attempts + 1);
+        try
+        {
+            const result = obligation.run();
+            if (result === active)
+            {
+                throw new Error('article-workspace-snapshot-cleanup-self-await');
+            }
+            const completed = result && typeof result === 'object' ? await result : result;
+            obligation.state = completed === 'not-acquired' ? 'not-acquired' : 'fulfilled';
+        }
+        catch (error)
+        {
+            if (!obligation.hasFailure)
+            {
+                obligation.firstFailure = error;
+            }
+            obligation.hasFailure = true;
+            obligation.lastFailure = error;
+            throw error;
+        }
+    };
+    return Object.freeze({
+        register(role: SnapshotCleanupRole, run: () => SnapshotCleanupResult | void | Promise<SnapshotCleanupResult | void>): void
+        {
+            if (obligations.has(role))
+            {
+                throw new Error('article-workspace-snapshot-cleanup-owner-already-adopted');
+            }
+            obligations.set(role, { run, state: 'pending', attempts: 0, hasFailure: false,
+                firstFailure: undefined, lastFailure: undefined });
+        },
+        dispose(): Promise<void>
+        {
+            // This never transitions back to live, even when cleanup fails or is retried.
+            closed = true;
+            revoke();
+            if (active)
+            {
+                return active;
+            }
+            const pass = Promise.resolve().then(async () =>
+            {
+                // Start every independent obligation before waiting on any one async owner.
+                const pending = order.filter(role => role !== 'abort' && obligations.get(role)?.state === 'pending');
+                const results = await Promise.allSettled([aborting, ...pending.map(role => attempt(role))]);
+                const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+                if (failures.length > 0)
+                {
+                    const errors = failures.map((result) =>
+                    {
+                        const error: unknown = result.reason;
+                        return error;
+                    });
+                    throw new AggregateError(errors,
+                        'article-workspace-snapshot-cleanup-incomplete', { cause: errors[0] });
+                }
+            });
+            // Reserve before abort invokes listeners which may synchronously re-enter dispose.
+            active = pass;
+            const aborting = attempt('abort');
+            // Retain the immediate abort outcome; it is reported even if a later attempt succeeds.
+            void aborting.catch(() => undefined);
+            void pass.then(() =>
+            {
+                active = undefined;
+            }, () =>
+            {
+                active = undefined;
+            });
+            return pass;
+        },
+        inspect(): SnapshotCleanupStatus
+        {
+            return Object.freeze({ closed, active: active !== undefined,
+                obligations: Object.freeze([...obligations].map(([role, obligation]) => Object.freeze({
+                    role, state: obligation.state, attempts: obligation.attempts, hasFailure: obligation.hasFailure,
+                    firstFailure: obligation.firstFailure, lastFailure: obligation.lastFailure
+                }))) });
+        }
+    });
 }
 
 // Cleanup custody for these exact returned ports; never a second document/session index.
@@ -67,34 +188,23 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
     const signal = AbortSignal.any([callerSignal, controller.signal]);
     const generation = privateSurfaceRuntime.authGeneration.value;
     let connection: AuthoringWorkspaceSnapshotConnection | undefined;
-    let cache: AuthoringWorkspaceSnapshotCache | undefined;
-    let sync: AuthoringWorkspaceSnapshotSync | undefined;
-    let adoptedChannel: WorkspaceSnapshotCoordinationChannel | null = null;
     let closed = false;
-    let disposal: Promise<void> | undefined;
+    const cleanup = createSnapshotCleanup(() =>
+    {
+        closed = true;
+    });
+    cleanup.register('abort', () => controller.abort());
     const lifetime: SnapshotLifetime = {
         assertCurrent: () => assertCurrent(),
+        inspectCleanup: () => cleanup.inspect(),
         dispose: () =>
         {
-            // Revoke before callbacks and keep disposal observable, including late connection completion.
-            closed = true;
-            controller.abort();
-            connection?.dispose();
-            stopWatching();
-            signal.removeEventListener('abort', onAbort);
-            disposal ??= Promise.resolve().then(async () =>
+            const pass = cleanup.dispose();
+            void pass.catch((error: unknown) =>
             {
-                if (sync)
-                {
-                    await sync.stop();
-                }
-                else
-                {
-                    cache?.close();
-                    adoptedChannel?.close();
-                }
+                lifetime.disposalFailure = error;
             });
-            return disposal;
+            return pass;
         }
     };
     const onAbort = (): void =>
@@ -127,7 +237,9 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
         return value;
     };
     const stopWatching = watch(privateSurfaceRuntime.authGeneration, onAbort, { flush: 'sync' });
+    cleanup.register('watch', stopWatching);
     signal.addEventListener('abort', onAbort, { once: true });
+    cleanup.register('listener', () => signal.removeEventListener('abort', onAbort));
     try
     {
         const assertCapability = checked(() => original.assertRuntimeCapability.bind(original));
@@ -148,14 +260,36 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
         const channel = checked(() => source.channel);
         const ownerRef = checked(() => source.ownerRef);
         const flushLease = checked(() => source.flushLease);
-        const connected = await connectAuthoringWorkspaceSnapshotHttp(signal);
+        const acquiring = connectAuthoringWorkspaceSnapshotHttp(signal).then(value => ({ value }), (error: unknown) => ({ error }));
+        cleanup.register('connection', async () =>
+        {
+            const acquired = await acquiring;
+            if ('error' in acquired)
+            {
+                // No connection handle was transferred; the original failed constructor owns its cleanup.
+                return 'not-acquired';
+            }
+            acquired.value.dispose();
+            return 'fulfilled';
+        });
+        const acquired = await acquiring;
+        if ('error' in acquired)
+        {
+            throw acquired.error;
+        }
+        const connected = acquired.value;
         connection = connected;
         assertCurrent();
         const api = checked(() => connected.api);
-        cache = new AuthoringWorkspaceSnapshotCache(storage, api.scope, api.sourceDigest);
+        const cache = new AuthoringWorkspaceSnapshotCache(storage, api.scope, api.sourceDigest);
+        cleanup.register('cache', cache.close.bind(cache));
         assertCurrent();
-        adoptedChannel = channel;
-        sync = new AuthoringWorkspaceSnapshotSync(api, cache, channel, ownerRef, flushLease);
+        if (channel)
+        {
+            cleanup.register('channel', channel.close.bind(channel));
+        }
+        const sync = new AuthoringWorkspaceSnapshotSync(api, cache, channel, ownerRef, flushLease);
+        cleanup.register('sync', sync.stop.bind(sync));
         assertCurrent();
         const ports = Object.freeze<AdminArticleWorkspaceStartupPorts>({
             sync, resolutionPort, mountedEditors, groupOptions, createGroupIdentity, operationEpoch,
@@ -197,4 +331,9 @@ export function disposeAdminArticleWorkspaceSnapshotStartup(ports: AdminArticleW
 export function readAdminArticleWorkspaceSnapshotDisposalFailure(ports: AdminArticleWorkspaceStartupPorts): unknown
 {
     return lifetimes.get(ports)?.disposalFailure;
+}
+
+export function readAdminArticleWorkspaceSnapshotCleanupStatus(ports: AdminArticleWorkspaceStartupPorts): SnapshotCleanupStatus | undefined
+{
+    return lifetimes.get(ports)?.inspectCleanup();
 }

@@ -1,0 +1,224 @@
+{
+  "schema": "fsusblog.article-library-disposal-source-review.v1",
+  "kind": "source-reasoning-not-runtime-test-receipt-or-qualification",
+  "committed_before": "62564bb29270a2bfc53e0ba5c24a2f30f24ecb42",
+  "candidate_source_sha256": "8e4793bbdf99f03dcd6427b2f53070277a17c0a55bc298f9eba05be92cf38e0b",
+  "original_sync_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts",
+  "original_cache_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
+  "matrix": [
+    {
+      "id": "unsubscribe0-channel0-cache0",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "channel_close": false,
+        "cache_close": false
+      },
+      "first_pass": "fulfill-original-commands",
+      "pending_obligations_after_first_pass": [],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "no original completed method reinvocation by outer disposer",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    },
+    {
+      "id": "unsubscribe0-channel0-cache1",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "channel_close": false,
+        "cache_close": true
+      },
+      "first_pass": "reject-original-causes",
+      "pending_obligations_after_first_pass": [
+        "sync",
+        "cache"
+      ],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "pending obligations remain; reject and retain first/latest causes",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    },
+    {
+      "id": "unsubscribe0-channel1-cache0",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "channel_close": true,
+        "cache_close": false
+      },
+      "first_pass": "reject-original-causes",
+      "pending_obligations_after_first_pass": [
+        "sync",
+        "channel"
+      ],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "pending obligations remain; reject and retain first/latest causes",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    },
+    {
+      "id": "unsubscribe0-channel1-cache1",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": false,
+        "channel_close": true,
+        "cache_close": true
+      },
+      "first_pass": "reject-original-causes",
+      "pending_obligations_after_first_pass": [
+        "sync",
+        "channel",
+        "cache"
+      ],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "pending obligations remain; reject and retain first/latest causes",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    },
+    {
+      "id": "unsubscribe1-channel0-cache0",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "channel_close": false,
+        "cache_close": false
+      },
+      "first_pass": "reject-original-causes",
+      "pending_obligations_after_first_pass": [
+        "sync"
+      ],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "pending obligations remain; reject and retain first/latest causes",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    },
+    {
+      "id": "unsubscribe1-channel0-cache1",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "channel_close": false,
+        "cache_close": true
+      },
+      "first_pass": "reject-original-causes",
+      "pending_obligations_after_first_pass": [
+        "sync",
+        "cache"
+      ],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "pending obligations remain; reject and retain first/latest causes",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    },
+    {
+      "id": "unsubscribe1-channel1-cache0",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "channel_close": true,
+        "cache_close": false
+      },
+      "first_pass": "reject-original-causes",
+      "pending_obligations_after_first_pass": [
+        "sync",
+        "channel"
+      ],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "pending obligations remain; reject and retain first/latest causes",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    },
+    {
+      "id": "unsubscribe1-channel1-cache1",
+      "original_callback_failures_stable_within_pass": {
+        "sync_unsubscribe": true,
+        "channel_close": true,
+        "cache_close": true
+      },
+      "first_pass": "reject-original-causes",
+      "pending_obligations_after_first_pass": [
+        "sync",
+        "channel",
+        "cache"
+      ],
+      "every_adopted_independent_role_started": true,
+      "repeat_after_failures_repaired": "retry only pending outer obligations via the SAME original methods; original Sync.stop may itself revisit its idempotent channel/cache APIs",
+      "repeat_without_repair": "pending obligations remain; reject and retain first/latest causes",
+      "reentrant_void_dispose": "shares current exact pass; no duplicate outer attempts",
+      "reentrant_return_of_same_pass": "detected self-await; obligation stays pending with an observable failure",
+      "closed_after_all_outcomes": true,
+      "runtime_status": "UNRUN_HELD",
+      "basis": "Source control-flow reasoning, not executed result; actual original Sync.stop invokes unsubscribe before channel/cache, so channel/cache errors can also reject Sync obligation."
+    }
+  ],
+  "partial_and_async_cases": [
+    {
+      "case": "No Sync adopted: independently close each actual cache/channel handle",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Sync constructor throws: retained cache/channel obligations remain callable",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Connection acquisition pending on cancellation: disposal awaits original acquisition settlement, then disposes any real returned handle",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Connection acquisition rejects: state not-acquired means no handle transferred; original constructor remains owner, original preparation exception retained by original task",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Synchronous abort reentry: pass reserved before abort, immediate abort outcome retained",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Any independent async obligation still pending: all other obligations have started; repeats share in-flight pass, no timeout success or duplicate attempt",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Late adopted Sync after synchronous constructor reentry: next microtask pass includes actual registered handle",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Repeated permanent unsubscribe/cache/channel failure: live cleanup obligation retained, admission cannot reopen",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Callback directly returning the current disposal pass: reject self-dependency; do not mark role fulfilled",
+      "runtime_status": "UNRUN_HELD"
+    },
+    {
+      "case": "Successful cleanup after a failed attempt: diagnostics retain original first/latest causes while command state advances only after real return",
+      "runtime_status": "UNRUN_HELD"
+    }
+  ],
+  "limitations": [
+    "No native/task disposal, transport auth/security, storage-deletion or fixture/runtime qualification claimed.",
+    "Original cache scope clearing is best-effort by its existing API; command fulfillment is not a physical storage-deletion receipt.",
+    "An arbitrary foreign async callback waiting on its own cleanup outcome may remain pending; no timeout or false terminal state is manufactured.",
+    "Snapshot original API private custody source is exact efddb offer; its new reset concurrency ordering finding remains pending original-owner repair/review."
+  ]
+}
