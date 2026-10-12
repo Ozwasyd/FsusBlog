@@ -1,0 +1,58 @@
+{
+  "base": "aee5ef45372957396b06bdac89990caccd4a8edd",
+  "closedAuthSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/authBroadcastComposition.ts",
+      "preimage": "d9d41532bc351c740503e12635b1b52283d5e585",
+      "finalPostimage": "8b010c1cca8f17cc5d05cf3edd474699920ac79e",
+      "exactFinalBytes": true,
+      "changed": true
+    },
+    {
+      "path": "src/frontend/src/services/authBroadcastRuntime.ts",
+      "preimage": "a10d5b68b9690139ed0cce5f127ae138e02e37d1",
+      "finalPostimage": "cc87f1e4e53d891601bc2dcbd185547cb0292672",
+      "exactFinalBytes": true,
+      "changed": true
+    },
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "preimage": "86e63819220a94932ba66d64a52e4727abe8f838",
+      "finalPostimage": "3b01c83fb472a78d58474dd6f4cdcc8decab7295",
+      "exactFinalBytes": true,
+      "changed": true
+    },
+    {
+      "path": "src/frontend/src/store/notificationStream.ts",
+      "preimage": "f47e0ea561fb7614b069c696739af6fd6007832a",
+      "finalPostimage": "f85ec00a3280c7a23f8a4cef5803a7efab6a0d6b",
+      "exactFinalBytes": true,
+      "changed": true
+    },
+    {
+      "path": "src/frontend/src/store/user.ts",
+      "preimage": "7e34441764d50e49e959adf5a6bffd566089e8a4",
+      "finalPostimage": "8ab82d319f35614929cc5cb8126ba3abe528aaab",
+      "exactFinalBytes": true,
+      "changed": true
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "preimage": "720120471237c17f0e14876aeca67e02e90e94df",
+      "finalPostimage": "720120471237c17f0e14876aeca67e02e90e94df",
+      "exactFinalBytes": true,
+      "changed": false
+    }
+  ],
+  "changedProductionPaths": 5,
+  "verifiedOriginalOwnerPaths": 6,
+  "applyCheck": 0,
+  "applyIndex": 0,
+  "diffCheck": 0,
+  "independentSourceClosure": "parent confirms whole observed-local chain: original5e, delivery/disposerbc1913, continuation/queuedcleanup819e closed, no current localmustfix",
+  "singleParameterSetterCompatibility": "user/admin optional ownsWrite/expected preserve original one-argument calls",
+  "broadcastHistoricalPending": "superseded by final819e source closure",
+  "runtime": "HOLD/UNRUN",
+  "ownerRewrite": false
+}

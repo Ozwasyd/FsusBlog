@@ -193,7 +193,7 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
         switch (event.type)
         {
             case NotificationStreamEventType.NoticeReceived: {
-                const payload = event.payload as NotificationStreamEventV2['payload'] & { unreadCount?: number; };
+                const payload = event.payload as { unreadCount?: number; };
                 unreadCount.value = Number(payload.unreadCount ?? unreadCount.value);
                 schedulePatch({
                     module: 'inbox',
@@ -362,8 +362,16 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
         scheduler.cancel();
     };
 
-    const setSessionRevokedHandler = (handler: (() => void) | null): void =>
+    const setSessionRevokedHandler = (
+        handler: (() => void) | null,
+        ownsWrite?: () => boolean,
+        expected?: () => void
+    ): void =>
     {
+        if ((ownsWrite && !ownsWrite()) || (expected && sessionRevokedHandler !== expected))
+        {
+            return;
+        }
         sessionRevokedHandler = handler;
     };
 
