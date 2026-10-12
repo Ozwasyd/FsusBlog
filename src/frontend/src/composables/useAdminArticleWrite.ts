@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch } from 'vue';
+import { computed, effectScope, onMounted, onScopeDispose, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -76,7 +76,9 @@ import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, t
 import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
 import {
     articleDocumentContextAuthority,
-    type ArticleDocumentContextAdapter
+    type ArticleDocumentContextAdapter,
+    type ArticleDocumentRetainedBinding,
+    type ArticleDocumentRetainedInspection
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
@@ -88,7 +90,7 @@ import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articleP
 import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
 import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
 import { createArticleWriterMountedEditorSource } from '@/services/authoring/articleWriterMountedEditorSource';
-import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
+import { calculateOpenArticleDocumentDigest, type RetainedArticleDocumentHandle } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
@@ -492,6 +494,26 @@ const slugifyTitle = (title: string): string =>
 
 export function useAdminArticleWrite()
 {
+    // This is the original Writer's effect scope, not another document/form owner.
+    const writerScope = effectScope(true);
+    try
+    {
+        const writer = writerScope.run(() => createAdminArticleWriteOwner(writerScope));
+        if (!writer)
+        {
+            throw new Error('article-writer-effect-scope-unavailable');
+        }
+        return writer;
+    }
+    catch (error)
+    {
+        writerScope.stop();
+        throw error;
+    }
+}
+
+function createAdminArticleWriteOwner(writerScope: EffectScope)
+{
     const route = useRoute();
     const router = useRouter();
     const powProvider = usePow();
@@ -500,8 +522,16 @@ export function useAdminArticleWrite()
         validate: (callback?: FormValidateCallback) => FormValidationResult;
         scrollToField: (prop: FormItemProp) => void;
     }>('formRef');
+    const retainedPrimaryBinding = shallowRef<ArticleDocumentRetainedBinding | null>(null);
+    let retainingPrimary = false;
+    let retainedPrimaryReady = false;
+    let componentAttached = true;
     const articleId = computed(() =>
     {
+        if (retainedPrimaryBinding.value)
+        {
+            return retainedPrimaryBinding.value.adapter.context.articleId;
+        }
         const raw = route.params.id ?? route.query.id;
         const parsed = Number(raw);
         return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
@@ -840,6 +870,8 @@ export function useAdminArticleWrite()
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
+    // Also reclaim the actual channel if original owner acquisition refuses during setup.
+    onScopeDispose(() => recoveryCoordinator.dispose());
     // Canonical author endpoints resolve the primary site; a browser host is not its authority.
     const documentSiteScope = 'primary-site';
     const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
@@ -982,6 +1014,9 @@ export function useAdminArticleWrite()
     });
     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
     let releaseEditorRuntime: (() => void) | null = null;
+    // This slot retains only the original object identity; the mounted source validates its public ports.
+    let originalMountedEditor: object | null = null;
+    let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
     const authoringEditorRuntime = Object.freeze({
         bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
             readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
@@ -1027,6 +1062,8 @@ export function useAdminArticleWrite()
                 recoveryCheckpoint?.release();
                 editorRuntimeBinding = null;
                 releaseEditorRuntime = null;
+                originalMountedEditor = null;
+                originalMountedRuntime = null;
                 if (previewOwners.value?.binding === binding)
                 {
                     previewOwners.value = null;
@@ -1245,8 +1282,11 @@ export function useAdminArticleWrite()
                     recoveryCheckpointCreating = false;
                 }
             };
-            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
+            const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
                 search: searchRuntime, mountedSource });
+            originalMountedEditor = editor;
+            originalMountedRuntime = mountedRuntime;
+            return mountedRuntime;
         }
     });
     const initTask = useAbortableTask({
@@ -1780,6 +1820,7 @@ export function useAdminArticleWrite()
             }
             if (recoveryRecord)
             {
+                invalidateDraftCheckpoint();
                 const confirmed = await articleRecoveryJournal.confirm({
                     id: recoveryRecord.id,
                     clientRevision: recoveryRecord.clientRevision,
@@ -1864,6 +1905,7 @@ export function useAdminArticleWrite()
         finally
         {
             task.complete();
+            task.settle();
         }
     };
 
@@ -2016,6 +2058,7 @@ export function useAdminArticleWrite()
         {
             parentSignal?.removeEventListener('abort', abortParent);
             task.complete();
+            task.settle();
         }
     };
 
@@ -2061,26 +2104,337 @@ export function useAdminArticleWrite()
         await refreshArticleRecoveryCandidates(signal);
     };
 
-    const applyDraftToForm = (draft: ArticleDraftSnapshot): void =>
+    let draftFormRestoring = false;
+    const applyDraftToForm = (draft: ArticleDraftSnapshot, checkpoint?: {
+        readonly admit: () => boolean;
+        readonly preserveServerPause: true;
+    }): boolean =>
     {
-        suppressDraftSave = true;
-        articleForm.title = draft.title;
-        articleForm.content = draft.content;
-        articleForm.summary = draft.summary;
-        articleForm.coverImageUrl = draft.coverImageUrl;
-        articleForm.categoryId = draft.categoryId;
-        articleForm.tagIds = [...draft.tagIds];
-        articleForm.status = draft.status;
-        articleForm.scheduledPublishAt = draft.scheduledPublishAt;
-        articleForm.rights = { ...draft.rights };
-        serverDraftRevision.value = draft.serverRevision;
-        if (draft.isEdit)
+        if (draftFormRestoring)
         {
-            currentRevisionId.value = draft.baseRevisionId;
+            throw new Error('article-draft-form-restore-reentrant');
         }
-        serverDraftSyncPaused.value = false;
-        suppressDraftSave = false;
+        draftFormRestoring = true;
+        const previousSuppression = suppressDraftSave;
+        suppressDraftSave = true;
+        try
+        {
+            if (!checkpoint)
+            {
+                invalidateDraftCheckpoint();
+            }
+            // Each setter can invoke synchronous user/component watchers. Never continue
+            // past a superseded checkpoint or overwrite the edit made by that watcher.
+            const writes = [
+                () =>
+                {
+                    articleForm.title = draft.title;
+                },
+                () =>
+                {
+                    articleForm.content = draft.content;
+                },
+                () =>
+                {
+                    articleForm.summary = draft.summary;
+                },
+                () =>
+                {
+                    articleForm.coverImageUrl = draft.coverImageUrl;
+                },
+                () =>
+                {
+                    articleForm.categoryId = draft.categoryId;
+                },
+                () =>
+                {
+                    articleForm.tagIds = [...draft.tagIds];
+                },
+                () =>
+                {
+                    articleForm.status = draft.status;
+                },
+                () =>
+                {
+                    articleForm.scheduledPublishAt = draft.scheduledPublishAt;
+                },
+                () =>
+                {
+                    articleForm.rights = { ...draft.rights };
+                },
+                () =>
+                {
+                    serverDraftRevision.value = draft.serverRevision;
+                },
+                () =>
+                {
+                    if (draft.isEdit)
+                    {
+                        currentRevisionId.value = draft.baseRevisionId;
+                    }
+                }
+            ];
+            for (const write of writes)
+            {
+                if (checkpoint && !checkpoint.admit())
+                {
+                    return false;
+                }
+                write();
+                if (checkpoint && !checkpoint.admit())
+                {
+                    return false;
+                }
+            }
+            if (!checkpoint?.preserveServerPause)
+            {
+                // Only the original explicit recovery flow may resolve this pause.
+                serverDraftSyncPaused.value = false;
+            }
+            return !checkpoint || checkpoint.admit();
+        }
+        finally
+        {
+            suppressDraftSave = active && writerScope.active ? previousSuppression : true;
+            draftFormRestoring = false;
+        }
     };
+
+    // One bounded immutable checkpoint in the ORIGINAL full-draft owner; no persistence/body store.
+    const freezeFullDraftSnapshot = (draft: ArticleDraftSnapshot) => Object.freeze({ ...draft,
+        tagIds: Object.freeze([...draft.tagIds]), rights: Object.freeze({ ...draft.rights }) });
+    const fullDraftIdentity = (draft: ArticleDraftSnapshot, clientRevision: string | null, revisionNo: number | null) =>
+        calculateOpenArticleDocumentDigest({ semantic: buildDraftSemanticIdentity(draft), categoryId: draft.categoryId,
+            clientRevision, revisionNo, serverDraftSyncPaused: serverDraftSyncPaused.value, documentContextDigest: draft.documentContextDigest });
+    const currentFullDraftIdentity = () => fullDraftIdentity(
+        buildDraftSnapshot(activeRecoveryClientRevision ?? ''), activeRecoveryClientRevision, currentRevisionNo.value);
+    const readFullDraftOwner = () =>
+    {
+        const document = articleDocumentContextAdapter.context;
+        const identityId = adminStore.adminPrincipal?.id?.trim() ?? null;
+        const runtime = originalMountedRuntime;
+        const registry = articleWorkspaceTabRouter.getRegistry();
+        const entry = registry.getEntryByIdentity({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId });
+        if (!active || !writerScope.active || !componentAttached || fullDraftPrincipalRetired || serverDraftSyncPaused.value
+            || !identityId || identityId !== documentPrincipalIdentityId
+            || document.siteScope !== documentSiteScope || document.userScope !== documentUserScope
+            || articleId.value !== document.articleId || runtime?.binding !== editorRuntimeBinding
+            || entry?.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
+            || entry.documentContext.documentEpoch !== document.documentEpoch
+            || entry.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
+            || entry.documentContext.draftRevision !== document.draftRevision)
+        {
+            return null;
+        }
+        const retained = retainedPrimaryBinding.value?.inspect();
+        if (retained && (retained.admissionClosed || retained.registry.state !== 'live' || retained.invalidationFailed
+            || retained.context.contextDigest !== document.contextDigest || !retained.registryRevisionMatchesDocument))
+        {
+            return null;
+        }
+        const registryRevision = registry.getRevision();
+        const mounted = runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
+        const nativeBinding = runtime.mountedSource?.readDocumentBinding(entry.editorSessionRef);
+        if (!mounted || mounted !== originalMountedEditor || nativeBinding?.identity.documentId !== document.documentId
+            || nativeBinding.documentContext.documentEpoch !== document.documentEpoch
+            || nativeBinding.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
+            || nativeBinding.documentContext.draftRevision !== document.draftRevision)
+        {
+            return null;
+        }
+        const session = mounted.getSession(entry.editorSessionRef);
+        const native = session.inspectDocumentState();
+        const semanticIdentity = currentFullDraftIdentity();
+        if (!active || !writerScope.active || fullDraftPrincipalRetired || serverDraftSyncPaused.value
+            || runtime !== originalMountedRuntime || runtime.binding !== editorRuntimeBinding
+            || adminStore.adminPrincipal?.id?.trim() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
+            || registry.getRevision() !== registryRevision || registry.getEntry(entry.tabId)?.lifecycleRevision !== entry.lifecycleRevision
+            || native.documentIdentity.id !== document.documentId || native.documentIdentity.epoch !== document.documentEpoch
+            || native.revision !== document.sourceRevision || mounted.getSession(entry.editorSessionRef) !== session)
+        {
+            return null;
+        }
+        return Object.freeze({ document, identityId, runtime, mounted, session, registryRevision,
+            associationRevision: entry.lifecycleRevision, editorSessionRef: entry.editorSessionRef,
+            draftKey: draftKey.value, clientRevision: activeRecoveryClientRevision, revisionNo: currentRevisionNo.value,
+            baseRevisionId: currentRevisionId.value, serverRevision: serverDraftRevision.value,
+            serverDraftSyncPaused: serverDraftSyncPaused.value, semanticIdentity });
+    };
+    const fullDraftInfo = (reference: string, owner: NonNullable<ReturnType<typeof readFullDraftOwner>>) => Object.freeze({
+        draftStateRef: reference, documentContext: owner.document, principalIdentityId: owner.identityId,
+        siteScope: owner.document.siteScope, draftKey: owner.draftKey, editorSessionRef: owner.editorSessionRef,
+        registryRevision: owner.registryRevision, associationRevision: owner.associationRevision,
+        nativeRevision: owner.document.sourceRevision, clientRevision: owner.clientRevision,
+        baseRevisionId: owner.baseRevisionId, serverRevision: owner.serverRevision, revisionNo: owner.revisionNo,
+        serverDraftSyncPaused: owner.serverDraftSyncPaused, fullDraftDigest: owner.semanticIdentity
+    });
+    let fullDraftCustody: { readonly snapshot: ReturnType<typeof freezeFullDraftSnapshot>;
+        readonly owner: NonNullable<ReturnType<typeof readFullDraftOwner>>; readonly info: ReturnType<typeof fullDraftInfo>; } | null = null;
+    let fullDraftGeneration = 0;
+    let fullDraftSequence = 0;
+    let fullDraftCapturing = false;
+    let fullDraftRestoring = false;
+    let fullDraftPrincipalRetired = false;
+    let fullDraftReleased = false;
+    const invalidateDraftCheckpoint = (): void =>
+    {
+        fullDraftCustody = null;
+        if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
+        {
+            fullDraftReleased = true;
+        }
+        else
+        {
+            fullDraftGeneration += 1;
+        }
+    };
+    const inspectDraftReference = (reference: string) =>
+    {
+        const custody = fullDraftCustody;
+        const generation = fullDraftGeneration;
+        if (fullDraftReleased || fullDraftPrincipalRetired || typeof reference !== 'string' || custody?.info.draftStateRef !== reference)
+        {
+            return null;
+        }
+        try
+        {
+            const current = readFullDraftOwner();
+            if (current?.runtime !== custody.owner.runtime || current.mounted !== custody.owner.mounted
+                || current.session !== custody.owner.session || current.identityId !== custody.owner.identityId
+                || current.document.contextDigest !== custody.owner.document.contextDigest
+                || current.semanticIdentity !== custody.owner.semanticIdentity || current.draftKey !== custody.owner.draftKey
+                || current.registryRevision !== custody.owner.registryRevision || current.associationRevision !== custody.owner.associationRevision
+                || fullDraftCustody !== custody || fullDraftGeneration !== generation)
+            {
+                if (fullDraftCustody === custody)
+                {
+                    invalidateDraftCheckpoint();
+                }
+                return null;
+            }
+            return custody.info;
+        }
+        catch
+        {
+            if (fullDraftCustody === custody)
+            {
+                invalidateDraftCheckpoint();
+            }
+            return null;
+        }
+    };
+    const authoringDraftCheckpointRuntime = Object.freeze({
+        captureDraftCheckpoint: () =>
+        {
+            if (fullDraftReleased || fullDraftPrincipalRetired || fullDraftCapturing || fullDraftRestoring || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
+            {
+                return null;
+            }
+            fullDraftCapturing = true;
+            invalidateDraftCheckpoint();
+            const generation = fullDraftGeneration;
+            try
+            {
+                const owner = readFullDraftOwner();
+                if (!owner || typeof globalThis.crypto?.randomUUID !== 'function')
+                {
+                    return null;
+                }
+                const draft = buildDraftSnapshot(owner.clientRevision ?? '');
+                if (fullDraftIdentity(draft, owner.clientRevision, owner.revisionNo) !== owner.semanticIdentity)
+                {
+                    return null;
+                }
+                const snapshot = freezeFullDraftSnapshot(draft);
+                const reference = `article-draft-state:${globalThis.crypto.randomUUID()}:${++fullDraftSequence}`;
+                if (fullDraftReleased || fullDraftGeneration !== generation)
+                {
+                    return null;
+                }
+                fullDraftCustody = Object.freeze({ snapshot, owner, info: fullDraftInfo(reference, owner) });
+                return inspectDraftReference(reference);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                fullDraftCapturing = false;
+            }
+        },
+        inspectDraftReference,
+        validateDraftReference: (reference: string, nativeSource: string): boolean =>
+            !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
+        restoreDraftReference: (reference: string) =>
+        {
+            if (fullDraftRestoring || fullDraftCapturing || draftFormRestoring)
+            {
+                return null;
+            }
+            // Reserve before inspection/materialization can invoke original native or user readers.
+            fullDraftRestoring = true;
+            const custody = fullDraftCustody;
+            const generation = fullDraftGeneration;
+            const admit = (): boolean =>
+            {
+                if (!custody || fullDraftCustody !== custody || fullDraftGeneration !== generation
+                    || fullDraftPrincipalRetired || fullDraftReleased || serverDraftSyncPaused.value)
+                {
+                    return false;
+                }
+                const info = inspectDraftReference(reference);
+                return info === custody.info && fullDraftCustody === custody && fullDraftGeneration === generation
+                    && !fullDraftPrincipalRetired && !fullDraftReleased && !serverDraftSyncPaused.value;
+            };
+            try
+            {
+                if (!custody || !admit())
+                {
+                    return null;
+                }
+                const draft = { ...custody.snapshot, tagIds: [...custody.snapshot.tagIds], rights: { ...custody.snapshot.rights } };
+                if (!admit() || !applyDraftToForm(draft, { admit, preserveServerPause: true }))
+                {
+                    return null;
+                }
+                return admit() ? custody.info : null;
+            }
+            finally
+            {
+                // Exceptions propagate; refusal never fabricates rollback or overwrites newer edits.
+                fullDraftRestoring = false;
+            }
+        },
+        releaseDraftCheckpoint: (reference: string): boolean =>
+        {
+            if (typeof reference !== 'string' || fullDraftCustody?.info.draftStateRef !== reference)
+            {
+                return false;
+            }
+            invalidateDraftCheckpoint();
+            return true;
+        },
+        invalidateDraftCheckpoint
+    });
+    watch(() => adminStore.adminPrincipal?.id?.trim() ?? null, (identity, previous) =>
+    {
+        if (identity !== previous)
+        {
+            // Retirement is permanent for this original owner, including A→null/B→A.
+            fullDraftPrincipalRetired = true;
+            invalidateDraftCheckpoint();
+        }
+    }, { flush: 'sync' });
+    watch(serverDraftSyncPaused, invalidateDraftCheckpoint, { flush: 'sync' });
+    watch(currentFullDraftIdentity, invalidateDraftCheckpoint, { flush: 'sync' });
+    const unsubscribeDraftCheckpointContext = articleDocumentContextAdapter.subscribeContext(invalidateDraftCheckpoint);
+    onScopeDispose(() =>
+    {
+        fullDraftReleased = true;
+        invalidateDraftCheckpoint();
+        unsubscribeDraftCheckpointContext();
+    });
 
     const clearArticleRecoveryScope = async (): Promise<void> =>
     {
@@ -2127,6 +2481,7 @@ export function useAdminArticleWrite()
         finally
         {
             task.complete();
+            task.settle();
         }
     };
 
@@ -2161,6 +2516,10 @@ export function useAdminArticleWrite()
 
     const performRestoreLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -2225,6 +2584,10 @@ export function useAdminArticleWrite()
 
     const performDiscardLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -2270,6 +2633,10 @@ export function useAdminArticleWrite()
 
     const restoreLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         if (articleRecoveryComparisonRequired.value)
         {
             articleRecoveryOperationError.value = '此版本与较新的权威正文坐标不同，请先比较再明确恢复';
@@ -2284,6 +2651,10 @@ export function useAdminArticleWrite()
 
     const discardLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         await runArticleRecoveryOperation(
             'discard',
             '正文丢弃失败，所选版本仍保留，请重试',
@@ -2293,6 +2664,7 @@ export function useAdminArticleWrite()
 
     const clearLocalDraft = async (): Promise<void> =>
     {
+        invalidateDraftCheckpoint();
         clearDraftSaveTimer();
         await clearArticleRecoveryScope();
         pendingDraft.value = null;
@@ -2417,6 +2789,7 @@ export function useAdminArticleWrite()
             signal?.removeEventListener('abort', abortParent);
             task.complete();
             assetLibraryLoading.value = false;
+            task.settle();
         }
     };
 
@@ -2605,6 +2978,7 @@ export function useAdminArticleWrite()
             task.complete();
             suppressDraftSave = false;
             revisionRollbacking.value = false;
+            task.settle();
         }
     };
 
@@ -3608,37 +3982,316 @@ export function useAdminArticleWrite()
         void initData();
     });
 
+    let unsubscribeRetainedContext: (() => void) | null = null;
+    let unsubscribeRetainedLifetime: (() => void) | null = null;
+    const inspectPrimary = (retained: ArticleDocumentRetainedBinding, requirePublication = false): ArticleDocumentRetainedInspection =>
+    {
+        const observation = retained.inspect();
+        if (!active || !writerScope.active || retainedPrimaryBinding.value !== retained
+            || retained.adapter !== articleDocumentContextAdapter || observation.registry.state !== 'live'
+            || observation.admissionClosed || observation.invalidationFailed || !articleDocumentContextAdapter.isCurrentContext(observation.context)
+            || (requirePublication && !observation.registryRevisionMatchesDocument))
+        {
+            throw new Error('article-writer-retained-primary-unavailable');
+        }
+        return observation;
+    };
+    const requirePrimaryMount = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        const observation = inspectPrimary(retained);
+        const runtime = originalMountedRuntime;
+        const editor = originalMountedEditor;
+        const entry = observation.registry.entry;
+        if (!componentAttached || !runtime || !editor || !entry || runtime.binding !== editorRuntimeBinding
+            || runtime.mountedSource?.readMountedEditor(entry.editorSessionRef) !== editor)
+        {
+            throw new Error('article-writer-retained-primary-mount-unavailable');
+        }
+        inspectPrimary(retained);
+        return runtime;
+    };
+    const requirePrimaryRuntime = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        const observation = inspectPrimary(retained);
+        const runtime = requirePrimaryMount(retained);
+        const entry = observation.registry.entry;
+        if (!entry)
+        {
+            throw new Error('article-writer-retained-primary-mount-unavailable');
+        }
+        const nativeBinding = runtime.mountedSource?.readDocumentBinding(entry.editorSessionRef);
+        if (nativeBinding?.identity.articleId !== observation.context.articleId
+            || nativeBinding.identity.draftId !== observation.context.draftId
+            || nativeBinding.identity.documentId !== observation.context.documentId
+            || nativeBinding.documentContext.documentEpoch !== observation.context.documentEpoch
+            || nativeBinding.documentContext.sourceRevision !== `source-revision:${observation.context.sourceRevision}`
+            || nativeBinding.documentContext.draftRevision !== observation.context.draftRevision)
+        {
+            throw new Error('article-writer-retained-primary-native-context-unavailable');
+        }
+        inspectPrimary(retained);
+        return runtime;
+    };
+    // The original producer retains this same stable factory and its actual resources.
+    const createPrimaryConsumer = (retained: ArticleDocumentRetainedBinding) =>
+    {
+        try
+        {
+            unsubscribeRetainedContext = retained.adapter.subscribeContext(syncAuthoringDocumentContext);
+            unsubscribeRetainedLifetime = retained.subscribeLifetime(() => syncAuthoringDocumentContext());
+        }
+        catch (error)
+        {
+            unsubscribeRetainedContext?.();
+            unsubscribeRetainedContext = null;
+            throw error;
+        }
+        return Object.freeze({
+            documentBinding: retained,
+            readView: () =>
+            {
+                const observation = inspectPrimary(retained);
+                return Object.freeze({ documentContext: observation.context, content: articleForm.content,
+                    loading: pageLoading.value, saving: submitting.value, inspection: observation,
+                    componentAttached, effectsActive: writerScope.active });
+            },
+            setContent: (content: string) =>
+            {
+                requirePrimaryRuntime(retained);
+                articleForm.content = content;
+            },
+            bindMountedEditor: (editor: ArticleEditorContinuityPort) =>
+            {
+                const runtime = requirePrimaryRuntime(retained);
+                if (originalMountedEditor !== editor)
+                {
+                    throw new Error('article-writer-retained-primary-editor-replaced');
+                }
+                return runtime;
+            },
+            consumeTransaction: (result: Parameters<ArticleEditorRuntimeBinding['consumeTransaction']>[0]) =>
+            {
+                // Native commits/emits first; the original Writer model is still at beforeRevision.
+                const before = inspectPrimary(retained);
+                const runtime = requirePrimaryMount(retained);
+                const entry = before.registry.entry;
+                const mounted = entry && runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
+                if (!entry || !mounted || !result.accepted || !result.positionMap
+                    || result.documentIdentity.id !== before.context.documentId
+                    || result.documentIdentity.epoch !== before.context.documentEpoch
+                    || result.beforeRevision !== before.context.sourceRevision
+                    || !Number.isSafeInteger(result.revision) || result.revision < result.beforeRevision)
+                {
+                    return false;
+                }
+                const native = mounted.getSession(entry.editorSessionRef).inspectDocumentState();
+                if (native.documentIdentity.id !== result.documentIdentity.id
+                    || native.documentIdentity.epoch !== result.documentIdentity.epoch || native.revision !== result.revision)
+                {
+                    return false;
+                }
+                if (inspectPrimary(retained).context.contextDigest !== before.context.contextDigest)
+                {
+                    return false;
+                }
+                // Consume the actual public map through the original runtime exactly once; no dispatch/rollback.
+                if (!runtime.binding.consumeTransaction(result))
+                {
+                    return false;
+                }
+                requirePrimaryRuntime(retained);
+                return inspectPrimary(retained).context.sourceRevision === result.revision && articleForm.content === result.value;
+            },
+            consumeSelection: (...args: Parameters<ArticleEditorRuntimeBinding['consumeSelection']>) =>
+                requirePrimaryRuntime(retained).binding.consumeSelection(...args),
+            consumeFocus: (...args: Parameters<ArticleEditorRuntimeBinding['consumeFocus']>) =>
+                requirePrimaryRuntime(retained).binding.consumeFocus(...args),
+            admitAcceptedCapture: (input: Parameters<ArticleAttachmentContextAdapter['admitAcceptedCapture']>[0]) =>
+            {
+                requirePrimaryRuntime(retained);
+                return authoringAttachmentRuntime.admitAcceptedCapture(input);
+            },
+            saveDraft: () =>
+            {
+                requirePrimaryRuntime(retained);
+                inspectPrimary(retained, true);
+                saveDraftNow();
+            },
+            submit: () =>
+            {
+                requirePrimaryRuntime(retained);
+                inspectPrimary(retained, true);
+                return submitForm();
+            },
+            invalidateDocument: () =>
+            {
+                // Only the original handle's actual terminal observation authorizes final cleanup.
+                if (retained.inspect().registry.state !== 'revoked')
+                {
+                    throw new Error('article-writer-retained-primary-invalidation-unavailable');
+                }
+                disposeOriginalWriter();
+            }
+        });
+    };
+    const authoringRetainedPrimaryRuntime = Object.freeze({
+        adoptPrimaryRetainedDocument: (handle: RetainedArticleDocumentHandle) =>
+        {
+            if (!active || !componentAttached || retainingPrimary || !originalMountedRuntime)
+            {
+                throw new Error('article-writer-retained-primary-adoption-unavailable');
+            }
+            retainingPrimary = true;
+            const wasReady = retainedPrimaryReady;
+            try
+            {
+                const existing = retainedPrimaryBinding.value;
+                if (existing && existing.handle !== handle)
+                {
+                    throw new Error('article-writer-retained-primary-already-adopted');
+                }
+                const retained = existing ?? articleDocumentContextAuthority.adoptPrimaryRetainedDocument(
+                    articleWorkspaceTabRouter.getRegistry(), handle, articleDocumentContextBinding, {
+                        readPrincipalIdentityId: () => adminStore.adminPrincipal?.id?.trim() ?? null,
+                        readSiteScope: () => documentSiteScope
+                    });
+                // Preserve actual issued custody if consumer attachment subsequently refuses.
+                retainedPrimaryBinding.value = retained;
+                // Establish original cleanup/lifetime custody before any mount validation callback.
+                const consumer = retained.attachConsumer(createPrimaryConsumer);
+                requirePrimaryRuntime(retained);
+                retainedPrimaryReady = true;
+                return consumer;
+            }
+            catch (error)
+            {
+                if (!wasReady && retainedPrimaryBinding.value)
+                {
+                    // Keep issued document custody; failed caller setup must release its real Writer resources.
+                    try
+                    {
+                        disposeOriginalWriter();
+                    }
+                    catch (cleanupError)
+                    {
+                        throw new AggregateError([error, cleanupError], 'article-writer-adoption-and-cleanup-failed', { cause: cleanupError });
+                    }
+                }
+                throw error;
+            }
+            finally
+            {
+                retainingPrimary = false;
+            }
+        }
+    });
+    let synchronousCleanupRunning = false;
+    let synchronousCleanupCompleted = false;
+    let synchronousCleanupFailed = false;
+    let synchronousCleanupFailure: unknown;
+    const disposeOriginalWriter = (): void =>
+    {
+        if (synchronousCleanupRunning)
+        {
+            throw new Error('article-writer-cleanup-reentrant');
+        }
+        if (synchronousCleanupFailed)
+        {
+            throw synchronousCleanupFailure;
+        }
+        if (synchronousCleanupCompleted)
+        {
+            return;
+        }
+        synchronousCleanupRunning = true;
+        active = false;
+        invalidateDraftCheckpoint();
+        retainedPrimaryReady = false;
+        suppressDraftSave = true;
+        // Attempt each original cleanup independently; a thrown port must not strand the channel/scope.
+        const operations = [
+            () =>
+            {
+                unsubscribeRetainedContext?.();
+                unsubscribeRetainedContext = null;
+            },
+            () =>
+            {
+                unsubscribeRetainedLifetime?.();
+                unsubscribeRetainedLifetime = null;
+            },
+            () =>
+            {
+                unsubscribeArticleRecoveryCoordination?.();
+                unsubscribeArticleRecoveryCoordination = null;
+            },
+            () =>
+            {
+                disposeArticleRecoveryLifecycle?.();
+                disposeArticleRecoveryLifecycle = null;
+            },
+            () => recoveryCoordinator.dispose(),
+            () => previewCurrentAuthorities.dispose(),
+            () => releaseEditorRuntime?.(),
+            () =>
+            {
+                attachmentEditor = null;
+            },
+            () => authoringAttachments.dispose(),
+            () => articleDocumentContextBinding.release(),
+            () => initTask.cancel(),
+            () => submitTask.cancel(),
+            () => taxonomyTask.cancel(),
+            () => previewTask.cancel(),
+            () => prepublishTask.cancel(),
+            () => aiAssistTask.cancel(),
+            () => assetTask.cancel(),
+            () => imageUploadFlow.cancel(),
+            () => imageUploadFlow.clearPending?.(),
+            () => clearDraftSaveTimer(),
+            () => writerScope.stop()
+        ];
+        try
+        {
+            for (const operation of operations)
+            {
+                try
+                {
+                    operation();
+                }
+                catch (error)
+                {
+                    if (!synchronousCleanupFailed)
+                    {
+                        synchronousCleanupFailure = error;
+                        synchronousCleanupFailed = true;
+                    }
+                }
+            }
+            if (synchronousCleanupFailed)
+            {
+                // Actual failed custody is retained; do not turn a later noop into a cleanup success.
+                throw synchronousCleanupFailure;
+            }
+            articleForm.title = '';
+            articleForm.content = '';
+            articleForm.summary = '';
+            articleForm.rights = createDefaultArticleRightsForm();
+            synchronousCleanupCompleted = true;
+        }
+        finally
+        {
+            synchronousCleanupRunning = false;
+        }
+        // Synchronous cleanup completion does not settle canceled producers or native resources.
+    };
     onUnmounted(() =>
     {
-        active = false;
-        suppressDraftSave = true;
-        unsubscribeArticleRecoveryCoordination?.();
-        unsubscribeArticleRecoveryCoordination = null;
-        disposeArticleRecoveryLifecycle?.();
-        disposeArticleRecoveryLifecycle = null;
-        recoveryCoordinator.dispose();
-        previewCurrentAuthorities.dispose();
-        releaseEditorRuntime?.();
-        attachmentEditor = null;
-        authoringAttachments.dispose();
-        articleDocumentContextBinding.release();
-        initTask.cancel();
-        submitTask.cancel();
-        taxonomyTask.cancel();
-        previewTask.cancel();
-        prepublishTask.cancel();
-        aiAssistTask.cancel();
-        assetTask.cancel();
-        imageUploadFlow.cancel();
-        if (typeof imageUploadFlow.clearPending === 'function')
+        componentAttached = false;
+        if (!retainedPrimaryReady)
         {
-            imageUploadFlow.clearPending();
+            disposeOriginalWriter();
         }
-        clearDraftSaveTimer();
-        articleForm.title = '';
-        articleForm.content = '';
-        articleForm.summary = '';
-        articleForm.rights = createDefaultArticleRightsForm();
     });
 
     return {
@@ -3701,6 +4354,8 @@ export function useAdminArticleWrite()
         authoringDocumentContextAdapter: articleDocumentContextAdapter,
         authoringAttachmentRuntime,
         authoringEditorRuntime,
+        authoringRetainedPrimaryRuntime,
+        authoringDraftCheckpointRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,
