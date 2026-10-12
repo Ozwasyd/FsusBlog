@@ -1122,3 +1122,25 @@ preimage; existing Main mounted/draft/native/private-reference guards and helper
 rechecks remain. Source/protection/static evidence and original zero-execution
 preflight are in `artifacts/article-editor/issue-2295-writer1f148-authority-intake`.
 All runtime/native/auth/security/receipt/restore/eviction qualification stays held.
+
+
+### Auth continuity bound for synchronous local publication (#2294/#2295)
+
+The final pure application guard attests the original producer-observed local
+principal/permissions/session/private-surface continuity, after all fallible reads
+and before local pointer publication. It does not prove unknown remote revocation
+or exact server wall-clock expiry during a blocked JavaScript task. Original issue
+#2294 required restore permission/ref validation and #2293/#2295 invalidation,
+blocked/ready and stale-state protections remain mandatory; original qualified
+server permission/query provenance cannot be replaced by client-side filtering.
+
+The actual auth producer must revoke on observed replacement/clear/ABA, permissions/
+status/step-up, account/site/logout, server auth failures and private-surface changes.
+Missing/unadmitted source still refuses. Server operations retain original server
+session/permission validation. Backend AdminSessionProjection validates real revoke/
+idle/absolute expiry; current validation result/admin-me snapshot exposes no projection
+lifetime to this guard. Frontend refresh TTL is not a server deadline. No deadline,
+backend write or remote atomic promise is invented. Precise original clauses/DAG and
+source refs are in `artifacts/article-editor/issue-2295-auth-publication-contract-boundary`.
+Current auth-missing positive mounted seal null/has false and all runtime/security/
+receipt/native/resource/restore/eviction/fullready holds stay unchanged.
