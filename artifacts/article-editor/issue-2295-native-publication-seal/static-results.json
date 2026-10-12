@@ -1,14 +1,14 @@
 {
   "logs": {
-    "ui-native-sealed-final-web-types.log": 0,
-    "ui-native-sealed-final-vitest-project-types.log": 0,
-    "ui-native-sealed-final-source-eslint.log": 0,
-    "blog-native-sealed-final-alias-style.log": 0,
-    "native-sealed-final-source-ast-sfc.log": 0,
-    "blog-native-sealed-final-whole-app-types.log": 2,
-    "blog-native-sealed-final-source-style.log": 1,
-    "blog-native-sealed-final-style.log": "exit not captured; indentation failure preserved",
-    "blog-native-sealed-final-exact-ast.log": 0
+    "ui-native-sealed-final-web-types.txt": 0,
+    "ui-native-sealed-final-vitest-project-types.txt": 0,
+    "ui-native-sealed-final-source-eslint.txt": 0,
+    "blog-native-sealed-final-alias-style.txt": 0,
+    "native-sealed-final-source-ast-sfc.txt": 0,
+    "blog-native-sealed-final-whole-app-types.txt": 2,
+    "blog-native-sealed-final-source-style.txt": 1,
+    "blog-native-sealed-final-style.txt": "exit not captured; indentation failure preserved",
+    "blog-native-sealed-final-exact-ast.txt": 0
   },
   "UIWebCommand": "node /workspace/FsusUI/node_modules/vue-tsc/bin/vue-tsc.js -p vue/tsconfig.web.json --noEmit --composite false",
   "UIVitestProjectCommand": "node /workspace/FsusUI/node_modules/vue-tsc/bin/vue-tsc.js -p vue/tsconfig.vitest.json --noEmit --composite false",
@@ -18,5 +18,7 @@
   "newSourceControls": "3 blocks in ORIGINAL test file, all UNRUN",
   "runtime": "ALL HOLD/UNRUN",
   "review": "new native seal/Main forwarding pending independent source review",
-  "uiCommittedHead": "f4602b96aac974da0191a61622464b211d3d5daf"
+  "uiCommittedHead": "f4602b96aac974da0191a61622464b211d3d5daf",
+  "UILintCommand": "node /workspace/FsusUI/node_modules/eslint/bin/eslint.js vue/packages/components/markdown-editor/src/markdown-editor-session.ts vue/packages/components/markdown-editor/src/markdown-editor.vue vue/packages/components/markdown-editor/src/markdown-editor.ts",
+  "ASTCommand": "node /workspace/session-evidence-2295/static-source.cjs <the five explicit native/UI/Main paths>; final Main exact source AST checked after comment relocation"
 }
