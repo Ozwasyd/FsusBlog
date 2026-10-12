@@ -1,6 +1,9 @@
 import type { ArticleWorkspaceMountedEditorResolver } from './fsusUiEditorSessionFactory';
 import type { ArticleDocumentContextRef, ArticleDocumentIdentity } from './openArticleDocumentRegistry';
+import type { useAdminArticleWrite } from '../../composables/useAdminArticleWrite';
 import type { MarkdownEditorSessionExpose } from '@ozwasyd/element-plus';
+
+type ArticleWorkspaceOriginalDraftCheckpoint = ReturnType<typeof useAdminArticleWrite>['authoringDraftCheckpointRuntime'];
 
 /** Read the original Writer's retained mounts and document owner; do not echo router entries. */
 export interface ArticleWorkspaceMountedEditorSource {
@@ -9,6 +12,8 @@ export interface ArticleWorkspaceMountedEditorSource {
         readonly identity: ArticleDocumentIdentity;
         readonly documentContext: ArticleDocumentContextRef;
     } | null;
+    /** Same actual original Writer owner; absent on sources that cannot borrow it. */
+    readDraftCheckpoint?(editorSessionRef: string): ArticleWorkspaceOriginalDraftCheckpoint | null;
 }
 
 /** No registry, mount creation, body/history copy or route fallback is owned here. */
@@ -57,6 +62,18 @@ export function createArticleWorkspaceMountedEditorResolver(
         {
             throw new Error('article-workspace-mounted-editor-document-changed');
         }
-        return { editor, identity, documentContext, editorRevision: document.revision };
+        const draftCheckpoint = source.readDraftCheckpoint?.(sessionRef) ?? null;
+        const finalOwner = source.readDocumentBinding(sessionRef);
+        const finalDocument = session.inspectDocumentState();
+        if (source.readMountedEditor(sessionRef) !== editor || editor.getSession(sessionRef) !== session
+            || finalOwner?.identity.articleId !== identity.articleId || finalOwner.identity.draftId !== identity.draftId
+            || finalOwner.identity.documentId !== identity.documentId || finalOwner.documentContext.documentEpoch !== documentContext.documentEpoch
+            || finalOwner.documentContext.sourceRevision !== documentContext.sourceRevision || finalOwner.documentContext.draftRevision !== documentContext.draftRevision
+            || finalDocument.documentIdentity.id !== document.documentIdentity.id || finalDocument.documentIdentity.epoch !== document.documentIdentity.epoch
+            || finalDocument.revision !== document.revision)
+        {
+            throw new Error('article-workspace-mounted-editor-draft-source-changed');
+        }
+        return { editor, identity, documentContext, editorRevision: document.revision, draftCheckpoint };
     };
 }

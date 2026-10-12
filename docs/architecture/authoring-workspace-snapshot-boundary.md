@@ -155,6 +155,30 @@ does not compose the native/Writer/Journal/renderer full refset, grant live/stor
 atomicity, native restore, disposal or readiness. Those joins and all runtime
 qualification remain HOLD/UNRUN.
 
+The original Writer mounted runtime exposes `sealMountedAuthority(sessionRef)`,
+`hasMountedAuthorityCustody(seal)` and `cancelMountedAuthority(seal)`. Its physical
+reservation binds the SAME runtime, binding, mounted editor and public session
+object obtained through the original mounted source, after real source/native
+reads. Tokens are original opaque object identities; copied metadata, unknown or
+empty values do not enter its private slot. Release permanently retires that
+runtime's physical custody before its FIRST recovery release callback, including
+when that callback reenters or throws. Replacement, before-unmount, deactivation,
+scope cleanup, context and lifetime changes revoke physical reservations; no
+generation can revive an earlier token.
+
+This increment intentionally refuses positive authority: the current actual auth
+and Document producers have no genuine admin-principal and membership/lifetime
+seal APIs. Physical candidates are discarded and `sealMountedAuthority` returns
+null; `hasMountedAuthorityCustody` does not return true from a local readiness
+boolean or notification cache. The source auth/private-surface watches are ONLY
+negative physical revocation, including same-id changes; they do not attest
+permissions, expiry, step-up or administrative admission. Document's downstream
+lifetime listener is also not its required early private authority. Joining real
+producer-issued tokens and their private has/cancel methods requires the exact
+original-owner source interfaces. Until then Main composition, restoration and
+full-ready remain refused. This partial producer wiring grants no runtime or
+qualification evidence and preserves all existing HOLD gates.
+
 The returned binding exposes `adapter`, `handle`, `inspect()`,
 `subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
 attaches its actual existing form/effects/runtime object once, using one stable
