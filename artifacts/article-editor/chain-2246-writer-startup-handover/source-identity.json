@@ -1,0 +1,53 @@
+{
+  "artifact_kind": "source-only integration request, not runtime receipt",
+  "base_checkpoint": "170e2af038cd3c35d275c62d7ce3a5a2e21a472a",
+  "document_source": "26f5d8eb84b163e7b2cb4e94e3f829ec9b270f9e",
+  "document_head": "da0e8f0cd11ca2bfbe9d7e8e393c113717e8756e",
+  "document_blob": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+  "document_offer_consumed": false,
+  "superseded_ad35_consumed": false,
+  "writer_working_blob": "41b4e7ab0f4d9a89afc72dd9b90bf144fde2a8e1",
+  "writer_working_committed": false,
+  "protected_paths": {
+    "src/frontend/src/composables/useAdminArticleWrite.ts": {
+      "committed_blob": "6c75ec510b9b19dda80eea292db6f6d7a7a092bf",
+      "unchanged": true
+    },
+    "src/frontend/src/services/authoring/articleDocumentContext.ts": {
+      "committed_blob": "4221025bd452c6c8299832a07af9ddfeaf4ed9f2",
+      "unchanged": true
+    },
+    "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": {
+      "committed_blob": "f7343067454f71d053ab48ef86cab2aa0c5cd512",
+      "unchanged": true
+    },
+    "src/frontend/src/services/authoring/articleRenderCache.ts": {
+      "committed_blob": "d9d579c7cb6d486c122dc1320bb9a01e92f8fb30",
+      "unchanged": true
+    }
+  },
+  "markdown_sha256": "0dffef402bd66d3392bacce675703b834ecfd1c8fc0bcef7f3920f66b0e07748",
+  "candidate_execution": false,
+  "runtime": "HOLD/UNRUN",
+  "issue_2250": {
+    "state": "open",
+    "comments": 0,
+    "updated_at": "2026-08-04T03:07:21Z",
+    "prerequisites": [
+      2243,
+      2245,
+      2246,
+      1802
+    ]
+  },
+  "checks": [
+    {
+      "command": "git merge-base --is-ancestor 26f5d8... da0e8f...",
+      "exit_code": 0
+    },
+    {
+      "command": "git hash-object plus exact committed/source byte comparisons (Python standard-library only)",
+      "exit_code": 0
+    }
+  ]
+}
