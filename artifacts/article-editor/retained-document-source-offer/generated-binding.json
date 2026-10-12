@@ -28,15 +28,15 @@
     },
     {
       "path": "artifacts/article-editor/retained-authority-seals/consumer-36d.patch",
-      "sha256": "f510519af1e2251c3f135c43ad77ac55689d32687b4ecdd110c2db4bc3873145"
+      "sha256": "5d1e09dfe4fcd5aa27284f46ef4a17dfe95296d64606c55c344a00904d879271"
     },
     {
       "path": "artifacts/article-editor/retained-authority-seals/production-36d.patch",
-      "sha256": "520691cb0ea4f86ba216d559c3ed10b71f910877282224cd4cbf3c164c36bf8b"
+      "sha256": "41cf654e6e46aa593021a55becf24575ddfb9dd3f14136646e9db4d009c0b305"
     },
     {
       "path": "artifacts/article-editor/retained-authority-seals/source-offer.json",
-      "sha256": "b73081b2331f49d110ba194bfe6cfc44e66d571c381082b51cede9651af8c7af"
+      "sha256": "e8036158c32bc166e241b2da6cbff4485c48d77442953d57bcbf8e4285e1db94"
     }
   ]
 }

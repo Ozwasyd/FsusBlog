@@ -1,5 +1,5 @@
 diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
-index 3d36ef1e4..9c5358a9a 100644
+index 3d36ef1e4..76761edf0 100644
 --- a/src/frontend/src/services/authoring/articleDocumentContext.ts
 +++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
 @@ -1,15 +1,19 @@
@@ -188,7 +188,7 @@ index 3d36ef1e4..9c5358a9a 100644
              revokeRetainedArticleDocumentScope(owner.handle);
          }
          return inspectRetainedArticleDocumentHandle(owner.handle);
-@@ -1842,6 +1899,80 @@ export class ArticleDocumentContextAuthority
+@@ -1842,6 +1899,87 @@ export class ArticleDocumentContextAuthority
              admissionClosed: owner.scopeRetired || owner.invalidationFailed || registry.state !== 'live' });
      }
  
@@ -223,9 +223,16 @@ index 3d36ef1e4..9c5358a9a 100644
 +                return null;
 +            }
 +            owner.lifetimePublication ??= {};
++            const ownerPublication = owner.lifetimePublication;
++            const consumer = owner.consumer;
 +            const seal = Object.freeze({}) as ArticleDocumentLifetimeSeal;
++            if (owner.lifetimePublication !== ownerPublication || owner.consumer !== consumer)
++            {
++                cancelRetainedArticleDocumentMembershipSeal(membership);
++                return null;
++            }
 +            this.#lifetimeSeals.set(seal, { owner, binding, handle, membership,
-+                ownerPublication: owner.lifetimePublication, nativePublication: native, nativePort: port, consumer: owner.consumer });
++                ownerPublication, nativePublication: native, nativePort: port, consumer });
 +            if (!this.#hasLifetimeAuthorityCustody(owner, binding, seal))
 +            {
 +                this.#cancelLifetimeAuthority(owner, binding, seal);
@@ -245,7 +252,7 @@ index 3d36ef1e4..9c5358a9a 100644
 +    {
 +        const custody = this.#lifetimeSeals.get(seal);
 +        return !!custody && custody.owner === owner && custody.binding === binding && owner.binding === binding
-+            && owner.handle === custody.handle && owner.lifetimePublication === custody.ownerPublication
++            && owner.handle === custody.handle && owner.lifetimePublication !== null && owner.lifetimePublication === custody.ownerPublication
 +            && this.#retainedOwners.get(custody.handle) === owner && this.#ownersByAdapter.get(owner.adapter) === owner
 +            && owner.consumer === custody.consumer && !owner.scopeRetired && !owner.invalidationFailed && !owner.attachingConsumer
 +            && owner.consumerInvalidationState === 'not-requested'
@@ -269,7 +276,7 @@ index 3d36ef1e4..9c5358a9a 100644
      #assertRetainedConsumerAdmission(owner: ArticleDocumentRetainedOwner): void
      {
          if (owner.scopeRetired || owner.invalidationFailed)
-@@ -1907,6 +2038,9 @@ export class ArticleDocumentContextAuthority
+@@ -1907,6 +2045,9 @@ export class ArticleDocumentContextAuthority
          owner.handle = handle;
          const binding: ArticleDocumentRetainedBinding = Object.freeze({ handle, adapter: owner.adapter,
              inspect: () => this.#inspectRetainedOwner(owner),
@@ -279,7 +286,7 @@ index 3d36ef1e4..9c5358a9a 100644
              subscribeLifetime: (listener: (observation: ArticleDocumentRetainedInspection) => void) =>
              {
                  owner.listeners.add(listener);
-@@ -1922,6 +2056,7 @@ export class ArticleDocumentContextAuthority
+@@ -1922,6 +2063,7 @@ export class ArticleDocumentContextAuthority
                      throw new Error('article-document-retained-consumer-unavailable');
                  }
                  // Reserve before the first external reader, including cached reads.
@@ -287,7 +294,7 @@ index 3d36ef1e4..9c5358a9a 100644
                  owner.attachingConsumer = true;
                  try
                  {
-@@ -2030,6 +2165,7 @@ export class ArticleDocumentContextAuthority
+@@ -2030,6 +2172,7 @@ export class ArticleDocumentContextAuthority
  
      #notifyRetainedOwner(owner: ArticleDocumentRetainedOwner): void
      {
@@ -295,7 +302,7 @@ index 3d36ef1e4..9c5358a9a 100644
          const observation = this.#inspectRetainedOwner(owner);
          const state = observation.registry.state;
          const changedState = state !== owner.lastState;
-@@ -2068,6 +2204,7 @@ export class ArticleDocumentContextAuthority
+@@ -2068,6 +2211,7 @@ export class ArticleDocumentContextAuthority
  
      #invalidateRetainedConsumer(owner: ArticleDocumentRetainedOwner): void
      {
@@ -304,7 +311,7 @@ index 3d36ef1e4..9c5358a9a 100644
          {
              return;
 diff --git a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
-index d0fba443d..cf423ce2c 100644
+index d0fba443d..fbe62dab1 100644
 --- a/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
 +++ b/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
 @@ -64,6 +64,17 @@ export interface RetainedArticleDocumentHandle {
@@ -386,7 +393,7 @@ index d0fba443d..cf423ce2c 100644
  
  export function retainedArticleDocumentHandleBelongsTo(handle: RetainedArticleDocumentHandle, registry: OpenArticleDocumentRegistry): boolean
  {
-@@ -770,6 +828,41 @@ export class OpenArticleDocumentRegistry
+@@ -770,6 +828,76 @@ export class OpenArticleDocumentRegistry
      #retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
      #retainedNotificationPending = false;
      #retainedNotificationRequested = false;
@@ -398,15 +405,50 @@ index d0fba443d..cf423ce2c 100644
 +        // Retire before command getters, hashing, clones or any publisher callback.
 +        this.#membershipPublication = null;
 +        this.#membershipMutationDepth += 1;
++        let outcome: { succeeded: true; value: T; } | { succeeded: false; error: unknown; };
 +        try
 +        {
-+            return operation();
++            outcome = { succeeded: true, value: operation() };
++        }
++        catch (error)
++        {
++            outcome = { succeeded: false, error };
 +        }
 +        finally
 +        {
 +            this.#membershipMutationDepth -= 1;
-+            this.#publishMembershipAuthority();
 +        }
++        let cleanupFailed = false;
++        let cleanupError: unknown;
++        if (this.#membershipMutationDepth === 0)
++        {
++            try
++            {
++                // Drain on both success and failure. A throwing getter can
++                // already have retired real membership while depth deferred it.
++                this.#notifyRetainedDocuments();
++            }
++            catch (error)
++            {
++                this.#membershipPublication = null;
++                cleanupFailed = true;
++                cleanupError = error;
++            }
++        }
++        if (!outcome.succeeded)
++        {
++            if (cleanupFailed)
++            {
++                throw new AggregateError([outcome.error, cleanupError], 'retained-article-document-mutation-and-notification-failed',
++                    { cause: outcome.error });
++            }
++            throw outcome.error;
++        }
++        if (cleanupFailed)
++        {
++            throw cleanupError;
++        }
++        return outcome.value;
 +    }
 +
 +    #publishMembershipAuthority(): void
@@ -428,7 +470,7 @@ index d0fba443d..cf423ce2c 100644
  
      public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
      {
-@@ -809,6 +902,7 @@ export class OpenArticleDocumentRegistry
+@@ -809,6 +937,7 @@ export class OpenArticleDocumentRegistry
              notifiedFailure: false,
              listeners: new Set(),
              notify: () => this.#notifyRetainedDocuments(),
@@ -436,7 +478,7 @@ index d0fba443d..cf423ce2c 100644
              read: () =>
              {
                  const current = this.entriesByTabId.get(tabId);
-@@ -848,8 +942,9 @@ export class OpenArticleDocumentRegistry
+@@ -848,8 +977,9 @@ export class OpenArticleDocumentRegistry
  
      #notifyRetainedDocuments(): void
      {
@@ -447,7 +489,7 @@ index d0fba443d..cf423ce2c 100644
          {
              return;
          }
-@@ -877,10 +972,16 @@ export class OpenArticleDocumentRegistry
+@@ -877,10 +1007,16 @@ export class OpenArticleDocumentRegistry
          finally
          {
              this.#retainedNotificationPending = false;
@@ -464,21 +506,23 @@ index d0fba443d..cf423ce2c 100644
      {
          if (this.#groupOwnershipCell)
          {
-@@ -914,7 +1015,7 @@ export class OpenArticleDocumentRegistry
+@@ -914,8 +1050,7 @@ export class OpenArticleDocumentRegistry
          expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
          ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
      {
 -        const result = this.executeCore(command, { expected, next, ratioChange });
+-        this.#notifyRetainedDocuments();
 +        const result = this.#runMembershipMutation(() => this.executeCore(command, { expected, next, ratioChange }));
-         this.#notifyRetainedDocuments();
          return result;
      }
-@@ -956,7 +1057,7 @@ export class OpenArticleDocumentRegistry
+ 
+@@ -956,8 +1091,7 @@ export class OpenArticleDocumentRegistry
  
      public execute(command: unknown): OpenArticleDocumentCommandResult
      {
 -        const result = this.executeCore(command);
+-        this.#notifyRetainedDocuments();
 +        const result = this.#runMembershipMutation(() => this.executeCore(command));
-         this.#notifyRetainedDocuments();
          return result;
      }
+ 

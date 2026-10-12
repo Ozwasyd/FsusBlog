@@ -11,7 +11,7 @@ if len(sys.argv) != 3:
 source, consumer = (Path(value).resolve() for value in sys.argv[1:])
 out = Path(__file__).resolve().parent
 before = 'da0e8f0cd11ca2bfbe9d7e8e393c113717e8756e'
-producer = '711265f6e0717dffd13aa078f82bc6118d0952d6'
+producer = '272a771baa33a9c9c06ec02250a9d97ff786b0c8'
 main = '36d835088f310dd31d1e76ca240d5cc606dcbb65'
 paths = ['src/frontend/src/services/authoring/articleDocumentContext.ts',
          'src/frontend/src/services/authoring/openArticleDocumentRegistry.ts',

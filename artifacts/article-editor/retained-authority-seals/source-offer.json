@@ -1,9 +1,9 @@
 {
   "schema": "fsusblog.retained-authority-seals-source-offer.v1",
-  "producerRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+  "producerRevision": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
   "consumerRevision": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
   "sourceBase": "da0e8f0cd11ca2bfbe9d7e8e393c113717e8756e",
-  "patchSha256": "f510519af1e2251c3f135c43ad77ac55689d32687b4ecdd110c2db4bc3873145",
+  "patchSha256": "5d1e09dfe4fcd5aa27284f46ef4a17dfe95296d64606c55c344a00904d879271",
   "paths": [
     {
       "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
@@ -14,16 +14,16 @@
         "mode": "100644"
       },
       "after": {
-        "gitBlob": "9c5358a9a4e3ecbb517e6f47f2645a825b2f2291",
-        "sha256": "e921c3819d378b5da2384458085462c1c44e79561c3048ba269ae9050a8c5235",
-        "bytes": 90287,
+        "gitBlob": "76761edf0b89bb538a5aa24cc7c87e6df0294d9b",
+        "sha256": "ff3e930edd4196b03b5d6701a006d452f62900cc987ddaf073cc45b17b9fab6f",
+        "bytes": 90616,
         "mode": "100644"
       },
-      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donorRevision": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
       "donor": {
-        "gitBlob": "9c5358a9a4e3ecbb517e6f47f2645a825b2f2291",
-        "sha256": "e921c3819d378b5da2384458085462c1c44e79561c3048ba269ae9050a8c5235",
-        "bytes": 90287,
+        "gitBlob": "76761edf0b89bb538a5aa24cc7c87e6df0294d9b",
+        "sha256": "ff3e930edd4196b03b5d6701a006d452f62900cc987ddaf073cc45b17b9fab6f",
+        "bytes": 90616,
         "mode": "100644"
       },
       "composition": "exact producer postimage"
@@ -37,16 +37,16 @@
         "mode": "100644"
       },
       "after": {
-        "gitBlob": "cf423ce2ced59fd2133e5e09a4bad7ab2a4149ee",
-        "sha256": "d2bf1634b10068f8d5d2d952564fc0c918d34e551070cabe11dbbf80d6e9e983",
-        "bytes": 91168,
+        "gitBlob": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e",
+        "sha256": "6f4015b9c1ff944938e708bd54a47ba30067a237e19e4fc20e0b5edfbd8f3a96",
+        "bytes": 92260,
         "mode": "100644"
       },
-      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donorRevision": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
       "donor": {
-        "gitBlob": "cf423ce2ced59fd2133e5e09a4bad7ab2a4149ee",
-        "sha256": "d2bf1634b10068f8d5d2d952564fc0c918d34e551070cabe11dbbf80d6e9e983",
-        "bytes": 91168,
+        "gitBlob": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e",
+        "sha256": "6f4015b9c1ff944938e708bd54a47ba30067a237e19e4fc20e0b5edfbd8f3a96",
+        "bytes": 92260,
         "mode": "100644"
       },
       "composition": "exact producer postimage"
@@ -60,16 +60,16 @@
         "mode": "100644"
       },
       "after": {
-        "gitBlob": "35597d3616509c630b76653de436ae9976d2b0d9",
-        "sha256": "c16c3a66092beedcf8b0f96b617d891285fff2af02186d4d8a947d07b39813ed",
-        "bytes": 14826,
+        "gitBlob": "596c748bd82748ade1553f9475064c548a3c3d6f",
+        "sha256": "83b5e444a8fc543773d7892dec1b38703f13495dc53a3f9b7822046a48cfdc2f",
+        "bytes": 16232,
         "mode": "100644"
       },
-      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donorRevision": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
       "donor": {
-        "gitBlob": "35597d3616509c630b76653de436ae9976d2b0d9",
-        "sha256": "c16c3a66092beedcf8b0f96b617d891285fff2af02186d4d8a947d07b39813ed",
-        "bytes": 14826,
+        "gitBlob": "596c748bd82748ade1553f9475064c548a3c3d6f",
+        "sha256": "83b5e444a8fc543773d7892dec1b38703f13495dc53a3f9b7822046a48cfdc2f",
+        "bytes": 16232,
         "mode": "100644"
       },
       "composition": "exact producer postimage"
@@ -83,16 +83,16 @@
         "mode": "100644"
       },
       "after": {
-        "gitBlob": "c0f8e33e9ae27bd10051a5a8579f7768142055c4",
-        "sha256": "1e7d4d30a96af70a58fc844e56a865ad16620a6e6b9dae3c54ff1434ed3011cf",
-        "bytes": 60191,
+        "gitBlob": "3551d54e54cfcfb9e391e006b0e98653aee69cb3",
+        "sha256": "3763c313e37896f2ce2698da27d9729dac757eb8df5313773731bbb434c73be8",
+        "bytes": 63887,
         "mode": "100644"
       },
-      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donorRevision": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
       "donor": {
-        "gitBlob": "c0f8e33e9ae27bd10051a5a8579f7768142055c4",
-        "sha256": "1e7d4d30a96af70a58fc844e56a865ad16620a6e6b9dae3c54ff1434ed3011cf",
-        "bytes": 60191,
+        "gitBlob": "3551d54e54cfcfb9e391e006b0e98653aee69cb3",
+        "sha256": "3763c313e37896f2ce2698da27d9729dac757eb8df5313773731bbb434c73be8",
+        "bytes": 63887,
         "mode": "100644"
       },
       "composition": "exact producer postimage"
@@ -106,16 +106,16 @@
         "mode": "100644"
       },
       "after": {
-        "gitBlob": "cfed1a56a59572a643717074188ea56949bb8bba",
-        "sha256": "8fcf7ec86b280e5528bb172f881be2f80c7fe1b67ddf55e9836d59d134dd4385",
-        "bytes": 75116,
+        "gitBlob": "4f99308b7515968d9cc3150dcabbe450c6ed9416",
+        "sha256": "ae9fd225a661e206e821d31bb487e708d39b67239ea6b5d182e9ef29eaebec55",
+        "bytes": 75918,
         "mode": "100644"
       },
-      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donorRevision": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
       "donor": {
-        "gitBlob": "ba2d63bbd9cd04e8a4fff87fff7747f1b574faa3",
-        "sha256": "bf58a8031f2beb041491a43449342e673a07353dfc826d1f7a4616b8fdd183b8",
-        "bytes": 28448,
+        "gitBlob": "d60c4dd572c1b24889deec09cc418eb1b6625e62",
+        "sha256": "554c0bde4c5799fa826f51f9e3e3bf42ce336921ac4349d25f673b3e3f7057c2",
+        "bytes": 29250,
         "mode": "100644"
       },
       "composition": "original owning doc increment applied to complete Main document"
@@ -129,22 +129,22 @@
         "mode": "100644"
       },
       "after": {
-        "gitBlob": "6162aadbe2900b25a6b89c1efa66dec60c77ff2f",
-        "sha256": "f5ad62b244782b9fbc55e85f7833429df189fd83fe7880c541f7bf8a2a72f0d3",
-        "bytes": 22951,
+        "gitBlob": "ecbd3a5c724363b518736baa225bc0af964225d8",
+        "sha256": "1736c2ef3b8e35e755ad84889336518f07e3c8ef92a099faefde6faf8a09ccf2",
+        "bytes": 24137,
         "mode": "100644"
       },
-      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donorRevision": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
       "donor": {
-        "gitBlob": "6162aadbe2900b25a6b89c1efa66dec60c77ff2f",
-        "sha256": "f5ad62b244782b9fbc55e85f7833429df189fd83fe7880c541f7bf8a2a72f0d3",
-        "bytes": 22951,
+        "gitBlob": "ecbd3a5c724363b518736baa225bc0af964225d8",
+        "sha256": "1736c2ef3b8e35e755ad84889336518f07e3c8ef92a099faefde6faf8a09ccf2",
+        "bytes": 24137,
         "mode": "100644"
       },
       "composition": "exact producer postimage"
     }
   ],
-  "productionPatchSha256": "520691cb0ea4f86ba216d559c3ed10b71f910877282224cd4cbf3c164c36bf8b",
+  "productionPatchSha256": "41cf654e6e46aa593021a55becf24575ddfb9dd3f14136646e9db4d009c0b305",
   "productionApplyCheckExit": 0,
   "productionApplyExit": 0,
   "productionDiffCheckExit": 0,
@@ -155,7 +155,7 @@
   "appliedSourceDiffCheckExit": 0,
   "generator": {
     "path": "capture-source-offer.py",
-    "sha256": "e912b773d2c96c5e6904922388ccccb9d3fa0d4526eee3ef78702296690fe07c"
+    "sha256": "5299a130ee56536ea33ea8ff942beadd0803f11983b6d00426d53a9f7acc3fd4"
   },
   "qualification": false,
   "candidateModulesImported": false

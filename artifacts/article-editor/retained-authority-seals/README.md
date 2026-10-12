@@ -1,7 +1,8 @@
 # Original retained membership and Document lifetime seal source offer
 
-Runtime producer711265f6e0717dffd13aa078f82bc6118d0952d6 is original Registry7e464
-plus original Document711265. Exact request source is Main36d835088f310dd31d1e76ca240d5cc606dcbb65
+Repaired runtime producer272a771baa33a9c9c06ec02250a9d97ff786b0c8 follows original
+Registry7e464/Document711265. Independent review of711265/fa513 found TWO P2 gaps;
+those heads are NOT accepted new seal source. Current272a requires exact source review. Exact request source is Main36d835088f310dd31d1e76ca240d5cc606dcbb65
 `artifacts/article-editor/issue-2295-composition-admission-seal/original-producer-requests.json`.
 A byte-exact copy is retained here with that fixed provenance. Only the first two
 original owners are implemented in this lane; Writer/auth/Root seals are separate
@@ -65,8 +66,9 @@ seal does not substitute for these leaf producers or omitted other owners.
 Static evidence: original strict-full two production files0violations, four source/
 control AST0 (no candidate module import), source diff-check0. Original whole
 application local alias helper RED2/249 diagnostics, exact headline multiplicity
-unchanged from recorded26f with actual local UI8db0ac8f49749e3e5f28be5051bb3d3ed71ada71.
-Initial assertion/optional-chain style findings are preserved and fixed. Seven new
+unchanged from recorded711265 with actual local UI8db0ac8f49749e3e5f28be5051bb3d3ed71ada71.
+Initial assertion/optional-chain and P2 unsafe-finally/cause style findings are
+preserved and fixed. Ten new
 same-original-module source cases and all prior source tests UNRUN; COMPLETE original
 unit entry/config/setup/import preflight stays unchanged. All runtime/test/list/
 discovery/import/native/browser/mount/security/privacy/receipt/race/DB/storage/
@@ -74,3 +76,15 @@ qualification HOLD remains. Independent new exact source/composition review requ
 Raw standard patches retain blank context syntax; publisher artifact diff-check
 warnings for those lines are reported separately, never waived or an aggregate pass.
 No package publish, merge, issue close or full-ready claim.
+
+The outermost mutation now retains its actual outcome, unwinds depth, drains both
+success/error exits, then returns or throws the preserved real outcome. Revocation
+queued inside a throwing getter reaches original Document task cancellation and
+consumer cleanup, including existing failed custody. Unexpected drain error keeps
+publication retired and reports both errors with original cause; no rule bypass.
+
+Lifetime issuance pins NON-NULL owner publication and exact consumer BEFORE opaque
+token allocation, revalidates both afterward, and final has refuses null. Actual
+cached attachment during token allocation cannot register null or revive an old
+seal after its transient attaching flag clears. Three additional original-module
+source cases are written only/UNRUN; no condition or frozen authority was removed.

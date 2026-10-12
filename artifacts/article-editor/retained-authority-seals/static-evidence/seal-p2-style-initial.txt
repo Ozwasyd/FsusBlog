@@ -1,0 +1,3 @@
+[frontend-style] src/frontend/src/services/authoring/openArticleDocumentRegistry.ts:867:25 eslint/no-unsafe-finally: Unsafe usage of ThrowStatement.
+[frontend-style] src/frontend/src/services/authoring/openArticleDocumentRegistry.ts:867:25 eslint/preserve-caught-error: There is no `cause` attached to the symptom error being thrown.
+[frontend-style] src/frontend/src/services/authoring/openArticleDocumentRegistry.ts:869:21 eslint/no-unsafe-finally: Unsafe usage of ThrowStatement.
