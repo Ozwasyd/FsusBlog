@@ -383,7 +383,7 @@
     "Every runtime, auth/security, test/list, native, and receipt cell remains UNRUN/HOLD.",
     "Command return/status is not independent native/task/storage qualification.",
     "Arbitrary foreign async self-wait remains a retained pending obligation; no timeout or invented terminal completion.",
-    "Snapshot9fb0e2c correction is exact original consumption awaiting independent re-review; not whole API admission."
+    "Snapshot9fb0e2c two prior P2s source-closed; new original conflict-refresh P2 pending original repair/re-review. Root copies no conflict-selection logic; not whole API admission."
   ],
   "failed_preparation_custody": "Same original preparation reservation retains partial lifetime; source-identity managed retry available without returned ports.",
   "ordering_correction": "Root forwards the real original storage methods and retains only cleanup bookkeeping: accepted writes drain before remove; only successful actual remove authorizes close; swallowed original best-effort clear errors are rethrown by the strict Root prerequisite.",

@@ -152,7 +152,7 @@
     "Original retained mount-before-restore and full session factory",
     "Original committed shell command/lifetime binding",
     "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged",
-    "Original Snapshot9fb0e2c admission/unknown-outcome refresh correction awaits independent re-review; current API consumption is conditional."
+    "Original Snapshot9fb0e2c new conflict-refresh P2 awaits original-owner repair/re-review: preserve explicit acceptServerAfterConflict across failed queued conflict reads; current API consumption remains conditional."
   ],
   "qualification": false,
   "activation": false,
@@ -160,7 +160,7 @@
     "source": "6efe4eddda4fed46e270d3938a01cd30ba4d0922",
     "connection": "src/frontend/src/api/authoringWorkspaceSnapshotConnection.ts",
     "http_transport": "src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts",
-    "review": "Original9fb0e2c admission/unknown-outcome refresh correction consumed exactly; independent re-review pending, not SOURCE CLOSED or whole API ready/qualification.",
+    "review": "Original9fb0e2c two prior admission/unknown-refresh P2s source-closed; new original-owner P2 pending: queued conflict GET failure becomes failed, retry switches to channel and dirty=false adopts without acceptServerAfterConflict. Not whole SOURCE CLOSED or ready/qualification; no Root workaround.",
     "root_caller": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
     "sole_root_port_source": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
     "pipeline": "Original real admin principal + server-selected scope/artifact digest -> original complete API fresh-read verifier -> original Cache/Sync -> stable existing root startup ports; original runtime capability and resolveBatch remain mandatory. No host installation in this helper.",
