@@ -2103,25 +2103,100 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         await refreshArticleRecoveryCandidates(signal);
     };
 
-    const applyDraftToForm = (draft: ArticleDraftSnapshot): void =>
+    let draftFormRestoring = false;
+    const applyDraftToForm = (draft: ArticleDraftSnapshot, checkpoint?: {
+        readonly admit: () => boolean;
+        readonly preserveServerPause: true;
+    }): boolean =>
     {
-        suppressDraftSave = true;
-        articleForm.title = draft.title;
-        articleForm.content = draft.content;
-        articleForm.summary = draft.summary;
-        articleForm.coverImageUrl = draft.coverImageUrl;
-        articleForm.categoryId = draft.categoryId;
-        articleForm.tagIds = [...draft.tagIds];
-        articleForm.status = draft.status;
-        articleForm.scheduledPublishAt = draft.scheduledPublishAt;
-        articleForm.rights = { ...draft.rights };
-        serverDraftRevision.value = draft.serverRevision;
-        if (draft.isEdit)
+        if (draftFormRestoring)
         {
-            currentRevisionId.value = draft.baseRevisionId;
+            throw new Error('article-draft-form-restore-reentrant');
         }
-        serverDraftSyncPaused.value = false;
-        suppressDraftSave = false;
+        draftFormRestoring = true;
+        const previousSuppression = suppressDraftSave;
+        suppressDraftSave = true;
+        try
+        {
+            if (!checkpoint)
+            {
+                invalidateDraftCheckpoint();
+            }
+            // Each setter can invoke synchronous user/component watchers. Never continue
+            // past a superseded checkpoint or overwrite the edit made by that watcher.
+            const writes = [
+                () =>
+                {
+                    articleForm.title = draft.title;
+                },
+                () =>
+                {
+                    articleForm.content = draft.content;
+                },
+                () =>
+                {
+                    articleForm.summary = draft.summary;
+                },
+                () =>
+                {
+                    articleForm.coverImageUrl = draft.coverImageUrl;
+                },
+                () =>
+                {
+                    articleForm.categoryId = draft.categoryId;
+                },
+                () =>
+                {
+                    articleForm.tagIds = [...draft.tagIds];
+                },
+                () =>
+                {
+                    articleForm.status = draft.status;
+                },
+                () =>
+                {
+                    articleForm.scheduledPublishAt = draft.scheduledPublishAt;
+                },
+                () =>
+                {
+                    articleForm.rights = { ...draft.rights };
+                },
+                () =>
+                {
+                    serverDraftRevision.value = draft.serverRevision;
+                },
+                () =>
+                {
+                    if (draft.isEdit)
+                    {
+                        currentRevisionId.value = draft.baseRevisionId;
+                    }
+                }
+            ];
+            for (const write of writes)
+            {
+                if (checkpoint && !checkpoint.admit())
+                {
+                    return false;
+                }
+                write();
+                if (checkpoint && !checkpoint.admit())
+                {
+                    return false;
+                }
+            }
+            if (!checkpoint?.preserveServerPause)
+            {
+                // Only the original explicit recovery flow may resolve this pause.
+                serverDraftSyncPaused.value = false;
+            }
+            return !checkpoint || checkpoint.admit();
+        }
+        finally
+        {
+            suppressDraftSave = active && writerScope.active ? previousSuppression : true;
+            draftFormRestoring = false;
+        }
     };
 
     // One bounded immutable checkpoint in the ORIGINAL full-draft owner; no persistence/body store.
@@ -2129,7 +2204,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         tagIds: Object.freeze([...draft.tagIds]), rights: Object.freeze({ ...draft.rights }) });
     const fullDraftIdentity = (draft: ArticleDraftSnapshot, clientRevision: string | null, revisionNo: number | null) =>
         calculateOpenArticleDocumentDigest({ semantic: buildDraftSemanticIdentity(draft), categoryId: draft.categoryId,
-            clientRevision, revisionNo, documentContextDigest: draft.documentContextDigest });
+            clientRevision, revisionNo, serverDraftSyncPaused: serverDraftSyncPaused.value, documentContextDigest: draft.documentContextDigest });
     const currentFullDraftIdentity = () => fullDraftIdentity(
         buildDraftSnapshot(activeRecoveryClientRevision ?? ''), activeRecoveryClientRevision, currentRevisionNo.value);
     const readFullDraftOwner = () =>
@@ -2139,7 +2214,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         const runtime = originalMountedRuntime;
         const registry = articleWorkspaceTabRouter.getRegistry();
         const entry = registry.getEntryByIdentity({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId });
-        if (!active || !writerScope.active || !componentAttached || !identityId || identityId !== documentPrincipalIdentityId
+        if (!active || !writerScope.active || !componentAttached || fullDraftPrincipalRetired || serverDraftSyncPaused.value
+            || !identityId || identityId !== documentPrincipalIdentityId
             || document.siteScope !== documentSiteScope || document.userScope !== documentUserScope
             || articleId.value !== document.articleId || runtime?.binding !== editorRuntimeBinding
             || entry?.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
@@ -2168,7 +2244,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         const session = mounted.getSession(entry.editorSessionRef);
         const native = session.inspectDocumentState();
         const semanticIdentity = currentFullDraftIdentity();
-        if (!active || !writerScope.active || runtime !== originalMountedRuntime || runtime.binding !== editorRuntimeBinding
+        if (!active || !writerScope.active || fullDraftPrincipalRetired || serverDraftSyncPaused.value
+            || runtime !== originalMountedRuntime || runtime.binding !== editorRuntimeBinding
             || adminStore.adminPrincipal?.id?.trim() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
             || registry.getRevision() !== registryRevision || registry.getEntry(entry.tabId)?.lifecycleRevision !== entry.lifecycleRevision
             || native.documentIdentity.id !== document.documentId || native.documentIdentity.epoch !== document.documentEpoch
@@ -2179,7 +2256,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         return Object.freeze({ document, identityId, runtime, mounted, session, registryRevision,
             associationRevision: entry.lifecycleRevision, editorSessionRef: entry.editorSessionRef,
             draftKey: draftKey.value, clientRevision: activeRecoveryClientRevision, revisionNo: currentRevisionNo.value,
-            baseRevisionId: currentRevisionId.value, serverRevision: serverDraftRevision.value, semanticIdentity });
+            baseRevisionId: currentRevisionId.value, serverRevision: serverDraftRevision.value,
+            serverDraftSyncPaused: serverDraftSyncPaused.value, semanticIdentity });
     };
     const fullDraftInfo = (reference: string, owner: NonNullable<ReturnType<typeof readFullDraftOwner>>) => Object.freeze({
         draftStateRef: reference, documentContext: owner.document, principalIdentityId: owner.identityId,
@@ -2187,13 +2265,15 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         registryRevision: owner.registryRevision, associationRevision: owner.associationRevision,
         nativeRevision: owner.document.sourceRevision, clientRevision: owner.clientRevision,
         baseRevisionId: owner.baseRevisionId, serverRevision: owner.serverRevision, revisionNo: owner.revisionNo,
-        fullDraftDigest: owner.semanticIdentity
+        serverDraftSyncPaused: owner.serverDraftSyncPaused, fullDraftDigest: owner.semanticIdentity
     });
     let fullDraftCustody: { readonly snapshot: ReturnType<typeof freezeFullDraftSnapshot>;
         readonly owner: NonNullable<ReturnType<typeof readFullDraftOwner>>; readonly info: ReturnType<typeof fullDraftInfo>; } | null = null;
     let fullDraftGeneration = 0;
     let fullDraftSequence = 0;
     let fullDraftCapturing = false;
+    let fullDraftRestoring = false;
+    let fullDraftPrincipalRetired = false;
     let fullDraftReleased = false;
     const invalidateDraftCheckpoint = (): void =>
     {
@@ -2211,7 +2291,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     {
         const custody = fullDraftCustody;
         const generation = fullDraftGeneration;
-        if (fullDraftReleased || typeof reference !== 'string' || custody?.info.draftStateRef !== reference)
+        if (fullDraftReleased || fullDraftPrincipalRetired || typeof reference !== 'string' || custody?.info.draftStateRef !== reference)
         {
             return null;
         }
@@ -2245,7 +2325,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const authoringDraftCheckpointRuntime = Object.freeze({
         captureDraftCheckpoint: () =>
         {
-            if (fullDraftReleased || fullDraftCapturing || fullDraftSequence === Number.MAX_SAFE_INTEGER)
+            if (fullDraftReleased || fullDraftPrincipalRetired || fullDraftCapturing || fullDraftRestoring || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
             {
                 return null;
             }
@@ -2287,15 +2367,43 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
         restoreDraftReference: (reference: string) =>
         {
-            const info = inspectDraftReference(reference);
-            const custody = fullDraftCustody;
-            if (!info || custody?.info !== info)
+            if (fullDraftRestoring || fullDraftCapturing || draftFormRestoring)
             {
                 return null;
             }
-            // Reapply the ORIGINAL full draft through its existing restore, never rewind newer metadata.
-            applyDraftToForm({ ...custody.snapshot, tagIds: [...custody.snapshot.tagIds], rights: { ...custody.snapshot.rights } });
-            return inspectDraftReference(reference);
+            // Reserve before inspection/materialization can invoke original native or user readers.
+            fullDraftRestoring = true;
+            const custody = fullDraftCustody;
+            const generation = fullDraftGeneration;
+            const admit = (): boolean =>
+            {
+                if (!custody || fullDraftCustody !== custody || fullDraftGeneration !== generation
+                    || fullDraftPrincipalRetired || fullDraftReleased || serverDraftSyncPaused.value)
+                {
+                    return false;
+                }
+                const info = inspectDraftReference(reference);
+                return info === custody.info && fullDraftCustody === custody && fullDraftGeneration === generation
+                    && !fullDraftPrincipalRetired && !fullDraftReleased && !serverDraftSyncPaused.value;
+            };
+            try
+            {
+                if (!custody || !admit())
+                {
+                    return null;
+                }
+                const draft = { ...custody.snapshot, tagIds: [...custody.snapshot.tagIds], rights: { ...custody.snapshot.rights } };
+                if (!admit() || !applyDraftToForm(draft, { admit, preserveServerPause: true }))
+                {
+                    return null;
+                }
+                return admit() ? custody.info : null;
+            }
+            finally
+            {
+                // Exceptions propagate; refusal never fabricates rollback or overwrites newer edits.
+                fullDraftRestoring = false;
+            }
         },
         releaseDraftCheckpoint: (reference: string): boolean =>
         {
@@ -2308,6 +2416,16 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         },
         invalidateDraftCheckpoint
     });
+    watch(() => adminStore.adminPrincipal?.id?.trim() ?? null, (identity, previous) =>
+    {
+        if (identity !== previous)
+        {
+            // Retirement is permanent for this original owner, including A→null/B→A.
+            fullDraftPrincipalRetired = true;
+            invalidateDraftCheckpoint();
+        }
+    }, { flush: 'sync' });
+    watch(serverDraftSyncPaused, invalidateDraftCheckpoint, { flush: 'sync' });
     watch(currentFullDraftIdentity, invalidateDraftCheckpoint, { flush: 'sync' });
     const unsubscribeDraftCheckpointContext = articleDocumentContextAdapter.subscribeContext(invalidateDraftCheckpoint);
     onScopeDispose(() =>
@@ -2397,6 +2515,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const performRestoreLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -2461,6 +2583,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const performDiscardLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -2506,6 +2632,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const restoreLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         if (articleRecoveryComparisonRequired.value)
         {
             articleRecoveryOperationError.value = '此版本与较新的权威正文坐标不同，请先比较再明确恢复';
@@ -2520,6 +2650,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const discardLocalDraft = async (): Promise<void> =>
     {
+        if (draftFormRestoring || fullDraftRestoring)
+        {
+            throw new Error('article-draft-recovery-during-checkpoint-restore');
+        }
         await runArticleRecoveryOperation(
             'discard',
             '正文丢弃失败，所选版本仍保留，请重试',

@@ -7,9 +7,10 @@ import {
     type MarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus';
 import { flushPromises, mount } from '@vue/test-utils';
-import { defineComponent, nextTick } from 'vue';
+import { defineComponent, nextTick, toRaw, watch } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getServerDraft } from '@/api/authoring';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
 import { articleRecoveryJournal } from '@/services/articleRecoveryJournal';
 import {
@@ -23,17 +24,22 @@ import { calculateOpenArticleDocumentDigest as digest, openArticleDocumentComman
 
 // Only network/bootstrap dependencies are replaced. The writer, document,
 // attachment, continuity, cache, render producer and public editor are real.
-const boot = vi.hoisted(() => ({ principalId: '', push: vi.fn() }));
+const boot = vi.hoisted(() => ({ principalId: '', push: vi.fn(), setPrincipal: (_value: string | null) => {} }));
 vi.mock('vue-router', () => ({
     useRoute: () => ({ params: {}, query: {} }),
     useRouter: () => ({ push: boot.push })
 }));
-vi.mock('@/store/admin', () => ({
-    useAdminStore: () => ({
-        setPageTitle: vi.fn(),
-        adminPrincipal: { id: boot.principalId, username: 'integration-owner' }
-    })
-}));
+vi.mock('@/store/admin', async () => {
+    const { reactive } = await vi.importActual<typeof import('vue')>('vue');
+    return { useAdminStore: () => {
+        // Actual reactive bootstrap state; original Writer/document/native owners remain real.
+        const state = reactive<{ adminPrincipal: { id: string; username: string; } | null }>({
+            adminPrincipal: { id: boot.principalId, username: 'integration-owner' }
+        });
+        boot.setPrincipal = id => { state.adminPrincipal = id === null ? null : { id, username: 'integration-owner' }; };
+        return { setPageTitle: vi.fn(), get adminPrincipal() { return state.adminPrincipal; } };
+    } };
+});
 vi.mock('@/api/article', () => ({
     ArticlePublishStatus: { Draft: 0, Published: 1, Scheduled: 2, Private: 3 },
     createArticle: vi.fn(),
@@ -228,6 +234,80 @@ async function openWriter()
 describe('Writer composed attachment/tool/owner lifecycle regression', () => {
     // Source controls only: NOT RUN under the current product/mount/native holds.
     // Real Writer/mounted editor/registry/journal binding; no token/persistence result is fabricated.
+    // Full-draft source counterexamples: UNRUN, genuine form/native/Registry; no fake checkpoint.
+    it('retires the original unadopted draft slot across principal A-null/B-A transitions', async () => {
+        const f = await openWriter();
+        f.associate();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const captured = draft.captureDraftCheckpoint();
+        expect(captured).not.toBeNull();
+        const principal = boot.principalId;
+        const document = f.authoring.authoringDocumentContextAdapter.context;
+        boot.setPrincipal(null);
+        boot.setPrincipal(`${principal}:B`);
+        boot.setPrincipal(principal);
+        expect(f.authoring.authoringDocumentContextAdapter.context).toBe(document);
+        expect(draft.inspectDraftReference(captured!.draftStateRef)).toBeNull();
+        expect(draft.captureDraftCheckpoint()).toBeNull();
+    });
+
+    it('stops after a tag watcher newer-rights edit and refuses nested restore/capture without replaying setters', async () => {
+        const f = await openWriter();
+        f.associate();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const captured = draft.captureDraftCheckpoint();
+        expect(captured).not.toBeNull();
+        let nested = 0;
+        const stop = watch(() => f.authoring.articleForm.tagIds, () => {
+            nested += 1;
+            expect(draft.restoreDraftReference(captured!.draftStateRef)).toBeNull();
+            expect(draft.captureDraftCheckpoint()).toBeNull();
+            f.authoring.articleForm.rights.rightsStatement = 'newer synchronous watcher edit';
+        }, { flush: 'sync' });
+        try {
+            expect(draft.restoreDraftReference(captured!.draftStateRef)).toBeNull();
+            expect(nested).toBe(1);
+            expect(f.authoring.articleForm.rights.rightsStatement).toBe('newer synchronous watcher edit');
+            expect(draft.inspectDraftReference(captured!.draftStateRef)).toBeNull();
+        } finally { stop(); }
+    });
+
+    it('clears restore reservations and suppression after an actual form setter throws', async () => {
+        const f = await openWriter();
+        f.associate();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const captured = draft.captureDraftCheckpoint();
+        expect(captured).not.toBeNull();
+        const form = toRaw(f.authoring.articleForm);
+        const descriptor = Object.getOwnPropertyDescriptor(form, 'tagIds')!;
+        Object.defineProperty(form, 'tagIds', { configurable: true, get: () => descriptor.value,
+            set: () => { throw new Error('actual-form-setter-failed'); } });
+        try {
+            expect(() => draft.restoreDraftReference(captured!.draftStateRef)).toThrow('actual-form-setter-failed');
+        } finally { Object.defineProperty(form, 'tagIds', descriptor); }
+        // A real subsequent native edit advances the original source watch after suppression cleanup.
+        const before = f.authoring.authoringDocumentContextAdapter.context.sourceRevision;
+        f.dispatch({ changes: [{ from: 0, to: 0, insert: 'after failed restore' }], history: 'separate', origin: 'programmatic' });
+        expect(f.authoring.authoringDocumentContextAdapter.context.sourceRevision).toBeGreaterThan(before);
+        expect(draft.captureDraftCheckpoint()).toBeNull(); // canonical publication is now genuinely lagging
+    });
+
+    it('refuses checkpoint capture while the original loaded server draft conflict remains paused', async () => {
+        vi.mocked(getServerDraft).mockResolvedValueOnce({ draftKey: 'fsus:article-draft:create', articleId: null,
+            baseRevisionId: null, title: 'Pending server draft', content: 'Different server body', summary: null,
+            coverImageUrl: null, categoryId: 0, tagIds: [], clientRevision: null, status: 0,
+            scheduledPublishAt: null, rights: { mode: 'site' }, updatedAt: '2026-10-08T00:00:00Z', serverRevision: 1 });
+        const f = await openWriter();
+        f.associate();
+        expect(f.authoring.pendingDraft.value?.source).toBe('server');
+        const pending = f.authoring.pendingDraft.value;
+        const conflict = f.authoring.draftConflictText.value;
+        expect(f.authoring.authoringDraftCheckpointRuntime.captureDraftCheckpoint()).toBeNull();
+        expect(f.authoring.authoringDraftCheckpointRuntime.restoreDraftReference('not-an-issued-draft')).toBeNull();
+        expect(f.authoring.pendingDraft.value).toBe(pending);
+        expect(f.authoring.draftConflictText.value).toBe(conflict);
+    });
+
     it('reserves checkpoint creation before the first mounted callback and releases only real issued custody once', async () => {
         const f = await openWriter();
         f.dispatch({ changes: [{ from: 0, to: 0, insert: 'Journal source' }], history: 'separate', origin: 'programmatic' });
