@@ -84,6 +84,50 @@ FsusUI supplies the visual system and reusable UI foundation. FsusBlog owns appl
 
 The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, so any FsusUI boundary warning fails before merge.
 
+## Finite image producer ownership
+
+The original `utils/imageCompression.ts` producers expose
+`requestCompressImageFileWithRuntime(file, options, runtimeOptions?)` and
+`requestSha256Hex(blob, runtimeOptions?)`. Each returns the same invocation's
+`result`, `settled`, `cancelLocal(reason?)`, `inspectLocalResources()`,
+`inspectCleanupErrors()` and `retryCleanup()`. The existing `compressImageFile`,
+`compressImageFileWithRuntime` and `sha256Hex` Promise APIs return that invocation's
+`result`. Both runtime option types accept an optional `signal`; existing options
+and original input identity are retained through the actual work, without a
+replacement File or hash pipeline. The GIF passthrough still returns the original
+File.
+
+`settled` means the finite original producer body has completed or failed and its
+observable local handles have been released. Hash observes the actual sequential
+`blob.arrayBuffer()` and WebCrypto `digest` Promises and retires their buffers only
+after completion. Compression owns its actual FileReader handlers, bitmap,
+fallback image handlers/source, canvas backing dimensions/context references and
+awaited decode/acquisition/encode/toBlob operations. Bitmap custody begins before
+dimension validation and covers canvas setup and draw failures. Native work is
+never raced with a synthetic cancellation acknowledgement: cancellation can abort
+an active FileReader and prevent later stages, while already executing bitmap,
+image, codec, canvas callback or WebCrypto work remains awaited. An original work
+failure retains its cause; a requested cancellation is checked after successful
+native completion. No owned timer or worker is introduced.
+
+The frozen resource census reports local terminal state, retained references,
+cancellation support/request and cleanup failure without exposing inputs or native
+handles. Cleanup exceptions retain the actual handle and cleanup closure; they are
+available separately with their original causes, and `retryCleanup()` retries only
+eligible failed cleanup on those same handles. A failed cleanup keeps local
+`settled` pending until successful retry; a never-completing native operation also
+keeps it pending. Clearing image/canvas references is observable local cleanup,
+not evidence of browser heap reclamation.
+
+The shared codec loader and codec internal custody are explicitly third-party
+`unknown` census entries. Awaiting their public Promises observes this invocation's
+call completion, not shared module disposal, native allocation recovery or an
+unobserved child task. Those external unknowns are outside the finite local
+`settled` contract and remain visible even when `local` is `settled`. Consumers
+must preserve that distinction; this producer completion does not establish
+whole-upload, business cleanup, worker, native session or application readiness.
+Upload runtime/Flow integration and runtime acceptance remain separate work.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
