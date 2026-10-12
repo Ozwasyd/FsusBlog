@@ -32,6 +32,32 @@ const setup = (initialSource = '# Article\n\nBody', maxResultBytes = 65536) =>
 };
 
 describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
+    // Source control only: the actual constructor receives an undeclared future, UNRUN.
+    it('retains an undeclared source future without treating no native call as cleanup proof', async () => {
+        const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
+            editorSessionId: 'session:unknown-reader', siteScope: 'site:consumer', userScope: 'user:consumer', content: '# Article' });
+        let actualRequest: ArticleRenderRequest | null = null;
+        let finish!: (value: string) => void;
+        const sourceFuture = new Promise<string>(resolve => { finish = resolve; });
+        // Deliberately invalid producer input through the original public constructor.
+        const producer: ArticleFsusUiRenderProducer = Reflect.construct(ArticleFsusUiRenderProducer,
+            [(request: ArticleRenderRequest) => { actualRequest = request; return sourceFuture; }, configuration, 65536]);
+        const cache = new ArticleRenderCache(adapter, identity, producer,
+            { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 8 });
+        const cacheWork = cache.startRefresh();
+        await cacheWork.receipt;
+        if (!actualRequest) throw new Error('original-producer-request-missing');
+        const work = producer.getRequestWork(actualRequest)!;
+        await expect(work.terminal).rejects.toThrow('article-fsusui-source-endpoint-missing');
+        expect(work.cleanupFailure?.cause).toBe(sourceFuture);
+        await expect(cacheWork.terminal).rejects.toThrow('article-render-producer-terminal-unconfirmed');
+        expect(adapter.pendingTaskRefs).toContain(cacheWork.taskRef);
+        finish('# Article'); await sourceFuture;
+        // A missing declared endpoint is not silently reinterpreted after it resolves.
+        await expect(work.terminal).rejects.toThrow('article-fsusui-source-endpoint-missing');
+        cache.dispose(); adapter.dispose();
+    });
+
     // Source control only: UNRUN under current runtime/test/list/native holds.
     it('exposes the actual failed reader request cleanup without faking cache settlement', async () => {
         const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',

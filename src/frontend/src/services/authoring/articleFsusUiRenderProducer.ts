@@ -48,6 +48,7 @@ interface ArticleFsusUiRenderCleanup {
     runtimeStarted: boolean;
     runtimeSucceeded: boolean;
     runtimeFailure: unknown;
+    endpointFailure: Error | null;
 }
 
 const freezeProjection = <T extends object>(value: T): T =>
@@ -108,7 +109,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             return existing;
         }
         const cleanup: ArticleFsusUiRenderCleanup = { resultRef: null,
-            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null };
+            runtimeStarted: false, runtimeSucceeded: false, runtimeFailure: null, endpointFailure: null };
         let producerFailure: Error | null = null;
         let cleanupFailure: Error | null = null;
         const result = Promise.resolve().then(() => this.renderRequest(request, cleanup)).catch(cause =>
@@ -170,7 +171,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
             },
             get cleanupFailure()
             {
-                return cleanupFailure;
+                return cleanupFailure ?? cleanup.endpointFailure;
             } });
         this.requestWork.set(request, work);
         void terminal.catch(() => undefined);
@@ -188,7 +189,16 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         {
             throw new Error('render-canceled');
         }
-        const source = this.readSource(request);
+        const source: unknown = this.readSource(request);
+        if (typeof source !== 'string')
+        {
+            if (source instanceof Promise)
+            {
+                void source.catch(() => undefined);
+            }
+            cleanup.endpointFailure = new Error('article-fsusui-source-endpoint-missing', { cause: source });
+            throw cleanup.endpointFailure;
+        }
         if (digest({ schema: articleDocumentContextSchema, content: source }) !== request.context.contentDigest
             || request.identity.rendererVersion !== MARKDOWN_RENDERER_VERSION
             || request.identity.projectionVersion !== MARKDOWN_RENDERER_VERSION
