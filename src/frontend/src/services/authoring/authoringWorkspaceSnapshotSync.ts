@@ -66,6 +66,9 @@ export class AuthoringWorkspaceSnapshotSync
     private readonly unsubscribe: () => void;
     private observation: AuthoringWorkspaceServerObservation | null = null;
     private pendingServer: AuthoringWorkspaceServerObservation | null = null;
+    private serverChoiceRequired = false;
+    // One opaque current-session identity; old reads cannot resolve or recreate a different intent.
+    private serverChoiceGeneration = {};
     private memory = defaultWorkspaceSnapshotLayout();
     private cacheRead: WorkspaceSnapshotCacheRead | null = null;
     private status: WorkspaceSnapshotSyncStatus = 'loading';
@@ -113,7 +116,7 @@ export class AuthoringWorkspaceSnapshotSync
     }
     public getServerObservation(): AuthoringWorkspaceServerObservation | null
     {
-        return this.online && !this.stopped && (this.status === 'current' || this.status === 'defaulted')
+        return this.online && !this.stopped && !this.serverChoiceRequired && (this.status === 'current' || this.status === 'defaulted')
             && this.hasAuthority(this.observation) ? this.observation : null;
     }
     public getPlaceholder(): WorkspaceSnapshotCacheRead | null
@@ -294,22 +297,35 @@ export class AuthoringWorkspaceSnapshotSync
                 }
                 if (result.status === 'conflict')
                 {
+                    this.requireServerChoice();
                     this.status = 'conflict';
                     this.reason = 'stale_revision';
                     this.record('cas-conflict');
                     await this.readServer('conflict');
                     return;
                 }
-                this.observation = result;
+                if (!this.serverChoiceRequired)
+                {
+                    this.observation = result;
+                }
                 const cacheStatus = await this.cache.verifyAndReplace(result);
                 if (!this.isCurrentOperation(epoch) || !this.hasAuthority(result))
                 {
                     return;
                 }
                 this.cacheStatus = cacheStatus;
-                this.dirty = this.generation !== generation;
-                this.status = this.online ? 'current' : this.dirty ? 'offline-unsynced' : 'cached-placeholder';
-                this.reason = this.online ? null : 'offline';
+                if (this.serverChoiceRequired)
+                {
+                    this.pendingServer = result;
+                    this.status = 'conflict';
+                    this.reason = 'server_revision_changed';
+                }
+                else
+                {
+                    this.dirty = this.generation !== generation;
+                    this.status = this.online ? 'current' : this.dirty ? 'offline-unsynced' : 'cached-placeholder';
+                    this.reason = this.online ? null : 'offline';
+                }
                 this.send('invalidated', result.revision);
                 this.record('server-applied');
             }
@@ -366,14 +382,15 @@ export class AuthoringWorkspaceSnapshotSync
     }
     public acceptServerAfterConflict(): void
     {
-        if (this.stopped || this.status !== 'conflict' || !this.pendingServer)
+        if (this.stopped || !this.serverChoiceRequired || this.status !== 'conflict' || !this.pendingServer)
         {
             return;
         }
         // Explicit choice discards only current-session layout; it never sends a force-overwrite command.
-        this.adopt(this.pendingServer);
-        this.pendingServer = null;
-        this.record('accepted-server');
+        if (this.adopt(this.pendingServer, true))
+        {
+            this.record('accepted-server');
+        }
     }
     public async reset(confirmed: boolean, expectedRevision: number, confirmationDigest: string): Promise<void>
     {
@@ -383,7 +400,7 @@ export class AuthoringWorkspaceSnapshotSync
         }
         this.clearDebounce();
         if (!this.online || this.dirty || this.flushTask || this.resetting
-            || expectedRevision !== this.observation?.revision || this.status === 'conflict')
+            || expectedRevision !== this.observation?.revision || this.serverChoiceRequired || this.status === 'conflict')
         {
             throw new AuthoringWorkspaceSnapshotError('reset_requires_current_server');
         }
@@ -405,14 +422,19 @@ export class AuthoringWorkspaceSnapshotSync
             }
             if (result.status === 'conflict')
             {
+                this.requireServerChoice();
                 this.status = 'conflict';
                 this.reason = 'stale_revision';
                 await this.readServer('conflict');
                 return;
             }
-            if (this.generation === generation)
+            if (this.serverChoiceRequired || this.generation === generation)
             {
-                this.adopt(result);
+                const choiceGeneration = this.serverChoiceGeneration;
+                if (!this.adopt(result))
+                {
+                    this.recoverRejectedAdoption(result, epoch, choiceGeneration);
+                }
             }
             else
             {
@@ -471,6 +493,8 @@ export class AuthoringWorkspaceSnapshotSync
         this.listeners.clear();
         this.observation = null;
         this.pendingServer = null;
+        this.serverChoiceRequired = false;
+        this.serverChoiceGeneration = {};
         this.readAfterMutation = false;
         this.mutationOutcomeUnknown = false;
         this.cacheRead = null;
@@ -504,7 +528,7 @@ export class AuthoringWorkspaceSnapshotSync
         try
         {
             // A queued peer hint must not silently accept server state after a real CAS conflict.
-            const refreshed = await this.readServer(this.status === 'conflict' ? 'conflict' : 'channel');
+            const refreshed = await this.readServer(this.serverChoiceRequired ? 'conflict' : 'channel');
             if (!refreshed && this.isCurrentOperation(epoch))
             {
                 this.readAfterMutation = true;
@@ -528,10 +552,12 @@ export class AuthoringWorkspaceSnapshotSync
         }
         const ticket = ++this.reading;
         const epoch = this.lifecycleEpoch;
+        const choiceGeneration = this.serverChoiceGeneration;
         try
         {
             const server = await this.api.read(this.abort.signal);
-            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server)
+                || choiceGeneration !== this.serverChoiceGeneration)
             {
                 return false;
             }
@@ -540,7 +566,8 @@ export class AuthoringWorkspaceSnapshotSync
                 return false;
             }
             const cacheStatus = await this.cache.verifyAndReplace(server);
-            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server)
+                || choiceGeneration !== this.serverChoiceGeneration)
             {
                 return false;
             }
@@ -550,13 +577,17 @@ export class AuthoringWorkspaceSnapshotSync
                 this.status = 'blocked';
                 this.reason = server.receipt.reason;
                 this.observation = null;
-                if (!this.dirty)
+                if (!this.dirty && !this.serverChoiceRequired)
                 {
                     this.memory = defaultWorkspaceSnapshotLayout();
                 }
             }
-            else if (trigger === 'conflict' || (this.dirty && server.revision !== this.observation?.revision))
+            else if (this.serverChoiceRequired || (this.dirty && server.revision !== this.observation?.revision))
             {
+                if (!this.serverChoiceRequired)
+                {
+                    this.requireServerChoice();
+                }
                 this.pendingServer = server;
                 this.status = 'conflict';
                 this.reason = 'server_revision_changed';
@@ -569,7 +600,11 @@ export class AuthoringWorkspaceSnapshotSync
             }
             else
             {
-                this.adopt(server);
+                if (!this.adopt(server))
+                {
+                    this.recoverRejectedAdoption(server, epoch, choiceGeneration);
+                    return false;
+                }
             }
             if (server.status !== 'blocked')
             {
@@ -581,7 +616,7 @@ export class AuthoringWorkspaceSnapshotSync
         }
         catch (error)
         {
-            if (!this.isCurrentOperation(epoch) || ticket !== this.reading)
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || choiceGeneration !== this.serverChoiceGeneration)
             {
                 return false;
             }
@@ -602,18 +637,71 @@ export class AuthoringWorkspaceSnapshotSync
             return false;
         }
     }
-    private adopt(server: AuthoringWorkspaceServerObservation): void
+    private requireServerChoice(): void
     {
-        requireWorkspaceServerObservation(server);
+        this.serverChoiceGeneration = {};
+        this.serverChoiceRequired = true;
+        this.pendingServer = null;
+    }
+    private recoverRejectedAdoption(server: AuthoringWorkspaceServerObservation, epoch: number, choiceGeneration: object): void
+    {
+        if (!this.isCurrentOperation(epoch))
+        {
+            return;
+        }
+        // Automatic adoption refusal still owes a fresh read, including startup/reconnect callers.
+        this.readAfterMutation = true;
+        if (choiceGeneration !== this.serverChoiceGeneration || !this.hasAuthority(server)
+            || !this.isCurrentOperation(epoch) || choiceGeneration !== this.serverChoiceGeneration || this.serverChoiceRequired)
+        {
+            return;
+        }
+        // Keep the actual verified baseline without adopting layout or resolving a user's choice.
         this.observation = server;
-        this.memory = structuredClone(server.snapshot?.layout ?? defaultWorkspaceSnapshotLayout());
+        this.status = server.status === 'missing' ? 'defaulted' : 'current';
+        this.reason = 'server_layout_adoption_deferred';
+    }
+    private adopt(server: AuthoringWorkspaceServerObservation, explicitChoice = false): boolean
+    {
+        const epoch = this.lifecycleEpoch;
+        const generation = this.generation;
+        const choiceGeneration = this.serverChoiceGeneration;
+        requireWorkspaceServerObservation(server);
+        if (!this.isCurrentOperation(epoch) || generation !== this.generation || choiceGeneration !== this.serverChoiceGeneration)
+        {
+            return false;
+        }
+        if (this.serverChoiceRequired && !explicitChoice)
+        {
+            this.pendingServer = server;
+            this.status = 'conflict';
+            this.reason = 'server_revision_changed';
+            return true;
+        }
+        const memory = structuredClone(server.snapshot?.layout ?? defaultWorkspaceSnapshotLayout());
+        requireWorkspaceServerObservation(server);
+        if (!this.isCurrentOperation(epoch) || generation !== this.generation || choiceGeneration !== this.serverChoiceGeneration
+            || (explicitChoice && (!this.serverChoiceRequired || this.pendingServer !== server)))
+        {
+            return false;
+        }
+        // Publish and resolve the same intent before any listener can reenter.
+        if (explicitChoice)
+        {
+            this.serverChoiceRequired = false;
+            this.serverChoiceGeneration = {};
+            this.pendingServer = null;
+        }
+        this.observation = server;
+        this.memory = memory;
         this.dirty = false;
         this.status = server.status === 'missing' ? 'defaulted' : 'current';
         this.reason = null;
+        return true;
     }
     private canFlush(): boolean
     {
-        return !this.stopped && !this.resetting && this.online && this.dirty && this.hasAuthority(this.observation)
+        return !this.stopped && !this.resetting && !this.serverChoiceRequired && this.online && this.dirty && this.hasAuthority(this.observation)
             && (this.status === 'current' || this.status === 'defaulted');
     }
     private isCurrentOperation(epoch: number): boolean

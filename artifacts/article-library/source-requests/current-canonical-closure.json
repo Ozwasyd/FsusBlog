@@ -151,8 +151,7 @@
     "Original snapshot permission/lifecycle/draft resolveBatch",
     "Original retained mount-before-restore and full session factory",
     "Original committed shell command/lifetime binding",
-    "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged",
-    "Original Snapshot9fb0e2c new conflict-refresh P2 awaits original-owner repair/re-review: preserve explicit acceptServerAfterConflict across failed queued conflict reads; current API consumption remains conditional."
+    "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged"
   ],
   "qualification": false,
   "activation": false,
@@ -160,14 +159,14 @@
     "source": "6efe4eddda4fed46e270d3938a01cd30ba4d0922",
     "connection": "src/frontend/src/api/authoringWorkspaceSnapshotConnection.ts",
     "http_transport": "src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts",
-    "review": "Original9fb0e2c two prior admission/unknown-refresh P2s source-closed; new original-owner P2 pending: queued conflict GET failure becomes failed, retry switches to channel and dirty=false adopts without acceptServerAfterConflict. Not whole SOURCE CLOSED or ready/qualification; no Root workaround.",
+    "review": "Latest original Snapshot1e245dbd conflict-choice/generation and rejected automatic-adoption source bounded SOURCE CLOSED; no new actionable P1/P2 in correct independent review. Exact Sync/doc postimages consumed; API/connection unchanged. No installed provider, full restore, native/receipt or runtime qualification.",
     "root_caller": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
     "sole_root_port_source": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
     "pipeline": "Original real admin principal + server-selected scope/artifact digest -> original complete API fresh-read verifier -> original Cache/Sync -> stable existing root startup ports; original runtime capability and resolveBatch remain mandatory. No host installation in this helper.",
     "lifetime": "Caller abort and original auth-generation revocation; explicit original connection disposal, original Sync stop/cache cleanup; root unmount releases only this caller-owned Snapshot custody. No native/task settlement receipt.",
     "api_custody_source": "efddb5f4b324f66e633bcce838ee15d048ea7213",
-    "root_disposal_review": "Original remove-before-close ordering source-closed at4e6333bd0; new Root clear-witness generation P2 addressed in candidate: actual later replace invalidates old remove witness, removal drains/repeats for the current generation, and close rechecks generation/pending writes. Independent re-review pending; no runtime/receipt qualification.",
-    "api_concurrency_source": "9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465",
+    "root_disposal_review": "Root9f4a2e54 clear-witness P2 bounded SOURCE CLOSED, no new mustfix in that delta; actual conditional caller6bbe990 source confirmed. Root caller/clear-generation source unchanged by Snapshot consumption. Author183 FAIL/root0 and independent327 unchanged profiles remain distinct; independent style toolchain unavailable/unrun.",
+    "api_concurrency_source": "1e245dbdba24aae0ffaeb95f2dcf4382ba696811",
     "production_invocation": "Actual AdminWorkspaceFrame calls connectAdminArticleWorkspaceSnapshotStartup when provided the real original workspaceSnapshotCaller; missing provider/mandatory capabilities reject. Root exposes fenced real routed Writer primary mount preparation; no ready stub."
   },
   "physical_mount_offer": {

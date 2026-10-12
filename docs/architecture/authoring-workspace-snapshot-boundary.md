@@ -585,3 +585,97 @@ success/failure), and stop during the delayed peer read. The fixture reset
 counter observes invocation only. No result/digest or qualified runtime receipt
 is fabricated. Source closure of these remaining P2s awaits independent review;
 all tests/list/attack/auth/security/runtime/native/receipt holds continue.
+
+## Unresolved conflict choice correction source
+
+Independent exact `9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465` review source-closed
+both admission/unknown-refresh P2s, but found a remaining P2: a genuine reset
+conflict's queued read failure changed status to failed, so the next retry chose
+channel mode and could automatically adopt server layout while dirty was false.
+
+Sync now records unresolved server choice independently of transient status.
+Genuine write/reset CAS conflicts and verified revision-conflict reads set that
+bounded intent. Read failure, retry, periodic/channel reads and reconnect do not
+clear it; successful reads refresh only the pending server candidate. Automatic
+adoption, new flush/reset and restore-observation exposure are gated while it
+remains. An already-dispatched applied result cannot clear that newer intent.
+Blocked responses also preserve the local layout while a choice is unresolved.
+
+Only the explicit `acceptServerAfterConflict()` path adopts a live verified
+candidate with explicit-choice admission, then clears the intent. Stop clears
+the ending lifetime without reopening it. No status string, transport error or
+successful GET is user authorization. The existing one refresh-duty flag,
+unknown-result handling, bounded retries and periodic boundary remain; API
+private custody, permanent close, actual CAS/revision rules and admission are
+unchanged. No persistence, second owner or local authoritative layout is added.
+
+Eight additional ordinary UNRUN cells cover actual reset/write conflicts through
+queued-read failure with immediate success, retained duty with periodic success,
+new peer channel and offline/reconnect. Each asserts no layout adoption or write
+before explicit choice and only a live verified candidate afterwards. These are
+source declarations, not runtime evidence. This intent correction awaits
+independent review; all attack/tests/list/auth/security/runtime/native/receipt
+holds and remaining canonical/batch/host/session/shell acceptance remain.
+
+
+## Conflict choice generation correction source
+
+Independent exact `92a2537c5441dcbdea912eb37f76769283e8fce9` review source-closed
+implicit selection through failed/retried reads, but identified a delayed GET
+that could relatch an already accepted choice using its old conflict trigger.
+
+Sync now keeps one opaque current-session intent generation. Genuine CAS or
+verified revision conflicts replace it; explicit successful acceptance and stop
+invalidate it. Each read binds the generation at dispatch and checks it after
+server/cache awaits and before failure publication. A stale completion retains
+refresh duty for a fresh bounded read, without recreating the resolved choice
+or touching a later conflict. Trigger labels and equal revisions cannot grant
+choice authority. Existing live server provenance, read tickets, admission,
+unknown-result handling, coalescing and bounded retry rules remain required.
+
+Adoption stages the layout copy, revalidates server provenance, then checks the
+original intent, lifecycle and local layout generation. Explicit acceptance
+also requires the same pending candidate. Publication and intent resolution
+finish synchronously before listeners run; a reentrant layout setter cannot be
+silently overwritten, and an older acceptance cannot clear a newer intent.
+
+Eight additional ordinary UNRUN cells cover acceptance before a delayed same
+or newer GET, an old failed GET and retry, acceptance after GET, a later genuine
+CAS conflict, synchronous clone/listener layout setters, and nested acceptance
+that invalidates an outer acceptance. These declarations
+are not runtime receipts. This remaining P2 awaits independent exact-source
+review; all tests/list/attack/auth/security/runtime/native/receipt holds remain.
+
+
+## Automatic adoption refusal recovery source
+
+Independent exact `2638f4ed937e0af6224315336e5f28ce972ee6fe` review source-closed
+the delayed-GET intent-generation P2, but found reset ignoring `adopt(false)`:
+a genuine applied R2 revoked R1, while a reentrant clone setter correctly
+preserved new local layout but left the obsolete R1 baseline without refresh.
+
+All three adoption call sites are now accounted for. Explicit acceptance keeps
+its refusal semantics and unresolved choice. Reset handles refusal explicitly;
+automatic read refusal, including startup/reconnect, uses the same recovery.
+Recovery retains the existing bounded fresh-read duty. Only a still-live actual
+server observation, original lifecycle and same choice generation permit
+updating the baseline without adopting layout. An unresolved/newer user choice
+is never cleared or replaced by this path. Dirty layout stays in memory;
+subsequent real server reads restore current authority or expose a genuine
+new revision conflict. Failed refresh retains duty for the existing bounded
+retry and periodic boundary. There is no forced clone/adoption, local snapshot
+authority, reset fallback, new queue, timer owner or synthetic result.
+
+The real verified reset receipt may still be cached/broadcast/recorded even
+when layout adoption is deferred; it proves the actual CAS result, not whole
+workspace restoration. Fresh-read failure remains a read failure, not an
+invented unknown reset result. Original provenance, generation checks, admission,
+unknown-mutation refresh and explicit conflict selection remain required.
+
+Six additional ordinary UNRUN cells cover applied-reset clone reentry with
+fresh refresh, failed immediate refresh followed by periodic recovery, a new
+actual peer CAS conflict, cache denial, and automatic startup/reconnect refusal.
+They assert retained layout, live baseline, correct subsequent CAS revision,
+no extra reset and no implicit acceptance. The new P2 awaits independent exact
+source review. All tests/list/discovery/attack/auth/security/runtime/native/
+receipt holds and upstream canonical/batch/host/session/shell WIP remain.

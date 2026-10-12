@@ -383,13 +383,13 @@
     "Every runtime, auth/security, test/list, native, and receipt cell remains UNRUN/HOLD.",
     "Command return/status is not independent native/task/storage qualification.",
     "Arbitrary foreign async self-wait remains a retained pending obligation; no timeout or invented terminal completion.",
-    "Snapshot9fb0e2c two prior P2s source-closed; new original conflict-refresh P2 pending original repair/re-review. Root copies no conflict-selection logic; not whole API admission."
+    "Snapshot1e245dbd latest source bounded SOURCE CLOSED; exact original Sync/doc consumed, no Root conflict/adoption rewrite. Application provider, full restore and native/runtime admission remain separate blocked/held scope."
   ],
   "failed_preparation_custody": "Same original preparation reservation retains partial lifetime; source-identity managed retry available without returned ports.",
   "ordering_correction": "Original remove-before-close ordering source-closed at4e6333bd0. New clear-witness generation correction candidate: each original replace invalidates the witness; drain actual writes, capture/check generation around actual remove, and repeat real removal if a later write began before completion. close requires current-generation witness and no pending writes.",
   "normal_path": "Normal Sync and Root clear coalesce the same removal task, which must settle only after a real remove covers the latest write generation. Physical close bookkeeping is set only after actual original close returns.",
-  "original_sync_blob": "1112f212ab498a67b97020368cc5d4c7037a9874",
-  "original_sync_offer": "9fb0e2c70f5e3a9fbbf6c8a77dd47dd6f1891465",
+  "original_sync_blob": "f4c2a5363ddff0c50c824618efc47667d12126df",
+  "original_sync_offer": "1e245dbdba24aae0ffaeb95f2dcf4382ba696811",
   "write_remove_generation_cases": [
     {
       "id": "startup-missing-M1-before-peer-replace-W1",
@@ -443,5 +443,6 @@
       "runtime_status": "UNRUN_HELD"
     }
   ],
-  "ordinary_preflight": "Original ./tools/test.sh frontend-unit-shard / existing Vitest config and shared unit setup only. Proposed exact M1/W1/M2 cases above require original Root/HTTP/cache fixture import/setup admission. No new test entry, product import/mount, discovery/list or case execution performed."
+  "ordinary_preflight": "Original ./tools/test.sh frontend-unit-shard / existing Vitest config and shared unit setup only. Proposed exact M1/W1/M2 cases above require original Root/HTTP/cache fixture import/setup admission. No new test entry, product import/mount, discovery/list or case execution performed.",
+  "root_generation_review": "Exact9f4a2e54 clear-witness delta bounded SOURCE CLOSED, no new mustfix; independent327 TS log byte-identical to4e, author183/root0 retained; independent style unrun due missing toolchain, not PASS."
 }
