@@ -1,16 +1,26 @@
 {
   "sourceOnly": true,
-  "checkedSourcePreimage": "119970e3392a998776973398069d28cd48830ed5",
+  "checkedSourcePreimage": "b408f01786f93c9feb33c9526e40956be3359118",
   "executedCandidateModules": false,
   "files": [
     {
       "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
-      "sha256": "4a866a3470dac07ccf9eece2e3f42bd81a6a35181535a93c54b68ca3add6c24d",
+      "sha256": "08cf6a7d5b2432250672daac6cbc83152a7d28a955a341e919a9569b2d3cfc55",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "sha256": "466da398bfc1d32e6dfd62ad72b641747c79b5281a3ec182ecbe47a29fdb2069",
       "parseDiagnostics": []
     },
     {
       "path": "tests/frontend/unit/authoring/articleRenderCache.test.ts",
-      "sha256": "610a6854391abfffc4f36c9fa32d3cc5e4e209eed9f5be06fd2bcd3feca87bca",
+      "sha256": "f7fd6db5db7aa7352321c87c75de8d30eee0d93c0a9714afc6def197d8b1b377",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts",
+      "sha256": "ebcfed89436a30f8fea1e1a4c2999b07aca9538534d9cf1fd76862a9f3cb385a",
       "parseDiagnostics": []
     }
   ]

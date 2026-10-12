@@ -1,5 +1,5 @@
 {
-  "recordedAtUtc": "2026-10-12T01:07:20.620921+00:00",
+  "recordedAtUtc": "2026-10-12T03:47:59.760563+00:00",
   "sourceOnly": true,
   "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
   "lastVerifiedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
@@ -11,16 +11,16 @@
   "branch": "codex/issue-2245-render-terminal",
   "changes": {
     "src/frontend/src/services/authoring/articleRenderCache.ts": {
-      "sha256": "4a866a3470dac07ccf9eece2e3f42bd81a6a35181535a93c54b68ca3add6c24d",
-      "blob": "a73ea5ce1f27fdbdd25bca7d5d9f0cc85ff85903"
+      "sha256": "08cf6a7d5b2432250672daac6cbc83152a7d28a955a341e919a9569b2d3cfc55",
+      "blob": "d9d579c7cb6d486c122dc1320bb9a01e92f8fb30"
     },
     "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
-      "sha256": "610a6854391abfffc4f36c9fa32d3cc5e4e209eed9f5be06fd2bcd3feca87bca",
-      "blob": "c2d33107e8585d7c4e8bfd94dc028148533c6688"
+      "sha256": "f7fd6db5db7aa7352321c87c75de8d30eee0d93c0a9714afc6def197d8b1b377",
+      "blob": "b62cd39ddbf8f072ada27eaccfbc69caf2b8f838"
     },
     "docs/architecture/overview.md": {
-      "sha256": "537e23e49c82a894d58917da3562e9f5d766f17610bfe7f9aa5a52e9d6d23a83",
-      "blob": "e07dcf6467a6c77ce05ac0f339583fbfbb7dc5dd"
+      "sha256": "ed0406a0db0258d86feebf824384af0bdf20a70493a40b6ab2570ea2e0a7a668",
+      "blob": "cb61f582c93c50a3f489e55f45946368393e04c3"
     }
   },
   "frozen": {
@@ -34,14 +34,6 @@
     },
     "src/frontend/src/services/authoring/articleRenderRefreshPolicy.ts": {
       "blob": "1383a4c29dca48f58c1f1e2aceaed5252d49b0c4",
-      "matchesBase": true
-    },
-    "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": {
-      "blob": "aa9900dd2c607b62bf47ee24a1d23b831a00293f",
-      "matchesBase": true
-    },
-    "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts": {
-      "blob": "30a37cf0b430e577b0f3edc8cca168a167cb2c75",
       "matchesBase": true
     },
     "src/frontend/src/services/authoring/index.ts": {
@@ -59,10 +51,10 @@
   },
   "checks": [
     {
-      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/issue-2245-fsusui node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authoring/articleRenderCache.ts",
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/issue-2245-fsusui node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/authoring/articleRenderCache.ts --file src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
       "cwd": "/workspace/issue-2245-render-terminal",
       "exitCode": 0,
-      "files": 1,
+      "files": 2,
       "violations": 0
     },
     {
@@ -77,7 +69,7 @@
       "ownedDiagnostics": 0
     },
     {
-      "command": "TypeScript createSourceFile on the two final changed TS files; candidate modules not imported",
+      "command": "TypeScript createSourceFile on cache/producer and both control source files; no candidate imports",
       "exitCode": 0
     },
     {
@@ -85,7 +77,7 @@
       "exitCode": 0
     }
   ],
-  "sourceControls": "Nine appended controls, UNRUN/HOLD; all original controls preserved",
+  "sourceControls": "Cache22 original blocks unchanged, UNRUN/HOLD; upstream subclass/species controls separately UNRUN, no collection or accumulated pass counts",
   "holds": [
     "runtime",
     "test",
@@ -98,10 +90,57 @@
     "migration/ProjectXML/Git replacement QA"
   ],
   "qualification": false,
-  "remainingProducerGap": "ArticleFsusUiRenderProducer.render rejects without a result ref or explicit failure-cleanup terminal API; original #2246 producer must supply actual per-request future/cleanup capability. Rejection retains original lease and work. Undeclared release future remains in cleanupFailure.cause, never inferred settled.",
-  "remainingCallerGap": "#2246 continuity/runtime currently await cache.refresh cancellation response. Its original caller must consume the same startRefresh work.terminal or delegate pendingRefreshWork; never start a second refresh or settle tool/preview leases on receipt alone.",
-  "contentApiWrites": false,
-  "newPr": null,
+  "remainingProducerGap": "Species P2 original author sourcecbd7213c/32f81d94 is consumed, not independently accepted here. Own cached3b98 and original producer reviews plus combination review pending. Opaque native cleanup and all runtime/tests/list/native/security/receipt/product qualification HOLD.",
+  "remainingCallerGap": "Same-work continuity/runtime/source-compare exact supplier source consumed. Original product mounts, separate tool/preview/native restoration futures and full-session factory/cleanup acceptance remain open.",
+  "contentApiWrites": "Only explicitly authorized own draft PR creation/update; no issue/other PR/comment/label writes",
+  "newPr": "https://github.com/Ozwasyd/FsusBlog/pull/4230",
   "oldDraftPrUpdated": false,
-  "checkedSourcePreimage": "119970e3392a998776973398069d28cd48830ed5"
+  "checkedSourcePreimage": "b408f01786f93c9feb33c9526e40956be3359118",
+  "reviewRepair": "Exact original producer constructor/species/subclass refusal intake; unknown source/future custody retained, unsupported derived wrappers not created/awaited. Own cached3b98 and same-request terminal consumer byte-identical. No authority duplication or body adoption.",
+  "currentStackedSupplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+  "supplierActualRepair": "cbd7213c31dd9a189c3a5d80456a7efd110a65f8",
+  "supersededKnownDefectSupplier": "79da045da19a57b6a73ce4ec735d68120cd49d5f",
+  "publishedOwnP2": "b605f2f1137fa8d7342769c9182ae24601ae996c",
+  "exactConsumedPostimages": {
+    "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": {
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "f7343067454f71d053ab48ef86cab2aa0c5cd512",
+      "matchesSupplier": true
+    },
+    "src/frontend/src/services/authoring/articleEditorContinuity.ts": {
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "510177ab2d41949f16cd7214dab5d2fab67e0214",
+      "matchesSupplier": true
+    },
+    "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts": {
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "d8132a6701d34214e8a87ad7b4bbf08fd6d62a01",
+      "matchesSupplier": true
+    },
+    "src/frontend/src/services/authoring/articleSourceCompare.ts": {
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "323127c16880f130f01abace6711b1e6f625b6a4",
+      "matchesSupplier": true
+    },
+    "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts": {
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "598e2b902afb58613d788a18b6665eb70704299d",
+      "matchesSupplier": true
+    },
+    "tests/frontend/unit/authoring/articleEditorContinuity.test.ts": {
+      "supplier": "32f81d94d728599bfa1e82bf4cbbc1095bd65b8a",
+      "blob": "de79562f03a9a08edf281e1973a20fe8be4c66bf",
+      "matchesSupplier": true
+    }
+  },
+  "preservedOwnCleanupVerifierRepair": "3e40f95b108e5609fa2b4d6c720f3b4c3b0817f8 (immutable historical repair; this follow-up strengthens pre-return failure custody)",
+  "preservedOwnPreReturnRepair": "d3b98d6b09c99513af16472031fb740d0c5ab4b3",
+  "preservedOwnSourceBlobs": {
+    "src/frontend/src/services/authoring/articleRenderCache.ts": {
+      "matchesD3b98": true
+    },
+    "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
+      "matchesD3b98": true
+    }
+  }
 }

@@ -1,48 +1,90 @@
-# Original render terminal: WIP source handoff
+# Original cache terminal composition: WIP source handoff
 
-This source increment is based on exact supplied Writer `9b954ae0ea65ada5a8916c5896951c20f030df10`. Its lease authority is the unchanged original `17c2e83ea1747baa1ca2f8de366ad7e249b2c23f`, including the real `lease.settle()`. Latest fetched origin/master is `9d72a1c93b297f719d8695a642cdfb1615cf1d51`, not merged. First source increment `119970e3392a998776973398069d28cd48830ed5` remains published; this follow-up additionally refuses an unusable cleanup reference. Exact checked code hashes and frozen blobs are in `source-evidence.json` and `source-parse.json`.
+Independent null/invalid P2 source: `b605f2f1137fa8d7342769c9182ae24601ae996c`, preserved and published before supplier consumption. Original source baseline: Writer `9b954ae0ea65ada5a8916c5896951c20f030df10`. Actual request-work/caller offer: `938371b5d4c1ba96e785ebd76c797a9cac3d3e21` / `79da045da19a57b6a73ce4ec735d68120cd49d5f`. Its known thrown-unknown defect is replaced by exact source `3916a5ea219238d0ebb57a2e4a58dd61980fc867`, final `7cd9e3806ffe7de7156950de31e2021ff34afe5b`. Sources were read from Git; no private Library download. Producer independent re-review remains pending.
 
-## Actual operation and custody
+Consumption order in this branch:
 
-`ArticleRenderCache.startRefresh(): ArticleRenderRefreshWork` starts the same original task and renderer. `refresh()` remains the prompt public receipt API, and automatic threshold consumption still delegates to it. The operation exposes:
+1. `b605f2f1`: independent cache null/invalid repair and complete source matrices.
+2. `3e465da9`: six exact producer/continuity/runtime/source-compare production/control postimages from938371. This local checkpoint explicitly kept the old79da upstream P2 open.
+3. `925e9b4a`: original same-request consumer and source controls, initially local WIP awaiting the correction.
+4. `9ab3452e`: the two exact producer/control postimages from corrected7cd9/3916 replace the known defect.
+5. `755f77d4`: supplied7cd9 ancestry recorded on the isolated source branch. Obsolete copiedf67 cache/test/artifact conflicts retain this owner's newer P2/consumer postimages; supplier producer/caller postimages stay exact. Overview retains both actual contracts. This is ordinary dependency-source integration, not a PR merge or final cross-chain review.
 
-- `taskRef`: that original lease, never a replacement task.
-- `receipt`: admission/cancellation response; a canceled response is not true terminal evidence.
-- `terminal`: awaits the actual `producer.render` future plus original admission finalization and required synchronous result release. On successful cleanup or actual result transfer to the existing cache it calls that original lease's `settle()`.
-- `resultRef`: the original result reference, without body or projection duplication.
-- `cleanupFailure` / `producerFailure`: actual held errors/custody, outside serialized public receipts.
+Checked production/control SHA256 and frozen/consumed source blobs are in `source-evidence.json` and `source-parse.json`. The existing stacked draft is #4230, targeting the actual Writer prerequisite branch; no second PR is needed. Publication must preserve all above source commits and all execution holds.
 
-```ts
-const work = cache.startRefresh();
-const response = await work.receipt; // may precede the actual producer by any duration
-await work.terminal;                // may reject; unresolved cleanup is not settled
-```
+## Same original work, actual terminal and custody
 
-Successful transfer keeps the existing last-valid result; terminal completion does not release its retained reference. Cancellation, newer generation, document withdrawal or `dispose()` do not clear real unfinished operations. The same cache's `pendingRefreshWork` contains its original promises/failed-reference custody only, with no second body cache, resource ledger, owner, asset inventory or index. Successful terminal completion removes that same work; failure remains retained. Cache thresholds, policy producer, render identity, receipt schema, Writer/index/authority and original FsusUI producer are unchanged.
+`cache.startRefresh()` returns its original `{taskRef, receipt, terminal, productionState, resultRef, producerFailure, cleanupFailure, producerWork}`. `refresh()` remains the prompt admission/cancellation response. The private unproduced Symbol is distinct from every actual fulfilled value, including null/undefined. `productionState` observes only a Promise, never no-resource or cleanup authority.
 
-Late release failures retain their actual reference, error and pending lease. Replacement release failure retains the old entry before pointer withdrawal. Cleanup callback reentry is rejected, and commit rechecks owner/context/identity after that actual callback. Failed release is not retried or converted to a successful drain. An unusable returned reference also leaves its cleanup obligation pending; no resource absence is inferred.
+The cache invokes the actual original `producer.render(request)` exactly once. Immediately after that call it borrows `getRequestWork(theSameRequest)` without losing the real rendering Promise if lookup throws. Success AND rejection await the same producer work's actual terminal. Request object identity, frozen work object, terminal Promise identity and original lookup identity are checked before/after the wait. Missing, changed, exceptional or rejected capabilities retain the original pending work/lease. There is no fallback Promise or source/null inference.
 
-## Exact remaining original-owner capability gaps
+After the bound endpoint succeeds, cleanup uses its OWNED `resultRef`, not raw invalid output. A transferred reference must match the same producer reference; uncommitted owned refs are released exactly once through the original synchronous release contract. Only successful endpoint plus required cleanup/transfer calls the SAME original lease.settle(). Logical render/admission errors remain recorded even where that real producer endpoint proves cleanup ended. Terminal success is not successful rendering, restoration, native acceptance or full-session drain.
 
-A rejected `ArticleFsusUiRenderProducer.render(request)` returns neither a result reference nor an explicit failure/native cleanup endpoint. This increment therefore keeps `producerFailure` and the original pending lease. It does not infer that rejection means all native cleanup succeeded. Original producer owner #2246 must supply the actual per-request terminal/cleanup capability for this failure path, bound to the same request/lease; a metadata verification, abort acknowledgement, finished flag or synthetic success boolean is insufficient.
+Invalid/null/no-reference output cannot itself remove obligations. Legal fatal/projection-failed null metadata is not a no-resource flag. Such work can end only when the original producer's actual same-request endpoint supplies the missing authority. Unknown synchronous Error/Promise/thenable/primitive source throws and opaque native failures in corrected3916/7cd9 reject that endpoint and stay held. The producer's request-local internal cancellation has an actual known local endpoint; no external failure is classified by message or source presence.
 
-The existing `ArticleRenderProducer.release` contract is synchronous. If it returns an undeclared Promise/other value, this increment retains it in `cleanupFailure.cause`, rejects terminal completion and leaves the original obligation pending. It does not silently await/approve a replacement contract or manufacture missing native-lifetime proof. That original producer must expose any actual asynchronous cleanup capability before this path can settle. No forced settlement or successful eviction API is added.
+The cloned cache entry is revalidated before acceptance. Classification reserves before validator/getter/verifier callbacks, whose actual causes remain recorded. Replacement release failure retains the old entry; callback reentry cannot authorize stale transfer. Failed release or undeclared async cleanup stays pending, with the original future/error retained. Genuine Promise rejection observation uses the intrinsic method without invoking an arbitrary catch/then getter; observer failure retains both original cleanup and observation errors. No forced drain/retry/eviction API is added.
 
-`ArticleEditorContinuityAdapter.refresh` currently calls `cache.refresh()` and uses its raced response for restoration planning. Original #2246 continuity/runtime/source-compare callers must preserve/expose the SAME `startRefresh()` operation or delegate `pendingRefreshWork`, rather than start a second render to obtain a future. This endpoint settles only its original render lease. Separate tool/preview leases still require their own actual work, native restoration and cleanup before settlement; they cannot settle on a cache cancellation receipt. These canonical caller/producer files are not edited here.
+`pendingRefreshWork` is custody of original operation references in this SAME cache, with no second body store, owner, resource ledger, index or inventory. Successful real terminal completion removes that work; unresolved or failed cleanup persists through newer refresh, cancellation and disposal. Render source/thresholds/identity schemas and Registry authority are unchanged.
 
-#2283 generation's actual `assess/verify/createIdentity/requestPreview` futures and source-admission lease remain a separate open obligation. This render endpoint does not attest their terminal cleanup.
+## Canonical caller composition
+
+The supplied `ArticleEditorContinuityAdapter.startRefresh` returns its same `{renderWork,receipt,terminal}` where terminal is the original render work's terminal; runtime delegates pendingRefreshWork. The supplied source-compare preserves actual work by exact taskRef and joins the same returned operation, never a second render or array-difference guess. These four production and two control paths match corrected7cd9 Git blobs exactly. No Writer/index or canonical producer edits are made by this cache owner.
+
+Separate tool/search/preview/native restoration/viewport/focus and product-mount obligations remain separate. #2283 actual assess/verify/identity/request futures and admission cleanup are not qualified by this render terminal. FsUI opaque failed-native cleanup has no stronger public endpoint; its rejection remains pending rather than granting eviction. Complete issue acceptance and independent re-review remain open.
 
 ## Source controls and static checks
 
-Nine appended controls are complete source and UNRUN/HOLD: normal render transfer, abort/dispose before late release, failed late release, repeated generations, rejected producer without cleanup endpoint, failed old-entry replacement, undeclared cleanup future, context change during release, and unusable cleanup reference. Existing original controls remain intact. No test/list/collection/mount/runtime/native/security/receipt qualification ran or was carried forward.
+Twenty-two appended source control blocks (original nine, seven null/invalid matrices, four request-terminal blocks, late-cleanup revalidation and pre-return exception matrices) remain UNRUN/HOLD. This is a manual source description, not test-list/collection. All original negative assertions remain; private unit fixtures expose their explicit original call futures with no native resources, while the canonical constructor source control uses the actual producer request-work registry. They do not fabricate a native receipt or qualify product cleanup.
 
-Static checks use actual local FsusUI source `6a73ad6312091ca782f99393140efc8df0fb4fb6`, Node v24.19.0 and the existing locked compiler/style toolchain. No package publication or SDK/native invocation occurs.
+Controls cover null/invalid structures, all four no-reference statuses, every result getter and own-key/descriptor trap, verifier/binding/release failures, callback clone mutation, late whole-null output, exact request versus matching copied identity, same terminal wait on success/rejection, changed lookup/work/Promise and opaque real terminal failure. Physical cleanup is now authorized by the real owned work, not the earlier shape-only helper; diagnostic errors remain observable if actual cleanup succeeds.
 
-- Original strict-full style: exit0, one production file, zero violations (`style.txt`).
-- Original complete application alias compiler: exit2, fixed-base221/current221 diagnostics, zero added/removed normalized path/code/message diagnostics and zero owned diagnostics (`type*.txt`, `type-delta.json`). Full application remains RED.
-- Pure TypeScript AST parse of changed production/control source: exit0, zero parse diagnostics; candidate modules not imported (`source-parse.json`).
-- `git diff --check`: exit0.
+Final source-only checks use actual local FsUI `6a73ad6312091ca782f99393140efc8df0fb4fb6`, Node v24.19.0 and existing locked compiler/style tools. No SDK/native invocation or package publication:
 
-An initial dependency-directory symlink caused EISDIR in the original style wrapper. It was repaired by using a real ignored node_modules directory with borrowed installed packages; no checker/rule/baseline configuration was changed. Earlier static compiler defects were repaired before this source checkpoint. Initial attempt logs remain in `/workspace/.tmp/issue-2245-render-terminal`; no failure was recast as runtime acceptance.
+- Original strict-full style: exit0, one changed cache production file, zero violations (`style.txt`).
+- Original complete application alias compiler: exit2, fixed-base221/current221, normalized added0/removed0 and owned0 (`type*.txt`, `type-delta.json`). Application remains RED.
+- Pure TS AST of changed owned production/control: exit0/zero parse diagnostics; no candidate module imports (`source-parse.json`).
+- `git diff --check`: exit0. Initial lint/static failures are preserved in the task `.tmp` directory, not relabeled as acceptance.
 
-All runtime/test/list/collection/mount/browser/native/SDK/security/receipt/custody/cohort/race qualification, migration/ProjectXML/Git replacement QA and denied artifacts remain HOLD. #2245/#2283 whole acceptance remains WIP. No content API write, PR update, issue closure, merge, deployment, master push or FsusUI package publication occurs.
+No runtime/test/list/discovery/collection/mount/browser/native/SDK/security/receipt/custody/cohort/race qualification, migration/ProjectXML/Git replacement QA or denied artifact was run. No prior75/58/28/2/252 results are accumulated or refreshed. No issue closure, PR merge/auto-merge, deploy, master push or successful eviction/full lifecycle claim. #2245/#2283 remain WIP.
+
+## Reviewed cleanup-verifier mutation P2
+
+Review preimage: `b605f2f1137fa8d7342769c9182ae24601ae996c`; current composition preimage `4913812bdf5aa6e48c3eaedf393cfde0ebb5c6db`. The original cleanup classifier did not revalidate after the external verifier. The composed path also needed to revisit classification when a canceled receipt returned before the actual result existed.
+
+This source classifies the SAME late output after awaiting the actual producer future, without starting another render. It captures its original reference and whole closed-result digest before verification, then revalidates the full schema, request context/request/identity, reference equality and digest after the callback. A true or false verifier return cannot conceal mutation. Post-verifier validation exceptions retain their actual causes. Classification remains reserved and is not retried.
+
+The cleanup validation failure is latched in this original work's cleanupFailure. After joining the actual producer terminal, the cache checks this failure BEFORE physical reference release or lease settlement. The same actual producer work reference and pending lease remain retained even though the producer endpoint may have fulfilled; no second authority or replacement resource ledger is created.
+
+One additional complete source matrix remains UNRUN: after prompt cancellation a late valid R is changed by verification to null, another reference, a schema-valid fatal/null result, changed identity/context/request/digest, an extra field, or a throwing post-validator property. It asserts no release, no settle/work deletion, held original producer reference R and persistence through dispose. This is source evidence, not an executed counterexample.
+
+The original producer intrinsic-then derived-observer P2 has now been repaired by its original author at3c5e3f19 and exactly consumed from checkpoint efec36c9. This cache owner does not duplicate that implementation. Its new source/control postimages are exact; independent review remains pending. Our broader composition is WIP and may not claim full producer/native cleanup, independent acceptance or successful eviction. All runtime/test/list/native/security/receipt holds remain in force.
+
+## Exact producer observer repair intake
+
+Canonical source `3c5e3f19b0f9cf1a6aafc6b308a76f43f9a03b0e`, checkpoint `efec36c93f305b0f12f8398c6fd6b701a044bfee`, parent7cd9e380. Net changes are the original producer/control pair plus original owner's source-only evidence. Intake commit `3600adc6906a3b296357c3bc5cfb8ed1844be9ae` preserves own cleanup-verifier repair `3e40f95b108e5609fa2b4d6c720f3b4c3b0817f8` byte-for-byte and records actual supplier ancestry. No conflict, private Library source, second authority, new request/render or native invocation.
+
+The producer now explicitly discards both observed fulfillment/rejection values, retains the intrinsic derived Promise and actual completion in its same request cleanup custody, and records any asynchronous derived rejection with the actual cause. Unknown endpoint remains rejected/unconfirmed; observer completion cannot grant cleanup. The public getRequestWork(theSameRequest)?.terminal API, request identity and ownership remain unchanged.
+
+The same-request cache join is source-inspected unchanged: capture preserves the real render future across lookup exception; success/rejection await the exact original terminal; request/work/Promise identity rechecks precede owned-reference cleanup/transfer and original lease.settle. Missing/rejected/changed endpoint and cleanup-verifier mutation keep original work/lease/reference held. Source-only provider rejection is not a native runtime receipt.
+
+Current cache21 and the upstream two added observer source controls remain UNRUN, not accumulated as test passes. Both original cache3e40 and producer3c5e3f19 are in the original independent review; this intake and combination require their own review. No source-closed, runtime/native/product or successful eviction conclusion follows from static checks. All execution holds remain.
+
+## Reviewed verifier-before-return exception P2
+
+Exact preimage `9e293a59fa04241113e31b26f1fa123be0471cad`; own3e40 post-return mutation repair remains preserved in history. Review found that the catch locked cleanup only after `verifierReturned=true`. A valid owned R refused by entry size could reach receipt.finally cleanup verification, throw a pending future BEFORE returning, and later borrow successful render completion to release/settle despite unfinished verification.
+
+The exemption is removed. Every actual validation/cleanup-verification exception latches this SAME work's cleanupFailure with the ORIGINAL thrown cause before propagation, including Error, pending Promise, opaque thenable, null and undefined. Existing classification reservation stays held; no repeated verifier call or cleanup retry substitutes for its endpoint. The real render request terminal is still awaited, but its success cannot override the held verification obligation. Owned R, original work/lease and exact thrown future remain in custody through later future resolution and dispose. No additional authority, store, request or native-capability stub.
+
+One new complete source block is UNRUN: original tiny-entry fixture first admits a valid bound result, then its cleanup verifier throws the actual pending future before return. It asserts successful rendering separately from failed cleanup, exact thrown-cause identity, no thenable assimilation, no release/settle/work deletion, and persistence through later resolution/dispose. Error/thenable/null/undefined variants are included. Existing false verifier controls still distinguish no throw from an actual exception; throw cases now assert original pending cleanup rather than incorrectly borrowing the render endpoint.
+
+The original producer species-subclass/await P2 is now corrected by its original author atcbd7213c, checkpoint32f81d94, and exactly consumed here; its independent review remains pending. This cache source does not repair or duplicate that producer path, and canonical producer/control postimages now match32f81d94 exactly; all other caller postimages are unchanged. Prior observer intake is not complete source closure or native acceptance. Both independent review and all runtime/test/list/native/security/receipt and other execution holds remain.
+
+## Exact bounded species refusal intake
+
+Original producer source `cbd7213c31dd9a189c3a5d80456a7efd110a65f8`, checkpoint `32f81d94d728599bfa1e82bf4cbbc1095bd65b8a`, parentefec36c9, consumed through `b408f01786f93c9feb33c9526e40956be3359118`. Git net includes only the canonical producer/control pair and its original source evidence. No body adoption source is mixed in. Own original exception repair `d3b98d6b09c99513af16472031fb740d0c5ab4b3`, cache control source, document authority, continuity/runtime/source-compare and shared index remain unchanged and separately comparable.
+
+The original producer now captures checked native constructor/prototype/then/species descriptors. Unsupported constructor/species/accessor/subclass/cross-realm futures are conservatively refused; their original unknown cause remains held. No unsupported species descendant is created or awaited. For supported exact native/default-species operation, the original derived/completion Promise custody and cause handling stay on the same request. This refusal is not proof that an unsupported original future was cleaned.
+
+The same `getRequestWork(actualRequest)?.terminal` API is unchanged. Source recheck confirms cache still retains that exact request/work/Promise, preserves its original render future across lookup error, waits the actual endpoint in success/rejection, rechecks identity before using the owned ref, and refuses release/settle over cleanup classification/verifier exception custody. The bounded intake adds no authority, synthetic terminal, request, renderer, cache, journal or body store.
+
+Final static checks are source-only. Current cache22 controls and upstream subclass/species controls remain separately UNRUN. Both original d3b98 cache exception repair and original cbd7213c producer correction, plus this intake, require independent review. No source-closed, runtime/native/security/receipt/product, eviction or full-session conclusion. All execution holds remain.
