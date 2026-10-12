@@ -1,0 +1,35 @@
+{
+  "UIWebExit": 0,
+  "UIOriginalVitestProjectCompilerExit": 0,
+  "UITestExecution": false,
+  "UISourceLintExit": 0,
+  "sixSourceAstExit": 0,
+  "MainStyleExit": 0,
+  "MainProductionPaths": 2,
+  "MainWholeApp": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 258,
+    "afterDiagnostics": 258,
+    "added": [],
+    "removed": [],
+    "normalization": "full diagnostic blocks and multiplicity; line/column only",
+    "beforePair": {
+      "Main": "f3de9431fa44078611c051f0fac6407922b81984",
+      "UI": "d60b94b5828962ddb3bd8b7a2d78f949fef4c599"
+    },
+    "after": "native/store public preparation and original Main actual factory/composition only",
+    "supplierEvidenceNotMigrated": true,
+    "pendingCandidateBodyValueStored": false
+  },
+  "originalProgramOnly": true,
+  "sourceReview": "new protocol pending independent review; Root native-d60/Mainf3/cache/caller closure does not migrate",
+  "runtime": "ALL UNRUN/HOLD",
+  "finalLogs": [
+    "ui-native-prepared-final-web-types.txt",
+    "ui-native-prepared-final-no-body-vitest-project-types.txt",
+    "ui-native-prepared-final-eslint.txt",
+    "native-prepared-final-no-body-ast.txt",
+    "blog-native-prepared-final-no-body-whole-app-types.txt"
+  ]
+}

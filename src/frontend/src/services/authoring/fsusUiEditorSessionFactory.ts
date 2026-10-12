@@ -56,7 +56,15 @@ export interface ArticleWorkspaceOriginalDraftInspection {
     readonly editorContentDigest: string;
 }
 
+/** Genuine native candidate operation; no full-host, draft/journal or resource admission. */
+export interface ArticleWorkspaceEditorSnapshotPreparation {
+    readonly snapshot: MarkdownEditorSessionSnapshot;
+    commit(): MarkdownEditorSessionSnapshot;
+    discard(): boolean;
+}
+
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
+    prepareRetainedSnapshot(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorSnapshotPreparation;
     inspectOriginalDraftCheckpoint(entry: OpenArticleDocumentEntry, reference: string): ArticleWorkspaceOriginalDraftInspection;
     inspectResourceSources(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorResourceSources;
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
@@ -174,6 +182,78 @@ export function createFsusUiEditorSessionFactory(
         assertAdmission();
         return info;
     }
+
+    const prepareRetainedSnapshot = (entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorSnapshotPreparation =>
+    {
+        const { binding, session } = resolveSession(entry);
+        const identity = Object.freeze({ ...binding.identity });
+        const context = Object.freeze({ ...binding.documentContext });
+        const revision = binding.editorRevision;
+        const editor = binding.editor;
+        const prepareNative = session.prepareSnapshot.bind(session);
+        const commitNative = session.commitPreparedSnapshot.bind(session);
+        const discardNative = session.discardPreparedSnapshot.bind(session);
+        const assertOwner = (): void =>
+        {
+            const current = resolveSession(entry);
+            assertBinding(current.binding, identity, context);
+            if (current.session !== session || current.binding.editor !== editor || current.binding.editorRevision !== revision)
+            {
+                throw new Error('public-editor-retained-snapshot-stale');
+            }
+            assertAdmission();
+        };
+        const preparation = prepareNative(calculateOpenArticleDocumentDigest, {
+            documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision, assertAdmission: assertOwner
+        });
+        try
+        {
+            // This read can still fail safely: the original native token has not changed.
+            assertOwner();
+        }
+        catch (error)
+        {
+            discardNative(preparation);
+            throw error;
+        }
+        let state: 'prepared' | 'committing' | 'done' = 'prepared';
+        return Object.freeze({
+            snapshot: preparation.snapshot,
+            commit: () =>
+            {
+                if (state !== 'prepared')
+                {
+                    throw new Error('public-editor-snapshot-preparation-consumed');
+                }
+                state = 'committing';
+                try
+                {
+                    const snapshot = commitNative(preparation, assertOwner);
+                    // No additional external owner reader or fallible operation after publication.
+                    state = 'done';
+                    return snapshot;
+                }
+                finally
+                {
+                    if (state === 'committing')
+                    {
+                        discardNative(preparation);
+                        state = 'done';
+                    }
+                }
+            },
+            discard: () =>
+            {
+                if (state === 'done')
+                {
+                    return false;
+                }
+                const discarded = discardNative(preparation);
+                state = 'done';
+                return discarded;
+            }
+        });
+    };
 
     return {
         inspectOriginalDraftCheckpoint(entry, reference)
@@ -421,42 +501,10 @@ export function createFsusUiEditorSessionFactory(
             }
             return proof;
         },
+        prepareRetainedSnapshot,
         captureRetainedSnapshot(entry)
         {
-            const { binding, session } = resolveSession(entry);
-            const identity = Object.freeze({ ...binding.identity });
-            const context = Object.freeze({ ...binding.documentContext });
-            const revision = binding.editorRevision;
-            const editor = binding.editor;
-            const snapshot = session.captureSnapshot(calculateOpenArticleDocumentDigest, {
-                documentIdentity: {
-                    id: identity.documentId,
-                    epoch: context.documentEpoch
-                },
-                revision,
-                assertAdmission: () =>
-                {
-                    const current = resolveSession(entry);
-                    assertBinding(current.binding, identity, context);
-                    if (current.session !== session || current.binding.editor !== editor
-                        || current.binding.editorRevision !== revision)
-                    {
-                        throw new Error('public-editor-retained-snapshot-stale');
-                    }
-                }
-            });
-            // Re-resolve after the digest callback; a document replacement must
-            // not be silently accepted as the requested registry session.
-            const current = resolveSession(entry);
-            if (current.session !== session
-                || snapshot.documentIdentity.id !== binding.identity.documentId
-                || snapshot.documentIdentity.epoch !== binding.documentContext.documentEpoch
-                || snapshot.revision !== binding.editorRevision
-                || current.binding.editorRevision !== snapshot.revision)
-            {
-                throw new Error('public-editor-retained-snapshot-stale');
-            }
-            return snapshot;
+            return prepareRetainedSnapshot(entry).commit();
         },
         restoreRetainedSnapshot(entry, snapshot)
         {

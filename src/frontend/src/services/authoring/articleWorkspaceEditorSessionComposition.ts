@@ -8,7 +8,8 @@ import {
     type ArticleWorkspaceMountedEditorResolver,
     type ArticleWorkspaceFsusUiEditorSessionFactory,
     type ArticleWorkspaceEditorResourceSources,
-    type ArticleWorkspaceOriginalDraftInspection
+    type ArticleWorkspaceOriginalDraftInspection,
+    type ArticleWorkspaceEditorSnapshotPreparation
 } from './fsusUiEditorSessionFactory';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
 
@@ -165,6 +166,19 @@ export function inspectArticleWorkspaceOriginalDraftCheckpoint(
     }
     installed.assertActive();
     return installed.factory.inspectOriginalDraftCheckpoint(entry, reference);
+}
+
+/** Prepare through the same actual native owner; commit/discard retain genuine original custody. */
+export function prepareArticleWorkspaceRetainedEditorSnapshot(
+    entry: OpenArticleDocumentEntry
+): ArticleWorkspaceEditorSnapshotPreparation
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    installed.assertActive();
+    return installed.factory.prepareRetainedSnapshot(entry);
 }
 
 /** Capture the upstream retained token through the same installed factory. */

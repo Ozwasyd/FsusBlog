@@ -927,3 +927,31 @@ is not history-preserving adoption. Original full-ref replacement/failure custod
 and real loader base/server/client version admission remain separate owner gaps.
 Complete host snapshots, resource pause/disposal/eviction and restored-body
 readiness remain refused/unqualified. Every runtime and qualification HOLD stays.
+
+
+### Actual native prepared snapshot receiver
+
+The original native store/session now prepares one genuine pending checkpoint
+without replacing its prior retained token. commitPreparedSnapshot validates
+original history/selection/document/revision and actual panel/render/admission
+custody, allocates before publication and publishes all issued native refs in one
+synchronous owner operation. Failure/cancellation discards only the candidate.
+Original mutating history restore remains byte-identical; foreign/copied/ABA
+candidates refuse. No source/history/body copy owner, new expose or resource ack.
+
+Main prepareArticleWorkspaceRetainedEditorSnapshot forwards the SAME factory's
+actual native preparation capability: snapshot, commit and discard. Commit reserves
+before reentry and uses final real mounted/composition admission; success invokes
+no external reader after native publication. Legacy retained capture uses this
+actual producer. Exact source/protected body maps, current original compiler
+outputs, source-only matrix and preflight live in
+artifacts/article-editor/issue-2295-native-prepared-snapshot.
+
+This is atomic issued-native-ref publication only. Native nullable participants
+remain nullable; full host refs/resources/readiness are not supplied. Original
+Writer draft capture invalidates its current slot before replacement and needs
+its own non-invalidating preparation/private validation/pure publication/cancel
+source. Genuine mounted journal/draft custody and renderer future/release join
+remain their original producer responsibilities. Full factory refusal and same
+identity/epoch/revision native restore remain; no metadata/callback declaration
+substitutes for absent production protocols. All runtime qualification stays held.
