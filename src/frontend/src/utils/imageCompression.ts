@@ -100,7 +100,7 @@ async function loadImageBitmap(file: File, owner: ImageProducerOwner): Promise<{
     if ('createImageBitmap' in window)
     {
         const bitmap = await owner.observe('bitmap-decode', () => createImageBitmap(file));
-        // Adopt before checking cancellation or dimensions; every later failure closes this bitmap.
+        // Adopt before cancellation or dimensions so early failures retain the original cleanup handle.
         const resource = owner.hold('image-bitmap', bitmap, () => bitmap.close());
         owner.ensureActive();
         return { bitmap, releaseBitmap: () => owner.release(resource, true) };
