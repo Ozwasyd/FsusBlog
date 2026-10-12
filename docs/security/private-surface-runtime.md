@@ -147,15 +147,46 @@ cannot keep that observed invalid token admitted. The original helper settles it
 request and transaction failures and retains the primary failure; the read remains
 unavailable. Replacement custody remains protected by the captured-object fence.
 
-### Original Writer caller intake
+The same journal binding additionally returns
+`ArticleRecoveryJournalCheckpointPublicationBinding`. `preparePublication(signal?)`
+reserves at most one candidate alongside its current custody, completes the original
+producer's transaction and rereads the original payload with the original integrity
+hydrator. A protected row is reused only when its persisted metadata and the actual
+input match exactly. Reuse does not rewrite the row or renew its original TTL. A
+changed protected row, capacity failure, or records requiring original cleanup
+refuse preparation without mutating that storage or replacing current custody.
+Unprotected new writes stay in the original namespace and original capacity policy.
+Original write/list still perform their original cleanup; callers must complete
+that genuine cleanup before retrying a refused preparation. There is no rollback
+claim for an unprotected write which already committed before cancellation.
 
-The Writer consumes the actual original journal closure from
-`02cfd1a9919d6008ff203fe377e01d29abb236cc`, including the original private cleanup
-entry and held source controls. Its checkpoint wrapper now forwards
-`validateContent`, `inspectReference`, `validateReference` and `restoreReference`
-to the same issued journal binding; the creation reservation and independently
-idempotent release remain. The earlier six-method inspection above is historical.
-Only the journal issues checkpointRef after completed persistence and ownership
-checks. Writer does not stringify the opaque token, issue a locator or claim
-full factory capture/restore. Source intake and static results do not lift any
-runtime, privacy, native, product or frozen-authority qualification gate.
+The frozen prepared capability exposes its actual candidate `checkpoint` and
+`info`; neither is live admission. `validatePrepared(preparation, nativeSource)`
+rereads actual Writer facts, verifies the actual native body and expiry, and returns
+the exact original candidate info. It reserves before external source/clock reads
+and rejects validation/publication reentry. Failure drops only that candidate.
+`hasPreparedCustody(preparation, info)` checks only exact validated private slot
+continuity. `publishPrepared(preparation, info)` uses language-private checks and
+preallocated custody to replace the live slot, without a reader, clock, hash,
+signal, storage, listener cleanup, allocation or other owner callback.
+`cancelPrepared(preparation)` drops only the exact candidate. The preparation's
+AbortSignal covers its asynchronous operation; after it returns, use the explicit
+cancel endpoint. A later original authoritative mutation/release/coordination
+still revokes affected custody and preparations. Stale original read observations
+are fenced to the exact captured candidate as well as the exact captured live
+custody; actual deletion also cancels an affected prepared candidate.
+
+Main must finish all genuine participant preparation and fresh source/admission
+checks before the final callback-free private continuity/publication sequence, in
+one synchronous operation with no await or external callback between those steps.
+Pure checks do not establish fresh source/expiry/storage admission. The original
+`hasReferenceCustody(reference, info)` implementation consumed by Main at
+`bbed9ae73cc790abf7ff32b28abbd271add08ec3` is retained verbatim in this owner; exact
+proof identity is required. The legacy six-method `prepare()` keeps its existing
+destructive mutation semantics and is not this two-phase protocol. Writer owns
+forwarding the extended methods on its SAME original binding; Main owns joining
+its actual native, draft and renderer producers. Neither owner, store nor authority
+is copied here. A differing body/revision at the same protected journal key cannot
+be published through this protocol while claiming its prior row is preserved;
+that storage limitation is refused, not disguised as a second durable checkpoint.
+Complete host refsets, disposal/readiness and runtime qualification remain blocked.

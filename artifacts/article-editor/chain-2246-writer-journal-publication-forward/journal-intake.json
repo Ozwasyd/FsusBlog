@@ -1,0 +1,24 @@
+{
+  "base": "d9333172f54e23655dbb2587339b6eb3fdda14fd",
+  "source": "abf2d49056eeba7879c4981ec3d01cfe4fe61b4a",
+  "head": "082ba73fc508a07572dd53487ef626a1f2449be5",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "preimage": "bcea5a14ecd76362e4da73081fc2ea253d516cf9",
+      "postimage": "6951187317d7a58bd940243dbbd30ab804c94f35"
+    },
+    {
+      "path": "docs/security/private-surface-runtime.md",
+      "preimage": "96af49a9863ec686f16ec3ba13d55ce4f0b57829",
+      "postimage": "c7da9e92bd379792d93195cc17baeb1ddd780cff"
+    }
+  ],
+  "applyCheck": 0,
+  "applyIndex": 0,
+  "exactPostimages": true,
+  "threeWayOrMerge": false,
+  "sourceClosure": "parent supplied boundedSourceStaticClosed, no mustfix",
+  "controls": "original421 lines UNRUN",
+  "runtime": "HOLD/UNRUN"
+}
