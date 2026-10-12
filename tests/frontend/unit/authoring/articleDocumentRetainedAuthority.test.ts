@@ -759,6 +759,13 @@ describe('original retained document authority source controls', () =>
         expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('handover-invalid');
         expect(primary.adapter.context).toBe(edited);
         expect(primary.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(0);
+        authority.discardRetainedPreparation(preparation);
+        const task = primary.adapter.beginTask('render', 'producer:after-discard');
+        expect(task.accept('real-edited-result').accepted).toBe(true);
+        const next = primary.switchDocument({ articleId: 2, content: '# next actual document' });
+        expect(next?.articleId).toBe(2);
+        const nextPreparation = authority.prepareRetainedDocument(registry, input(3), scope);
+        authority.discardRetainedPreparation(nextPreparation);
     });
 
     it('rechecks actual primary release after synchronous task cancellation and retains unsettled work', () =>
@@ -811,5 +818,96 @@ describe('original retained document authority source controls', () =>
         expect(first.attachConsumer(factory)).toBe(actual);
         expect(first.inspect().admissionClosed).toBe(false);
         expect(invalidations).toBe(0);
+    });
+    it('blocks prepared primary admission synchronously during nested scope retirement before cleanup drain', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const outerScope = { readPrincipalIdentityId: () => 'outer', readSiteScope: () => 'site:outer' };
+        const outerPreparation = authority.prepareRetainedDocument(registry,
+            { articleId: 2, siteScope: 'site:outer', userScope: 'user:outer', content: '# outer' }, outerScope);
+        const outer = authority.acquireRetainedDocument(admit(registry, outerPreparation.context, 'outer'), outerPreparation);
+        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
+        const handle = admit(registry, canonical.context, 'restored');
+        const primary = authority.acquire(input(1));
+        const original = primary.adapter.context;
+        const pending = primary.adapter.beginTask('attachment', 'producer:pending-primary');
+        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
+        let nested = false;
+        outer.attachConsumer(() => ({ invalidateDocument: () =>
+        {
+            authority.revokeRetainedScope('site:test', 'test');
+            nested = true;
+            expect(pending.signal.aborted).toBe(false);
+            expect(primary.adapter.isCurrentContext(original)).toBe(false);
+            expect(() => primary.adapter.beginTask('render', 'producer:illegal')).toThrow('owner-unavailable');
+            expect(() => primary.adapter.updateSource('# illegal write')).toThrow('owner-unavailable');
+            expect(() => authority.acquire(input(1))).toThrow('owner-unavailable');
+            expect(() => authority.discardRetainedPreparation(preparation)).toThrow('not-unused');
+        } }));
+        authority.revokeRetainedScope('site:outer', 'outer');
+        expect(nested).toBe(true);
+        expect(primary.adapter.context).toBe(original);
+        expect(pending.signal.aborted).toBe(true);
+        expect(primary.adapter.pendingTaskRefs).toContain(pending.taskRef);
+        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('preparation-invalid');
+    });
+
+    it('revalidates sole primary binding at consumption and permits a genuine retry after secondary release', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
+        const handle = admit(registry, canonical.context, 'restored');
+        const primary = authority.acquire(input(1));
+        const original = primary.adapter.context;
+        const pending = primary.adapter.beginTask('refresh', 'producer:original');
+        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
+        const secondary = authority.acquire(input(1));
+        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('admission-changed');
+        expect(primary.adapter.context).toBe(original);
+        expect(pending.signal.aborted).toBe(false);
+        expect(primary.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(0);
+        secondary.release();
+        const retained = authority.acquireRetainedDocument(handle, preparation);
+        expect(retained.adapter).toBe(primary.adapter);
+        expect(pending.signal.aborted).toBe(true);
+        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
+    });
+
+    it('releases an edited unused primary pin so the same actual adapter can prepare again', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
+        const handle = admit(registry, canonical.context, 'restored');
+        const primary = authority.acquire(input(1));
+        const pending = primary.adapter.beginTask('attachment', 'producer:actual');
+        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
+        primary.adapter.updateDraftRevision('draft-revision:actual-edit');
+        const edited = primary.adapter.context;
+        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('handover-invalid');
+        authority.discardRetainedPreparation(preparation);
+        expect(primary.adapter.context).toBe(edited);
+        expect(primary.adapter.pendingTaskRefs).toContain(pending.taskRef);
+        expect(primary.adapter.isCurrentContext(edited)).toBe(true);
+        primary.adapter.updateDraftRevision(null);
+        const retry = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
+        expect(authority.acquireRetainedDocument(handle, retry).adapter).toBe(primary.adapter);
+    });
+
+    it('cannot adopt around an unused handover pin and cannot discard a published failed handover', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
+        const handle = admit(registry, canonical.context, 'restored');
+        const primary = authority.acquire(input(1));
+        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
+        expect(() => authority.adoptPrimaryRetainedDocument(registry, handle, primary, scope)).toThrow('handover-prepared');
+        primary.adapter.subscribeContext(() => { throw new Error('actual-publication-failure'); });
+        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('actual-publication-failure');
+        expect(() => authority.discardRetainedPreparation(preparation)).toThrow();
+        expect(() => primary.adapter.updateSource('# after publication failure')).toThrow('owner-unavailable');
     });
 });

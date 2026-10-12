@@ -299,3 +299,29 @@ revision/draft requires original Writer/body/draft/Registry source-publication
 capability; arbitrary string metadata, revision relabeling or new draft IDs cannot
 fill it. It does not transfer already retained adapter/consumer custody. Static
 results and exact source/consumer offers are recorded separately in PR4228 WIP.
+
+## Independent loaded-primary P2 repair increment
+
+Independent review ofad35/03c75 found three actual gaps: prepared borrowed-primary
+admission stayed open until bind during nested retirement; an additional genuine
+legacy binding could enter after preparation without consumption revalidation;
+and any intervening context edit was mistaken for handover publication, preventing
+unused discard and permanently pinning the adapter. Those heads are NOT consumed
+as accepted new handover source.
+
+The repair installs the genuine preparation's runtime-private admission guard
+before return, closes it synchronously through original owner retirement facts,
+anchors owner scope independently of subsequent mutable context, and retains real
+queued cleanup/pending tasks. Every handover validator and bind's final primary
+check revalidate the actual sole binding. A module-private explicit publication
+marker is set only at real target assignment; ordinary edit/refusal still permits
+unused discard without disposing the borrowed adapter. Discard of a retired or
+published owner refuses; strict adoption cannot bypass the unused preparation.
+
+Four additional source cases plus the existing intervening-edit case cover the
+three actual P2 paths, nested pre-drain source/task/binding denial, safe retry after
+secondary release, edited-pin discard/reprepare, already-published failure refusal
+and preparation ownership bypass. Original whole-file entry/config/setup/import
+preflight remains unchanged; source cases are written only, with all test/list/
+discovery/import/native/browser/mount/security/privacy/receipt/race/DB/storage/
+fullfactory qualifications HOLD. New repaired-head source review is required.

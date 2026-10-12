@@ -65,6 +65,25 @@ through `attachConsumer`; a consumer already owned by any other retained owner
 cannot be moved or duplicated. This is not an API to switch an existing retained
 adapter or transfer a registered consumer's form/history/native resources.
 
+The preparation installs an actual borrowed-primary admission guard before it
+escapes. Scope retirement closes that guard synchronously, including nested
+retirement whose canonical cleanup remains queued; task/source admission refuses
+while real pending work and cleanup stay in the drain. The original owner's scope
+is pinned independently of later edits to its borrowed adapter. Discard cannot
+remove a retired owner from pending cleanup or reopen admission. A live unused
+handover may still be edited; rejecting its now-stale offer does not dispose that
+adapter or mark an identity publication. Explicit discard releases that unused pin
+and preserves the actual edited context and pending work.
+
+The sole-binding constraint is revalidated at consumption, after cancellation and
+other external reads, and after publication/notification. A second genuine legacy
+binding acquired since preparation prevents publication; after its real release,
+the original unused offer can retry if all original context facts still match.
+An explicit module-private marker records ONLY actual target context publication.
+That marker, not any context difference, determines failed-publication custody and
+discard refusal. Strict adoption cannot bypass an unbound handover pin. These
+facts do not settle tasks or prove native/full-ref restoration.
+
 This handover does not validate a loaded body against a snapshot, grant full native
 restore or label arbitrary source as current. A different article/draft, unmatched
 source/draft revision, or unsupported Registry source reference refuses. Restored
