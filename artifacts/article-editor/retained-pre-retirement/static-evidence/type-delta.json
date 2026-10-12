@@ -1,0 +1,11 @@
+{
+  "baselineSource": "272a771baa33a9c9c06ec02250a9d97ff786b0c8",
+  "source": "cc3ee0f516ed1929aa032e97d30855a9a43ee51c",
+  "UI": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "baselineDiagnostics": 249,
+  "candidateDiagnostics": 249,
+  "added": [],
+  "removed": [],
+  "candidateExit": 2,
+  "qualification": false
+}
