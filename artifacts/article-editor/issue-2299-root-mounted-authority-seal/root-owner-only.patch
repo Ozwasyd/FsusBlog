@@ -1,5 +1,14 @@
 --- a/src/frontend/src/layouts/AdminWorkspaceFrame.vue
 +++ b/src/frontend/src/layouts/AdminWorkspaceFrame.vue
+@@ -60,7 +60,7 @@
+     type AccountContentMode,
+     type AccountPageKind
+ } from '@/router/accountRouteMeta';
+-import { installArticleWorkspaceEditorSessions, retireArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
++import { installArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
+ import { createArticleWorkspaceMountedEditorResolver } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
+ import {
+     articleWorkspaceTabRouter,
 @@ -97,6 +97,7 @@
          custody: AuthoringTabGroupStartupCustody | null;
          resolver: ArticleWorkspaceMountedEditorResolver | null;

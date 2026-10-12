@@ -8,7 +8,7 @@
         {
             "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
             "baseBlob": "09eab6ad276af22bd9d1abaa4371827732cd0dc2",
-            "postimageSha256": "9cd534a6d1f3d85dfa8e8daccc976328eb0fa1adac0450dc1866e9d8c0aea776",
+            "postimageSha256": "1ad35482df7508f143a98f1b403df5163d40935133c90e58bdc49d64f648502e",
             "productionEdited": false
         },
         {
@@ -24,7 +24,7 @@
             "productionEdited": false
         }
     ],
-    "patchSha256": "0df56a4ceeff708de0c16a457423ddfbc94973c3888add536887b8128d2a0acf",
+    "patchSha256": "3482ce0a79f1a66508b8ce9e2d2283191cc2d71696361cfe1b0b4e20506742ea",
     "missingOriginalAuthMembershipProducers": true,
     "runtime": "ALL HOLD/UNRUN",
     "ownedSource": [
