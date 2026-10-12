@@ -1,0 +1,13 @@
+{
+  "implementation": "8faad7678d6d99aa0fcc9927ee3dc836a780821f",
+  "original_writer_preimage": "6c75ec510b9b19dda80eea292db6f6d7a7a092bf",
+  "writer_postimage": "5bd2c788d33818529760890a51c105418a98a209",
+  "main_preimage": "fce247d0084a60a524025887276207bd96440fe5",
+  "main_commit": "bbed9ae73cc790abf7ff32b28abbd271add08ec3",
+  "normalized_patch_sha256": "3a988644daec26e2c19e5d7cc93c214c4e3582a4f2bae08f744596f2e0932d4b",
+  "raw_patch_sha256": "19c8ed1c4fd8bbb033d58d51bdb6993a582e3495fdee0590c7ffac97ce0684a1",
+  "normalization": "only space-only blank context lines in tracked patch artifact",
+  "main_apply_check": 0,
+  "main_production_applied": false,
+  "runtime": "HOLD/UNRUN"
+}

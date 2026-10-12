@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "5bd2c788d33818529760890a51c105418a98a209",
+      "diagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts",
+      "blob": "96939baf5f244f88654fb96578c1e17503a87699",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+      "diagnostics": []
+    }
+  ],
+  "importsUnchanged": true,
+  "candidateExecuted": false,
+  "testsRun": false,
+  "testsListed": false,
+  "runtime": "HOLD/UNRUN"
+}

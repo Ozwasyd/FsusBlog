@@ -1,0 +1,11 @@
+{
+  "baseline": "fb679c1bf8b377a72093cee76355d95d9b467845",
+  "baseline_diagnostics": 221,
+  "candidate_diagnostics": 221,
+  "added": [],
+  "removed": [],
+  "owned": [],
+  "application_exit": 2,
+  "runtime": "HOLD/UNRUN",
+  "normalization": "full path/code/headline message; line/column excluded"
+}

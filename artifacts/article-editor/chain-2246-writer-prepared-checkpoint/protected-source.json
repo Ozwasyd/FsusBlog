@@ -1,0 +1,44 @@
+{
+  "base": "5ac6fb13de329ed36efcb782c7b1d5028c632416",
+  "source": "8faad7678d6d99aa0fcc9927ee3dc836a780821f",
+  "protected": [
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "blob": "bcea5a14ecd76362e4da73081fc2ea253d516cf9",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
+      "blob": "d9d579c7cb6d486c122dc1320bb9a01e92f8fb30",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "blob": "f7343067454f71d053ab48ef86cab2aa0c5cd512",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts",
+      "blob": "5f7b1f7bc57c0c6721412e3b8ef8b317e6f44a45",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "blob": "7d70543f9593cd2d3b29f504bea94107d43cd26c",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts",
+      "blob": "27cb10f09a7328ff867fceba0997a88a5651204e",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "blob": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+      "unchanged": true
+    }
+  ],
+  "separate_body_wip": "41b4e7ab0f4d9a89afc72dd9b90bf144fde2a8e1",
+  "body_wip_preserved": true,
+  "runtime": "HOLD/UNRUN"
+}

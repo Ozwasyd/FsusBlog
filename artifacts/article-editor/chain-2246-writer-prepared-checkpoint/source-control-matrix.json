@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "8faad7678d6d99aa0fcc9927ee3dc836a780821f",
+  "entry": "tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts",
+  "candidateImported": false,
+  "runtime": "HOLD/UNRUN",
+  "controls": [
+    { "case": "unretained preparation refusal preserves committed slot", "status": "UNRUN" },
+    { "case": "genuine candidate cancel/repeat/successor isolation preserves committed slot", "status": "UNRUN" },
+    { "case": "same-owner publication has no mounted callback/form/context writes", "status": "UNRUN" },
+    { "case": "actual preparation reader failure preserves old slot and fresh retry", "status": "UNRUN" },
+    { "case": "actual validation failure discards candidate and rejects recommit", "status": "UNRUN" },
+    { "case": "pre-reader reservation denies nested prepare/capture/restore/release", "status": "UNRUN" },
+    { "case": "nested validation/publication and actual cancellation during readers", "status": "UNRUN" },
+    { "case": "actual UUID allocation failure preserves committed slot", "status": "UNRUN" },
+    { "case": "principal retirement ABA cannot revive candidate", "status": "UNRUN" },
+    { "case": "real native transaction/context revision cancels candidate", "status": "UNRUN" },
+    { "case": "actual mounted runtime release refuses private publication", "status": "UNRUN" },
+    { "case": "genuine handle permission notification cancels pending candidate", "status": "UNRUN" }
+  ],
+  "originalAndUpstreamControls": "all UNRUN; retained complete entry and source-owned upstream gates",
+  "nativeJoin": "not implemented; must use actual native producer candidate and failed-candidate discard",
+  "journalRendererJoin": "missing original owner interfaces/evidence; full host refs remain refused"
+}

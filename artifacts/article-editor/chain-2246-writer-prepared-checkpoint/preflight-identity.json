@@ -1,0 +1,30 @@
+{
+  "entry": "tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts",
+  "unchanged_imports": true,
+  "config_setup": [
+    {
+      "path": "src/frontend/vitest.config.ts",
+      "blob": "3aace05462d69ea05d6320774bdbef69bb171c02",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/vitest.composables-state.config.ts",
+      "blob": "7c175a4f1409686a34082120d2815997ed0a535c",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/vitest.shared.mjs",
+      "blob": "ab0ab0904b65345a7e8cbfabc8f3a2f586ad1fd8",
+      "unchanged": true
+    },
+    {
+      "path": "tests/frontend/support/unit/setup.ts",
+      "blob": "8c23a6a81aa9d714a4655f5eab228258cb0bf5e0",
+      "unchanged": true
+    }
+  ],
+  "new_mock_import_config_changes": false,
+  "runtime": "HOLD/UNRUN",
+  "discovery": "UNRUN",
+  "control_source_changes": "12 appended actual Writer/native/Registry controls; original complete file retained"
+}
