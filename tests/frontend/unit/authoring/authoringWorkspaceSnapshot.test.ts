@@ -48,6 +48,7 @@ class Server implements AuthoringWorkspaceSnapshotTransport {
         layout: AuthoringWorkspaceSnapshotLayout;
     }[] = [];
     public reads = 0;
+    public resets = 0;
     public failRead = false;
     public failWrite = false;
     public afterWrite: (() => void) | null = null;
@@ -79,6 +80,7 @@ class Server implements AuthoringWorkspaceSnapshotTransport {
         expectedRevision: number;
         confirmationDigest: string;
     }): Promise<AuthoringWorkspaceSnapshotResult> {
+        this.resets++;
         if (this.beforeReset)
             await this.beforeReset();
         const value = defaultWorkspaceSnapshotLayout();
@@ -542,6 +544,172 @@ describe('read barriers, real CAS settlement and deferred peer rereads', () => {
                 expect(events.indexOf('server-reset')).toBeLessThan(events.indexOf('server-read-channel'));
             }
         }
+    });
+});
+// Admission/cancellation/unknown-result declarations only; none is imported or executed here.
+describe('admitted barriers and retained peer refresh obligations', () => {
+    it.each(['write-revision', 'write-layout', 'write-abort', 'reset-revision', 'reset-confirmation', 'reset-abort'] as const)('does not cancel a legitimate pending read for rejected %s', async scenario => {
+        const server = new Server();
+        const raw = await server.read();
+        let deliver!: (value: AuthoringWorkspaceSnapshotResult) => void;
+        const gate = new Promise<AuthoringWorkspaceSnapshotResult>(resolve => { deliver = resolve; });
+        const api = new AuthoringWorkspaceSnapshotApi({ read: () => gate,
+            write: server.write.bind(server), reset: server.reset.bind(server) }, scope, sourceDigest, () => now);
+        const pending = api.read();
+        const controller = new AbortController();
+        if (scenario.endsWith('abort'))
+            controller.abort();
+        const value = layout();
+        if (scenario === 'write-layout')
+            value.splitRatioPermille = 199;
+        const rejected = scenario.startsWith('write')
+            ? api.write(scenario === 'write-revision' ? -1 : 1, value, controller.signal)
+            : api.reset(scenario === 'reset-revision' ? -1 : 1,
+                scenario === 'reset-confirmation' ? 'invalid' : api.resetConfirmation(1), controller.signal);
+        await expect(rejected).rejects.toThrow();
+        expect(server.writes).toHaveLength(0);
+        expect(server.resets).toBe(0);
+        deliver(raw);
+        const observed = await pending;
+        requireWorkspaceServerObservation(observed);
+        expect(observed.revision).toBe(1);
+    });
+    it.each(['write', 'reset'] as const)('does not advance the barrier when %s caller cancellation occurs inside admission', async kind => {
+        const server = new Server();
+        const raw = await server.read();
+        let deliver!: (value: AuthoringWorkspaceSnapshotResult) => void;
+        const gate = new Promise<AuthoringWorkspaceSnapshotResult>(resolve => { deliver = resolve; });
+        const controller = new AbortController();
+        let cancel = false;
+        const api = new AuthoringWorkspaceSnapshotApi({ read: () => gate,
+            write: server.write.bind(server), reset: server.reset.bind(server) }, scope, sourceDigest, () => now, () => {
+            if (cancel)
+                controller.abort();
+        });
+        const pending = api.read();
+        const confirmation = api.resetConfirmation(1);
+        cancel = true;
+        await expect(kind === 'write' ? api.write(1, layout(), controller.signal)
+            : api.reset(1, confirmation, controller.signal)).rejects.toThrow();
+        cancel = false;
+        expect(server.writes).toHaveLength(0);
+        expect(server.resets).toBe(0);
+        deliver(raw);
+        requireWorkspaceServerObservation(await pending);
+    });
+    it('rejects a Sync confirmation before entering pending mutation state', async () => {
+        const { api, server, sync } = setup();
+        await sync.start();
+        const observed = sync.getServerObservation();
+        await expect(sync.reset(true, 1, 'invalid')).rejects.toThrow('reset_confirmation_mismatch');
+        expect(server.resets).toBe(0);
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 1, resetting: false });
+        expect(sync.getServerObservation()).toBe(observed);
+        expect(api.resetConfirmation(1)).toHaveLength(64);
+    });
+    it.each([
+        { kind: 'write', committed: false, refreshFailure: false }, { kind: 'write', committed: true, refreshFailure: false },
+        { kind: 'write', committed: false, refreshFailure: true }, { kind: 'write', committed: true, refreshFailure: true },
+        { kind: 'reset', committed: false, refreshFailure: false }, { kind: 'reset', committed: true, refreshFailure: false },
+        { kind: 'reset', committed: false, refreshFailure: true }, { kind: 'reset', committed: true, refreshFailure: true }
+    ] as const)('retains peer duty after unknown $kind committed=$committed refreshFailure=$refreshFailure', async ({ kind, committed, refreshFailure }) => {
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        const originalWrite = server.write.bind(server);
+        const originalReset = server.reset.bind(server);
+        let delayRead = false;
+        let failRefresh = false;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        server.read = async () => {
+            const result = await originalRead();
+            if (delayRead) {
+                delayRead = false;
+                await gate;
+            } else if (failRefresh)
+                throw new Error('peer_refresh_unavailable');
+            return result;
+        };
+        if (kind === 'write')
+            server.write = async command => {
+                if (committed)
+                    await originalWrite(command);
+                throw new Error('mutation_delivery_unknown');
+            };
+        else
+            server.reset = async command => {
+                if (committed)
+                    await originalReset(command);
+                throw new Error('mutation_delivery_unknown');
+            };
+        const hub = new ChannelHub();
+        const channel = hub.create();
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        delayRead = true;
+        // Untrusted hints trigger reads only; real fixture CAS decides whether server state changed.
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: 2, leaseUntil: now });
+        if (kind === 'write') {
+            sync.onInteraction('tabs', layout(2));
+            await sync.flush();
+        } else
+            await expect(sync.reset(true, 1, api.resetConfirmation(1))).rejects.toThrow('mutation_delivery_unknown');
+        expect(sync.getState().status).toBe('failed');
+        expect(sync.getServerObservation()).toBeNull();
+        failRefresh = refreshFailure;
+        release();
+        await vi.advanceTimersByTimeAsync(0);
+        if (refreshFailure) {
+            expect(sync.getState()).toMatchObject({ status: 'failed', reason: 'server_mutation_outcome_unknown' });
+            expect(sync.getServerObservation()).toBeNull();
+            const reads = server.reads;
+            failRefresh = false;
+            await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+            expect(server.reads).toBeGreaterThan(reads);
+        }
+        if (kind === 'write' && committed) {
+            expect(sync.getState().status).toBe('conflict');
+            sync.acceptServerAfterConflict();
+        }
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: committed ? 2 : 1 });
+        const observed = sync.getServerObservation();
+        expect(observed).not.toBeNull();
+        if (!observed)
+            throw new Error('verified_refresh_missing');
+        requireWorkspaceServerObservation(observed);
+        expect(sync.getReceipt().events.some(event => event.kind === (kind === 'write' ? 'server-applied' : 'server-reset'))).toBe(false);
+    });
+    it('discards a delayed peer refresh obligation when the original Sync stops', async () => {
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        let delay = false;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        server.read = async () => {
+            const result = await originalRead();
+            if (delay) {
+                delay = false;
+                await gate;
+            }
+            return result;
+        };
+        server.reset = async () => { throw new Error('mutation_delivery_unknown'); };
+        const channel = new ChannelHub().create();
+        const { api, sync } = setup(server, new CacheStorage(), channel);
+        await sync.start();
+        delay = true;
+        channel.send({ schema: workspaceSnapshotSyncPolicy.channelSchema,
+            scopeDigest: workspaceSnapshotDigest(scope), sourceDigest, ownerRef: 'browser:peer',
+            kind: 'invalidated', revision: 2, leaseUntil: now });
+        await expect(sync.reset(true, 1, api.resetConfirmation(1))).rejects.toThrow('mutation_delivery_unknown');
+        const reads = server.reads;
+        await sync.stop(false);
+        release();
+        await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+        expect(server.reads).toBe(reads);
+        expect(sync.getServerObservation()).toBeNull();
     });
 });
 describe('verified non-authoritative cache', () => {

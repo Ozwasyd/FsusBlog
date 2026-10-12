@@ -546,3 +546,42 @@ These are static source declarations only, not executed observations. The
 fixture's before/after reset gates control actual existing CAS timing; its
 explicit result return type adds no assertion or fabricated data. Exact source,
 strict compiler and lint evidence do not replace runtime qualification.
+
+## Admission and unknown-outcome refresh correction source
+
+Independent exact `06560cbca5f72027d07d9682b3d5c6ba53703d57` review closed the
+main same-lifetime CAS-ticket P2, but found two remaining source P2s: rejected
+input/confirmation/cancellation advanced a read barrier without dispatch, and
+a delayed cancelled channel read could lose its refresh duty after reset ended
+with an unknown transport outcome, leaving old R1 displayed as current.
+
+The API now advances its mutation-start read barrier inside the already-admitted
+request callback immediately before invoking the fixed original transport
+function. All input/copy/confirmation/signal/lifetime checks precede that point.
+Rejected commands cannot supersede unrelated pending reads. Invocation failure
+is still an unknown transport outcome, not a fabricated no-op or CAS result.
+The verified-settlement barrier, real CAS verification, monotonic publication,
+private custody and irreversible close remain unchanged.
+
+Sync checks reset confirmation/cancellation before pending state. A failed reset
+without a verified response records failed/unknown state and propagates the
+actual error; an uncertain write retains its existing failed handling. Unknown
+outcome is a bounded current-session flag, never a mutation receipt. Only a
+fresh current/missing server observation restores that authority; read failure
+or cancellation cannot claim the missing result was applied or absent.
+
+Every peer invalidation and cancelled channel read retains the single refresh
+duty even after mutation completion. One peer-read-in-progress flag coalesces
+overlap. The drain makes at most one immediate retry, retains unfinished duty
+and uses the original periodic boundary for further real reads. Stop discards
+the duty; offline/epoch/lifetime checks prevent late adoption. New hints during
+a read cannot vanish on completion. No queue, persistence, timer owner or local
+authority is introduced. Conflict refresh still preserves explicit server choice.
+
+Eighteen additional ordinary UNRUN cells cover six rejected-input cases, two
+admission-time caller cancellations, Sync confirmation rejection, eight unknown
+write/reset cases (actual fixture CAS committed/not committed and fresh read
+success/failure), and stop during the delayed peer read. The fixture reset
+counter observes invocation only. No result/digest or qualified runtime receipt
+is fabricated. Source closure of these remaining P2s awaits independent review;
+all tests/list/attack/auth/security/runtime/native/receipt holds continue.

@@ -84,6 +84,8 @@ export class AuthoringWorkspaceSnapshotSync
     private reading = 0;
     private peerLeaseUntil = 0;
     private readAfterMutation = false;
+    private peerReadPending = false;
+    private mutationOutcomeUnknown = false;
     private readonly events: {
         kind: string;
         revision: number | null;
@@ -315,6 +317,7 @@ export class AuthoringWorkspaceSnapshotSync
             {
                 if (this.isCurrentOperation(epoch))
                 {
+                    this.mutationOutcomeUnknown = true;
                     this.status = this.online ? 'failed' : 'offline-unsynced';
                     this.reason = 'server_write_failed';
                     this.record('server-write-failed');
@@ -384,6 +387,11 @@ export class AuthoringWorkspaceSnapshotSync
         {
             throw new AuthoringWorkspaceSnapshotError('reset_requires_current_server');
         }
+        if (confirmationDigest !== this.api.resetConfirmation(expectedRevision))
+        {
+            throw new AuthoringWorkspaceSnapshotError('reset_confirmation_mismatch');
+        }
+        this.abort.signal.throwIfAborted();
         const generation = this.generation;
         const epoch = this.lifecycleEpoch;
         this.resetting = true;
@@ -422,6 +430,18 @@ export class AuthoringWorkspaceSnapshotSync
             this.send('invalidated', result.revision);
             this.record('server-reset');
         }
+        catch (error)
+        {
+            if (this.isCurrentOperation(epoch))
+            {
+                // Without a verified CAS response, even a transport failure may follow a server commit.
+                this.mutationOutcomeUnknown = true;
+                this.status = 'failed';
+                this.reason = error instanceof AuthoringWorkspaceSnapshotError ? error.reason : 'server_reset_outcome_unknown';
+                this.record('server-reset-failed');
+            }
+            throw error;
+        }
         finally
         {
             if (!this.stopped && epoch === this.lifecycleEpoch)
@@ -452,6 +472,7 @@ export class AuthoringWorkspaceSnapshotSync
         this.observation = null;
         this.pendingServer = null;
         this.readAfterMutation = false;
+        this.mutationOutcomeUnknown = false;
         this.cacheRead = null;
         this.memory = defaultWorkspaceSnapshotLayout();
         this.dirty = false;
@@ -472,21 +493,38 @@ export class AuthoringWorkspaceSnapshotSync
         }
         this.cache.close();
     }
-    private async readDeferredChannel(epoch: number): Promise<void>
+    private async readDeferredChannel(epoch: number, retryOnce = true): Promise<void>
     {
-        if (!this.readAfterMutation || !this.isCurrentOperation(epoch) || this.flushTask || this.resetting)
+        if (!this.readAfterMutation || !this.isCurrentOperation(epoch) || this.flushTask || this.resetting || this.peerReadPending)
         {
             return;
         }
         this.readAfterMutation = false;
-        // A queued peer hint must not silently accept server state after a real CAS conflict.
-        await this.readServer(this.status === 'conflict' ? 'conflict' : 'channel');
+        this.peerReadPending = true;
+        try
+        {
+            // A queued peer hint must not silently accept server state after a real CAS conflict.
+            const refreshed = await this.readServer(this.status === 'conflict' ? 'conflict' : 'channel');
+            if (!refreshed && this.isCurrentOperation(epoch))
+            {
+                this.readAfterMutation = true;
+            }
+        }
+        finally
+        {
+            this.peerReadPending = false;
+        }
+        if (this.readAfterMutation && retryOnce)
+        {
+            // One immediate retry; any remaining obligation stays for the existing periodic boundary.
+            await this.readDeferredChannel(epoch, false);
+        }
     }
-    private async readServer(trigger: 'startup' | 'reconnect' | 'conflict' | 'channel'): Promise<void>
+    private async readServer(trigger: 'startup' | 'reconnect' | 'conflict' | 'channel'): Promise<boolean>
     {
         if (this.stopped || !this.online)
         {
-            return;
+            return false;
         }
         const ticket = ++this.reading;
         const epoch = this.lifecycleEpoch;
@@ -495,16 +533,16 @@ export class AuthoringWorkspaceSnapshotSync
             const server = await this.api.read(this.abort.signal);
             if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
             {
-                return;
+                return false;
             }
             if (this.observation && server.revision < this.observation.revision)
             {
-                return;
+                return false;
             }
             const cacheStatus = await this.cache.verifyAndReplace(server);
             if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
             {
-                return;
+                return false;
             }
             this.cacheStatus = cacheStatus;
             if (server.status === 'blocked')
@@ -533,25 +571,35 @@ export class AuthoringWorkspaceSnapshotSync
             {
                 this.adopt(server);
             }
+            if (server.status !== 'blocked')
+            {
+                // Fresh verified state restores authority; it does not manufacture the missing CAS receipt.
+                this.mutationOutcomeUnknown = false;
+            }
             this.record(`server-read-${trigger}`);
+            return true;
         }
         catch (error)
         {
             if (!this.isCurrentOperation(epoch) || ticket !== this.reading)
             {
-                return;
+                return false;
             }
             if (error instanceof AuthoringWorkspaceSnapshotError && error.reason === 'server_read_superseded')
             {
-                if (trigger === 'channel' && (this.flushTask || this.resetting))
+                if (trigger === 'channel')
                 {
+                    // Preserve the peer obligation even if the mutation has already failed or settled.
                     this.readAfterMutation = true;
+                    await this.readDeferredChannel(epoch);
                 }
-                return;
+                return false;
             }
             this.status = this.cacheRead?.status === 'cached-placeholder' && !this.dirty ? 'cached-placeholder' : 'failed';
-            this.reason = error instanceof AuthoringWorkspaceSnapshotError ? error.reason : 'server_read_failed';
+            this.reason = this.mutationOutcomeUnknown ? 'server_mutation_outcome_unknown'
+                : error instanceof AuthoringWorkspaceSnapshotError ? error.reason : 'server_read_failed';
             this.record('server-read-failed');
+            return false;
         }
     }
     private adopt(server: AuthoringWorkspaceServerObservation): void
@@ -611,6 +659,7 @@ export class AuthoringWorkspaceSnapshotSync
         this.periodic = this.clock.setTimeout(() =>
         {
             this.periodic = null;
+            void this.readDeferredChannel(this.lifecycleEpoch);
             void this.flush('periodic');
             this.schedulePeriodic();
         }, workspaceSnapshotSyncPolicy.safetyFlushMs);
@@ -674,14 +723,8 @@ export class AuthoringWorkspaceSnapshotSync
                     this.status = 'conflict';
                     this.reason = 'peer_revision_changed';
                 }
-                if (this.flushTask || this.resetting)
-                {
-                    this.readAfterMutation = true;
-                }
-                else
-                {
-                    void this.readServer('channel');
-                }
+                this.readAfterMutation = true;
+                void this.readDeferredChannel(this.lifecycleEpoch);
             }
             this.record(`channel-${String(value.kind)}`);
         }

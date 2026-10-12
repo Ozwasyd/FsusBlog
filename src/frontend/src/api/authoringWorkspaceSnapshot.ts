@@ -332,8 +332,6 @@ export class AuthoringWorkspaceSnapshotApi
     public async write(expectedRevision: number, layout: AuthoringWorkspaceSnapshotLayout, signal?: AbortSignal): Promise<AuthoringWorkspaceServerObservation>
     {
         const generation = this.#lifecycleGeneration;
-        // A mutation starts a read barrier; later read starts do not cancel its real CAS result.
-        this.#readSequence++;
         this.#checkLifecycle(generation, signal);
         this.#expectedRevision(expectedRevision);
         this.#external(() => validateWorkspaceSnapshotLayout(layout), generation, signal);
@@ -341,7 +339,12 @@ export class AuthoringWorkspaceSnapshotApi
         // Validate the owned copy too: caller accessors cannot change the validated proposal during cloning.
         this.#external(() => validateWorkspaceSnapshotLayout(command.layout), generation, signal);
         const inputDigest = workspaceSnapshotDigest(command);
-        const raw = await this.#request(() => this.#writeTransport(command, signal), generation, signal);
+        const raw = await this.#request(() =>
+        {
+            // Admission has completed; no callback separates this barrier from actual dispatch.
+            this.#readSequence++;
+            return this.#writeTransport(command, signal);
+        }, generation, signal);
         const verified = this.#verify(raw, 'write', inputDigest, generation, signal, undefined, expectedRevision, command.layout);
         // Reads started before this verified CAS settlement must refresh after the barrier.
         this.#readSequence++;
@@ -360,8 +363,6 @@ export class AuthoringWorkspaceSnapshotApi
     public async reset(expectedRevision: number, confirmationDigest: string, signal?: AbortSignal): Promise<AuthoringWorkspaceServerObservation>
     {
         const generation = this.#lifecycleGeneration;
-        // A mutation starts a read barrier; later read starts do not cancel its real CAS result.
-        this.#readSequence++;
         this.#checkLifecycle(generation, signal);
         this.#expectedRevision(expectedRevision);
         const expectedConfirmation = workspaceSnapshotDigest({ action: 'reset-default-layout', scope: this.#scope, workspaceId: 'default', expectedRevision, sourceDigest: this.#sourceDigest });
@@ -370,7 +371,12 @@ export class AuthoringWorkspaceSnapshotApi
             throw new AuthoringWorkspaceSnapshotError('reset_confirmation_mismatch');
         }
         const layout = defaultWorkspaceSnapshotLayout();
-        const raw = await this.#request(() => this.#resetTransport({ expectedRevision, confirmationDigest }, signal), generation, signal);
+        const raw = await this.#request(() =>
+        {
+            // Rejected input/confirmation/cancellation cannot disturb unrelated pending reads.
+            this.#readSequence++;
+            return this.#resetTransport({ expectedRevision, confirmationDigest }, signal);
+        }, generation, signal);
         const verified = this.#verify(raw, 'reset', workspaceSnapshotDigest({ expectedRevision, layout }), generation, signal, undefined, expectedRevision, layout);
         // Reads started before this verified CAS settlement must refresh after the barrier.
         this.#readSequence++;
