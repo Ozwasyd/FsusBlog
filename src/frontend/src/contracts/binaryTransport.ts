@@ -62,6 +62,7 @@ export interface BinaryTransportResources {
     pendingDecodes: number;
     decodeTimeouts: number;
     decodeAbortListeners: number;
+    abortRaceTimers: number;
     workerTerminal: 'not-used' | 'pending' | 'observed' | 'unknown';
     sharedWorker: boolean;
     sharedWorkerIdleTimer: boolean;

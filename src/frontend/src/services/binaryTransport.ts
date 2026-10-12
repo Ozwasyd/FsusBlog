@@ -7,9 +7,9 @@ import type {
     BinaryDecodeResult,
     BinaryDecodeSuccess,
     BinaryFramePayloadDecoder,
-    BinaryTransportRequest,
     BinaryTransportLocalFailure,
     BinaryTransportOperation,
+    BinaryTransportRequest,
     BinaryTransportResources,
     BinaryTransportTerminal,
     BinaryWorkerResponse,
@@ -176,6 +176,7 @@ class LocalTransportOwner
     callerAbortListener = false;
     cancellationRequested = false;
     readonly decodes: OwnedDecode[] = [];
+    readonly abortRaceTimers = new Set<ReturnType<typeof setTimeout>>();
     // A failed original release is not converted into a receipt by calling its retired no-op again.
     retainedLease: ReturnType<typeof privateRequestRuntime.open> | undefined;
     retainedAbortCleanup: (() => void) | undefined;
@@ -211,6 +212,10 @@ class LocalTransportOwner
             terminal,
             finish: (state) =>
             {
+                if (task.state === 'observed' || task.state === 'unknown')
+                {
+                    return;
+                }
                 task.state = state;
                 resolveTerminal();
             }
@@ -238,6 +243,7 @@ class LocalTransportOwner
             decodeTimeouts: pending.filter((entry) => entry.timeoutId !== null).length,
             decodeAbortListeners: pending.filter((entry) => entry.abortCleanup !== null).length
                 + queuedRequests.filter((entry) => entry.task.owner === this && entry.abortCleanup !== null).length,
+            abortRaceTimers: this.abortRaceTimers.size,
             workerTerminal,
             sharedWorker: workerSingleton !== null,
             sharedWorkerIdleTimer: workerIdleTimer !== null,
@@ -260,9 +266,17 @@ class LocalTransportOwner
     }
 }
 
-function wait(ms: number): Promise<void>
+function wait(ms: number, owner?: LocalTransportOwner): Promise<void>
 {
-    return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+    return new Promise((resolve) =>
+    {
+        const timer = globalThis.setTimeout(() =>
+        {
+            owner?.abortRaceTimers.delete(timer);
+            resolve();
+        }, ms);
+        owner?.abortRaceTimers.add(timer);
+    });
 }
 
 function clearPendingRequest(requestId: number, pumpQueue = true): PendingDecodeRequest | undefined
@@ -415,7 +429,7 @@ function handleWorkerMessage(event: MessageEvent<BinaryWorkerResponse>): void
     {
         return;
     }
-    if ('type' in payload && payload.type === 'terminal')
+    if ('type' in payload)
     {
         const pending = clearPendingRequest(payload.requestId, false);
         if (!pending)
@@ -498,13 +512,20 @@ function getWorker(): Worker
             value: 1
         });
         workerSingleton.addEventListener('message', handleWorkerMessage);
+        const originalWorker = workerSingleton;
         workerSingleton.addEventListener('error', (event) =>
         {
-            handleWorkerFatalError(event.error ?? new Error(event.message || 'binary_decode_worker_failed'));
+            if (workerSingleton === originalWorker)
+            {
+                handleWorkerFatalError(event.error ?? new Error(event.message || 'binary_decode_worker_failed'));
+            }
         });
         workerSingleton.addEventListener('messageerror', () =>
         {
-            handleWorkerFatalError(createAppError(AppErrorCode.ProtocolFailure, 'binary_decode_worker_message_error'));
+            if (workerSingleton === originalWorker)
+            {
+                handleWorkerFatalError(createAppError(AppErrorCode.ProtocolFailure, 'binary_decode_worker_message_error'));
+            }
         });
     }
 
@@ -863,7 +884,7 @@ async function loadBinaryAndDecodeSafe<T>(
             owner?.record('request', error);
             if (!signal?.aborted && error instanceof TypeError && error.message === 'Failed to fetch')
             {
-                await wait(ABORT_RACE_SETTLE_MS);
+                await wait(ABORT_RACE_SETTLE_MS, owner);
             }
 
             if (isAbortError(error) || signal?.aborted)
