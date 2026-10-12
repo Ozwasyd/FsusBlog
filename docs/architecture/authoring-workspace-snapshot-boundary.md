@@ -449,3 +449,48 @@ integration and document/draft owners must supply it; no per-article body fetch,
 saved permission, invented endpoint/wire contract or local resolution list is
 implemented. All auth/security/test/list/runtime/native/receipt qualifications
 remain HOLD/UNRUN.
+
+## Snapshot API issuance custody correction source
+
+The authenticated connection source at `6efe4eddda4fed46e270d3938a01cd30ba4d0922`
+received independent bounded source review with no new connector P1/P2, but
+inherited an API P2: TypeScript-private transport/lifecycle/verify fields could
+be replaced at runtime, allowing a retained genuine response to be reissued
+after connection disposal. That finding is not a fake-digest or cache case and
+is not closed by freezing only the connection's outer object.
+
+The API now keeps fixed constructor-captured transport functions, scope/source,
+clock, connection guard, lifecycle/ticket counters, validation and issuance in
+native ECMAScript private slots/methods. Its instance and public prototype are
+frozen, and subclass construction is refused; reflective old names cannot
+replace those bindings. The real connector passes its original lifetime guard
+into that custody and calls `close()` on disposal. Close permanently latches
+the instance; later invalidation or a guard ABA cannot reopen it. Ordinary
+`invalidateObservations()` retains the original authenticated reconnect use.
+
+Read/write/reset check the fixed lifetime and operation ticket before/after
+transport invocation, await settlement and exceptions. Caller layout validation
+and cloning are fenced, and the owned proposal is revalidated before dispatch.
+Receipt validation, clock callbacks and cloning are also fenced; the owned
+receipt is validated again and a final live check precedes the synchronous
+original provenance publication. A competing reentrant operation cannot silently
+adopt another ticket. Confirmation generation has the same live boundaries;
+close/invalidation perform only internal revocation.
+
+The single original process-local provenance registry becomes a WeakMap of
+observation to its fixed live check, rather than an unchecked WeakSet. Requiring
+an observation verifies that original instance/lifetime and unchanged registry
+membership. New issuance and every later consumer lookup therefore require
+live custody; no serialized receipt, saved valid response, reset or second store
+reconstructs it. A late rejected write may already have committed at the server;
+this correction fabricates neither rollback nor whole-workspace success.
+
+Pending ordinary source counterexamples cover captured-port/reflection attempts,
+retained response/dispose/ABA, all three pending transport entries, clock/cloning
+and exception reentry, guard failure and a newer read ticket. The existing reset
+interleaving fixture delays inside its original method instead of replacing that
+method after binding; its CAS and assertion sequence is preserved. These bodies
+are only static source declarations: no attack, candidate import, tests/list or
+auth/security/runtime/native/receipt qualification runs. Independent correction
+review, canonical frame join, real batch/host/session/shell and full restore
+acceptance remain WIP.
