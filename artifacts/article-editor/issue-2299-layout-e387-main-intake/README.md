@@ -37,6 +37,9 @@ Blocking dependencies are genuine upstream source, not declarations or wrappers:
   Main. Donor LocaleDomainBundleStore schema table is byte-identical to Main and
   rejects schema drift. Leaves/digest/catalog/generated sources are NOT copied or
   refreshed; need original locale-owner schema-admitted source before intake.
+  Static TS AST leaf-kind reconstruction confirms Main digestd73ace36548d42ad
+  matches its original table; donor leaves produce91f19fb7a7303f1f. This is source
+  calculation only, not candidate import/evaluation or runtime qualification.
 
 Root default mounted authority remains null; original provider Queryv1/resolveBatch/
 canonical/fullref gates, Writer positive seal null/has false and missing actual

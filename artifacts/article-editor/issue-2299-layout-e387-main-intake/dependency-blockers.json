@@ -80,6 +80,13 @@
     ],
     "schemaDigestTableUnchangedBetweenMainAndDonor": true,
     "currentAdminDigest": "fnv1a64:d73ace36548d42ad",
-    "requested": "Original locale-owner schema-admitted source; no generated/catalog/frozen refresh or typed shim"
+    "requested": "Original locale-owner schema-admitted source; no generated/catalog/frozen refresh or typed shim",
+    "staticASTSchemaProof": {
+      "path": "locale-static-schema-proof.json",
+      "current": "fnv1a64:d73ace36548d42ad",
+      "original": "fnv1a64:91f19fb7a7303f1f",
+      "table": "fnv1a64:d73ace36548d42ad",
+      "execution": "NONE; literal AST schema projection only"
+    }
   }
 }
