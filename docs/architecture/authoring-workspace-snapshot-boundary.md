@@ -136,6 +136,25 @@ cross-identity/epoch/revision/full-ref restoration, recoverable disposal, evicti
 or ready status. Unavailable joins remain refused, and all runtime acceptance
 remains HOLD/UNRUN.
 
+The original Writer mounted runtime's `bindRecoveryCheckpoint(editorSessionRef)`
+also exposes the original Journal publication binding's five endpoints:
+`preparePublication`, `validatePrepared`, `hasPreparedCustody`, `publishPrepared`
+and `cancelPrepared`. Each directly forwards to the SAME `issued` binding created
+by the original `articleRecoveryJournal.bindCheckpointSource(readSource)`. It
+preserves the actual Promise, opaque preparation/checkpoint/info, refusal and
+exception, and the original `hasReferenceCustody` endpoint. The existing original
+source reader, creation reservation, context/principal invalidation and release
+custody remain; there is no copied Journal store, row, token or owner.
+
+`validatePrepared` performs the original source/native-body/expiry admission.
+Private continuity and publication must then be synchronous, with no intervening
+external callback or await. Pure custody does not reread TTL/source/disk or grant
+permanent expiry admission. Original protected-row mismatch/required cleanup
+refuses; cancellation does not undo a completed unprotected write. This forwarding
+does not compose the native/Writer/Journal/renderer full refset, grant live/storage
+atomicity, native restore, disposal or readiness. Those joins and all runtime
+qualification remain HOLD/UNRUN.
+
 The returned binding exposes `adapter`, `handle`, `inspect()`,
 `subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
 attaches its actual existing form/effects/runtime object once, using one stable

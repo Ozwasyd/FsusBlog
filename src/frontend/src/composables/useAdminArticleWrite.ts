@@ -64,7 +64,7 @@ import {
     type ArticleRecoveryDivergence,
     type ArticleRecoveryFlushResult,
     type ArticleRecoveryJournalRecord,
-    type ArticleRecoveryJournalCheckpointReferenceBinding,
+    type ArticleRecoveryJournalCheckpointPublicationBinding,
     type ArticleRecoveryJournalCheckpointSource,
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
@@ -1051,7 +1051,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             }
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
-            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
             let recoveryCheckpointCreating = false;
             const release = (): void =>
             {
@@ -1125,7 +1125,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
                     editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
                 : null;
-            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding & {
+            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointPublicationBinding & {
                 /** Native retained snapshot only; complete application factory custody remains unavailable. */
                 captureRetainedSnapshot(reference: string): MarkdownEditorSessionSnapshot;
             } =>
@@ -1180,7 +1180,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 };
                 // Reserve before the first caller-held mounted read can reenter this method.
                 recoveryCheckpointCreating = true;
-                let journal: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+                let journal: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
                 let unsubscribe: (() => void) | null = null;
                 let stopIdentityWatch: (() => void) | null = null;
                 let checkpoint: ReturnType<typeof bindRecoveryCheckpoint> | null = null;
@@ -1228,8 +1228,14 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                         validate: token => issued.validate(token),
                         validateContent: (token, content) => issued.validateContent(token, content),
                         inspectReference: reference => issued.inspectReference(reference),
+                        hasReferenceCustody: (reference, info) => issued.hasReferenceCustody(reference, info),
                         validateReference: (reference, content) => issued.validateReference(reference, content),
                         restoreReference: reference => issued.restoreReference(reference),
+                        preparePublication: signal => issued.preparePublication(signal),
+                        validatePrepared: (candidate, content) => issued.validatePrepared(candidate, content),
+                        hasPreparedCustody: (candidate, info) => issued.hasPreparedCustody(candidate, info),
+                        publishPrepared: (candidate, info) => issued.publishPrepared(candidate, info),
+                        cancelPrepared: candidate => issued.cancelPrepared(candidate),
                         captureRetainedSnapshot: reference =>
                         {
                             const source = readSource();
