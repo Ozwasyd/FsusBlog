@@ -1295,9 +1295,19 @@ seal custody. Native seal admission finishes view/render reads before Renderer
 seal acquisition. Subsequent pure has never inspects or reacquires the handle;
 failed/retired cancellation keeps that actual handle/preparation and requires
 original cancellation confirmation while attempting the remaining cleanup.
-The candidate exposes the actual renderer checkpoint ref with
-`native-renderer-draft-journal-reference-custody` scope. The original Root's
-final mounted authority port is a separate required join.
+The candidate exposes the actual Renderer checkpoint ref. The SAME Frame now
+borrows the exact original Write-issued Root seal after physical preparation
+and Doc/Writer admission. Its one bounded descriptor holds the actual native
+editor and session ref; pure has combines original Write private token custody,
+Root667 private Doc/Writer custody and Frame private installation/epoch state.
+View revocation/retirement withdraws that descriptor before external callbacks.
+The existing startup resolver forwards that same descriptor, and factory admission
+checks native/session identity plus descriptor continuity before joining its
+original pure has. The exposed `rootMountedSeal` is the actual original token,
+not a reconstructed marker. Scope is
+`native-renderer-root-draft-journal-reference-custody`. Reference cancellation
+drops borrowed Root custody only; it does not cancel the Root owner's live seal.
+Root alone retains its original cancellation/subscription failures and retries.
 Complete resource authority and restoration after disposal remain unavailable.
 These missing ports prevent full-host readiness, pause/disposal qualification and
 eviction; no component-tree discovery, internal SDK import or substitute issuer

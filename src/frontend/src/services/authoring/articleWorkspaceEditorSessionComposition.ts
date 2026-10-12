@@ -208,7 +208,8 @@ export async function prepareArticleWorkspaceSnapshotReferenceAdmission(
         const hasCustody = (): boolean => installed === composition && hasInstallation()
             && hasOriginal() && hasInstallation() && installed === composition;
         const admission: ArticleWorkspaceSnapshotReferenceAdmission = Object.freeze({
-            references: original.references, rendererCheckpointRef: original.rendererCheckpointRef, scope: original.scope,
+            references: original.references, rendererCheckpointRef: original.rendererCheckpointRef,
+            rootMountedSeal: original.rootMountedSeal, scope: original.scope,
             complete: original.complete, recoverable: original.recoverable,
             missingAuthorities: original.missingAuthorities, hasCustody,
             cancel: original.cancel.bind(original), inspectFailure: original.inspectFailure.bind(original)

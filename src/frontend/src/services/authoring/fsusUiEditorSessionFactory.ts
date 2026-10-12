@@ -25,6 +25,7 @@ import {
 import type { useAdminArticleWrite } from '../../composables/useAdminArticleWrite';
 import type { ArticleRecoveryJournalCheckpointInfo, ArticleRecoveryJournalCheckpointReferenceBinding } from '../articleRecoveryJournal';
 import type { ArticleWorkspaceNativeDocumentReservation } from './articleWorkspaceNativeDocumentAuthority';
+import type { AuthoringWorkspaceRootMountedSeal } from './authoringWorkspaceLayoutContext';
 import type {
     MarkdownEditorSession,
     MarkdownEditorSessionAttachmentResourceSource,
@@ -45,6 +46,15 @@ export interface ArticleWorkspaceMountedEditorBinding {
     readonly documentContext: ArticleDocumentContextRef;
     readonly editorRevision: number;
     readonly draftCheckpoint?: ArticleWorkspaceOriginalDraftCheckpoint | null;
+    readonly mountedAuthority?: ArticleWorkspaceMountedAuthority | null;
+}
+
+/** Borrow the existing Root issuer's token and pure join; no new seal or cancellation ownership. */
+export interface ArticleWorkspaceMountedAuthority {
+    readonly editorSessionRef: string;
+    readonly nativeEditor: MarkdownEditorSessionExpose;
+    readonly seal: AuthoringWorkspaceRootMountedSeal;
+    hasCustody(): boolean;
 }
 
 export type ArticleWorkspaceMountedEditorResolver = (
@@ -86,8 +96,9 @@ export interface ArticleWorkspaceEditorSnapshotPreparation {
 /** Original ref custody only. Root/Renderer/resource admission is still required by the host. */
 export interface ArticleWorkspaceSnapshotReferenceAdmission {
     readonly references: Readonly<AuthoringSessionSnapshotRefs>;
-    readonly scope: 'native-renderer-draft-journal-reference-custody';
+    readonly scope: 'native-renderer-root-draft-journal-reference-custody';
     readonly rendererCheckpointRef: string;
+    readonly rootMountedSeal: AuthoringWorkspaceRootMountedSeal;
     readonly complete: false;
     readonly recoverable: false;
     readonly missingAuthorities: readonly string[];
@@ -473,6 +484,13 @@ export function createFsusUiEditorSessionFactory(
             {
                 const { binding, session } = resolveSession(entry);
                 const draft = binding.draftCheckpoint;
+                const rootAuthority = binding.mountedAuthority;
+                if (rootAuthority?.nativeEditor !== binding.editor
+                    || rootAuthority.editorSessionRef !== entry.editorSessionRef)
+                {
+                    throw new Error('public-editor-reference-root-mounted-authority-unavailable');
+                }
+                const hasRoot = rootAuthority.hasCustody.bind(rootAuthority);
                 if (!draft || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current')
                 {
                     throw new Error('public-editor-reference-draft-owner-unavailable');
@@ -495,6 +513,7 @@ export function createFsusUiEditorSessionFactory(
                     if (referenceAttempt !== attempt || !attempt.active || referenceAdmissionRetired
                         || current.session !== session || current.binding.editor !== editor
                         || current.binding.editorRevision !== revision || current.binding.draftCheckpoint !== draft
+                        || current.binding.mountedAuthority !== rootAuthority
                         || calculateOpenArticleDocumentDigest(entry) !== entryDigest)
                     {
                         throw new Error('public-editor-reference-admission-owner-stale');
@@ -596,14 +615,13 @@ export function createFsusUiEditorSessionFactory(
                 const hasNativeDocument = nativeReservation.hasCustody.bind(nativeReservation);
                 const privateCurrent = (): boolean => referenceAttempt === attempt && attempt.active
                     && !attempt.preparing && !attempt.canceling && !attempt.failed && !referenceAdmissionRetired;
-                const hasCustody = (): boolean => privateCurrent() && hasNative() && hasRenderer(rendererPublication) && hasNativeDocument()
+                const hasCustody = (): boolean => privateCurrent() && hasRoot() && hasNative() && hasRenderer(rendererPublication) && hasNativeDocument()
                     && hasDraft(draftStateRef, draftInfo) && hasJournal(crashJournalRef, journalInfo)
-                    && hasNative() && hasRenderer(rendererPublication) && hasNativeDocument() && privateCurrent();
+                    && hasNative() && hasRenderer(rendererPublication) && hasNativeDocument() && hasRoot() && privateCurrent();
                 const admission: ArticleWorkspaceSnapshotReferenceAdmission = Object.freeze({
-                    references, rendererCheckpointRef: checkpoint.ref,
-                    scope: 'native-renderer-draft-journal-reference-custody', complete: false, recoverable: false,
+                    references, rendererCheckpointRef: checkpoint.ref, rootMountedSeal: rootAuthority.seal,
+                    scope: 'native-renderer-root-draft-journal-reference-custody', complete: false, recoverable: false,
                     missingAuthorities: Object.freeze([
-                        'root:final-mounted-authority-port',
                         'session:complete-resource-and-disposed-restoration-authority'
                     ]),
                     hasCustody, cancel: () => cancelReferenceAttempt(attempt),
@@ -1023,7 +1041,8 @@ export function createFsusUiEditorSessionFactory(
                     assertCurrent(entry, session, context);
                     // Scoped reference admission now binds actual native/panel/draft/journal refs.
                     // The same original public Renderer checkpoint is joined by that scoped path.
-                    // Final Root authority and complete resource/restoration admission remain required here.
+                    // The real Root token is joined there as borrowed original custody.
+                    // Complete resource/restoration admission remains required here.
                     // Refuse before capture so an existing snapshot is preserved.
                     throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,full-recovery-refset');
                 },

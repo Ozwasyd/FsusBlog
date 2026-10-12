@@ -71,12 +71,12 @@ import {
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { AuthoringTabGroupRegistry, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
-import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceRootMountedSeal } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
 import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
-import type { ArticleWorkspaceMountedEditorResolver } from '@/services/authoring/fsusUiEditorSessionFactory';
+import type { ArticleWorkspaceMountedAuthority, ArticleWorkspaceMountedEditorResolver } from '@/services/authoring/fsusUiEditorSessionFactory';
 import type { OpenArticleDocumentEntry } from '@/services/authoring/openArticleDocumentRegistry';
 
 export type { AdminArticleWorkspaceStartupPorts } from '@/layouts/adminArticleWorkspaceStartup';
@@ -103,6 +103,7 @@ let workspaceInstallation: {
         readonly revokeMountedAuthority: () => void;
         readonly retireMountedAuthority: () => void;
         readonly admitMountedEditor: AdminArticleWorkspaceStartupPorts['prepareMountedEditor'];
+        readonly readMountedAuthority: (editorSessionRef: string) => ArticleWorkspaceMountedAuthority | null;
         readonly invalidateLayouts: Set<() => void>;
     };
     readonly task: Promise<{
@@ -240,7 +241,16 @@ async function startArticleWorkspace(
     const createIdentity = checked(() => ports.createGroupIdentity);
     const groupAdapter = checked(() => bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, articleWorkspaceTabRouter, groupOwner, createIdentity));
     const mountedEditors = checked(() => ports.mountedEditors);
-    const resolver = checked(() => createArticleWorkspaceMountedEditorResolver(mountedEditors));
+    const resolveOriginal = checked(() => createArticleWorkspaceMountedEditorResolver(mountedEditors));
+    const resolver: ArticleWorkspaceMountedEditorResolver = (entry) =>
+    {
+        requireStartupAdmission(ports);
+        const binding = resolveOriginal(entry);
+        const mountedAuthority = resources.readMountedAuthority(entry.editorSessionRef);
+        requireStartupAdmission(ports);
+        // Borrow only this actual Frame's existing original token, never issue one here.
+        return binding ? { ...binding, mountedAuthority } : null;
+    };
     resources.resolver = resolver;
     const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, resolver, async (entry) =>
     {
@@ -272,7 +282,8 @@ async function startArticleWorkspace(
 /** Sole host installer: failed/partial startup cannot be retried against a now-started Registry. */
 function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts, signal: AbortSignal,
                                         revokeMountedAuthority: () => void, retireMountedAuthority: () => void,
-                                        admitMountedEditor: AdminArticleWorkspaceStartupPorts['prepareMountedEditor']): NonNullable<typeof workspaceInstallation>['task']
+                                        admitMountedEditor: AdminArticleWorkspaceStartupPorts['prepareMountedEditor'],
+                                        readMountedAuthority: (editorSessionRef: string) => ArticleWorkspaceMountedAuthority | null): NonNullable<typeof workspaceInstallation>['task']
 {
     const installed = workspaceInstallation;
     if (installed)
@@ -280,7 +291,8 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         if (installed.ports !== ports || installed.signal !== signal
             || installed.resources.revokeMountedAuthority !== revokeMountedAuthority
             || installed.resources.retireMountedAuthority !== retireMountedAuthority
-            || installed.resources.admitMountedEditor !== admitMountedEditor)
+            || installed.resources.admitMountedEditor !== admitMountedEditor
+            || installed.resources.readMountedAuthority !== readMountedAuthority)
         {
             return Promise.reject(new Error('article-workspace-startup-owner-changed'));
         }
@@ -302,6 +314,7 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         revokeMountedAuthority,
         retireMountedAuthority,
         admitMountedEditor,
+        readMountedAuthority,
         invalidateLayouts: new Set()
     };
     // Reserve the sole installation before any original capability callback can re-enter it.
@@ -481,6 +494,12 @@ const workspaceLayoutSource = shallowRef<AuthoringWorkspaceLayoutSource | null>(
 provide(authoringWorkspaceLayoutSourceKey, shallowReadonly(workspaceLayoutSource));
 provide(authoringWorkspacePrimaryMountOnlyKey, computed(() => isArticleWorkspaceRouteValue.value && workspaceStartupState.value === 'starting'));
 const writerReservation = createAdminArticleWorkspaceWriterReservation();
+let mountedAuthority: ArticleWorkspaceMountedAuthority | null = null;
+const readCurrentMountedAuthority = (editorSessionRef: string): ArticleWorkspaceMountedAuthority | null =>
+{
+    const current = mountedAuthority;
+    return current?.editorSessionRef === editorSessionRef && current.hasCustody() ? current : null;
+};
 provide(authoringWorkspaceMountedAuthoritySourcesKey, shallowReadonly(shallowRef(writerReservation.sources)));
 const layoutInvalidationListeners = new Set<() => void>();
 const routeOutletInstance = shallowRef<unknown>(null);
@@ -511,6 +530,7 @@ function notifyWorkspaceLayoutInvalidation(): void
 }
 function revokeViewMountedAuthority(): void
 {
+    mountedAuthority = null;
     writerReservation.withdraw();
     try
     {
@@ -530,6 +550,7 @@ function revokeViewMountedAuthority(): void
 
 function retireViewMountedAuthority(): void
 {
+    mountedAuthority = null;
     writerReservation.withdraw();
     try
     {
@@ -616,6 +637,7 @@ async function admitCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocum
 async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal,
                                                    preparePhysical: boolean): Promise<void>
 {
+    mountedAuthority = null;
     try
     {
         const instance = routeOutletInstance.value;
@@ -702,10 +724,41 @@ async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDo
         {
             throw new Error('article-workspace-original-mounted-reservation-unavailable');
         }
+        const selectedPorts = viewStartupPorts;
+        if (!selectedPorts)
+        {
+            throw new Error('article-workspace-original-mounted-view-ports-required');
+        }
+        const nativeEditor = selectedPorts.mountedEditors.readMountedEditor(entry.editorSessionRef);
         verify();
+        if (!nativeEditor)
+        {
+            throw new Error('article-workspace-original-mounted-native-owner-required');
+        }
+        // typeof validated the actual function above; keep its unknown result until
+        // exact boolean confirmation rather than projecting Function.bind's any.
+        const originalHas = has as (this: unknown, candidate: unknown) => unknown;
+        const hasOriginal = originalHas.bind(port);
+        const privateCurrent = (): boolean => mountedAuthority === admission && mounted
+            && !layoutRevoking && !layoutRevoked && layoutEpoch === epoch
+            && viewStartupPorts === selectedPorts && viewStartupSignal === signal;
+        const admission: ArticleWorkspaceMountedAuthority = Object.freeze({
+            editorSessionRef: entry.editorSessionRef, nativeEditor,
+            // The exact token came from the actual Write issuer and passed its original has.
+            seal: reservation as AuthoringWorkspaceRootMountedSeal,
+            hasCustody: () => privateCurrent() && hasOriginal(reservation) === true && writerReservation.hasCurrentReservation()
+                && hasOriginal(reservation) === true && privateCurrent()
+        });
+        verify();
+        if (hasOriginal(reservation) !== true || !writerReservation.hasCurrentReservation())
+        {
+            throw new Error('article-workspace-original-mounted-final-custody-revoked');
+        }
+        mountedAuthority = admission;
     }
     catch (error: unknown)
     {
+        mountedAuthority = null;
         writerReservation.withdraw();
         let failure: unknown = error;
         try
@@ -977,7 +1030,8 @@ function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPort
     startupSignal.addEventListener('abort', markWorkspaceStartupUnavailable);
     const installationTask = Promise.resolve().then(() =>
     {
-        return installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker, mountedRetirer, admitCurrentPrimaryMountedEditor);
+        return installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker, mountedRetirer,
+                                              admitCurrentPrimaryMountedEditor, readCurrentMountedAuthority);
     });
     void installationTask.then(({ plan, sessions }) =>
     {

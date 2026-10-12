@@ -1,0 +1,42 @@
+{
+  "base": "9a99a7f6b01ed31fac5b2cd8adc4d0e36a4cd9f1",
+  "UI": "00f999a4dde9c197ae4dab21ea94714d7784545d",
+  "production": [
+    {
+      "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "before": "a6380496fef9332c0f550e4ab412d5641d1fbb98",
+      "after": "4a96b0bd86c3802955e41dc588e66a0dfca98ff7",
+      "sha256": "2d0e590ae8f8b86926610940792cef09bc74b8c93dc9a56d80a1852e0ab079bc"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "before": "dad9a62f0922f2f098f5fcae0b9d34d3e0180cae",
+      "after": "f8f653c51b599b02092afcc191698bf0c83e94f8",
+      "sha256": "364a03bd704e728db5ba61b3f233c5ec4a164a403a96141f4493836aed7f2ed5"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts",
+      "before": "b24ef71cceda25f6a04680036bf88d2fae782b22",
+      "after": "a743a8c7af303d422793ee472973f3abb6ae4c2d",
+      "sha256": "5fa3b3af1100d33ed22c6f00ea3c1812f53d7b9073de9dba31ccc83519a2dc54"
+    }
+  ],
+  "protectedBlobs": {
+    "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts": "1f552e0154c5d801ec2055558ba49717d4c8d651",
+    "src/frontend/src/composables/useAdminArticleWrite.ts": "92eac34f148fbcedeb635596880a9a587b7e07a7",
+    "src/frontend/src/views/admin/article/Write.vue": "0721eca5ff0763fdb35927e1b305f3a05d8c80e2",
+    "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts": "f76021252f4ed9b9f9a62b5143dab85c9d280501",
+    "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts": "1e981cee47a480d325084623a1c86a97538efacd",
+    "src/frontend/src/services/authoring/articleDocumentContext.ts": "055558e540fa0a2e6b6e26f163e983e32a960bde",
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": "b54be3268b4fbe4ca02d1692735b148e82fed4cb",
+    "src/frontend/src/services/authoring/authoringSessionHost.ts": "3a59ddfd6763130b3e637eddc91b3f614def65b0",
+    "src/frontend/src/services/authoring/articleWorkspaceTabRouter.ts": "57bd14cdc6e13a6efac7cd6585feeaa378769468",
+    "src/frontend/src/services/authoring/articleWorkspaceNativeDocumentAuthority.ts": "1437503abbf94ed329234a3715053ee0024c3fbe"
+  },
+  "actualAssembly": "Root original Write-issued token + same native/session descriptor held in same Frame, pure original Write+Root667 Doc/Writer queries/private epoch, real descriptor forwarded by same startup resolver, exact native/session/descriptor continuity admission and final pure Root/native/Renderer/draft/journal/installation join. No new seal issuer or article/session index.",
+  "failureOwnership": "Candidate withdraws only own eligibility; borrowed Root seal and its actual cancellation/subscription debt stay with original Root owner. Existing native/Renderer owned candidates still attempt-all cancellation with actual failure custody.",
+  "invalidation": "Frame revoke/retire clear descriptor before callbacks; original Doc/Writer pre-retirement changes private Root reservation, making borrowed has false before observer work.",
+  "remaining": "complete original resources/reversible controls/full disposed restoration unavailable; complete/recoverablefalse/no ready or eviction",
+  "runtime": "ALL HOLD/UNRUN",
+  "sourceReview": "pending new composite"
+}
