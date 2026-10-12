@@ -1,0 +1,10 @@
+{
+  "originalLayoutHead": "e6bb1b6c803a20da0bb047c96d0e86a5715fc73a",
+  "originalPath": "src/frontend/src/views/admin/article/Write.vue",
+  "originalBlob": "0d4306e49356d4faf5fe33cd30604952598995d8",
+  "postimageSha256": "8ff92877bf5b19e7cffdf610246392ba204fa801e191fa1837acf7c164716f07",
+  "productWriteUnchangedInSessionBranch": true,
+  "entrypoint": "getArticleWorkspaceRetainedRecoveryPort() borrows actual original journal binding; explicit prepareSnapshot/restoreSnapshot use SAME installed factory",
+  "runtime": "UNRUN",
+  "RailConsumer": "exact source head requested; do not guess installer/task path"
+}

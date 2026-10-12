@@ -1,4 +1,4 @@
-import { IDBFactory } from 'fake-indexeddb'
+import { IDBFactory, IDBObjectStore, IDBVersionChangeEvent } from 'fake-indexeddb'
 import { describe, expect, it, vi } from 'vitest'
 import {
   ARTICLE_RECOVERY_JOURNAL_DATABASE,
@@ -18,6 +18,7 @@ import {
   bindArticleRecoveryLifecycleFlush,
   createArticleRecoveryOperationRunner,
   summarizeArticleRecoveryComparison,
+  type ArticleRecoveryJournalCheckpointSource,
   type ArticleRecoveryJournalWriteInput,
   type ArticleRecoveryJournalRecord
 } from '@/services/articleRecoveryJournal'
@@ -654,3 +655,849 @@ describe('article recovery tab coordination', () => {
     second.dispose()
   })
 })
+
+
+function checkpointSource(): ArticleRecoveryJournalCheckpointSource
+{
+    return {
+        ...baseInput,
+        owner: {},
+        mountedEditor: {},
+        siteScope: 'primary',
+        draftKey: 'draft-key-1813',
+        registryRevision: 4,
+        associationRevision: 2,
+        editorSessionRef: 'session-2295',
+        documentId: 'document-2295',
+        draftId: 'draft-2295',
+        documentEpoch: 3,
+        editorRevision: 11,
+        sourceRevision: '9001',
+        draftRevision: '7'
+    };
+}
+
+describe('original journal checkpoint custody source regressions', () =>
+{
+    it('issues frozen custody only after original persistence and restores through the original integrity reader', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            expect(token).not.toBeNull();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            const stored = await rawGetAll(indexedDB);
+            expect(stored).toHaveLength(1);
+            expect(Object.isFrozen(token)).toBe(true);
+            expect(Object.keys(token)).toHaveLength(0);
+            expect(binding.validate(token)).toBe(true);
+            const info = binding.inspect(token);
+            expect(info).not.toBeInstanceOf(Promise);
+            expect(Object.isFrozen(info)).toBe(true);
+            expect(info).toMatchObject({ documentId: source.documentId, documentEpoch: 3, editorRevision: 11 });
+            expect(Object.hasOwn(info!, 'content')).toBe(false);
+            const restored = await binding.restore(token);
+            expect(restored?.content).toBe(source.content);
+            expect(Object.isFrozen(restored)).toBe(true);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('rejects copied and foreign-binding or foreign-journal tokens without revoking legitimate custody', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const foreignBinding = journal.bindCheckpointSource(() => source);
+        const foreignJournal = new ArticleRecoveryJournal({ indexedDB }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            expect(binding.validate({ ...token })).toBe(false);
+            expect(foreignBinding.inspect(token)).toBeNull();
+            expect(await foreignJournal.restore(token)).toBeNull();
+            expect(binding.validate(token)).toBe(true);
+        }
+        finally
+        {
+            binding.release();
+            foreignBinding.release();
+            foreignJournal.release();
+        }
+    });
+
+    it.each([
+        ['documentEpoch', 4],
+        ['editorRevision', 12],
+        ['editorSessionRef', 'replacement-session'],
+        ['documentId', 'replacement-document'],
+        ['draftId', 'replacement-draft'],
+        ['draftKey', 'replacement-key'],
+        ['siteScope', 'other-site'],
+        ['identityId', 'other-principal'],
+        ['articleId', 43],
+        ['tabId', 'other-recovery-tab'],
+        ['sourceRevision', '9002'],
+        ['draftRevision', '8'],
+        ['baseRevisionId', '9002'],
+        ['serverRevision', 8],
+        ['clientRevision', 'client-1813-next'],
+        ['registryRevision', 5],
+        ['associationRevision', 3],
+        ['owner', {}],
+        ['mountedEditor', {}]
+    ])('refuses stale %s and does not resurrect custody after facts return', async (key, replacement) =>
+    {
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+        const original = checkpointSource();
+        let source = original;
+        const binding = journal.bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            source = { ...original, [key]: replacement };
+            expect(binding.inspect(token)).toBeNull();
+            source = original;
+            expect(binding.validate(token)).toBe(false);
+            expect(await binding.restore(token)).toBeNull();
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('refuses stale asynchronous completion and owner release during the source reread', async () =>
+    {
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+        const source = checkpointSource();
+        let reads = 0;
+        const binding = journal.bindCheckpointSource(() => ++reads === 1 ? source : { ...source, documentEpoch: 4 });
+        expect(await binding.prepare()).toBeNull();
+        binding.release();
+        const active = journal.bindCheckpointSource(() => source);
+        const token = await active.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        active.release();
+        expect(active.validate(token)).toBe(false);
+        expect(await active.prepare()).toBeNull();
+    });
+
+    it('does not accept custody invalidated reentrantly by the actual reader', async () =>
+    {
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+        const source = checkpointSource();
+        let invalidateOnRead = false;
+        const binding = journal.bindCheckpointSource(() =>
+        {
+            if (invalidateOnRead)
+            {
+                binding.invalidate();
+            }
+            return source;
+        });
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        invalidateOnRead = true;
+        expect(binding.validate(token)).toBe(false);
+        binding.release();
+    });
+
+    it('refuses unavailable storage, failed persistence and cancellation without issuing a token', async () =>
+    {
+        const source = checkpointSource();
+        const unavailable = new ArticleRecoveryJournal({ indexedDB: null }).bindCheckpointSource(() => source);
+        expect(await unavailable.prepare()).toBeNull();
+        unavailable.release();
+        const indexedDB = new IDBFactory();
+        const binding = new ArticleRecoveryJournal({ indexedDB }).bindCheckpointSource(() => source);
+        const failure = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementationOnce(() =>
+        {
+            throw new DOMException('quota', 'QuotaExceededError');
+        });
+        try
+        {
+            expect(await binding.prepare()).toBeNull();
+        }
+        finally
+        {
+            failure.mockRestore();
+        }
+        const cancelled = new AbortController();
+        const pending = binding.prepare(cancelled.signal);
+        cancelled.abort();
+        expect(await pending).toBeNull();
+        expect(await binding.prepare(cancelled.signal)).toBeNull();
+        expect(await rawGetAll(indexedDB)).toHaveLength(0);
+        binding.release();
+    });
+
+    it('refuses cancellation after persistence without claiming rollback of the original recovery row', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const controller = new AbortController();
+        let reads = 0;
+        const binding = journal.bindCheckpointSource(() =>
+        {
+            if (++reads === 2)
+            {
+                controller.abort();
+            }
+            return source;
+        });
+        expect(await binding.prepare(controller.signal)).toBeNull();
+        expect((await journal.list(source.identityId, source.articleId)).records).toHaveLength(1);
+        binding.release();
+    });
+
+    it.each(['write', 'confirm', 'discard', 'clearScope', 'clearArticle'] as const)(
+        'revokes custody through original %s semantics', async (operation) =>
+        {
+            const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+            const source = checkpointSource();
+            const binding = journal.bindCheckpointSource(() => source);
+            try
+            {
+                const token = await binding.prepare();
+                const record = (await journal.list(source.identityId, source.articleId)).records[0];
+                if (!token || !record)
+                {
+                    throw new Error('checkpoint_not_issued');
+                }
+                if (operation === 'write')
+                {
+                    await journal.write(source);
+                }
+                else if (operation === 'confirm')
+                {
+                    await journal.confirm(record);
+                }
+                else if (operation === 'discard')
+                {
+                    await journal.discard(record.id);
+                }
+                else if (operation === 'clearScope')
+                {
+                    await journal.clearScope(source.identityId, source.articleId);
+                }
+                else
+                {
+                    await journal.clearArticle(source.articleId!);
+                }
+                expect(binding.validate(token)).toBe(false);
+            }
+            finally
+            {
+                binding.release();
+            }
+        }
+    );
+
+    it('rejects expired custody and preserves original integrity cleanup after raw payload tampering', async () =>
+    {
+        let now = 1_780_000_000_000;
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB, now: () => now });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const expired = await binding.prepare();
+        if (!expired)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        now += ARTICLE_RECOVERY_JOURNAL_TTL_MS;
+        expect(binding.validate(expired)).toBe(false);
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        const raw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+        raw.payload = new Uint8Array((raw.payload as Uint8Array).byteLength).fill(65);
+        await rawPut(indexedDB, raw);
+        expect(await binding.restore(token)).toBeNull();
+        expect(binding.validate(token)).toBe(false);
+        expect(await rawGetAll(indexedDB)).toHaveLength(0);
+        binding.release();
+    });
+
+    it('revokes on database deletion/versionchange and closes the original custody connection', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        await new Promise<void>((resolve, reject) =>
+        {
+            const request = indexedDB.deleteDatabase(ARTICLE_RECOVERY_JOURNAL_DATABASE);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+        expect(binding.validate(token)).toBe(false);
+        expect(await binding.restore(token)).toBeNull();
+        binding.release();
+    });
+
+    it('rejects a foreign overwrite when the original reader observes it', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        await new ArticleRecoveryJournal({ indexedDB }).write({ ...source, content: 'foreign content' });
+        expect(await binding.restore(token)).toBeNull();
+        expect(binding.validate(token)).toBe(false);
+        binding.release();
+    });
+
+    it('does not mint custody from a lossy UTF-8 round trip', async () =>
+    {
+        const source = { ...checkpointSource(), content: 'unpaired surrogate: \uD800' };
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        expect(await binding.prepare()).toBeNull();
+        binding.release();
+    });
+
+    it('revokes when an earlier original write settles after preparation', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const digest = globalThis.crypto.subtle.digest.bind(globalThis.crypto.subtle);
+        let releaseFirstDigest: (() => void) | undefined;
+        const firstDigestGate = new Promise<void>(resolve =>
+        {
+            releaseFirstDigest = resolve;
+        });
+        let calls = 0;
+        const hold = vi.spyOn(globalThis.crypto.subtle, 'digest').mockImplementation(async (algorithm, data) =>
+        {
+            if (++calls === 1)
+            {
+                await firstDigestGate;
+            }
+            return digest(algorithm, data);
+        });
+        try
+        {
+            const earlierWrite = journal.write({ ...source, clientRevision: 'earlier-client-revision', content: 'earlier write' });
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            releaseFirstDigest?.();
+            await earlierWrite;
+            expect(binding.validate(token)).toBe(false);
+        }
+        finally
+        {
+            releaseFirstDigest?.();
+            hold.mockRestore();
+            binding.release();
+        }
+    });
+
+    it('bounds binding custody and refuses a concurrent prepare without queuing another body', async () =>
+    {
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+        const source = checkpointSource();
+        const bindings = Array.from({ length: 32 }, () => journal.bindCheckpointSource(() => source));
+        try
+        {
+            expect(() => journal.bindCheckpointSource(() => source)).toThrow('article_recovery_checkpoint_binding_capacity');
+            const pending = bindings[0]!.prepare();
+            expect(await bindings[1]!.prepare()).toBeNull();
+            expect(await pending).not.toBeNull();
+        }
+        finally
+        {
+            bindings.forEach(binding => binding.release());
+        }
+    });
+});
+
+
+function holdNextRecoveryHash(content: string)
+{
+    const digest = globalThis.crypto.subtle.digest.bind(globalThis.crypto.subtle);
+    let resumeRead: () => void = () => {};
+    let notifyHeld: () => void = () => {};
+    const held = new Promise<void>(resolve =>
+    {
+        notifyHeld = resolve;
+    });
+    const resumed = new Promise<void>(resolve =>
+    {
+        resumeRead = resolve;
+    });
+    let blocked = false;
+    const spy = vi.spyOn(globalThis.crypto.subtle, 'digest').mockImplementation(async (algorithm, data) =>
+    {
+        if (!blocked && new TextDecoder().decode(data) === `${ARTICLE_RECOVERY_JOURNAL_SCHEMA}:source:${content}`)
+        {
+            blocked = true;
+            notifyHeld();
+            await resumed;
+        }
+        return digest(algorithm, data);
+    });
+    return {
+        held,
+        resume: resumeRead,
+        release: () =>
+        {
+            resumeRead();
+            spy.mockRestore();
+        }
+    };
+}
+
+describe('original journal asynchronous custody replacement source controls', () =>
+{
+    it.each(['restore', 'list'] as const)('preserves B after a delayed A %s settles', async (kind) =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        let source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const tokenA = await binding.prepare();
+        if (!tokenA)
+        {
+            throw new Error('checkpoint_A_not_issued');
+        }
+        const heldRead = holdNextRecoveryHash(source.content);
+        try
+        {
+            const pendingA = kind === 'restore' ? binding.restore(tokenA) : journal.list(source.identityId, source.articleId);
+            await heldRead.held;
+            source = { ...source, clientRevision: 'client-2295-B', editorRevision: 12, content: 'B persisted body' };
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            heldRead.resume();
+            const resultA = await pendingA;
+            if (kind === 'restore')
+            {
+                expect(resultA).toBeNull();
+            }
+            expect(binding.validate(tokenB)).toBe(true);
+            expect((await binding.restore(tokenB))?.content).toBe(source.content);
+        }
+        finally
+        {
+            heldRead.release();
+            binding.release();
+        }
+    });
+
+    it('does not delete or revoke valid B using delayed A invalid-record cleanup', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        let source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const tokenA = await binding.prepare();
+        if (!tokenA)
+        {
+            throw new Error('checkpoint_A_not_issued');
+        }
+        const rawA = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+        rawA.sourceHash = '0'.repeat(64);
+        await rawPut(indexedDB, rawA);
+        const heldRead = holdNextRecoveryHash(source.content);
+        try
+        {
+            const pendingA = journal.list(source.identityId, source.articleId);
+            await heldRead.held;
+            source = { ...source, clientRevision: 'client-2295-B', editorRevision: 12, content: 'valid replacement B' };
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            heldRead.resume();
+            const oldRead = await pendingA;
+            expect(oldRead.removedInvalidRecords).toBe(0);
+            expect(binding.validate(tokenB)).toBe(true);
+            expect((await binding.restore(tokenB))?.content).toBe(source.content);
+        }
+        finally
+        {
+            heldRead.release();
+            binding.release();
+        }
+    });
+
+    it('ignores queued callbacks belonging to a retired checkpoint connection', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const databases: IDBDatabase[] = [];
+        const originalOpen = indexedDB.open.bind(indexedDB);
+        const opened = vi.spyOn(indexedDB, 'open').mockImplementation((...args) =>
+        {
+            const request = originalOpen(...args);
+            request.addEventListener('success', () => databases.push(request.result));
+            return request;
+        });
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        let source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        try
+        {
+            expect(await binding.prepare()).not.toBeNull();
+            const retired = databases[0]!;
+            const oldVersionChange = retired.onversionchange;
+            const oldClose = retired.onclose;
+            source = { ...source, clientRevision: 'client-2295-B', editorRevision: 12, content: 'new connection B' };
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            oldVersionChange?.call(retired, new IDBVersionChangeEvent('versionchange', { oldVersion: 1, newVersion: 2 }));
+            oldClose?.call(retired, new Event('close'));
+            expect(binding.validate(tokenB)).toBe(true);
+        }
+        finally
+        {
+            opened.mockRestore();
+            binding.release();
+        }
+    });
+});
+
+
+describe('original journal stable reference and native digest source controls', () =>
+{
+    it('checks exact issuer-held proof without another reentrant source or clock read', async () =>
+    {
+        const source = checkpointSource();
+        let sourceReads = 0;
+        let clockReads = 0;
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory(), now: () =>
+        {
+            clockReads += 1;
+            return Date.now();
+        } }).bindCheckpointSource(() =>
+        {
+            sourceReads += 1;
+            return source;
+        });
+        try
+        {
+            const token = await binding.prepare();
+            if (!token) throw new Error('checkpoint_not_issued');
+            const info = binding.inspect(token)!;
+            const before = { sourceReads, clockReads };
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(true);
+            expect(binding.hasReferenceCustody(info.checkpointRef, { ...info })).toBe(false);
+            expect(binding.hasReferenceCustody(`${info.checkpointRef}:forged`, info)).toBe(false);
+            expect({ sourceReads, clockReads }).toEqual(before);
+            binding.invalidate();
+            expect(binding.hasReferenceCustody(info.checkpointRef, info)).toBe(false);
+            expect({ sourceReads, clockReads }).toEqual(before);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('issues an owner locator for the completed token and resolves it only in the same binding', async () =>
+    {
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        const foreign = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            const foreignToken = await foreign.prepare();
+            if (!token || !foreignToken)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            const info = binding.inspect(token)!;
+            const foreignInfo = foreign.inspect(foreignToken)!;
+            expect(info.checkpointRef).toMatch(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u);
+            expect(info.checkpointRef).not.toBe(foreignInfo.checkpointRef);
+            expect(binding.inspectReference(info.checkpointRef)).toBe(info);
+            expect(binding.validateReference(info.checkpointRef, source.content)).toBe(true);
+            expect(binding.validateContent(token, source.content)).toBe(true);
+            expect((await binding.restoreReference(info.checkpointRef))?.content).toBe(source.content);
+            expect(foreign.inspectReference(info.checkpointRef)).toBeNull();
+            expect(await foreign.restoreReference(info.checkpointRef)).toBeNull();
+            expect(binding.inspectReference(foreignInfo.checkpointRef)).toBeNull();
+            expect(binding.validateReference(`${info.checkpointRef}:forged`, source.content)).toBe(false);
+            expect(binding.validate({ ...token })).toBe(false);
+            expect(binding.validate(token)).toBe(true);
+        }
+        finally
+        {
+            binding.release();
+            foreign.release();
+        }
+    });
+
+    it('rejects native digest input differing from the completed body and retires its locator', async () =>
+    {
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            const ref = binding.inspect(token)!.checkpointRef;
+            expect(binding.validateReference(ref, `${source.content} unsaved native input`)).toBe(false);
+            expect(binding.inspectReference(ref)).toBeNull();
+            expect(binding.validate(token)).toBe(false);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('detects changed actual Writer content even when its revision fields were incorrectly unchanged', async () =>
+    {
+        const original = checkpointSource();
+        let source = original;
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            const ref = binding.inspect(token)!.checkpointRef;
+            source = { ...original, content: 'changed actual body at unchanged numeric revision' };
+            expect(binding.inspectReference(ref)).toBeNull();
+            source = original;
+            expect(binding.validateReference(ref, source.content)).toBe(false);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('does not treat equal UTF-8 replacement bytes as equal actual native source text', async () =>
+    {
+        const source = { ...checkpointSource(), content: '\uFFFD' };
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const token = await binding.prepare();
+            if (!token)
+            {
+                throw new Error('checkpoint_not_issued');
+            }
+            expect(binding.validateContent(token, '\uD800')).toBe(false);
+            expect(binding.validate(token)).toBe(false);
+        }
+        finally
+        {
+            binding.release();
+        }
+    });
+
+    it('does not reuse a retired locator even if the UUID provider repeats a value', async () =>
+    {
+        const uuid = vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('00000000-0000-4000-8000-000000000000');
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        try
+        {
+            const tokenA = await binding.prepare();
+            if (!tokenA)
+            {
+                throw new Error('checkpoint_A_not_issued');
+            }
+            const refA = binding.inspect(tokenA)!.checkpointRef;
+            const tokenB = await binding.prepare();
+            if (!tokenB)
+            {
+                throw new Error('checkpoint_B_not_issued');
+            }
+            const refB = binding.inspect(tokenB)!.checkpointRef;
+            expect(refB).not.toBe(refA);
+            expect(binding.inspectReference(refA)).toBeNull();
+            expect(binding.validateReference(refA, source.content)).toBe(false);
+            expect(await binding.restoreReference(refA)).toBeNull();
+            expect(binding.validateReference(refB, source.content)).toBe(true);
+            binding.invalidate();
+            expect(binding.inspectReference(refB)).toBeNull();
+        }
+        finally
+        {
+            uuid.mockRestore();
+            binding.release();
+        }
+    });
+
+    it('issues no locator when cryptographic locator issuance fails after real persistence', async () =>
+    {
+        const journal = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const uuid = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() =>
+        {
+            throw new Error('random_uuid_unavailable');
+        });
+        try
+        {
+            expect(await binding.prepare()).toBeNull();
+            expect((await journal.list(source.identityId, source.articleId)).records).toHaveLength(1);
+        }
+        finally
+        {
+            uuid.mockRestore();
+            binding.release();
+        }
+    });
+
+    it('refuses a locator after its actual owner reader is released', async () =>
+    {
+        const source = checkpointSource();
+        const binding = new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).bindCheckpointSource(() => source);
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        const ref = binding.inspect(token)!.checkpointRef;
+        binding.release();
+        expect(binding.validateReference(ref, source.content)).toBe(false);
+        expect(await binding.restoreReference(ref)).toBeNull();
+    });
+});
+
+
+describe('original cleanup fences incomplete checkpoint issuance source control', () =>
+{
+    it('refuses B after actual cleanup deletes its row while its completed-read result is held', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const originalList = journal.list.bind(journal);
+        let releaseRead: () => void = () => {};
+        let notifyRead: () => void = () => {};
+        const held = new Promise<void>(resolve =>
+        {
+            notifyRead = resolve;
+        });
+        const released = new Promise<void>(resolve =>
+        {
+            releaseRead = resolve;
+        });
+        const delayed = vi.spyOn(journal, 'list').mockImplementationOnce(async (...args) =>
+        {
+            const actualRead = await originalList(...args);
+            notifyRead();
+            await released;
+            return actualRead;
+        });
+        try
+        {
+            const pendingB = binding.prepare();
+            await held;
+            const raw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+            raw.sourceHash = '0'.repeat(64);
+            await rawPut(indexedDB, raw);
+            const cleanup = await originalList(source.identityId, source.articleId);
+            expect(cleanup.removedInvalidRecords).toBe(1);
+            releaseRead();
+            expect(await pendingB).toBeNull();
+            expect(await rawGetAll(indexedDB)).toHaveLength(0);
+        }
+        finally
+        {
+            releaseRead();
+            delayed.mockRestore();
+            binding.release();
+        }
+    });
+});
+
+
+describe('original failed-cleanup custody observation source control', () =>
+{
+    it('revokes the captured invalid token even when its original cleanup transaction aborts', async () =>
+    {
+        const indexedDB = new IDBFactory();
+        const journal = new ArticleRecoveryJournal({ indexedDB });
+        const source = checkpointSource();
+        const binding = journal.bindCheckpointSource(() => source);
+        const token = await binding.prepare();
+        if (!token)
+        {
+            throw new Error('checkpoint_not_issued');
+        }
+        const raw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>;
+        raw.sourceHash = '0'.repeat(64);
+        await rawPut(indexedDB, raw);
+        const originalGet = IDBObjectStore.prototype.get;
+        const abort = vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementationOnce(function (this: InstanceType<typeof IDBObjectStore>, ...args)
+        {
+            const request = originalGet.apply(this, args);
+            this.transaction.abort();
+            return request;
+        });
+        try
+        {
+            expect((await journal.list(source.identityId, source.articleId)).status).toBe('unavailable');
+            expect(binding.validate(token)).toBe(false);
+        }
+        finally
+        {
+            abort.mockRestore();
+            binding.release();
+        }
+    });
+});

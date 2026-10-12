@@ -1,0 +1,54 @@
+{
+  "upstreamRepository": "Ozwasyd/FsusUI",
+  "fixedSourceBase": "06004b3c111e9e06d9975387a2fa9491c8473c40",
+  "previousSessionSource": "9f92c8734409cef0c1984d4f512cb7477c9a77e4",
+  "panelSource": "793e3de9b8ac9580991591c45be7e589a5e957b0",
+  "independentP1Repair": "c90adfa1ba6e3a354803ec37ff350557653fd80e",
+  "finalOwningSource": "0800726899225ebf8efff2416aa8f8abeba4acc2",
+  "paths": [
+    {
+      "path": ".changeset/markdown-editor-native-panel-checkpoints.md",
+      "originalPostimageBlob": "e5a6ece75d38efd7a9155d9de710c1e8ddfe3582",
+      "sha256": "55b816a9ed99ba6298fe6ff1b0cc1b49f8477ab5f3248dc670ccdd2e345c0927"
+    },
+    {
+      "path": "docs/components/markdown-editor.md",
+      "originalPostimageBlob": "2534700d231547045068454b8390b5b76a664470",
+      "sha256": "dfa5b79647cb450f5a3c6df028d03e62655dd32f2a0ba88eeabc288b864f469b"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/__tests__/markdown-editor.test.tsx",
+      "originalPostimageBlob": "44f2342a66070769047f03a9a5d9feee966380f8",
+      "sha256": "1b1c50942a0bb60a2faac94f63358ea036571491f7e5803b9cd068dc1e91a643"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor-session-attachment-state.ts",
+      "originalPostimageBlob": "f14fe7d4efe92db3bd1a72867882f476de50438c",
+      "sha256": "14d5035a2f57b09d8dd35819a50d720683dfdd02a66209c3c40b80154eb8b801"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor-session-panels.ts",
+      "originalPostimageBlob": "259b07fed4b6f26be7e09c56e5c315b88ec218b7",
+      "sha256": "764f2a62713de31c325a1cf9b97a2654f04d278c23d54b0ef58a713a52f8fa60"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor-session.ts",
+      "originalPostimageBlob": "887bb5540826e70290afead99570825e6db3017d",
+      "sha256": "4e63a1ad0292500966c1f3c7e75c7ab0cfb88220e3fe775f1293d7ae36ba84a0"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor.ts",
+      "originalPostimageBlob": "8ca21d45b64cfd193e2163473ee994b84667153c",
+      "sha256": "2a08df4e70e058e89d9b71f7cef8670593b7cd92f06126a4578ba0b180bea394"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor.vue",
+      "originalPostimageBlob": "c9e5231912626c8a3b5983d530ce8aff88f73ebe",
+      "sha256": "8ef3667eb0a847675ad0d0131c01935423d87fb670127d1fbe6852815e7434f6"
+    }
+  ],
+  "rendererKernelTypographyRegistryGroupUnchanged": true,
+  "allRuntime": "UNRUN / HELD",
+  "nonemptyAttachmentProductionPath": "unavailable: terminal maps retained; map cleanup clears original jobs",
+  "fullFactory": "blocked"
+}
