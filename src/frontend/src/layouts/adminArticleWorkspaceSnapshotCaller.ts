@@ -24,7 +24,7 @@ interface SnapshotLifetime {
     disposalFailure?: unknown;
 }
 
-type SnapshotCleanupRole = 'abort' | 'watch' | 'listener' | 'connection' | 'sync' | 'channel' | 'cache';
+type SnapshotCleanupRole = 'abort' | 'watch' | 'listener' | 'connection' | 'sync' | 'channel' | 'cache-scope' | 'cache';
 type SnapshotCleanupResult = 'fulfilled' | 'not-acquired';
 
 /** Diagnostics of original cleanup commands only, never a native or storage-deletion receipt. */
@@ -53,7 +53,7 @@ function createSnapshotCleanup(revoke: () => void)
     }>();
     let closed = false;
     let active: Promise<void> | undefined;
-    const order: readonly SnapshotCleanupRole[] = ['abort', 'watch', 'listener', 'connection', 'sync', 'channel', 'cache'];
+    const order: readonly SnapshotCleanupRole[] = ['abort', 'watch', 'listener', 'connection', 'sync', 'channel', 'cache-scope', 'cache'];
     const attempt = async (role: SnapshotCleanupRole): Promise<void> =>
     {
         const obligation = obligations.get(role);
@@ -150,6 +150,7 @@ let installation: {
     readonly source: AdminArticleWorkspaceSnapshotCaller;
     readonly task: Promise<AdminArticleWorkspaceStartupPorts>;
     lifetime?: SnapshotLifetime;
+    cancelled?: boolean;
 } | undefined;
 
 /** Connect the actual HTTP owner to the existing root installer input; install no host here. */
@@ -182,6 +183,10 @@ export function connectAdminArticleWorkspaceSnapshotStartup(
 
 async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCaller): Promise<AdminArticleWorkspaceStartupPorts>
 {
+    if (installation?.source !== source || installation.cancelled)
+    {
+        throw new DOMException('article-workspace-snapshot-caller-cancelled', 'AbortError');
+    }
     const original = source.startup;
     const callerSignal = original.signal;
     callerSignal.throwIfAborted();
@@ -257,6 +262,11 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             throw new Error('article-workspace-snapshot-batch-source-required');
         }
         const mountedEditors = checked(() => original.mountedEditors);
+        const mountOwner = checked(() => original.prepareMountedEditor);
+        if (typeof mountOwner !== 'function')
+        {
+            throw new Error('article-workspace-original-retained-mount-owner-required');
+        }
         const groupOptions = checked(() => original.groupOptions);
         const createGroupIdentity = checked(() => original.createGroupIdentity.bind(original));
         const operationEpoch = checked(() => original.operationEpoch);
@@ -288,8 +298,93 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
         connection = connected;
         assertCurrent();
         const api = checked(() => connected.api);
-        const cache = new AuthoringWorkspaceSnapshotCache(storage, api.scope, api.sourceDigest);
-        cleanup.register('cache', cache.close.bind(cache));
+        const writes = new Set<Promise<void>>();
+        const originalReplace = storage.replace.bind(storage);
+        const originalRemove = storage.remove.bind(storage);
+        const originalClose = storage.close.bind(storage);
+        let cleared = false;
+        let storageClosed = false;
+        let clearFailure: unknown;
+        let hasClearFailure = false;
+        let clearing: Promise<void> | undefined;
+        const managedStorage: WorkspaceSnapshotCacheStorage = {
+            get: storage.get.bind(storage),
+            replace: (record, now) =>
+            {
+                assertCurrent();
+                cleared = false;
+                hasClearFailure = false;
+                const task = originalReplace(record, now);
+                writes.add(task);
+                void task.then(() => writes.delete(task), () => writes.delete(task));
+                return task;
+            },
+            remove: (key) =>
+            {
+                if (cleared)
+                {
+                    return Promise.resolve();
+                }
+                if (clearing)
+                {
+                    return clearing;
+                }
+                const task = Promise.allSettled([...writes]).then(() => originalRemove(key)).then(() =>
+                {
+                    cleared = true;
+                }, (error: unknown) =>
+                {
+                    hasClearFailure = true;
+                    clearFailure = error;
+                    throw error;
+                });
+                clearing = task;
+                void task.then(() =>
+                {
+                    clearing = undefined;
+                }, () =>
+                {
+                    clearing = undefined;
+                });
+                return task;
+            },
+            close: () =>
+            {
+                if (!cleared)
+                {
+                    if (hasClearFailure)
+                    {
+                        throw clearFailure;
+                    }
+                    throw new Error('article-workspace-snapshot-scope-clear-required');
+                }
+                if (!storageClosed)
+                {
+                    originalClose();
+                    storageClosed = true;
+                }
+            }
+        };
+        const cache = new AuthoringWorkspaceSnapshotCache(managedStorage, api.scope, api.sourceDigest);
+        const clearScope = async (): Promise<void> =>
+        {
+            await cache.clearCurrentScope();
+            // The original cache's best-effort catch cannot certify this caller's cleanup.
+            if (!cleared)
+            {
+                if (hasClearFailure)
+                {
+                    throw clearFailure;
+                }
+                throw new Error('article-workspace-snapshot-scope-clear-unconfirmed');
+            }
+        };
+        cleanup.register('cache-scope', clearScope);
+        cleanup.register('cache', async () =>
+        {
+            await clearScope();
+            cache.close();
+        });
         assertCurrent();
         if (channel)
         {
@@ -301,6 +396,22 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
         const ports = Object.freeze<AdminArticleWorkspaceStartupPorts>({
             sync, resolutionPort, mountedEditors, groupOptions, createGroupIdentity, operationEpoch,
             signal, layout,
+            prepareMountedEditor: async (entry, commandSignal) =>
+            {
+                assertCurrent();
+                commandSignal.throwIfAborted();
+                if (checked(() => original.prepareMountedEditor) !== mountOwner)
+                {
+                    throw new Error('article-workspace-original-retained-mount-owner-changed');
+                }
+                await mountOwner.call(original, entry, commandSignal);
+                assertCurrent();
+                commandSignal.throwIfAborted();
+                if (checked(() => original.prepareMountedEditor) !== mountOwner)
+                {
+                    throw new Error('article-workspace-original-retained-mount-owner-changed');
+                }
+            },
             assertRuntimeCapability: () => checked(() => assertCapability()),
             isCurrent: guard => checked(() => isCurrent(guard)),
             applyShell: async (shell, commandSignal) =>
@@ -354,4 +465,20 @@ export function retryAdminArticleWorkspaceSnapshotCleanup(source: AdminArticleWo
 export function readAdminArticleWorkspaceSnapshotCallerCleanupStatus(source: AdminArticleWorkspaceSnapshotCaller): SnapshotCleanupStatus | undefined
 {
     return installation?.source === source ? installation.lifetime?.inspectCleanup() : undefined;
+}
+
+/** Root cancellation also covers the reserved microtask before a lifetime has been constructed. */
+export function cancelAdminArticleWorkspaceSnapshotStartup(source: AdminArticleWorkspaceSnapshotCaller): Promise<void> | undefined
+{
+    const current = installation;
+    if (current?.source !== source)
+    {
+        return undefined;
+    }
+    current.cancelled = true;
+    if (current.lifetime)
+    {
+        return current.lifetime.dispose();
+    }
+    return current.task.then(() => current.lifetime?.dispose(), () => current.lifetime?.dispose());
 }

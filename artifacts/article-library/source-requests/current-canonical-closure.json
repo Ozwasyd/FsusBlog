@@ -147,12 +147,12 @@
     "auth/security/runtime/native/receipt/qualification"
   ],
   "additional_production_gaps": [
-    "Actual application/route caller supplying all original startup and cache/channel/lease resources to the callable authenticated root adapter; native/runtime capability stays denied until original owner admission.",
+    "Original application capability provider supplying real workspaceSnapshotCaller to the actual Root invocation; missing resolveBatch/full native factory/restored body adoption still refuse.",
     "Original snapshot permission/lifecycle/draft resolveBatch",
     "Original retained mount-before-restore and full session factory",
     "Original committed shell command/lifetime binding",
     "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged",
-    "Original Snapshot reset concurrency ordering correction and independent source re-review; exact custody offer efddb consumed but not all API closed."
+    "Original Snapshot06560 follow-up findings pending original-owner correction/re-review; current API consumption is conditional."
   ],
   "qualification": false,
   "activation": false,
@@ -160,12 +160,44 @@
     "source": "6efe4eddda4fed46e270d3938a01cd30ba4d0922",
     "connection": "src/frontend/src/api/authoringWorkspaceSnapshotConnection.ts",
     "http_transport": "src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts",
-    "review": "Exact production API/connection/document custody offer consumed; original custody finding source-closed, new original reset concurrency ordering finding pending. No whole API ready or runtime qualification claim.",
+    "review": "Old custody source-closed; concurrency offer06560 consumed exactly but original new findings remain pending. No whole API ready/qualification.",
     "root_caller": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
     "sole_root_port_source": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
     "pipeline": "Original real admin principal + server-selected scope/artifact digest -> original complete API fresh-read verifier -> original Cache/Sync -> stable existing root startup ports; original runtime capability and resolveBatch remain mandatory. No host installation in this helper.",
     "lifetime": "Caller abort and original auth-generation revocation; explicit original connection disposal, original Sync stop/cache cleanup; root unmount releases only this caller-owned Snapshot custody. No native/task settlement receipt.",
     "api_custody_source": "efddb5f4b324f66e633bcce838ee15d048ea7213",
-    "root_disposal_review": "Owned attempt-all/retry fix candidate; original errors/handles retained, terminal admission stays closed; independent re-review pending."
+    "root_disposal_review": "Old disposal finding source-closed, ordering follow-up fixed in candidate: real remove must fulfill before actual close; independent cleanup attempts and managed retry retained; re-review pending.",
+    "api_concurrency_source": "06560cbca5f72027d07d9682b3d5c6ba53703d57",
+    "production_invocation": "Actual AdminWorkspaceFrame calls connectAdminArticleWorkspaceSnapshotStartup when provided the real original workspaceSnapshotCaller; missing provider/mandatory capabilities reject. Root exposes fenced real routed Writer primary mount preparation; no ready stub."
+  },
+  "physical_mount_offer": {
+    "source": "2f38650f6c86414cd88a13404af50de7939ed077",
+    "review": "Original two Layout source bounded SOURCE CLOSED; physical preparation only",
+    "main_composition_source": "07ea5048bc8c01eaf3dd9b95dc22434016ae4dc5",
+    "root_patch_base": "62564bb29270a2bfc53e0ba5c24a2f30f24ecb42",
+    "scope": "Exact two Layout postimages plus four Root hunks reconciled with current cleanup; no restored different-body/read-only adoption invented",
+    "root_source_postimages": [
+      {
+        "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "sha256": "9f1f2c2a6418c399a292a096feccd58b682586b301341ca63a8bd3c75097ac6f",
+        "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
+      },
+      {
+        "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
+        "sha256": "d5bf54ad19abdad1776175d177f04000f906f6d6001ee1ed8d94f001ed3600c6",
+        "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
+      },
+      {
+        "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
+        "sha256": "2bfa391b70f6aff8f4f4db9c4e38c7ae50e78c5b89caff900b3f463ac8f2875c",
+        "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
+      },
+      {
+        "path": "src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts",
+        "sha256": "7d0e87f2454c2c5c4345e0486b7f748c225cdc1e34346d597316040d93b41cd2",
+        "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
+      }
+    ],
+    "original_offer_path": "artifacts/article-editor/issue-2299-primary-physical-mount-source/root-owner-only.patch"
   }
 }

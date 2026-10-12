@@ -1,4 +1,4 @@
-import { installArticleWorkspaceEditorSessions } from './articleWorkspaceEditorSessionComposition';
+import { installArticleWorkspaceEditorSessions, type ArticleWorkspaceMountedEditorPreparation } from './articleWorkspaceEditorSessionComposition';
 import { articleWorkspaceTabRouter } from './articleWorkspaceTabRouter';
 
 import type { AuthoringSessionHost, AuthoringSessionHostState, AuthoringSessionRecordState } from './authoringSessionHost';
@@ -19,7 +19,8 @@ export interface AuthoringWorkspaceSessionSource {
  */
 export function connectAuthoringWorkspaceSessionSource(
     groups: AuthoringTabGroupRegistry,
-    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver): AuthoringWorkspaceSessionSource
+    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver,
+    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation): AuthoringWorkspaceSessionSource
 {
     const assertBinding = (): void =>
     {
@@ -31,7 +32,7 @@ export function connectAuthoringWorkspaceSessionSource(
     // The sole installer binds its host to this exact router's article registry.
     // Refuse a foreign group before installation can mutate the router port.
     assertBinding();
-    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor);
+    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor, prepareMountedEditor);
     assertBinding();
     return Object.freeze({ groups, host,
         readSession: (editorSessionRef: string): AuthoringSessionRecordState | null =>

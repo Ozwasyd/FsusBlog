@@ -6,7 +6,6 @@
         frame-class="admin-workspace-frame"
         :motion-policy="motionPolicy"
         :route-view-key="articleRouteViewKey"
-        :route-outlet-enabled="!isArticleWorkspaceRouteValue || workspaceStartupState !== 'starting'"
         @route-outlet="captureRouteOutlet"
     >
         <template #before-content="{ mobileNavigationActive }">
@@ -53,7 +52,7 @@ import { resolveAccountPageKindClass } from '@/layouts/accountPageKind';
 import AccountRouteFrame from '@/layouts/AccountRouteFrame.vue';
 import { resolveAccountRouteMotionPolicy } from '@/layouts/accountRouteMotion';
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
-import { disposeAdminArticleWorkspaceSnapshotStartup } from '@/layouts/adminArticleWorkspaceSnapshotCaller';
+import { cancelAdminArticleWorkspaceSnapshotStartup, connectAdminArticleWorkspaceSnapshotStartup, disposeAdminArticleWorkspaceSnapshotStartup, type AdminArticleWorkspaceSnapshotCaller } from '@/layouts/adminArticleWorkspaceSnapshotCaller';
 import type { AdminArticleWorkspaceStartupPorts } from '@/layouts/adminArticleWorkspaceStartup';
 import {
     isAccountContentMode,
@@ -71,12 +70,13 @@ import {
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { AuthoringTabGroupRegistry, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
-import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
 import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
 import type { ArticleWorkspaceMountedEditorResolver } from '@/services/authoring/fsusUiEditorSessionFactory';
+import type { OpenArticleDocumentEntry } from '@/services/authoring/openArticleDocumentRegistry';
 
 export type { AdminArticleWorkspaceStartupPorts } from '@/layouts/adminArticleWorkspaceStartup';
 
@@ -164,6 +164,11 @@ async function startArticleWorkspace(
     resources: NonNullable<typeof workspaceInstallation>['resources'])
 {
     const checked = <Value>(read: () => Value): Value => checkedStartupRead(ports, read);
+    const mountOwner = checked(() => ports.prepareMountedEditor);
+    if (typeof mountOwner !== 'function')
+    {
+        throw new Error('article-workspace-original-retained-mount-owner-required');
+    }
     const assertCapability = checked(() => ports.assertRuntimeCapability);
     checked(() => assertCapability.call(ports));
     const getRegistry = checked(() => articleWorkspaceTabRouter.getRegistry.bind(articleWorkspaceTabRouter));
@@ -231,7 +236,12 @@ async function startArticleWorkspace(
     const mountedEditors = checked(() => ports.mountedEditors);
     const resolver = checked(() => createArticleWorkspaceMountedEditorResolver(mountedEditors));
     resources.resolver = resolver;
-    const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, resolver);
+    const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, resolver, async (entry) =>
+    {
+        requireStartupAdmission(ports);
+        await mountOwner.call(ports, entry, signal);
+        requireStartupAdmission(ports);
+    });
     resources.sessions = sessions;
     requireStartupAdmission(ports);
     const assertRuntimeCapability = checked(() => ports.assertRuntimeCapability);
@@ -366,6 +376,8 @@ const props = defineProps<{
     libraryPresentation?: ArticleLibraryPresentation;
     /** Supplied by the original snapshot/layout/retained-editor composition owners. */
     workspaceStartup?: AdminArticleWorkspaceStartupPorts;
+    /** Actual original caller resources; Root connects them, with no default provider. */
+    workspaceSnapshotCaller?: AdminArticleWorkspaceSnapshotCaller;
 }>();
 const emit = defineEmits<{
     group: [group: ArticleLibraryGroup];
@@ -378,15 +390,28 @@ const emit = defineEmits<{
 }>();
 const route = useRoute();
 const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
-const startupPorts = props.workspaceStartup;
-const startupSignal = startupPorts?.signal;
-const layoutPorts = startupPorts?.layout;
+const snapshotCaller = props.workspaceSnapshotCaller;
+let viewStartupPorts = props.workspaceStartup;
+let viewStartupSignal = viewStartupPorts?.signal;
+let viewLayoutPorts = viewStartupPorts?.layout;
+if (snapshotCaller && viewStartupPorts)
+{
+    throw new Error('article-workspace-exact-one-startup-source-required');
+}
+function readCurrentStartupPorts(): AdminArticleWorkspaceStartupPorts | undefined
+{
+    return snapshotCaller
+        ? props.workspaceSnapshotCaller === snapshotCaller && props.workspaceStartup === undefined ? viewStartupPorts : undefined
+        : props.workspaceStartup;
+}
 const workspaceLayoutSource = shallowRef<AuthoringWorkspaceLayoutSource | null>(null);
 // Keep original owner objects unproxied while preventing descendants from replacing the ref.
 provide(authoringWorkspaceLayoutSourceKey, shallowReadonly(workspaceLayoutSource));
+provide(authoringWorkspacePrimaryMountOnlyKey, computed(() => isArticleWorkspaceRouteValue.value && workspaceStartupState.value === 'starting'));
 const layoutInvalidationListeners = new Set<() => void>();
 const routeOutletInstance = shallowRef<unknown>(null);
 let mounted = true;
+let snapshotPreparationFailure: unknown;
 let layoutRevoking = false;
 let layoutRevoked = false;
 let layoutEpoch = 0;
@@ -402,7 +427,7 @@ function notifyWorkspaceLayoutInvalidation(): void
         catch (error: unknown)
         {
             const installation = workspaceInstallation;
-            if (installation && installation.ports === startupPorts)
+            if (installation && installation.ports === viewStartupPorts)
             {
                 installation.layoutInvalidationFailure = error;
             }
@@ -458,6 +483,70 @@ function captureRouteOutlet(instance: unknown): void
         layoutRevoking = false;
     }
 }
+
+/** Borrow only the actual current routed Writer's public physical preparation operation. */
+async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
+{
+    const instance = routeOutletInstance.value;
+    const epoch = layoutEpoch;
+    const verify = (): void =>
+    {
+        signal.throwIfAborted();
+        if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== epoch
+            || routeOutletInstance.value !== instance || !viewStartupPorts || viewStartupSignal !== signal
+            || readCurrentStartupPorts() !== viewStartupPorts)
+        {
+            throw new Error('article-workspace-primary-mount-view-owner-unavailable');
+        }
+        requireStartupAdmission(viewStartupPorts);
+    };
+    verify();
+    if (!instance || typeof instance !== 'object')
+    {
+        throw new Error('article-workspace-primary-writer-not-mounted');
+    }
+    const hasGetter = 'getArticleWorkspacePrimaryMountPort' in instance;
+    verify();
+    if (!hasGetter)
+    {
+        throw new Error('article-workspace-primary-mount-port-unavailable');
+    }
+    const getter = instance.getArticleWorkspacePrimaryMountPort;
+    verify();
+    if (typeof getter !== 'function')
+    {
+        throw new Error('article-workspace-primary-mount-port-unavailable');
+    }
+    const port: unknown = getter.call(instance);
+    verify();
+    if (!port || typeof port !== 'object')
+    {
+        throw new Error('article-workspace-primary-mount-port-unavailable');
+    }
+    const hasPrepare = 'prepareMountedEditor' in port;
+    verify();
+    if (!hasPrepare)
+    {
+        throw new Error('article-workspace-primary-mount-operation-unavailable');
+    }
+    const prepare = port.prepareMountedEditor;
+    verify();
+    if (typeof prepare !== 'function')
+    {
+        throw new Error('article-workspace-primary-mount-operation-unavailable');
+    }
+    await prepare.call(port, entry, signal);
+    verify();
+    const current: unknown = getter.call(instance);
+    verify();
+    if (current !== port)
+    {
+        throw new Error('article-workspace-primary-mount-port-changed');
+    }
+}
+
+defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
+               readSnapshotPreparationFailure: () => snapshotPreparationFailure });
 
 function hasPublicWorkspaceLayout(value: unknown, verify: () => void): value is { getAuthoringWorkspaceLayoutPort(): unknown; }
 {
@@ -548,18 +637,18 @@ function readMountedWorkspaceLayout(verify: () => void): AuthoringWorkspaceLayou
 
 function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource, verifyStartup: () => void): AuthoringWorkspaceLayoutSource | null
 {
-    if (!startupPorts || !layoutPorts)
+    if (!viewStartupPorts || !viewLayoutPorts)
     {
         return null;
     }
-    const ports = startupPorts;
-    const layout = layoutPorts;
+    const ports = viewStartupPorts;
+    const layout = viewLayoutPorts;
     const requireOwner = (expectedEpoch: number): void =>
     {
         const requireLocal = (): void =>
         {
             if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== expectedEpoch
-                || props.workspaceStartup !== ports || workspaceInstallation?.ports !== ports
+                || readCurrentStartupPorts() !== ports || workspaceInstallation?.ports !== ports
                 || workspaceInstallation.failed || workspaceInstallation.resources.sessions !== sessions)
             {
                 throw new Error('article-workspace-layout-original-source-unavailable');
@@ -568,7 +657,7 @@ function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource, 
         requireLocal();
         const signal = ports.signal;
         requireLocal();
-        if (signal !== startupSignal)
+        if (signal !== viewStartupSignal)
         {
             throw new Error('article-workspace-layout-original-signal-changed');
         }
@@ -676,24 +765,29 @@ function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource, 
 }
 function markWorkspaceStartupUnavailable(): void
 {
-    if (startupPorts)
+    if (viewStartupPorts)
     {
-        markWorkspaceInstallationFailed(startupPorts);
+        markWorkspaceInstallationFailed(viewStartupPorts);
     }
     invalidateWorkspaceLayout();
     workspaceStartupState.value = 'unavailable';
 }
-if (startupPorts && startupSignal)
+function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPorts): void
 {
+    viewStartupPorts = selectedPorts;
+    viewStartupSignal = selectedPorts.signal;
+    viewLayoutPorts = selectedPorts.layout;
+    const startupPorts = selectedPorts;
+    const startupSignal = selectedPorts.signal;
     workspaceStartupState.value = 'starting';
     startupSignal.addEventListener('abort', markWorkspaceStartupUnavailable);
-    void installArticleWorkspaceStartup(startupPorts, startupSignal).then(({ plan, sessions }) =>
+    void Promise.resolve().then(() => installArticleWorkspaceStartup(startupPorts, startupSignal)).then(({ plan, sessions }) =>
     {
         if (!mounted)
         {
             return;
         }
-        if (props.workspaceStartup !== startupPorts || workspaceInstallation?.ports !== startupPorts
+        if (readCurrentStartupPorts() !== startupPorts || workspaceInstallation?.ports !== startupPorts
             || workspaceInstallation.failed)
         {
             throw new Error('article-workspace-startup-owner-changed');
@@ -703,7 +797,7 @@ if (startupPorts && startupSignal)
         {
             requireStartupAdmission(startupPorts);
             if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== publicationEpoch
-                || props.workspaceStartup !== startupPorts)
+                || readCurrentStartupPorts() !== startupPorts)
             {
                 throw new Error('article-workspace-startup-publication-revoked');
             }
@@ -750,7 +844,7 @@ if (startupPorts && startupSignal)
             const requireLocalPublication = (): void =>
             {
                 if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== publicationEpoch
-                    || startupSignal.aborted || props.workspaceStartup !== startupPorts
+                    || startupSignal.aborted || readCurrentStartupPorts() !== startupPorts
                     || workspaceInstallation?.ports !== startupPorts || workspaceInstallation.failed
                     || workspaceLayoutSource.value !== layoutSource)
                 {
@@ -778,26 +872,41 @@ if (startupPorts && startupSignal)
     });
     workspaceInstallation?.resources.invalidateLayouts.add(invalidateWorkspaceLayout);
 }
-watch(() => props.workspaceStartup, () =>
+watch([() => props.workspaceStartup, () => props.workspaceSnapshotCaller], () =>
 {
-    if (props.workspaceStartup !== startupPorts)
+    if (readCurrentStartupPorts() !== viewStartupPorts || props.workspaceSnapshotCaller !== snapshotCaller)
     {
         markWorkspaceStartupUnavailable();
+        if (snapshotCaller)
+        {
+            void cancelAdminArticleWorkspaceSnapshotStartup(snapshotCaller)?.catch((error: unknown) =>
+            {
+                snapshotPreparationFailure = error;
+            });
+        }
     }
 }, { flush: 'sync' });
 onBeforeUnmount(() =>
 {
     mounted = false;
     invalidateWorkspaceLayout();
-    workspaceInstallation?.resources.invalidateLayouts.delete(invalidateWorkspaceLayout);
-    startupSignal?.removeEventListener('abort', markWorkspaceStartupUnavailable);
-    if (startupPorts)
+    if (snapshotCaller)
     {
-        void disposeAdminArticleWorkspaceSnapshotStartup(startupPorts)?.catch((error: unknown) =>
+        void cancelAdminArticleWorkspaceSnapshotStartup(snapshotCaller)?.catch((error: unknown) =>
         {
-            if (workspaceInstallation?.ports === startupPorts)
+            snapshotPreparationFailure = error;
+        });
+    }
+    workspaceInstallation?.resources.invalidateLayouts.delete(invalidateWorkspaceLayout);
+    viewStartupSignal?.removeEventListener('abort', markWorkspaceStartupUnavailable);
+    if (viewStartupPorts)
+    {
+        void disposeAdminArticleWorkspaceSnapshotStartup(viewStartupPorts)?.catch((error: unknown) =>
+        {
+            const current = workspaceInstallation;
+            if (current && current.ports === viewStartupPorts)
             {
-                workspaceInstallation.snapshotDisposalFailure = error;
+                current.snapshotDisposalFailure = error;
             }
         });
     }
@@ -815,6 +924,30 @@ const articleWorkspaceRouteLocation = computed<ArticleWorkspaceRouteLocation>(()
     fullPath: route.fullPath
 }));
 const isArticleWorkspaceRouteValue = computed(() => isArticleWorkspaceRoute(articleWorkspaceRouteLocation.value));
+if (viewStartupPorts && viewStartupSignal)
+{
+    startWorkspaceFromPorts(viewStartupPorts);
+}
+else if (snapshotCaller && isArticleWorkspaceRouteValue.value)
+{
+    workspaceStartupState.value = 'starting';
+    void connectAdminArticleWorkspaceSnapshotStartup(snapshotCaller).then((ports) =>
+    {
+        if (!mounted || props.workspaceSnapshotCaller !== snapshotCaller || props.workspaceStartup !== undefined
+            || layoutRevoked || workspaceStartupState.value !== 'starting')
+        {
+            return disposeAdminArticleWorkspaceSnapshotStartup(ports);
+        }
+        startWorkspaceFromPorts(ports);
+    }).catch((error: unknown) =>
+    {
+        snapshotPreparationFailure = error;
+        if (mounted)
+        {
+            markWorkspaceStartupUnavailable();
+        }
+    });
+}
 const routeArticleId = computed<number | null>(() =>
 {
     const raw = route.params.id;

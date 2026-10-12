@@ -1,6 +1,6 @@
 import type { ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import type { AuthoringTabGroupOptions, AuthoringGroupCommandIdentity } from '@/services/authoring/authoringTabGroupRegistry';
-import type { AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import type { AuthoringWorkspaceLayoutPort, AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceSnapshotRestoreCommands } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
 import type { AuthoringWorkspaceSnapshotSync } from '@/services/authoring/authoringWorkspaceSnapshotSync';
@@ -10,6 +10,8 @@ export interface AdminArticleWorkspaceStartupPorts {
     readonly sync: AuthoringWorkspaceSnapshotSync;
     readonly resolutionPort: AuthoringWorkspaceSnapshotRestoreCommands['resolutionPort'];
     readonly mountedEditors: ArticleWorkspaceMountedEditorSource;
+    /** Actual original physical Write operation; a stub cannot satisfy native admission. */
+    readonly prepareMountedEditor: AuthoringWorkspacePrimaryMountPort['prepareMountedEditor'];
     readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;
     readonly createGroupIdentity: () => AuthoringGroupCommandIdentity;
     readonly operationEpoch: number;
