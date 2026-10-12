@@ -299,7 +299,7 @@
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "d6c91ca49bf0bad5356b6e2dc2d3450a908fcad7f1c8f84966d94a39ba2a58ba"
+        "sha256": "6d6c35914a2a61b0ce64f05aa3554297fc023d167c6b05828921143975882e36"
       }
     ],
     "actual_call_path": "Root creates one frame-local controller and provides original authoringWorkspaceMountedAuthoritySourcesKey. Exact original Layout Write e581 invokes source.reserve with its actual physical Writer runtime/native tuple; Root registers actual Writer subscription before a private reservation attempt.",
@@ -351,7 +351,7 @@
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "d6c91ca49bf0bad5356b6e2dc2d3450a908fcad7f1c8f84966d94a39ba2a58ba"
+        "sha256": "6d6c35914a2a61b0ce64f05aa3554297fc023d167c6b05828921143975882e36"
       }
     ],
     "consumed_main_related_closure": [
@@ -423,15 +423,15 @@
     "writer_source": "d80934e854f2dd3b338162fe924cf19e0662f66f",
     "writer_blob": "e04178efa688b01a07cdfda8a8deec82e0244af6",
     "exact_consumption": "ONLY necessary Writer postimage; no Main/factory/native/Layout/Doc owner rewrite or package publication",
-    "public_root_port": "AdminWorkspaceFrame.readOriginalWriterResources(editorSessionRef: string, nativeEditor: object): AdminArticleWorkspaceWriterResources | null; exported type derives actual mountedRuntime.resources",
-    "actual_binding": "Original physical Write source.reserve receives physical.bound/physical.native and editorSessionRef; Root pins runtime.resources once in its actual Writer subscription and remembers ONE physical tuple. Getter checks SAME private writer/native/ref and idle/open/failure fences, then returns exact original resources object identity. No clone/wrapped resource methods, per-article map or replacement owner.",
-    "pause_retirement": "Original d809 pause/requestCancellation calls original notifyCurrentMountedAuthorityRetirement BEFORE phase/scope mutations; unchanged Root assignment-only pre-retirement listener withdraws actual reservation/attempt. Root retains its physical resource binding through that logical withdrawal so the same partial port remains observable; successful original unsubscribe clears that private pointer. Main must pin original port BEFORE native/source callbacks which can withdraw other authority.",
+    "public_root_port": "AdminWorkspaceFrame.readOriginalWriterResources(editorSessionRef: string, nativeEditor: object): AdminArticleWorkspaceWriterResources | null; NONPURE fresh-borrow/admission stage only, never pure final join/retirement listener",
+    "actual_binding": "Original physical Write reserve tuple and SAME runtime.resources pin retained. NEW borrow/admission requires original current.writer.borrowDocument(), SAME actual Doc binding, same private tuple/writer/document/reservation/attempt and post-call idle/open/failure guards. Reader is NONPURE and can retire/reenter; recursive resource borrowing rejects. Exact original object returned only after that new liveness admission; no new issuer/cache, resource inspect or pure-join/listener reader call.",
+    "pause_retirement": "Original d809 notification/pre-mutation and existing assignment-only listeners unchanged. Fresh borrowing rejects permanent release/replacement AND temporary pause as dictated by existing original reader. Legitimate paused inspection/settle/retry uses the SAME already-handed original reference; Root does not clear/revoke/mutate it or permanently dispose its owner. Retained private tuple is cleanup provenance, not fresh-loan authority. Successful original unsubscribe may clear Root private pointer, never a loaned resource object.",
     "raw_port": "Only original inspect/pause/resume/requestCancellation/settleObservedWork exposed. No permanent release/dispose runtime transfer. Controls and settlement stay original producer operations. Root never calls them during borrow, pure join/listener or creates aggregate complete/paused/settled receipt.",
     "partial_limits": "Original scope/timer/job/PoW lease/promise census32 plus issuance reservation, half-resume real pause rollback, critical retirement observers remain original. complete is false; image/native loan, PoW shutdown ack, coordination reversible pause and external effects/network settlement unsupported. Abort is NOT settlement.",
     "main_factory_handoff": {
       "current_path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
       "current_contract": "ArticleWorkspaceMountedEditorBinding has only editor/identity/documentContext/revision; inspectResourceSources observes native census/renderer/attachment only. Main implementation not changed here.",
-      "required_composition": "Original Main factory/resolver must borrow this Root public port with binding.editor (same physical native object) and actual editorSessionRef, pin the returned SAME instance under its original native binding guards, and include its original partial observations/controls alongside native sources. Native aggregate cannot replace Writer; complete false/unsupported/pending original settlement must remain admitted only as partial, not full host readiness."
+      "required_composition": "Original Main must call Root NONPURE fresh-borrow port in admission before pure native/final joins, pin SAME instance with actual binding.editor/ref and guards, then preserve existing loan through pause/settle/cleanup under original producer semantics. Fresh borrow during pause is unavailable; existing loan remains observable/cleanup-callable. Native-only aggregate cannot replace Writer, original complete:false and unsupported/actual pending settlement remain."
     },
     "source_review": "New Root transfer source candidate pending independent review;667 admission/cause/retirement guards retained",
     "runtime": "ALL_HOLD_UNRUN",
@@ -442,7 +442,18 @@
       "original resources.pause/requestCancellation notifies same Root listener before producer phase/scope change; private withdrawal does not replace resource owner",
       "same port remains observable/settle-callable under original producer after pause; captured raw port carries no permanent dispose",
       "failed original pause/resume/half-resume rollback and pending lease/promise census retain original cause/complete false; Root invents no counts or settlement",
-      "real Main factory binds SAME resources alongside real native source; native-only aggregate cannot satisfy missing Writer/image/PoW/coordination/external acknowledgements"
-    ]
+      "real Main factory binds SAME resources alongside real native source; native-only aggregate cannot satisfy missing Writer/image/PoW/coordination/external acknowledgements",
+      "old real runtime.release or bound-runtime replacement leaves historical tuple but original reader rejects new borrow",
+      "temporary pause rejects fresh borrow under existing reader; already handed SAME object remains inspect/settle/cleanup callable without disposal or fake settled acknowledgement",
+      "reader reentrant retirement/replacement/other admission fences private tuple/writer/document/reservation/attempt and prevents new loan; recursive borrowing rejects",
+      "resource borrow original reader throws: original cause retained/withdrawn/rethrown, cleanup loans/tokens/subscriptions remain unchanged"
+    ],
+    "prior_review": {
+      "source": "0ace3742f5d42a0dc348ec6ca1acb162181225bf",
+      "p2": "historical tuple could lend after permanent runtime invalidation; new bounded successor repair pending independent review",
+      "accepted_guards": "667 admission/cause/join; exact Writerd809 e041 unchanged; prior style/AST/guards/metadata verified",
+      "independent_types": "parent667/current0ace197 to197 FAIL Root0; distinct author193/308"
+    },
+    "loan_error_custody": "Original reader exceptions recorded/withdrawn/rethrown unchanged, original first/latest cause and actual subscriptions/tokens/cleanup obligations retained. No resource method or owner disposal is called on refusal; no fabricated settlement."
   }
 }

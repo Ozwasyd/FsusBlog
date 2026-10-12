@@ -51,6 +51,7 @@ export function createAdminArticleWorkspaceWriterReservation()
 {
     let writer: WriterSubscription | null = null;
     let writerResourceBinding: WriterResourceBinding | null = null;
+    let resourceBorrowing = false;
     let document: DocumentSubscription | null = null;
     let reservation: Reservation | null = null;
     let obligation: Reservation | null = null;
@@ -428,13 +429,38 @@ export function createAdminArticleWorkspaceWriterReservation()
         readOriginalWriterResources: (editorSessionRef: string, nativeEditor: object): AdminArticleWorkspaceWriterResources | null =>
         {
             const current = writerResourceBinding;
-            if (!current || closed || busy || sealing || reserving || failed || writer !== current.writer
+            if (!current || resourceBorrowing || closed || busy || sealing || reserving || failed || writer !== current.writer
                 || current.editorSessionRef !== editorSessionRef || current.nativeEditor !== nativeEditor)
             {
                 return null;
             }
-            // Forward the SAME original partial owner port; no aggregate/receipt/dispose authority.
-            return current.writer.resources;
+            const originalDocument = document;
+            const originalReservation = reservation;
+            const originalAttempt = attempt;
+            resourceBorrowing = true;
+            try
+            {
+                // Fresh admission only: the original nonpure reader rejects released/replaced runtimes.
+                const binding = current.writer.borrowDocument();
+                if (!binding || binding !== originalDocument?.binding || document !== originalDocument
+                    || writerResourceBinding !== current || writer !== current.writer || closed || busy || sealing || reserving || failed
+                    || reservation !== originalReservation || attempt !== originalAttempt)
+                {
+                    return null;
+                }
+                // Existing loans remain the SAME original port for paused observation/real cleanup.
+                return current.writer.resources;
+            }
+            catch (error: unknown)
+            {
+                recordFailure(error);
+                withdraw();
+                throw error;
+            }
+            finally
+            {
+                resourceBorrowing = false;
+            }
         },
         throwIfAdmissionFailed: (): void =>
         {
