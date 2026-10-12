@@ -682,8 +682,17 @@ function startWorkerDecode(queued: QueuedDecodeRequest): void
         return;
     }
     const { requestId, signal } = queued;
+    // Worker acquisition emits synchronous telemetry before this request owns any listener.
+    if (signal?.aborted)
+    {
+        queued.task.owner.cancellationRequested = true;
+        queued.reject(createAbortLikeError('binary_decode_aborted'));
+        queued.task.finish('observed');
+        scheduleWorkerIdleTerminate();
+        return;
+    }
 
-    const abortHandler = () =>
+    const abortHandler = (event?: Event) =>
     {
         const pending = pendingRequests.get(requestId);
         if (!pending)
@@ -693,8 +702,23 @@ function startWorkerDecode(queued: QueuedDecodeRequest): void
 
         pending.reject(createAbortLikeError('binary_decode_aborted'));
         queued.task.owner.cancellationRequested = true;
-        // The once listener has already been removed by AbortSignal dispatch.
-        pending.abortCleanup = null;
+        if (event?.currentTarget === signal && event.type === 'abort')
+        {
+            // Only a real once-listener dispatch proves automatic listener removal.
+            pending.abortCleanup = null;
+        }
+        else
+        {
+            try
+            {
+                pending.abortCleanup?.();
+                pending.abortCleanup = null;
+            }
+            catch (error)
+            {
+                pending.task.owner.record('cleanup', error);
+            }
+        }
         requestDecodeCancellation(pending);
     };
 
