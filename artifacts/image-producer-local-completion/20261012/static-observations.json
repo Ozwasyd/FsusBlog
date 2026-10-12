@@ -1,0 +1,327 @@
+{
+    "recordKind": "original static source observations, not qualification authority",
+    "repository": "Ozwasyd/FsusBlog",
+    "baseRevision": "29051db2a80db7770dfe78a1db6e4c6998337324",
+    "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+    "sourceBindings": [
+        {
+            "path": "src/frontend/src/utils/imageCompression.ts",
+            "gitBlob": "1aedb260c8e54e9191d9a87abbed8613f1646384",
+            "sha256": "702bea35fd908f49751f7e66858e0fc8fff1ffbba10b0750d3306e34148fdca4",
+            "bytes": 14636
+        },
+        {
+            "path": "src/frontend/src/utils/imageProducerOperation.ts",
+            "gitBlob": "23c2f66818d3628b7f94d681320da4cc037a44fa",
+            "sha256": "21620064b12668099de5206395e94e87732cb84b26680dee82612e929e90d916",
+            "bytes": 9057
+        },
+        {
+            "path": "docs/architecture/overview.md",
+            "gitBlob": "ee201f2439554fe7e1c07f9b43128f15d125e6e6",
+            "sha256": "8111bf40aedbe36b25d67e49c9c6094f74c05d95847279c1286b1ac01aea2b0a",
+            "bytes": 26621
+        }
+    ],
+    "unchangedInputs": [
+        {
+            "path": "src/frontend/tsconfig.app.json",
+            "gitBlob": "f666ea827eff4d93dd12f3fbb0df310f2242cd74",
+            "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "src/frontend/tsconfig.fsusui-published.json",
+            "gitBlob": "8a4b7d03a20596eca992bcc6af4b0958190d6807",
+            "sha256": "974df492bb60434ea1c87ab843d182e17ba377f96bc55790b8fef94e22761617",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+            "gitBlob": "d8730667643c4d93b5682263213f1850eb9dfb2e",
+            "sha256": "d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "src/frontend/scripts/fsusui-root.mjs",
+            "gitBlob": "b8ae455b18dbb36d36987d7ab7c4454138eb5d78",
+            "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "src/frontend/package.json",
+            "gitBlob": "3adbc430bdca54a3b2ba73683cb02ad2a73b6bae",
+            "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "src/frontend/package-lock.json",
+            "gitBlob": "18adea02bb0dc2abb27a64c6073de9151f616c39",
+            "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package.json",
+            "gitBlob": "c1271b1f11feabd7d35c1efb5e287d094d956694",
+            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package-lock.json",
+            "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "gitBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+            "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "config/development/frontend-style-policy.json",
+            "gitBlob": "1458b6aaaec756827dabb2c3f08fcc9d31f1ff1e",
+            "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+            "unchangedFromBase": true
+        },
+        {
+            "path": "src/frontend/src/utils/wasmImageCodec.ts",
+            "gitBlob": "e04db423c83131ebd9085511f12857378b67235e",
+            "sha256": "3d5d376064cd26e6eab4d7f710ae5420d31a00782e559c7b1fc7ae2cf76c2289",
+            "unchangedFromBase": true
+        }
+    ],
+    "consumerOriginalProducerIdentity": {
+        "consumerSource": "6968a6c955eacf009dfd8a6dfeec066e56a767af",
+        "path": "src/frontend/src/utils/imageCompression.ts",
+        "blob": "4eab5088b536f2c6dcd841d729a5e50bf8c83d7d",
+        "sameSourceAsMaster": true,
+        "isError": false
+    },
+    "configuredEnvironment": {
+        "localFsusUIRoot": "/workspace/FsusUI",
+        "localFsusUIRevision": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+        "localFsusUISourceClean": true,
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "versions": {
+            "typescript": "6.0.3",
+            "vue-tsc": "3.2.7",
+            "@vue/compiler-sfc": "3.5.33",
+            "node": "v24.19.0"
+        },
+        "installedFrontendLockSha256": "b3046dd31f9fbb3b29e596c7c6e24020bd9b86f36898fbd56f7107e2c693da1d",
+        "installedDependencyQualification": "Existing installed tools reused; no locked-install qualification claimed; no installation or workaround performed",
+        "styleCliLabelEditFailure": "gh pr edit encountered deprecated classic Projects GraphQL field; original GitHub label_pr connector succeeded and readback confirms release-note:none."
+    },
+    "checks": [
+        {
+            "id": "frozen-baseline-typecheck",
+            "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+            "cwd": "/workspace/image-producer-baseline",
+            "sourceRevision": "29051db2a80db7770dfe78a1db6e4c6998337324",
+            "exitCode": 2,
+            "status": "FAIL",
+            "rawLog": "frozen-baseline-typecheck.log",
+            "rawLogSha256": "90f213596331f03f542780161300ea257f95467dbb475285a4d37a86138e4017",
+            "started": "2026-10-12T23:31:07Z",
+            "finished": "2026-10-12T23:33:09Z"
+        },
+        {
+            "id": "baseline-code-intent",
+            "command": "node tools/governance/check-code-intent.mjs",
+            "cwd": "/workspace/image-producer-baseline",
+            "sourceRevision": "29051db2a80db7770dfe78a1db6e4c6998337324",
+            "exitCode": 1,
+            "status": "FAIL",
+            "rawLog": "baseline-code-intent.log",
+            "rawLogSha256": "021f5ea594cb737827033d242839d46cba1f50ab01654c806096fe51b92ac49b",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "baseline-result-boundaries",
+            "command": "node ../../tests/frontend/checks/static/check-result-boundaries.mjs",
+            "cwd": "/workspace/image-producer-baseline/src/frontend",
+            "sourceRevision": "29051db2a80db7770dfe78a1db6e4c6998337324",
+            "exitCode": 1,
+            "status": "FAIL",
+            "rawLog": "baseline-result-boundaries.log",
+            "rawLogSha256": "637b964aa0af5a89cad8c6d09a34439d4a92336c9d31f3f43fe6aa61670ba1e3",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "codec-boundary-typecheck",
+            "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+            "cwd": "/workspace/image-producer-local-completion",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 2,
+            "status": "FAIL",
+            "rawLog": "codec-boundary-typecheck.log",
+            "rawLogSha256": "90f213596331f03f542780161300ea257f95467dbb475285a4d37a86138e4017",
+            "started": "2026-10-12T23:40:34Z",
+            "finished": "2026-10-12T23:41:44Z"
+        },
+        {
+            "id": "delivery-style",
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/utils/imageCompression.ts --file src/frontend/src/utils/imageProducerOperation.ts",
+            "cwd": "/workspace/image-producer-local-completion",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 1,
+            "status": "FAIL",
+            "rawLog": "delivery-style.log",
+            "rawLogSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "delivery-code-intent",
+            "command": "node tools/governance/check-code-intent.mjs",
+            "cwd": "/workspace/image-producer-local-completion",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 1,
+            "status": "FAIL",
+            "rawLog": "delivery-code-intent.log",
+            "rawLogSha256": "73608e315d9a2459fa2e0233f59d14c461e73cab8242ff622bb959bc90651ed1",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "delivery-result-boundaries",
+            "command": "node ../../tests/frontend/checks/static/check-result-boundaries.mjs",
+            "cwd": "/workspace/image-producer-local-completion/src/frontend",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 1,
+            "status": "FAIL",
+            "rawLog": "delivery-result-boundaries.log",
+            "rawLogSha256": "637b964aa0af5a89cad8c6d09a34439d4a92336c9d31f3f43fe6aa61670ba1e3",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "delivery-document-lifecycle",
+            "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+            "cwd": "/workspace/image-producer-local-completion",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 0,
+            "status": "PASS",
+            "rawLog": "delivery-document-lifecycle.log",
+            "rawLogSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "delivery-authoritative-docs",
+            "command": "node tools/docs/check-authoritative-development-docs.mjs",
+            "cwd": "/workspace/image-producer-local-completion",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 0,
+            "status": "PASS",
+            "rawLog": "delivery-authoritative-docs.log",
+            "rawLogSha256": "263bc689d10eed31080795956cf1123cd13cdcb234a9752c7387a84600ad832c",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "delivery-source-range",
+            "command": "node tools/governance/check-change-contract.mjs --range 29051db2a80db7770dfe78a1db6e4c6998337324..HEAD",
+            "cwd": "/workspace/image-producer-local-completion",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 0,
+            "status": "PASS",
+            "rawLog": "delivery-source-range.log",
+            "rawLogSha256": "2215c518d27a8e929ed60a1193c5940a1403ff8ee2d5f48980e7df89778d676c",
+            "started": null,
+            "finished": null
+        },
+        {
+            "id": "delivery-diff",
+            "command": "git diff --check",
+            "cwd": "/workspace/image-producer-local-completion",
+            "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+            "exitCode": 0,
+            "status": "PASS",
+            "rawLog": "delivery-diff.log",
+            "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "started": null,
+            "finished": null
+        }
+    ],
+    "typecheckComparison": {
+        "status": "PASS for diagnostic delta only",
+        "fullTypecheckStatus": "FAIL",
+        "baselineDiagnostics": 162,
+        "candidateDiagnostics": 162,
+        "added": 0,
+        "removed": 0,
+        "rawLogsByteIdentical": true,
+        "producerDiagnostics": 0
+    },
+    "codeIntentComparison": {
+        "status": "FAIL unchanged",
+        "baselineErrors": [
+            "- src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp:338 unbounded performance claim 'no allocation' must be structural or evidence-registered"
+        ],
+        "candidateErrors": [
+            "- src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp:338 unbounded performance claim 'no allocation' must be structural or evidence-registered"
+        ],
+        "added": 0
+    },
+    "resultBoundaryComparison": {
+        "status": "FAIL unchanged",
+        "violations": [],
+        "added": 0
+    },
+    "styleStatus": {
+        "entry": "FAIL",
+        "lintInspection": "UNRUN",
+        "cause": "Both original configured ESLint and Stylelint paths are absent; no substitute tool/config/install"
+    },
+    "historicalCompilerRecords": {
+        "baseline-typecheck": "Unfrozen working-tree run retained only; not exact baseline qualification",
+        "candidate-typecheck": "Unfrozen initial implementation run retained only",
+        "frozen-candidate-typecheck": "Exact b81212f4dccdf6ba954e732b42aa144f03f8f375 precursor, 162 FAIL, zero delta",
+        "final-typecheck": "88dbbf71e80c8bcb104a6f7be69188f17baab5e1 run overlapped comment-only source correction; retained, not exact final qualification",
+        "exact-source-typecheck": "Exact 682fd2332d4dc56c96904448732590a91a31f491 precursor, 162 FAIL, zero delta; superseded by codec-boundary-typecheck after one control-flow correction."
+    },
+    "unrun": {
+        "independentStaticReview": "PENDING",
+        "standaloneAstControl": "UNRUN; parsing occurs through original complete application compiler",
+        "allTestRunnerDiscoveryListCollectionExecution": "HOLD/UNRUN",
+        "productImportsAndSetup": "HOLD/UNRUN",
+        "compressionHashNativeBrowserWorkerNetworkSecurityReceiptBackuprestoreQualification": "HOLD/UNRUN",
+        "publicationDeploymentMerge": "NOT PERFORMED"
+    },
+    "originalProducerWork": "Completed source only; no fullsettled/native/resource qualification",
+    "producerHistory": [
+        "aaee7f1a6e26334a242b0479f7907cba0931e69c fix(style): repair frontend-style baseline drift and clear drifted violations",
+        "3c954ff30f46469b5cb2bd75fd87784e28c4f49a Harden comment moderation and cache flow",
+        "00a7898aa74924517ee08006b1abbefff01cc270 Optimize frontend hot paths",
+        "2e546df18cb8a2ec87f3e432e2d0b413b057890b chore: commit remaining workspace changes"
+    ],
+    "exactCompilerInputIdentity": {
+        "before": [
+            "702bea35fd908f49751f7e66858e0fc8fff1ffbba10b0750d3306e34148fdca4  src/frontend/src/utils/imageCompression.ts",
+            "21620064b12668099de5206395e94e87732cb84b26680dee82612e929e90d916  src/frontend/src/utils/imageProducerOperation.ts",
+            "8111bf40aedbe36b25d67e49c9c6094f74c05d95847279c1286b1ac01aea2b0a  docs/architecture/overview.md"
+        ],
+        "after": [
+            "702bea35fd908f49751f7e66858e0fc8fff1ffbba10b0750d3306e34148fdca4  src/frontend/src/utils/imageCompression.ts",
+            "21620064b12668099de5206395e94e87732cb84b26680dee82612e929e90d916  src/frontend/src/utils/imageProducerOperation.ts",
+            "8111bf40aedbe36b25d67e49c9c6094f74c05d95847279c1286b1ac01aea2b0a  docs/architecture/overview.md"
+        ],
+        "identical": true
+    },
+    "baselineCompilerInputIdentity": {
+        "before": [
+            "90c41704b08c6bcf73338a01b588623c84ad8c0a8b398f6acb96162fb3ae950f  src/frontend/src/utils/imageCompression.ts",
+            "dec702e76bc1b090a32dc61f94be0afdf626818ef093f9f773e7dda539d0b0f9  docs/architecture/overview.md"
+        ],
+        "after": [
+            "90c41704b08c6bcf73338a01b588623c84ad8c0a8b398f6acb96162fb3ae950f  src/frontend/src/utils/imageCompression.ts",
+            "dec702e76bc1b090a32dc61f94be0afdf626818ef093f9f773e7dda539d0b0f9  docs/architecture/overview.md"
+        ],
+        "identical": true
+    },
+    "sourceCorrection": "Post-success encode cancellation check remains outside codec normalization; successful native completion followed by cancellation preserves original reason, native codec errors retain original metadata."
+}

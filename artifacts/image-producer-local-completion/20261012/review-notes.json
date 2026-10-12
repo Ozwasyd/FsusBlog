@@ -1,0 +1,52 @@
+{
+    "sourceRevision": "f8e2d4fbea05250546e7a0609305134c30f43983",
+    "producerSource": "src/frontend/src/utils/imageCompression.ts",
+    "custodySource": "src/frontend/src/utils/imageProducerOperation.ts",
+    "originalHashLocation": "imageCompression.ts: sha256Hex(blob), sequential blob.arrayBuffer then crypto.subtle.digest",
+    "confirmedOriginalBitmapGap": "Original bitmap.close only follows successful context.drawImage; invalid dimensions, missing context and draw failures bypass it.",
+    "newBitmapCustody": "Adopt actual bitmap before cancellation/dimension checks, release at original draw-success point, attempt cleanup in original invocation finally on early failure, preserve failed handle/cause for retry.",
+    "observableCompletion": "Await actual arrayBuffer/digest/decode/acquisition/encode/toBlob work and fallback image/reader events; no Promise.race, synthetic worker ACK, invented timer or shared termination.",
+    "supportedCancellation": "Abort active original FileReader; prevent later stages. Already executing other native work remains awaited.",
+    "cleanupFailure": "Actual handle and cleanup closure remain retained. Cleanup error history is separate from sanitized census. Local settled remains pending until same-handle successful cleanup retry.",
+    "thirdPartyUnknown": [
+        "shared-codec-loader-internals",
+        "codec-internal-custody"
+    ],
+    "settlementScope": "Only original finite invocation and observable local handles. External unknowns remain visible and are excluded from local settled; no business/upload/native-session/application readiness claim.",
+    "ownedWorkerOrTimer": "none introduced; original hash has no self-created worker",
+    "sourceReviewCases": [
+        "GIF passthrough preserves original File identity",
+        "Pre-aborted signal prevents producer start and cleans owned listener",
+        "Reader abort only requests actual FileReader.abort; terminal event is still awaited",
+        "Cancellation during bitmap decode adopts and cleans actual returned bitmap before checking cancellation",
+        "Invalid dimensions, canvas creation/context/draw failures reach original-owned bitmap cleanup",
+        "Original close exception remains result failure and is retained in cleanup history; finally retries same original handle",
+        "Fallback Image load/error remains awaited before handler/source cleanup",
+        "Codec acquisition/encode and canvas-toBlob are awaited without racing cancellation",
+        "Original pipeline errors survive cleanup exceptions; failed cleanup keeps settled pending",
+        "Cleanup retry only visits failed eligible resources; active native work is not declared releasable",
+        "Hash buffer and digest are registered before post-completion cancellation check",
+        "Census freezes copies and exposes no input/handle/cause or release permission",
+        "Successful encode followed by cancellation reaches the original cancellation boundary outside codec error normalization"
+    ],
+    "sourceReviewCasesStatus": "source inspection only; no runtime or test execution",
+    "excludedSourceOwners": [
+        "uploadRuntime",
+        "Flow",
+        "api/upload",
+        "binaryTransport",
+        "workerprotocol",
+        "SharedDI",
+        "Writer",
+        "MarkdownEditor",
+        "wasmImageCodec internals"
+    ],
+    "requiredIndependentReview": "pending",
+    "runtimeAndQualification": "HOLD/UNRUN",
+    "rulesetRead": {
+        "command": "gh api repos/Ozwasyd/FsusBlog/rulesets --jq '[.[] | {id,name,enforcement,target}]'",
+        "status": "HTTP 403",
+        "message": "Upgrade to GitHub Pro or make this repository public to enable this feature.",
+        "claim": "No ruleset acceptance or merge authorization asserted"
+    }
+}
