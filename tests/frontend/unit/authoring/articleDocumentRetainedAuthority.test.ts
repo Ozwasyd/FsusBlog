@@ -1149,4 +1149,97 @@ describe('original retained document authority source controls', () =>
         expect(retained.inspect().invalidationFailed).toBe(true);
         expect(retained.sealLifetimeAuthority()).toBeNull();
     });
+    it('retains failed owner unsubscribe and retries the same original listener without restoring authority', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const firstFailure = new Error('original-owner-listener-failure');
+        let shouldFail = true;
+        let calls = 0;
+        const stop = retained.subscribeRetirement(() =>
+        {
+            calls += 1;
+            if (shouldFail) { throw firstFailure; }
+        });
+        expect(() => retained.adapter.updateSource('# refused')).toThrow();
+        stop();
+        expect(stop.inspect().pendingUnsubscribe).toBe(true);
+        expect(stop.inspect().firstFailure).toBe(firstFailure);
+        shouldFail = false;
+        stop.retry();
+        expect(stop.inspect().failed).toBe(false);
+        expect(stop.inspect().firstFailure).toBe(firstFailure);
+        const completedCalls = calls;
+        stop.retry();
+        expect(calls).toBe(completedCalls);
+        expect(retained.inspect().invalidationFailed).toBe(true);
+        expect(retained.sealLifetimeAuthority()).toBeNull();
+    });
+
+    it('retains adapter context failure and retries a pending unsubscribe against actual current context', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const firstFailure = new Error('original-context-listener-failure');
+        let shouldFail = true;
+        let observed: unknown = null;
+        const stop = retained.adapter.subscribeContext(context =>
+        {
+            observed = context;
+            if (shouldFail) { throw firstFailure; }
+        });
+        expect(() => retained.adapter.updateSource('# published')).toThrow();
+        stop();
+        expect(stop.inspect().failed).toBe(true);
+        expect(stop.inspect().firstFailure).toBe(firstFailure);
+        shouldFail = false;
+        stop.retry();
+        expect(observed).toBe(retained.adapter.context);
+        expect(stop.inspect().failed).toBe(false);
+    });
+
+    it('attempts real mandatory consumer cleanup despite pre-listener failure and retries actual cleanup failure', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const work = retained.adapter.beginTask('attachment', 'producer:actual');
+        let cleanupFails = true;
+        let cleanups = 0;
+        retained.attachConsumer(() => ({ invalidateDocument: () =>
+        {
+            cleanups += 1;
+            if (cleanupFails) { throw new Error('actual-consumer-cleanup-failure'); }
+        } }));
+        const stop = retained.subscribeRetirement(() => { throw new Error('actual-pre-signal-failure'); });
+        expect(() => authority.revokeRetainedScope('site:test', 'test')).toThrow();
+        expect(cleanups).toBeGreaterThan(0);
+        expect(work.signal.aborted).toBe(true);
+        expect(retained.inspect().consumerInvalidationState).toBe('failed');
+        expect(retained.inspect().pendingTaskRefs).toContain(work.taskRef);
+        stop();
+        cleanupFails = false;
+        // A failing pre-signal remains an obligation; actual consumer cleanup is
+        // still attempted and does not force unresolved work to settle.
+        try { retained.retryInvalidation(); } catch { /* actual pre-failure remains reported */ }
+        expect(retained.inspect().consumerInvalidationState).toBe('settled');
+        expect(retained.inspect().pendingTaskRefs).toContain(work.taskRef);
+    });
+
+    it('does not duplicate an actual pending consumer promise when retry is requested', async () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        let complete!: () => void;
+        const pending = new Promise<void>(resolve => { complete = resolve; });
+        let calls = 0;
+        retained.attachConsumer(() => ({ invalidateDocument: () => { calls += 1; return pending; } }));
+        authority.revokeRetainedScope('site:test', 'test');
+        expect(retained.inspect().consumerInvalidationState).toBe('pending');
+        retained.retryInvalidation();
+        expect(calls).toBe(1);
+        expect(retained.inspect().consumerInvalidationState).toBe('pending');
+        complete();
+        await pending;
+        expect(retained.inspect().consumerInvalidationState).toBe('settled');
+    });
 });

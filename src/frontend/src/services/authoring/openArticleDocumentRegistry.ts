@@ -85,6 +85,79 @@ export interface RetainedArticleDocumentInspection {
     readonly notificationFailed: boolean;
 }
 
+export interface RetainedNotificationSubscription {
+    (): void;
+    retry(): void;
+    inspect(): { failed: boolean; pendingUnsubscribe: boolean; running: boolean; firstFailure: unknown; };
+}
+
+interface NotificationSubscriptionRecord {
+    readonly listener: () => void;
+    running: boolean;
+    failed: boolean;
+    hasFirstFailure: boolean;
+    firstFailure: unknown;
+    pendingUnsubscribe: boolean;
+}
+
+function registerNotificationSubscription(records: Set<NotificationSubscriptionRecord>, listener: () => void,
+    retry: () => void): RetainedNotificationSubscription
+{
+    const record: NotificationSubscriptionRecord = { listener, running: false, failed: false,
+        hasFirstFailure: false, firstFailure: undefined, pendingUnsubscribe: false };
+    records.add(record);
+    const stop = () =>
+    {
+        record.pendingUnsubscribe = true;
+        if (!record.running && !record.failed)
+        {
+            records.delete(record);
+        }
+    };
+    Object.defineProperties(stop, {
+        retry: { value: retry },
+        inspect: { value: () => ({ failed: record.failed, pendingUnsubscribe: record.pendingUnsubscribe,
+            running: record.running, firstFailure: record.firstFailure }) }
+    });
+    return stop as RetainedNotificationSubscription;
+}
+
+function invokeNotificationSubscription(records: Set<NotificationSubscriptionRecord>, record: NotificationSubscriptionRecord): void
+{
+    if (!records.has(record))
+    {
+        return;
+    }
+    if (record.running)
+    {
+        throw new Error('retained-notification-retry-in-progress');
+    }
+    record.running = true;
+    try
+    {
+        record.listener();
+        record.failed = false;
+    }
+    catch (error)
+    {
+        record.failed = true;
+        if (!record.hasFirstFailure)
+        {
+            record.hasFirstFailure = true;
+            record.firstFailure = error;
+        }
+        throw error;
+    }
+    finally
+    {
+        record.running = false;
+        if (record.pendingUnsubscribe && !record.failed)
+        {
+            records.delete(record);
+        }
+    }
+}
+
 interface RetainedArticleDocumentCell {
     readonly registry: OpenArticleDocumentRegistry;
     readonly handle: RetainedArticleDocumentHandle;
@@ -95,9 +168,9 @@ interface RetainedArticleDocumentCell {
     readonly publication: () => RetainedMembershipPublication | null;
     readonly retire: () => void;
     readonly retirementPending: () => boolean;
-    readonly retirementListeners: Set<() => void>;
+    readonly retirementListeners: Set<NotificationSubscriptionRecord>;
     readonly retirementFailures: unknown[];
-    readonly listeners: Set<() => void>;
+    readonly listeners: Set<NotificationSubscriptionRecord>;
     reason: RetainedArticleDocumentRevocation | null;
     membershipClosed: boolean;
     notificationFailed: boolean;
@@ -171,33 +244,25 @@ export function inspectRetainedArticleDocumentHandle(handle: RetainedArticleDocu
     return cell.read();
 }
 
-export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle, listener: () => void): () => void
+export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle, listener: () => void): RetainedNotificationSubscription
 {
     const cell = retainedArticleDocumentCells.get(handle);
     if (!cell || typeof listener !== 'function')
     {
         throw new Error('retained-article-document-handle-invalid');
     }
-    cell.listeners.add(listener);
-    return () =>
-    {
-        cell.listeners.delete(listener);
-    };
+    return registerNotificationSubscription(cell.listeners, listener, () => cell.notify());
 }
 
 /** Synchronous pre-change signal from this same original cell/Registry realm. */
-export function subscribeRetainedArticleDocumentRetirement(handle: RetainedArticleDocumentHandle, listener: () => void): () => void
+export function subscribeRetainedArticleDocumentRetirement(handle: RetainedArticleDocumentHandle, listener: () => void): RetainedNotificationSubscription
 {
     const cell = retainedArticleDocumentCells.get(handle);
     if (!cell || typeof listener !== 'function' || cell.retirementPending() || cell.publication() === null)
     {
         throw new Error('retained-article-document-retirement-subscription-unavailable');
     }
-    cell.retirementListeners.add(listener);
-    return () =>
-    {
-        cell.retirementListeners.delete(listener);
-    };
+    return registerNotificationSubscription(cell.retirementListeners, listener, () => cell.retire());
 }
 
 /** Only scope retirement is an explicit revocation; close follows canonical removal. */
@@ -264,7 +329,8 @@ function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): v
 {
     const observation = cell.read();
     if (cell.notifiedRevision === observation.registryRevision && cell.notifiedReason === observation.reason
-        && cell.notifiedState === observation.state && cell.notifiedFailure === observation.notificationFailed)
+        && cell.notifiedState === observation.state && cell.notifiedFailure === observation.notificationFailed
+        && ![...cell.listeners].some(record => record.failed))
     {
         return;
     }
@@ -276,7 +342,7 @@ function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): v
     {
         try
         {
-            listener();
+            invokeNotificationSubscription(cell.listeners, listener);
         }
         catch
         {
@@ -952,7 +1018,7 @@ export class OpenArticleDocumentRegistry
                 {
                     try
                     {
-                        listener();
+                        invokeNotificationSubscription(cell.retirementListeners, listener);
                     }
                     catch (error)
                     {

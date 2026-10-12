@@ -357,4 +357,53 @@ describe('original Registry retained document handle source controls', () =>
         expect(registry.getEntry('tab:2')).toBeNull();
         expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
     });
+    it('retains a failed Registry pre-listener after unsubscribe until real retry succeeds', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const firstFailure = new Error('original-retirement-failure');
+        let shouldFail = true;
+        let calls = 0;
+        const stop = subscribeRetainedArticleDocumentRetirement(handle, () =>
+        {
+            calls += 1;
+            if (shouldFail) { throw firstFailure; }
+        });
+        expect(() => registry.execute(open(registry, 2))).toThrow('pre-retirement-failed');
+        stop();
+        expect(stop.inspect().pendingUnsubscribe).toBe(true);
+        expect(stop.inspect().failed).toBe(true);
+        expect(stop.inspect().firstFailure).toBe(firstFailure);
+        expect(() => stop.retry()).toThrow();
+        shouldFail = false;
+        stop.retry();
+        expect(stop.inspect().failed).toBe(false);
+        expect(stop.inspect().firstFailure).toBe(firstFailure);
+        const completedCalls = calls;
+        stop.retry();
+        expect(calls).toBe(completedCalls);
+    });
+
+    it('keeps failed Registry post-notification unsubscribe retryable with the original callback', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        let shouldFail = true;
+        let calls = 0;
+        const stop = subscribeRetainedArticleDocumentHandle(handle, () =>
+        {
+            calls += 1;
+            if (shouldFail) { throw new Error('actual-post-failure'); }
+        });
+        registry.execute(open(registry, 2));
+        stop();
+        expect(stop.inspect().failed).toBe(true);
+        const before = calls;
+        shouldFail = false;
+        stop.retry();
+        expect(calls).toBeGreaterThan(before);
+        expect(stop.inspect().failed).toBe(false);
+    });
 });
