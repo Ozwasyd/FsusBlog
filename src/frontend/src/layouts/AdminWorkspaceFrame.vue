@@ -652,10 +652,6 @@ async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDoc
     {
         throw new Error('article-workspace-primary-mount-port-changed');
     }
-    if (!writerReservation.hasDocumentBinding())
-    {
-        throw new Error('article-workspace-original-adopted-document-binding-required');
-    }
     const hasSeal = 'sealMountedAuthority' in port;
     verify();
     const hasCustody = 'hasMountedAuthorityCustody' in port;
@@ -674,7 +670,8 @@ async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDoc
     }
     const reservation: unknown = seal.call(port, entry.editorSessionRef);
     verify();
-    if (!reservation || !has.call(port, reservation) || !writerReservation.hasCurrentReservation())
+    if (!reservation || !writerReservation.hasDocumentBinding()
+        || !has.call(port, reservation) || !writerReservation.hasCurrentReservation())
     {
         throw new Error('article-workspace-original-mounted-reservation-unavailable');
     }
