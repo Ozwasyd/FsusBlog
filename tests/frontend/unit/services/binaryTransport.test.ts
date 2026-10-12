@@ -205,6 +205,7 @@ describe('binaryTransport ApiError mapping', () => {
   it('retains original partial caller registration cleanup until a real retry', async () => {
     const caller = new AbortController()
     const addOriginal = caller.signal.addEventListener.bind(caller.signal)
+    const removeOriginal = caller.signal.removeEventListener.bind(caller.signal)
     const registrationFailure = new Error('original-partial-registration')
     const removalFailure = new Error('original-removal-failure')
     const addSpy = vi.spyOn(caller.signal, 'addEventListener').mockImplementationOnce((type, listener, options) => {
@@ -223,10 +224,26 @@ describe('binaryTransport ApiError mapping', () => {
       const terminal = await operation.terminal
       expect(terminal).toMatchObject({ local: 'unknown', resources: { callerAbortListener: true, workerTerminal: 'not-used' } })
       expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
+      const retryFailure = new Error('original-reentrant-removal-failure')
+      removeSpy.mockImplementation(() => {
+        operation.cancel()
+        expect(operation.inspectResources().callerAbortListener).toBe(true)
+        throw retryFailure
+      })
+      const failedAttempts = removeSpy.mock.calls.length
       operation.cancel()
+      expect(removeSpy.mock.calls.length).toBe(failedAttempts + 1)
       expect(operation.inspectResources().callerAbortListener).toBe(true)
-      removeSpy.mockRestore()
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.cause).toBe(retryFailure)
+      removeSpy.mockImplementation((type, listener, options) => {
+        operation.cancel()
+        expect(operation.inspectResources().callerAbortListener).toBe(true)
+        removeOriginal(type, listener, options)
+      })
+      const successfulAttempts = removeSpy.mock.calls.length
       operation.cancel()
+      expect(removeSpy.mock.calls.length).toBe(successfulAttempts + 1)
       expect(operation.inspectResources().callerAbortListener).toBe(false)
       expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
       expect(terminal.local).toBe('unknown')

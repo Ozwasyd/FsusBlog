@@ -70,6 +70,11 @@ emit synchronous telemetry, so the original signal is checked again before any
 request-local allocation/post. A manual abort path performs guarded removal;
 only actual once-listener dispatch proves automatic detachment. Registration/setup
 failure and queue-pump cleanup failure retain the same custody and refuse posting.
+Each original caller/task removal holder has its own synchronous in-progress guard
+for initial cleanup and retry. Reentry keeps the holder visible and performs no
+second removal; only the outer successful removal clears the same holder identity.
+Failure restores retry eligibility and preserves first/latest raw causes. A nested
+queue pump refuses a holder already being removed rather than inventing a failure.
 
 If termination of a broken shared worker throws, the shared owner retains that
 same worker and its failure instead of allocating replacements without bound.

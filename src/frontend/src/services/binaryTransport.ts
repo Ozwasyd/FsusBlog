@@ -165,6 +165,7 @@ interface OwnedDecode {
     requestId: number;
     posted: boolean;
     abortCleanup: (() => void) | null;
+    abortCleanupInProgress: boolean;
     abortCleanupFailure: unknown;
     state: 'queued' | 'pending' | 'observed' | 'unknown';
     terminal: Promise<void>;
@@ -182,6 +183,8 @@ class LocalTransportOwner
     // A failed original release is not converted into a receipt by calling its retired no-op again.
     retainedLease: ReturnType<typeof privateRequestRuntime.open> | undefined;
     retainedAbortCleanup: (() => void) | undefined;
+    callerCleanupFailure: unknown;
+    private callerCleanupInProgress = false;
     private readonly failures = new Map<BinaryTransportLocalFailure['stage'], Readonly<BinaryTransportLocalFailure>>();
 
     record(stage: BinaryTransportLocalFailure['stage'], cause: unknown): void
@@ -200,6 +203,48 @@ class LocalTransportOwner
         return Object.freeze(Array.from(this.failures.values()));
     }
 
+    releaseCallerListener(): boolean
+    {
+        if (this.callerCleanupInProgress)
+        {
+            return false;
+        }
+        const cleanup = this.retainedAbortCleanup;
+        if (!cleanup)
+        {
+            return true;
+        }
+        this.callerCleanupInProgress = true;
+        try
+        {
+            cleanup();
+            if (this.retainedAbortCleanup === cleanup)
+            {
+                this.retainedAbortCleanup = undefined;
+                this.callerAbortListener = false;
+            }
+            return this.retainedAbortCleanup === undefined;
+        }
+        catch (error)
+        {
+            this.callerCleanupFailure = error;
+            this.record('cleanup', error);
+            return false;
+        }
+        finally
+        {
+            this.callerCleanupInProgress = false;
+        }
+    }
+
+    observeCallerOnceDispatch(): void
+    {
+        if (!this.callerCleanupInProgress)
+        {
+            this.callerAbortListener = false;
+        }
+    }
+
     createDecode(requestId: number): OwnedDecode
     {
         let resolveTerminal!: () => void;
@@ -212,6 +257,7 @@ class LocalTransportOwner
             requestId,
             posted: false,
             abortCleanup: null,
+            abortCleanupInProgress: false,
             abortCleanupFailure: undefined,
             state: 'queued',
             terminal,
@@ -242,7 +288,7 @@ class LocalTransportOwner
         return Object.freeze({
             execution: this.execution,
             lease: this.lease,
-            callerAbortListener: this.callerAbortListener,
+            callerAbortListener: this.callerAbortListener || this.retainedAbortCleanup !== undefined,
             cancellationRequested: this.cancellationRequested,
             queuedDecodes,
             pendingDecodes: pending.length,
@@ -428,17 +474,34 @@ function releaseQueuedListener(queued: QueuedDecodeRequest): boolean
 
 function releaseDecodeListener(task: OwnedDecode): boolean
 {
+    if (task.abortCleanupInProgress)
+    {
+        return false;
+    }
+    const cleanup = task.abortCleanup;
+    if (!cleanup)
+    {
+        return true;
+    }
+    task.abortCleanupInProgress = true;
     try
     {
-        task.abortCleanup?.();
-        task.abortCleanup = null;
-        return true;
+        cleanup();
+        if (task.abortCleanup === cleanup)
+        {
+            task.abortCleanup = null;
+        }
+        return task.abortCleanup === null;
     }
     catch (error)
     {
         task.abortCleanupFailure = error;
         task.owner.record('cleanup', error);
         return false;
+    }
+    finally
+    {
+        task.abortCleanupInProgress = false;
     }
 }
 
@@ -578,6 +641,10 @@ function pumpDecodeQueue(): void
     while (pendingRequests.size < DECODE_WORKER_ACTIVE_LIMIT && queuedRequests.length > 0)
     {
         const queued = queuedRequests[0];
+        if (queued.task.abortCleanupInProgress)
+        {
+            break;
+        }
         if (!releaseQueuedListener(queued))
         {
             queued.reject(queued.task.abortCleanupFailure);
@@ -712,7 +779,10 @@ function startWorkerDecode(queued: QueuedDecodeRequest): void
         if (event && event.currentTarget === signal && event.type === 'abort')
         {
             // Only a real once-listener dispatch proves automatic listener removal.
-            task.abortCleanup = null;
+            if (!task.abortCleanupInProgress)
+            {
+                task.abortCleanup = null;
+            }
         }
         else
         {
@@ -848,7 +918,10 @@ function decodeInWorker<T>(
                     task.owner.cancellationRequested = true;
                     if (event && event.currentTarget === signal && event.type === 'abort')
                     {
-                        task.abortCleanup = null;
+                        if (!task.abortCleanupInProgress)
+                        {
+                            task.abortCleanup = null;
+                        }
                     }
                     else
                     {
@@ -1141,7 +1214,7 @@ function startBinaryOnlyWithDecoder<T>(
         {
             if (event && event.currentTarget === callerSignal && event.type === 'abort')
             {
-                owner.callerAbortListener = false;
+                owner.observeCallerOnceDispatch();
             }
             owner.cancellationRequested = true;
             controller.abort(callerSignal?.reason);
@@ -1198,16 +1271,10 @@ function startBinaryOnlyWithDecoder<T>(
                 cleanupError = error;
                 cleanupFailed = true;
             }
-            try
+            owner.retainedAbortCleanup = () => callerSignal?.removeEventListener('abort', forwardAbort);
+            if (!owner.releaseCallerListener())
             {
-                callerSignal?.removeEventListener('abort', forwardAbort);
-                owner.callerAbortListener = false;
-            }
-            catch (error)
-            {
-                owner.retainedAbortCleanup = () => callerSignal?.removeEventListener('abort', forwardAbort);
-                owner.record('cleanup', error);
-                cleanupError = error;
+                cleanupError = owner.callerCleanupFailure;
                 cleanupFailed = true;
             }
             owner.execution = 'ended';
@@ -1250,19 +1317,7 @@ function startBinaryOnlyWithDecoder<T>(
                     }
                 }
             }
-            if (owner.retainedAbortCleanup)
-            {
-                try
-                {
-                    owner.retainedAbortCleanup();
-                    owner.retainedAbortCleanup = undefined;
-                    owner.callerAbortListener = false;
-                }
-                catch (error)
-                {
-                    owner.record('cleanup', error);
-                }
-            }
+            owner.releaseCallerListener();
             pumpDecodeQueue();
             scheduleWorkerIdleTerminate();
         },
