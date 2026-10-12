@@ -1100,3 +1100,25 @@ Source events and requested signatures are recorded in
 `artifacts/article-editor/issue-2295-composition-admission-seal` as missing APIs.
 Missing provider Queryv1/resolveBatch/canonical, startup/fullready/refset/native
 restore/auth/security/resource/eviction and cross-identity holds remain refused.
+
+
+### Actual original Writer mounted-authority consumption (#2295)
+
+The actual original `authoringEditorRuntime.bindEditor` runtime now supplies
+`sealMountedAuthority(editorSessionRef)`, `hasMountedAuthorityCustody(seal)` and
+`cancelMountedAuthority(seal)`. It consumes that SAME original retained binding's
+Document272a/d354 lifetime seal and private has/cancel, preserving failed issuer/
+token cancellation custody. Original physical release retires local custody before
+callbacks; negative auth/private-surface/context/lifetime events revoke locally.
+Genuine auth authority remains unavailable: positive seal returns null and has
+returns false, including when Document custody succeeds. This does not complete
+Root mounting, provider Queryv1/resolveBatch/canonical, startup/fullready or refsets.
+
+Original Writer cleanup attempts all operations before combining failures. Only
+its own private error-group identities are expanded; external thrown objects and
+`errors` getters remain untouched, preserving distinct original causes. Exact
+Writer final1f148 source is applied through owning hunks against Main's actual
+preimage; existing Main mounted/draft/native/private-reference guards and helper
+rechecks remain. Source/protection/static evidence and original zero-execution
+preflight are in `artifacts/article-editor/issue-2295-writer1f148-authority-intake`.
+All runtime/native/auth/security/receipt/restore/eviction qualification stays held.
