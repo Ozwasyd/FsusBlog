@@ -1,0 +1,7 @@
+{
+  "preimage": "2cf148525f1fde439aa9d5c890ede00fe30e9b4c",
+  "applyCheck": 0,
+  "productionApplied": false,
+  "activationRequires": "exact closed observed-event broadcast producer source and bounded consumer review",
+  "runtime": "HOLD/UNRUN"
+}

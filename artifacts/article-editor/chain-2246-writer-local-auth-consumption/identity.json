@@ -1,0 +1,13 @@
+{
+  "consumerSource": "2cf148525f1fde439aa9d5c890ede00fe30e9b4c",
+  "authLeaf": "5e555854c65fef7a394e1bf08d08e3f96f961e50",
+  "authLeafAccepted": "parent supplied local store/private-surface closure",
+  "docLeaf": "d354ca78d6d19daa6b09f66c988cb04e1f5ab89b",
+  "frontendFiles": 730,
+  "mismatch": [],
+  "positiveSeal": "refused: observed-event broadcast successor not closed/consumed",
+  "broadcastSuccessor": "86466a4807a5d734606e9451a8c9eb7043d1c6f7 pending repaired review, NOT consumed",
+  "contractBoundary": "bfab71063ab8f92afa67abcbc0a45ec4cca69b45",
+  "noAddedRemoteAtomicExpiryRequirement": true,
+  "runtime": "HOLD/UNRUN"
+}

@@ -1,0 +1,12 @@
+{
+  "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+  "blob": "0fb6c6047c827cd6357915e500dbaa6c114d2009",
+  "diagnostics": [],
+  "realNominalAdminSeal": true,
+  "actualGetterCapture": true,
+  "freshArticleWrite": true,
+  "dualCancellationAttempt": true,
+  "positivePublication": "refused: original observed-event broadcast chain not closed",
+  "candidateExecuted": false,
+  "runtime": "HOLD/UNRUN"
+}
