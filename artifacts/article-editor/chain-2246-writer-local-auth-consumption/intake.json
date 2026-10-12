@@ -1,0 +1,23 @@
+{
+  "base": "1f148061d0b0714e0f065120e99c02d6b4a32f30",
+  "source": "5e555854c65fef7a394e1bf08d08e3f96f961e50",
+  "paths": [
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "preimage": "101e78249b17901956bb2d249290801a0a42811d",
+      "postimage": "86e63819220a94932ba66d64a52e4727abe8f838"
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "preimage": "81964e4adf69a875e92612276caf8221e04f38d4",
+      "postimage": "720120471237c17f0e14876aeca67e02e90e94df"
+    }
+  ],
+  "exactBytes": true,
+  "applyCheck": 0,
+  "applyIndex": 0,
+  "independentClosure": "parent confirms cleanup/store local pure port SourceClosed",
+  "broadcastSuccessor": "86466a4807a5d734606e9451a8c9eb7043d1c6f7 NOT accepted; 2P2 author repaired, review pending",
+  "contractBoundary": "bfab71063ab8f92afa67abcbc0a45ec4cca69b45: local observed projection continuity only; no invented remote atomic/precise server expiry contract",
+  "runtime": "HOLD/UNRUN"
+}
