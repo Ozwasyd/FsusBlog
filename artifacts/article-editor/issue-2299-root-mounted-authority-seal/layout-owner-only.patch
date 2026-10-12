@@ -142,7 +142,7 @@ index a45ccf423..89cbc6fa6 100644
  export const authoringWorkspacePrimaryMountOnlyKey: InjectionKey<Readonly<Ref<boolean>>>
      = Symbol('authoring-workspace-primary-mount-only');
 diff --git a/src/frontend/src/views/admin/article/Write.vue b/src/frontend/src/views/admin/article/Write.vue
-index 5f91d2c1a..6133ec169 100644
+index 5f91d2c1a..c5f410d3e 100644
 --- a/src/frontend/src/views/admin/article/Write.vue
 +++ b/src/frontend/src/views/admin/article/Write.vue
 @@ -797,7 +797,7 @@
@@ -195,7 +195,7 @@ index 5f91d2c1a..6133ec169 100644
      const bound = mountedWriterBinding;
      const source = workspaceMountedSource.value;
      const tabId = workspaceTabId.value;
-@@ -1300,17 +1304,154 @@ const retainedRecoveryPort = createArticleWorkspaceRetainedRecoveryPort({
+@@ -1300,17 +1304,153 @@ const retainedRecoveryPort = createArticleWorkspaceRetainedRecoveryPort({
  /** Original Rail may borrow this partial port after SAME composition installation; null is unavailable. */
  function getArticleWorkspaceRetainedRecoveryPort(): ArticleWorkspaceRetainedRecoveryPort | null
  {
@@ -346,12 +346,11 @@ index 5f91d2c1a..6133ec169 100644
  function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
  {
 -    if (primaryMountDisposed || cancelPrimaryMount)
-+    revokeMountedAuthorityBeforeChange();
-+    if (primaryMountDisposed || mountedAuthorityRetired || cancelPrimaryMount)
++    if (primaryMountDisposed || mountedAuthorityRetired || sealingMountedAuthority || cancelPrimaryMount)
      {
          return Promise.reject(new Error('article-workspace-primary-mount-owner-unavailable'));
      }
-@@ -1327,6 +1468,10 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+@@ -1327,6 +1467,10 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
                  return;
              }
              settled = true;
@@ -362,7 +361,16 @@ index 5f91d2c1a..6133ec169 100644
              stopWatching?.();
              signal.removeEventListener('abort', cancel);
              if (cancelPrimaryMount === cancel)
-@@ -1359,6 +1504,7 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+@@ -1344,6 +1488,8 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+         };
+         // Reserve before any caller-held entry/native read can synchronously reenter.
+         cancelPrimaryMount = cancel;
++        // Producer cancellation may synchronously reenter preparation: the slot is already owned.
++        revokeMountedAuthorityBeforeChange();
+         let registry: ReturnType<typeof articleWorkspaceTabRouter.getRegistry>;
+         let registryRevision: number;
+         let context: typeof authoringDocumentContext.value;
+@@ -1359,6 +1505,7 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
                  || authoringDocumentContext.value !== context || workspaceIdentity.value !== identity
                  || workspaceDocumentContext.value !== documentContext
                  || workspacePrimaryMountOnly.value !== mountOnly
@@ -370,7 +378,7 @@ index 5f91d2c1a..6133ec169 100644
                  || calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) !== expectedDigest
                  || calculateOpenArticleDocumentDigest(entry) !== expectedDigest)
              {
-@@ -1389,8 +1535,11 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+@@ -1389,8 +1536,11 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
                  }
                  const bindingGeneration = editorBindingGeneration;
                  const ownerDocument = root.ownerDocument;
@@ -382,7 +390,7 @@ index 5f91d2c1a..6133ec169 100644
                  const observed = source.readDocumentBinding(entry.editorSessionRef);
                  assertCurrent();
                  if (!native || mounted !== native || native !== boundEditorPort
-@@ -1407,6 +1556,8 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+@@ -1407,6 +1557,8 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
                      throw new Error('article-workspace-primary-native-document-owner-unavailable');
                  }
                  // Only physical completion. The original composition/factory still checks resources/admission.
@@ -391,7 +399,7 @@ index 5f91d2c1a..6133ec169 100644
                  finish(true);
              }
              catch (error)
-@@ -1454,11 +1605,15 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+@@ -1454,11 +1606,15 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
      });
  }
 
@@ -408,7 +416,7 @@ index 5f91d2c1a..6133ec169 100644
      cancelPrimaryMount?.();
  });
 
-@@ -1466,6 +1621,7 @@ watch([workspaceMountedSource, workspaceTabId, workspaceDocumentContext], bindWo
+@@ -1466,6 +1622,7 @@ watch([workspaceMountedSource, workspaceTabId, workspaceDocumentContext], bindWo
 
  watch(articleEditorRef, () =>
  {

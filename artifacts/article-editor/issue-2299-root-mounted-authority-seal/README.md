@@ -52,6 +52,17 @@ src/frontend/src/layouts/AdminWorkspaceFrame.vue. Root product files are NOT
 overwritten. Parent reports bounded bb9 session bridge independently no newmustfix;
 this new Root caller offer and Layout seal increment need their own review.
 
+The independent56961 review found two source defects, corrected in this offer but
+not yet independently closed. P1: generic revocation did not permanently retire
+Write before same sessions.retire(). Root startup now requires a DISTINCT
+retireMountedAuthority capability, pins and forwards it separately, invokes it
+before original custody/session retirement and view teardown, and binds it to the
+actual Write permanent method. beforeMountedAuthorityChange remains temporary.
+P2: prepare previously revoked before reserving and omitted the sealing guard.
+It now refuses sealing/pending first and owns the pending slot BEFORE any
+callback-bearing revocation. Producer cancel/reserve callbacks cannot reenter
+and take that slot. These are source corrections only, not executed race controls.
+
 Source verification only: original owned strict lint/SCSS, Vue/TS AST/SFC, pure has
 AST and exact Root patch/postimage checks. The real strict local UI9f92+a775 graph
 remains FAIL209, no new owned findings. No reduced/fake type program or product

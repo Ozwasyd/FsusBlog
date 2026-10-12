@@ -925,3 +925,12 @@ artifacts/article-editor/issue-2299-root-mounted-authority-seal for the concrete
 required interfaces and unimplemented producer joins. Pure has AST/source checks
 are not native/DOM/auth or joint-authority qualification. All existing HOLD/UNRUN
 and complete provider/full-refset/second-owner boundaries remain open.
+
+The56961 independent review left P1/P2 open. Their source correction uses a distinct
+pinned Root retireMountedAuthority capability before same original custody/session
+retirement; temporary beforeMountedAuthorityChange is not permanent admission
+retirement. The preparation entry now checks sealing/pending before callbacks and
+assigns its pending cancellation slot before revoking producer custody, refusing
+synchronous cancel/reserve reentry. Actual Root product files stay with their owner;
+only the exact source offer changes here. Source AST/order checks and strict owned
+lint pass; runtime/race controls are UNRUN and independent rereview remains pending.

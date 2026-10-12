@@ -1450,8 +1450,7 @@ watch(workspaceWriteElement, root =>
 /** Await the existing real subtree; this cannot adopt a different restored document/body owner. */
 function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
 {
-    revokeMountedAuthorityBeforeChange();
-    if (primaryMountDisposed || mountedAuthorityRetired || cancelPrimaryMount)
+    if (primaryMountDisposed || mountedAuthorityRetired || sealingMountedAuthority || cancelPrimaryMount)
     {
         return Promise.reject(new Error('article-workspace-primary-mount-owner-unavailable'));
     }
@@ -1489,6 +1488,8 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, 
         };
         // Reserve before any caller-held entry/native read can synchronously reenter.
         cancelPrimaryMount = cancel;
+        // Producer cancellation may synchronously reenter preparation: the slot is already owned.
+        revokeMountedAuthorityBeforeChange();
         let registry: ReturnType<typeof articleWorkspaceTabRouter.getRegistry>;
         let registryRevision: number;
         let context: typeof authoringDocumentContext.value;

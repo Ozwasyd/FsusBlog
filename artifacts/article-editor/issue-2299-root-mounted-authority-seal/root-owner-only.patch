@@ -9,23 +9,25 @@
  import { createArticleWorkspaceMountedEditorResolver } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
  import {
      articleWorkspaceTabRouter,
-@@ -97,6 +97,7 @@
+@@ -97,6 +97,8 @@
          custody: AuthoringTabGroupStartupCustody | null;
          resolver: ArticleWorkspaceMountedEditorResolver | null;
          sessions: AuthoringWorkspaceSessionSource | null;
 +        readonly revokeMountedAuthority: () => void;
++        readonly retireMountedAuthority: () => void;
          readonly invalidateLayouts: Set<() => void>;
      };
      readonly task: Promise<{
-@@ -284,6 +285,7 @@
+@@ -284,6 +286,8 @@
          custody: null,
          resolver: null,
          sessions: null,
 +        revokeMountedAuthority: ports.beforeMountedAuthorityChange.bind(ports),
++        retireMountedAuthority: ports.retireMountedAuthority.bind(ports),
          invalidateLayouts: new Set()
      };
      // Reserve the sole installation before any original capability callback can re-enter it.
-@@ -320,6 +322,7 @@
+@@ -320,6 +324,7 @@
      installation.revoking = true;
      try
      {
@@ -33,7 +35,16 @@
          for (const invalidate of [...installation.resources.invalidateLayouts])
          {
              try
-@@ -354,7 +357,8 @@
+@@ -337,6 +342,8 @@
+             // Successful startup transferred admission custody; do not retire its ongoing owner.
+             return;
+         }
++        // Permanently close Write authority BEFORE original custody/session retirement callbacks.
++        installation.resources.retireMountedAuthority();
+         if (custody)
+         {
+             try
+@@ -354,7 +361,8 @@
              // The original owner revokes admission and retains its actual Host/factory; no disposal claim.
              try
              {
@@ -43,15 +54,16 @@
              }
              catch (error: unknown)
              {
-@@ -392,6 +396,7 @@
+@@ -392,6 +400,8 @@
  const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
  const snapshotCaller = props.workspaceSnapshotCaller;
  let viewStartupPorts = props.workspaceStartup;
 +let viewMountedAuthorityChange = viewStartupPorts?.beforeMountedAuthorityChange.bind(viewStartupPorts);
++let viewMountedAuthorityRetire = viewStartupPorts?.retireMountedAuthority.bind(viewStartupPorts);
  let viewStartupSignal = viewStartupPorts?.signal;
  let viewLayoutPorts = viewStartupPorts?.layout;
  if (snapshotCaller && viewStartupPorts)
-@@ -417,6 +422,7 @@
+@@ -417,6 +427,7 @@
  let layoutEpoch = 0;
  function notifyWorkspaceLayoutInvalidation(): void
  {
@@ -59,7 +71,7 @@
      // These are visual revocation subscribers only, never another group/session authority.
      for (const listener of [...layoutInvalidationListeners])
      {
-@@ -458,6 +464,7 @@
+@@ -458,6 +469,7 @@
  }
  function captureRouteOutlet(instance: unknown): void
  {
@@ -67,50 +79,56 @@
      if (routeOutletInstance.value === instance)
      {
          return;
-@@ -774,7 +781,9 @@
+@@ -774,7 +786,10 @@
  }
  function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPorts): void
  {
 +    viewMountedAuthorityChange?.();
      viewStartupPorts = selectedPorts;
 +    viewMountedAuthorityChange = selectedPorts.beforeMountedAuthorityChange.bind(selectedPorts);
++    viewMountedAuthorityRetire = selectedPorts.retireMountedAuthority.bind(selectedPorts);
      viewStartupSignal = selectedPorts.signal;
      viewLayoutPorts = selectedPorts.layout;
      const startupPorts = selectedPorts;
-@@ -889,6 +898,7 @@
+@@ -889,6 +904,8 @@
  onBeforeUnmount(() =>
  {
      mounted = false;
++    viewMountedAuthorityRetire?.();
 +    viewMountedAuthorityChange?.();
      invalidateWorkspaceLayout();
      if (snapshotCaller)
      {
 --- a/src/frontend/src/layouts/adminArticleWorkspaceStartup.ts
 +++ b/src/frontend/src/layouts/adminArticleWorkspaceStartup.ts
-@@ -10,6 +10,8 @@
+@@ -10,6 +10,10 @@
      readonly sync: AuthoringWorkspaceSnapshotSync;
      readonly resolutionPort: AuthoringWorkspaceSnapshotRestoreCommands['resolutionPort'];
      readonly mountedEditors: ArticleWorkspaceMountedEditorSource;
 +    /** Pinned actual mounted owner; revoke before callbacks, never cache an auth boolean. */
 +    readonly beforeMountedAuthorityChange: () => void;
++    /** Actual Write permanent retirement; generic revocation is insufficient. */
++    readonly retireMountedAuthority: () => void;
      /** Actual original physical Write operation; a stub cannot satisfy native admission. */
      readonly prepareMountedEditor: AuthoringWorkspacePrimaryMountPort['prepareMountedEditor'];
      readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;
 --- a/src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts
 +++ b/src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts
-@@ -262,6 +262,7 @@
+@@ -262,6 +262,8 @@
              throw new Error('article-workspace-snapshot-batch-source-required');
          }
          const mountedEditors = checked(() => original.mountedEditors);
 +        const beforeMountedAuthorityChange = checked(() => original.beforeMountedAuthorityChange.bind(original));
++        const retireMountedAuthority = checked(() => original.retireMountedAuthority.bind(original));
          const mountOwner = checked(() => original.prepareMountedEditor);
          if (typeof mountOwner !== 'function')
          {
-@@ -414,6 +415,7 @@
+@@ -414,6 +416,8 @@
          const ports = Object.freeze<AdminArticleWorkspaceStartupPorts>({
              sync, resolutionPort, mountedEditors, groupOptions, createGroupIdentity, operationEpoch,
              signal, layout,
 +            beforeMountedAuthorityChange: () => beforeMountedAuthorityChange(),
++            retireMountedAuthority: () => retireMountedAuthority(),
              prepareMountedEditor: async (entry, commandSignal) =>
              {
                  assertCurrent();
