@@ -915,6 +915,7 @@ const {
     authoringDocumentContext,
     authoringAttachmentRuntime,
     authoringEditorRuntime,
+    authoringRetainedPrimaryRuntime,
     firstInvalidFormProperty,
     articleRightsUsingSiteDefaults,
     articleRightsInheritanceText,
@@ -1467,19 +1468,58 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, 
                 return;
             }
             settled = true;
+            const cleanupFailures: unknown[] = [];
             if (!completed)
             {
-                revokeMountedAuthorityBeforeChange();
+                try
+                {
+                    revokeMountedAuthorityBeforeChange();
+                }
+                catch (cause: unknown)
+                {
+                    cleanupFailures.push(cause);
+                }
             }
-            stopWatching?.();
-            signal.removeEventListener('abort', cancel);
+            try
+            {
+                stopWatching?.();
+            }
+            catch (cause: unknown)
+            {
+                cleanupFailures.push(cause);
+            }
+            try
+            {
+                signal.removeEventListener('abort', cancel);
+            }
+            catch (cause: unknown)
+            {
+                cleanupFailures.push(cause);
+            }
             if (cancelPrimaryMount === cancel)
             {
                 cancelPrimaryMount = null;
             }
             if (!completed)
             {
-                reject(error instanceof Error ? error : new Error('article-workspace-primary-mount-failed'));
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- Preserve the original thrown value and identity, including non-Error failures.
+                reject(cleanupFailures.length
+                    ? new AggregateError([error, ...cleanupFailures], 'article-workspace-primary-mount-and-cleanup-failed', { cause: error })
+                    : error);
+            }
+            else if (cleanupFailures.length)
+            {
+                try
+                {
+                    revokeMountedAuthorityBeforeChange();
+                }
+                catch (cause: unknown)
+                {
+                    cleanupFailures.push(cause);
+                }
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- Keep the exact single cleanup failure; aggregate only genuinely separate causes.
+                reject(cleanupFailures.length === 1 ? cleanupFailures[0]
+                    : new AggregateError(cleanupFailures, 'article-workspace-primary-mount-cleanup-failed', { cause: cleanupFailures[0] }));
             }
             else
             {
@@ -1542,23 +1582,44 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, 
                 const mounted = source.readMountedEditor(entry.editorSessionRef);
                 revokeMountedAuthorityBeforeRead();
                 const observed = source.readDocumentBinding(entry.editorSessionRef);
-                assertCurrent();
-                if (!native || mounted !== native || native !== boundEditorPort
-                    || articleEditorRef.value !== component || workspaceMountedSource.value !== source || mountedWriterBinding !== bound
-                    || editorBindingGeneration !== bindingGeneration || workspaceWriteElement.value !== root
-                    || workspaceNativeMountElement.value !== element || !root.isConnected || !element.isConnected || !root.contains(element)
-                    || root.ownerDocument !== ownerDocument || element.ownerDocument !== ownerDocument
-                    || observed?.identity.articleId !== identity.articleId || observed.identity.draftId !== identity.draftId
-                    || observed.identity.documentId !== identity.documentId
-                    || observed.documentContext.documentEpoch !== documentContext.documentEpoch
-                    || observed.documentContext.sourceRevision !== documentContext.sourceRevision
-                    || observed.documentContext.draftRevision !== documentContext.draftRevision)
+                if (!native)
                 {
                     throw new Error('article-workspace-primary-native-document-owner-unavailable');
                 }
-                // Only physical completion. The original composition/factory still checks resources/admission.
+                const assertPhysical = (): void =>
+                {
+                    assertCurrent();
+                    if (mounted !== native || native !== boundEditorPort
+                        || articleEditorRef.value !== component || workspaceMountedSource.value !== source || mountedWriterBinding !== bound
+                        || editorBindingGeneration !== bindingGeneration || workspaceWriteElement.value !== root
+                        || workspaceNativeMountElement.value !== element || !root.isConnected || !element.isConnected || !root.contains(element)
+                        || root.ownerDocument !== ownerDocument || element.ownerDocument !== ownerDocument
+                        || observed?.identity.articleId !== identity.articleId || observed.identity.draftId !== identity.draftId
+                        || observed.identity.documentId !== identity.documentId
+                        || observed.documentContext.documentEpoch !== documentContext.documentEpoch
+                        || observed.documentContext.sourceRevision !== documentContext.sourceRevision
+                        || observed.documentContext.draftRevision !== documentContext.draftRevision)
+                    {
+                        throw new Error('article-workspace-primary-native-document-owner-unavailable');
+                    }
+                };
+                assertPhysical();
+                // Adopt the SAME original body/native Writer through Registry's issued handle.
+                // Reentry/failure cannot replace the original adapter, consumer or cleanup owner.
+                const handle = registry.issueRetainedDocumentHandle(entry.tabId);
+                assertPhysical();
+                const consumer = authoringRetainedPrimaryRuntime.adoptPrimaryRetainedDocument(handle);
+                assertPhysical();
+                const retained = consumer.documentBinding;
+                if (retained.handle !== handle || bound.readRetainedDocumentBinding() !== retained)
+                {
+                    throw new Error('article-workspace-primary-retained-adoption-custody-unavailable');
+                }
+                assertPhysical();
+                // Physical/adoption completion still grants no resource/host readiness.
                 completedPrimaryMount = Object.freeze({ editorSessionRef: entry.editorSessionRef, root, element, component,
                                                         native, bound, context });
+                assertPhysical();
                 finish(true);
             }
             catch (error)

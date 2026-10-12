@@ -455,5 +455,92 @@
       "independent_types": "parent667/current0ace197 to197 FAIL Root0; distinct author193/308"
     },
     "loan_error_custody": "Original reader exceptions recorded/withdrawn/rethrown unchanged, original first/latest cause and actual subscriptions/tokens/cleanup obligations retained. No resource method or owner disposal is called on refusal; no fabricated settlement."
+  },
+  "root_native_recreation_staging_source_request": {
+    "root_parent": "f6e214912ab31c7c8a7368de73bd966682c55551",
+    "parent_review": "f6 bounded resource lending independently accepted; no Main/factory/native qualification",
+    "main_continuity_source": "8a79ca190a874d9428f6d4fbfe68489b5f548fe2",
+    "original_native_sdk": "00e5cee85c82419703c7bfd57a51113747cdaba1",
+    "read_only_proof": [
+      {
+        "repository": "FsusBlog",
+        "source": "8a79ca190a874d9428f6d4fbfe68489b5f548fe2",
+        "path": "src/frontend/src/services/authoring/articleWorkspaceNativeHandoverContinuity.ts",
+        "blob": "f82a13f33050dd6f09274727d3a2d0b141d6e2e5",
+        "sha256": "d2a96cb0c11d764385ee5da8fb1035c5ef459586b4158280f4561da712e540c2"
+      },
+      {
+        "repository": "FsusBlog",
+        "source": "8a79ca190a874d9428f6d4fbfe68489b5f548fe2",
+        "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+        "blob": "f8646416bb6db7dd354b59980a6018dc69c2b022",
+        "sha256": "91dd88b45e1e96715694d1980ef9b5b75626791d95b179e5b838714b145dc41a"
+      },
+      {
+        "repository": "FsusBlog",
+        "source": "8a79ca190a874d9428f6d4fbfe68489b5f548fe2",
+        "path": "src/frontend/src/views/admin/article/Write.vue",
+        "blob": "0721eca5ff0763fdb35927e1b305f3a05d8c80e2",
+        "sha256": "809d6555e3972182fde94344cc64d8a7e7c88b7967947dd1044a03aa7db3b5b0"
+      },
+      {
+        "repository": "FsusUI",
+        "source": "00e5cee85c82419703c7bfd57a51113747cdaba1",
+        "path": "vue/packages/components/markdown-editor/src/markdown-editor-native-handover.ts",
+        "blob": "b2cdfed972224c71ea5fc16f3d5c9c98c58f6120",
+        "sha256": "bcb41f51540b66bd6540c509959af8ca903bdb66527d821a1d4c22415a7b4ae7"
+      },
+      {
+        "repository": "FsusUI",
+        "source": "00e5cee85c82419703c7bfd57a51113747cdaba1",
+        "path": "vue/packages/components/markdown-editor/src/markdown-editor-session.ts",
+        "blob": "5cd2406e72748aa21afba43f90823324f3bec1be",
+        "sha256": "2933734778f8667d3185fc6e92b770d0cf3401a80f393b903ffd00f30c14db45"
+      },
+      {
+        "repository": "FsusUI",
+        "source": "00e5cee85c82419703c7bfd57a51113747cdaba1",
+        "path": "vue/packages/components/markdown-editor/src/markdown-editor-transaction.ts",
+        "blob": "ad6e8789a51c5e254d16d3376c7a5d04aebec70c",
+        "sha256": "e48603f8c587ff6535eff931b6aa5813c2b1f5dd73e76c7b7cbc937335841453"
+      },
+      {
+        "repository": "FsusUI",
+        "source": "00e5cee85c82419703c7bfd57a51113747cdaba1",
+        "path": "vue/packages/components/markdown-editor/src/markdown-editor.vue",
+        "blob": "515c9646ab8b6e96af5ba95c8d383f9260197bff",
+        "sha256": "32bc6cbe771f33530a228154cbab9e226ebd20527dd5b3ea1aac2a114b6e9c81"
+      }
+    ],
+    "consumed_source": {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "source": "8a79ca190a874d9428f6d4fbfe68489b5f548fe2",
+      "blob": "0721eca5ff0763fdb35927e1b305f3a05d8c80e2",
+      "scope": "EXACT original Main Write postimage only: actual physical fences -> canonical registry.issueRetainedDocumentHandle -> same authoringRetainedPrimaryRuntime.adoptPrimaryRetainedDocument -> original consumer.documentBinding/readRetainedDocumentBinding identity -> guarded physical completion; original cleanup exceptions retained. No new target/lease is declared or issued."
+    },
+    "actual_chain": "Root prepareCurrentPrimaryMountedEditor -> actual getArticleWorkspacePrimaryMountPort.prepareMountedEditor -> existing Write primary physical subtree/readers -> real canonical handle/adoption -> ordinary original seal. This is SOURCE installation/adoption only, not a native recreation target.",
+    "native_existing_capability": "00e5 same-process native checkpoint offer preserves original memory through native source disposal; original target adoption checks actual private pristine transaction state (revision0, no undo/redo/prepared/retained/handover state, SAME source value/document identity) and original principal. It does NOT allocate/lease a Root physical target or provide view/Writer installation custody. Main alone owns prepare/adopt/principal/cancel of that native offer.",
+    "physical_lower_gap": {
+      "owner": "Main-owned shared MarkdownEditor.vue / FsUSUI markdown-editor.vue and its native target/session owner; product ArticleWriteEditor->MarkdownEditorAdapter->MarkdownTextEditor currently expose only current getAuthoringEditorPort/getAuthoringSessionPort/getSession",
+      "current_path": "src/frontend/src/components/ui/MarkdownTextEditor.vue",
+      "current_behavior": "Native leaf mounts with production modelValue/document identity. No isolated fresh-target request/lease or dedicated pre-pause/permanent-invalidation receiver is public. Root rekey/unmount retires original Writer/native/document subscriptions; revision0 inspection alone cannot prove private pristine history/debt or safe intentional receiving. Ordinary mounted resolver rejects target0 vs source revision.",
+      "required_real_lower_port": "Actual original owner must reserve/create a fresh native target from the real production value/identity/sessionRef while carrying explicit original cleanup handles and independent physical/staging generation custody. Public lease: original editor/session, pure hasStagingCustody(), subscribeBeforeStagingInvalidation(receiver):RetainedNotificationSubscription, cancelStaging():boolean and retryStagingCleanup():void. Pre-withdraw on replacement/revoke/pause/permanent retirement; intentional adoptNativeHandover must not borrow old native/document snapshot seal or retire the staging loan merely on initial target acceptance. Read/source scope/pristine checks only during fenced admission; pure custody no resolver/clock/native inspector. Original owner must retain real failures/pending cleanup, not fake complete or aggregate."
+    },
+    "root_target_handoff_after_lower_producer": "On actual Write.primaryMountPort reserveNativeRecreationTarget(entry, {editor,session,snapshotRef}, signal) will borrow that REAL lower reservation under original canonical Doc handle/Writer/view/installation fences; Root Frame will forward it before ordinary seal. Exact current staging signature is a requested interface here, NOT a declared implementation or unconditional-success lease. Existing full refs/resources remain false.",
+    "source_status": "PARTIAL_REAL_SOURCE_ADOPTION_CONSUMED__STAGING_TARGET_BLOCKED_NO_ORIGINAL_LOWER_PRODUCER",
+    "loan_issued": false,
+    "target_created": false,
+    "main_factory_acceptance": false,
+    "no_authority_refresh": "No Main factory/continuity/Shared MarkdownEditor/native original issuer rewrite, no new body/history store, fake list/snapshot/readiness, package publication or frozen generator/evidence run. UI static alias stays originalb99; read-only00e5 native source inspection is not UI promotion/qualification.",
+    "runtime": "ALL_HOLD_UNRUN",
+    "qualification": false,
+    "activation": false,
+    "ordinary_preflight": [
+      "actual canonical issue/adoption yields same original consumer.documentBinding under physical/source fences, no duplicated Writer/body/native owner",
+      "actual lower target birth retained after source disposal and proves real pristine target; source must be supplied by original owner before any positive Root lease",
+      "pause/replacement/permanent invalidation withdraw staging before original callbacks; initial intentional native receiving does not retire old-native-seal loan",
+      "actual registration/cancel/cleanup errors retain original handles and first/latest causes; pending cleanup is no successful physical/native receipt",
+      "ordinary resolver target0/source-revision refusal preserved; Main alone adopts source offer/principal then reacquires real target custody; full refs/resources false"
+    ]
   }
 }
