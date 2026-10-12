@@ -1,0 +1,41 @@
+{
+  "source": "8bbfd50888235913259bd9ead01d69b988e1fc22",
+  "frontendFiles": 730,
+  "mismatch": [],
+  "protected": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "9d96bbe324d9794269b18af07b0eb73a5de39f72",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
+      "blob": "d9d579c7cb6d486c122dc1320bb9a01e92f8fb30",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "blob": "f7343067454f71d053ab48ef86cab2aa0c5cd512",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "blob": "7d70543f9593cd2d3b29f504bea94107d43cd26c",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts",
+      "blob": "27cb10f09a7328ff867fceba0997a88a5651204e",
+      "unchanged": true
+    }
+  ],
+  "finalJournalBlob": "808468e4efe9f72b92ba3799a7df233cda48ad30",
+  "canonicalDocsBlob": "18ca2d0f3f456fee5c49ff426747cd8058f2e731",
+  "runtime": "HOLD/UNRUN",
+  "mainIntegration": false
+}

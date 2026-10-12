@@ -1,0 +1,29 @@
+{
+  "source": "8bbfd50888235913259bd9ead01d69b988e1fc22",
+  "finalOwner": "082ba73fc508a07572dd53487ef626a1f2449be5",
+  "files": [
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "blob": "808468e4efe9f72b92ba3799a7df233cda48ad30",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "9d96bbe324d9794269b18af07b0eb73a5de39f72",
+      "diagnostics": []
+    }
+  ],
+  "finalGuardSourceNodes": [
+    {
+      "line": 770,
+      "expression": "!preparation || state.preparation?.handle !== preparation"
+    },
+    {
+      "line": 1027,
+      "expression": "!handle || preparation?.handle !== handle || !preparation.custody\n            || preparation.validating || !this.#preparationCurrent(state, preparation)"
+    }
+  ],
+  "candidateExecuted": false,
+  "testsRun": false,
+  "negativeControls": "UNRUN/HOLD; AST node presence is source evidence only"
+}

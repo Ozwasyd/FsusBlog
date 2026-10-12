@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "src/frontend/src/composables/useAdminArticleWrite.ts",
+    "--file",
+    "src/frontend/src/services/articleRecoveryJournal.ts"
+  ],
+  "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+  "exitCode": 0,
+  "seconds": 17.25,
+  "testedSource": "8bbfd50888235913259bd9ead01d69b988e1fc22",
+  "configOverlay": "69992a0769a896434028d2b16776423f31c6c7d0",
+  "ui": "6a73 local original baseline",
+  "runtimeQualification": false,
+  "candidateImported": false
+}
