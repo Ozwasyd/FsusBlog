@@ -1323,4 +1323,72 @@ describe('original retained document authority source controls', () =>
         expect(pending.signal.aborted).toBe(true);
         expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
     });
+
+    it('rejects every original owner and native subscription retry before readers during consumer create', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        let reads = 0;
+        const readers = { readPrincipalIdentityId: () => { reads += 1; return 'test'; }, readSiteScope: () => 'site:test' };
+        const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
+        const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
+        let preCalls = 0;
+        let postCalls = 0;
+        let nativeCalls = 0;
+        const pre = retained.subscribeRetirement(() => { preCalls += 1; });
+        const post = retained.subscribeLifetime(() => { postCalls += 1; });
+        const native = retained.adapter.subscribeContext(() => { nativeCalls += 1; });
+        const failures: unknown[] = [];
+        const consumer = { invalidateDocument: () => undefined };
+        expect(retained.attachConsumer(() =>
+        {
+            const before = [reads, preCalls, postCalls, nativeCalls];
+            for (const stop of [pre, post, native])
+            {
+                try { stop.retry(); } catch (error) { failures.push(error); }
+                expect([reads, preCalls, postCalls, nativeCalls]).toEqual(before);
+            }
+            return consumer;
+        })).toBe(consumer);
+        expect(failures).toHaveLength(3);
+        for (const [index, stop] of [pre, post, native].entries())
+        {
+            expect(stop.inspect().failed).toBe(true);
+            expect(stop.inspect().firstFailure).toBe(failures[index]);
+            stop();
+            expect(stop.inspect().pendingUnsubscribe).toBe(true);
+        }
+        pre.retry();
+        post.retry();
+        native.retry();
+        expect(pre.inspect().failed).toBe(false);
+        expect(post.inspect().failed).toBe(false);
+        expect(native.inspect().failed).toBe(false);
+    });
+
+    it('rejects native subscription retry during real consumer cleanup without duplicating pending work', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        let nativeCalls = 0;
+        const native = retained.adapter.subscribeContext(() => { nativeCalls += 1; });
+        const pending = new Promise<void>(() => undefined);
+        let rejected: unknown;
+        let cleanups = 0;
+        retained.attachConsumer(() => ({ invalidateDocument: () =>
+        {
+            cleanups += 1;
+            const before = nativeCalls;
+            try { native.retry(); } catch (error) { rejected = error; }
+            expect(nativeCalls).toBe(before);
+            return pending;
+        } }));
+        authority.revokeRetainedScope('site:test', 'test');
+        expect(rejected).toBeInstanceOf(Error);
+        expect(native.inspect().failed).toBe(true);
+        expect(native.inspect().firstFailure).toBe(rejected);
+        expect(retained.inspect().consumerInvalidationState).toBe('pending');
+        retained.retryInvalidation();
+        expect(cleanups).toBe(1);
+    });
 });
