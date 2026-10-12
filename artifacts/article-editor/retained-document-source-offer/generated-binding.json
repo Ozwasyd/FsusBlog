@@ -12,7 +12,8 @@
     "artifacts/article-editor/retained-authority-seals/capture-source-offer.py",
     "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
     "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
-    "artifacts/article-editor/retained-pre-retirement/capture-source-offer.py"
+    "artifacts/article-editor/retained-pre-retirement/capture-source-offer.py",
+    "artifacts/article-editor/retained-retry-custody/capture-source-offer.py"
   ],
   "outputs": [
     {
@@ -50,6 +51,18 @@
     {
       "path": "artifacts/article-editor/retained-pre-retirement/source-offer.json",
       "sha256": "cbdd8f196dd22ff5352711c95d3f205de216c82d0b8b8c8c2813c7c58d23ce20"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-custody/production-537.patch",
+      "sha256": "1585503fd1e71a8b0a1b4dfc8e8c0d9c8fe0044b1372f5f85661435bc6881217"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-custody/consumer-537.patch",
+      "sha256": "1bc9a1b67b687ffa76f0e502f454f34a9c243d9a14f13b34be870f89b20d52e5"
+    },
+    {
+      "path": "artifacts/article-editor/retained-retry-custody/source-offer.json",
+      "sha256": "8907790208ceae42de2f1cb62396d4b4cbd6636e5b840304470a00efeaca2724"
     }
   ]
 }
