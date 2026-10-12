@@ -1,0 +1,62 @@
+{
+  "uiBase": "ff91f81cbbe94b9b2f28147f2b2e0ec523dbedf6",
+  "uiHead": "3de4e27d53ebb030d5715a71a3cd7784cb18714b",
+  "scope": "same original native document generation synchronous receivers only",
+  "original": {
+    "base": "ff91f81cbbe94b9b2f28147f2b2e0ec523dbedf6",
+    "originalBodyTokensUnchanged": {
+      "restoreRetainedSnapshot": true,
+      "releaseRetainedSnapshot": true,
+      "switchDocument": true,
+      "breakMergeGroup": true,
+      "reset": true,
+      "setSelection": true,
+      "dispatch": true,
+      "undo": true,
+      "redo": true,
+      "commitPreparedRetainedSnapshot": true,
+      "#recordHistory": true,
+      "#evictHistory": true
+    },
+    "originalCResourcePrefixExact": true,
+    "rendererPipelineNativeSessionUntouched": true
+  },
+  "postimages": [
+    {
+      "path": ".changeset/markdown-editor-document-retirement-receivers.md",
+      "blob": "a59fef3cf3a2adf416c2d50f3d727d449da22026",
+      "sha256": "c40d3b5edb688ba4abf80416aca0d92caa24c588773afa403cbe1ff1cf0fe65d",
+      "postimage": "artifacts/article-editor/issue-2295-native-retirement-receivers/ui-postimages/.changeset/markdown-editor-document-retirement-receivers.md.txt"
+    },
+    {
+      "path": "docs/components/markdown-editor.md",
+      "blob": "dce8417a9f86b6feb5ff4bacac2d8256dba2fc44",
+      "sha256": "b051b973ab5670f9175980df1d9f341053c56c4084a5aa1b1644c87e4355ec5b",
+      "postimage": "artifacts/article-editor/issue-2295-native-retirement-receivers/ui-postimages/docs/components/markdown-editor.md.txt"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/__tests__/markdown-editor-transaction.property.test.ts",
+      "blob": "2efc8d5863e60fd97e955e0622ff9cc87b9b8e9a",
+      "sha256": "82c9a9b53e2f838dbbfab3addee6806fa7f3c9ccea7cc8c980d37fc65c0925b3",
+      "postimage": "artifacts/article-editor/issue-2295-native-retirement-receivers/ui-postimages/vue/packages/components/markdown-editor/__tests__/markdown-editor-transaction.property.test.ts.txt"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor-transaction.ts",
+      "blob": "dc1c91ee1f0732c84d63bac1e703401a750f10de",
+      "sha256": "a7929e4849dc55bba149f0dfbc404178487dc3d75eecfb972f223ad0cbc669a0",
+      "postimage": "artifacts/article-editor/issue-2295-native-retirement-receivers/ui-postimages/vue/packages/components/markdown-editor/src/markdown-editor-transaction.ts.txt"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor.vue",
+      "blob": "9458bfb2ac014ba46627de8c8d891be95058dd72",
+      "sha256": "437423bbc6ae015572259be9f45c04bb54ef765a022a5e1705612e0336a92464",
+      "postimage": "artifacts/article-editor/issue-2295-native-retirement-receivers/ui-postimages/vue/packages/components/markdown-editor/src/markdown-editor.vue.txt"
+    },
+    {
+      "path": "vue/packages/hooks/use-markdown-heavy-feature-lifecycle/index.ts",
+      "blob": "7c9797ce3ffd5848cef6a433c3e9feddf36215b2",
+      "sha256": "5b88ed4c6c246ae33a7901358a93875e598e2a40d7095450c0e4f67ad43c0b07",
+      "postimage": "artifacts/article-editor/issue-2295-native-retirement-receivers/ui-postimages/vue/packages/hooks/use-markdown-heavy-feature-lifecycle/index.ts.txt"
+    }
+  ]
+}

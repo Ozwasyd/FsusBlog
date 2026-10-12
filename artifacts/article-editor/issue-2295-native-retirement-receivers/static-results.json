@@ -1,0 +1,24 @@
+{
+  "uiHead": "3de4e27d53ebb030d5715a71a3cd7784cb18714b",
+  "UIWeb": 0,
+  "UIVitestProjectCompiler": 0,
+  "threeProductionSourceLint": 0,
+  "fourSourceAstSfc": 0,
+  "rawLogs": {
+    "ui-retirement-receivers-web-types.txt": 0,
+    "ui-retirement-receivers-vitest-types.txt": 0,
+    "ui-retirement-receivers-eslint.txt": 0,
+    "ui-retirement-receivers-ast-sfc.txt": 0
+  },
+  "MainWholeApp": {
+    "exit": 2,
+    "diagnostics": 257,
+    "beforeDiagnostics": 257,
+    "added": 0,
+    "removed": 0,
+    "normalization": "complete diagnostic blocks/multiplicity, positions only",
+    "raw": "blog-original-before-document-types.txt"
+  },
+  "runtime": "ALL HOLD/UNRUN",
+  "newSourceReview": "pending independent review; ff91 capture/has individually SOURCE CLOSED per parent, not inherited new source approval"
+}
