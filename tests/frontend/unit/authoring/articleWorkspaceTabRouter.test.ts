@@ -56,6 +56,56 @@ const input = (articleId: number, overrides: Partial<ArticleWorkspaceOpenInput> 
 });
 
 describe('ArticleWorkspaceTabRouter contract (#2295)', () => {
+    it('seals only actual composition admission and retires exact private custody without borrowed reads', async () => {
+        vi.resetModules();
+        const composition = await import('@/services/authoring/articleWorkspaceEditorSessionComposition');
+        let reads = 0;
+        const host = composition.installArticleWorkspaceEditorSessions(() => { reads += 1; return null; });
+        const first = composition.sealArticleWorkspaceEditorSessionComposition(host);
+        expect(first.scope).toBe('composition-admission');
+        expect(Object.isFrozen(first)).toBe(true);
+        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody({ ...first })).toBe(false);
+        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(first)).toBe(true);
+        const second = composition.sealArticleWorkspaceEditorSessionComposition(host);
+        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(first)).toBe(false);
+        expect(composition.cancelArticleWorkspaceEditorSessionCompositionSeal(first)).toBe(false);
+        expect(composition.cancelArticleWorkspaceEditorSessionCompositionSeal(second)).toBe(true);
+        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(second)).toBe(false);
+        const retired = composition.sealArticleWorkspaceEditorSessionComposition(host);
+        composition.retireArticleWorkspaceEditorSessions(host);
+        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(retired)).toBe(false);
+        expect(composition.cancelArticleWorkspaceEditorSessionCompositionSeal(retired)).toBe(false);
+        expect(() => composition.sealArticleWorkspaceEditorSessionComposition(host)).toThrow('article-workspace-session-composition-retired');
+        expect(() => composition.installArticleWorkspaceEditorSessions(() => null)).toThrow('article-workspace-session-composition-already-installed');
+        expect(reads).toBe(0);
+    });
+
+    it('refuses real composition retirement reentry during seal allocation before issuing custody', async () => {
+        vi.resetModules();
+        const composition = await import('@/services/authoring/articleWorkspaceEditorSessionComposition');
+        const host = composition.installArticleWorkspaceEditorSessions(() => null);
+        const previous = composition.sealArticleWorkspaceEditorSessionComposition(host);
+        const freeze = Object.freeze;
+        const allocation = vi.spyOn(Object, 'freeze').mockImplementation((value) => {
+            if ((value as { scope?: string }).scope === 'composition-admission')
+            {
+                expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(previous)).toBe(false);
+                expect(() => composition.sealArticleWorkspaceEditorSessionComposition(host)).toThrow('article-workspace-session-composition-seal-unavailable');
+                composition.retireArticleWorkspaceEditorSessions(host);
+            }
+            return freeze(value);
+        });
+        try
+        {
+            expect(() => composition.sealArticleWorkspaceEditorSessionComposition(host)).toThrow('article-workspace-session-composition-retired');
+            expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(previous)).toBe(false);
+        }
+        finally
+        {
+            allocation.mockRestore();
+        }
+    });
+
     it.each([false, true])('awaits original physical mount work and refuses completion without native custody (retired=%s)', async (retired) => {
         vi.resetModules();
         const composition = await import('@/services/authoring/articleWorkspaceEditorSessionComposition');

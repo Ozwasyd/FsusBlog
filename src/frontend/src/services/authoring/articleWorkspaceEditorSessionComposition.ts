@@ -25,6 +25,11 @@ import type { MarkdownEditorSessionRestoreProof, MarkdownEditorSessionSnapshot }
 /** Original Root/Layout physical retained mount operation, never a ready receipt. */
 export type ArticleWorkspaceMountedEditorPreparation = (entry: Readonly<OpenArticleDocumentEntry>) => Promise<void>;
 
+/** Exact private installation admission only; not mounted/member/principal authority. */
+export interface ArticleWorkspaceEditorSessionCompositionSeal {
+    readonly scope: 'composition-admission';
+}
+
 let installed: {
     readonly resolveMountedEditor: ArticleWorkspaceMountedEditorResolver;
     readonly prepareMountedEditor: ArticleWorkspaceMountedEditorPreparation | undefined;
@@ -32,6 +37,9 @@ let installed: {
     readonly factory: ArticleWorkspaceFsusUiEditorSessionFactory;
     readonly assertActive: () => void;
     readonly retire: () => void;
+    readonly sealAdmission: () => ArticleWorkspaceEditorSessionCompositionSeal;
+    readonly hasAdmissionCustody: (seal: ArticleWorkspaceEditorSessionCompositionSeal) => boolean;
+    readonly cancelAdmission: (seal: ArticleWorkspaceEditorSessionCompositionSeal) => boolean;
 } | null = null;
 
 /**
@@ -60,6 +68,9 @@ export function installArticleWorkspaceEditorSessions(
     }
 
     let retired = false;
+    let installationComplete = false;
+    let sealingAdmission = false;
+    let sealedAdmission: ArticleWorkspaceEditorSessionCompositionSeal | null = null;
     let usedTick = 0;
     const assertActive = (): void =>
     {
@@ -79,8 +90,42 @@ export function installArticleWorkspaceEditorSessions(
     const retire = (): void =>
     {
         retired = true;
+        sealedAdmission = null;
     };
-    installed = { resolveMountedEditor, prepareMountedEditor, host, factory, assertActive, retire };
+    const sealAdmission = (): ArticleWorkspaceEditorSessionCompositionSeal =>
+    {
+        assertActive();
+        if (!installationComplete || sealingAdmission)
+        {
+            throw new Error('article-workspace-session-composition-seal-unavailable');
+        }
+        sealingAdmission = true;
+        try
+        {
+            const seal: ArticleWorkspaceEditorSessionCompositionSeal = Object.freeze({ scope: 'composition-admission' });
+            // Allocation may retire the actual installation. Only private assignment follows this guard.
+            assertActive();
+            sealedAdmission = seal;
+            return seal;
+        }
+        finally
+        {
+            sealingAdmission = false;
+        }
+    };
+    const hasAdmissionCustody = (seal: ArticleWorkspaceEditorSessionCompositionSeal): boolean =>
+        installationComplete && !retired && !sealingAdmission && sealedAdmission !== null && sealedAdmission === seal;
+    const cancelAdmission = (seal: ArticleWorkspaceEditorSessionCompositionSeal): boolean =>
+    {
+        if (sealedAdmission === null || sealedAdmission !== seal)
+        {
+            return false;
+        }
+        sealedAdmission = null;
+        return true;
+    };
+    installed = { resolveMountedEditor, prepareMountedEditor, host, factory, assertActive, retire,
+        sealAdmission, hasAdmissionCustody, cancelAdmission };
     try
     {
         const hostPort = createArticleWorkspaceSessionPort(host, {
@@ -122,6 +167,7 @@ export function installArticleWorkspaceEditorSessions(
                 }
             }
             : hostPort);
+        installationComplete = true;
     }
     catch (error)
     {
@@ -139,6 +185,34 @@ export function retireArticleWorkspaceEditorSessions(host: AuthoringSessionHost)
         throw new Error('article-workspace-session-composition-owner-mismatch');
     }
     installed.retire();
+}
+
+/** Seal only the same original successful installation's private admission. */
+export function sealArticleWorkspaceEditorSessionComposition(
+    host: AuthoringSessionHost
+): ArticleWorkspaceEditorSessionCompositionSeal
+{
+    if (installed?.host !== host)
+    {
+        throw new Error('article-workspace-session-composition-owner-mismatch');
+    }
+    return installed.sealAdmission();
+}
+
+/** Pure original private continuity; never calls resolver, registry, mount or auth readers. */
+export function hasArticleWorkspaceEditorSessionCompositionCustody(
+    seal: ArticleWorkspaceEditorSessionCompositionSeal
+): boolean
+{
+    return installed?.hasAdmissionCustody(seal) ?? false;
+}
+
+/** Cancel only the exact bounded private seal; no owner cleanup or resource acknowledgment. */
+export function cancelArticleWorkspaceEditorSessionCompositionSeal(
+    seal: ArticleWorkspaceEditorSessionCompositionSeal
+): boolean
+{
+    return installed?.cancelAdmission(seal) ?? false;
 }
 
 /** Read from the same installed factory/owners; do not install a fallback host. */

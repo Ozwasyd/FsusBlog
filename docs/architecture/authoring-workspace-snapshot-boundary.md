@@ -1037,3 +1037,25 @@ Writer619 private finite publication protocols remain original; their source/TTL
 validation must finish before the final pure joint guard and synchronous publish.
 No partial native/Renderer/Writer/Journal sequence is reported as ready or as a
 complete retained refset. All runtime/resource/restore/eviction holds remain.
+
+
+### Private composition admission seal (#2295)
+
+The original successful installed composition supplies
+`sealArticleWorkspaceEditorSessionComposition(host)`, pure
+`hasArticleWorkspaceEditorSessionCompositionCustody(seal)` and
+`cancelArticleWorkspaceEditorSessionCompositionSeal(seal)`. One exact bounded
+private token has scope `composition-admission`. Original installation completion
+and permanent retirement own it; allocation/reentry/retirement refusal cannot
+certify a new token. Final checks do not call resolver, Registry, mount, native or
+auth readers. This supplies only that producer's original admission continuity.
+
+Member, mounted subtree/Writer and principal/private-surface authority remain
+separate original producer gaps. Downstream Document lifetime notifications can
+follow cleanup callbacks; Writer id-only principal watching does not certify
+same-id permission/status/step-up changes. Original owners must retire their
+private reservations before any such callback and expose pure final custody.
+Source events and requested signatures are recorded in
+`artifacts/article-editor/issue-2295-composition-admission-seal` as missing APIs.
+Missing provider Queryv1/resolveBatch/canonical, startup/fullready/refset/native
+restore/auth/security/resource/eviction and cross-identity holds remain refused.
