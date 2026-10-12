@@ -1,0 +1,13 @@
+{
+  "sourceOnly": true,
+  "baseline": "9b954ae0ea65ada5a8916c5896951c20f030df10",
+  "baselineExit": 2,
+  "candidateExit": 2,
+  "baselineDiagnostics": 221,
+  "candidateDiagnostics": 221,
+  "added": [],
+  "removed": [],
+  "ownedDiagnostics": [],
+  "localFsusui": "6a73ad6312091ca782f99393140efc8df0fb4fb6",
+  "fullApplicationPassed": false
+}

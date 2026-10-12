@@ -476,6 +476,10 @@ export class ArticleRenderCache
             }
             try
             {
+                if (producedResult.resultRef !== null && !isRef(producedResult.resultRef))
+                {
+                    throw new Error('article-render-cleanup-reference-invalid');
+                }
                 if (isRef(producedResult.resultRef))
                 {
                     releaseAttempted = true;

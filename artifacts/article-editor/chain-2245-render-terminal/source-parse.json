@@ -1,0 +1,17 @@
+{
+  "sourceOnly": true,
+  "checkedSourcePreimage": "119970e3392a998776973398069d28cd48830ed5",
+  "executedCandidateModules": false,
+  "files": [
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
+      "sha256": "4a866a3470dac07ccf9eece2e3f42bd81a6a35181535a93c54b68ca3add6c24d",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleRenderCache.test.ts",
+      "sha256": "610a6854391abfffc4f36c9fa32d3cc5e4e209eed9f5be06fd2bcd3feca87bca",
+      "parseDiagnostics": []
+    }
+  ]
+}

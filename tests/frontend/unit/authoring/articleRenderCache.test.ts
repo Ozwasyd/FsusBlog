@@ -471,4 +471,18 @@ describe('original render future and cleanup settlement (#2245)', () =>
         expect(producer.release).toHaveBeenCalledTimes(2);
     });
 
+
+    it('retains a producer result with an unusable cleanup reference rather than assuming no resource', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        vi.mocked(producer.render).mockImplementationOnce(async request => resultFor(request, { resultRef: 'invalid ref' }));
+        const work = cache.startRefresh();
+        expect((await work.receipt).status).toBe('failed');
+        await expect(work.terminal).rejects.toThrow('article-render-cleanup-reference-invalid');
+        expect(work.cleanupFailure).not.toBeNull();
+        expect(cache.pendingRefreshWork).toContain(work);
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        expect(producer.release).not.toHaveBeenCalled();
+    });
+
 });
