@@ -295,11 +295,11 @@
     "owned_root_paths": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "1f0953c0706f41ac0717ced7087641a9bd84dab7329da9ab5e6381c250be97e9"
+        "sha256": "93bc933fbc7bc7d8cc71baf892e5a104e94893c949f94e0b60e2c97e23c6a9ba"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "fe175a109f68c2f7df2dfa78f3374efd282754f79584d3fc9ac07647af636973"
+        "sha256": "2e915cb74d12a06a96e2f8cefc8fe325e43beb912affde12c498a01e9ac4ff81"
       }
     ],
     "actual_call_path": "Root creates one frame-local controller and provides original authoringWorkspaceMountedAuthoritySourcesKey. Exact original Layout Write e581 invokes source.reserve with its actual physical Writer runtime/native tuple; Root registers actual Writer subscription before a private reservation attempt.",
@@ -347,11 +347,11 @@
     "root_paths": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "1f0953c0706f41ac0717ced7087641a9bd84dab7329da9ab5e6381c250be97e9"
+        "sha256": "93bc933fbc7bc7d8cc71baf892e5a104e94893c949f94e0b60e2c97e23c6a9ba"
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "fe175a109f68c2f7df2dfa78f3374efd282754f79584d3fc9ac07647af636973"
+        "sha256": "2e915cb74d12a06a96e2f8cefc8fe325e43beb912affde12c498a01e9ac4ff81"
       }
     ],
     "consumed_main_related_closure": [
@@ -393,7 +393,11 @@
       "same adopted binding subscription is reused on later admission; old seals cancelled before nonpure borrow and post-call custody rechecked",
       "Writer cancel throws after custody slot cleared then returns false on later retry: SAME original token/obligation/failed cause retained until explicit original true",
       "Doc cancel false or throw likewise cannot clear Root token; both producer attempts continue and aggregate causes",
-      "retryDisposal with healthy Doc subscription uses normal stop and never stop.retry/owner-wide retirement; failed pending stopped subscription uses actual retry only when not running"
+      "retryDisposal with healthy Doc subscription uses normal stop and never stop.retry/owner-wide retirement; failed pending stopped subscription uses actual retry only when not running",
+      "original nonpure reader throws object/undefined before seals: Root first/latest cause and subscriptions retained, private attempt withdrawn, same original throw preserved",
+      "original physical Write catches reserve exception to null: Frame propagates original Root cause after existing verify instead of generic unavailable",
+      "actual prepare/getter/final view-startup fence throws: Frame retains original failure and withdraws published Root authority while keeping actual cancellation obligation",
+      "reader retirement plus actual post-seal fence exception: aggregate original admission and actual fence causes, original admission cause stays first; no reader in pure join/listener"
     ],
     "runtime": "ALL_HOLD_UNRUN",
     "prior_root_candidate": "4c0b671c194392ef7fa025f20e74a900c3cbabc6 independently REJECTED with2P2 at cancel-false and unconditional Doc stop.retry; source repairs are successor candidates, not accepted. Independent parent47c5/candidate types197FAIL0delta Root0 stays distinct from author193/308.",
@@ -404,6 +408,14 @@
       "cancel_false": "Original Writer AND Doc cancel must return true before Root clears each original token. False/throw retains exact token and obligation; failed stays set and original first/latest cause retained. A no-op later false never completes prior physical failure. No producer repair/replacement or false receipt.",
       "healthy_stop": "Normal doc.stop() followed by actual stop.inspect(); retry() only for failed && pendingUnsubscribe && !running on explicit retry path. Healthy stop never invokes owner-wide retirement; running/failed custody stays retained.",
       "source_review": "New successor candidate pending independent review; runtime qualification UNRUN_HELD"
-    }
+    },
+    "successor_review": {
+      "source": "6019b21277f124357ef451b7a0b533e221a8023e",
+      "prior_two_p2": "independently closed; genuine prepare/physical seal/reserve/borrow and pre/post fence established; pure join/listener excludes reader",
+      "metadata": "independent full-range/current-base/actual PR PASS",
+      "new_p2": "nonpure borrow original throw outside admission failure custody; new successor catch/Frame propagation fix pending independent review",
+      "types": "independent197 FAIL Root0 stays distinct from author193/308"
+    },
+    "admission_exception_custody": "Root reserve outer catch covers actual connect/cancel/nonpure reader/Doc subscribe/allocation/seal/final fence failures; exact original error recorded before withdrawal/rethrow, retained original tokens/subscriptions unchanged. Actual physical Write may convert reserve throw to null; Frame preserves post-seal verify then throws original Root first failure through private throwIfAdmissionFailed, without readFailure/Doc inspect. Frame original preparation function catch (no additional async boundary) retains direct original prepare/getter/fence exception and withdraws Root; simultaneous actual admission+fence failures aggregate both with original admission cause. No generic unavailable replaces retained original failure."
   }
 }

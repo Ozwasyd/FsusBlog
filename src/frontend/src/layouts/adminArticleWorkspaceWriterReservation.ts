@@ -388,6 +388,13 @@ export function createAdminArticleWorkspaceWriterReservation()
                     }
                 }
             }
+            catch (error: unknown)
+            {
+                // Admission includes the nonpure borrow before seals; keep its exact original cause.
+                recordFailure(error);
+                withdraw();
+                throw error;
+            }
             finally
             {
                 reserving = false;
@@ -399,6 +406,14 @@ export function createAdminArticleWorkspaceWriterReservation()
         }
     });
     return Object.freeze({ sources, withdraw, attachDocumentBinding, hasCurrentReservation,
+        throwIfAdmissionFailed: (): void =>
+        {
+            // Private failure custody only: no reader, scope inspection or producer callback.
+            if (hasFailure)
+            {
+                throw firstFailure;
+            }
+        },
         hasDocumentBinding: () => !!document?.stop && !closed && !failed,
         dispose: (): void =>
         {

@@ -596,86 +596,110 @@ function captureRouteOutlet(instance: unknown): void
 /** Borrow only the actual current routed Writer's public physical preparation operation. */
 async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
 {
-    const instance = routeOutletInstance.value;
-    const epoch = layoutEpoch;
-    const verify = (): void =>
+    try
     {
-        signal.throwIfAborted();
-        if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== epoch
-            || routeOutletInstance.value !== instance || !viewStartupPorts || viewStartupSignal !== signal
-            || readCurrentStartupPorts() !== viewStartupPorts)
+        const instance = routeOutletInstance.value;
+        const epoch = layoutEpoch;
+        const verify = (): void =>
         {
-            throw new Error('article-workspace-primary-mount-view-owner-unavailable');
+            signal.throwIfAborted();
+            if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== epoch
+                || routeOutletInstance.value !== instance || !viewStartupPorts || viewStartupSignal !== signal
+                || readCurrentStartupPorts() !== viewStartupPorts)
+            {
+                throw new Error('article-workspace-primary-mount-view-owner-unavailable');
+            }
+            requireStartupAdmission(viewStartupPorts);
+        };
+        verify();
+        if (!instance || typeof instance !== 'object')
+        {
+            throw new Error('article-workspace-primary-writer-not-mounted');
         }
-        requireStartupAdmission(viewStartupPorts);
-    };
-    verify();
-    if (!instance || typeof instance !== 'object')
-    {
-        throw new Error('article-workspace-primary-writer-not-mounted');
+        const hasGetter = 'getArticleWorkspacePrimaryMountPort' in instance;
+        verify();
+        if (!hasGetter)
+        {
+            throw new Error('article-workspace-primary-mount-port-unavailable');
+        }
+        const getter = instance.getArticleWorkspacePrimaryMountPort;
+        verify();
+        if (typeof getter !== 'function')
+        {
+            throw new Error('article-workspace-primary-mount-port-unavailable');
+        }
+        const port: unknown = getter.call(instance);
+        verify();
+        if (!port || typeof port !== 'object')
+        {
+            throw new Error('article-workspace-primary-mount-port-unavailable');
+        }
+        const hasPrepare = 'prepareMountedEditor' in port;
+        verify();
+        if (!hasPrepare)
+        {
+            throw new Error('article-workspace-primary-mount-operation-unavailable');
+        }
+        const prepare = port.prepareMountedEditor;
+        verify();
+        if (typeof prepare !== 'function')
+        {
+            throw new Error('article-workspace-primary-mount-operation-unavailable');
+        }
+        await prepare.call(port, entry, signal);
+        verify();
+        const current: unknown = getter.call(instance);
+        verify();
+        if (current !== port)
+        {
+            throw new Error('article-workspace-primary-mount-port-changed');
+        }
+        const hasSeal = 'sealMountedAuthority' in port;
+        verify();
+        const hasCustody = 'hasMountedAuthorityCustody' in port;
+        verify();
+        if (!hasSeal || !hasCustody)
+        {
+            throw new Error('article-workspace-original-mounted-seal-port-required');
+        }
+        const seal = port.sealMountedAuthority;
+        verify();
+        const has = port.hasMountedAuthorityCustody;
+        verify();
+        if (typeof seal !== 'function' || typeof has !== 'function')
+        {
+            throw new Error('article-workspace-original-mounted-seal-port-required');
+        }
+        const reservation: unknown = seal.call(port, entry.editorSessionRef);
+        verify();
+        // The physical Write may convert reserve's original exception into null.
+        writerReservation.throwIfAdmissionFailed();
+        if (!reservation || !writerReservation.hasDocumentBinding()
+            || !has.call(port, reservation) || !writerReservation.hasCurrentReservation())
+        {
+            throw new Error('article-workspace-original-mounted-reservation-unavailable');
+        }
+        verify();
     }
-    const hasGetter = 'getArticleWorkspacePrimaryMountPort' in instance;
-    verify();
-    if (!hasGetter)
+    catch (error: unknown)
     {
-        throw new Error('article-workspace-primary-mount-port-unavailable');
+        writerReservation.withdraw();
+        let failure: unknown = error;
+        try
+        {
+            writerReservation.throwIfAdmissionFailed();
+        }
+        catch (admissionError: unknown)
+        {
+            if (admissionError !== error)
+            {
+                failure = new AggregateError([admissionError, error],
+                                             'article-workspace-admission-and-preparation-fence-failed', { cause: admissionError });
+            }
+        }
+        snapshotPreparationFailure = failure;
+        throw failure;
     }
-    const getter = instance.getArticleWorkspacePrimaryMountPort;
-    verify();
-    if (typeof getter !== 'function')
-    {
-        throw new Error('article-workspace-primary-mount-port-unavailable');
-    }
-    const port: unknown = getter.call(instance);
-    verify();
-    if (!port || typeof port !== 'object')
-    {
-        throw new Error('article-workspace-primary-mount-port-unavailable');
-    }
-    const hasPrepare = 'prepareMountedEditor' in port;
-    verify();
-    if (!hasPrepare)
-    {
-        throw new Error('article-workspace-primary-mount-operation-unavailable');
-    }
-    const prepare = port.prepareMountedEditor;
-    verify();
-    if (typeof prepare !== 'function')
-    {
-        throw new Error('article-workspace-primary-mount-operation-unavailable');
-    }
-    await prepare.call(port, entry, signal);
-    verify();
-    const current: unknown = getter.call(instance);
-    verify();
-    if (current !== port)
-    {
-        throw new Error('article-workspace-primary-mount-port-changed');
-    }
-    const hasSeal = 'sealMountedAuthority' in port;
-    verify();
-    const hasCustody = 'hasMountedAuthorityCustody' in port;
-    verify();
-    if (!hasSeal || !hasCustody)
-    {
-        throw new Error('article-workspace-original-mounted-seal-port-required');
-    }
-    const seal = port.sealMountedAuthority;
-    verify();
-    const has = port.hasMountedAuthorityCustody;
-    verify();
-    if (typeof seal !== 'function' || typeof has !== 'function')
-    {
-        throw new Error('article-workspace-original-mounted-seal-port-required');
-    }
-    const reservation: unknown = seal.call(port, entry.editorSessionRef);
-    verify();
-    if (!reservation || !writerReservation.hasDocumentBinding()
-        || !has.call(port, reservation) || !writerReservation.hasCurrentReservation())
-    {
-        throw new Error('article-workspace-original-mounted-reservation-unavailable');
-    }
-    verify();
 }
 
 defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
