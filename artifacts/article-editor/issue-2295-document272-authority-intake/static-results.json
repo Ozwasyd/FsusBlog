@@ -1,0 +1,26 @@
+{
+  "UIExact": "3de4e27d53ebb030d5715a71a3cd7784cb18714b",
+  "strictTwoProductionFiles": 0,
+  "fourSourceAst": 0,
+  "applyCheckApplyReverseCheckReverseCleanReapply": 0,
+  "postimagesExact": 6,
+  "otherTrackedPathsUnchanged": 7609,
+  "MainWholeApp": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 257,
+    "afterDiagnostics": 257,
+    "added": [],
+    "removed": [],
+    "normalization": "complete diagnostic blocks/multiplicity; positions only normalized",
+    "supplier249NotMigrated": true
+  },
+  "rawLogs": {
+    "blog-document272-actual-style.txt": 0,
+    "blog-document272-actual-ast.txt": 0,
+    "blog-retirement-receivers-before-document-types.txt": 2,
+    "blog-document272-actual-after-types.txt": 2
+  },
+  "runtime": "ALL HOLD/UNRUN",
+  "review": "original272a two P2 repairs independently SOURCE CLOSED per parent; receiver composite pending review"
+}

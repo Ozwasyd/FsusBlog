@@ -19,6 +19,25 @@ receipt. Reentrant notification commands refuse. Handles are not permission,
 snapshot-restore or safe-eviction grants. No body/history/cache, second article
 index, Host, persistence or server DocumentId contract is introduced here.
 
+Original Registry membership seals bind the authentic retained cell, its actual
+canonical entry and original publication/revision. `sealRetainedArticleDocumentMembership`
+freshly inspects membership; `hasSealedRetainedArticleDocumentMembershipCustody`
+joins private original pointers/state without `cell.read`, clone, allocation or
+external reader. `cancelRetainedArticleDocumentMembershipSeal` removes that actual
+issued token. Registry command/ownership preparation and notification entry retire
+the original publication before getters, hashes, clones and callbacks; only the
+original stable canonical Map/revision publication can issue a replacement token.
+Scope/close/identity/permission/lifecycle and notification failure invalidate the
+same original cell. There is no second membership index or downstream boolean
+listener cache. Original Group publication guards/CAS/history/ratio remain intact.
+These seals prove only original membership custody, not mount/auth/full-ready.
+The outermost original membership mutation drains queued notifications on both
+successful and exceptional exits. A command getter may revoke a genuine handle
+before throwing; that revocation still reaches original Document cancellation and
+consumer cleanup. Original operation error remains the error on successful drain;
+an unexpected drain error is preserved alongside it, with publication retired and
+failure custody retained. Notification is not a success-only wrapper epilogue.
+
 The original singleton `ArticleDocumentContextAuthority` owns the retained
 adapters. `prepareRetainedDocument(registry, input, scopeReaders)` issues original
 document/draft/editor-session identities and returns only a provenance-bound
@@ -112,6 +131,28 @@ in owner custody and `consumerInvalidationState` reports pending/settled/failed;
 an asynchronous rejection records failure and preserves the actual reference.
 This is producer completion observation, not native disposal or release permission.
 Original `adapter.subscribeContext` remains the context-change subscription.
+
+The original retained binding also issues `sealLifetimeAuthority()` and exposes
+`hasLifetimeAuthorityCustody(seal)` / `cancelLifetimeAuthority(seal)`. Its opaque
+seal joins the authentic owner/binding/handle, original membership seal, actual
+consumer pointer and the adapter's private context publication. Fresh scope/member
+and matching revision inspection precedes issuance. Pure final has only joins
+those private pointers and original producer facts; it never calls `cell.read`,
+`adapter.context`, a scope reader, clone, observer, or an allocating inspection.
+It does not infer mounted/auth/native resource authority from this document seal.
+Non-null owner publication and actual consumer are captured before opaque token
+allocation. Allocation reentry must leave both exact pointers unchanged, and final
+has explicitly refuses a null current publication. Cached attachment retirement
+cannot make a canceled/null seal valid again when its temporary phase ends.
+
+Actual adapter mutation/handover/disposal retires the private native publication
+before external guards, cancellation or notifications. Owner scope retirement,
+notification entry and consumer attachment/release retire original owner authority
+before their first external read/cleanup callback. Failure and queued cleanup retain
+existing custody; no cancellation or null seal settles real work. A stale source
+reference prevents resealing. These producer tokens are not downstream boolean
+listener caches or full-ready receipts; all original guards and handover semantics
+remain, with new source review and every original runtime qualification held.
 
 `inspect().registry` reads canonical membership and permission/lifecycle facts;
 `registryRevisionMatchesDocument` separately reports whether the canonical
