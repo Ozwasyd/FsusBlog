@@ -255,7 +255,12 @@ export function createAuthoringWorkspaceSeparatorAdapter<Projection>(
             return false;
         }
         const snapshot = observe(operation);
-        if (!snapshot || event.value !== snapshot.plan.effectiveRatioPermille || !isLive(operation))
+        if (!snapshot)
+        {
+            invalidate();
+            return false;
+        }
+        if (event.value !== snapshot.plan.effectiveRatioPermille || !isLive(operation))
         {
             invalidate();
             return false;
