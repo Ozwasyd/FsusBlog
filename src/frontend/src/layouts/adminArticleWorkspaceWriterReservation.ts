@@ -88,7 +88,10 @@ export function createAdminArticleWorkspaceWriterReservation()
         {
             try
             {
-                current.writer.cancel(current.writerSeal);
+                if (current.writer.cancel(current.writerSeal) !== true)
+                {
+                    throw new Error('article-workspace-writer-cancellation-not-confirmed', { cause: firstFailure });
+                }
                 current.writerSeal = null;
             }
             catch (error: unknown)
@@ -101,7 +104,10 @@ export function createAdminArticleWorkspaceWriterReservation()
         {
             try
             {
-                current.document.cancel(current.documentSeal);
+                if (current.document.cancel(current.documentSeal) !== true)
+                {
+                    throw new Error('article-workspace-document-cancellation-not-confirmed', { cause: firstFailure });
+                }
                 current.documentSeal = null;
             }
             catch (error: unknown)
@@ -141,7 +147,9 @@ export function createAdminArticleWorkspaceWriterReservation()
                 try
                 {
                     doc.stop();
-                    if (retry)
+                    const stopped = doc.stop.inspect();
+                    // Healthy stop removes only this subscription; retry can retire the whole Doc owner.
+                    if (retry && stopped.failed && stopped.pendingUnsubscribe && !stopped.running)
                     {
                         doc.stop.retry();
                     }

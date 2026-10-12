@@ -299,7 +299,7 @@
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "69fe3f632069084ddf79877c434be2c5c73d0d2aa9c4ddc230cc2dac9ee9a446"
+        "sha256": "fe175a109f68c2f7df2dfa78f3374efd282754f79584d3fc9ac07647af636973"
       }
     ],
     "actual_call_path": "Root creates one frame-local controller and provides original authoringWorkspaceMountedAuthoritySourcesKey. Exact original Layout Write e581 invokes source.reserve with its actual physical Writer runtime/native tuple; Root registers actual Writer subscription before a private reservation attempt.",
@@ -351,7 +351,7 @@
       },
       {
         "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
-        "sha256": "69fe3f632069084ddf79877c434be2c5c73d0d2aa9c4ddc230cc2dac9ee9a446"
+        "sha256": "fe175a109f68c2f7df2dfa78f3374efd282754f79584d3fc9ac07647af636973"
       }
     ],
     "consumed_main_related_closure": [
@@ -390,12 +390,20 @@
       "actual prepare then original physical.bound borrow occurs only within reserve admission, never final pure join/listener",
       "reader inspect/scope callbacks trigger retirement: pre-borrow private attempt is withdrawn and no new seal published",
       "reader null/throw retains original cause/no fabricated binding; changed binding requires original retained subscription disposal before replacement",
-      "same adopted binding subscription is reused on later admission; old seals cancelled before nonpure borrow and post-call custody rechecked"
+      "same adopted binding subscription is reused on later admission; old seals cancelled before nonpure borrow and post-call custody rechecked",
+      "Writer cancel throws after custody slot cleared then returns false on later retry: SAME original token/obligation/failed cause retained until explicit original true",
+      "Doc cancel false or throw likewise cannot clear Root token; both producer attempts continue and aggregate causes",
+      "retryDisposal with healthy Doc subscription uses normal stop and never stop.retry/owner-wide retirement; failed pending stopped subscription uses actual retry only when not running"
     ],
     "runtime": "ALL_HOLD_UNRUN",
-    "prior_root_candidate": "4c0b671c194392ef7fa025f20e74a900c3cbabc6 remains awaiting independent review; not accepted by this successor",
+    "prior_root_candidate": "4c0b671c194392ef7fa025f20e74a900c3cbabc6 independently REJECTED with2P2 at cancel-false and unconditional Doc stop.retry; source repairs are successor candidates, not accepted. Independent parent47c5/candidate types197FAIL0delta Root0 stays distinct from author193/308.",
     "writer_borrow_source": "42492ee508165008d247ea8e7d36bdef89d9132f",
     "writer_borrow_blob": "92eac34f148fbcedeb635596880a9a587b7e07a7",
-    "writer_borrow_review": "Original public borrow port independently accepted only in limited scope; inspect()/isCurrentContext() can read scope and trigger retirement/cleanup. NOT a pure reader or full Root admission acceptance."
+    "writer_borrow_review": "Original public borrow port independently accepted only in limited scope; inspect()/isCurrentContext() can read scope and trigger retirement/cleanup. NOT a pure reader or full Root admission acceptance.",
+    "p2_repairs": {
+      "cancel_false": "Original Writer AND Doc cancel must return true before Root clears each original token. False/throw retains exact token and obligation; failed stays set and original first/latest cause retained. A no-op later false never completes prior physical failure. No producer repair/replacement or false receipt.",
+      "healthy_stop": "Normal doc.stop() followed by actual stop.inspect(); retry() only for failed && pendingUnsubscribe && !running on explicit retry path. Healthy stop never invokes owner-wide retirement; running/failed custody stays retained.",
+      "source_review": "New successor candidate pending independent review; runtime qualification UNRUN_HELD"
+    }
   }
 }
