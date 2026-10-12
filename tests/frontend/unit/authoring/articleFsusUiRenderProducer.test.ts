@@ -33,7 +33,7 @@ const setup = (initialSource = '# Article\n\nBody', maxResultBytes = 65536) =>
 
 describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
     // Source controls only: actual source/derived Promises, never executed under holds.
-    it.each(['discard-fulfillment', 'derived-replay'] as const)(
+    it.each(['discard-fulfillment', 'derived-replay', 'derived-subclass'] as const)(
         'retains observer custody for %s and a then getter that throws on its second read', async mode => {
             const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
                 editorSessionId: `session:observer-assimilation:${mode}`, siteScope: 'site:consumer', userScope: 'user:consumer', content: '# Article' });
@@ -49,12 +49,17 @@ describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
                 throw failureFuture;
             } });
             let actualDerived: Promise<unknown> | null = null;
-            if (mode === 'derived-replay') {
+            let speciesCalls = 0;
+            if (mode !== 'discard-fulfillment') {
                 // A real species capability replays the fulfilled object into a native
                 // derived Promise, forcing asynchronous assimilation despite the no-op.
                 Object.defineProperty(sourceFuture, 'constructor', { value: {
                     [Symbol.species]: function (executor: (resolve: (value: unknown) => void, reject: (cause: unknown) => void) => void) {
-                        const derived = new Promise<unknown>((resolve, reject) => executor(() => resolve(value), reject));
+                        speciesCalls += 1;
+                        class Derived extends Promise<unknown> {}
+                        const derived = mode === 'derived-subclass'
+                            ? new Derived((resolve, reject) => executor(() => resolve(value), reject))
+                            : new Promise<unknown>((resolve, reject) => executor(() => resolve(value), reject));
                         actualDerived = derived;
                         return derived;
                     }
@@ -69,14 +74,16 @@ describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
             const cacheWork = cache.startRefresh(); await cacheWork.receipt;
             if (!actualRequest) throw new Error('original-producer-request-missing');
             const work = producer.getRequestWork(actualRequest)!;
-            await expect(work.terminal).rejects.toThrow('article-fsusui-source-cleanup-unconfirmed');
+            await expect(work.terminal).rejects.toThrow(mode === 'discard-fulfillment'
+                ? 'article-fsusui-source-cleanup-unconfirmed' : 'article-fsusui-rejection-observer-unconfirmed');
             fulfil(value);
-            if (mode === 'derived-replay') {
-                if (!actualDerived) throw new Error('actual-observer-derived-promise-missing');
-                await expect(actualDerived).rejects.toBe(failureFuture);
+            if (mode !== 'discard-fulfillment') {
+                // Keep the hostile capability intact; refuse it before it can create
+                // a subclass whose await chain manufactures an ignored descendant.
+                expect(speciesCalls).toBe(0); expect(actualDerived).toBeNull();
                 expect(work.cleanupFailure?.cause).toMatchObject({ endpointFailure: { cause: sourceFuture },
-                    observerPromise: actualDerived, observationFailure: failureFuture });
-                expect(thenReads).toBe(2);
+                    observationFailure: { message: 'article-fsusui-observer-species-unavailable' } });
+                expect(thenReads).toBe(1);
             } else {
                 await Promise.resolve(); await Promise.resolve();
                 expect(thenReads).toBe(1);
@@ -128,7 +135,8 @@ describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
                 ? 'article-fsusui-rejection-observer-unconfirmed' : 'article-fsusui-source-cleanup-unconfirmed');
             expect(work.producerFailure?.cause).toBe(thrown);
             if (kind === 'observer-failure') {
-                expect(work.cleanupFailure?.cause).toMatchObject({ endpointFailure: { cause: future }, observationFailure: observerFuture });
+                expect(work.cleanupFailure?.cause).toMatchObject({ endpointFailure: { cause: future },
+                    observationFailure: { message: 'article-fsusui-observer-species-unavailable' } });
             } else {
                 expect(work.cleanupFailure?.cause).toBe(thrown);
             }

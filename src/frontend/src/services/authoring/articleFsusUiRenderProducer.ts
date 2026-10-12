@@ -53,6 +53,13 @@ interface ArticleFsusUiRenderCleanup {
     observerPromises: Promise<unknown>[];
 }
 
+const observerPromiseConstructor = Promise;
+const observerPromisePrototype = Promise.prototype;
+const observerOwnDescriptor = Object.getOwnPropertyDescriptor;
+const observerPrototypeOf = Object.getPrototypeOf;
+const observerThenDescriptor = observerOwnDescriptor(observerPromisePrototype, 'then');
+const observerSpeciesDescriptor = observerOwnDescriptor(Promise, Symbol.species);
+
 const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: string, cause: unknown): Error =>
 {
     const previous = cleanup.endpointFailure;
@@ -61,9 +68,31 @@ const preserveUnknownEndpoint = (cleanup: ArticleFsusUiRenderCleanup, message: s
     {
         // Discard fulfillment values explicitly: forwarding them would assimilate
         // their then getter again in the derived Promise. Neither observer is proof.
-        if (cause instanceof Promise)
+        if (typeof cause === 'object' && cause !== null && observerPrototypeOf(cause) === observerPromisePrototype)
         {
-            const observerPromise: Promise<unknown> = Promise.prototype.then.call(cause, () => undefined, () => undefined);
+            // Do not invoke an arbitrary constructor/species getter or create its
+            // subclass. Awaiting such a derivative can manufacture another ignored
+            // species Promise. Unsupported futures keep their original custody.
+            const constructor = observerOwnDescriptor(cause, 'constructor')
+                ?? observerOwnDescriptor(observerPromisePrototype, 'constructor');
+            const species = observerOwnDescriptor(observerPromiseConstructor, Symbol.species);
+            if (constructor?.value !== observerPromiseConstructor || constructor.get || constructor.set
+                || !observerSpeciesDescriptor?.get || species?.get !== observerSpeciesDescriptor.get || species.set
+                || Object.prototype.hasOwnProperty.call(species, 'value'))
+            {
+                throw new Error('article-fsusui-observer-species-unavailable', { cause: { constructor, species } });
+            }
+            const thenMethod: unknown = observerThenDescriptor?.value;
+            if (typeof thenMethod !== 'function')
+            {
+                throw new Error('article-fsusui-observer-method-unavailable');
+            }
+            const observerPromise: unknown = Reflect.apply(thenMethod, cause, [() => undefined, () => undefined]);
+            if (!(observerPromise instanceof observerPromiseConstructor)
+                || observerPrototypeOf(observerPromise) !== observerPromisePrototype)
+            {
+                throw new Error('article-fsusui-observer-promise-unavailable', { cause: observerPromise });
+            }
             cleanup.observerPromises.push(observerPromise);
             const completion = (async (): Promise<void> =>
             {
