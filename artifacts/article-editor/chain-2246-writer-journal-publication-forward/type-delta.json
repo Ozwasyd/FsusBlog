@@ -1,0 +1,18 @@
+{
+  "baselineSource": "6195837a61c4b4098a879cb151f4f3da45f996f5",
+  "baseline": 221,
+  "current": 220,
+  "added": [],
+  "removed": [
+    [
+      "src/services/articleRecoveryJournal.ts",
+      "TS1294",
+      "This syntax is not allowed when 'erasableSyntaxOnly' is enabled."
+    ]
+  ],
+  "owned": [],
+  "exitCode": 2,
+  "runtime": "HOLD/UNRUN",
+  "source": "7025f5de058a7bd04d95740f16bf522e20ab872f",
+  "equal_count_assertion": "first comparison expected exact equality and failed; valid upstream removal preserved, not relabeled as no delta"
+}

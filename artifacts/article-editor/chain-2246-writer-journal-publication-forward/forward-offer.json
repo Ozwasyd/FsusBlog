@@ -1,0 +1,18 @@
+{
+  "source": "7025f5de058a7bd04d95740f16bf522e20ab872f",
+  "forwardPreimage": "a58d64b0306cdddfb3807ce2e4759e4f9d0c17f1",
+  "forwardPostimage": "9d96bbe324d9794269b18af07b0eb73a5de39f72",
+  "patchSha256": "4a84353c359a9a5b23049ea1bec911e0742fc2d4dac1c6a2a8bf015734af8560",
+  "rootPreimageApply": "exact 619 Writer before forwarding",
+  "mainBase": "bbed9ae73cc790abf7ff32b28abbd271add08ec3 + exact previously checked 619 offer",
+  "mainForwardCheck": 1,
+  "stderr": "error: patch failed: src/frontend/src/composables/useAdminArticleWrite.ts:1125\nerror: src/frontend/src/composables/useAdminArticleWrite.ts: patch does not apply\n",
+  "mainProductionApplied": false,
+  "crossChainResolution": false,
+  "runtime": "HOLD/UNRUN",
+  "rootPreimageApplyCheck": 0,
+  "mainBlockedBoundaries": [
+    "bindRecoveryCheckpoint type/captureRetainedSnapshot signature: Main already accepts assertAdmission",
+    "checkpoint wrapper: Main already forwards hasReferenceCustody"
+  ]
+}

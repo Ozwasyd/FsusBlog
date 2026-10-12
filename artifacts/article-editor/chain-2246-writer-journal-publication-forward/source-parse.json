@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "9d96bbe324d9794269b18af07b0eb73a5de39f72",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "blob": "6951187317d7a58bd940243dbbd30ab804c94f35",
+      "diagnostics": []
+    }
+  ],
+  "forwards": [
+    {
+      "name": "hasReferenceCustody",
+      "receiver": "same original const issued",
+      "expression": "(reference, info) => issued.hasReferenceCustody(reference, info)",
+      "promiseOrTokenReplaced": false,
+      "catchOrFallback": false
+    },
+    {
+      "name": "preparePublication",
+      "receiver": "same original const issued",
+      "expression": "signal => issued.preparePublication(signal)",
+      "promiseOrTokenReplaced": false,
+      "catchOrFallback": false
+    },
+    {
+      "name": "validatePrepared",
+      "receiver": "same original const issued",
+      "expression": "(candidate, content) => issued.validatePrepared(candidate, content)",
+      "promiseOrTokenReplaced": false,
+      "catchOrFallback": false
+    },
+    {
+      "name": "hasPreparedCustody",
+      "receiver": "same original const issued",
+      "expression": "(candidate, info) => issued.hasPreparedCustody(candidate, info)",
+      "promiseOrTokenReplaced": false,
+      "catchOrFallback": false
+    },
+    {
+      "name": "publishPrepared",
+      "receiver": "same original const issued",
+      "expression": "(candidate, info) => issued.publishPrepared(candidate, info)",
+      "promiseOrTokenReplaced": false,
+      "catchOrFallback": false
+    },
+    {
+      "name": "cancelPrepared",
+      "receiver": "same original const issued",
+      "expression": "candidate => issued.cancelPrepared(candidate)",
+      "promiseOrTokenReplaced": false,
+      "catchOrFallback": false
+    }
+  ],
+  "candidateExecuted": false,
+  "testsRun": false,
+  "runtime": "HOLD/UNRUN"
+}
