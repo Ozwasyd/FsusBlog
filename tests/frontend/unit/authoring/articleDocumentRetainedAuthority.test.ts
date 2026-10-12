@@ -1383,12 +1383,21 @@ describe('original retained document authority source controls', () =>
             expect(nativeCalls).toBe(before);
             return pending;
         } }));
-        authority.revokeRetainedScope('site:test', 'test');
+        let preFails = true;
+        retained.subscribeRetirement(() =>
+        {
+            if (preFails) { throw new Error('actual-pre-cleanup-obligation'); }
+        });
+        // Failed genuine pre delivery keeps the native context subscription in
+        // issuer custody when the mandatory consumer callback is still attempted.
+        expect(() => authority.revokeRetainedScope('site:test', 'test')).toThrow();
         expect(rejected).toBeInstanceOf(Error);
         expect(native.inspect().failed).toBe(true);
         expect(native.inspect().firstFailure).toBe(rejected);
         expect(retained.inspect().consumerInvalidationState).toBe('pending');
+        preFails = false;
         retained.retryInvalidation();
         expect(cleanups).toBe(1);
+        expect(native.inspect().failed).toBe(false);
     });
 });

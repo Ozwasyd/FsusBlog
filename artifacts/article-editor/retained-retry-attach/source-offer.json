@@ -1,0 +1,116 @@
+{
+  "schema": "fsusblog.retained-retry-attach-source-offer.v1",
+  "producerRevision": "6654f9458f2395e9216c61c0782aa837e234d624",
+  "consumerRevision": "85a8ebebba8f777eef9d30466d4101e15f74b649",
+  "sourceBase": "85a8ebebba8f777eef9d30466d4101e15f74b649",
+  "patchSha256": "0efcdd9fedd6c75e499f221373966f22bfd9ed8c69e1c61242b7aec946b252f9",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "before": {
+        "gitBlob": "d9a09b86c8263a31f5b7e0931d97170959896af9",
+        "sha256": "d2a3f24d97648a64604bbe8068067f7f79bebaeb02b461bc344cc324ac7edcd7",
+        "bytes": 106909,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "055558e540fa0a2e6b6e26f163e983e32a960bde",
+        "sha256": "25788033238581e8aa3915c6cd2034bc3d9b7ee61f4fa8f569543c0914afe1b3",
+        "bytes": 107205,
+        "mode": "100644"
+      },
+      "donorRevision": "6654f9458f2395e9216c61c0782aa837e234d624",
+      "donor": {
+        "gitBlob": "055558e540fa0a2e6b6e26f163e983e32a960bde",
+        "sha256": "25788033238581e8aa3915c6cd2034bc3d9b7ee61f4fa8f569543c0914afe1b3",
+        "bytes": 107205,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "before": {
+        "gitBlob": "b54be3268b4fbe4ca02d1692735b148e82fed4cb",
+        "sha256": "eaf8070e0839c21dc239b10799d7b8d6336897888f3f3d70d1e77a16df122eb0",
+        "bytes": 99164,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "b54be3268b4fbe4ca02d1692735b148e82fed4cb",
+        "sha256": "eaf8070e0839c21dc239b10799d7b8d6336897888f3f3d70d1e77a16df122eb0",
+        "bytes": 99164,
+        "mode": "100644"
+      },
+      "donorRevision": "6654f9458f2395e9216c61c0782aa837e234d624",
+      "donor": {
+        "gitBlob": "b54be3268b4fbe4ca02d1692735b148e82fed4cb",
+        "sha256": "eaf8070e0839c21dc239b10799d7b8d6336897888f3f3d70d1e77a16df122eb0",
+        "bytes": 99164,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    },
+    {
+      "path": "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
+      "before": {
+        "gitBlob": "45cec020937f6e55737524659b06bef6d4b5d986",
+        "sha256": "1df6f07806005d8a3919229ac6fcd432a9b949a3b2b1df5802bc38f7e1e53555",
+        "bytes": 22771,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "45cec020937f6e55737524659b06bef6d4b5d986",
+        "sha256": "1df6f07806005d8a3919229ac6fcd432a9b949a3b2b1df5802bc38f7e1e53555",
+        "bytes": 22771,
+        "mode": "100644"
+      },
+      "donorRevision": "6654f9458f2395e9216c61c0782aa837e234d624",
+      "donor": {
+        "gitBlob": "45cec020937f6e55737524659b06bef6d4b5d986",
+        "sha256": "1df6f07806005d8a3919229ac6fcd432a9b949a3b2b1df5802bc38f7e1e53555",
+        "bytes": 22771,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "before": {
+        "gitBlob": "42b415ad36de4c528ef91274204ac1cd83c02428",
+        "sha256": "9084518276527cbd1c7420543ec32b2adde70eb10f1b8bc70efe234881247c64",
+        "bytes": 75166,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "0fddc55437beee1971670d7c50dfffb528c64a6e",
+        "sha256": "40b825aa0d9a1bbc7e5e7fe4144868bd3a2cfe72a5ca57bb4b686acf4d82f2bc",
+        "bytes": 78374,
+        "mode": "100644"
+      },
+      "donorRevision": "6654f9458f2395e9216c61c0782aa837e234d624",
+      "donor": {
+        "gitBlob": "0fddc55437beee1971670d7c50dfffb528c64a6e",
+        "sha256": "40b825aa0d9a1bbc7e5e7fe4144868bd3a2cfe72a5ca57bb4b686acf4d82f2bc",
+        "bytes": 78374,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    }
+  ],
+  "productionPatchSha256": "07aaf7045bfa91930f0fa97d0d6ef8bc6b23549ddad62b678932dae5f536b70c",
+  "productionApplyCheckExit": 0,
+  "productionApplyExit": 0,
+  "productionDiffCheckExit": 0,
+  "protectedConsumerBlobsChecked": 7497,
+  "protectedMismatches": [],
+  "actualOrderedApplyCheckExit": 0,
+  "actualApplyExit": 0,
+  "appliedSourceDiffCheckExit": 0,
+  "generator": {
+    "path": "capture-source-offer.py",
+    "sha256": "dfc6ea706735fe97b396d40d0011d48ecc143253fdb34b71def88fbe161dc228"
+  },
+  "qualification": false,
+  "candidateModulesImported": false
+}
