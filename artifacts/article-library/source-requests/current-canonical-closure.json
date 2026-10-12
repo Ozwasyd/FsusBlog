@@ -147,12 +147,22 @@
     "auth/security/runtime/native/receipt/qualification"
   ],
   "additional_production_gaps": [
-    "Original authenticated admin/site scope and server-artifact SourceDigest caller, explicitly WIP in4219",
+    "Actual application/route caller supplying all original startup and cache/channel/lease resources to the callable authenticated root adapter; native/runtime capability stays denied until original owner admission.",
     "Original snapshot permission/lifecycle/draft resolveBatch",
     "Original retained mount-before-restore and full session factory",
     "Original committed shell command/lifetime binding",
     "Complete Query2231/Cache2232 response/cache composition; Query v1 mandatory Slug unchanged"
   ],
   "qualification": false,
-  "activation": false
+  "activation": false,
+  "authenticated_connection_offer": {
+    "source": "6efe4eddda4fed46e270d3938a01cd30ba4d0922",
+    "connection": "src/frontend/src/api/authoringWorkspaceSnapshotConnection.ts",
+    "http_transport": "src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts",
+    "review": "UPSTREAM_INDEPENDENT_SOURCE_REVIEW_PENDING",
+    "root_caller": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
+    "sole_root_port_source": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
+    "pipeline": "Original real admin principal + server-selected scope/artifact digest -> original complete API fresh-read verifier -> original Cache/Sync -> stable existing root startup ports; original runtime capability and resolveBatch remain mandatory. No host installation in this helper.",
+    "lifetime": "Caller abort and original auth-generation revocation; explicit original connection disposal, original Sync stop/cache cleanup; root unmount releases only this caller-owned Snapshot custody. No native/task settlement receipt."
+  }
 }

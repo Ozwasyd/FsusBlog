@@ -53,6 +53,8 @@ import { resolveAccountPageKindClass } from '@/layouts/accountPageKind';
 import AccountRouteFrame from '@/layouts/AccountRouteFrame.vue';
 import { resolveAccountRouteMotionPolicy } from '@/layouts/accountRouteMotion';
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
+import { disposeAdminArticleWorkspaceSnapshotStartup } from '@/layouts/adminArticleWorkspaceSnapshotCaller';
+import type { AdminArticleWorkspaceStartupPorts } from '@/layouts/adminArticleWorkspaceStartup';
 import {
     isAccountContentMode,
     isAccountPageKind,
@@ -60,7 +62,7 @@ import {
     type AccountPageKind
 } from '@/router/accountRouteMeta';
 import { installArticleWorkspaceEditorSessions, retireArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
-import { createArticleWorkspaceMountedEditorResolver, type ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
+import { createArticleWorkspaceMountedEditorResolver } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
     articleWorkspaceTabRouter,
     isArticleWorkspaceRoute,
@@ -68,34 +70,15 @@ import {
     type ArticleWorkspaceTabPresentation,
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
-import { AuthoringTabGroupRegistry, type AuthoringTabGroupOptions, type AuthoringGroupCommandIdentity, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
+import { AuthoringTabGroupRegistry, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
 import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
-import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestoreCommands, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
-import type { AuthoringWorkspaceSnapshotSync } from '@/services/authoring/authoringWorkspaceSnapshotSync';
+import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
 import type { ArticleWorkspaceMountedEditorResolver } from '@/services/authoring/fsusUiEditorSessionFactory';
 
-/** Original-owner capabilities only; no null factory, local batch facts or fabricated receipts. */
-export interface AdminArticleWorkspaceStartupPorts {
-    readonly sync: AuthoringWorkspaceSnapshotSync;
-    readonly resolutionPort: AuthoringWorkspaceSnapshotRestoreCommands['resolutionPort'];
-    readonly mountedEditors: ArticleWorkspaceMountedEditorSource;
-    readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;
-    readonly createGroupIdentity: () => AuthoringGroupCommandIdentity;
-    readonly operationEpoch: number;
-    /** The original composition owner cancels this operation and disposes its sync/session resources. */
-    readonly signal: AbortSignal;
-    readonly assertRuntimeCapability: AuthoringWorkspaceSnapshotRestoreCommands['assertRuntimeCapability'];
-    readonly applyShell: AuthoringWorkspaceSnapshotRestoreCommands['applyShell'];
-    readonly isCurrent: AuthoringWorkspaceSnapshotRestoreCommands['isCurrent'];
-    /** Actual layout authority: real measurements, identities and synchronous before/after notifications. */
-    readonly layout?: Omit<AuthoringWorkspaceLayoutSource, 'groups' | 'sessions' | 'mountedEditors' | 'measure'> & {
-        measure(projection: Parameters<AuthoringWorkspaceLayoutSource['measure']>[0],
-            mountedLayout: AuthoringWorkspaceLayoutPort): ReturnType<AuthoringWorkspaceLayoutSource['measure']>;
-    };
-}
+export type { AdminArticleWorkspaceStartupPorts } from '@/layouts/adminArticleWorkspaceStartup';
 
 // One original router/Registry has one startup installation, independent of route remounts.
 let workspaceInstallation: {
@@ -106,6 +89,7 @@ let workspaceInstallation: {
     retirementFailure?: unknown;
     groupRetirementFailure?: unknown;
     layoutInvalidationFailure?: unknown;
+    snapshotDisposalFailure?: unknown;
     stopObservingCancellation?: () => void;
     /** Retain the exact original owners, their custody handle and the actual in-flight task. */
     readonly resources: {
@@ -807,6 +791,16 @@ onBeforeUnmount(() =>
     invalidateWorkspaceLayout();
     workspaceInstallation?.resources.invalidateLayouts.delete(invalidateWorkspaceLayout);
     startupSignal?.removeEventListener('abort', markWorkspaceStartupUnavailable);
+    if (startupPorts)
+    {
+        void disposeAdminArticleWorkspaceSnapshotStartup(startupPorts)?.catch((error: unknown) =>
+        {
+            if (workspaceInstallation?.ports === startupPorts)
+            {
+                workspaceInstallation.snapshotDisposalFailure = error;
+            }
+        });
+    }
 });
 const { tabs, activateTab } = useArticleWorkspaceTabs();
 const libraryGroup = ref<ArticleLibraryGroup>('recent');
