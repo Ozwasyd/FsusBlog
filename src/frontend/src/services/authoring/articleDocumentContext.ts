@@ -327,6 +327,7 @@ interface ArticleDocumentRetainedOwner {
     readonly consumerInvalidationAttempts: Set<Promise<void>>;
     consumerInvalidationHasFailure: boolean;
     consumerInvalidationFirstFailure: unknown;
+    readonly consumerInvalidationFailures: unknown[];
     lastState: RetainedArticleDocumentInspection['state'];
     readonly listeners: Set<NotificationSubscriptionRecord>;
     lifetimePublication: object | null;
@@ -2061,6 +2062,7 @@ export class ArticleDocumentContextAuthority
             consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
             consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
             consumerInvalidationAttempts: new Set(), consumerInvalidationHasFailure: false, consumerInvalidationFirstFailure: undefined,
+            consumerInvalidationFailures: [],
             lastState: 'live', listeners: new Set(), lifetimePublication: null, retirementPending: false,
             retirementActivityDepth: 0, retirementListeners: new Set(), retirementFailures: [] };
     }
@@ -2511,6 +2513,7 @@ export class ArticleDocumentContextAuthority
         }
         const retainFailure = (error: unknown): void =>
         {
+            owner.consumerInvalidationFailures.push(error);
             if (!owner.consumerInvalidationHasFailure)
             {
                 owner.consumerInvalidationHasFailure = true;
