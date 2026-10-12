@@ -178,7 +178,7 @@
     "root_source_postimages": [
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "9aaae97c560f5002d7154084ed9e527e2dcb6966e4d8ed251d80ec280e1ea185",
+        "sha256": "092662c55ca787d70ec033294d7382c3757f2880d9ebfa948cfd810d15aa577c",
         "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
       },
       {
@@ -286,5 +286,57 @@
     "activation": false,
     "repair_source": "e5816353729fc35b2e59c7f29fd08e83c08af644",
     "acceptance": "UNACCEPTED_PENDING_ORIGINAL_LAYOUT_AND_ROOT_COMPOSITION_RE_REVIEW"
+  },
+  "root_writer_subscription_join": {
+    "producer_source": "3ae559a87ebe4354aac77887265f746e144fb4b7",
+    "producer_blob": "57ba52161b0a4c8da51c274dd892a588ad960e69",
+    "producer_path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+    "producer_review": "Bounded SOURCE CLOSED including overflow; original listener synchronous contract unchanged; independent AST/diff PASS, independent lint/types UNRUN; author219 FAIL stays distinct",
+    "owned_root_paths": [
+      {
+        "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "sha256": "092662c55ca787d70ec033294d7382c3757f2880d9ebfa948cfd810d15aa577c"
+      },
+      {
+        "path": "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts",
+        "sha256": "61d2cc2e1d32ee5f416bf665f348550a8d2556e9cf396588fe1c4747d53d50dd"
+      }
+    ],
+    "actual_call_path": "Root creates one frame-local controller and provides original authoringWorkspaceMountedAuthoritySourcesKey. Exact original Layout Write e581 invokes source.reserve with its actual physical Writer runtime/native tuple; Root registers actual Writer subscription before a private reservation attempt.",
+    "necessary_original_layout_postimages": [
+      {
+        "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
+        "source": "e5816353729fc35b2e59c7f29fd08e83c08af644",
+        "blob": "89cbc6fa6974b6ee4234ec6d3f9b43078b1b3096"
+      },
+      {
+        "path": "src/frontend/src/views/admin/article/Write.vue",
+        "source": "e5816353729fc35b2e59c7f29fd08e83c08af644",
+        "blob": "c5f410d3e6f602b20fa9883c726b096fe1cb37e5"
+      }
+    ],
+    "root_listener": "Only private reservation=null and current.withdrawn=true assignments; no Writer cancel/release, external callbacks, reads, allocation or async. Original runtime has one subscription; Root reuses same runtime slot.",
+    "cleanup": "Withdraw before original unsubscribe; retained original function/physical runtime slot, first/latest cause and closed state on failure; real retry invokes SAME original unsubscribe. No new seal after pending failure, no physical-cleanup receipt.",
+    "document_limit": "Original Doc pre-retirement notification producer still absent. Root performs real Writer registration, then withdraws its private attempt and returns null for FULL mounted reservation. No published hasCustody blanket, auth/member/history grant, Doc callback shim or full-ready inference.",
+    "current_type_gaps": "Copied exact Writer requires newer original Doc retained/lifetime, admin principal seal and journal checkpoint-publication APIs absent in this consumer. Compiler/lint errors are real and retained; no shims/owner rewrites/flags weakened.",
+    "must_scope": [
+      "2295.must4: no route/index-only activation; original Registry/Host receipt still required",
+      "2295.must13: existing tab title/status Source revision guards retained",
+      "2294.must2: no duplicate per-article session/body/epoch owner",
+      "2294.must10: original identity/revision/permission/snapshot validation; unavailable Doc join does not restore"
+    ],
+    "source_status": "WRITER_SIDE_PARTIAL_WIRING_ONLY_FULL_RESERVATION_REFUSED",
+    "ordinary_preflight": [
+      "register one original Writer subscription before Root attempt, reject duplicate consumer",
+      "listener withdraws private Root state before original Writer custody/generation/pointer/liveness/cleanup",
+      "listener never reenters Writer cancel/release",
+      "withdraw before unsubscribe, retain disposer failure/first cause/runtime identity; actual same-function retry",
+      "Doc missing returns null despite successful Writer-side subscription; no receipt/ready",
+      "retirement/unmount withdraws before original permanent/temporary operations and unsubscribe",
+      "old runtime replacement drains original subscription before adopting new actual runtime"
+    ],
+    "runtime": "ALL_HOLD_UNRUN",
+    "qualification": false,
+    "activation": false
   }
 }
