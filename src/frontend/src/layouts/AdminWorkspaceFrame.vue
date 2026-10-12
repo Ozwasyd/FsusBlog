@@ -60,7 +60,7 @@ import {
     type AccountContentMode,
     type AccountPageKind
 } from '@/router/accountRouteMeta';
-import { installArticleWorkspaceEditorSessions, retireArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
+import { installArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
 import { createArticleWorkspaceMountedEditorResolver } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
     articleWorkspaceTabRouter,
@@ -89,6 +89,7 @@ let workspaceInstallation: {
     retirementFailure?: unknown;
     groupRetirementFailure?: unknown;
     layoutInvalidationFailure?: unknown;
+    mountedAuthorityRevocationFailure?: unknown;
     snapshotDisposalFailure?: unknown;
     stopObservingCancellation?: () => void;
     /** Retain the exact original owners, their custody handle and the actual in-flight task. */
@@ -97,6 +98,7 @@ let workspaceInstallation: {
         custody: AuthoringTabGroupStartupCustody | null;
         resolver: ArticleWorkspaceMountedEditorResolver | null;
         sessions: AuthoringWorkspaceSessionSource | null;
+        readonly revokeMountedAuthority: () => void;
         readonly invalidateLayouts: Set<() => void>;
     };
     readonly task: Promise<{
@@ -260,12 +262,14 @@ async function startArticleWorkspace(
 }
 
 /** Sole host installer: failed/partial startup cannot be retried against a now-started Registry. */
-function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts, signal: AbortSignal): NonNullable<typeof workspaceInstallation>['task']
+function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts, signal: AbortSignal,
+                                        revokeMountedAuthority: () => void): NonNullable<typeof workspaceInstallation>['task']
 {
     const installed = workspaceInstallation;
     if (installed)
     {
-        if (installed.ports !== ports || installed.signal !== signal)
+        if (installed.ports !== ports || installed.signal !== signal
+            || installed.resources.revokeMountedAuthority !== revokeMountedAuthority)
         {
             return Promise.reject(new Error('article-workspace-startup-owner-changed'));
         }
@@ -284,6 +288,7 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         custody: null,
         resolver: null,
         sessions: null,
+        revokeMountedAuthority,
         invalidateLayouts: new Set()
     };
     // Reserve the sole installation before any original capability callback can re-enter it.
@@ -304,6 +309,46 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
     return task;
 }
 
+function revokeStartupMountedAuthority(installation: NonNullable<typeof workspaceInstallation>): void
+{
+    try
+    {
+        installation.resources.revokeMountedAuthority();
+    }
+    catch (error: unknown)
+    {
+        // A failed original revoker cannot skip the same session source's retirement.
+        installation.mountedAuthorityRevocationFailure = error;
+    }
+}
+
+function createMountedAuthorityRevoker(ports: AdminArticleWorkspaceStartupPorts): () => void
+{
+    const original = ports.beforeMountedAuthorityChange;
+    if (typeof original !== 'function')
+    {
+        throw new Error('article-workspace-original-mounted-authority-revoker-required');
+    }
+    const operation = original.bind(ports);
+    let revoking = false;
+    return () =>
+    {
+        if (revoking)
+        {
+            return;
+        }
+        revoking = true;
+        try
+        {
+            operation();
+        }
+        finally
+        {
+            revoking = false;
+        }
+    };
+}
+
 function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPorts): void
 {
     const installation = workspaceInstallation;
@@ -320,6 +365,7 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
     installation.revoking = true;
     try
     {
+        revokeStartupMountedAuthority(installation);
         for (const invalidate of [...installation.resources.invalidateLayouts])
         {
             try
@@ -354,7 +400,8 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
             // The original owner revokes admission and retains its actual Host/factory; no disposal claim.
             try
             {
-                retireArticleWorkspaceEditorSessions(sessions.host);
+                revokeStartupMountedAuthority(installation);
+                sessions.retire();
             }
             catch (error: unknown)
             {
@@ -392,6 +439,7 @@ const route = useRoute();
 const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
 const snapshotCaller = props.workspaceSnapshotCaller;
 let viewStartupPorts = props.workspaceStartup;
+let viewMountedAuthorityChange = viewStartupPorts ? createMountedAuthorityRevoker(viewStartupPorts) : undefined;
 let viewStartupSignal = viewStartupPorts?.signal;
 let viewLayoutPorts = viewStartupPorts?.layout;
 if (snapshotCaller && viewStartupPorts)
@@ -417,6 +465,7 @@ let layoutRevoked = false;
 let layoutEpoch = 0;
 function notifyWorkspaceLayoutInvalidation(): void
 {
+    revokeViewMountedAuthority();
     // These are visual revocation subscribers only, never another group/session authority.
     for (const listener of [...layoutInvalidationListeners])
     {
@@ -434,6 +483,24 @@ function notifyWorkspaceLayoutInvalidation(): void
         }
     }
 }
+function revokeViewMountedAuthority(): void
+{
+    try
+    {
+        viewMountedAuthorityChange?.();
+    }
+    catch (error: unknown)
+    {
+        snapshotPreparationFailure = error;
+        layoutRevoked = true;
+        layoutEpoch++;
+        if (viewStartupPorts)
+        {
+            markWorkspaceInstallationFailed(viewStartupPorts);
+        }
+    }
+}
+
 function invalidateWorkspaceLayout(): void
 {
     layoutRevoked = true;
@@ -465,7 +532,11 @@ function captureRouteOutlet(instance: unknown): void
     const capturedEpoch = ++layoutEpoch;
     if (layoutRevoking)
     {
-        routeOutletInstance.value = instance;
+        revokeViewMountedAuthority();
+        if (layoutEpoch === capturedEpoch)
+        {
+            routeOutletInstance.value = instance;
+        }
         return;
     }
     layoutRevoking = true;
@@ -774,14 +845,22 @@ function markWorkspaceStartupUnavailable(): void
 }
 function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPorts): void
 {
+    const mountedRevoker = selectedPorts === viewStartupPorts && viewMountedAuthorityChange
+        ? viewMountedAuthorityChange : createMountedAuthorityRevoker(selectedPorts);
+    revokeViewMountedAuthority();
+    if (!mounted || layoutRevoked)
+    {
+        throw new Error('article-workspace-mounted-authority-source-revoked');
+    }
     viewStartupPorts = selectedPorts;
+    viewMountedAuthorityChange = mountedRevoker;
     viewStartupSignal = selectedPorts.signal;
     viewLayoutPorts = selectedPorts.layout;
     const startupPorts = selectedPorts;
     const startupSignal = selectedPorts.signal;
     workspaceStartupState.value = 'starting';
     startupSignal.addEventListener('abort', markWorkspaceStartupUnavailable);
-    void Promise.resolve().then(() => installArticleWorkspaceStartup(startupPorts, startupSignal)).then(({ plan, sessions }) =>
+    void Promise.resolve().then(() => installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker)).then(({ plan, sessions }) =>
     {
         if (!mounted)
         {
@@ -889,6 +968,7 @@ watch([() => props.workspaceStartup, () => props.workspaceSnapshotCaller], () =>
 onBeforeUnmount(() =>
 {
     mounted = false;
+    revokeViewMountedAuthority();
     invalidateWorkspaceLayout();
     if (snapshotCaller)
     {

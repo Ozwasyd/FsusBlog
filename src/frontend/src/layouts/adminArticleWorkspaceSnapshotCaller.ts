@@ -262,6 +262,12 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
             throw new Error('article-workspace-snapshot-batch-source-required');
         }
         const mountedEditors = checked(() => original.mountedEditors);
+        const mountedAuthorityChange = checked(() => original.beforeMountedAuthorityChange);
+        if (typeof mountedAuthorityChange !== 'function')
+        {
+            throw new Error('article-workspace-original-mounted-authority-revoker-required');
+        }
+        const beforeMountedAuthorityChange = checked(() => mountedAuthorityChange.bind(original));
         const mountOwner = checked(() => original.prepareMountedEditor);
         if (typeof mountOwner !== 'function')
         {
@@ -414,6 +420,7 @@ async function prepareSnapshotStartup(source: AdminArticleWorkspaceSnapshotCalle
         const ports = Object.freeze<AdminArticleWorkspaceStartupPorts>({
             sync, resolutionPort, mountedEditors, groupOptions, createGroupIdentity, operationEpoch,
             signal, layout,
+            beforeMountedAuthorityChange: () => beforeMountedAuthorityChange(),
             prepareMountedEditor: async (entry, commandSignal) =>
             {
                 assertCurrent();

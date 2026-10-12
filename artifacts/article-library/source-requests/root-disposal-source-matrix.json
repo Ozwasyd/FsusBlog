@@ -2,7 +2,7 @@
   "schema": "fsusblog.article-library-disposal-source-review.v1",
   "kind": "source-reasoning-not-runtime-test-receipt-or-qualification",
   "committed_before": "966b7d6ec916752ac14324b2303a81bfd85ebe51",
-  "candidate_source_sha256": "ca701db4806b27ced54ccdca4c53ae673267471630400811827c9a126e1175d0",
+  "candidate_source_sha256": "3f6c0df45895b4a7906678500f421c5c05a23c6c5ce16f565c9c2942bb920442",
   "original_sync_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts",
   "original_cache_source": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
   "matrix": [
@@ -444,5 +444,5 @@
     }
   ],
   "ordinary_preflight": "Original ./tools/test.sh frontend-unit-shard / existing Vitest config and shared unit setup only. Proposed exact M1/W1/M2 cases above require original Root/HTTP/cache fixture import/setup admission. No new test entry, product import/mount, discovery/list or case execution performed.",
-  "root_generation_review": "Exact9f4a2e54 clear-witness delta bounded SOURCE CLOSED, no new mustfix; independent327 TS log byte-identical to4e, author183/root0 retained; independent style unrun due missing toolchain, not PASS."
+  "root_generation_review": "Original9f4 clear-witness P2 bounded SOURCE CLOSED; actual generation/drain/last-remove/close semantic block unchanged. Root mounted revocation offer adds mandatory pinned callback capture/forward only; no source/cache/authority qualification inferred."
 }
