@@ -1,0 +1,9 @@
+{
+  "baselineDiagnostics": 162,
+  "candidateDiagnostics": 161,
+  "added": [],
+  "removed": [
+    "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read."
+  ],
+  "normalization": "diagnostic header source position only; full multiline text and multiplicity preserved"
+}
