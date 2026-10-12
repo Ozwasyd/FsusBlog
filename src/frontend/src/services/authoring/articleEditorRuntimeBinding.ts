@@ -77,6 +77,10 @@ export function bindArticleEditorRuntime(
         {
             return cache.state;
         },
+        get pendingRefreshWork()
+        {
+            return cache.pendingRefreshWork;
+        },
         get attachmentTaskLeases()
         {
             return attachments.currentTaskLeases;

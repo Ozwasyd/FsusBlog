@@ -113,6 +113,29 @@ async function open()
 
 describe('ArticleEditorContinuityAdapter actual public editor (#2250 data stage)', () =>
 {
+    // Source control only: UNRUN under current runtime/test/list/native holds.
+    it('holds the same actual render terminal after a prompt canceled continuity receipt', async () => {
+        const f = await open();
+        let release!: () => void;
+        f.delay(new Promise<void>(resolve => { release = resolve; }));
+        const operation = f.adapter.startRefresh(f.binding(), f.options(), restore);
+        expect(f.cache.pendingRefreshWork).toContain(operation.renderWork);
+        expect(f.adapter.pendingRefreshWork[0]).toBe(operation.renderWork);
+        expect(operation.terminal).toBe(operation.renderWork.terminal);
+        let terminalObserved = false;
+        void operation.terminal.then(() => { terminalObserved = true; }, () => { terminalObserved = true; });
+        f.adapter.cancelRefresh();
+        const receipt = await operation.receipt;
+        expect(receipt.renderReceipt?.status).toBe('canceled');
+        expect(terminalObserved).toBe(false);
+        expect(f.owner.pendingTaskRefs).toContain(operation.renderWork.taskRef);
+        expect(f.adapter.pendingRefreshWork).toContain(operation.renderWork);
+        release();
+        // Drain this actual operation only; its outcome is not native restoration evidence.
+        await operation.terminal;
+        expect(terminalObserved).toBe(true);
+    });
+
     it('captures current public selection/history and consumes existing map/render owners', async () => {
         const f = await open(); const context = f.adapter.capture(f.binding(), f.options());
         expect(validateArticleEditorContinuityContext(context)).toBe(true);

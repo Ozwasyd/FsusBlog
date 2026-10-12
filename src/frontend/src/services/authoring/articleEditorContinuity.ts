@@ -27,6 +27,7 @@ import {
     validateArticleRenderState,
     type ArticleRenderCache,
     type ArticleRenderReceipt,
+    type ArticleRenderRefreshWork,
     type ArticleRenderState
 } from './articleRenderCache';
 import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocumentRegistry';
@@ -34,6 +35,13 @@ import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocum
 export const articleEditorContinuitySchema = 'fsusblog.article-editor-continuity.v1' as const;
 export const articleEditorContinuityReceiptSchema = 'fsusblog.article-editor-continuity-receipt.v1' as const;
 export const articleEditorContinuityAckSchema = 'fsusblog.article-editor-continuity-ack.v1' as const;
+
+/** The terminal belongs to the same render work, never to native restoration. */
+export interface ArticleEditorContinuityRefreshWork {
+    readonly renderWork: ArticleRenderRefreshWork;
+    readonly receipt: Promise<ArticleEditorContinuityReceipt>;
+    readonly terminal: Promise<void>;
+}
 export const articleEditorToolEvents = [
     'publish-preview-open', 'publish-preview-close', 'source-compare-open', 'source-compare-close'
 ] as const;
@@ -577,16 +585,43 @@ export class ArticleEditorContinuityAdapter
 
     public async refresh(binding: ArticlePositionMapBinding, capture: ArticleAnchorCaptureOptions, restore: RestoreOptions): Promise<ArticleEditorContinuityReceipt>
     {
+        return this.startRefresh(binding, capture, restore).receipt;
+    }
+
+    public get pendingRefreshWork(): readonly ArticleRenderRefreshWork[]
+    {
+        return this.cache.pendingRefreshWork;
+    }
+
+    public startRefresh(binding: ArticlePositionMapBinding, capture: ArticleAnchorCaptureOptions, restore: RestoreOptions): ArticleEditorContinuityRefreshWork
+    {
         if (this.pending !== null || this.refreshing)
         {
             throw new Error('continuity-transition-pending');
         }
         const before = this.capture(binding, capture);
         this.refreshing = true;
+        let renderWork: ArticleRenderRefreshWork;
+        try
+        {
+            renderWork = this.cache.startRefresh();
+        }
+        catch (error)
+        {
+            this.refreshing = false;
+            throw error;
+        }
+        const receipt = this.consumeRefresh(renderWork, before, binding, capture, restore);
+        return Object.freeze({ renderWork, receipt, terminal: renderWork.terminal });
+    }
+
+    private async consumeRefresh(work: ArticleRenderRefreshWork, before: ArticleEditorContinuityContext,
+        binding: ArticlePositionMapBinding, capture: ArticleAnchorCaptureOptions, restore: RestoreOptions): Promise<ArticleEditorContinuityReceipt>
+    {
         let renderReceipt: ArticleRenderReceipt;
         try
         {
-            renderReceipt = await this.cache.refresh();
+            renderReceipt = await work.receipt;
         }
         finally
         {
