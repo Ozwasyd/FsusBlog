@@ -79,7 +79,9 @@ import {
     type ArticleDocumentContextAdapter,
     type ArticleDocumentRetainedBinding,
     type ArticleDocumentRetainedInspection,
-    type ArticleDocumentLifetimeSeal
+    type ArticleDocumentLifetimeSeal,
+    type ArticleDocumentTaskLease,
+    type ArticleDocumentTaskRegistry
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
@@ -899,6 +901,97 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     let draftSaveInFlightIdentity: string | null = null;
     let acceptedPrepublishIdentity: string | null = null;
     let active = true;
+    // Bounded local custody of actual Writer work, never a second document/session index.
+    const writerResourceLimit = 32;
+    let writerResourcePhase: 'active' | 'pausing' | 'paused' | 'resuming' = 'active';
+    let writerScopePaused = false;
+    let writerResourceControlRunning = false;
+    let writerResourceControlFailure: { readonly failure: unknown; } | null = null;
+    let writerResourceJobFailure: { readonly failure: unknown; } | null = null;
+    const writerTaskLeases = new Set<ArticleDocumentTaskLease>();
+    const writerUndispatchedLeases = new Set<ArticleDocumentTaskLease>();
+    const writerPendingWork = new Set<{ readonly kind: string; promise: Promise<unknown> | null; }>();
+    const writerResourceReentrancyFailure = new Error('article-writer-resource-control-reentrant');
+    const canStartWriterResourceWork = (): boolean => active && writerScope.active && !writerResourceControlFailure
+        && (writerResourcePhase === 'active' || writerResourcePhase === 'resuming');
+    const pruneSettledWriterLeases = (): void =>
+    {
+        // Only the original producer's actual settle acknowledgement removes this ref.
+        const pending = new Set(articleDocumentContextAdapter.pendingTaskRefs);
+        for (const lease of writerTaskLeases)
+        {
+            if (!pending.has(lease.taskRef))
+            {
+                writerTaskLeases.delete(lease);
+                writerUndispatchedLeases.delete(lease);
+            }
+        }
+    };
+    const writerTaskRegistry: ArticleDocumentTaskRegistry = Object.freeze({
+        beginTask: (...args: Parameters<ArticleDocumentTaskRegistry['beginTask']>) =>
+        {
+            if (!canStartWriterResourceWork())
+            {
+                throw new Error('article-writer-resource-admission-paused');
+            }
+            pruneSettledWriterLeases();
+            if (writerTaskLeases.size >= writerResourceLimit)
+            {
+                throw new Error('article-writer-resource-lease-capacity');
+            }
+            const lease = articleDocumentContextAdapter.beginTask(...args);
+            writerTaskLeases.add(lease);
+            // Original supersession callbacks may have synchronously paused the owner.
+            // Return the same issued lease; its executor/finally owns real settlement.
+            if (!canStartWriterResourceWork())
+            {
+                try
+                {
+                    lease.cancel('article-writer-resource-paused');
+                }
+                catch (error)
+                {
+                    // Refused before the real executor receives this issued lease.
+                    writerUndispatchedLeases.add(lease);
+                    writerResourceControlFailure ??= { failure: error };
+                    throw error;
+                }
+            }
+            return lease;
+        }
+    });
+    const observeWriterResourceWork = <T>(kind: string, execute: () => Promise<T>, continuation = false): Promise<T> =>
+    {
+        if ((!continuation && !canStartWriterResourceWork()) || writerPendingWork.size >= writerResourceLimit)
+        {
+            throw new Error('article-writer-resource-work-admission-unavailable');
+        }
+        const work: { readonly kind: string; promise: Promise<unknown> | null; } = { kind, promise: null };
+        writerPendingWork.add(work);
+        try
+        {
+            // Reserve before invoking the real job. Only its returned Promise settles this observation.
+            const promise = execute().then(value =>
+            {
+                writerPendingWork.delete(work);
+                return value;
+            }, error =>
+            {
+                writerResourceJobFailure = { failure: error };
+                writerPendingWork.delete(work);
+                throw error;
+            });
+            work.promise = promise;
+            return promise;
+        }
+        catch (error)
+        {
+            writerResourceJobFailure = { failure: error };
+            writerPendingWork.delete(work);
+            throw error;
+        }
+    };
+
     let activeRecoveryClientRevision: string | null = null;
     let authoritativeArticleSourceHash: string | null = null;
     let authoritativeServerDraftSourceHash: string | null = null;
@@ -1293,7 +1386,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 cancelMountedAuthorities();
             };
             const mountedAuthorityCurrent = (): boolean =>
-                !mountedAuthorityReleased && !mountedAuthorityRetirementNotifying && !mountedAuthorityRetirementFailure
+                !mountedAuthorityReleased && writerResourcePhase === 'active' && !writerResourceControlFailure
+                && !mountedAuthorityRetirementNotifying && !mountedAuthorityRetirementFailure
                 && active && componentAttached && mountedComponentActive && writerScope.active
                 && !fullDraftPrincipalRetired && !fullDraftReleased
                 && editorRuntimeBinding === binding && originalMountedEditor === editor && originalMountedRuntime === mountedRuntime;
@@ -1810,7 +1904,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             };
             const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
                 sealMountedAuthority, hasMountedAuthorityCustody, cancelMountedAuthority, subscribeMountedAuthorityRetirement,
-                search: searchRuntime, mountedSource, readRetainedDocumentBinding });
+                search: searchRuntime, mountedSource, readRetainedDocumentBinding, resources: authoringWriterSessionResources });
             revokeCurrentMountedAuthority?.();
             revokeCurrentMountedAuthority = revokeMountedAuthority;
             notifyCurrentMountedAuthorityRetirement = notifyMountedAuthorityRetirement;
@@ -1820,44 +1914,44 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     });
     const initTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'refresh',
         producerRef: 'article-write:init'
     });
     const submitTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'refresh',
         producerRef: 'article-write:submit'
     });
     const taxonomyTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'refresh',
         producerRef: 'article-write:taxonomy'
     });
     // Source admission owns the document preview lease; this controller only cancels the caller.
     const previewTask = useAbortableTask();
     const prepublishTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'feature',
         producerRef: 'article-write:prepublish'
     });
     const aiAssistTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'feature',
         producerRef: 'article-write:ai-assist'
     });
     const assetTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'attachment',
         producerRef: 'article-write:asset'
     });
     const revisionRefreshTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'refresh',
         producerRef: 'article-write:revision-refresh'
     });
     const revisionCompareTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
+        registry: writerTaskRegistry,
         kind: 'compare',
         producerRef: 'article-write:revision-compare'
     });
@@ -1865,7 +1959,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         runtime: imageUploadRuntime,
         getOptions: () => imageUploadOptions.value,
         getWasmOnly: () => wasmOnlyMode.value,
-        taskRegistry: articleDocumentContextAdapter,
+        taskRegistry: writerTaskRegistry,
         taskProducerRef: 'article-write:image-upload',
         get getAttemptBinding()
         {
@@ -1923,7 +2017,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         signal?.addEventListener('abort', cancel, { once: true });
         try
         {
-            await imageUploadFlow.startUpload({ files: [file], maxFiles: 1,
+            await observeWriterResourceWork('imageUploadFlow:startUpload', () => imageUploadFlow.startUpload({ files: [file], maxFiles: 1,
                 notifyOnSuccess: false, notifyOnError: false,
                 onError: (_message, error) =>
                 {
@@ -1948,7 +2042,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                         return await provider.observe(loanSignal);
                     });
                 }
-            });
+            }));
             signal?.throwIfAborted();
             if (outcome.error)
             {
@@ -2011,12 +2105,12 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             throw new Error('article-attachment-upload-busy');
         }
         assertUploadObligationAbsent();
-        await imageUploadFlow.resumeUpload({
+        await observeWriterResourceWork('imageUploadFlow:resumeUpload', () => imageUploadFlow.resumeUpload({
             messages: {
                 resumeMissing: '没有可恢复的上传任务',
                 resumeFailed: '继续上传失败'
             }
-        });
+        }));
     };
 
     const handleCoverUpload = async (files: File[]): Promise<void> =>
@@ -2031,7 +2125,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             return;
         }
         taskFeedback.begin('正在上传文章头图', `待同步 ${files.length} 个文件`, 'article-cover');
-        await imageUploadFlow.startUpload({
+        await observeWriterResourceWork('imageUploadFlow:startUpload', () => imageUploadFlow.startUpload({
             files: [files[0]],
             maxFiles: 1,
             messages: {
@@ -2052,7 +2146,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 taskFeedback.fail('文章头图上传失败', message, message, 'article-cover');
                 showErrorToast(message, message);
             }
-        });
+        }));
     };
     let unsubscribeArticleRecoveryCoordination: (() => void) | null = null;
     let disposeArticleRecoveryLifecycle: (() => void) | null = null;
@@ -2245,7 +2339,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const articleRecoveryFlushOwner = new ArticleRecoveryFlushOwner(async (input) =>
     {
-        const result = await articleRecoveryJournal.write(input);
+        const result = await observeWriterResourceWork('journal-write', () => articleRecoveryJournal.write(input), true);
         updateRecoveryStorageWarning(result.status);
         if (result.status === 'stored')
         {
@@ -2264,6 +2358,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     ): boolean =>
     {
+        if (!canStartWriterResourceWork())
+        {
+            return false;
+        }
         const identityId = recoveryIdentityId();
         if (!identityId)
         {
@@ -2285,6 +2383,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const flushArticleRecoveryWrite = async (): Promise<ArticleRecoveryJournalWriteResult> =>
     {
+        if (!canStartWriterResourceWork())
+        {
+            return { status: 'unavailable', record: null };
+        }
         let result: ArticleRecoveryFlushResult;
         try
         {
@@ -2327,11 +2429,15 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         return flushArticleRecoveryWrite();
     };
 
-    const saveServerDraftSnapshot = async (
+    const saveServerDraftSnapshotJob = async (
         snapshot: ArticleDraftSnapshot,
         recoveryRecord: ArticleRecoveryJournalRecord | null
     ): Promise<void> =>
     {
+        if (!canStartWriterResourceWork())
+        {
+            return;
+        }
         if (serverDraftSyncPaused.value
             || articleDocumentContextAdapter.context.contextDigest !== snapshot.documentContextDigest)
         {
@@ -2340,7 +2446,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
 
         const token = ++serverDraftSaveToken;
-        const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:draft-save');
+        const task = writerTaskRegistry.beginTask('refresh', 'article-write:draft-save');
         try
         {
             const saved = await saveServerDraft(buildServerDraftRequest(snapshot), buildSignalConfig(task.signal));
@@ -2438,10 +2544,12 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             task.settle();
         }
     };
+    const saveServerDraftSnapshot = async (...args: Parameters<typeof saveServerDraftSnapshotJob>): ReturnType<typeof saveServerDraftSnapshotJob> =>
+        observeWriterResourceWork('direct:saveServerDraftSnapshot', () => saveServerDraftSnapshotJob(...args), true);
 
     const saveDraftNow = (): void =>
     {
-        if (suppressDraftSave || !hasDraftContent(articleForm))
+        if (!canStartWriterResourceWork() || suppressDraftSave || !hasDraftContent(articleForm))
         {
             return;
         }
@@ -2455,27 +2563,30 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             return;
         }
-        draftSaveInFlightIdentity = identity;
-        draftSavedAt.value = snapshot.savedAt;
-        draftStatusText.value = '正在保存服务端草稿…';
-        void queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
-            articleId: snapshot.sourceArticleId,
-            baseRevisionId: snapshot.baseRevisionId,
-            serverRevision: snapshot.serverRevision
-        })
-            .then(result => saveServerDraftSnapshot(snapshot, result.record))
-            .finally(() =>
-            {
-                if (draftSaveInFlightIdentity === identity)
+        void observeWriterResourceWork('draft-save-chain', () =>
+        {
+            draftSaveInFlightIdentity = identity;
+            draftSavedAt.value = snapshot.savedAt;
+            draftStatusText.value = '正在保存服务端草稿…';
+            return queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
+                articleId: snapshot.sourceArticleId,
+                baseRevisionId: snapshot.baseRevisionId,
+                serverRevision: snapshot.serverRevision
+            })
+                .then(result => saveServerDraftSnapshot(snapshot, result.record))
+                .finally(() =>
                 {
-                    draftSaveInFlightIdentity = null;
-                }
-            });
+                    if (draftSaveInFlightIdentity === identity)
+                    {
+                        draftSaveInFlightIdentity = null;
+                    }
+                });
+        });
     };
 
     const scheduleDraftSave = (): void =>
     {
-        if (suppressDraftSave || typeof window === 'undefined')
+        if (!canStartWriterResourceWork() || suppressDraftSave || typeof window === 'undefined')
         {
             return;
         }
@@ -2509,7 +2620,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
 
-    const refreshArticleRecoveryCandidates = async (parentSignal?: AbortSignal): Promise<void> =>
+    const refreshArticleRecoveryCandidatesJob = async (parentSignal?: AbortSignal): Promise<void> =>
     {
         const identityId = recoveryIdentityId();
         if (!identityId)
@@ -2518,7 +2629,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             selectedArticleRecoveryId.value = '';
             return;
         }
-        const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
+        const task = writerTaskRegistry.beginTask('refresh', 'article-write:recovery-refresh');
         const abortParent = (): void =>
         {
             task.cancel('parent-task-aborted');
@@ -2591,6 +2702,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             task.settle();
         }
     };
+    const refreshArticleRecoveryCandidates = async (...args: Parameters<typeof refreshArticleRecoveryCandidatesJob>): ReturnType<typeof refreshArticleRecoveryCandidatesJob> =>
+        observeWriterResourceWork('direct:refreshArticleRecoveryCandidates', () => refreshArticleRecoveryCandidatesJob(...args), true);
 
     const detectDraftCandidates = async (signal: AbortSignal): Promise<void> =>
     {
@@ -3172,13 +3285,13 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         articleRecoveryOperationKind.value = state.kind;
         articleRecoveryOperationError.value = state.error;
     });
-    const runArticleRecoveryOperation = async (
+    const runArticleRecoveryOperationJob = async (
         kind: ArticleRecoveryOperationKind,
         failureMessage: string,
         operation: () => void | Promise<void>
     ): Promise<boolean> =>
     {
-        const task = articleDocumentContextAdapter.beginTask('compare', `article-write:recovery-${kind}`);
+        const task = writerTaskRegistry.beginTask('compare', `article-write:recovery-${kind}`);
         try
         {
             return await articleRecoveryOperationRunner(kind, failureMessage, async () =>
@@ -3200,6 +3313,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             task.settle();
         }
     };
+    const runArticleRecoveryOperation = async (...args: Parameters<typeof runArticleRecoveryOperationJob>): ReturnType<typeof runArticleRecoveryOperationJob> =>
+        observeWriterResourceWork('direct:runArticleRecoveryOperation', () => runArticleRecoveryOperationJob(...args), true);
 
     const compareSelectedArticleRecovery = async (): Promise<void> =>
     {
@@ -3470,9 +3585,9 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
 
-    const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
+    const refreshAssetLibraryJob = async (signal?: AbortSignal): Promise<void> =>
     {
-        const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
+        const task = writerTaskRegistry.beginTask('attachment', 'article-write:asset-refresh');
         const abortParent = (): void =>
         {
             task.cancel('parent-task-aborted');
@@ -3508,6 +3623,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             task.settle();
         }
     };
+    const refreshAssetLibrary = async (...args: Parameters<typeof refreshAssetLibraryJob>): ReturnType<typeof refreshAssetLibraryJob> =>
+        observeWriterResourceWork('direct:refreshAssetLibrary', () => refreshAssetLibraryJob(...args), true);
 
     const applyArticleDetailToForm = (data: ArticleDetailResponse): void =>
     {
@@ -3552,7 +3669,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         revisionLoading.value = true;
         try
         {
-            await revisionRefreshTask.run(async (signal) =>
+            await observeWriterResourceWork('revisionRefreshTask:run', () => revisionRefreshTask.run(async (signal) =>
             {
                 const revisions = await listArticleRevisions(articleId.value!, buildSignalConfig(signal));
                 if (signal.aborted)
@@ -3566,7 +3683,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     selectedRevision.value = null;
                 }
                 revisionStatusText.value = revisions.length > 0 ? `已载入 ${revisions.length} 个历史版本` : '暂无修订历史';
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -3591,7 +3708,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         revisionLoading.value = true;
         try
         {
-            await revisionCompareTask.run(async (signal) =>
+            await observeWriterResourceWork('revisionCompareTask:run', () => revisionCompareTask.run(async (signal) =>
             {
                 const selected = await getArticleRevision(articleId.value!, revision.id, buildSignalConfig(signal));
                 if (signal.aborted)
@@ -3600,7 +3717,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 selectedRevision.value = selected;
                 revisionStatusText.value = `正在比较版本 ${selected.revisionNo}`;
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -3615,7 +3732,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
 
-    const rollbackSelectedRevision = async (selection: { targetStatus: 0 | 2 | 3; reason: string; }): Promise<void> =>
+    const rollbackSelectedRevisionJob = async (selection: { targetStatus: 0 | 2 | 3; reason: string; }): Promise<void> =>
     {
         if (!selectedRevision.value || articleId.value === null)
         {
@@ -3624,7 +3741,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
         revisionRollbacking.value = true;
         taskFeedback.begin('正在回滚历史版本', `目标版本 ${selectedRevision.value.revisionNo}`, 'article-revision');
-        const task = articleDocumentContextAdapter.beginTask('feature', 'article-write:revision-rollback');
+        const task = writerTaskRegistry.beginTask('feature', 'article-write:revision-rollback');
         try
         {
             const revisionNo = selectedRevision.value.revisionNo;
@@ -3697,6 +3814,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             task.settle();
         }
     };
+    const rollbackSelectedRevision = async (...args: Parameters<typeof rollbackSelectedRevisionJob>): ReturnType<typeof rollbackSelectedRevisionJob> =>
+        observeWriterResourceWork('direct:rollbackSelectedRevision', () => rollbackSelectedRevisionJob(...args), true);
 
     const generatePrivatePreview = async (): Promise<void> =>
     {
@@ -3711,7 +3830,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在生成私有预览', '预览不会发布到公开站点', 'article-preview');
         try
         {
-            await previewTask.run(async (signal) =>
+            await observeWriterResourceWork('previewTask:run', () => previewTask.run(async (signal) =>
             {
                 await previewCurrentAuthorities.refresh(signal);
                 const preview = await articlePreviewGeneration.generate(signal);
@@ -3725,7 +3844,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     ? `已生成预览，存在 ${errorCount} 个发布阻断项`
                     : `已生成预览，正文 ${preview.plainText.length} 字符`;
                 taskFeedback.succeed('私有预览已生成', privatePreviewStatusText.value, 'article-preview');
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -3779,7 +3898,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         try
         {
             let canPublish = true;
-            await prepublishTask.run(async (signal) =>
+            await observeWriterResourceWork('prepublishTask:run', () => prepublishTask.run(async (signal) =>
             {
                 const snapshot = buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server');
                 const request = {
@@ -3814,7 +3933,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     taskFeedback.succeed('发布前检查完成', seoStatusText.value, 'article-prepublish');
                 }
-            });
+            }));
             return canPublish;
         }
         catch (error: unknown)
@@ -3882,7 +4001,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在重建资产索引', `文章 ${articleId.value}`, 'article-assets');
         try
         {
-            await assetTask.run(async (signal) =>
+            await observeWriterResourceWork('assetTask:run', () => assetTask.run(async (signal) =>
             {
                 const assets = await reindexArticleAssets(articleId.value!, buildSignalConfig(signal));
                 if (signal.aborted)
@@ -3894,7 +4013,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 assetLibraryStatusText.value = `资产库已重建，当前 ${assets.length} 项`;
                 taskFeedback.succeed('资产索引已重建', assetLibraryStatusText.value, 'article-assets');
                 toast.success('资产库已重建');
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -3916,7 +4035,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在清理孤儿资产', '仅清理无引用资源', 'article-assets');
         try
         {
-            await assetTask.run(async (signal) =>
+            await observeWriterResourceWork('assetTask:run', () => assetTask.run(async (signal) =>
             {
                 const deleted = await cleanupOrphanAssets(buildSignalConfig(signal));
                 if (signal.aborted)
@@ -3927,7 +4046,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 await refreshAssetLibrary(signal);
                 taskFeedback.succeed('孤儿资产清理完成', `已清理 ${deleted} 个孤儿资产`, 'article-assets');
                 toast.success(`已清理 ${deleted} 个孤儿资产`);
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -3979,7 +4098,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在创建分类', trimmed, 'article-taxonomy');
         try
         {
-            await taxonomyTask.run(async (signal) =>
+            await observeWriterResourceWork('taxonomyTask:run', () => taxonomyTask.run(async (signal) =>
             {
                 const result = await createCategory(trimmed, buildSignalConfig(signal));
                 await refreshTaxonomy(signal);
@@ -3998,7 +4117,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     categories.value = [...categories.value, { id: result.id, name: trimmed, articleCount: 0 }];
                     articleForm.categoryId = result.id;
                 }
-            });
+            }));
             taskFeedback.succeed('分类已创建并选中', trimmed, 'article-taxonomy');
             return true;
         }
@@ -4029,7 +4148,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在创建标签', trimmed, 'article-taxonomy');
         try
         {
-            await taxonomyTask.run(async (signal) =>
+            await observeWriterResourceWork('taxonomyTask:run', () => taxonomyTask.run(async (signal) =>
             {
                 const result = await createTag(trimmed, buildSignalConfig(signal));
                 await refreshTaxonomy(signal);
@@ -4048,7 +4167,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     tags.value = [...tags.value, { id: result.id, name: trimmed, articleCount: 0 }];
                     articleForm.tagIds = [...articleForm.tagIds, result.id];
                 }
-            });
+            }));
             taskFeedback.succeed('标签已创建并关联', trimmed, 'article-taxonomy');
             return true;
         }
@@ -4072,7 +4191,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         pageLoading.value = true;
         try
         {
-            await initTask.run(async (signal) =>
+            await observeWriterResourceWork('initTask:run', () => initTask.run(async (signal) =>
             {
                 await Promise.all([
                     refreshTaxonomy(signal),
@@ -4106,7 +4225,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
 
                 await detectDraftCandidates(signal);
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -4300,7 +4419,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             submitting.value = true;
             taskFeedback.begin(`${submitButtonText.value}处理中`, '正在写入文章并同步相关缓存', 'article-submit');
-            await submitTask.run(async (signal) =>
+            await observeWriterResourceWork('submitTask:run', () => submitTask.run(async (signal) =>
             {
                 const config: ApiRequestConfig = { signal };
                 const articlePayload: ArticleWriteRequest = {
@@ -4371,7 +4490,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 articleForm.content = '';
                 await router.push('/user/manage/article/list');
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -4432,7 +4551,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在检查草稿', '摘要草稿、标签匹配、标题备选与结构检查', 'article-ai-assist');
         try
         {
-            await aiAssistTask.run(async (signal) =>
+            await observeWriterResourceWork('aiAssistTask:run', () => aiAssistTask.run(async (signal) =>
             {
                 const response = await generateAiAssist({
                     title: articleForm.title,
@@ -4452,7 +4571,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 taskFeedback.succeed('草稿检查结果已生成', aiAssistStatusText.value, 'article-ai-assist');
                 toast.success('草稿检查结果已生成');
-            });
+            }));
         }
         catch (error: unknown)
         {
@@ -4662,6 +4781,26 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         { deep: true }
     );
 
+    const installWriterRecoveryLifecycle = (): void =>
+    {
+        if (disposeArticleRecoveryLifecycle || typeof window === 'undefined' || typeof document === 'undefined')
+        {
+            return;
+        }
+        disposeArticleRecoveryLifecycle = bindArticleRecoveryLifecycleFlush(async () =>
+        {
+            if (!canStartWriterResourceWork())
+            {
+                return;
+            }
+            await flushArticleRecoveryWrite();
+            if (!suppressDraftSave && canStartWriterResourceWork())
+            {
+                await refreshArticleRecoveryCandidates();
+            }
+        }, { document, window }, ARTICLE_RECOVERY_FLUSH_INTERVAL_MS);
+    };
+
     onMounted(() =>
     {
         if (typeof window !== 'undefined')
@@ -4678,24 +4817,213 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
         unsubscribeArticleRecoveryCoordination = recoveryCoordinator.subscribe((message) =>
         {
-            if (message.articleKey === articleRecoveryArticleKey(articleId.value) && !suppressDraftSave)
+            if (canStartWriterResourceWork() && message.articleKey === articleRecoveryArticleKey(articleId.value) && !suppressDraftSave)
             {
                 void refreshArticleRecoveryCandidates();
             }
         });
-        if (typeof window !== 'undefined' && typeof document !== 'undefined')
-        {
-            disposeArticleRecoveryLifecycle = bindArticleRecoveryLifecycleFlush(async () =>
-            {
-                await flushArticleRecoveryWrite();
-                if (!suppressDraftSave)
-                {
-                    await refreshArticleRecoveryCandidates();
-                }
-            }, { document, window }, ARTICLE_RECOVERY_FLUSH_INTERVAL_MS);
-        }
+        installWriterRecoveryLifecycle();
         powProvider.prewarm();
         void initData();
+    });
+
+    const inspectWriterSessionResources = () =>
+    {
+        const pending = new Set(articleDocumentContextAdapter.pendingTaskRefs);
+        const leases = [...writerTaskLeases].filter(lease => pending.has(lease.taskRef));
+        const ownWorkPending = leases.length > 0 || writerPendingWork.size > 0
+            || attachmentUploadAttempt !== null || draftSaveInFlightIdentity !== null;
+        return Object.freeze({
+            scope: 'writer-owned-local' as const,
+            complete: false as const,
+            phase: !active || !writerScope.active ? 'released' as const : writerResourcePhase,
+            scopeActive: writerScope.active,
+            scopePausedByOwner: writerScopePaused,
+            leaseLimit: writerResourceLimit,
+            workLimit: writerResourceLimit,
+            unattributedDocumentTaskCount: pending.size - leases.length,
+            pendingLeases: Object.freeze(leases.map(lease => Object.freeze({ taskRef: lease.taskRef,
+                producerRef: lease.envelope.producerRef, abortRequested: lease.signal.aborted,
+                neverDispatched: writerUndispatchedLeases.has(lease) }))),
+            pendingWork: Object.freeze([...writerPendingWork].map(work => work.kind)),
+            timers: Object.freeze({ draftSave: draftSaveTimer !== null, serverDraftRetry: serverDraftRetryTimer !== null,
+                recoveryLifecycle: disposeArticleRecoveryLifecycle !== null }),
+            attachmentObservationActive: attachmentUploadAttempt !== null,
+            attachmentObligationCount: attachmentUploadObligations.size,
+            imageResumeContextRetained: imageUploadFlow.pendingContext.value !== null,
+            powCalculating: powProvider.isCalculating.value,
+            draftSaveChainPending: draftSaveInFlightIdentity !== null,
+            settlement: writerResourceControlFailure ? 'failed-pending' as const
+                : ownWorkPending ? 'pending' as const : 'settled-local' as const,
+            controlFailure: writerResourceControlFailure,
+            lastObservedJobFailure: writerResourceJobFailure,
+            unsupported: Object.freeze(['native-image-loan-settlement', 'pow-worker-shutdown-acknowledgement',
+                'recovery-coordination-channel-suspension',
+                'external-producer-effects-and-network-settlement'])
+        });
+    };
+    const pauseWriterSessionResources = (): ReturnType<typeof inspectWriterSessionResources> =>
+    {
+        if (writerResourceControlRunning)
+        {
+            throw writerResourceReentrancyFailure;
+        }
+        if (!active || !writerScope.active)
+        {
+            return inspectWriterSessionResources();
+        }
+        // Failed notification must leave the actual physical owner and cleanup custody untouched.
+        try
+        {
+            notifyCurrentMountedAuthorityRetirement?.();
+        }
+        catch (error)
+        {
+            writerResourceControlFailure ??= { failure: error };
+            throw error;
+        }
+        writerResourceControlRunning = true;
+        writerResourcePhase = 'pausing';
+        const failures: unknown[] = [];
+        const operations = [
+            () => revokeCurrentMountedAuthority?.(),
+            () =>
+            {
+                writerScope.pause();
+                writerScopePaused = true;
+            },
+            () => clearDraftSaveTimer(),
+            () =>
+            {
+                disposeArticleRecoveryLifecycle?.();
+                disposeArticleRecoveryLifecycle = null;
+            },
+            () => previewTask.cancel(),
+            () => imageUploadFlow.cancel(),
+            () => powProvider.terminate(),
+            ...[...writerTaskLeases].map(lease => () =>
+            {
+                if (articleDocumentContextAdapter.pendingTaskRefs.includes(lease.taskRef))
+                {
+                    lease.cancel('article-writer-resource-paused');
+                    if (writerUndispatchedLeases.has(lease))
+                    {
+                        // Only this refused-before-dispatch operation has no executor to await.
+                        // Dispatched jobs settle through their original finally.
+                        lease.complete();
+                        lease.settle();
+                        writerUndispatchedLeases.delete(lease);
+                    }
+                }
+            })
+        ];
+        try
+        {
+            for (const operation of operations)
+            {
+                try
+                {
+                    operation();
+                }
+                catch (error)
+                {
+                    failures.push(error);
+                }
+            }
+            writerResourcePhase = 'paused';
+            if (failures.length > 0)
+            {
+                const previous = writerResourceControlFailure;
+                const failure = combineWriterFailures(failures, 'article-writer-resource-pause-failed');
+                writerResourceControlFailure = previous ?? { failure };
+                throw previous ? combineWriterFailures([previous.failure, failure], 'article-writer-resource-pause-retry-failed') : failure;
+            }
+            // Only success of these real repeated operations releases the prior control failure.
+            writerResourceControlFailure = null;
+            return inspectWriterSessionResources();
+        }
+        finally
+        {
+            writerResourceControlRunning = false;
+        }
+    };
+    const resumeWriterSessionResources = (): ReturnType<typeof inspectWriterSessionResources> =>
+    {
+        if (writerResourceControlRunning)
+        {
+            throw writerResourceReentrancyFailure;
+        }
+        if (writerResourcePhase === 'active')
+        {
+            return inspectWriterSessionResources();
+        }
+        writerResourceControlRunning = true;
+        try
+        {
+            const before = inspectWriterSessionResources();
+            const retained = retainedPrimaryBinding.value;
+            if (!active || !writerScope.active || !retainedPrimaryReady || !retained || fullDraftReleased || fullDraftPrincipalRetired
+                || writerResourcePhase !== 'paused' || !writerScopePaused || writerResourceControlFailure
+                || before.settlement !== 'settled-local' || !componentAttached || !mountedComponentActive
+                || adminStore.adminPrincipal?.id?.trim() !== documentPrincipalIdentityId || !adminStore.hasPermission('article.write'))
+            {
+                throw new Error('article-writer-resource-resume-unavailable');
+            }
+            const observation = retained.inspect();
+            if (observation.admissionClosed || observation.invalidationFailed || observation.registry.state !== 'live'
+                || !articleDocumentContextAdapter.isCurrentContext(observation.context) || retainedPrimaryBinding.value !== retained
+                || writerResourcePhase !== 'paused' || !active || !writerScope.active)
+            {
+                throw new Error('article-writer-resource-resume-document-unavailable');
+            }
+            writerResourcePhase = 'resuming';
+            // Real deferred effects replay; draft work uses its existing server validation.
+            writerScope.resume();
+            writerScopePaused = false;
+            installWriterRecoveryLifecycle();
+            powProvider.prewarm();
+            scheduleDraftSave();
+            writerResourcePhase = 'active';
+            return inspectWriterSessionResources();
+        }
+        catch (error)
+        {
+            if (writerResourcePhase === 'resuming')
+            {
+                writerResourcePhase = 'paused';
+                writerResourceControlFailure = { failure: error };
+            }
+            throw error;
+        }
+        finally
+        {
+            writerResourceControlRunning = false;
+        }
+    };
+    const authoringWriterSessionResources = Object.freeze({
+        inspect: inspectWriterSessionResources,
+        pause: pauseWriterSessionResources,
+        resume: resumeWriterSessionResources,
+        // Cancellation closes admission and uses the same real pause/abort handles, preserving queued recovery and obligations.
+        requestCancellation: pauseWriterSessionResources,
+        settleObservedWork: async () =>
+        {
+            if (writerResourcePhase !== 'paused')
+            {
+                throw new Error('article-writer-resource-settlement-admission-open');
+            }
+            while (writerPendingWork.size > 0)
+            {
+                const promises = [...writerPendingWork].map(work => work.promise).filter((promise): promise is Promise<unknown> => promise !== null);
+                if (promises.length === 0)
+                {
+                    break;
+                }
+                await Promise.allSettled(promises);
+            }
+            // A lease-only job or native loan may still be pending. No timer, signal reset or native aggregate substitutes for its ack.
+            return inspectWriterSessionResources();
+        }
     });
 
     let unsubscribeRetainedContext: (() => void) | null = null;
@@ -5127,6 +5455,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         authoringAttachmentRuntime,
         authoringEditorRuntime,
         authoringRetainedPrimaryRuntime,
+        authoringWriterSessionResources,
         authoringDraftCheckpointRuntime,
         currentRevisionId,
         currentRevisionNo,
