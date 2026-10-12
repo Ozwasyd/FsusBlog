@@ -1184,7 +1184,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     onScopeDispose(unsubscribeMountedAuthorityContext);
     // Revocation-only observation of real auth/private-surface source. These watches
     // cannot issue an auth token or attest permissions, expiry or admin admission.
-    watch(() => [adminStore.adminPrincipal, adminStore.adminState, adminStore.adminSessionStatus,
+    const mountedAuthorityRevocationWatch = watch(() => [adminStore.adminPrincipal, adminStore.adminState, adminStore.adminSessionStatus,
         adminStore.permissions, privateSurfaceRuntime.authGeneration.value, privateSurfaceRuntime.isClearing.value],
     () => revokeCurrentMountedAuthority?.(), { deep: true, flush: 'sync' });
     const authoringEditorRuntime = Object.freeze({
@@ -3244,7 +3244,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         },
         invalidateDraftCheckpoint
     });
-    watch(() => adminStore.adminPrincipal?.id?.trim() ?? null, (identity, previous) =>
+    const draftPrincipalRetirementWatch = watch(() => adminStore.adminPrincipal?.id?.trim() ?? null, (identity, previous) =>
     {
         if (identity !== previous)
         {
@@ -4839,6 +4839,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             phase: !active || !writerScope.active ? 'released' as const : writerResourcePhase,
             scopeActive: writerScope.active,
             scopePausedByOwner: writerScopePaused,
+            retainedCriticalRevocationObservers: 2,
             leaseLimit: writerResourceLimit,
             workLimit: writerResourceLimit,
             unattributedDocumentTaskCount: pending.size - leases.length,
@@ -4855,8 +4856,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             draftSaveChainPending: draftSaveInFlightIdentity !== null,
             settlement: writerResourceControlFailure ? 'failed-pending' as const
                 : ownWorkPending ? 'pending' as const : 'settled-local' as const,
-            controlFailure: writerResourceControlFailure,
-            lastObservedJobFailure: writerResourceJobFailure,
+            controlFailure: writerResourceControlFailure ? Object.freeze({ failure: writerResourceControlFailure.failure }) : null,
+            lastObservedJobFailure: writerResourceJobFailure ? Object.freeze({ failure: writerResourceJobFailure.failure }) : null,
             unsupported: Object.freeze(['native-image-loan-settlement', 'pow-worker-shutdown-acknowledgement',
                 'recovery-coordination-channel-suspension',
                 'external-producer-effects-and-network-settlement'])
@@ -4891,6 +4892,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             {
                 writerScope.pause();
                 writerScopePaused = true;
+                // Keep the two original synchronous retirement guards live, including observed A→B→A.
+                // Scope pause must not coalesce principal/Auth changes into a fresh admission.
+                mountedAuthorityRevocationWatch.resume();
+                draftPrincipalRetirementWatch.resume();
             },
             () => clearDraftSaveTimer(),
             () =>
