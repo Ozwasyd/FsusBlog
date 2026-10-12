@@ -99,6 +99,39 @@ binding, actual snapshot/body authority and resource lifetime afterward. No
 revision renumbering, body store, new document ID issuer or native settlement is
 introduced by this seam. All corresponding runtime qualifications remain HOLD.
 
+The original Writer's `authoringDraftCheckpointRuntime.prepareDraftCheckpoint()`
+prepares one bounded form candidate alongside its existing committed slot. It
+requires that Writer's actual retained binding and mounted native owner at the
+same identity/epoch/revision; no new Writer, body/draft issuer or persistence store
+is involved. It reserves before borrowed readers and reference allocation. The
+returned original preparation exposes immutable `info`, `validate()`,
+`hasCustody()`, `publish()` and `cancel()`. Fresh validation reads the real
+form/version/scope/member/native owners without invoking legacy reference
+inspection or invalidation. Failed validation discards only that candidate and
+cannot be retried. A fresh candidate may then be prepared against the still
+current original owner.
+
+`hasCustody()` checks private candidate/committed-slot/generation/lifetime/mount
+references after validation; it is not fresh native/member or full-host evidence.
+`publish()` performs only those private checks and the original slot assignments;
+it invokes no external reader/callback, allocation, form setter or cleanup. A
+successful publication supersedes the old draft reference exactly once. Cancel
+and preparation failures preserve the old committed slot; genuine intervening
+edits/retirement still invalidate it through the original owner. Pending candidate
+custody blocks legacy capture/restore/release and explicit draft recovery entry.
+Genuine retained lifetime notifications cancel that candidate, not committed
+form custody. Completed/canceled candidates shed private snapshot/previous-slot
+references, retaining no additional body/history store.
+
+The original host must join this protocol with its genuine native, journal and
+renderer preparations and final private guards before publishing a complete
+refset. A candidate `info` is not an already committed reference; legacy
+`inspectDraftReference`/`captureDraftCheckpoint` must not stand in for candidate
+validation/preparation. Writer publication alone grants no native commit,
+cross-identity/epoch/revision/full-ref restoration, recoverable disposal, eviction
+or ready status. Unavailable joins remain refused, and all runtime acceptance
+remains HOLD/UNRUN.
+
 The returned binding exposes `adapter`, `handle`, `inspect()`,
 `subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
 attaches its actual existing form/effects/runtime object once, using one stable

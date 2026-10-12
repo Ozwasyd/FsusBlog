@@ -225,6 +225,13 @@ async function openWriter()
             });
             return editorSessionRef;
         },
+        retain: () => {
+            const registry = articleWorkspaceTabRouter.getRegistry();
+            const context = authoring.authoringDocumentContextAdapter.context;
+            const entry = registry.getEntryByIdentity({ articleId: context.articleId, draftId: context.draftId, documentId: context.documentId });
+            if (!entry) throw new Error('original-writer-member-unavailable');
+            return authoring.authoringRetainedPrimaryRuntime.adoptPrimaryRetainedDocument(registry.issueRetainedDocumentHandle(entry.tabId));
+        },
         rebind: () => {
             session = authoring.authoringEditorRuntime.bindEditor(commands, bindingOptions);
             return session.binding;
@@ -235,6 +242,215 @@ describe('Writer composed attachment/tool/owner lifecycle regression', () => {
     // Source controls only: NOT RUN under the current product/mount/native holds.
     // Real Writer/mounted editor/registry/journal binding; no token/persistence result is fabricated.
     // Full-draft source counterexamples: UNRUN, genuine form/native/Registry; no fake checkpoint.
+    it('refuses preparation without a genuine retained binding and preserves the original committed slot', async () => {
+        const f = await openWriter();
+        f.associate();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        expect(old).not.toBeNull();
+        expect(draft.prepareDraftCheckpoint()).toBeNull();
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+    });
+
+    it('prepares and cancels only its actual candidate without replacing the old draft reference', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        expect(old).not.toBeNull();
+        const prepared = draft.prepareDraftCheckpoint();
+        expect(prepared).not.toBeNull();
+        expect(prepared!.info.draftStateRef).not.toBe(old!.draftStateRef);
+        expect(draft.inspectDraftReference(prepared!.info.draftStateRef)).toBeNull();
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+        expect(prepared!.hasCustody()).toBe(true);
+        expect(prepared!.cancel()).toBe(true);
+        expect(prepared!.cancel()).toBe(false);
+        expect(prepared!.validate()).toBe(false);
+        expect(prepared!.publish()).toBeNull();
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+        const successor = draft.prepareDraftCheckpoint();
+        expect(successor).not.toBeNull();
+        expect(prepared!.cancel()).toBe(false);
+        expect(prepared!.publish()).toBeNull();
+        expect(successor!.hasCustody()).toBe(true);
+        expect(successor!.cancel()).toBe(true);
+    });
+
+    it('publishes one validated same-owner form candidate without native callbacks or form writes', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        const prepared = draft.prepareDraftCheckpoint();
+        expect(old).not.toBeNull();
+        expect(prepared).not.toBeNull();
+        expect(prepared!.validate()).toBe(true);
+        const context = f.authoring.authoringDocumentContextAdapter.context;
+        const content = f.authoring.articleForm.content;
+        // Any borrowed mounted callback would fail. Publication must use private custody only.
+        f.readMount(() => { throw new Error('publication-invoked-native-reader'); });
+        expect(prepared!.publish()).toBe(prepared!.info);
+        expect(f.authoring.articleForm.content).toBe(content);
+        expect(f.authoring.authoringDocumentContextAdapter.context).toBe(context);
+        expect(prepared!.publish()).toBeNull();
+        expect(prepared!.cancel()).toBe(false);
+        f.readMount(null);
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBeNull();
+        expect(draft.inspectDraftReference(prepared!.info.draftStateRef)).toBe(prepared!.info);
+    });
+
+    it('preserves committed custody when actual mounted preparation reads fail', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        expect(old).not.toBeNull();
+        f.readMount(() => { throw new Error('actual-prepare-owner-read-failed'); });
+        expect(draft.prepareDraftCheckpoint()).toBeNull();
+        f.readMount(null);
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+        const retry = draft.prepareDraftCheckpoint();
+        expect(retry).not.toBeNull();
+        expect(retry!.cancel()).toBe(true);
+    });
+
+    it('discards a failed validation candidate and cannot recommit it while the old slot remains valid', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        const prepared = draft.prepareDraftCheckpoint();
+        expect(old).not.toBeNull();
+        expect(prepared).not.toBeNull();
+        f.readMount(() => { throw new Error('actual-validation-reader-failed'); });
+        expect(prepared!.validate()).toBe(false);
+        f.readMount(null);
+        expect(prepared!.hasCustody()).toBe(false);
+        expect(prepared!.validate()).toBe(false);
+        expect(prepared!.publish()).toBeNull();
+        expect(prepared!.cancel()).toBe(false);
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+    });
+
+    it('reserves preparation before mounted reentry and refuses legacy capture restore or release interleaving', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        expect(old).not.toBeNull();
+        let reads = 0;
+        f.readMount(() => {
+            reads += 1;
+            expect(draft.prepareDraftCheckpoint()).toBeNull();
+            expect(draft.captureDraftCheckpoint()).toBeNull();
+            expect(draft.restoreDraftReference(old!.draftStateRef)).toBeNull();
+            expect(draft.releaseDraftCheckpoint(old!.draftStateRef)).toBe(false);
+        });
+        const prepared = draft.prepareDraftCheckpoint();
+        expect(reads).toBeGreaterThan(0);
+        expect(prepared).not.toBeNull();
+        f.readMount(null);
+        expect(prepared!.cancel()).toBe(true);
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+    });
+
+    it('refuses nested validation/publication and honors actual cancellation during borrowed reads', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        const prepared = draft.prepareDraftCheckpoint();
+        expect(old).not.toBeNull();
+        expect(prepared).not.toBeNull();
+        f.readMount(() => {
+            expect(prepared!.validate()).toBe(false);
+            expect(prepared!.publish()).toBeNull();
+            prepared!.cancel();
+        });
+        expect(prepared!.validate()).toBe(false);
+        f.readMount(null);
+        expect(prepared!.publish()).toBeNull();
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+    });
+
+    it('keeps old committed custody after actual candidate reference allocation fails', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const old = draft.captureDraftCheckpoint();
+        expect(old).not.toBeNull();
+        const uuid = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() => { throw new Error('actual-reference-allocation-failed'); });
+        expect(draft.prepareDraftCheckpoint()).toBeNull();
+        uuid.mockRestore();
+        expect(draft.inspectDraftReference(old!.draftStateRef)).toBe(old);
+    });
+
+    it('cancels the candidate on a real principal retirement and does not revive it after ABA', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const prepared = f.authoring.authoringDraftCheckpointRuntime.prepareDraftCheckpoint();
+        expect(prepared).not.toBeNull();
+        boot.setPrincipal(null);
+        boot.setPrincipal(boot.principalId);
+        expect(prepared!.validate()).toBe(false);
+        expect(prepared!.hasCustody()).toBe(false);
+        expect(prepared!.publish()).toBeNull();
+        expect(f.authoring.authoringDraftCheckpointRuntime.prepareDraftCheckpoint()).toBeNull();
+    });
+
+    it('refuses a candidate after a real native transaction changes the original context revision', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const prepared = f.authoring.authoringDraftCheckpointRuntime.prepareDraftCheckpoint();
+        expect(prepared).not.toBeNull();
+        f.dispatch({ changes: [{ from: 0, to: 0, insert: 'New actual body' }], history: 'separate', origin: 'programmatic' });
+        expect(prepared!.validate()).toBe(false);
+        expect(prepared!.publish()).toBeNull();
+    });
+
+    it('refuses publication when the original mounted runtime was actually released', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const prepared = f.authoring.authoringDraftCheckpointRuntime.prepareDraftCheckpoint();
+        expect(prepared).not.toBeNull();
+        f.release();
+        expect(prepared!.hasCustody()).toBe(false);
+        expect(prepared!.publish()).toBeNull();
+        expect(prepared!.cancel()).toBe(false);
+    });
+
+    it('cancels a pending candidate on a genuine handle permission notification before publication', async () => {
+        const f = await openWriter();
+        f.associate();
+        f.retain();
+        const draft = f.authoring.authoringDraftCheckpointRuntime;
+        const prepared = draft.prepareDraftCheckpoint();
+        expect(prepared).not.toBeNull();
+        const registry = articleWorkspaceTabRouter.getRegistry();
+        const context = f.authoring.authoringDocumentContextAdapter.context;
+        const entry = registry.getEntryByIdentity({ articleId: context.articleId, draftId: context.draftId, documentId: context.documentId });
+        if (!entry) throw new Error('original-writer-member-unavailable');
+        registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'invalidate-permission',
+            commandId: 'command:writer-prepare-permission', idempotencyKey: 'idempotency:writer-prepare-permission',
+            expectedRevision: registry.getRevision(), tabId: entry.tabId,
+            statusRef: 'status:writer-prepare-permission', permission: 'revoked' });
+        expect(prepared!.hasCustody()).toBe(false);
+        expect(prepared!.publish()).toBeNull();
+        expect(prepared!.validate()).toBe(false);
+        expect(prepared!.cancel()).toBe(false);
+    });
+
     it('retires the original unadopted draft slot across principal A-null/B-A transitions', async () => {
         const f = await openWriter();
         f.associate();
