@@ -93,6 +93,10 @@ interface RetainedArticleDocumentCell {
     readonly read: () => RetainedArticleDocumentInspection;
     readonly notify: () => void;
     readonly publication: () => RetainedMembershipPublication | null;
+    readonly retire: () => void;
+    readonly retirementPending: () => boolean;
+    readonly retirementListeners: Set<() => void>;
+    readonly retirementFailures: unknown[];
     readonly listeners: Set<() => void>;
     reason: RetainedArticleDocumentRevocation | null;
     membershipClosed: boolean;
@@ -181,6 +185,21 @@ export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDo
     };
 }
 
+/** Synchronous pre-change signal from this same original cell/Registry realm. */
+export function subscribeRetainedArticleDocumentRetirement(handle: RetainedArticleDocumentHandle, listener: () => void): () => void
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell || typeof listener !== 'function' || cell.retirementPending() || cell.publication() === null)
+    {
+        throw new Error('retained-article-document-retirement-subscription-unavailable');
+    }
+    cell.retirementListeners.add(listener);
+    return () =>
+    {
+        cell.retirementListeners.delete(listener);
+    };
+}
+
 /** Only scope retirement is an explicit revocation; close follows canonical removal. */
 export function revokeRetainedArticleDocumentScope(handle: RetainedArticleDocumentHandle): void
 {
@@ -199,13 +218,45 @@ export function revokeRetainedArticleDocumentScopeSet(handles: readonly Retained
         }
         return cell;
     });
+    if (cells.some(cell => cell.retirementPending()))
+    {
+        throw new Error('retained-article-document-retirement-in-progress');
+    }
+    const retiredRegistries = new Set<OpenArticleDocumentRegistry>();
+    const failures: unknown[] = [];
+    for (const cell of cells)
+    {
+        if (!retiredRegistries.has(cell.registry))
+        {
+            retiredRegistries.add(cell.registry);
+            try
+            {
+                cell.retire();
+            }
+            catch (error)
+            {
+                failures.push(error);
+            }
+        }
+    }
     for (const cell of cells)
     {
         cell.reason ??= 'scope-revoked';
     }
     for (const cell of cells)
     {
-        cell.notify();
+        try
+        {
+            cell.notify();
+        }
+        catch (error)
+        {
+            failures.push(error);
+        }
+    }
+    if (failures.length > 0)
+    {
+        throw new AggregateError(failures, 'retained-article-document-scope-retirement-failed', { cause: failures[0] });
     }
 }
 
@@ -829,6 +880,7 @@ export class OpenArticleDocumentRegistry
     #retainedNotificationPending = false;
     #retainedNotificationRequested = false;
     #membershipMutationDepth = 0;
+    #membershipRetirementPending = false;
     #membershipPublication: RetainedMembershipPublication | null = { entries: this.entriesByTabId, revision: this.revision };
 
     #runMembershipMutation<T>(operation: () => T): T
@@ -839,6 +891,7 @@ export class OpenArticleDocumentRegistry
         let outcome: { succeeded: true; value: T; } | { succeeded: false; error: unknown; };
         try
         {
+            this.#retireMembershipAuthority();
             outcome = { succeeded: true, value: operation() };
         }
         catch (error)
@@ -882,9 +935,51 @@ export class OpenArticleDocumentRegistry
         return outcome.value;
     }
 
+    #retireMembershipAuthority(): void
+    {
+        if (this.#membershipRetirementPending)
+        {
+            throw new Error('retained-article-document-retirement-in-progress');
+        }
+        this.#membershipPublication = null;
+        this.#membershipRetirementPending = true;
+        const failures: { cell: RetainedArticleDocumentCell; error: unknown; }[] = [];
+        try
+        {
+            for (const cell of this.#retainedDocumentCells)
+            {
+                for (const listener of [...cell.retirementListeners])
+                {
+                    try
+                    {
+                        listener();
+                    }
+                    catch (error)
+                    {
+                        failures.push({ cell, error });
+                    }
+                }
+            }
+        }
+        finally
+        {
+            this.#membershipRetirementPending = false;
+        }
+        for (const failure of failures)
+        {
+            failure.cell.notificationFailed = true;
+            failure.cell.retirementFailures.push(failure.error);
+        }
+        if (failures.length > 0)
+        {
+            throw new AggregateError(failures.map(failure => failure.error), 'retained-article-document-pre-retirement-failed',
+                { cause: failures[0].error });
+        }
+    }
+
     #publishMembershipAuthority(): void
     {
-        if (this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        if (this.#membershipMutationDepth !== 0 || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
         {
             return;
         }
@@ -902,7 +997,7 @@ export class OpenArticleDocumentRegistry
     public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
     {
         const entry = this.entriesByTabId.get(tabId);
-        if (!entry || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        if (!entry || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
         {
             throw new Error('retained-article-document-member-unavailable');
         }
@@ -938,6 +1033,10 @@ export class OpenArticleDocumentRegistry
             listeners: new Set(),
             notify: () => this.#notifyRetainedDocuments(),
             publication: () => this.#membershipPublication,
+            retire: () => this.#retireMembershipAuthority(),
+            retirementPending: () => this.#membershipRetirementPending,
+            retirementListeners: new Set(),
+            retirementFailures: [],
             read: () =>
             {
                 const current = this.entriesByTabId.get(tabId);
@@ -1098,7 +1197,7 @@ export class OpenArticleDocumentRegistry
     private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
         next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
     {
-        if (this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        if (this.#ownershipTransactionPending || this.#retainedNotificationPending || this.#membershipRetirementPending)
         {
             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
         }
