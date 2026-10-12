@@ -494,3 +494,55 @@ are only static source declarations: no attack, candidate import, tests/list or
 auth/security/runtime/native/receipt qualification runs. Independent correction
 review, canonical frame join, real batch/host/session/shell and full restore
 acceptance remain WIP.
+
+## Read sequencing and real mutation settlement correction source
+
+Independent exact `efddb5f4b324f66e633bcce838ee15d048ea7213` review closed the
+original transport-replacement/dispose/old-response P2 at source and reported
+no new P1. It found a new P2: a unified read ticket also cancelled a same-lifetime
+pending reset/write whenever a later read merely started. A peer invalidation
+could start that read during Sync reset, discarding its real applied/conflict
+receipt before the read even returned. The correction below awaits independent
+review; all attack/runtime/test/list/security/native/receipt holds remain.
+
+Read tickets now arbitrate reads only. Mutation start invalidates older reads,
+and verified mutation settlement invalidates overlapping pending reads again.
+Mutation verification still uses the fixed original lifetime, signal, immutable
+binding, original closed receipt/CAS/layout checks, owned-copy validation and
+monotonic published revision; a later read intent cannot cancel that real result.
+No status, revision, receipt or CAS outcome is synthesized. A result older than
+an already published genuine newer server revision still refuses as
+`stale_server_response`, preserving the original publication rule. Permanent
+close, private custody, live provenance lookup and exception fences remain.
+
+Sync reuses its one deferred-peer-read boolean for both flush and reset. A peer
+hint during either mutation never hydrates state or starts a competing channel
+read. After real CAS/cache processing and clearing the pending mutation, one
+deferred read consumes actual server state. A current conflict uses the existing
+conflict path and keeps explicit server choice; close/stop discards the pending
+hint and cannot drain it. No queue, store, local authority or reset fallback is
+created.
+
+Expected `server_read_superseded` cancellation cannot mark a same-lifetime Sync
+as failed. An obsolete channel read during a still-pending mutation requests
+the same bounded deferred reread; lifetime/close/transport failures keep their
+existing handling.
+
+The additional ordinary source matrix declares twenty UNRUN cells:
+
+| Ordering / condition | Required result in the declared controls |
+| --- | --- |
+| read → read | Older ticket refuses without revoking newer provenance. |
+| read → write/reset | Earlier read refuses; genuine applied CAS result remains live. |
+| write/reset → pending read | Real applied/conflict result is processed; late overlapping read refuses. |
+| same-revision read returns before mutation | Mutation keeps its genuine status and supersedes that read observation. |
+| newer server revision already published | Older mutation publication refuses; server effect is not rolled back or rewritten. |
+| pending mutation → close/invalidate | Original lifetime rejection remains; permanent close never reopens. |
+| flush/reset → peer invalidation | One bounded reread follows CAS handling; applied/conflict paths use actual fixture CAS order. |
+| reset → peer → close/stop | No queued read or false reset-success publication follows closure. |
+| old channel read → successful reset | Its expected cancellation does not overwrite the processed CAS status. |
+
+These are static source declarations only, not executed observations. The
+fixture's before/after reset gates control actual existing CAS timing; its
+explicit result return type adds no assertion or fabricated data. Exact source,
+strict compiler and lint evidence do not replace runtime qualification.

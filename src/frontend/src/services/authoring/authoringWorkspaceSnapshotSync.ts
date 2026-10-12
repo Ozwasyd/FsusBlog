@@ -83,7 +83,7 @@ export class AuthoringWorkspaceSnapshotSync
     private flushTask: Promise<void> | null = null;
     private reading = 0;
     private peerLeaseUntil = 0;
-    private readAfterFlush = false;
+    private readAfterMutation = false;
     private readonly events: {
         kind: string;
         revision: number | null;
@@ -357,11 +357,7 @@ export class AuthoringWorkspaceSnapshotSync
         finally
         {
             this.flushTask = null;
-            if (this.readAfterFlush && !this.stopped)
-            {
-                this.readAfterFlush = false;
-                await this.readServer('channel');
-            }
+            await this.readDeferredChannel(epoch);
             this.scheduleFlush();
         }
     }
@@ -432,6 +428,7 @@ export class AuthoringWorkspaceSnapshotSync
             {
                 this.resetting = false;
                 this.record('reset-end');
+                await this.readDeferredChannel(epoch);
                 this.scheduleFlush();
             }
         }
@@ -454,6 +451,7 @@ export class AuthoringWorkspaceSnapshotSync
         this.listeners.clear();
         this.observation = null;
         this.pendingServer = null;
+        this.readAfterMutation = false;
         this.cacheRead = null;
         this.memory = defaultWorkspaceSnapshotLayout();
         this.dirty = false;
@@ -473,6 +471,16 @@ export class AuthoringWorkspaceSnapshotSync
             await this.cache.clearCurrentScope();
         }
         this.cache.close();
+    }
+    private async readDeferredChannel(epoch: number): Promise<void>
+    {
+        if (!this.readAfterMutation || !this.isCurrentOperation(epoch) || this.flushTask || this.resetting)
+        {
+            return;
+        }
+        this.readAfterMutation = false;
+        // A queued peer hint must not silently accept server state after a real CAS conflict.
+        await this.readServer(this.status === 'conflict' ? 'conflict' : 'channel');
     }
     private async readServer(trigger: 'startup' | 'reconnect' | 'conflict' | 'channel'): Promise<void>
     {
@@ -531,6 +539,14 @@ export class AuthoringWorkspaceSnapshotSync
         {
             if (!this.isCurrentOperation(epoch) || ticket !== this.reading)
             {
+                return;
+            }
+            if (error instanceof AuthoringWorkspaceSnapshotError && error.reason === 'server_read_superseded')
+            {
+                if (trigger === 'channel' && (this.flushTask || this.resetting))
+                {
+                    this.readAfterMutation = true;
+                }
                 return;
             }
             this.status = this.cacheRead?.status === 'cached-placeholder' && !this.dirty ? 'cached-placeholder' : 'failed';
@@ -658,9 +674,9 @@ export class AuthoringWorkspaceSnapshotSync
                     this.status = 'conflict';
                     this.reason = 'peer_revision_changed';
                 }
-                if (this.flushTask)
+                if (this.flushTask || this.resetting)
                 {
-                    this.readAfterFlush = true;
+                    this.readAfterMutation = true;
                 }
                 else
                 {
