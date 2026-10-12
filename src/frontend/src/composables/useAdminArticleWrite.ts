@@ -2364,6 +2364,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             }
         },
         inspectDraftReference,
+        /** Original private slot continuity only; never replaces preceding fresh owner/body inspection. */
+        hasDraftReferenceCustody: (reference: string, info: ReturnType<typeof fullDraftInfo>): boolean =>
+            !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
+            && fullDraftCustody?.info === info && fullDraftCustody.info.draftStateRef === reference,
         validateDraftReference: (reference: string, nativeSource: string): boolean =>
             !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
         restoreDraftReference: (reference: string) =>

@@ -15,6 +15,7 @@ import {
     type OpenArticleDocumentEntry
 } from './openArticleDocumentRegistry';
 
+import type { useAdminArticleWrite } from '../../composables/useAdminArticleWrite';
 import type { ArticleRecoveryJournalCheckpointInfo, ArticleRecoveryJournalCheckpointReferenceBinding } from '../articleRecoveryJournal';
 import type {
     MarkdownEditorSession,
@@ -46,7 +47,16 @@ export interface ArticleWorkspaceEditorResourceSources {
     readonly attachment: MarkdownEditorSessionAttachmentResourceSource | null;
 }
 
+/** Borrow the actual original Writer runtime; no form/body/history/custody store here. */
+export type ArticleWorkspaceOriginalDraftCheckpoint = ReturnType<typeof useAdminArticleWrite>['authoringDraftCheckpointRuntime'];
+
+export interface ArticleWorkspaceOriginalDraftInspection {
+    readonly info: NonNullable<ReturnType<ArticleWorkspaceOriginalDraftCheckpoint['inspectDraftReference']>>;
+    readonly editorContentDigest: string;
+}
+
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
+    inspectOriginalDraftCheckpoint(entry: OpenArticleDocumentEntry, draft: ArticleWorkspaceOriginalDraftCheckpoint, reference: string): ArticleWorkspaceOriginalDraftInspection;
     inspectResourceSources(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorResourceSources;
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
     restoreRetainedSnapshot(entry: OpenArticleDocumentEntry, snapshot: MarkdownEditorSessionSnapshot): MarkdownEditorSessionRestoreProof;
@@ -165,6 +175,54 @@ export function createFsusUiEditorSessionFactory(
     }
 
     return {
+        inspectOriginalDraftCheckpoint(entry, draft, reference)
+        {
+            const inspect = draft.inspectDraftReference.bind(draft);
+            const validate = draft.validateDraftReference.bind(draft);
+            const hasCustody = draft.hasDraftReferenceCustody.bind(draft);
+            const { binding, session } = resolveSession(entry);
+            const identity = Object.freeze({ ...binding.identity });
+            const context = Object.freeze({ ...binding.documentContext });
+            const revision = binding.editorRevision;
+            const editor = binding.editor;
+            const info = inspect(reference);
+            if (!info || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
+                || info.editorSessionRef !== entry.editorSessionRef || info.documentContext.articleId !== identity.articleId
+                || info.documentContext.draftId !== identity.draftId || info.documentContext.documentId !== identity.documentId
+                || info.documentContext.documentEpoch !== context.documentEpoch || info.nativeRevision !== revision
+                || info.documentContext.sourceRevision !== revision || info.associationRevision !== entry.lifecycleRevision
+                || info.documentContext.draftRevision !== context.draftRevision
+                || context.sourceRevision !== `source-revision:${revision}`)
+            {
+                throw new Error('public-editor-original-draft-owner-mismatch');
+            }
+            const assertOwner = (): void =>
+            {
+                if (inspect(reference) !== info)
+                {
+                    throw new Error('public-editor-original-draft-custody-revoked');
+                }
+                // Final actual mounted authority follows original draft readers.
+                const current = resolveSession(entry);
+                assertBinding(current.binding, identity, context);
+                if (current.session !== session || current.binding.editor !== editor || current.binding.editorRevision !== revision
+                    || !hasCustody(reference, info))
+                {
+                    throw new Error('public-editor-original-draft-owner-stale');
+                }
+                assertAdmission();
+            };
+            const content = session.inspectContentDigest((source) =>
+            {
+                if (!validate(reference, source))
+                {
+                    throw new Error('public-editor-original-draft-content-mismatch');
+                }
+                return calculateOpenArticleDocumentDigest(source);
+            }, { documentIdentity: Object.freeze({ id: identity.documentId, epoch: context.documentEpoch }), revision, assertAdmission: assertOwner });
+            assertOwner();
+            return Object.freeze({ info, editorContentDigest: content.editorContentDigest });
+        },
         captureRetainedRecoverySnapshot(entry, recoveryCheckpoint, checkpointRef)
         {
             const inspectReference = recoveryCheckpoint.inspectReference.bind(recoveryCheckpoint);

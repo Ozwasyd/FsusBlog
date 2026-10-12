@@ -859,3 +859,42 @@ methods invoke this complete guard after their last renderer/view callbacks.
 Original transaction readonly ABA protection and mutating restore bytes remain.
 The original journal source case checks exact/copy/invalidation and ZERO additional
 source/clock reads; AST-only, UNRUN. Full ref/resource/caller qualification stays held.
+
+
+## Original draft/native source correlation
+
+The original Writer SOURCE CLOSED full-form runtime now lives in this source
+composition, with its actual retained document/native mount/principal/draft
+metadata and same single original form. Its bounded immutable draft reference
+is issued only by that owner. Original principal ABA retirement, restore
+reservation/per-setter admission and real server conflict pause are preserved.
+No body/form/history clone owner, new storage namespace or business grant.
+
+The SAME native public session now supplies inspectContentDigest: synchronous
+read-only original body callback, current native identity/revision/admission
+checks, and immutable digest metadata. It does not capture/restore history or
+replace an existing native checkpoint. The original Writer has a callback-free
+hasDraftReferenceCustody(reference, originalInfo) method over ONLY its private
+current slot/retirement/reservation flags and exact original info object; it
+never replaces prior fresh owner/content inspection.
+
+The same installed factory/composition exposes inspectOriginalDraftCheckpoint /
+inspectArticleWorkspaceOriginalDraftCheckpoint. Pass the ACTUAL original Writer
+authoringDraftCheckpointRuntime and its already issued original reference. The
+factory pins actual methods, checks original full document/draft/session/epoch/
+revision/association, validates native bytes through original validateDraftReference,
+then rechecks original draft inspection, final actual mount and genuine private
+slot continuity. Return is read-only original info plus actual native digest,
+not a complete snapshot, restoration, readiness, pause or safe-eviction receipt.
+The actual Root/Write caller must borrow the same runtime, not reconstruct its
+fields or invent a source from a token/string.
+
+Full snapshot remains refused: complete controlled resources and a qualified
+full recovery ref replacement/restoration protocol are not available. In
+particular the original draft capture invalidates its prior single slot before
+replacement, so the factory must not capture a new draft then discard it after
+a later native/render failure while claiming the prior complete snapshot is
+intact. This read-only method deliberately validates an already issued reference
+without performing that unsafe replacement. All full-factory/resources/disposal/
+eviction/cross-draft/storage/security/privacy/receipt/race/backuprestore/IME/native
+qualification holds remain, and every source test is UNRUN.
