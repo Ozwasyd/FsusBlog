@@ -61,6 +61,16 @@ listener/timeout cleanup and a failed cancel send. A failed private-lease releas
 remains unknown because its retired no-op cannot prove cleanup. Terminal snapshots
 are immutable; subsequent inspections retain later observations on the same handle.
 
+Decode-listener cleanup custody lives on the original owning decode task before
+registration, including direct submission and queue/backpressure refusal. A failed
+removal preserves the actual callback and cause even without a queue/pending entry;
+the unposted task ends with local cleanup unknown rather than a hanging terminal.
+Repeated cancellation retries that same removal holder. Worker acquisition may
+emit synchronous telemetry, so the original signal is checked again before any
+request-local allocation/post. A manual abort path performs guarded removal;
+only actual once-listener dispatch proves automatic detachment. Registration/setup
+failure and queue-pump cleanup failure retain the same custody and refuse posting.
+
 If termination of a broken shared worker throws, the shared owner retains that
 same worker and its failure instead of allocating replacements without bound.
 The next shared acquisition retries that original cleanup before replacement;

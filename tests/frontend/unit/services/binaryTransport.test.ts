@@ -202,6 +202,41 @@ describe('binaryTransport ApiError mapping', () => {
     expect(failed.inspectFailures()).toEqual(originalCustody)
   })
 
+  it('retains original partial caller registration cleanup until a real retry', async () => {
+    const caller = new AbortController()
+    const addOriginal = caller.signal.addEventListener.bind(caller.signal)
+    const registrationFailure = new Error('original-partial-registration')
+    const removalFailure = new Error('original-removal-failure')
+    const addSpy = vi.spyOn(caller.signal, 'addEventListener').mockImplementationOnce((type, listener, options) => {
+      addOriginal(type, listener, options)
+      throw registrationFailure
+    })
+    const removeSpy = vi.spyOn(caller.signal, 'removeEventListener').mockImplementation(() => {
+      throw removalFailure
+    })
+    try {
+      const operation = createBinaryTransport(() => 'unused').startBinaryOnly({
+        binaryUrl: '/api/binary/admin/partial-registration', privateScope: 'admin',
+        frameType: FrameType.EmptySuccess, signal: caller.signal
+      })
+      await expect(operation.result).rejects.toBe(registrationFailure)
+      const terminal = await operation.terminal
+      expect(terminal).toMatchObject({ local: 'unknown', resources: { callerAbortListener: true, workerTerminal: 'not-used' } })
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
+      operation.cancel()
+      expect(operation.inspectResources().callerAbortListener).toBe(true)
+      removeSpy.mockRestore()
+      operation.cancel()
+      expect(operation.inspectResources().callerAbortListener).toBe(false)
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
+      expect(terminal.local).toBe('unknown')
+      expect(mockBinaryRequest).not.toHaveBeenCalled()
+    } finally {
+      addSpy.mockRestore()
+      removeSpy.mockRestore()
+    }
+  })
+
   it('retains the original generation refusal on the new owning handle', async () => {
     let finishRequest!: (value: ArrayBuffer) => void
     mockBinaryRequest.mockImplementation(() => new Promise<ArrayBuffer>(resolve => { finishRequest = resolve }))
