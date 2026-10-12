@@ -1,0 +1,100 @@
+{
+  "baselineMain": "ef7b3f9b9b65a299fe4f3a7a7b2382e5ebd2a539",
+  "closedAuthSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+  "closedWriterSource": "91d1a0caa829d6dcac17badcf772d94fd7881ecb",
+  "supplierFinal": "54a50d6ae79d969b6dd0bd0a42a9144addf163fa",
+  "entries": [
+    {
+      "path": "src/frontend/src/services/authBroadcastComposition.ts",
+      "preimageBlob": "d9d41532bc351c740503e12635b1b52283d5e585",
+      "originalSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+      "originalPostimageBlob": "8b010c1cca8f17cc5d05cf3edd474699920ac79e",
+      "originalSha256": "7d6453f11c2e9aed67b8b2d3f0e31ddd4fbaaf37e117ba6e37a313ce51be584f",
+      "changed": true,
+      "actualPostimageBlob": "8b010c1cca8f17cc5d05cf3edd474699920ac79e",
+      "exactOriginalBytes": true
+    },
+    {
+      "path": "src/frontend/src/services/authBroadcastRuntime.ts",
+      "preimageBlob": "a10d5b68b9690139ed0cce5f127ae138e02e37d1",
+      "originalSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+      "originalPostimageBlob": "cc87f1e4e53d891601bc2dcbd185547cb0292672",
+      "originalSha256": "72c6bef6ffee7e53939c83a81e68e4331714efa341d8ffdb7a673df12c5f5f9a",
+      "changed": true,
+      "actualPostimageBlob": "cc87f1e4e53d891601bc2dcbd185547cb0292672",
+      "exactOriginalBytes": true
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "preimageBlob": "720120471237c17f0e14876aeca67e02e90e94df",
+      "originalSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+      "originalPostimageBlob": "720120471237c17f0e14876aeca67e02e90e94df",
+      "originalSha256": "52edd9df8fc233f21862ac849d70f3d57fac61f5ebb804808f43fdbb840f4aae",
+      "changed": false,
+      "actualPostimageBlob": "720120471237c17f0e14876aeca67e02e90e94df",
+      "exactOriginalBytes": true
+    },
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "preimageBlob": "86e63819220a94932ba66d64a52e4727abe8f838",
+      "originalSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+      "originalPostimageBlob": "3b01c83fb472a78d58474dd6f4cdcc8decab7295",
+      "originalSha256": "400b58d9067a7831faa0e7f99e0cdd35777ca59f5af710cfa1dea48996ccf5ff",
+      "changed": true,
+      "actualPostimageBlob": "3b01c83fb472a78d58474dd6f4cdcc8decab7295",
+      "exactOriginalBytes": true
+    },
+    {
+      "path": "src/frontend/src/store/user.ts",
+      "preimageBlob": "7e34441764d50e49e959adf5a6bffd566089e8a4",
+      "originalSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+      "originalPostimageBlob": "8ab82d319f35614929cc5cb8126ba3abe528aaab",
+      "originalSha256": "5969dfafefff776897c4fc64bbce17da352ec7afacc51538c0240b28a9c0e103",
+      "changed": true,
+      "actualPostimageBlob": "8ab82d319f35614929cc5cb8126ba3abe528aaab",
+      "exactOriginalBytes": true
+    },
+    {
+      "path": "src/frontend/src/store/notificationStream.ts",
+      "preimageBlob": "f47e0ea561fb7614b069c696739af6fd6007832a",
+      "originalSource": "819e49d52d0b73d000cca69ca854df68ae5fdf12",
+      "originalPostimageBlob": "f85ec00a3280c7a23f8a4cef5803a7efab6a0d6b",
+      "originalSha256": "5ced54dba4ce0e8b12a8bc4a6eef2aaffe747e29bfcdae2bb9cac2cbcae7dcad",
+      "changed": true,
+      "actualPostimageBlob": "f85ec00a3280c7a23f8a4cef5803a7efab6a0d6b",
+      "exactOriginalBytes": true
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "preimageBlob": "0fb6c6047c827cd6357915e500dbaa6c114d2009",
+      "originalSource": "91d1a0caa829d6dcac17badcf772d94fd7881ecb",
+      "originalPostimageBlob": "a8cb13c20c3d37977c3935ddd625e2200e17e8b0",
+      "originalSha256": "a8357803afa4e963159a5fc3a76cd3499373eda7774e1ef4a32ddfd8b81dd7a3",
+      "changed": true,
+      "actualPostimageBlob": "a8cb13c20c3d37977c3935ddd625e2200e17e8b0",
+      "exactOriginalBytes": true
+    }
+  ],
+  "originalPatchChecks": 0,
+  "noProductionMutationsYet": false,
+  "actualChangedProductionPaths": [
+    "src/frontend/src/composables/useAdminArticleWrite.ts",
+    "src/frontend/src/services/authBroadcastComposition.ts",
+    "src/frontend/src/services/authBroadcastRuntime.ts",
+    "src/frontend/src/store/admin.ts",
+    "src/frontend/src/store/notificationStream.ts",
+    "src/frontend/src/store/user.ts"
+  ],
+  "checkThenApplyBothOriginalPatches": 0,
+  "allSevenOriginalPostimagesExact": true,
+  "allOtherTrackedPathsUnchanged": true,
+  "preservedOwnerBlobs": {
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e",
+    "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts": "4e78c48bd891a856c6f19c2a3492b9920e3c01da",
+    "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts": "73aba35623bf5c114d8ef22a7c1565972bfd7fc5",
+    "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts": "1e777bdbbeafe58c1faf045e02e93295efd8ce0d",
+    "src/frontend/src/layouts/AdminWorkspaceFrame.vue": "37bda2fbd81cf08616c850431df9138d8f72c022",
+    "src/frontend/src/views/admin/article/Write.vue": "c5f410d3e6f602b20fa9883c726b096fe1cb37e5",
+    "src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts": "9ae1ae8cc21168ac9cb83e3206587ca6372ac5ad"
+  }
+}

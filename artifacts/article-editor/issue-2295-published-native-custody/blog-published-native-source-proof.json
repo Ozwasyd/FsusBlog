@@ -1,0 +1,34 @@
+{
+  "base": "418902abfbe0e0c386a71f62a2ee949457bd93aa",
+  "UI": "2ccd6d906ee48fb9b29b0d8e4b8a7fcbde3b0a24",
+  "production": {
+    "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+    "before": "f8f653c51b599b02092afcc191698bf0c83e94f8",
+    "after": "86ddbd64142c03f6b2aa7269c47f0cb62f750de4",
+    "sha256": "ddf7676745b0092a4dcccb5d9dc99fe3ccd297f65bf3b66924d776776d5b90da"
+  },
+  "implementation": "Bounded actual native publication records successful exact snapshot pointer; new hasPublishedNativeCustody calls only original SDK pure postpublication query. No resolver/owner availability/ref/DOM/clock or additional history/ticket owner.",
+  "fullHost": "capture/restore guard unchanged; scoped required-ref admission does not publish/restore complete host refs",
+  "parentFiniteSourceClosed": [
+    "5a40b3aa4ffaff1f17e4286a2770f935d15b28a9",
+    "00f999a4dde9c197ae4dab21ea94714d7784545d",
+    "b36d977e7e29288309a8b2059db77d18074434e3",
+    "f471071913c525da36aef0ccbf247e5720428f2e",
+    "9a99a7f6b01ed31fac5b2cd8adc4d0e36a4cd9f1",
+    "418902abfbe0e0c386a71f62a2ee949457bd93aa"
+  ],
+  "parentIndependentStartupWholeTypes": "UNRUN missing retained log; own prior243FAIL0delta separate",
+  "runtime": "ALL HOLD/UNRUN",
+  "newIncrementReview": "pending",
+  "protectedBlobs": {
+    "src/frontend/src/layouts/AdminWorkspaceFrame.vue": "4a96b0bd86c3802955e41dc588e66a0dfca98ff7",
+    "src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts": "1f552e0154c5d801ec2055558ba49717d4c8d651",
+    "src/frontend/src/views/admin/article/Write.vue": "0721eca5ff0763fdb35927e1b305f3a05d8c80e2",
+    "src/frontend/src/composables/useAdminArticleWrite.ts": "92eac34f148fbcedeb635596880a9a587b7e07a7",
+    "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts": "a743a8c7af303d422793ee472973f3abb6ae4c2d",
+    "src/frontend/src/services/authoring/articleDocumentContext.ts": "055558e540fa0a2e6b6e26f163e983e32a960bde",
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": "b54be3268b4fbe4ca02d1692735b148e82fed4cb",
+    "src/frontend/src/services/authoring/authoringSessionHost.ts": "3a59ddfd6763130b3e637eddc91b3f614def65b0",
+    "src/frontend/src/services/authoring/articleWorkspaceTabRouter.ts": "57bd14cdc6e13a6efac7cd6585feeaa378769468"
+  }
+}

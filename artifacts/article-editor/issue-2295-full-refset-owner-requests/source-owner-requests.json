@@ -1,0 +1,42 @@
+{
+  "status": "SOURCE OWNER REQUESTS; no fabricated implementations",
+  "currentDelivered": "real Native original token/history/selection + original journal reference/body + canonical partial refs + actual pre-mutation guards",
+  "rootReview": "75fec/9f92 bounded P1/P2 SOURCE CLOSED; runtime UNRUN",
+  "layoutActualDeliveredHead": "ef1d9b7b9d49f8ff0102d47871c37d904cf55a06",
+  "sessionBranchProductWrite": "unchanged; original Layout already consumed real caller, do not equate branch boundary with missing upstream implementation",
+  "remaining": [
+    {
+      "owner": "original Writer draft owner",
+      "source": "src/frontend/src/composables/useAdminArticleWrite.ts:1504 buildDraftSnapshot;2064 applyDraftToForm",
+      "actualCurrent": "private genuine form/draft primitives exist; original recovery binding covers persisted content only",
+      "needed": "original-held immutable full draft checkpoint + actual issued draftStateRef/current principal/site/draft/document/native/version inspection and original restore; invalidate on non-content title/rights/tags/status/schedule changes and original confirm/release",
+      "forbiddenSubstitute": "crashJournalRef/clientRevision/saveDraftNow:void or factory body/form copy"
+    },
+    {
+      "owner": "original native panel/search/outline/attachment owners",
+      "source": "FsusUI markdown-editor.vue:6731 captureViewState;5391 searchMatches; original outline/link/anchor/job state",
+      "actualCurrent": "same original bounded partial mode/search/textarea+preview scroll capture; real search buffers and original attachment jobs exist",
+      "needed": "genuine immutable state/reference resolution for activeNode/scrollAnchor/outline/search/attachment and original same-owner restore within existing native custody",
+      "forbiddenSubstitute": "alias partial viewStateRef/File observation/resource census into full refs; copied IDs do not prove original custody"
+    },
+    {
+      "owner": "original renderer + native surface/consumer owners",
+      "actualCurrent": "actual retained projection restore and partial frame/layout/language/command/attachment controls exist; renderer58 unknown registration/residue holds real sources",
+      "needed": "complete genuine reversible controls for native Vue/effect/event/clipboard and consumer upload/embed/command resources; full original renderer checkpoint/restoration and failure cleanup proof",
+      "forbiddenSubstitute": "zero counters/cancel-to-settlement/paused/disposed/evicted/complete acknowledgment"
+    },
+    {
+      "owner": "original retained document authority lane01a12cf5",
+      "actualCurrent": "original DocContext subscribeContext consumed; same primary binding only",
+      "needed": "published original registry handle/document custody + actual session/document/draft issuance and lifecycle, then separate source intake/review",
+      "forbiddenSubstitute": "second shadow registry/body/history/binding index or old single-adapter source as new second-owner capability"
+    },
+    {
+      "owner": "original facts/preview contract producer",
+      "actualCurrent": "real original upload/preview implementations consumed; fixed baseline lacks original DTO/route/response-kind artifacts",
+      "needed": "actual UploadAssetPreviewViewModel/UploadAssetFactsViewModel, binary_post_upload_uploadId_preview/facts and original response-kind producer source closure",
+      "forbiddenSubstitute": "DTO declarations/route/enum shims, JSON/legacy fallback or authority/catalog refresh"
+    }
+  ],
+  "runtime": "all runtime/tests/list/mount/native/kernel/worker/storage/security/privacy/receipt/race/backuprestore/IME UNRUN; no qualification granted"
+}

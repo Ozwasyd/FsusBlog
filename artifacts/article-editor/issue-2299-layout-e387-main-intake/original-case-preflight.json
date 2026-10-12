@@ -1,0 +1,67 @@
+[
+  {
+    "path": "tests/frontend/unit/authoring/authoringWorkspaceLayoutPolicy.test.ts",
+    "source": "e3877fc3af4819111cfd6725bc17017183fb72d0",
+    "blob": "7a319e44b0cd9ea998ba5b8e2ab22970de57ba4e",
+    "literalCases": [
+      "describe('workspace ratio owner source controls', () =>",
+      "it('keeps state and issuance helpers absent from runtime reflection', () =>",
+      "it('exposes frozen observations without mutable internal state aliases', () =>",
+      "it('rejects reflected helper calls without publishing staged refs or issuing outside-bound values', () =>",
+      "it('starts each real workspace with the canonical default and a distinct ref', () =>",
+      "it('stages and commits both closed endpoints without publishing during prepare', () =>",
+      "it('refuses noninteger, nonfinite and outside-bound input without clamping', () =>",
+      "it('lets only one concurrent proposal win exact predecessor CAS', () =>",
+      "it('rejects an ABA ref when the number returns to the default', () =>",
+      "it('rejects structural copies, fabricated strings and cross-workspace refs', () =>",
+      "it('discards a refused transaction and refuses cloned proposals', () =>",
+      "it('revokes current and pending refs when the actual workspace lifetime ends', () =>",
+      "describe('workspace pure geometry source controls', () =>",
+      "it('plans only horizontal two groups within the visible frame', () =>",
+      "it('subtracts disjoint Rail, inspector, page chrome and scrollbar observations', () =>",
+      "it('accounts for per-group editor chrome before applying each usable-width minimum', () =>",
+      "it('clamps effective ratio without changing the requested ratio or owner identity', () =>",
+      "it('collapses and re-expands without issuing a replacement ratio ref', () =>",
+      "it('forces a focused single plan for mobile, soft keyboard or an explicit single request', () =>",
+      "it('intersects current visual viewport, safe area and soft-keyboard height', () =>",
+      "it('refuses invalid measurements, invalid ratio and layouts outside the closed two states', () =>",
+      "it('refuses zero area, offscreen frame and a focused editor below its explicit minimum', () =>",
+      "it('uses already-zoomed CSS observations for the required synthetic viewport/zoom matrix', () =>"
+    ],
+    "evaluation": "UNRUN; source read only"
+  },
+  {
+    "path": "tests/frontend/unit/authoring/authoringWorkspaceSeparatorAdapter.test.ts",
+    "source": "e3877fc3af4819111cfd6725bc17017183fb72d0",
+    "blob": "8f5dd9ccdd5fdc34fe951ae33623e02a3e0d82e9",
+    "literalCases": [
+      "describe('workspace separator synchronous invalidation source regressions', () =>",
+      "it('refuses a proposal when measure invalidates but still returns valid old measurements', () =>",
+      "it('refuses disposal during measure and never admits binding or start afterward', () =>",
+      "it('checks invalidation and disposal after every prepublication external read port', () =>",
+      "it('prevents nested proposals during measurement while preserving the outer valid CAS', () =>",
+      "it('does not recreate an interaction when start measurement invalidates', () =>",
+      "it('does not return a planned binding after measurement disposes the adapter', () =>",
+      "it('does not accept or revive an interaction invalidated during final publication observation', () =>",
+      "it('locks cancellation callback reentry and allows only a later fresh interaction', () =>",
+      "it('discards refused staging and leaves end single-use and cancellation without rollback', () =>"
+    ],
+    "evaluation": "UNRUN; source read only"
+  },
+  {
+    "path": "tests/frontend/unit/authoring/authoringWorkspaceSnapshotHttpTransport.test.ts",
+    "source": "e3877fc3af4819111cfd6725bc17017183fb72d0",
+    "blob": "f803c7ebc279bd697fe4c2b125a0d53522b8e710",
+    "literalCases": [
+      "describe('workspace snapshot actual private HTTP / typed AEDS boundary', () =>",
+      "it('reads through the registered response codec with private credentials and binary Accept', async () =>",
+      "it('preserves a populated typed current snapshot and its safe int64 revision through registry dispatch', async () =>",
+      "it('rejects an already aborted caller without making a network request', async () =>",
+      "it('checks the actual admin generation after registered payload decoding', async () =>",
+      "it('keeps an admin read valid across an independent account logout', async () =>",
+      "it('cancels before mutation when abort occurs during the real PoW challenge request', async () =>",
+      "it('rejects malformed mutation layout before PoW or network', async () =>"
+    ],
+    "evaluation": "UNRUN; source read only"
+  }
+]

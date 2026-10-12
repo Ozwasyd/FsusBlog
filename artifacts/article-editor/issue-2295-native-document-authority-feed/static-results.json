@@ -1,0 +1,42 @@
+{
+  "UIWeb": {
+    "exit": 0,
+    "command": "node /workspace/FsusUI/node_modules/vue-tsc/bin/vue-tsc.js -p vue/tsconfig.web.json --noEmit --composite false"
+  },
+  "UIVitestProjectCompiler": {
+    "exit": 0,
+    "command": "node /workspace/FsusUI/node_modules/vue-tsc/bin/vue-tsc.js -p vue/tsconfig.vitest.json --noEmit --composite false",
+    "initialFailure": "one added getter inferred void; explicit number return annotation normally repaired; initial RED preserved"
+  },
+  "UIScopedLint": {
+    "exit": 0,
+    "productionFiles": 3
+  },
+  "UIAstSfc": {
+    "exit": 0,
+    "sourceFiles": 4,
+    "finalGetterControlAst": 0
+  },
+  "MainOriginalWholeApp": {
+    "exit": 2,
+    "beforeDiagnostics": 257,
+    "afterDiagnostics": 257,
+    "added": [],
+    "removed": [],
+    "normalization": "complete diagnostic block/multiplicity; only line/column positions normalized",
+    "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application"
+  },
+  "rawLogs": {
+    "ui-document-authority-web-types.txt": 0,
+    "ui-document-authority-final-vitest-types.txt": 0,
+    "ui-document-authority-vitest-types.txt": 2,
+    "ui-document-authority-eslint.txt": 0,
+    "ui-document-authority-ast-sfc.txt": 0,
+    "ui-document-authority-final-control-ast.txt": 0,
+    "blog-document-authority-whole-app-types.txt": 2
+  },
+  "sourceControls": "3 additive blocks (9 write-entry matrix + getter failure + ABA/publication/retirement), all UNRUN",
+  "runtime": "ALL HOLD/UNRUN",
+  "sourceReview": "new generation/feed requires separate independent review; earlier UIa1/Main237d closure not migrated",
+  "uiCommittedHead": "ff91f81cbbe94b9b2f28147f2b2e0ec523dbedf6"
+}

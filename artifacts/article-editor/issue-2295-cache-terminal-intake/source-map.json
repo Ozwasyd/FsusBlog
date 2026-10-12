@@ -1,0 +1,93 @@
+{
+  "consumerBase": "1b8cb055dfd92cb4ee3381e69d6f1dd06000032d",
+  "originalSource": "8f519bd1acfe3e623c7f55fd773aee2176d4aa8c",
+  "originalOfferHead": "170e2af038cd3c35d275c62d7ce3a5a2e21a472a",
+  "sourceClosedCacheProducerCombination": "9c3b5a3be56051f721af40549560891ece259e61",
+  "cacheSource": "d3b98d6b09c99513af16472031fb740d0c5ab4b3",
+  "producerSource": "cbd7213c31dd9a189c3a5d80456a7efd110a65f8",
+  "producerBefore": "9b954ae0ea65ada5a8916c5896951c20f030df10",
+  "sameFourOriginalProductionPreimages": true,
+  "gitApplyCheckExit": 0,
+  "gitApplyExit": 0,
+  "reverseApplyCheckExit": 0,
+  "patchSha256": "5342405853746c45876e9b8a065c7f27d06c2ca473d1a9251e8531c1d5ff9cd9",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/authoring/articleRenderCache.ts",
+      "beforeBlob": "05d02b431d2f93de4ee70d1d3e5179169cf44c34",
+      "originalPostimageBlob": "d9d579c7cb6d486c122dc1320bb9a01e92f8fb30",
+      "sha256": "08cf6a7d5b2432250672daac6cbc83152a7d28a955a341e919a9569b2d3cfc55",
+      "exactOriginalPostimage": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+      "beforeBlob": "aa9900dd2c607b62bf47ee24a1d23b831a00293f",
+      "originalPostimageBlob": "f7343067454f71d053ab48ef86cab2aa0c5cd512",
+      "sha256": "466da398bfc1d32e6dfd62ad72b641747c79b5281a3ec182ecbe47a29fdb2069",
+      "exactOriginalPostimage": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+      "beforeBlob": "0568c911b648156ff70b0382c294d5a54c9d85a1",
+      "originalPostimageBlob": "510177ab2d41949f16cd7214dab5d2fab67e0214",
+      "sha256": "46b41f496f2bc0670f690323430dc779c89780f2dfa2bc1b6b3a920005b46a89",
+      "exactOriginalPostimage": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+      "beforeBlob": "30a37cf0b430e577b0f3edc8cca168a167cb2c75",
+      "originalPostimageBlob": "d8132a6701d34214e8a87ad7b4bbf08fd6d62a01",
+      "sha256": "1fab1a4aa613265e01dd4435f8b78598e4e27b8e132c2d0509ee06f714d8bd0a",
+      "exactOriginalPostimage": true
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleRenderCache.test.ts",
+      "beforeBlob": null,
+      "originalPostimageBlob": "b62cd39ddbf8f072ada27eaccfbc69caf2b8f838",
+      "sha256": "f7fd6db5db7aa7352321c87c75de8d30eee0d93c0a9714afc6def197d8b1b377",
+      "exactOriginalPostimage": true
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts",
+      "beforeBlob": null,
+      "originalPostimageBlob": "598e2b902afb58613d788a18b6665eb70704299d",
+      "sha256": "ebcfed89436a30f8fea1e1a4c2999b07aca9538534d9cf1fd76862a9f3cb385a",
+      "exactOriginalPostimage": true
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleEditorContinuity.test.ts",
+      "beforeBlob": null,
+      "originalPostimageBlob": "de79562f03a9a08edf281e1973a20fe8be4c66bf",
+      "sha256": "65564e0d8bb09e1a52c983b4272707ff32e3766205499b58c97757296f93719a",
+      "exactOriginalPostimage": true
+    }
+  ],
+  "protectedUnchanged": {
+    "src/frontend/src/composables/useAdminArticleWrite.ts": "fce247d0084a60a524025887276207bd96440fe5",
+    "src/frontend/src/services/articleRecoveryJournal.ts": "1edfc1ecc6ebb73ee0213f25a2dba395616f9a4e",
+    "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts": "8c527b38e75d90cd4d15cc79b1337708d2720c27",
+    "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts": "f53d3b4ce5664f37f5759ddf727d5677866af9f9",
+    "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts": "b2cf010348defe45ea0f039063a7d260a0b1b028",
+    "src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts": "b338af6792ee255dbe6f92fc901f1e124549c774",
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+    "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts": "4e78c48bd891a856c6f19c2a3492b9920e3c01da",
+    "src/frontend/src/services/authoring/articleDocumentContext.ts": "4221025bd452c6c8299832a07af9ddfeaf4ed9f2",
+    "src/frontend/src/services/authoring/authoringSessionHost.ts": "3a59ddfd6763130b3e637eddc91b3f614def65b0",
+    "src/frontend/src/views/admin/article/Write.vue": "cc1e76ae2f612101dfb60718ba79e56830a700d1",
+    "src/frontend/src/api/authoringWorkspaceSnapshot.ts": "28a32bc18b328f71084f85eeb66ca447a1269e79"
+  },
+  "notConsumed": [
+    "articleSourceCompare.ts and its unmounted controller",
+    "Writer prepared body prototype",
+    "Document ad35 handover",
+    "Root/Layout/Rail product placement/startup source",
+    "UI/native identity/history publication mutation"
+  ],
+  "callerReview": "pending independent review, no migrated source closure",
+  "runtime": "ALL UNRUN/HOLD",
+  "initialProofFailure": {
+    "cause": "git rev-parse of absent original supplier test paths in Main base",
+    "candidateMutation": "patch already applied once; no second apply, repaired source-only proof accepts null beforeBlob",
+    "compilerOrRuntimeSuppression": false
+  }
+}

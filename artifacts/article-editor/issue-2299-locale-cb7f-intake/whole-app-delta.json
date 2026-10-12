@@ -1,0 +1,13 @@
+{
+  "before": 254,
+  "after": 251,
+  "added": [],
+  "removed": [
+    "src/views/admin/article/Write.vue(POSITION): error TS2554: Expected 2 arguments, but got 1.",
+    "src/views/admin/article/Write.vue(POSITION): error TS2554: Expected 2 arguments, but got 1.",
+    "src/views/admin/article/Write.vue(POSITION): error TS2554: Expected 2 arguments, but got 1."
+  ],
+  "normalization": "positions only; full diagnostic blocks/multiplicity",
+  "beforeLog": "blog-auth819e-writer91d1-after-types.log",
+  "afterLog": "blog-locale-cb7f-original-after-types.log"
+}

@@ -1,0 +1,4 @@
+src/frontend/src/layouts/AdminWorkspaceFrame.vue: SFC script/AST 0 diagnostics
+src/frontend/src/layouts/adminArticleWorkspaceWriterReservation.ts: AST 0 diagnostics
+src/frontend/src/composables/useAdminArticleWrite.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts: AST 0 diagnostics

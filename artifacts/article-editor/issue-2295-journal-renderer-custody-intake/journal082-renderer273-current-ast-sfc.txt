@@ -1,0 +1,4 @@
+/workspace/session-2295-ui/vue/packages/components/markdown-renderer/src/markdown-renderer.vue: SFC script/AST 0 diagnostics
+/workspace/session-2295-ui/vue/packages/components/markdown-renderer/src/markdown-renderer-session-resources.ts: AST 0 diagnostics
+/workspace/session-2295-blog/src/frontend/src/services/articleRecoveryJournal.ts: AST 0 diagnostics
+/workspace/session-2295-blog/tests/frontend/unit/services/articleRecoveryJournal.test.ts: AST 0 diagnostics

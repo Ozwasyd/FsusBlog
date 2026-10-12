@@ -1,0 +1,71 @@
+{
+  "base": "4214fc302912bf182ae94e84af7cde21d5dfdf15",
+  "decision": "producer-observed local auth continuity for callback-free local publication; server operations retain actual server authorization; no remote atomic/unknown revocation/exact blocking-clock guarantee inferred",
+  "sourceRefs": {
+    "src/backend/Services/Security/AdminSessionValidationService.cs": "d2ae2011ff9232589de34249d89e988c5be6e548",
+    "src/backend/Infrastructure/Security/AdminSessionProjection.cs": "8a54c34ed1cfb8f7f0f5e47b5fe1440641db5892",
+    "src/backend/Infrastructure/Helpers/JwtHelper.cs": "05a0168f146b499720a22ea94f1b798896faa7e2",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs": "b532dd55b39f1216bc7c611df3008365d2ae3dab",
+    "src/frontend/src/api/auth.ts": "d6a8b7f42e366aeb1ce3e2aa8c0ae5580797565b",
+    "src/frontend/src/store/admin.ts": "101e78249b17901956bb2d249290801a0a42811d",
+    "src/frontend/src/services/privateSurfaceRuntime.ts": "81964e4adf69a875e92612276caf8221e04f38d4",
+    "src/frontend/src/services/authoring/authoringSessionHost.ts": "3a59ddfd6763130b3e637eddc91b3f614def65b0",
+    "config/testing/required-evidence-authority-ledger.json": "2ef1fae764328b04e629f1025286b5b0bf694c25",
+    "config/testing/release-final-execution-authority-index.json": "32eb40651cd94f7e531f4b5bccf94e8f38ab26b6",
+    "tests/fixtures/test-matrix/execution-dependency-contract.json": "c028f14200193512b14db64aed1535c36cb9848e"
+  },
+  "issueDAGEdges": {
+    "2295": [
+      "2293",
+      "2294",
+      "1853"
+    ],
+    "2294": [
+      "2293",
+      "1809",
+      "1810",
+      "1813",
+      "1814"
+    ],
+    "2293": [
+      "1813",
+      "1814",
+      "2243",
+      "1853"
+    ],
+    "2235": [
+      "2230",
+      "2231",
+      "2232",
+      "2233",
+      "2234",
+      "1854",
+      "1855"
+    ]
+  },
+  "reviewedOriginalClauses": [
+    "2294 mandatory10 restore identity/source/draft/permission/ref validation; mandatory6 old epoch tasks rejected",
+    "2293 mandatory7 permission/lifecycle invalidation; mandatory9 blocked obligations",
+    "1854 fixed identity/state8 observed permission change fail closed",
+    "2295 mandatory4 ready/blocked; mandatory5 route permission refusal; mandatory13 stale permission status",
+    "2235 mandatory3 server history/query chain; mutation prohibition client-side permission filtering; cross-account/site/permission revoke",
+    "1794 remains untouched actual security runtime matrix, no browser token remote-clock addition"
+  ],
+  "serverFacts": [
+    "AdminSessionProjection.Validate reads server TimeProvider, revoked/idle/absolute expiry",
+    "ValidationService result IsValid/Reason only; expiry stays internal validation/touch",
+    "admin/me snapshot id/displayName/source/permissions/status/stepUp only, no projection idle/absolute lifetime/version",
+    "JWT OnTokenValidated still invokes real admin validation; protected endpoints keep server permission policy"
+  ],
+  "limits": [
+    "observed projection continuity cannot attest unknown remote revocation",
+    "pure private final check does not observe wall-clock advancement during blocked synchronous JS",
+    "frontend refresh TTL is revalidation cadence, not invented server session deadline",
+    "article visibility/current permission must still originate from original qualified server/batch owner, no client permission filtering substitute"
+  ],
+  "runtime": "ALL HOLD/UNRUN",
+  "scope": "documentation only; backend/frontend behavior and freezes unchanged",
+  "protectedProductionConfigPathsExact": 1958,
+  "frozenAuthorityNotModified": true,
+  "validation": "source equality and diffcheck only; no compiler/runtime rerun required for documentation-only source"
+}

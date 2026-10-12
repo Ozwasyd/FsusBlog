@@ -1,0 +1,11 @@
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/global.d.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/index.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/resize-separator/index.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/resize-separator/src/instance.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/resize-separator/src/resize-separator-math.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/resize-separator/src/resize-separator.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/resize-separator/src/resize-separator.vue: SFC script/AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/resize-separator/style/css.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/components/resize-separator/style/index.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/packages/element-plus/component.ts: AST 0 diagnostics
+/tmp/2295-separator-f253-apply-static-20261012/postimage-copy/vue/typings/components.d.ts: AST 0 diagnostics

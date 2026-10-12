@@ -72,9 +72,11 @@ export interface AuthoringWorkspaceSnapshotResult {
 }
 export class AuthoringWorkspaceSnapshotError extends Error
 {
-    public constructor(public readonly reason: string)
+    public readonly reason: string;
+    public constructor(reason: string)
     {
         super(reason);
+        this.reason = reason;
     }
 }
 export const workspaceSnapshotDigest = calculateOpenArticleDocumentDigest;
@@ -233,11 +235,17 @@ export function validateWorkspaceSnapshot(value: unknown, scope: AuthoringWorksp
 }
 // Process-local provenance is issued only after a response from the authenticated server port is verified.
 // Cache/imported JSON, a cloned observation or a recomputed hash cannot mint this capability.
-const serverObservations = new WeakSet<object>();
+const serverObservations = new WeakMap<object, () => void>();
 export type AuthoringWorkspaceServerObservation = Readonly<AuthoringWorkspaceSnapshotResult>;
 export function requireWorkspaceServerObservation(value: AuthoringWorkspaceServerObservation): void
 {
-    if (!serverObservations.has(value))
+    const assertCurrent = serverObservations.get(value);
+    if (!assertCurrent)
+    {
+        throw new AuthoringWorkspaceSnapshotError('server_observation_required');
+    }
+    assertCurrent();
+    if (serverObservations.get(value) !== assertCurrent)
     {
         throw new AuthoringWorkspaceSnapshotError('server_observation_required');
     }
@@ -256,92 +264,227 @@ export interface AuthoringWorkspaceSnapshotTransport {
 }
 export class AuthoringWorkspaceSnapshotApi
 {
-    private latestObservation: AuthoringWorkspaceServerObservation | null = null;
-    private lifecycleGeneration = 0;
-    private readSequence = 0;
-    public readonly scope: AuthoringWorkspaceSnapshotScope;
-    public constructor(private readonly transport: AuthoringWorkspaceSnapshotTransport, scope: AuthoringWorkspaceSnapshotScope, public readonly sourceDigest: string, private readonly now: () => number = Date.now)
+    readonly #readTransport: AuthoringWorkspaceSnapshotTransport['read'];
+    readonly #writeTransport: AuthoringWorkspaceSnapshotTransport['write'];
+    readonly #resetTransport: AuthoringWorkspaceSnapshotTransport['reset'];
+    readonly #scope: AuthoringWorkspaceSnapshotScope;
+    readonly #sourceDigest: string;
+    readonly #now: () => number;
+    readonly #assertConnection: (() => void) | undefined;
+    #latestObservation: AuthoringWorkspaceServerObservation | null = null;
+    #lifecycleGeneration = 0;
+    #readSequence = 0;
+    #closed = false;
+    public constructor(transport: AuthoringWorkspaceSnapshotTransport, scope: AuthoringWorkspaceSnapshotScope, sourceDigest: string, now: () => number = Date.now, assertConnection?: () => void)
     {
-        validateWorkspaceSnapshotScope(scope);
+        if (new.target !== AuthoringWorkspaceSnapshotApi)
+        {
+            throw new AuthoringWorkspaceSnapshotError('workspace_snapshot_api_owner_required');
+        }
+        this.#assertConnection = assertConnection;
+        const generation = this.#lifecycleGeneration;
+        this.#checkLifecycle(generation);
+        this.#external(() => validateWorkspaceSnapshotScope(scope), generation);
         if (!workspaceSnapshotHash(sourceDigest))
         {
             throw new AuthoringWorkspaceSnapshotError('invalid_source_digest');
         }
-        this.scope = freezeWorkspaceSnapshot(structuredClone(scope));
+        this.#scope = this.#external(() => freezeWorkspaceSnapshot(structuredClone(scope)), generation);
+        this.#sourceDigest = sourceDigest;
+        this.#now = now;
+        this.#readTransport = this.#external(() => transport.read.bind(transport), generation);
+        this.#writeTransport = this.#external(() => transport.write.bind(transport), generation);
+        this.#resetTransport = this.#external(() => transport.reset.bind(transport), generation);
+        Object.freeze(this);
+        this.#checkLifecycle(generation);
+    }
+    public get scope(): AuthoringWorkspaceSnapshotScope
+    {
+        return this.#scope;
+    }
+    public get sourceDigest(): string
+    {
+        return this.#sourceDigest;
     }
     public async read(signal?: AbortSignal): Promise<AuthoringWorkspaceServerObservation>
     {
-        const generation = this.lifecycleGeneration;
-        const ticket = ++this.readSequence;
-        const raw = await this.transport.read(signal);
-        this.checkLifecycle(generation, signal);
-        if (ticket !== this.readSequence)
-        {
-            // Reject an older request before verification can revoke a newer observation at the same revision.
-            throw new AuthoringWorkspaceSnapshotError('server_read_superseded');
-        }
-        return this.verify(raw, 'read', workspaceSnapshotDigest(this.scope));
+        const generation = this.#lifecycleGeneration;
+        const ticket = ++this.#readSequence;
+        const raw = await this.#request(() => this.#readTransport(signal), generation, signal, ticket);
+        return this.#verify(raw, 'read', workspaceSnapshotDigest(this.#scope), generation, signal, ticket);
     }
     public invalidateObservations(): void
     {
-        this.lifecycleGeneration++;
-        this.readSequence++;
-        if (this.latestObservation)
+        this.#revoke();
+    }
+    public close(): void
+    {
+        this.#close();
+    }
+    #close(): void
+    {
+        if (!this.#closed)
         {
-            serverObservations.delete(this.latestObservation);
+            this.#closed = true;
+            this.#revoke();
         }
-        this.latestObservation = null;
     }
     public async write(expectedRevision: number, layout: AuthoringWorkspaceSnapshotLayout, signal?: AbortSignal): Promise<AuthoringWorkspaceServerObservation>
     {
-        this.expectedRevision(expectedRevision);
-        validateWorkspaceSnapshotLayout(layout);
-        const command = structuredClone({ expectedRevision, layout });
+        const generation = this.#lifecycleGeneration;
+        this.#checkLifecycle(generation, signal);
+        this.#expectedRevision(expectedRevision);
+        this.#external(() => validateWorkspaceSnapshotLayout(layout), generation, signal);
+        const command = this.#external(() => structuredClone({ expectedRevision, layout }), generation, signal);
+        // Validate the owned copy too: caller accessors cannot change the validated proposal during cloning.
+        this.#external(() => validateWorkspaceSnapshotLayout(command.layout), generation, signal);
         const inputDigest = workspaceSnapshotDigest(command);
-        const generation = this.lifecycleGeneration;
-        this.readSequence++;
-        const raw = await this.transport.write(command, signal);
-        this.checkLifecycle(generation, signal);
-        const verified = this.verify(raw, 'write', inputDigest, expectedRevision, command.layout);
-        this.readSequence++;
+        const raw = await this.#request(() =>
+        {
+            // Admission has completed; no callback separates this barrier from actual dispatch.
+            this.#readSequence++;
+            return this.#writeTransport(command, signal);
+        }, generation, signal);
+        const verified = this.#verify(raw, 'write', inputDigest, generation, signal, undefined, expectedRevision, command.layout);
+        // Reads started before this verified CAS settlement must refresh after the barrier.
+        this.#readSequence++;
         return verified;
     }
     public resetConfirmation(expectedRevision: number): string
     {
-        this.expectedRevision(expectedRevision);
-        return workspaceSnapshotDigest({ action: 'reset-default-layout', scope: this.scope, workspaceId: 'default', expectedRevision, sourceDigest: this.sourceDigest });
+        const generation = this.#lifecycleGeneration;
+        const ticket = this.#readSequence;
+        this.#checkLifecycle(generation, undefined, ticket);
+        this.#expectedRevision(expectedRevision);
+        const result = workspaceSnapshotDigest({ action: 'reset-default-layout', scope: this.#scope, workspaceId: 'default', expectedRevision, sourceDigest: this.#sourceDigest });
+        this.#checkLifecycle(generation, undefined, ticket);
+        return result;
     }
     public async reset(expectedRevision: number, confirmationDigest: string, signal?: AbortSignal): Promise<AuthoringWorkspaceServerObservation>
     {
-        if (confirmationDigest !== this.resetConfirmation(expectedRevision))
+        const generation = this.#lifecycleGeneration;
+        this.#checkLifecycle(generation, signal);
+        this.#expectedRevision(expectedRevision);
+        const expectedConfirmation = workspaceSnapshotDigest({ action: 'reset-default-layout', scope: this.#scope, workspaceId: 'default', expectedRevision, sourceDigest: this.#sourceDigest });
+        if (confirmationDigest !== expectedConfirmation)
         {
             throw new AuthoringWorkspaceSnapshotError('reset_confirmation_mismatch');
         }
         const layout = defaultWorkspaceSnapshotLayout();
-        const generation = this.lifecycleGeneration;
-        this.readSequence++;
-        const raw = await this.transport.reset({ expectedRevision, confirmationDigest }, signal);
-        this.checkLifecycle(generation, signal);
-        const verified = this.verify(raw, 'reset', workspaceSnapshotDigest({ expectedRevision, layout }), expectedRevision, layout);
-        this.readSequence++;
+        const raw = await this.#request(() =>
+        {
+            // Rejected input/confirmation/cancellation cannot disturb unrelated pending reads.
+            this.#readSequence++;
+            return this.#resetTransport({ expectedRevision, confirmationDigest }, signal);
+        }, generation, signal);
+        const verified = this.#verify(raw, 'reset', workspaceSnapshotDigest({ expectedRevision, layout }), generation, signal, undefined, expectedRevision, layout);
+        // Reads started before this verified CAS settlement must refresh after the barrier.
+        this.#readSequence++;
         return verified;
     }
-    private expectedRevision(revision: number): void
+    #revoke(): void
+    {
+        this.#lifecycleGeneration++;
+        this.#readSequence++;
+        if (this.#latestObservation)
+        {
+            serverObservations.delete(this.#latestObservation);
+        }
+        this.#latestObservation = null;
+    }
+    #expectedRevision(revision: number): void
     {
         if (!workspaceSnapshotInteger(revision) || revision === Number.MAX_SAFE_INTEGER)
         {
             throw new AuthoringWorkspaceSnapshotError('invalid_expected_revision');
         }
     }
-    private checkLifecycle(generation: number, signal?: AbortSignal): void
+    #requireLifecycle(generation: number, ticket?: number): void
     {
-        signal?.throwIfAborted();
-        if (generation !== this.lifecycleGeneration)
+        if (this.#closed)
+        {
+            throw new AuthoringWorkspaceSnapshotError('workspace_snapshot_connection_closed');
+        }
+        if (generation !== this.#lifecycleGeneration)
         {
             throw new AuthoringWorkspaceSnapshotError('server_observation_superseded');
         }
+        if (ticket !== undefined && ticket !== this.#readSequence)
+        {
+            throw new AuthoringWorkspaceSnapshotError('server_read_superseded');
+        }
     }
-    private verify(raw: unknown, action: AuthoringWorkspaceSnapshotReceipt['action'], inputDigest: string, expectedRevision?: number, requestedLayout?: AuthoringWorkspaceSnapshotLayout): AuthoringWorkspaceServerObservation
+    #checkLifecycle(generation: number, signal?: AbortSignal, ticket?: number): void
+    {
+        this.#requireLifecycle(generation, ticket);
+        signal?.throwIfAborted();
+        this.#requireLifecycle(generation, ticket);
+        try
+        {
+            this.#assertConnection?.();
+        }
+        catch (error)
+        {
+            this.#close();
+            throw error;
+        }
+        this.#requireLifecycle(generation, ticket);
+        signal?.throwIfAborted();
+        this.#requireLifecycle(generation, ticket);
+    }
+    #external<T>(operation: () => T, generation: number, signal?: AbortSignal, ticket?: number): T
+    {
+        this.#checkLifecycle(generation, signal, ticket);
+        let result: T;
+        try
+        {
+            result = operation();
+        }
+        catch (error)
+        {
+            this.#checkLifecycle(generation, signal, ticket);
+            throw error;
+        }
+        this.#checkLifecycle(generation, signal, ticket);
+        return result;
+    }
+    async #request(operation: () => Promise<unknown>, generation: number, signal: AbortSignal | undefined, ticket?: number): Promise<unknown>
+    {
+        const pending = this.#external(operation, generation, signal, ticket);
+        let raw: unknown;
+        try
+        {
+            raw = await pending;
+        }
+        catch (error)
+        {
+            this.#checkLifecycle(generation, signal, ticket);
+            throw error;
+        }
+        this.#checkLifecycle(generation, signal, ticket);
+        return raw;
+    }
+    #verify(raw: unknown, action: AuthoringWorkspaceSnapshotReceipt['action'], inputDigest: string, generation: number, signal: AbortSignal | undefined, ticket: number | undefined, expectedRevision?: number, requestedLayout?: AuthoringWorkspaceSnapshotLayout): AuthoringWorkspaceServerObservation
+    {
+        const result = this.#external(() => this.#validate(raw, action, inputDigest, generation, signal, ticket, expectedRevision, requestedLayout), generation, signal, ticket);
+        const verified = this.#external(() => freezeWorkspaceSnapshot(structuredClone(result)), generation, signal, ticket);
+        // Recheck the owned copy; neither accessors nor cloning can substitute an unvalidated receipt.
+        this.#external(() => this.#validate(verified, action, inputDigest, generation, signal, ticket, expectedRevision, requestedLayout), generation, signal, ticket);
+        this.#checkLifecycle(generation, signal, ticket);
+        if (this.#latestObservation && verified.revision < this.#latestObservation.revision)
+        {
+            throw new AuthoringWorkspaceSnapshotError('stale_server_response');
+        }
+        // No callbacks/await occur between the final live check and original custody publication.
+        if (this.#latestObservation)
+        {
+            serverObservations.delete(this.#latestObservation);
+        }
+        serverObservations.set(verified, () => this.#checkLifecycle(generation));
+        this.#latestObservation = verified;
+        return verified;
+    }
+    #validate(raw: unknown, action: AuthoringWorkspaceSnapshotReceipt['action'], inputDigest: string, generation: number, signal: AbortSignal | undefined, ticket: number | undefined, expectedRevision?: number, requestedLayout?: AuthoringWorkspaceSnapshotLayout): AuthoringWorkspaceSnapshotResult
     {
         workspaceSnapshotExact(raw, ['status', 'revision', 'snapshot', 'receipt']);
         workspaceSnapshotExact(raw.receipt, ['schema', 'action', 'status', 'reason', 'scope', 'workspaceId', 'sourceDigest', 'revisionBefore', 'revisionAfter', 'tabCount', 'byteCount', 'inputDigest', 'snapshotDigest', 'contentDigest']);
@@ -349,8 +492,8 @@ export class AuthoringWorkspaceSnapshotApi
         validateWorkspaceSnapshotScope(r.scope as AuthoringWorkspaceSnapshotScope);
         const result = raw as unknown as AuthoringWorkspaceSnapshotResult;
         if (r.schema !== 'fsusblog.authoring-workspace-snapshot-receipt.v1' || r.action !== action || r.status !== raw.status
-            || r.workspaceId !== 'default' || r.sourceDigest !== this.sourceDigest
-            || workspaceSnapshotDigest(r.scope) !== workspaceSnapshotDigest(this.scope)
+            || r.workspaceId !== 'default' || r.sourceDigest !== this.#sourceDigest
+            || workspaceSnapshotDigest(r.scope) !== workspaceSnapshotDigest(this.#scope)
             || r.inputDigest !== inputDigest || !workspaceSnapshotInteger(raw.revision)
             || r.revisionAfter !== raw.revision || !workspaceSnapshotInteger(r.revisionBefore)
             || !workspaceSnapshotInteger(r.tabCount) || !workspaceSnapshotInteger(r.byteCount)
@@ -366,7 +509,7 @@ export class AuthoringWorkspaceSnapshotApi
         const snapshotRequired = raw.status === 'current' || raw.status === 'applied';
         if (snapshotRequired)
         {
-            validateWorkspaceSnapshot(raw.snapshot, this.scope, this.sourceDigest, this.now());
+            validateWorkspaceSnapshot(raw.snapshot, this.#scope, this.#sourceDigest, this.#external(this.#now, generation, signal, ticket));
             if (raw.snapshot.revision !== raw.revision || r.snapshotDigest !== raw.snapshot.contentDigest
                 || r.tabCount !== raw.snapshot.layout.tabs.length || r.byteCount !== workspaceSnapshotBytes(raw.snapshot)
                 || r.reason !== null)
@@ -393,17 +536,7 @@ export class AuthoringWorkspaceSnapshotApi
         {
             throw new AuthoringWorkspaceSnapshotError('invalid_server_receipt');
         }
-        if (this.latestObservation && result.revision < this.latestObservation.revision)
-        {
-            throw new AuthoringWorkspaceSnapshotError('stale_server_response');
-        }
-        if (this.latestObservation)
-        {
-            serverObservations.delete(this.latestObservation);
-        }
-        const verified = freezeWorkspaceSnapshot(structuredClone(result));
-        serverObservations.add(verified);
-        this.latestObservation = verified;
-        return verified;
+        return result;
     }
 }
+Object.freeze(AuthoringWorkspaceSnapshotApi.prototype);

@@ -1,0 +1,65 @@
+{
+  "uiBase": "a1bad5f87210b758b266e9dbaef357d6286ae060",
+  "mainBase": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
+  "scope": "same original native transaction producer document feed only",
+  "UIPaths": [
+    {
+      "path": "docs/components/markdown-editor.md",
+      "blob": "a013358d44c1c3dae9be8f07a3f390380fd7c7bb",
+      "sha256": "56db7be432b60cbb53f31f161c3525a591b050030d257cb4397117529a0495b4",
+      "postimage": "artifacts/article-editor/issue-2295-native-document-authority-feed/ui-postimages/docs/components/markdown-editor.md.txt"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/__tests__/markdown-editor-transaction.property.test.ts",
+      "blob": "5d1b2ea005a4c4344de3488613a063016d380be0",
+      "sha256": "8e947fcbf1d04f911b100d3298559c66d01820ce7bc567816830cfbe6984baff",
+      "postimage": "artifacts/article-editor/issue-2295-native-document-authority-feed/ui-postimages/vue/packages/components/markdown-editor/__tests__/markdown-editor-transaction.property.test.ts.txt"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor-transaction.ts",
+      "blob": "87a1e1c95127a4321348d2de81b89dec83f981c5",
+      "sha256": "559e91a4017610cb662611369b0e5d650786c88029e2ee36acf12d6f6cfaebb6",
+      "postimage": "artifacts/article-editor/issue-2295-native-document-authority-feed/ui-postimages/vue/packages/components/markdown-editor/src/markdown-editor-transaction.ts.txt"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor.vue",
+      "blob": "ab437528a959d1ecfaac88e66584ff2d2b5ad6d5",
+      "sha256": "2c5f7dc1c813704feeea1af73cc6639b91f41e49b4ef875bad6a8f452bc3423c",
+      "postimage": "artifacts/article-editor/issue-2295-native-document-authority-feed/ui-postimages/vue/packages/components/markdown-editor/src/markdown-editor.vue.txt"
+    },
+    {
+      "path": "vue/packages/hooks/use-markdown-heavy-feature-lifecycle/index.ts",
+      "blob": "8da88ebfb3444bb4afb123e00dfe50fd4e3e0711",
+      "sha256": "cd0a41ac4fb761fad8c316730c2cd29038e4d23c45736bd433f25c869d196980",
+      "postimage": "artifacts/article-editor/issue-2295-native-document-authority-feed/ui-postimages/vue/packages/hooks/use-markdown-heavy-feature-lifecycle/index.ts.txt"
+    },
+    {
+      "path": ".changeset/markdown-editor-document-authority-feed.md",
+      "blob": "7aa6e3fd86a9d86e18159a89520a32be640f0499",
+      "sha256": "8fe4bff08a5bbbc235183ba9834e6f5a4d87ed7593c06f3169064d59bfd6b80d",
+      "postimage": "artifacts/article-editor/issue-2295-native-document-authority-feed/ui-postimages/.changeset/markdown-editor-document-authority-feed.md.txt"
+    }
+  ],
+  "original": {
+    "base": "a1bad5f87210b758b266e9dbaef357d6286ae060",
+    "writerBodyTokensUnchanged": {
+      "restoreRetainedSnapshot": true,
+      "releaseRetainedSnapshot": true,
+      "switchDocument": true,
+      "breakMergeGroup": true,
+      "reset": true,
+      "setSelection": true,
+      "dispatch": true,
+      "undo": true,
+      "redo": true
+    },
+    "originalCResourcePrefixExact": true,
+    "rendererPipelinePeerDiff": "",
+    "originalNativeSessionSourceUnchanged": true
+  },
+  "runtime": "ALL HOLD/UNRUN",
+  "review": "new store generation/writer entry/context feed pending independent source review",
+  "UIOtherTrackedSourcesUnchanged": 2120,
+  "MainProductionUnchanged": true,
+  "uiCommittedHead": "ff91f81cbbe94b9b2f28147f2b2e0ec523dbedf6"
+}

@@ -1,5 +1,239 @@
 # Authoring workspace snapshot source handoff
 
+## Retained document authority source boundary
+
+The original `OpenArticleDocumentRegistry.issueRetainedDocumentHandle(tabId)`
+issues an opaque process-local handle from its actual canonical membership.
+`inspectRetainedArticleDocumentHandle` reads that same Registry's current facts;
+a copied entry, matching string, copied handle or foreign Registry is not handle
+provenance. Normal activation, pinning and joint Group/ratio publication preserve
+the original membership. Final detach and preview replacement revoke before an
+equal-ID reopen; changed document/draft/session/epoch invalidates the old handle.
+Permission and lifecycle blocking preserve the canonical entry and recovery
+obligations. Scope retirement prevents reissuing a handle for that same member.
+
+Handle notifications run outside the original command preparation/publication
+and history/CAS transaction. A failing listener is retained as a failed
+notification in inspection; it cannot turn a committed command into a rejected
+receipt. Reentrant notification commands refuse. Handles are not permission,
+snapshot-restore or safe-eviction grants. No body/history/cache, second article
+index, Host, persistence or server DocumentId contract is introduced here.
+
+Original Registry membership seals bind the authentic retained cell, its actual
+canonical entry and original publication/revision. `sealRetainedArticleDocumentMembership`
+freshly inspects membership; `hasSealedRetainedArticleDocumentMembershipCustody`
+joins private original pointers/state without `cell.read`, clone, allocation or
+external reader. `cancelRetainedArticleDocumentMembershipSeal` removes that actual
+issued token. Registry command/ownership preparation and notification entry retire
+the original publication before getters, hashes, clones and callbacks; only the
+original stable canonical Map/revision publication can issue a replacement token.
+Scope/close/identity/permission/lifecycle and notification failure invalidate the
+same original cell. There is no second membership index or downstream boolean
+listener cache. Original Group publication guards/CAS/history/ratio remain intact.
+These seals prove only original membership custody, not mount/auth/full-ready.
+The outermost original membership mutation drains queued notifications on both
+successful and exceptional exits. A command getter may revoke a genuine handle
+before throwing; that revocation still reaches original Document cancellation and
+consumer cleanup. Original operation error remains the error on successful drain;
+an unexpected drain error is preserved alongside it, with publication retired and
+failure custody retained. Notification is not a success-only wrapper epilogue.
+
+The original singleton `ArticleDocumentContextAuthority` owns the retained
+adapters. `prepareRetainedDocument(registry, input, scopeReaders)` issues original
+document/draft/editor-session identities and returns only a provenance-bound
+preparation/context. Open that context through the canonical Registry, obtain
+its issued handle, then call `acquireRetainedDocument(handle, preparation)`.
+For an already open article, acquire its original handle without supplying a new
+preparation; `discardRetainedPreparation` retires an unused offer. Caller strings
+cannot replace the original issuer. Same-source articles and unsaved drafts have
+separate adapters and task/epoch/source-revision ownership. No retained adapter
+can be switched through the legacy route-owned binding.
+
+The already mounted primary Writer calls
+`adoptPrimaryRetainedDocument(registry, handle, originalBinding, scopeReaders)`.
+This validates the actual previously issued binding, original Registry provenance,
+identity/epoch and source/draft coordinates, and preserves the SAME adapter,
+native document identity, original tasks and epoch. It never reacquires the
+primary. The Registry's session reference and the original opaque editor session
+ID remain their existing association; neither is reconstructed from a route.
+Raw principal/site readers are reread on admission and use. Principal/site drift
+and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission for
+the original owners and notify their consumers. Scope-revocation callbacks cannot
+admit new owners reentrantly.
+
+A loaded primary whose original identity differs from an existing canonical
+member may call `preparePrimaryRetainedHandover(registry, handle, originalBinding,
+scopeReaders)`, then consume that SAME preparation with
+`acquireRetainedDocument(handle, preparation)`. The authority authenticates both
+issued objects and reserves the actual handle/adapter before external readers.
+Only one live primary binding, with no retained owner or other preparation, may
+enter. Article/draft identity and numeric source/draft revision must already match
+that canonical member. Its genuine handle supplies only document identity/epoch;
+the original mounted adapter, editor-session identity and content digest remain.
+Preparation does not mutate the primary; an unused preparation can be discarded
+without disposing its borrowed adapter. Ordinary source edits invalidate the offer.
+
+Consumption reserves context mutation, revalidates the actual primary/scope/member,
+cancels the old context's tasks, revalidates again after their synchronous abort
+callbacks, and publishes one switch receipt before the original retained binding.
+Canceled work remains pending until its producer actually settles. Original context
+listeners receive the new context; a post-publication refusal retires document
+admission and retains actual custody instead of rolling back notified context or
+claiming native completion. The actual Writer still registers its original consumer
+through `attachConsumer`; a consumer already owned by any other retained owner
+cannot be moved or duplicated. This is not an API to switch an existing retained
+adapter or transfer a registered consumer's form/history/native resources.
+
+The preparation installs an actual borrowed-primary admission guard before it
+escapes. Scope retirement closes that guard synchronously, including nested
+retirement whose canonical cleanup remains queued; task/source admission refuses
+while real pending work and cleanup stay in the drain. The original owner's scope
+is pinned independently of later edits to its borrowed adapter. Discard cannot
+remove a retired owner from pending cleanup or reopen admission. A live unused
+handover may still be edited; rejecting its now-stale offer does not dispose that
+adapter or mark an identity publication. Explicit discard releases that unused pin
+and preserves the actual edited context and pending work.
+
+The sole-binding constraint is revalidated at consumption, after cancellation and
+other external reads, and after publication/notification. A second genuine legacy
+binding acquired since preparation prevents publication; after its real release,
+the original unused offer can retry if all original context facts still match.
+An explicit module-private marker records ONLY actual target context publication.
+That marker, not any context difference, determines failed-publication custody and
+discard refusal. Strict adoption cannot bypass an unbound handover pin. These
+facts do not settle tasks or prove native/full-ref restoration. If a borrowed
+primary's real disposal listener fails, its failure custody remains retained while
+the original drain processes the remaining queued scopes. Only afterward does
+revocation report the aggregate actual cleanup failures; no failed cleanup is
+recorded as settled or silently discarded.
+
+This handover does not validate a loaded body against a snapshot, grant full native
+restore or label arbitrary source as current. A different article/draft, unmatched
+source/draft revision, or unsupported Registry source reference refuses. Restored
+unsaved drafts need their original draft/body producer's genuine identity/revision
+handover; a new create-draft issuer cannot stand in for it. The original Writer/body
+loader and Registry source-publication owner must establish those coordinates
+before this API, and the original native/session owner must validate physical
+binding, actual snapshot/body authority and resource lifetime afterward. No
+revision renumbering, body store, new document ID issuer or native settlement is
+introduced by this seam. All corresponding runtime qualifications remain HOLD.
+
+The returned binding exposes `adapter`, `handle`, `inspect()`,
+`subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
+attaches its actual existing form/effects/runtime object once, using one stable
+factory callback. Repeat use returns that SAME consumer, never a cloned form or
+another Writer composable. A different factory or reentrant attachment refuses.
+Layout borrows the original Writer's commands and view/mount ports. The authority
+retains actual consumer references on final invalidation or cleanup failure;
+permission/delete/archive blocking does not invoke final consumer release.
+If final invalidation returns an actual cleanup promise, the SAME promise remains
+in owner custody and `consumerInvalidationState` reports pending/settled/failed;
+an asynchronous rejection records failure and preserves the actual reference.
+This is producer completion observation, not native disposal or release permission.
+Original `adapter.subscribeContext` remains the context-change subscription.
+
+The original retained binding also issues `sealLifetimeAuthority()` and exposes
+`hasLifetimeAuthorityCustody(seal)` / `cancelLifetimeAuthority(seal)`. Its opaque
+seal joins the authentic owner/binding/handle, original membership seal, actual
+consumer pointer and the adapter's private context publication. Fresh scope/member
+and matching revision inspection precedes issuance. Pure final has only joins
+those private pointers and original producer facts; it never calls `cell.read`,
+`adapter.context`, a scope reader, clone, observer, or an allocating inspection.
+It does not infer mounted/auth/native resource authority from this document seal.
+Non-null owner publication and actual consumer are captured before opaque token
+allocation. Allocation reentry must leave both exact pointers unchanged, and final
+has explicitly refuses a null current publication. Cached attachment retirement
+cannot make a canceled/null seal valid again when its temporary phase ends.
+
+Actual adapter mutation/handover/disposal retires the private native publication
+before external guards, cancellation or notifications. Owner scope retirement,
+notification entry and consumer attachment/release retire original owner authority
+before their first external read/cleanup callback. Failure and queued cleanup retain
+existing custody; no cancellation or null seal settles real work. A stale source
+reference prevents resealing. These producer tokens are not downstream boolean
+listener caches or full-ready receipts; all original guards and handover semantics
+remain, with new source review and every original runtime qualification held.
+
+`inspect().registry` reads canonical membership and permission/lifecycle facts;
+`registryRevisionMatchesDocument` separately reports whether the canonical
+source/draft reference coordinates match the original adapter. Ordinary source
+updates advance the adapter's original numeric revision without changing its
+identity/epoch. This seam does not add a Registry revision command: the original
+Writer/Registry revision-publication owner must refresh those references before
+Host restoration/readiness can succeed. A mismatching reference is reported,
+never rewritten as current readiness.
+
+Canceled leases stay in their original adapter's `pendingTaskRefs` until the
+actual producer calls `lease.settle()` after its real work/cleanup has settled.
+Running work cannot be settled. Acceptance, rejection and logical completion do
+not settle actual underlying work; the original producer explicitly acknowledges
+settlement after its real completion AND cleanup. Original acceptance/stale result
+rules remain intact. Terminal envelopes are published before synchronous abort
+listeners run, preventing duplicate completion on reentrant cancellation. An abort or
+aborted envelope is not completion. Final close, identity replacement and scope
+revocation disable old admission and notify consumers while retaining canceled
+work and recovery references; they do not prove native disposal or zero resources.
+No explicit safe-eviction grant is supplied: the original Host's full snapshot/
+recovery/disposal capability must satisfy its original preconditions first.
+
+Multiple unsaved draft IDs have real process-local lifetime here. Persistence and
+journal coordinates remain the original Writer/storage owners' obligation. The
+shared literal create key cannot be used to overwrite another retained draft;
+this authority adds no body/journal store, storage namespace or persistence-policy
+change, and makes no multi-draft persistence or cross-restart claim.
+
+Dedicated source controls are `retainedArticleDocumentHandle.test.ts` and
+`articleDocumentRetainedAuthority.test.ts`, using the original unit configuration
+and actual original Registry/authority source. These and all existing runtime,
+test/list/discovery/import, browser/native, security, receipt, race and database
+qualifications remain unrun/HOLD in this lane. Pure compiler/style evidence does
+not establish product or full Host lifecycle acceptance.
+
+Retained cell/owner/preparation/task custody and the helpers that reach it use
+runtime `#private` state, rather than erased TypeScript privacy. Admission reserves
+the actual handle and adapter before scope-reader calls, verifies primary release,
+scope lifetime, complete current handle observation and unchanged context afterward,
+and subscribes before the final read window. Unpublished live admission rolls back
+on failure; actual revocation keeps its pending recovery custody. A scope tombstone
+lasts for that original member: formal detach ends its incarnation, and an equal-ID
+new canonical member may issue a new handle while the old handle remains revoked.
+
+Notification and scope-retirement requests are deferred and drained during
+reentrancy. All actual target owners retire before consumer notifications; unbound
+preparations also retire. Retirement during preparation/adoption prevents
+equal-value scope ABA admission. Another scope request from a consumer cannot be
+dropped. These are ownership/lifetime facts, not strings used as permission grants.
+
+Context mutation and task-slot publication reserve their real original state
+before external guards. Failed result hashing/getters keep a recoverable lease
+and active slot; cancellation can publish a genuine terminal afterward. Digest
+preparation precedes ledger removal, terminal commits recheck current ownership,
+and cancellation during preparation is retained. Only explicit actual producer
+settlement removes pending work. Original Group cell/startup guard/ratio publication,
+CAS/idempotency/history, public issuer and server/persistence contracts remain.
+These repairs still require independent exact-head review and held qualification.
+
+Document mutation also blocks new task issuance until its actual revision is
+published, including a new producer key requested by the final external guard.
+Nested retirement closes the actual target owner/preparation admission before
+returning; canonical notifications and cleanup remain deferred obligations.
+`inspect().admissionClosed` reports that owner fact separately from the Registry's
+current member state. Readonly inspection never fabricates a Registry terminal
+state to represent queued cleanup. Adapter/consumer admission rechecks local
+retirement after external readers. Existing tasks remain pending until real
+cancellation/cleanup and explicit producer settlement; stale is not settled.
+
+Consumer attachment reserves its real slot before entry readers, even for cached
+consumer access. Admission is revalidated after the factory returns, after the
+consumer method property getter, and after every subsequent scope-reader call.
+Local retirement is checked alongside canonical facts; a still-live Registry
+member cannot authorize returning a locally retired consumer. Rejection retains
+the actual created consumer/factory and pending work for the original drain. If
+canonical retirement finished before the factory returned, its missed cleanup is
+performed against that same consumer, preserving failure and actual promise custody.
+Primary adoption's final reader and existing-binding returns also recheck local
+retirement. None of these checks grants restoration, settlement or safe disposal.
+
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.
@@ -189,3 +423,989 @@ Slot/layout admission, model/command composition, production read grants, full
 resource/UI/scale qualification and snapshot reference reconciliation remain
 open. Local fixture provenance and test admission are not production or terminal
 acceptance evidence.
+
+## Public editor session source dependency (#2294/#2295)
+
+`fsusUiEditorSessionFactory.ts` resolves the actual mounted editor only through an
+explicit callback supplied by the existing editor/document owner. It compares
+article/draft/document identity, document epoch and source/draft revision refs,
+binds the real FsusUI `getSession` once, and rechecks the owner after a retained
+snapshot. No route traversal, component-tree discovery, second article/session
+index, body store or second history owner is introduced. The existing
+`MarkdownTextEditor` and `MarkdownEditorAdapter` forward this actual public API;
+missing mounted instances fail explicitly.
+
+The upstream retained snapshot is a real transaction-owner/view checkpoint, but
+it cannot yet satisfy `AuthoringSessionSnapshotRefs`: the public renderer has no
+last-valid-render checkpoint, provider resources lack complete census and
+reversible pause/resume, and no recoverable-disposal owner exists. Draft and crash
+journal refs also need their existing application owners. Full host snapshot
+capture therefore refuses before replacing a retained snapshot. Resource methods
+delegate to the actual FsusUI session; they never return synthetic zero counts.
+Full restoration reports blocked with both proof flags false. No disposal or
+snapshot failure is relabeled as successful lifecycle admission.
+
+`installArticleWorkspaceEditorSessions` is the sole composition function: with
+an explicit real resolver it creates one instance of the existing
+`AuthoringSessionHost` and installs the existing `createArticleWorkspaceSessionPort`
+bridge on the singleton router. Repeated calls with the same resolver return that
+host; a different resolver is rejected. It has no automatic bootstrap call yet:
+the current writing route still owns one route-mounted editor and does not supply
+a retained per-session mount owner. The existing immediate fallback remains in
+the unchanged router source. Thus production composition is **UNWIRED**, not ready.
+The integration owner must supply the mounted-session owner and complete upstream
+snapshot/resource participants before activating this composition in production.
+
+This source is intended for the local FsusUI alias only. No package publication,
+authority refresh, qualified runtime/test discovery, server/browser/native
+execution, issue closure or merge is included. Security/privacy/receipt/native/
+race/backuprestore/IME holds continue to apply. Current source and draft revision
+refs must come from the original document owner, not from copying the requested
+registry entry into the resolver's answer.
+
+
+### Actual renderer proof receiver increment
+
+The same public session now reads the existing mounted full-document renderer's
+opaque authorized last-valid result ref. A missing renderer, fragment/embed view,
+unrendered revision, old document/epoch or missing projection returns null. The
+retained public snapshot includes that real proof when present; no hidden renderer
+is created to qualify a source-only editor. The Blog factory forwards
+`captureLastValidRender(entry)` and re-resolves the mounted original owner with
+exact document/epoch/editor revision checks after capture. It caches no renderer,
+body, history or session index.
+
+This is neither validated renderer restoration nor a complete host snapshot. The
+full factory still lacks active-node/scroll/outline/search/attachment checkpoint
+contracts, renderer restoration and original draft/journal custody. Full snapshots
+refuse before replacing the retained checkpoint. Production composition remains
+UNWIRED, immediate receipt behavior is unchanged, and all qualification holds
+remain in force. The controller-only language/search and partial renderer source
+increments do not qualify total lifecycle usage or recoverable eviction.
+
+
+The receiver also passes mounted-owner document identity/epoch/editor revision
+into public retained capture. Upstream checks the actual transaction owner before
+digest or checkpoint mutation, so a stale binding cannot replace the prior valid
+checkpoint before the receiver's post-capture validation rejects it. Full snapshot
+and disposal failures continue to preserve the original retained state.
+
+
+The factory's `restoreLastValidRender(entry, render)` now forwards to the actual
+public FsusUI mounted-renderer projection restoration and re-resolves the existing
+mounted editor binding after the await. It rejects replaced editor/document/revision
+owners. This partial renderer operation does not issue or restore a complete
+#2294 snapshot, prove resource quiescence, or install the production composition.
+UI916 source `21c9e8769c005ffbc1fbd0a09a7ccc463211984e` remains WIP with
+`complete:false`; full lifecycle admission and all runtime holds remain unchanged.
+The legacy upload event/callback path supplies no actual service Promise to the UI
+attachment owner; no Promise is fabricated from the event or terminal label.
+
+
+Writer/layout source handoff: `ArticleWorkspaceMountedEditorSource` supplies
+`readMountedEditor(editorSessionRef)` from its actual retained mount custody and
+`readDocumentBinding(editorSessionRef)` from its original article/document owner.
+`createArticleWorkspaceMountedEditorResolver(source)` reads the actual upstream
+`inspectDocumentState()` before first edit/render; it does not trust adapter event
+caches or echo the registry request. It checks editor instance, original identity,
+epoch and document context across its reads and owns no extra mount registry.
+The factory independently checks that actual upstream document state on resolve.
+
+Ownership remains: this session lane supplies the public source/adapter/factory/
+resolver/one installer; Writer/#2246 owner supplies actual mount/document reads
+and original per-session mount lifetime; layout #4213 owner calls the one installer
+once in AdminWorkspaceFrame before workspace open operations. AccountRouteFrame
+then hosts Write with its existing before-content tabs/separator. No layout, Write,
+registry/group or second index is added here. Production binding and bootstrap must
+use those actual owners; full snapshot/resource guards remain even after wiring.
+
+
+The same installed composition now retains its original factory for readonly
+`inspectArticleWorkspaceEditorResourceSources(entry)` calls. No extra factory,
+host, mount cache or lifecycle state is created by this read. Before installation
+it refuses explicitly, without falling back to immediate readiness. Its factory
+`inspectResourceSources(entry)` reads the actual public owner census and renderer
+measured source, then re-resolves the original binding and rejects replacement or
+document/revision drift. Renderer complete:false, nullable network and unknown
+fields remain source observations; language keeps its actual registered
+non-recoverable controller. No observation signs ready/paused/eviction receipts.
+
+Renderer UI916439ad560207b6cde1a6641c41d35c73714b45ad8 source is consumed in the
+UI dependency, including actual pending control transitions; its cleanup-exception
+P1 remains under original-owner repair. Attachment UI9155be7dcee904c4ea90db6835abf97a1e7319bd6a4 is not consumed or
+admitted and its review flag remains false. Writer supplies the original actual
+mount/document callbacks; layout4213 already has a consumer of the sole installer.
+Their files and production host placement remain outside this session lane.
+Full snapshot/refset and complete resource admission are still BLOCKED.
+
+The same factory resource observation now also forwards actual
+`session.inspectAttachmentResourceSource()` from the original upstream pipeline.
+Unknown legacy settlement and transitional-owner inspection errors propagate;
+scalar consumer network totals remain null and review/complete gates remain closed.
+This read exposes neither pause/recovery proof nor an extra service/mount owner.
+The original mount/session/document/context is revalidated after all source reads.
+
+The factory's lifecycle bridge re-reads the original mounted/document owner before
+inspect/pause/resume and disposal. A released or replaced Writer binding cannot
+operate on a previously captured native session. Resource operations return their
+actual upstream counts only after rechecking the same editor/session and original
+identity, epoch, source/draft coordinates and native revision; owner drift refuses
+the result rather than creating a successful lifecycle receipt. Disposal validates
+the original mounted binding before handing the real snapshot ref to upstream;
+it does not re-open a disposed session afterward or replace upstream failure
+semantics. Complete resource/full-snapshot admission remains unavailable.
+
+The corrected pipeline A candidate is
+`ef17179f8788a4bf69f0998e8635191460ad1db1` (PR927); its supplied cleanup P1 closure
+is source-only. The notification-watermark P2 remains under original-owner repair.
+Attachment311ffe5d remains unconsumed with final-jobs callback context and raw/proxy
+job findings under repair. These candidates never activate reviewed resource gates.
+
+The real partial factory also exposes `restoreRetainedSnapshot(entry, snapshot)`
+paired with its existing actual retained capture. It sends the original opaque
+checkpoint directly to the same public session, using the actual mounted document
+identity/epoch/native revision as the expected context. Upstream alone decides
+custody, copied-token, revision and partial view/history/selection restore proof.
+The factory rechecks the original editor/session and document/source/draft context
+after the restore callback, including blocked results. No checkpoint cache or
+second history exists here. The returned proof is only the original same-owner,
+same-revision retained restore; it supplies no complete panel/draft/journal refset,
+renderer hydration, resource suspension, disposal recovery or host-ready receipt.
+Full `FsusUiPublicEditorSession.restoreSnapshot` stays explicitly blocked.
+
+Composition exposes paired `captureArticleWorkspaceRetainedEditorSnapshot` and
+`restoreArticleWorkspaceRetainedEditorSnapshot` calls through its SAME installed
+factory. Both refuse before installation. They never install a fallback factory,
+retain another checkpoint/history slot or modify the original session-port receipt.
+
+### Failed installation custody and original producer gaps
+
+`retireArticleWorkspaceEditorSessions(host)` revokes only the current original
+composition's admission. It checks exact host identity and is idempotent for that
+host. The original factory resolver checks the same lifetime before and after the
+real Writer resolver; the original port uses its existing nextUsedTick callback to
+refuse before attach/activate. Composition reads/capture/restore and even a same-
+resolver reinstall refuse after retirement. Setter failure also retires custody.
+The original host/factory/native references remain retained; no immediate fallback,
+replacement host, successful disposal or released-resource acknowledgment is made.
+Rail owns calling this on restore failure/cancellation, stopping its host use and
+settling its actual installation task. Original Group attachedRegistry retirement
+is a separate original-owner dependency; this module does not mutate Group/registry.
+A new installation stays blocked while unsupported host/native retirement prevents
+safe release. This is admission retirement, not disposal, suspend or recovery.
+
+Actual inspected checkpoint producers at the original039fd source:
+
+- `useAdminArticleWrite.ts` owns private ArticleDraftSnapshot/buildDraftSnapshot,
+  applyDraftToForm, articleRecoveryFlushOwner and serverDraftRevision. Its public
+  return exposes saveDraftNow:void, restoreLocalDraft and articleForm/context, not
+  an immutable draft/checkpoint token or synchronous capture/validate/restore API.
+  saveDraftNow starts genuine async journal/server work; a void return cannot be a
+  settled snapshot. Writer/#2246 must expose the original settled draft/session
+  custody bound to native owner, principal, documentId/epoch and source/draft refs.
+- `articleRecoveryJournal.ts` (original checkpoint owner #1813; #3413 policy alignment) owns ArticleRecoveryFlushOwner.stage/flush/
+  drain/markConfirmed/clear and ArticleRecoveryJournal.write/list/confirm. flush is
+  async; pendingClientRevision is not storage confirmation. Record identity is
+  principal-hash/article-key/recovery-tab and lacks editorSessionRef/documentId/
+  documentEpoch. write updates that same id, confirm deletes matching stored data;
+  neither id nor mutable latest result is an immutable retained crash checkpoint.
+  The original recovery owner must supply settled checkpoint custody/validation
+  with document/session binding and confirmation/clear/expiry invalidation before
+  synchronous #2294 capture can consume it. No new journal is created here.
+- `authoringPanelSnapshotAdapter.ts` binds extension panel reads to current server
+  workspace observations/package grants. It owns read deadline/abort/subscriptions,
+  not editor active-node/scroll/outline/search/attachment checkpoints, and cannot
+  issue those refs. It is not an editor panel-state producer.
+- UI MarkdownEditor captureViewState currently owns partial mode/search/caret-
+  scroll state. Outline navigation uses pure model/reveal planners; attachment
+  owner exposes resource/provenance operations but no recoverable state checkpoint.
+  Full original UI panel checkpoint capture/validation/restore remains #2294/#2295
+  work coordinated with the original editor/typography and language/attachment
+  owners. Ref aliases or a reconstructed second panel/history owner cannot fill it.
+
+Existing native panel partial restore and actual server-draft/journal APIs are not
+replaced or executed. No independently usable full draft/journal/panel checkpoint
+adapter can be wired from these current producer APIs. Full factory refusal and
+reviewed gates remain; runtime/list/discovery/mount/native remain UNRUN.
+
+### Original journal checkpoint consumer handoff (#1813 / #2294 / #2295)
+
+Dedicated original journal owner: `01a12cb0-a264-7798-9ddb-2c2a2642d00b`.
+The following is a required producer/consumer join, not a declared implemented
+checkpoint API. It does not change existing persistence/privacy behavior.
+
+| Binding input | Actual current producer | Consumer requirement |
+| --- | --- | --- |
+| editorSessionRef | Original registry association plus native getSession | Match exact bound public session, never derive from route/title. |
+| articleId, draftId, documentId | Original Writer document owner and mounted resolver | Match all identity fields; articleId alone cannot identify an unsaved document. |
+| documentEpoch | Actual native inspectDocumentState and original document context | Match both original owners; same bytes under a new epoch invalidate. |
+| editorRevision | Actual native inspectDocumentState.revision | Number, distinct from nullable source/draft reference strings. |
+| sourceRevision, draftRevision | Original ArticleDocumentContextRef | Preserve actual nullable values; do not substitute server row revision or a digest. |
+| principal identityId | Original Writer recoveryIdentityId/admin principal | Factory currently has no principal source; Writer must bind/recheck it. permissionRef is not principal identity. |
+| recovery tabId | Original ArticleRecoveryCoordinator.tabId | Distinct from workspace entry.tabId; do not substitute one for the other. |
+| clientRevision, baseRevisionId, serverRevision, content | Original staged ArticleRecoveryJournalWriteInput | Preserve the exact real staged write/version; a pending revision is not durable confirmation. |
+
+The real journal owner prepares/persists asynchronously using the existing journal.
+Only the original owner's completed, immutable, genuinely held token may then be
+read synchronously by the Writer/factory. Factory capture must not start write,
+flush, SHA-256, IndexedDB read or a replacement Promise from the synchronous host
+captureSnapshot call. Full capture stays blocked if the original completed token
+is missing, superseded, invalidated, failed, not current or for another owner.
+
+Required producer surface semantics (names remain the original owner's choice):
+synchronous read of a previously completed bound checkpoint; synchronous inspection
+of the ORIGINAL token/ref and exact binding; synchronous validation against current
+owner/version; original invalidation on overwrite, confirmation, discard/clear,
+expiry, principal/source/draft/document/epoch changes and owner retirement. A ref
+must resolve actual original-owner custody; copyable metadata, a digest or mutable
+DB id is not custody. If physical restore/revalidation needs async I/O, it must be
+completed by the original owner before synchronous host restore, otherwise block.
+No full restore/dispose success is inferred from merely finding a stored record.
+
+Host crashJournalRef must be an actual producer-issued content-free stable ref
+matching the existing host pattern `[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}`. The token
+must validate binding and original durable write version (id/clientRevision/
+sourceHash), and its inspection must expose no content or raw principal to the
+workspace refset. Journal sourceHash is SHA-256 over its original schema-prefixed
+source; native editorContentDigest uses calculateOpenArticleDocumentDigest(source).
+They are different encodings and must not be equated. Writer may join actual write
+content/version to the native snapshot digest, but must not claim native custody
+from a callback echo; the factory independently captures/checks actual native
+identity/epoch/revision/digest and rechecks the original mounted/session owner.
+
+The existing journal is deleted after matching server confirmation. A confirmed
+clean/absent state is not automatically a valid crashJournalRef. Support for such
+state must be a genuine original producer capability; until then full capture
+blocks. The consumer must not postpone privacy-required deletion, create a dummy
+record, retain another body copy or mint a synthetic empty-success ref.
+
+Writer owns staging/flush, actual principal and recovery-tab binding plus current
+source/draft association. The journal task edits only articleRecoveryJournal and
+its narrow source tests/docs; it does not edit Writer/runtime/Write/factory. This
+factory lane will consume the published original concrete API after independent
+source review, with actual Writer current-owner rechecks and no second journal.
+All runtime/list/discovery/mount/native/storage/network qualification remains UNRUN.
+
+The consumer also needs synchronous original-token validation against the actual
+native source. The existing UI captureSnapshot digest callback receives the real
+sole-owner source before view/history/checkpoint custody is replaced. Factory can
+call the original journal's synchronous completed-content/version validator there
+and throw on mismatch, preserving the previous retained checkpoint. The journal
+owner keeps its original completed write custody private; inspection must not
+expose body/principal or create another body/journal owner. A prefixed async
+sourceHash-only API cannot by itself perform this synchronous pre-custody join.
+This is a required concrete original-producer seam, not an implemented substitute
+or authorization receipt. Runtime/storage/crypto qualification remains UNRUN.
+
+
+### Published original journal token versus host reference
+
+The original #1813 producer source in PR #4225 at
+`61c156009ee7b2bc540b5efd84071adf171d679e` now provides real asynchronous
+`bindCheckpointSource(...).prepare()`, original process-local object custody,
+synchronous `inspect`/`validate`, asynchronous original storage `restore`, and
+`invalidate`/`release`. Its independent source review and actual Writer reader
+integration are pending. These APIs have not been copied into this branch or
+executed here; the original journal continues to own persistence and custody.
+
+The published token is a frozen empty object checked by exact object identity in
+the issuing binding's existing custody. Its inspection returns owner/version and
+storage metadata, with no stable checkpoint reference. The unchanged #2294 host
+requires `crashJournalRef:string` matching
+`[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}`. Object serialization/hash, mutable record id,
+client revision, sourceHash, or a newly allocated factory label cannot establish
+this missing producer-owned reference.
+
+The smallest legitimate join requires the ORIGINAL journal binding to issue a
+stable content-free reference in its existing completed custody and return it
+from inspection of that same original token. The factory can retain the existing
+binding/token alongside its original session and compare the inspected reference
+to snapshot.crashJournalRef at each capture/restore admission. Original inspection
+must still independently validate exact owner/mount/context/version and expiry;
+reference equality alone is never authority. A copied reference, foreign token,
+retired binding, overwrite/confirm/discard/clear or stale context must refuse.
+No second journal, checkpoint producer, token-to-string registry or snapshot
+contract relaxation is needed. The original producer must define non-reuse and
+collision safety for its reference; this lane does not manufacture that value.
+
+A second seam remains: published inspect/validate compares scalar owner/version
+fields, not current content, and original custody deliberately retains no body.
+Its prepare verifies source/current/stored content during the actual async write,
+but that does not supply synchronous validation of the actual nativeSource inside
+the UI capture digest callback. Original journal and Writer must expose a genuine
+completed-version/current-content join usable there before retained checkpoint
+replacement. Async storage restore/hash, metadata equality, a content echo, or
+publishing a second retained body cannot substitute. Async physical restoration
+also cannot be inserted into the synchronous host restore. Confirmed/empty journal
+custody remains unsupported unless supplied by the actual producer.
+
+Until the reference and content/version joins plus actual Writer integration are
+reviewed, full factory capture/restore remains blocked. Panel/draft/full renderer
+and complete resource controls are independent remaining dependencies. All source
+inspection is static; runtime/list/discovery/mount/storage/crypto/native and all
+qualification holds remain UNRUN.
+
+
+### Concrete Writer checkpoint intake and remaining draft/panel ownership
+
+Original Writer PR #4153 now publishes
+`60e2363cbbf2552166041fda331774ad6adf24c8` with the real runtime binding's
+`bindRecoveryCheckpoint(editorSessionRef)`. Its reader checks original mounted
+editor, registry association/revision, document context, principal, active recovery
+client revision, site/draft scope, permission and lifecycle, then supplies actual
+recovery-tab/base/server/client/content facts to the original journal. Runtime
+release releases that same binding. This is a source offer, not consumed here or
+independently accepted: its journal dependency intake is still incomplete. The
+factory will join the exact existing session and original Writer binding only
+after the original producer reference/content seams and caller source are reviewed.
+
+That recovery binding does not issue draftStateRef. The original Writer's
+buildDraftSnapshot/applyDraftToForm already own title/content/summary/cover,
+category/tagIds, publish status/schedule, rights, base/client/server revisions and
+context digest. A genuine draft checkpoint must use those original primitives and
+retain their original immutable snapshot custody, not reconstruct articleForm in
+the factory. Its producer must issue its own stable reference and synchronously
+inspect/validate the same token against actual principal/site/draft key, original
+runtime/mount/association, document identity/epoch/native revision and nullable
+source/draft refs. Native-source validation belongs before the existing UI capture
+replaces retained custody. Actual form/rights/tag/schedule changes also invalidate
+draft custody even when native content/revision is unchanged. Runtime release,
+principal/document replacement, real draft/server confirmation and scope cleanup
+must follow the original Writer's invalidation rules. saveDraftNow:void and pending
+flush/clientRevision do not certify a completed save or immutable checkpoint.
+Original restore uses applyDraftToForm and its real native synchronization, with
+post-owner/context checks; applying form values alone is not complete session
+restore. No second draft/body store or fake async-completion wrapper is introduced.
+
+UI's existing retained viewStateRef resolves only its original partial mode/search/
+caret-scroll checkpoint. It cannot be aliased into activeNodeRef, scrollAnchorRef,
+outlineRef, searchRef or attachmentStateRef to satisfy the full host refset. Those
+original UI owners must capture immutable actual state and resolve/validate their
+references in the existing bounded checkpoint custody, then restore through their
+existing native operations. Pure outline/anchor planners are not retained state
+issuers. Attachment capture/File observation and resource census also do not issue
+a recoverable attachment-state checkpoint. Same-byte epoch changes, original owner
+replacement/release, unresolved async continuations, IME and real restore failure
+must retain the original refusal semantics. Typography and shared expose remain
+with their coordinated owners. Full factory stays blocked until the real owners
+and caller join exist; all runtime and qualification work remains UNRUN.
+
+
+### Actual native File observation source available to the original Writer
+
+Local UI #914 source `6a73ad6312091ca782f99393140efc8df0fb4fb6` now integrates the
+original public producer971e File bridge onto the same session/attachment owner.
+The public `MarkdownAttachmentCaptureObservation` and `MarkdownAttachmentFileConsumer`
+types, `upload-image(batch, capture?)`, and
+`withAttachmentFile(originalBatch, originalItem, consumer)` are actual source.
+The loan returns the identical original File only for the original current job,
+batch/item and first-attempt signals. It never performs capture/placeholder dispatch.
+The optional observation contains the identical emitted accepted transaction and
+original plan/placements. The original Writer must admit THAT already accepted
+native transaction into its genuine pending-handle boundary; calling an existing
+commitCreated path that dispatches another placeholder would duplicate the edit.
+Write/wrapper/runtime changes remain with their original owners, not this factory.
+
+The integration retains real future/attempt/terminal-result proof, unknown legacy
+settlement and per-item File revocation. The actual future hook obtains File from
+the revocable original record, and its progress/awaited terminal/finally remain with
+the same resource owner. It does not emit a duplicate legacy event. Private job
+proof reconciles copied job document identity without accepting matching IDs alone.
+Public dispatch strips private observer/job arguments. Actual cleanup-stack depth
+blocks public resource inspections/controls until the cleanup frame exits; an empty
+Map is not release proof. Attachment reviewed=false/full roster excluded remains.
+This File/transaction observation is not attachmentStateRef or a recoverable panel,
+draft/journal, full snapshot, native receipt or eviction capability.
+
+Same original Web/Vitest projects compile at this source with installed tools and
+AST/SFC checks pass. Runtime and all original/incoming File source cases are UNRUN.
+Original donor assertions are preserved, including a legacy cancel/retry case whose
+positive retry expectation conflicts with current unknown-settlement refusal.
+That case needs original actor alignment before execution; no retry gate is relaxed
+and historical135/16 PASS evidence is not integrated-head acceptance. Full factory
+continues to refuse the absent original panel/draft/journal/full renderer refset.
+
+### Original Writer reference binding joined to actual native retained capture
+
+The reviewed original journal `02cfd1a9919d6008ff203fe377e01d29abb236cc`
+and private-storage cleanup postimages are consumed exactly, preserving the same
+storage, privacy, invalidation and asynchronous persistence owners. Original Writer
+`4fb995cbf11be6cab84299c321a6a3ce6a9079d3` forwards `validateContent`,
+`inspectReference`, `validateReference` and `restoreReference` on that SAME issued
+binding, with original creation reservation, context/principal subscriptions and
+independent release. Its product/composable remains with its original owner;
+this branch does not copy or replace that caller. Native/File caller source is
+`1400e677752e5c18f1b76b0d0d0ce78518a36ddc`, published with source evidence
+`de6df11110b5d060a001fad36bb604627323e32a`; its independent review remains a
+separate prerequisite and its retained second-owner issuance/lifecycle is absent.
+
+The same installed factory now implements
+`captureArticleWorkspaceRetainedRecoverySnapshot(entry, binding, checkpointRef)`.
+The original Writer supplies its actual `bindRecoveryCheckpoint(editorSessionRef)`
+binding and, after awaiting original `prepare`, the reference returned by original
+`inspect(token)`. No object token is serialized or converted to a reference here.
+Capture synchronously checks original reference custody, actual identity, document
+epoch, native numeric revision, nullable source/draft revisions and association
+revision. Factory delegates the actual original Writer `captureRetainedSnapshot(reference)`
+port from reviewed-reference consumer4fb plus native source1400/de6. That original
+implementation passes expected document id/epoch/native revision to the sole UI
+session; inside its native callback, original `validateReference` verifies the actual
+native source before `calculateOpenArticleDocumentDigest(nativeSource)` supplies
+the canonical digest. Factory rechecks actual owner/context and returned snapshot
+identity/revision. It does not implement a competing native callback or binding.
+Native capture owns all transaction/history/selection custody. Callback refusal preserves the prior
+native checkpoint. The returned process-local bundle holds the actual original
+binding, original opaque native snapshot and original crashJournalRef, with a
+canonical digest of these actual retained refs. It retains no article body, second
+history, checkpoint producer, host or session index. The ref string alone grants
+no authority; original binding invalidation, replacement, expiry and release revoke
+the bundle's admission.
+
+Native `validateRetainedSnapshot(snapshot, expected)` also checks the EXACT
+original retained object in the factory's same native session before issuing the
+bundle and before/after asynchronous journal restore. Same strings/document/revision
+from another native instance cannot satisfy this check. It reads existing native
+custody without replacing/restoring it and certifies no view/resource restoration.
+
+`restoreArticleWorkspaceRetainedRecoverySnapshot(entry, bundle)` awaits original
+`restoreReference`, rechecks the same installed native/session/document owners and
+composition admission across the await, validates original journal content and
+its canonical digest against the original native snapshot, then delegates the
+original native same-owner/same-revision restore. It never applies journal body
+outside that owner or recaptures native state during validation. Original journal
+storage restore does not apply content. Any stale, released, mismatched or retired
+owner refuses; native restore's blocked proof remains blocked. The original Writer
+owns release/subscriptions; this composition neither releases nor rebinds its port.
+
+This is an implemented partial retained checkpoint join, not a full
+AuthoringSessionSnapshotRefs or complete restoration. The Writer's product call
+site must consume these functions through the original bootstrap once its own
+source is integrated; this branch supplies the concrete factory/composition API.
+Full host capture still refuses BEFORE native capture because actual panel,
+draftStateRef, full renderer restoration and complete original resource controls
+remain unavailable. No partial viewStateRef aliases those missing references.
+Original immediate guard, host/router, registry/group, typography and qualification
+holds remain unchanged. All runtime, storage, discovery/list, native/worker,
+security/privacy/receipt/race/backuprestore/IME acceptance is UNRUN.
+
+### Real Writer source consumption and final admission before mutation
+
+The session branch now consumes the original Writer de6 eight postimages and 22
+actual existing dependency postimages, including original DocContext subscribeContext.
+Every source maps to its exact original Git blob. Actual wrappers, Writer/composable,
+native/File runtime and mounted-source producer bodies exist in the production tree.
+Six additional original upload/preview/markdown helper versions are needed by those
+published modules and are consumed separately, without semantic edits. Generated
+UploadAssetFacts DTO/route/response-kind producer artifacts are absent from this fixed
+baseline; no declarations, route literals, privacy/receipt bypass or authority refresh
+substitute them. Original full application compilation stays RED until real dependency
+closure and inherited source findings are resolved by the appropriate owners.
+
+Factory restore pins every caller-held bundle field and original checkpoint/native
+method before owner operations. The same composition passes its actual assertActive
+closure into the factory; after final external getter/reference/content reads and
+real native token validation, that admission is checked immediately before the pinned
+original native restore call. A recoveryCheckpoint getter, method getter, restored
+content getter or original reference callback that synchronously retires the host
+therefore cannot make a post-mutation refusal stand in for pre-mutation authorization.
+No callback/input getter is read between the final guard and native mutation.
+The native validator additionally checks original transaction-store token/history
+custody, so document-coordinate ABA cannot revive a released checkpoint. Actual
+mutating native/store restore semantics and blocked proofs remain original.
+The actual Writer capture port forwards the supplied original factory guard to
+the native expected context. Native retain/restore invoke it after their final
+renderer/view callbacks, before original store mutation; it revalidates full
+original owner/reference/admission, rather than checking a copied boolean. This
+small consumer adapter hunk is separate from the exact de6 source intake, and
+original transaction mutating restore bytes are unchanged.
+
+createArticleWorkspaceRetainedRecoveryPort borrows the original Layout/Write journal
+reader, checks the canonical original registry association and same original port
+before/after awaits, and exposes explicit prepareSnapshot/restoreSnapshot through the
+SAME installed factory. Creation never binds a journal, persists, captures or installs
+a host. The minimal patch in artifacts/article-editor/issue-2295-layout-caller-source
+is anchored to original Layout e6bb1b6c and exposes this concrete partial port from
+its existing original binding. Product Write.vue is not privately modified here;
+Layout consumes its patch, and Rail supplies its exact published ref/installer source
+for the consumer hunk. No replacement installation path or automatic prepare on
+mount/geometry/document publication is introduced. Missing original caller/native
+binding/composition still refuses. Full host/resource and second-owner gates remain
+open; all runtime/tests/list/mount/native/kernel qualification remains UNRUN.
+
+
+### Reference callback precedes final mounted authority read
+
+The bounded P1 rereview found that a legitimate original journal source callback
+could withdraw the mounted resolver after the old mounted check while leaving
+original binding/native data alive. Capture and restore now finish original
+inspectReference and its source/expiry callback FIRST, then resolve the actual
+current mounted editor/session/context LAST and compare the original pinned owner.
+A null/withdrawn resolver refuses before native retain/history/selection mutation.
+No second reference callback is started after this final mounted read.
+
+Because the mounted resolver can itself invalidate/release/replace journal custody,
+the original issuer now exposes hasReferenceCustody(reference, inspectedInfo). It
+reads ONLY its existing private binding set and current custody's EXACT original
+info object; equal metadata/copies/locators cannot satisfy it. No clock/source or
+external callback, allocation, index, body, history or second producer is used.
+It is a private custody-continuity check, not a source/expiry inspection and never
+replaces the preceding original fresh inspectReference. Writer forwards the same
+issued method. The factory pins this real method, uses it after final mounted
+authority resolution, then checks actual composition admission. There is no
+mutually recursive resolve/inspect loop or metadata-issued authority. Native
+methods invoke this complete guard after their last renderer/view callbacks.
+Original transaction readonly ABA protection and mutating restore bytes remain.
+The original journal source case checks exact/copy/invalidation and ZERO additional
+source/clock reads; AST-only, UNRUN. Full ref/resource/caller qualification stays held.
+
+
+## Original draft/native source correlation
+
+The original Writer SOURCE CLOSED full-form runtime now lives in this source
+composition, with its actual retained document/native mount/principal/draft
+metadata and same single original form. Its bounded immutable draft reference
+is issued only by that owner. Original principal ABA retirement, restore
+reservation/per-setter admission and real server conflict pause are preserved.
+No body/form/history clone owner, new storage namespace or business grant.
+
+The SAME native public session now supplies inspectContentDigest: synchronous
+read-only original body callback, current native identity/revision/admission
+checks, and immutable digest metadata. It does not capture/restore history or
+replace an existing native checkpoint. The original Writer has a callback-free
+hasDraftReferenceCustody(reference, originalInfo) method over ONLY its private
+current slot/retirement/reservation flags and exact original info object; it
+never replaces prior fresh owner/content inspection.
+
+The same installed factory/composition exposes inspectOriginalDraftCheckpoint /
+inspectArticleWorkspaceOriginalDraftCheckpoint. Pass only its already issued original reference. The actual runtime is borrowed
+through the SAME original mounted Writer source, not a caller-supplied runtime. The
+factory pins actual methods, checks original full document/draft/session/epoch/
+revision/association, validates native bytes through original validateDraftReference,
+then rechecks original draft inspection, final actual mount and genuine private
+slot continuity. Return is read-only original info plus actual native digest,
+not a complete snapshot, restoration, readiness, pause or safe-eviction receipt.
+The actual Root/Write caller forwards readDraftCheckpoint from that SAME original
+source. Missing/changed runtime ownership refuses. A caller cannot choose an
+arbitrary inspect/validate/self-certification object through this inspection API.
+
+Full snapshot remains refused: complete controlled resources and a qualified
+full recovery ref replacement/restoration protocol are not available. In
+particular the original draft capture invalidates its prior single slot before
+replacement, so the factory must not capture a new draft then discard it after
+a later native/render failure while claiming the prior complete snapshot is
+intact. This read-only method deliberately validates an already issued reference
+without performing that unsafe replacement. All full-factory/resources/disposal/
+eviction/cross-draft/storage/security/privacy/receipt/race/backuprestore/IME/native
+qualification holds remain, and every source test is UNRUN.
+
+
+### Same original cache/producer terminal consumption
+
+The Main source now consumes the original Writer170e terminal postimages on the
+existing cache, producer, continuity and runtime binding. Cache awaits the actual
+getRequestWork(theSameRequest).terminal for both success and rejection, then
+performs original transfer/late release before lease.settle. Prompt canceled
+receipts, invalid/null results and finished metadata do not settle work. Actual
+validation, lookup, cleanup and unknown native/source failures keep error/pending
+custody. Continuity.startRefresh and runtime.pendingRefreshWork expose this SAME
+cache work; no second render/cache/body/history/authority is created.
+
+Exact seven-path source/protected-blob map, current Main static evidence, original
+whole-file zero-execution preflight and remaining real owner interfaces live in
+artifacts/article-editor/issue-2295-cache-terminal-intake. Three original supplier
+control files are added as UNRUN source only. Cache/producer bounded closure does
+not migrate to the caller or Main composite. SourceCompare, Writer body prototype
+and Documentad35 handover are not consumed.
+
+Main's installer/resolver accepts actual already-mounted owners. Original Rail
+startup must supply genuine handle/preparation before Writer adapter construction.
+Public native retained restore requires the original same-owner/identity/epoch/
+revision token; changing identity props currently resets revision/history, so it
+is not history-preserving adoption. Original full-ref replacement/failure custody
+and real loader base/server/client version admission remain separate owner gaps.
+Complete host snapshots, resource pause/disposal/eviction and restored-body
+readiness remain refused/unqualified. Every runtime and qualification HOLD stays.
+
+
+### Actual native prepared snapshot receiver
+
+The original native store/session now prepares one genuine pending checkpoint
+without replacing its prior retained token. commitPreparedSnapshot validates
+original history/selection/document/revision and actual panel/render/admission
+custody, allocates before publication and publishes all issued native refs in one
+synchronous owner operation. Failure/cancellation discards only the candidate.
+Original mutating history restore remains byte-identical; foreign/copied/ABA
+candidates refuse. No source/history/body copy owner, new expose or resource ack.
+
+Main prepareArticleWorkspaceRetainedEditorSnapshot forwards the SAME factory's
+actual native preparation capability: snapshot, commit and discard. Commit reserves
+before reentry and uses final real mounted/composition admission; success invokes
+no external reader after native publication. Legacy retained capture uses this
+actual producer. Exact source/protected body maps, current original compiler
+outputs, source-only matrix and preflight live in
+artifacts/article-editor/issue-2295-native-prepared-snapshot.
+
+This is atomic issued-native-ref publication only. Native nullable participants
+remain nullable; full host refs/resources/readiness are not supplied. Original
+Writer draft capture invalidates its current slot before replacement and needs
+its own non-invalidating preparation/private validation/pure publication/cancel
+source. Genuine mounted journal/draft custody and renderer future/release join
+remain their original producer responsibilities. Full factory refusal and same
+identity/epoch/revision native restore remain; no metadata/callback declaration
+substitutes for absent production protocols. All runtime qualification stays held.
+
+
+### Finite original native publication seal (#2295)
+
+The existing actual factory preparation now offers `sealNative()`, returning a
+preallocated native-only reservation with `snapshot`,
+`scope: 'native-owner-custody'`, `hasNativeCustody()`, `publishNative()` and
+`cancelNative()`. It delegates the SAME upstream session's genuine seal/private
+custody/publisher/cancel operations. Original mounted/context admission runs
+before native seal; no external resolver callback or allocation follows actual
+native publication. This does not install joint full-host publication or change
+the existing full-factory refusal. Cross identity/epoch/revision still refuses.
+
+The actual Renderer273 custody publisher attests captured private renderer
+custody, while live document/projection validation still calls external readers.
+The original Renderer producer must issue a reservation invalidated synchronously
+by its genuine document/projection/source/pipeline and deactivate/unmount/failed
+cleanup events, and expose callback-free exact-token continuity and preallocated
+publication under that reservation. Application/document/member/mount/principal
+lifetime needs a genuine original synchronous reservation too. Metadata or a
+replaceable consumer object cannot certify those authorities. Journal082 and
+Writer619 private finite publication protocols remain original; their source/TTL
+validation must finish before the final pure joint guard and synchronous publish.
+No partial native/Renderer/Writer/Journal sequence is reported as ready or as a
+complete retained refset. All runtime/resource/restore/eviction holds remain.
+
+
+### Private composition admission seal (#2295)
+
+The original successful installed composition supplies
+`sealArticleWorkspaceEditorSessionComposition(host)`, pure
+`hasArticleWorkspaceEditorSessionCompositionCustody(seal)` and
+`cancelArticleWorkspaceEditorSessionCompositionSeal(seal)`. One exact bounded
+private token has scope `composition-admission`. Original installation completion
+and permanent retirement own it; allocation/reentry/retirement refusal cannot
+certify a new token. Final checks do not call resolver, Registry, mount, native or
+auth readers. This supplies only that producer's original admission continuity.
+
+Member, mounted subtree/Writer and principal/private-surface authority remain
+separate original producer gaps. Downstream Document lifetime notifications can
+follow cleanup callbacks; Writer id-only principal watching does not certify
+same-id permission/status/step-up changes. Original owners must retire their
+private reservations before any such callback and expose pure final custody.
+Source events and requested signatures are recorded in
+`artifacts/article-editor/issue-2295-composition-admission-seal` as missing APIs.
+Missing provider Queryv1/resolveBatch/canonical, startup/fullready/refset/native
+restore/auth/security/resource/eviction and cross-identity holds remain refused.
+
+
+### Actual original Writer mounted-authority consumption (#2295)
+
+The actual original `authoringEditorRuntime.bindEditor` runtime now supplies
+`sealMountedAuthority(editorSessionRef)`, `hasMountedAuthorityCustody(seal)` and
+`cancelMountedAuthority(seal)`. It consumes that SAME original retained binding's
+Document272a/d354 lifetime seal and private has/cancel, preserving failed issuer/
+token cancellation custody. Original physical release retires local custody before
+callbacks; negative auth/private-surface/context/lifetime events revoke locally.
+With original Auth819e inputs consumed, the original Writer91d can return its
+genuine seal after the same principal/article.write/Doc/physical private join.
+Missing, foreign, retired, failed or mismatched inputs still refuse. This does not
+complete Root mounting, provider Queryv1/resolveBatch/canonical, fullready or refsets.
+
+Original Writer cleanup attempts all operations before combining failures. Only
+its own private error-group identities are expanded; external thrown objects and
+`errors` getters remain untouched, preserving distinct original causes. Exact
+Writer final1f148 source is applied through owning hunks against Main's actual
+preimage; existing Main mounted/draft/native/private-reference guards and helper
+rechecks remain. Source/protection/static evidence and original zero-execution
+preflight are in `artifacts/article-editor/issue-2295-writer1f148-authority-intake`.
+All runtime/native/auth/security/receipt/restore/eviction qualification stays held.
+
+
+### Auth continuity bound for synchronous local publication (#2294/#2295)
+
+The final pure application guard attests the original producer-observed local
+principal/permissions/session/private-surface continuity, after all fallible reads
+and before local pointer publication. It does not prove unknown remote revocation
+or exact server wall-clock expiry during a blocked JavaScript task. Original issue
+#2294 required restore permission/ref validation and #2293/#2295 invalidation,
+blocked/ready and stale-state protections remain mandatory; original qualified
+server permission/query provenance cannot be replaced by client-side filtering.
+
+The actual auth producer must revoke on observed replacement/clear/ABA, permissions/
+status/step-up, account/site/logout, server auth failures and private-surface changes.
+Missing/unadmitted source still refuses. Server operations retain original server
+session/permission validation. Backend AdminSessionProjection validates real revoke/
+idle/absolute expiry; current validation result/admin-me snapshot exposes no projection
+lifetime to this guard. Frontend refresh TTL is not a server deadline. No deadline,
+backend write or remote atomic promise is invented. Precise original clauses/DAG and
+source refs are in `artifacts/article-editor/issue-2295-auth-publication-contract-boundary`.
+The current positive mounted seal proves only this observed-local private join;
+all runtime/security/receipt/native/resource/restore/eviction/fullready holds stay.
+
+
+### Actual original Auth5e pure-port consumption (#2295)
+
+Original admin store/private surface Auth5e source now supplies real function-valued
+getter ports for observed-local principal continuity. Writer captures the SAME
+store's seal/has/cancel functions before final checks, avoiding Pinia action callbacks
+inside the pure join. Fresh original principal and `article.write` admission precede
+same auth/Doc/physical reservation checks; both original tokens cancel independently
+attempt-all with failed issuer/token/cause custody retained.
+
+The original observed-event successor now consumed is final Auth819e, including
+its genuine delivery/disposer/queued-cleanup ownership. Writer91d returns only its
+original token after the final private guard; no callback/allocation/await follows
+that guard before the return. Dual cancellation and real failed-token/cause custody
+remain unchanged. Earlier Auth5e/Writer2cf evidence stays pinned to that earlier
+source; current intake proof/checks/preflight are in
+`artifacts/article-editor/issue-2295-auth819e-writer91d-intake`. Other Main adapters,
+Doc/Registry/Group and native guards are preserved. No server deadline/remote atomic
+promise or backend change is included; all fullready/provider/qualification holds stay.
+
+### Original Root/Layout source consumption with retained Main owners (#2299)
+
+The actual Main tree consumes seventeen original Root/Layout postimages from
+e3877fc3af4819111cfd6725bc17017183fb72d0 and five required original support modules.
+Root startup, authenticated snapshot caller, session source, HTTP connection and
+layout outlet now use the existing sole session installer and the original group
+owner. Current Registry membership/document handles, composition admission seals,
+Writer/Auth pure ports and native factory remain unchanged. No second registry,
+host, editor, history, readiness issuer or resource acknowledgement is introduced.
+The Separator adapter additionally rejects a missing observation before reading
+its scope/ref; no fallback snapshot or synthetic successful interaction exists.
+
+This composite is source-reviewable but not build-ready: the current local FsusUI
+alias lacks the original public ResizeSeparator component and its payload/range
+types. Original locale schema repair cb7f is now consumed through its exact thirteen
+source paths: ten canonical leaf additions, the derived admin entry and original
+static producer/controls. No catalog/generated/frozen authority refresh is applied.
+Missing provider, mounted authority, original token reservations and
+complete resource/refset admission continue to refuse. Precise source identities,
+preserved owners, actual failing whole-program delta and zero-execution preflight
+are in `artifacts/article-editor/issue-2299-layout-e387-main-intake`. Original donor
+closure does not qualify this newer composite. Parent reports Main6f exact source
+provenance/adaptation closed; all execution/qualification holds remain, and there
+is no package publication or authority refresh.
+
+Original upstream offer d615cc2064c4c14946d341d43f2eebf473d7bd8d now pins the
+actual ResizeSeparator a775 source. Its eight new files and five additive entry
+hunks check against current UIf253 without overwriting shared entries; actual UI
+remains unchanged: original a775 has an unresolved P2; repair candidate
+e570e2c82d5f137eefc831fb193dbb6f2764703b awaits independent closure and is not
+consumed. Compatibility is not source acceptance. The original locale owner
+now supplies a genuine static literal-AST producer deriving the existing algorithm
+from all ten schemas. Its real admin check/write fixed point and original static
+locale gate pass without evaluating product modules. Ordinary application schema
+source is distinct from frozen registrations/fixtures/receipts; all protected
+objects and original focused test remain unchanged. Precise intake, output hashes,
+raw checks and holds are in `artifacts/article-editor/issue-2299-locale-cb7f-intake`.
+
+Parent reports original Auth819e six-owner local source closure and Writer91d
+positive source closure. This Main now consumes those exact original postimages
+through their owning patches, keeping newer Registry/Doc and Layout adapters.
+Parent also reports Mainb6 exact Auth/Writer source intake independently closed;
+the current new locale composite still needs independent review/qualification.
+No parallel Auth/Writer, native/resource completion receipt,
+or missing provider/refset/resource authority is supplied by this source intake.
+
+Original Root667 now consumes the same Doc7ab pre-retirement and Writer4249
+admission-only binding reader through its frame-local reservation consumer.
+Startup awaits the original physical prepare, invokes the existing Write seal,
+and verifies original Root/Writer/Doc private reservation custody. Original
+reader/seal failures and their causes propagate through preparation; healthy Doc
+stop is not retried, and retry only uses actual failed pending unsubscribe state.
+Both original token cancellations must return true; failed tokens/subscriptions
+remain held for retry. Binding inspect/isCurrent is admission-only, never a pure
+join or retirement callback. The newer Main native/Renderer/ref admission paths,
+Doc/Registry and original host/router remain unchanged by this intake.
+
+The independently closed Doc7ab exact two-file postimages supply synchronous
+`subscribeRetirement`, real stop `retry()`/`inspect()`, and `retryInvalidation()`.
+Write physical preparation now issues/reuses the canonical Registry handle and
+calls the original retained primary adoption on that SAME real Writer/native
+mount. It verifies the returned original consumer binding through the admission-only
+Writer reader and repeats the existing physical/epoch/association guards before
+completion. The actual startup host callback retains and awaits its original
+external prepare, then invokes this SAME Frame's seal/admission helper without
+repeating physical preparation. Module installation pins that Frame callback
+identity alongside its original revoker/retirer; no alternate host is installed.
+The original Root helper borrows the adopted binding and registers its real
+pre-retirement sources. Preparation attempts its actual watcher/listener cleanup
+and propagates the original failure identity or an aggregate preserving all
+separate cleanup causes; cleanup failure cannot become successful completion. Root667 source is a real producer join, not full-host resource,
+restoration, recovery or ready qualification. Runtime remains HOLD/UNRUN.
+
+### Public native document reservation consumer (#2295)
+
+The same installed factory now borrows `session.documentAuthority` from the
+actual public UI session. It registers the original retirement receiver, captures
+the original ticket, checks document key/epoch/revision and rereads the same real
+mount before returning a native-only reservation. Pure custody checks call only
+captured original native/registration predicates and private reservation state;
+they do not capture, resolve a mount, read DOM or invoke admission callbacks.
+
+Retirement closes admission and local native reservation custody before original
+unsubscribe callbacks. Failed or currently notifying handles remain owned by that
+same factory. Cancellation false is no unlink acknowledgement; the original handle
+must be retained/retried. Failed receiver obligations retry their real callback,
+never become a retired successful noop. Original creation errors are rethrown
+unchanged even when cancellation also fails; the actual handle and both causes
+remain available through cleanup inspection. Factory retirement attempts every
+owned handle, keeps failures and can retry through the original composition host.
+
+This consumes only native document authority and owns subscription obligations,
+not a new issuer, realm, document generation or article index. Writer/Doc/Auth
+joint Root admission and full refset/resource readiness remain separate original
+producer work. Missing public native authority still returns null; no resources,
+pause/disposal/restore/eviction or full-host ready receipt follows from this port.
+
+### Original required-reference admission (#2295)
+
+`prepareArticleWorkspaceSnapshotReferenceAdmission` stages required reference
+metadata through the SAME installed host/factory. It borrows existing original
+Writer draft and journal refs, verifies native bytes and original principal/site/
+draft association during admission, and prepares/seals the existing public native
+snapshot. Selection direction, history, active node, scroll, outline, search,
+attachment and last-valid-render refs come from that actual native candidate;
+missing attachment/render refs refuse rather than receive synthetic locators.
+The original host snapshot digest function seals only this body-free metadata.
+
+Original draft/journal inspection and Writer binding reads remain admission
+operations. The final scoped guard and subsequent `hasCustody()` use only pinned
+original native publication/document, draft and journal private custody methods,
+plus the same installation's private continuity. The original native retirement
+receiver withdraws private publication before external work; it performs no
+inspection, capture, issuer cancellation or reactive read. Cancellation withdraws
+before attempting both actual native candidate and registration cleanup. Failed
+cleanup preserves its real handle and first/latest causes; factory retirement
+attempts all original obligations and supports retry through the same host.
+Only one pending reference operation is held, with no article/session index.
+
+This candidate has `complete:false` and `recoverable:false`; it is never passed
+to host attach/capture or router readiness. The public session now forwards the actual
+same-mounted full-document Renderer357 checkpoint handle through the original
+MarkdownEditor getter. Admission holds that single handle and its original
+preparation/publication, matches document identity/epoch/revision and the exact
+last-valid-render ref against the native candidate, and joins its original pure
+seal custody. Native seal admission finishes view/render reads before Renderer
+seal acquisition. Subsequent pure has never inspects or reacquires the handle;
+failed/retired cancellation keeps that actual handle/preparation and requires
+original cancellation confirmation while attempting the remaining cleanup.
+The candidate exposes the actual Renderer checkpoint ref. The SAME Frame now
+borrows the exact original Write-issued Root seal after physical preparation
+and Doc/Writer admission. Its one bounded descriptor holds the actual native
+editor and session ref; pure has combines original Write private token custody,
+Root667 private Doc/Writer custody and Frame private installation/epoch state.
+View revocation/retirement withdraws that descriptor before external callbacks.
+The existing startup resolver forwards that same descriptor, and factory admission
+checks native/session identity plus descriptor continuity before joining its
+original pure has. The exposed `rootMountedSeal` is the actual original token,
+not a reconstructed marker. Scope is
+`native-renderer-root-draft-journal-reference-custody`. Reference cancellation
+drops borrowed Root custody only; it does not cancel the Root owner's live seal.
+Root alone retains its original cancellation/subscription failures and retries.
+Complete resource authority and restoration after disposal remain unavailable.
+These missing ports prevent full-host readiness, pause/disposal qualification and
+eviction; no component-tree discovery, internal SDK import or substitute issuer
+is used to bypass them.
+
+### Closed source paths and remaining owner interfaces
+
+Parent reports finite source closure, with no new P1/P2, for UI357 intake,
+actual UI session getter, Main Renderer consumer, Root667/Writer4249 intake,
+original void-prepare/one-join startup wiring, and the same Root seal transfer
+into the factory. These are distinct from runtime qualification. The independent
+startup full-project typecheck has no retained log and remains UNRUN; our own
+bound application compiler has 243 existing failures with zero diagnostic delta.
+
+The actual activation path is original prepare -> same physical Writer Registry
+adoption -> same Frame seal/Doc/Writer admission -> original host bridge. The
+separate reference-admission API joins actual Root/native/Renderer/draft/journal
+custody and allocates body-free metadata; it is not called by full host capture.
+`createSession.captureSnapshot` still refuses, and full restore still returns
+blocked. Atomic full-reference publication and full restore through that host are
+additional Main implementation work, not a missing runtime permission or remote
+authorization guarantee. The bounded native publisher now provides
+`hasPublishedNativeCustody()` using the actual native session's pure published
+pointer/generation query, without owner availability or view/source reads.
+
+| Original owner | Actual source boundary | Missing source interface or existing behavior |
+| --- | --- | --- |
+| Renderer | `markdown-renderer-session-resources.ts`, `markdown-renderer.vue` | Participant inspect/pause/resume currently throw through `requireSourceCensus`; complete census and reversible owned watch/listener/frame/pipeline/heavy controls are missing. Scoped checkpoint prepare/seal/has already exists. |
+| Pipeline/worker | `use-render-pipeline/index.ts`, `worker-pool.ts` | Actual pause/resume already exists; adapter resources remain unknown and worker/native/shared attribution must be supplied by the real provider, or explicitly unsupported. Local cancel/settlement cannot claim remote execution reversal. |
+| Heavy/activation | `use-markdown-heavy-feature-lifecycle/index.ts`, `markdown-heavy-feature-resource.ts`, activation/gateway loaders | Timer/network cancellation is explicitly unavailable. Original adapter-owned requests, timers, import and continuation lifecycle require local census/control/settlement ports. |
+| Native surface/framework | `markdown-editor.vue` | `surfaceResourceOwnerComplete=false` reflects missing reversible Vue/template/IME/input/viewport listener ownership; readonly/disabled does not detach it. Existing imperative controls are partial. |
+| Attachment/provider | `markdown-editor.vue`, `markdown-editor-attachment-embed-owner.ts` | Real source participant exists, pending uploads refuse pause, opaque consumer resources lack a control/settlement port. `attachmentResourceOwnerReviewed=false` is a separate review/qualification hold, not proof of absent source. |
+| Writer/Root | `useAdminArticleWrite.ts`, existing Root startup/session binding | Original permanent cleanup exists; a retained-session save/draft/image/network/effectScope census and reversible pause/resume port is absent. Root must forward that exact producer port. Server draft pause or abort signal alone is no completion acknowledgement. |
+| Native/Renderer restoration | Original transaction/session and Renderer checkpoint owners | Same-owner/same-revision retained restoration exists. After unmount the original transaction pin is released, participant disposal is not recoverable, and validated same-process owner handover/reattach/full-ref restore is absent. No cross-startup memory restoration requirement is introduced. |
+
+### Bounded native handover local continuity bridge
+
+The original native SDK `00e5cee85c82419703c7bfd57a51113747cdaba1`
+checkpoint recreation candidate is under independent review. Main's separate
+`prepareArticleWorkspaceNativeHandoverContinuity` uses the sole installed host,
+original resolver/Writer draft checkpoint, and canonical Registry handle issuer.
+It verifies the actual current source editor/session, exact published native
+snapshot, document/source epoch and digest, and the original Writer's principal.
+It then retains original Admin `seal/has/cancelAdminPrincipalAuthority` tokens and
+original Registry membership seals. No copied seal, second principal/document
+issuer, body/history store, mount discovery or serialized reconstruction is added.
+
+The borrower carries the same original application guard into native
+`prepareNativeHandover`. That guard joins only original local Auth custody,
+canonical membership/publication and private composition/attempt eligibility.
+Its pure path does not read clock, principal projections, Doc inspections,
+resolver/native getters, or reacquire tickets. Admission performs actual original
+readers before the final private join, including a late canonical entry digest
+check after issuing both seals. These are observed local Auth guarantees; an
+unobserved remote expiry/revocation or server-side atomic handover guarantee is
+not introduced. Existing server validation and all security/privacy holds remain.
+
+One pending factory operation retains actual native/Auth/Registry handles. The
+continuity cleanup owner is saved before original acquisitions, cancellation
+withdraws publication before callbacks, and cleanup attempts all owned siblings.
+Original native terminal state permits releasing only its completed source loan;
+pending/refused cleanup and original first/latest causes remain held for retry.
+It never cancels the transferred target checkpoint or fabricates disposal.
+
+This reservation explicitly lacks `root:native-recreation-target-custody`.
+The existing mounted resolver does not issue a staging target lease with pure
+identity/generation and pre-retirement withdrawal while native revision is still
+zero. The original Root owner must lend that actual new editor/session/document
+binding before native target adoption; an old mounted/native seal cannot replace
+it, and late readers after history transfer cannot promise rollback of old pins.
+That target integration is unimplemented, not an interface-only success path.
+Renderer candidate and complete panel/provider/resource restoration also remain
+independent dependencies. Reservation flags stay `fullRefsRestored:false` and
+`resourcesValidated:false`; full host capture/restore/readiness/eviction guards
+and all runtime/native/IME/receipt qualification holds remain unchanged.
+
+### Exact original Root/Writer resource-source intake
+
+Original accepted Root `f6e214912ab31c7c8a7368de73bd966682c55551`
+and Writer `d80934e854f2dd3b338162fe924cf19e0662f66f` are consumed as
+exact owning postimages: reservation helper blob
+`12d8b0e74fc23ad4ae9324decbc579a15f3e1f3f` and Writer blob
+`e04178efa688b01a07cdfda8a8deec82e0244af6`. The existing Frame only adds
+the original `readOriginalWriterResources` expose. Its later same-Frame startup
+admission and borrowed Root seal join are preserved; donor omissions of those
+Main-owned hunks are excluded. Native/continuity/Registry/Doc/Auth source is not
+overwritten. This intake does not consume Root staging or Renderer/Heavy WIP.
+
+The original admission-only resource reader fences current Writer identity before
+and after the read and rejects permanent release, replacement, paused/stale loans
+and reentry. Already-borrowed original references keep their original settlement
+and failed cleanup custody. Original pure join/listener and 667 admission semantics
+remain. Writer owns its actual local controls and rollback; the Root resource loan
+is not a complete resource/recovery certificate. Full refs/resources/eviction and
+runtime/native/IME/security/receipt qualifications stay held. Exact current Main
+whole application remains FAIL243 with complete diagnostics added0/removed0;
+position-shifted existing Writer timer diagnostics are not a new regression.
+
+Unqualified labels and runtime/list/native holds are not automatically source
+gaps, and old diagnostic dependency strings are not interface inventories.
+All complete/recoverable/eviction guards remain; unknown resources remain unknown.

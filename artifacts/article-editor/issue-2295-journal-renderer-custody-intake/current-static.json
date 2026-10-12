@@ -1,0 +1,25 @@
+{
+  "UIOriginalWebExit": 0,
+  "UIOriginalVitestProjectCompilerExit": 0,
+  "UIEslintExit": 0,
+  "MainJournalStyleExit": 0,
+  "FourSourceAstSfcExit": 0,
+  "MainWholeApp": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 258,
+    "afterDiagnostics": 257,
+    "added": [],
+    "removed": [
+      "src/services/articleRecoveryJournal.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled."
+    ],
+    "normalization": "complete diagnostic blocks and multiplicity; only positions normalized",
+    "beforeMain": "bbed9ae73cc790abf7ff32b28abbd271add08ec3",
+    "beforeUI": "8c77ed45302afcccfa13b1a4422a0cdfa331b453",
+    "scope": "exact original journal082 and renderer273 source only; unchanged original full application entry"
+  },
+  "sourceReview": "Journal/Renderer local custody source bounded CLOSED per parent; current intake composite review separate",
+  "native8c": "P1 repair bounded CLOSED per parent; runtime unqualified",
+  "runtime": "ALL UNRUN/HOLD",
+  "candidateModulesExecuted": false
+}

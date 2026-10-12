@@ -1,0 +1,24 @@
+{
+  "uiCommittedHead": "a1bad5f87210b758b266e9dbaef357d6286ae060",
+  "UIWeb": 0,
+  "UIVitestProjectCompiler": 0,
+  "SfcLint": 0,
+  "SfcAst": 0,
+  "MainWholeApp": {
+    "exit": 2,
+    "diagnostics": 257,
+    "priorDiagnostics": 257,
+    "added": [],
+    "removed": [],
+    "normalization": "complete diagnostic blocks and multiplicity; only positions normalized"
+  },
+  "rawLogs": {
+    "ui-native-sealed-unmount-order-web-types.txt": 0,
+    "ui-native-sealed-unmount-order-vitest-types.txt": 0,
+    "ui-native-sealed-unmount-order-eslint.txt": 0,
+    "ui-native-sealed-unmount-order-ast.txt": 0,
+    "blog-native-sealed-unmount-order-whole-app-types.txt": 2
+  },
+  "review": "pending independent source review",
+  "runtime": "ALL HOLD/UNRUN"
+}

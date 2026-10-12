@@ -1,0 +1,22 @@
+src/frontend/src/api/authoringWorkspaceSnapshot.ts: AST 0 diagnostics
+src/frontend/src/api/authoringWorkspaceSnapshotConnection.ts: AST 0 diagnostics
+src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts: AST 0 diagnostics
+src/frontend/src/components/admin/article/ArticleLibraryRail.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/article/ArticleLibraryRailContent.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/article/articleLibraryPresentation.ts: AST 0 diagnostics
+src/frontend/src/fsusui/drawer.ts: AST 0 diagnostics
+src/frontend/src/layouts/AccountRouteFrame.vue: SFC script/AST 0 diagnostics
+src/frontend/src/layouts/AdminWorkspaceFrame.vue: SFC script/AST 0 diagnostics
+src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts: AST 0 diagnostics
+src/frontend/src/layouts/adminArticleWorkspaceStartup.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceGeometryPolicy.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceGroupLayoutPorts.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceLayoutController.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceSnapshotBootstrap.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/authoringWorkspaceSnapshotSync.ts: AST 0 diagnostics
+src/frontend/src/views/admin/article/Write.vue: SFC script/AST 0 diagnostics

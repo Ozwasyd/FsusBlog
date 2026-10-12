@@ -1,0 +1,6 @@
+/workspace/session-2295-ui/vue/packages/components/markdown-editor/src/markdown-editor-session.ts: AST 0 diagnostics
+/workspace/session-2295-ui/vue/packages/components/markdown-editor/src/markdown-editor-transaction.ts: AST 0 diagnostics
+/workspace/session-2295-ui/vue/packages/components/markdown-editor/src/markdown-editor.ts: AST 0 diagnostics
+/workspace/session-2295-ui/vue/packages/components/markdown-editor/__tests__/markdown-editor.test.tsx: AST 0 diagnostics
+/workspace/session-2295-blog/src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts: AST 0 diagnostics
+/workspace/session-2295-blog/src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts: AST 0 diagnostics

@@ -1,0 +1,12 @@
+{
+  "beforeExit": 2,
+  "afterExit": 2,
+  "beforeDiagnostics": 258,
+  "afterDiagnostics": 258,
+  "added": [],
+  "removed": [],
+  "normalization": "Complete diagnostic blocks and multiplicity, only line/column positions normalized",
+  "sourceBase": "dc684a4b176b646d20a9e9dec943d4a4b6d6a113",
+  "UI": "59b9a1facc1862e590604973703ffc3d92fb85f9",
+  "supplier249EvidenceSeparate": true
+}

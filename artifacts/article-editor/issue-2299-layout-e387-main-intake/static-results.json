@@ -1,0 +1,25 @@
+{
+  "ASTSFC": {
+    "exit": 0,
+    "files": 22,
+    "candidateEvaluated": false
+  },
+  "strictFull": {
+    "exit": 1,
+    "diagnostics": 29,
+    "affectedFiles": [
+      "src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts"
+    ],
+    "status": "FAIL; unresolved original public ResizeSeparator types"
+  },
+  "wholeOriginalApplication": {
+    "exit": 2,
+    "before": 256,
+    "after": 254,
+    "added": 11,
+    "removed": 13,
+    "status": "RED; 8 missing public exports plus 3 absent locale-key diagnostics introduced"
+  },
+  "supplierReviewMigration": false,
+  "runtime": "HOLD/UNRUN"
+}

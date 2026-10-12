@@ -1,0 +1,24 @@
+{
+  "base": "9a99a7f6b01ed31fac5b2cd8adc4d0e36a4cd9f1",
+  "UI": "00f999a4dde9c197ae4dab21ea94714d7784545d",
+  "strict3": 0,
+  "AST3": 0,
+  "RootFactoryCompositionPureAST3": "PASS source only; no inspect/isCurrent/capture/reacquire",
+  "originalWholeApp": {
+    "exit": 2,
+    "delta": {
+      "before": 243,
+      "after": 243,
+      "added": [],
+      "removed": [],
+      "normalization": "positions only; complete diagnostic blocks/multiplicity",
+      "status": "FAIL; no qualification"
+    }
+  },
+  "initialSourceStyle": "actual own unsafe Function.bind/optional chain findings fixed with validated actual function unknown result and exacttrue checks; raw first log preserved",
+  "runtime": "ALL HOLD/UNRUN",
+  "complete": false,
+  "recoverable": false,
+  "fullHostCaptureGuard": "original refusal retained; no fake resource/pause/disposal/ready or native recovery ack",
+  "sourceReview": "pending"
+}

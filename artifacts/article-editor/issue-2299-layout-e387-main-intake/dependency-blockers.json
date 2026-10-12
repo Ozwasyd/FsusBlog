@@ -1,0 +1,92 @@
+{
+  "ui": {
+    "head": "f2533351ddf729d797b372d8ee6eba85e2f4234b",
+    "missing": [
+      "FsusResizeSeparator",
+      "ResizeSeparatorCancelPayload",
+      "ResizeSeparatorPayload",
+      "ResizeSeparatorCoordinateRange"
+    ],
+    "supplierAlias": "9f92+a775 only as donor statement, no current qualification",
+    "requested": "Exact full SHA, public export/type/component owning source and integration scope from original UI owner"
+  },
+  "locale": {
+    "keys": [
+      "admin.workspaceLayout.leading",
+      "admin.workspaceLayout.trailing",
+      "admin.workspaceLayout.resize"
+    ],
+    "originalLeaves": [
+      {
+        "path": "src/frontend/src/locales/de-DE/admin.ts",
+        "originalBlob": "1b92ea5166161d331373da621fd266a2d4deef24",
+        "MainBlob": "3a475cbe6983bd868637c3dc9f2dc340a60bf7e1",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/en-US/admin.ts",
+        "originalBlob": "db87649607fa2a5f886da690c9633944560846ec",
+        "MainBlob": "669ee17c6daae5372f24d2e90def2d8b1a026af4",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/es-419/admin.ts",
+        "originalBlob": "61348e3b27ba054b30bbbf06da30a347df9cd293",
+        "MainBlob": "83d7195d32d4d0b3d08e27d0a9350ed85ec198df",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/fr-FR/admin.ts",
+        "originalBlob": "4efd1e1ff71a3ea1ee82c11d2e755b67ac956660",
+        "MainBlob": "dfac1f13b9aabbe3d930e69452bcb01b6b743a0c",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/ja-JP/admin.ts",
+        "originalBlob": "c7f3120ab5d71319da00b0cea5a1d1a542a21233",
+        "MainBlob": "c7b90cbc7aa1ca59cbbdba69421fc70e1e66e9cd",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/ko-KR/admin.ts",
+        "originalBlob": "c506d46561e088babe9a726ed34cdaa7316da874",
+        "MainBlob": "a09f9b5a1e0ca30ea1eeae1aacef592e39ce85da",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/pt-BR/admin.ts",
+        "originalBlob": "d247973d9c7b233834a320e5f611c1f8ba587270",
+        "MainBlob": "8601d25b619024c6d0a0cd02c607697c341724a9",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/ru-RU/admin.ts",
+        "originalBlob": "bce3fded131183dcd694bc0611dc17d5d974e717",
+        "MainBlob": "9a017b54a5c5ef948f0814e579f4b0e892ca4e21",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/zh-CN/admin.ts",
+        "originalBlob": "90d8f12bf15b2bd49daacff715a2a2ed70838043",
+        "MainBlob": "f91bcd58e5be0caa3488e812f35b500b90dbd876",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      },
+      {
+        "path": "src/frontend/src/locales/zh-Hant/admin.ts",
+        "originalBlob": "e45312f4ba35620bde36af5b74f54efc4372da0c",
+        "MainBlob": "ad10997ea0f70242f4c6879309d2ffcd7dc66139",
+        "status": "NOT APPLIED; original schema admission closure missing"
+      }
+    ],
+    "schemaDigestTableUnchangedBetweenMainAndDonor": true,
+    "currentAdminDigest": "fnv1a64:d73ace36548d42ad",
+    "requested": "Original locale-owner schema-admitted source; no generated/catalog/frozen refresh or typed shim",
+    "staticASTSchemaProof": {
+      "path": "locale-static-schema-proof.json",
+      "current": "fnv1a64:d73ace36548d42ad",
+      "original": "fnv1a64:91f19fb7a7303f1f",
+      "table": "fnv1a64:d73ace36548d42ad",
+      "execution": "NONE; literal AST schema projection only"
+    }
+  }
+}

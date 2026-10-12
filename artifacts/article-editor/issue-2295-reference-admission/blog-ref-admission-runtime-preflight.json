@@ -1,0 +1,15 @@
+{
+  "zeroExecution": true,
+  "productImport": false,
+  "runtimeListDiscovery": false,
+  "runtimeTestStatus": "UNRUN",
+  "newRunnerConfigFilter": false,
+  "scope": "2 production factory/composition modules; source TS/SFC/AST only",
+  "inheritedPreflight": "runtime-preflight.md; exact ordinary original Host/router/journal whole-file CLI proposals still require parent release before execution",
+  "newCases": "No new runtime controls added or executed; scoped refs/principal/body mismatch, late retirement during original hash await, native cancellation reentry and failed cleanup retry remain behavior UNRUN",
+  "requiredRemainingOwners": {
+    "FsusUI original MarkdownEditor public session/provider owner": "Forward the actual same full previewRenderer original prepareRendererOwnedCheckpoint/sealPreparedRendererOwnedCheckpoint/hasSealedRendererOwnedCheckpointCustody/cancelPreparedRendererOwnedCheckpoint, with pointer/fragment/generation guards; Main cannot discover components/import private owner.",
+    "original Root owner": "Final existing primaryMountPort sealMountedAuthority/hasMountedAuthorityCustody/cancelMountedAuthority and original Doc pre-retirement/private writer join; Writer binding inspect/isCurrent only admission, never final join/listener.",
+    "original resource/restoration owners": "Complete reversible resource and after-disposal restore authority remains missing; no unknown\u21920, complete/recoverablefalse, no eviction."
+  }
+}
