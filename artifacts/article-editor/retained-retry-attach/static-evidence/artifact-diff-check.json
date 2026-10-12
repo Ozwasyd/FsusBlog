@@ -1,6 +1,6 @@
 {
-  "source": "6654f9458f2395e9216c61c0782aa837e234d624",
-  "command": "git diff --cached --check",
+  "source": "002a48338a6fbb2cd97eb5195cfd302cbaf229a7",
+  "command": "git diff 85a8ebebba8f777eef9d30466d4101e15f74b649 --check",
   "exit": 2,
   "rawPatchContextWhitespaceWarnings": 2,
   "aggregatePass": false,

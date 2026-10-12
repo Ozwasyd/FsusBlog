@@ -1,6 +1,7 @@
 # Original attachment retry entry source repair
 
-Exact source/control producer: 6654f9458f2395e9216c61c0782aa837e234d624.
+Exact runtime producer: 6654f9458f2395e9216c61c0782aa837e234d624.
+Exact source/control producer: 002a48338a6fbb2cd97eb5195cfd302cbaf229a7.
 Exact predecessor: 85a8ebebba8f777eef9d30466d4101e15f74b649.
 Independent review closed the predecessor notification-reentry P2. Its remaining
 attachment-frame retry asymmetry is repaired here; exact successor review pending.
@@ -36,7 +37,8 @@ Two appended original-module source controls are UNRUN. Total59 authority plus20
 Registry cases come from text inspection only. They cover real create-frame owner
 pre/post/native retry rejection before scope/callback reads, actual first-error and
 pending-unsubscribe custody, later actual retry, and native retry during real
-consumer cleanup without duplicated pending work. Original complete entry/config/
+consumer cleanup without duplicated pending work. The cleanup case preserves real
+native subscription custody through failed pre delivery before attempting retry. Original complete entry/config/
 setup/import [preflight](../retained-document-authority/preflight.md) is unchanged;
 its initial counts are historical. Proposed focused original whole-file entry,
 NOT executed:
@@ -61,6 +63,7 @@ FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI node src/frontend/scripts/run-local
 
 It remains RED exit2/249 diagnostics, zero full headline/multiplicity delta against
 recorded880, with actual compiler-only UI8db0ac8f49749e3e5f28be5051bb3d3ed71ada71.
+Compiler evidence is source6654; exact production bytes at002a are unchanged.
 No waiver, changed-span proof or full qualification is inferred. Prior85a8 raw
 artifact diff-check RED2/22 context warnings stays unchanged. This increment's
 publisher raw-patch whitespace findings are recorded separately in static-evidence;

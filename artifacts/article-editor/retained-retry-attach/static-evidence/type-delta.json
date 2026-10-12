@@ -1,11 +1,13 @@
 {
   "baselineSource": "880a21020765de49fa1117af59c5651cbdc014a9",
-  "source": "6654f9458f2395e9216c61c0782aa837e234d624",
+  "source": "002a48338a6fbb2cd97eb5195cfd302cbaf229a7",
   "UI": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
   "baselineDiagnostics": 249,
   "candidateDiagnostics": 249,
   "added": [],
   "removed": [],
   "candidateExit": 2,
-  "qualification": false
+  "qualification": false,
+  "compilerSource": "6654f9458f2395e9216c61c0782aa837e234d624",
+  "productionPostimagesUnchangedFromCompilerSource": true
 }

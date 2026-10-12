@@ -57,10 +57,10 @@ index d9a09b86c..055558e54 100644
          let stopNativeRetirement: (() => void) | undefined;
          let stopMembershipRetirement: (() => void) | undefined;
 diff --git a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
-index 42b415ad3..0fddc5543 100644
+index 42b415ad3..9e3d34423 100644
 --- a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
 +++ b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
-@@ -1323,4 +1323,72 @@ describe('original retained document authority source controls', () =>
+@@ -1323,4 +1323,81 @@ describe('original retained document authority source controls', () =>
          expect(pending.signal.aborted).toBe(true);
          expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
      });
@@ -124,12 +124,21 @@ index 42b415ad3..0fddc5543 100644
 +            expect(nativeCalls).toBe(before);
 +            return pending;
 +        } }));
-+        authority.revokeRetainedScope('site:test', 'test');
++        let preFails = true;
++        retained.subscribeRetirement(() =>
++        {
++            if (preFails) { throw new Error('actual-pre-cleanup-obligation'); }
++        });
++        // Failed genuine pre delivery keeps the native context subscription in
++        // issuer custody when the mandatory consumer callback is still attempted.
++        expect(() => authority.revokeRetainedScope('site:test', 'test')).toThrow();
 +        expect(rejected).toBeInstanceOf(Error);
 +        expect(native.inspect().failed).toBe(true);
 +        expect(native.inspect().firstFailure).toBe(rejected);
 +        expect(retained.inspect().consumerInvalidationState).toBe('pending');
++        preFails = false;
 +        retained.retryInvalidation();
 +        expect(cleanups).toBe(1);
++        expect(native.inspect().failed).toBe(false);
 +    });
  });

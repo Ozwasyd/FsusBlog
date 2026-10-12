@@ -84,11 +84,11 @@
     },
     {
       "path": "artifacts/article-editor/retained-retry-attach/consumer-85a8.patch",
-      "sha256": "0efcdd9fedd6c75e499f221373966f22bfd9ed8c69e1c61242b7aec946b252f9"
+      "sha256": "15204b53409a041332639aeb787c2d3ee7cd6ba4835096a86cb08a5f0dab507b"
     },
     {
       "path": "artifacts/article-editor/retained-retry-attach/source-offer.json",
-      "sha256": "fc0a24ff8ba0001240001697b5fdc87a52c4d4921fe706b8c28527d1cbf53f43"
+      "sha256": "3270164985f100ad0c5847f74f23edf94445a8d3ce85723634fe40fd642dd3ff"
     }
   ]
 }
