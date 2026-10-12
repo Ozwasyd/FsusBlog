@@ -959,3 +959,13 @@ one original positive and22 negative source variants without product evaluation.
 Core/component/tool lint now pass, with all16 production postimages and Layout
 files unchanged. This corrects the inaccurate prior all-AST-green statement; no
 runtime/qualification/frozen authority/evidence was run or refreshed.
+
+Follow-up review of8894 accepted the exact standard aggregation but found seven
+mutation-check bypasses. The preserved before-write-policy-controls-fail.json records
+seven locally reproduced write syntax variants with the original23 still passing.
+The bounded AST policy now follows object/array assignment targets/defaults and
+module identifier aliases, checks the listed Object/Reflect write calls, and refuses
+unresolved relevant keys/sources/spreads within those forms. It is not a general JS
+security proof. All41 source controls and core/component/tool lint pass; original
+cause, all16 production files/four Layout sources, prior FAIL records and every
+runtime/qualification/frozen hold remain unchanged. Independent review is pending.

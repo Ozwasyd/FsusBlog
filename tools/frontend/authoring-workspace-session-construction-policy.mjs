@@ -7,6 +7,62 @@ function isNamed(ts, node, name)
 function hasAggregateErrorBindingOrMutation(ts, tree)
 {
     let found = false;
+    const unwrap = node =>
+    {
+        while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node)
+            || ts.isTypeAssertionExpression(node) || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)))
+        {
+            node = node.expression;
+        }
+        return node;
+    };
+    // Bounded syntactic aliases only: module declarations and identifier assignments.
+    // Over-approximate across scopes/order; these sets never establish runtime identity.
+    const aliases = new Map(['globalThis', 'Object', 'Reflect'].map(name => [name, new Set([name])]));
+    const aliasEdges = [];
+    const collect = node =>
+    {
+        if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
+        {
+            aliasEdges.push([node.name.text, unwrap(node.initializer)]);
+        }
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+            && ts.isIdentifier(unwrap(node.left)))
+        {
+            aliasEdges.push([unwrap(node.left).text, unwrap(node.right)]);
+        }
+        ts.forEachChild(node, collect);
+    };
+    collect(tree);
+    let changed;
+    do
+    {
+        changed = false;
+        for (const names of aliases.values())
+        {
+            for (const [name, value] of aliasEdges)
+            {
+                if (value && ts.isIdentifier(value) && names.has(value.text) && !names.has(name))
+                {
+                    names.add(name);
+                    changed = true;
+                }
+            }
+        }
+    }
+    while (changed);
+    const isAlias = (node, root) =>
+    {
+        node = unwrap(node);
+        return !!node && ts.isIdentifier(node) && aliases.get(root).has(node.text);
+    };
+    const literalKey = node =>
+    {
+        node = unwrap(node);
+        return node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? node.text : null;
+    };
+    const propertyKey = node => ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNumericLiteral(node)
+        ? node.text : ts.isComputedPropertyName(node) ? literalKey(node.expression) : null;
     const binding = node =>
     {
         if (isNamed(ts, node, 'AggregateError'))
@@ -24,10 +80,50 @@ function hasAggregateErrorBindingOrMutation(ts, tree)
             }
         }
     };
-    const aggregateTarget = node => isNamed(ts, node, 'AggregateError')
-        || ts.isPropertyAccessExpression(node) && isNamed(ts, node.expression, 'globalThis') && node.name.text === 'AggregateError'
-        || ts.isElementAccessExpression(node) && isNamed(ts, node.expression, 'globalThis')
-            && ts.isStringLiteral(node.argumentExpression) && node.argumentExpression.text === 'AggregateError';
+    const aggregateTarget = node =>
+    {
+        node = unwrap(node);
+        if (!node)
+        {
+            return false;
+        }
+        if (isNamed(ts, node, 'AggregateError'))
+        {
+            return true;
+        }
+        if (ts.isPropertyAccessExpression(node) && isAlias(node.expression, 'globalThis'))
+        {
+            return node.name.text === 'AggregateError';
+        }
+        if (ts.isElementAccessExpression(node) && isAlias(node.expression, 'globalThis'))
+        {
+            const key = literalKey(node.argumentExpression);
+            return key === null || key === 'AggregateError';
+        }
+        if (ts.isObjectLiteralExpression(node))
+        {
+            return node.properties.some(property => ts.isPropertyAssignment(property) ? aggregateTarget(property.initializer)
+                : ts.isShorthandPropertyAssignment(property) ? aggregateTarget(property.name)
+                    : ts.isSpreadAssignment(property) && aggregateTarget(property.expression));
+        }
+        if (ts.isArrayLiteralExpression(node))
+        {
+            return node.elements.some(aggregateTarget);
+        }
+        if (ts.isSpreadElement(node))
+        {
+            return aggregateTarget(node.expression);
+        }
+        // Destructuring defaults write their left target, never the fallback expression.
+        return ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && aggregateTarget(node.left);
+    };
+    const maySupplyAggregateKey = node =>
+    {
+        node = unwrap(node);
+        // Unknown source, spread or computed key may write the constructor: fail closed.
+        return !node || !ts.isObjectLiteralExpression(node) || node.properties.some(property =>
+            ts.isSpreadAssignment(property) || propertyKey(property.name) === null || propertyKey(property.name) === 'AggregateError');
+    };
     const walk = node =>
     {
         if (ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node))
@@ -45,12 +141,26 @@ function hasAggregateErrorBindingOrMutation(ts, tree)
         {
             found = true;
         }
-        if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
-            && ['Object', 'Reflect'].includes(node.expression.expression.getText(tree))
-            && node.expression.name.text === 'defineProperty' && isNamed(ts, node.arguments[0], 'globalThis')
-            && node.arguments[1] && ts.isStringLiteral(node.arguments[1]) && node.arguments[1].text === 'AggregateError')
+        if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(unwrap(node.expression))
+            && isAlias(node.arguments[0], 'globalThis'))
         {
-            found = true;
+            const call = unwrap(node.expression);
+            const method = call.name.text;
+            const object = isAlias(call.expression, 'Object');
+            const reflect = isAlias(call.expression, 'Reflect');
+            if ((object || reflect) && method === 'defineProperty' || reflect && method === 'set')
+            {
+                const key = literalKey(node.arguments[1]);
+                found ||= key === null || key === 'AggregateError';
+            }
+            if (object && method === 'assign')
+            {
+                found ||= node.arguments.slice(1).some(maySupplyAggregateKey);
+            }
+            if (object && method === 'defineProperties')
+            {
+                found ||= maySupplyAggregateKey(node.arguments[1]);
+            }
         }
         ts.forEachChild(node, walk);
     };

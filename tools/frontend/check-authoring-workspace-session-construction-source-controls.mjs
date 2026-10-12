@@ -31,6 +31,24 @@ const controls = [
     { id: 'global-constructor-write', source: `globalThis.AggregateError = FakeAggregate;\n${original}`, allowed: false },
     { id: 'bare-constructor-write', source: `AggregateError = FakeAggregate;\n${original}`, allowed: false },
     { id: 'global-constructor-define', source: `Object.defineProperty(globalThis, 'AggregateError', { value: FakeAggregate });\n${original}`, allowed: false },
+    { id: 'destructured-global-property-write', source: `({ AggregateError: globalThis.AggregateError } = { AggregateError: FakeAggregate });\n${original}`, allowed: false },
+    { id: 'destructured-global-array-write', source: `[globalThis.AggregateError] = [FakeAggregate];\n${original}`, allowed: false },
+    { id: 'global-alias-property-write', source: `const globalAlias = globalThis; globalAlias.AggregateError = FakeAggregate;\n${original}`, allowed: false },
+    { id: 'global-alias-define-property', source: `const globalAlias = globalThis; Object.defineProperty(globalAlias, 'AggregateError', { value: FakeAggregate });\n${original}`, allowed: false },
+    { id: 'global-object-assign', source: `Object.assign(globalThis, { AggregateError: FakeAggregate });\n${original}`, allowed: false },
+    { id: 'global-alias-object-assign', source: `const globalAlias = globalThis; Object.assign(globalAlias, { AggregateError: FakeAggregate });\n${original}`, allowed: false },
+    { id: 'global-alias-reflect-set', source: `const globalAlias = globalThis; Reflect.set(globalAlias, 'AggregateError', FakeAggregate);\n${original}`, allowed: false },
+    { id: 'global-reflect-set', source: `Reflect.set(globalThis, 'AggregateError', FakeAggregate);\n${original}`, allowed: false },
+    { id: 'nested-destructuring-default-write', source: `const globalAlias = globalThis; ({ nested: [globalAlias.AggregateError = FakeAggregate] } = value);\n${original}`, allowed: false },
+    { id: 'global-alias-chain-write', source: `const first = (globalThis as typeof globalThis); let second; second = first; second.AggregateError = FakeAggregate;\n${original}`, allowed: false },
+    { id: 'unknown-global-alias-key', source: `const globalAlias = globalThis; globalAlias[key] = FakeAggregate;\n${original}`, allowed: false },
+    { id: 'unknown-assign-key', source: `Object.assign(globalThis, { [key]: FakeAggregate });\n${original}`, allowed: false },
+    { id: 'unknown-assign-spread', source: `Object.assign(globalThis, { ...source });\n${original}`, allowed: false },
+    { id: 'unknown-assign-source', source: `Object.assign(globalThis, source);\n${original}`, allowed: false },
+    { id: 'unknown-reflect-set-key', source: `Reflect.set(globalThis, key, FakeAggregate);\n${original}`, allowed: false },
+    { id: 'reflect-receiver-alias-write', source: `const reflector = Reflect; const target = globalThis; reflector.set(target, 'AggregateError', FakeAggregate);\n${original}`, allowed: false },
+    { id: 'object-receiver-alias-write', source: `const object = Object; const target = globalThis; object.assign(target, { AggregateError: FakeAggregate });\n${original}`, allowed: false },
+    { id: 'global-define-properties-write', source: `Object.defineProperties(globalThis, { AggregateError: { value: FakeAggregate } });\n${original}`, allowed: false },
     { id: 'wrong-error-order', source: original.replace('[error, retirementError]', '[retirementError, error]'), allowed: false },
     { id: 'wrong-message', source: original.replace(message, "'alternate-host'"), allowed: false },
     { id: 'wrong-cause', source: original.replace('{ cause: retirementError }', '{ cause: error }'), allowed: false },
@@ -67,10 +85,10 @@ for (const control of controls)
     };
     visit(tree);
     const allowed = denied.length === 0;
-    if (allowed !== control.allowed || control.allowed && aggregations !== 1)
-    {
-        throw new Error(`source-control-failed:${control.id}`);
-    }
-    results.push({ id: control.id, expectedAllowed: control.allowed, actualAllowed: allowed, denied });
+    const passed = allowed === control.allowed && (!control.allowed || aggregations === 1);
+    results.push({ id: control.id, expectedAllowed: control.allowed, actualAllowed: allowed, passed, denied });
 }
-console.log(JSON.stringify({ scope: 'static AST policy controls only; product/test/runtime UNRUN', status: 'PASS', results }, null, 4));
+const failures = results.filter(result => !result.passed).map(result => result.id);
+console.log(JSON.stringify({ scope: 'static AST policy controls only; product/test/runtime UNRUN',
+    status: failures.length === 0 ? 'PASS' : 'FAIL', failures, results }, null, 4));
+process.exitCode = failures.length === 0 ? 0 : 1;
