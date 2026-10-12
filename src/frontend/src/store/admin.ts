@@ -38,6 +38,20 @@ interface AdminPrincipalAuthority {
     readonly checkedAt: number;
 }
 
+interface AdminPrincipalCustody {
+    readonly authority: AdminPrincipalAuthority;
+    readonly epoch: object;
+}
+
+export class AdminPrincipalMutationSupersededError extends Error
+{
+    constructor()
+    {
+        super('Admin principal mutation was superseded before its action body.');
+        this.name = 'AdminPrincipalMutationSupersededError';
+    }
+}
+
 export interface AnonymousCommentPolicySnapshot {
     anonymousCommentsEnabled: boolean;
     publicSendOptionEnabled: boolean;
@@ -99,7 +113,7 @@ const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.
 const hasPrivateSurfaceAuthorityCustody = privateSurfaceRuntime.hasAuthorityCustody.bind(privateSurfaceRuntime);
 const cancelPrivateSurfaceAuthority = privateSurfaceRuntime.cancelAuthority.bind(privateSurfaceRuntime);
 
-export const useAdminStore = defineStore('admin', () =>
+export const useAdminStore = defineStore('admin', ({ action }) =>
 {
     const adminPrincipal = ref<AdminPrincipalSnapshot | null>(null);
     const adminState = ref<AdminSessionState>('unknown');
@@ -111,8 +125,9 @@ export const useAdminStore = defineStore('admin', () =>
     let adminSessionGeneration = 0;
     let logoutRequest: Promise<AdminLogoutOutcome> | null = null;
     let logoutBroadcast: (() => void) | null = null;
-    const authoritySeals = new WeakMap<AdminPrincipalSeal, AdminPrincipalAuthority>();
+    const authoritySeals = new WeakMap<AdminPrincipalSeal, AdminPrincipalCustody>();
     let principalAuthority: AdminPrincipalAuthority | null = null;
+    let principalCustodyEpoch: object | null = {};
     let principalMutation: object | null = null;
     let producerDisposed = false;
     let authorityExpiryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -121,7 +136,9 @@ export const useAdminStore = defineStore('admin', () =>
     {
         const authority = principalAuthority;
         principalAuthority = null;
+        principalCustodyEpoch = null;
         const mutation = reserveMutation ? {} : null;
+        principalCustodyEpoch = mutation;
         principalMutation = mutation;
         const expiryTimer = authorityExpiryTimer;
         authorityExpiryTimer = null;
@@ -136,6 +153,48 @@ export const useAdminStore = defineStore('admin', () =>
         return mutation;
     };
 
+    // Pinia's public setup helper supplies the real tracked action. A proxy
+    // revokes before entering that wrapper, preserving $onAction names/arguments.
+    const guardMutationAction = <Args extends unknown[], Result>(
+        name: string,
+        callback: (...args: Args) => Result,
+        superseded: () => Result
+    ): ((...args: Args) => Result) =>
+    {
+        const invocations: object[] = [];
+        const tracked = action((...args: Args): Result =>
+        {
+            const invocation = invocations.at(-1);
+            if (!invocation || principalMutation !== invocation || principalCustodyEpoch !== invocation)
+            {
+                return superseded();
+            }
+            return callback(...args);
+        }, name);
+        return new Proxy(tracked, {
+            apply: (target, _receiver, args: Args): Result =>
+            {
+                principalCustodyEpoch = null;
+                const invocation = {};
+                principalCustodyEpoch = invocation;
+                principalMutation = invocation;
+                invocations.push(invocation);
+                try
+                {
+                    return target(...args);
+                }
+                finally
+                {
+                    invocations.pop();
+                    if (principalMutation === invocation)
+                    {
+                        principalMutation = null;
+                    }
+                }
+            }
+        });
+    };
+
     onScopeDispose(() =>
     {
         producerDisposed = true;
@@ -146,13 +205,14 @@ export const useAdminStore = defineStore('admin', () =>
     const sealAdminPrincipalAuthority = (expectedIdentityId: string): AdminPrincipalSeal | null =>
     {
         const authority = principalAuthority;
-        if (!authority || principalMutation || producerDisposed || authority.identityId !== expectedIdentityId)
+        const epoch = principalCustodyEpoch;
+        if (!authority || !epoch || principalMutation || producerDisposed || authority.identityId !== expectedIdentityId)
         {
             return null;
         }
         // Clock reads belong to admission, never to the final custody lookup.
         const now = Date.now();
-        if (principalAuthority !== authority || principalMutation || producerDisposed)
+        if (principalAuthority !== authority || principalCustodyEpoch !== epoch || principalMutation || producerDisposed)
         {
             return null;
         }
@@ -166,24 +226,31 @@ export const useAdminStore = defineStore('admin', () =>
             return null;
         }
         const seal = Object.freeze({}) as AdminPrincipalSeal;
-        if (principalAuthority !== authority || principalMutation
+        if (principalAuthority !== authority || principalCustodyEpoch !== epoch || principalMutation
             || !hasPrivateSurfaceAuthorityCustody(authority.surfaceSeal))
         {
             return null;
         }
-        authoritySeals.set(seal, authority);
+        authoritySeals.set(seal, { authority, epoch });
         return seal;
     };
 
     /** Pure private join; copied, cancelled, replaced and surface-retired seals refuse. */
     const hasAdminPrincipalAuthorityCustody = (seal: AdminPrincipalSeal): boolean =>
     {
-        const authority = authoritySeals.get(seal);
-        return authority !== undefined && authority === principalAuthority && principalMutation === null
-            && hasPrivateSurfaceAuthorityCustody(authority.surfaceSeal);
+        const custody = authoritySeals.get(seal);
+        return custody?.authority === principalAuthority
+            && custody.epoch === principalCustodyEpoch && principalMutation === null
+            && hasPrivateSurfaceAuthorityCustody(custody.authority.surfaceSeal);
     };
 
     const cancelAdminPrincipalAuthority = (seal: AdminPrincipalSeal): boolean => authoritySeals.delete(seal);
+
+    /** Auth event producers call this before request advancement or notifications. */
+    const invalidateAdminPrincipalAuthority = (): void =>
+    {
+        retirePrincipalAuthority();
+    };
 
     const adminSessionStatus = computed<AdminSessionStatus>(() =>
     {
@@ -333,6 +400,7 @@ export const useAdminStore = defineStore('admin', () =>
 
     const invalidateMissingCache = (): void =>
     {
+        retirePrincipalAuthority();
         if (adminState.value === 'missing')
         {
             clearAdminPrincipal('unknown');
@@ -349,6 +417,7 @@ export const useAdminStore = defineStore('admin', () =>
 
     const ensureAdminSessionFresh = async (options?: unknown): Promise<void> =>
     {
+        const invocation = principalMutation;
         const force = Boolean(
             options
       && typeof options === 'object'
@@ -356,6 +425,10 @@ export const useAdminStore = defineStore('admin', () =>
       && options.force
         );
         const now = Date.now();
+        if (principalMutation !== invocation)
+        {
+            throw new AdminPrincipalMutationSupersededError();
+        }
 
         if (!force)
         {
@@ -595,14 +668,16 @@ export const useAdminStore = defineStore('admin', () =>
         sealAdminPrincipalAuthority: computed(() => sealAdminPrincipalAuthority),
         hasAdminPrincipalAuthorityCustody: computed(() => hasAdminPrincipalAuthorityCustody),
         cancelAdminPrincipalAuthority: computed(() => cancelAdminPrincipalAuthority),
-        setAdminPrincipal,
-        clearAdminPrincipal,
-        markMissing,
-        invalidateMissingCache,
-        ensureAdminSessionFresh,
-        cancelAdminSessionRequest,
+        invalidateAdminPrincipalAuthority: computed(() => invalidateAdminPrincipalAuthority),
+        setAdminPrincipal: guardMutationAction('setAdminPrincipal', setAdminPrincipal, () => undefined),
+        clearAdminPrincipal: guardMutationAction('clearAdminPrincipal', clearAdminPrincipal, () => undefined),
+        markMissing: guardMutationAction('markMissing', markMissing, () => undefined),
+        invalidateMissingCache: guardMutationAction('invalidateMissingCache', invalidateMissingCache, () => undefined),
+        ensureAdminSessionFresh: guardMutationAction('ensureAdminSessionFresh', ensureAdminSessionFresh,
+            () => Promise.reject(new AdminPrincipalMutationSupersededError())),
+        cancelAdminSessionRequest: guardMutationAction('cancelAdminSessionRequest', cancelAdminSessionRequest, () => undefined),
         setAnonymousCommentPolicy,
         setLogoutBroadcast,
-        logout
+        logout: guardMutationAction('logout', logout, () => Promise.reject(new AdminPrincipalMutationSupersededError()))
     };
 });
