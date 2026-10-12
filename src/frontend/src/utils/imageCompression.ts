@@ -107,6 +107,7 @@ async function loadImageBitmap(file: File, owner: ImageProducerOwner): Promise<{
     }
 
     const dataUrl = await blobToDataUrl(file, owner);
+    owner.hold('image-data-url', dataUrl);
     owner.ensureActive();
     const element = new Image();
     owner.hold('image-element', element, () =>
@@ -221,7 +222,7 @@ export function requestCompressImageFileWithRuntime(
         owner.hold('compression-options', options);
         owner.hold('runtime-options', runtimeOptions);
         return await compressImageFileOwned(file, options, runtimeOptions, owner);
-    }, runtimeOptions.signal);
+    }, runtimeOptions?.signal);
 }
 
 async function compressImageFileOwned(
@@ -324,6 +325,7 @@ async function compressImageFileOwned(
 
     if (wasmCodec)
     {
+        owner.hold('codec-reference', wasmCodec);
         try
         {
             const imageData = context.getImageData(0, 0, width, height);
@@ -338,6 +340,7 @@ async function compressImageFileOwned(
                 preserveAlpha: options.preserveAlpha
             }));
             owner.release(rgbaResource);
+            owner.hold('encoded-bytes', encoded);
             owner.ensureActive();
             if (isEncodedImageLikelyValid(encoded, options.format))
             {
@@ -394,6 +397,7 @@ async function compressImageFileOwned(
             resolve(value);
         }, mimeType, Math.min(1, Math.max(0.05, options.quality / 100)));
     }));
+    owner.hold('encoded-blob', blob);
     owner.ensureActive();
 
     const extension = options.format === 'jpeg' ? 'jpg' : options.format;

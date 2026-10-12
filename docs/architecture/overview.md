@@ -101,8 +101,9 @@ File.
 observable local handles have been released. Hash observes the actual sequential
 `blob.arrayBuffer()` and WebCrypto `digest` Promises and retires their buffers only
 after completion. Compression owns its actual FileReader handlers, bitmap,
-fallback image handlers/source, canvas backing dimensions/context references and
-awaited decode/acquisition/encode/toBlob operations. Bitmap custody begins before
+fallback image handlers/source, canvas backing dimensions/context references,
+data URL/encoded byte/Blob references and awaited decode/acquisition/encode/toBlob
+operations. Bitmap custody begins before
 dimension validation and covers canvas setup and draw failures. Native work is
 never raced with a synthetic cancellation acknowledgement: cancellation can abort
 an active FileReader and prevent later stages, while already executing bitmap,
