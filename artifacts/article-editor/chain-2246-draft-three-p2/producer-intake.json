@@ -1,0 +1,17 @@
+{
+  "donor": "17c2e83ea1747baa1ca2f8de366ad7e249b2c23f",
+  "base": "5cf956db65c99ba0bf4e0ccd5712454006dbb542",
+  "paths": [
+    "src/frontend/src/services/authoring/articleDocumentContext.ts",
+    "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+    "artifacts/article-editor/retained-document-authority/preflight.md",
+    "docs/architecture/authoring-workspace-snapshot-boundary.md"
+  ],
+  "applyCheck": 0,
+  "apply": 0,
+  "reverseCheck": 0,
+  "postimagesMatch": 4,
+  "RegistryGroupRatioSnapshotUnchanged": true,
+  "sourceReview": "pending independent review",
+  "39SourceCases": "UNRUN/HOLD"
+}

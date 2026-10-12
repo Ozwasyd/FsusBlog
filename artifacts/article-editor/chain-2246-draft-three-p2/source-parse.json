@@ -1,0 +1,14 @@
+{
+  "candidateModulesExecuted": false,
+  "testDiscoveryOrExecution": false,
+  "result": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts",
+      "parseDiagnostics": []
+    }
+  ]
+}
