@@ -148,6 +148,34 @@ function lifecycle()
 
 describe('Article attachment anchored provider lifecycle (#2256) actual public dispatch', () =>
 {
+    // Source controls only: UNRUN under current runtime/test/list holds.
+    it('settles synchronous input and commit work without attesting provider termination', () =>
+    {
+        const editor = lifecycle();
+        const { captured, handles } = editor.insert();
+        const inputRef = captured.handles[0]!.intent.task.taskRef;
+        const handle = handles[0]!;
+        const providerRef = handle.snapshot.task.taskRef;
+        expect(editor.owner.pendingTaskRefs).not.toContain(inputRef);
+        expect(editor.owner.pendingTaskRefs).toContain(providerRef);
+        const committed = editor.adapter.complete(handle, editor.resolved(handle), editor.port);
+        expect(committed.state).toBe('transaction-committed');
+        expect(editor.owner.pendingTaskRefs).not.toContain(committed.task.taskRef);
+        // A metadata completion has not supplied the provider's actual future/cleanup.
+        expect(editor.owner.pendingTaskRefs).toContain(providerRef);
+    });
+
+    it('keeps the provider obligation after cancellation and synchronous adapter disposal', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const providerRef = handle.snapshot.task.taskRef;
+        handle.cancel();
+        editor.adapter.dispose();
+        expect(handle.signal.aborted).toBe(true);
+        expect(editor.owner.pendingTaskRefs).toContain(providerRef);
+    });
+
     it.each(['dispatch', 'binding'] as const)('preserves terminal cancellation during completion %s callbacks', stage =>
     {
         const editor = lifecycle(); const handle = editor.insert().handles[0]!;
@@ -177,6 +205,7 @@ describe('Article attachment anchored provider lifecycle (#2256) actual public d
         if (captured.status !== 'created') throw new Error('capture rejected');
         expect(() => editor.adapter.commitCreated(captured, { ...editor.port, dispatch: () => { throw new Error('interrupted'); } })).toThrow('attachment-insert-dispatch-failed');
         expect(captured.handles.every(handle => handle.signal.aborted)).toBe(true);
+        expect(editor.owner.pendingTaskRefs).toContain(captured.handles[0]!.intent.task.taskRef);
         expect(editor.source()).toBe('paragraph');
         expect(editor.adapter.lifecycleReceipts).toEqual([]);
         expect(() => editor.adapter.commitCreated(captured, editor.port)).toThrow();

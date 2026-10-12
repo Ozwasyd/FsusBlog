@@ -535,6 +535,12 @@ export class ArticleAttachmentContextAdapter
             return this.createPending(handle.intent, record.batch, plannedJob.range, anchor, result);
         });
         this.observeTransaction(result, binding);
+        // Only the synchronous input transfer has ended. Provider work retains its own lease.
+        for (const lease of record.leases)
+        {
+            lease.cancel('attachment-input-transferred');
+            lease.settle();
+        }
         return Object.freeze(handles);
     }
 
@@ -655,6 +661,8 @@ export class ArticleAttachmentContextAdapter
                 {
                     created.cancel('attachment-input-transferred');
                 }
+                // A failed transfer must retain its unfinished cleanup obligation.
+                created.settle();
             }
             return Object.freeze({ status: 'admitted', items: Object.freeze(batch.items.map((item, index) =>
                 Object.freeze({ item, file: files[index], handle: handles[index] }))) });
@@ -949,6 +957,9 @@ export class ArticleAttachmentContextAdapter
         entry.controller.abort('attachment-completion-committed');
         this.record(entry.snapshot);
         this.observeTransaction(dispatched, binding);
+        // This successor attests only to the completed synchronous public commit.
+        // The predecessor provider's actual future is not supplied by this callback.
+        lease.settle();
         return entry.snapshot;
     }
 

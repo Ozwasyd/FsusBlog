@@ -62,6 +62,21 @@ async function capture(f: ReturnType<typeof fixture>, files: File[], origin: 'pi
 }
 
 describe('native accepted attachment admission through the original adapter', () => {
+    // Source control only: UNRUN under current runtime/test/list holds.
+    it('settles only the actual native input transfer and keeps its pending provider obligation', async () => {
+        const f = fixture(); const c = await capture(f, [nativeFile()]);
+        const result = f.admit(c.batch, c.observation);
+        if (result.status !== 'admitted') throw new Error(result.reason);
+        const handle = result.items[0]!.handle;
+        const inputRef = handle.snapshot.intent.task.taskRef;
+        const providerRef = handle.snapshot.task.taskRef;
+        expect(inputRef).not.toBe(providerRef);
+        expect(f.owner.pendingTaskRefs).not.toContain(inputRef);
+        expect(f.owner.pendingTaskRefs).toContain(providerRef);
+        handle.cancel();
+        expect(f.owner.pendingTaskRefs).toContain(providerRef);
+    });
+
     it.each(['pick', 'paste', 'drop'] as const)('admits the original %s capture at the post-context without a second dispatch', async origin => {
         const f = fixture(); const file = nativeFile(); const c = await capture(f, [file], origin);
         expect(c.observation.transaction).toBe(f.events[0]);
