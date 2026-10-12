@@ -10,6 +10,7 @@ import {
     type ArticleWorkspaceEditorResourceSources,
     type ArticleWorkspaceOriginalDraftInspection,
     type ArticleWorkspaceEditorSnapshotPreparation,
+    type ArticleWorkspaceNativeHandoverReservation,
     type ArticleWorkspaceSnapshotReferenceAdmission
 } from './fsusUiEditorSessionFactory';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
@@ -233,6 +234,37 @@ export async function prepareArticleWorkspaceSnapshotReferenceAdmission(
         }
         throw cause;
     }
+}
+
+/** Original Auth+Registry reservation and actual native offer; no target/ready receipt. */
+export function prepareArticleWorkspaceNativeHandoverContinuity(
+    host: AuthoringSessionHost, entry: OpenArticleDocumentEntry,
+    snapshot: MarkdownEditorSessionSnapshot, draftStateRef: string
+): ArticleWorkspaceNativeHandoverReservation
+{
+    const composition = installed;
+    if (composition?.host !== host)
+    {
+        throw new Error('article-workspace-native-handover-composition-owner-mismatch');
+    }
+    composition.assertActive();
+    const registry = articleWorkspaceTabRouter.getRegistry();
+    const handle = registry.issueRetainedDocumentHandle(entry.tabId);
+    composition.assertActive();
+    const hasInstallation = (): boolean => installed === composition && composition.hasInstallationCustody();
+    // Canonical producer returns the existing genuine cell/handle for the active member.
+    return composition.factory.prepareNativeHandoverContinuity(entry, snapshot, draftStateRef,
+        registry, handle, hasInstallation);
+}
+
+/** Failed native/issuer cleanup remains observable after original installation retirement. */
+export function inspectArticleWorkspaceNativeHandoverCleanup()
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    return installed.factory.inspectNativeHandoverCleanup();
 }
 
 /** Cleanup inspection stays available after retirement; it grants no refset/resource authority. */

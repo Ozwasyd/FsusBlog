@@ -8,6 +8,8 @@ import {
   useAdminStore
 } from '@/store/admin'
 import { getAccountNavGroups } from '@/layouts/accountNav'
+import { OpenArticleDocumentRegistry, openArticleDocumentCommandSchema } from '@/services/authoring/openArticleDocumentRegistry'
+import { createArticleWorkspaceNativeHandoverContinuity } from '@/services/authoring/articleWorkspaceNativeHandoverContinuity'
 
 vi.mock('@/api/auth', () => ({
   getAdminMe: vi.fn(),
@@ -26,6 +28,75 @@ const mockLogoutAdmin = vi.mocked(logoutAdmin)
 const mockClearPrivateBrowserState = vi.mocked(clearPrivateBrowserState)
 
 describe('useAdminStore', () => {
+  const nativeContinuityDocument = () => {
+    const registry = new OpenArticleDocumentRegistry()
+    const status = { dirty: false, saving: false, conflict: false, recovery: false,
+      pendingAttachments: false, permission: 'allowed' as const, lifecycle: 'current' as const, statusRef: 'status:continuity' }
+    registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'open-or-activate',
+      commandId: 'open:continuity', idempotencyKey: 'open:continuity', expectedRevision: registry.getRevision(),
+      intent: 'workspace', entrypoint: 'direct-route', identity: { articleId: 1, draftId: 'draft:continuity', documentId: 'document:continuity' },
+      documentContext: { documentEpoch: 1, sourceRevision: 'source-revision:1', draftRevision: null },
+      editorSessionRef: 'session:continuity', tabId: 'tab:continuity', targetGroupId: 'group:primary',
+      tabKind: 'pinned', status, lastActiveAnchorRef: null })
+    const entry = registry.getEntry('tab:continuity')!
+    const handle = registry.issueRetainedDocumentHandle(entry.tabId)
+    return { registry, entry, handle, status }
+  }
+
+  it('borrows actual original local Auth and Registry seals for native continuity without clock or document readers in the final guard', () => {
+    const store = useAdminStore()
+    store.setAdminPrincipal({ id: 'admin-principal', displayName: 'Admin', source: 'independent',
+      permissions: ['article.write'], adminSessionStatus: 'active' })
+    const { registry, entry, handle } = nativeContinuityDocument()
+    let installed = true
+    const owner = createArticleWorkspaceNativeHandoverContinuity(store, registry, handle, entry, 'admin-principal', () => installed)
+    owner.acquire()
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => { throw new Error('guard-clock-reader') })
+    const reader = vi.spyOn(registry, 'getEntry').mockImplementation(() => { throw new Error('guard-document-reader') })
+    try {
+      expect(owner.hasCustody()).toBe(true)
+      expect(owner.principal.hasCustody()).toBe(true)
+      installed = false
+      expect(owner.principal.hasCustody()).toBe(false)
+      expect(owner.cancel()).toBe(true)
+    } finally { clock.mockRestore(); reader.mockRestore() }
+  })
+
+  it('withdraws native continuity for real principal replacement and canonical document permission change without reacquiring authority', () => {
+    const store = useAdminStore()
+    const principal = { id: 'admin-principal', displayName: 'Admin', source: 'independent' as const,
+      permissions: ['article.write'], adminSessionStatus: 'active' as const }
+    store.setAdminPrincipal(principal)
+    const { registry, entry, handle } = nativeContinuityDocument()
+    const owner = createArticleWorkspaceNativeHandoverContinuity(store, registry, handle, entry, principal.id, () => true)
+    owner.acquire()
+    store.setAdminPrincipal({ ...principal, id: 'different-principal' })
+    expect(owner.hasCustody()).toBe(false)
+    expect(owner.cancel()).toBe(true)
+    store.setAdminPrincipal(principal)
+    const next = createArticleWorkspaceNativeHandoverContinuity(store, registry, handle, entry, principal.id, () => true)
+    next.acquire()
+    registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'invalidate-permission',
+      commandId: 'invalidate:continuity', idempotencyKey: 'invalidate:continuity', expectedRevision: registry.getRevision(),
+      tabId: entry.tabId, permission: 'denied', statusRef: 'status:denied' })
+    expect(next.hasCustody()).toBe(false)
+    expect(next.cancel()).toBe(true)
+    expect(() => next.acquire()).toThrow('native-handover-continuity-acquisition-consumed')
+  })
+
+  it('rejects foreign original document handles and retains native continuity cleanup owner before admission failure', () => {
+    const store = useAdminStore()
+    store.setAdminPrincipal({ id: 'admin-principal', displayName: 'Admin', source: 'independent',
+      permissions: ['article.write'], adminSessionStatus: 'active' })
+    const first = nativeContinuityDocument()
+    const other = nativeContinuityDocument()
+    const owner = createArticleWorkspaceNativeHandoverContinuity(store, first.registry, other.handle, first.entry, 'admin-principal', () => true)
+    expect(() => owner.acquire()).toThrow('native-handover-original-registry-owner-mismatch')
+    expect(owner.inspectFailure().failed).toBe(true)
+    expect(owner.hasCustody()).toBe(false)
+    expect(owner.cancel()).toBe(true)
+  })
+
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()

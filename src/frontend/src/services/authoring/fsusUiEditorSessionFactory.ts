@@ -1,6 +1,9 @@
+import { useAdminStore } from '../../store/admin';
 import { articleRecoveryIdentityHash } from '../articleRecoveryJournal';
 
 import { createArticleWorkspaceNativeDocumentAuthorityConsumer } from './articleWorkspaceNativeDocumentAuthority';
+import { createArticleWorkspaceNativeHandoverContinuity,
+    type ArticleWorkspaceNativeHandoverContinuity } from './articleWorkspaceNativeHandoverContinuity';
 import {
     calculateRetainedRecoveryRefsDigest,
     type ArticleWorkspaceRetainedRecoveryCheckpoint,
@@ -19,7 +22,9 @@ import {
     calculateOpenArticleDocumentDigest,
     type ArticleDocumentContextRef,
     type ArticleDocumentIdentity,
-    type OpenArticleDocumentEntry
+    type OpenArticleDocumentEntry,
+    type OpenArticleDocumentRegistry,
+    type RetainedArticleDocumentHandle
 } from './openArticleDocumentRegistry';
 
 import type { useAdminArticleWrite } from '../../composables/useAdminArticleWrite';
@@ -36,8 +41,36 @@ import type {
     MarkdownEditorSessionRendererResourceSource,
     MarkdownEditorSessionSnapshot,
     MarkdownRendererCheckpointHandle,
-    MarkdownRendererCheckpointPreparation
+    MarkdownRendererCheckpointPreparation,
+    MarkdownEditorNativeHandover,
+    MarkdownEditorNativeHandoverPrincipal
 } from '@ozwasyd/element-plus';
+
+export interface ArticleWorkspaceNativeHandoverReservation {
+    readonly scope: 'observed-local-auth-and-registry-membership';
+    readonly sourceEditor: MarkdownEditorSessionExpose;
+    readonly sourceSession: MarkdownEditorSession;
+    readonly handle: RetainedArticleDocumentHandle;
+    readonly principal: MarkdownEditorNativeHandoverPrincipal;
+    readonly nativeHandover: MarkdownEditorNativeHandover;
+    readonly fullRefsRestored: false;
+    readonly resourcesValidated: false;
+    readonly missingAuthorities: readonly string[];
+    hasCustody(): boolean;
+    cancel(): boolean;
+    inspectFailure(): Readonly<{ failed: boolean; firstCause: unknown; latestCause: unknown; }>;
+}
+
+interface NativeHandoverAttempt {
+    active: boolean;
+    preparing: boolean;
+    cancelling: boolean;
+    failed: boolean;
+    firstCause: unknown;
+    latestCause: unknown;
+    continuity: ArticleWorkspaceNativeHandoverContinuity | null;
+    native: MarkdownEditorNativeHandover | null;
+}
 
 /** Supplied by the existing mounted editor/document owner, never route discovery. */
 export interface ArticleWorkspaceMountedEditorBinding {
@@ -125,6 +158,10 @@ interface SnapshotReferenceAttempt {
 }
 
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
+    prepareNativeHandoverContinuity(entry: OpenArticleDocumentEntry, snapshot: MarkdownEditorSessionSnapshot,
+        draftStateRef: string, registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
+        hasInstallation: () => boolean): ArticleWorkspaceNativeHandoverReservation;
+    inspectNativeHandoverCleanup(): Readonly<{ pending: boolean; failed: boolean; firstCause: unknown; latestCause: unknown; }>;
     prepareSnapshotReferenceAdmission(entry: OpenArticleDocumentEntry, recoveryCheckpoint: ArticleWorkspaceRetainedRecoveryCheckpoint,
         draftStateRef: string, crashJournalRef: string): Promise<ArticleWorkspaceSnapshotReferenceAdmission>;
     inspectSnapshotReferenceCleanup(): Readonly<{ pending: boolean; failed: boolean; firstCause: unknown; latestCause: unknown; }>;
@@ -178,6 +215,79 @@ export function createFsusUiEditorSessionFactory(
     // One pending operation beside the original native candidate, never an article/session index.
     let referenceAttempt: SnapshotReferenceAttempt | null = null;
     let referenceAdmissionRetired = false;
+    let nativeHandoverAttempt: NativeHandoverAttempt | null = null;
+    const recordNativeHandoverFailure = (attempt: NativeHandoverAttempt, cause: unknown): void =>
+    {
+        if (!attempt.failed)
+        {
+            attempt.firstCause = cause;
+        }
+        attempt.failed = true;
+        attempt.latestCause = cause;
+    };
+    const cancelNativeHandoverAttempt = (attempt: NativeHandoverAttempt): boolean =>
+    {
+        attempt.active = false;
+        if (attempt.preparing || attempt.cancelling)
+        {
+            return false;
+        }
+        attempt.cancelling = true;
+        let failed = false;
+        let original: unknown;
+        const cleanup = (run: () => void): void =>
+        {
+            try
+            {
+                run();
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    original = cause;
+                }
+                failed = true;
+                recordNativeHandoverFailure(attempt, cause);
+            }
+        };
+        try
+        {
+            cleanup(() =>
+            {
+                if (attempt.native)
+                {
+                    const state = attempt.native.inspect().state;
+                    if (state !== 'transferred' && state !== 'cancelled' && attempt.native.cancel() !== true)
+                    {
+                        throw new Error('public-editor-native-handover-cleanup-pending');
+                    }
+                    attempt.native = null;
+                }
+            });
+            cleanup(() =>
+            {
+                if (attempt.continuity && attempt.continuity.cancel() !== true)
+                {
+                    throw new Error('public-editor-native-handover-continuity-cleanup-pending');
+                }
+                attempt.continuity = null;
+            });
+            if (!attempt.native && !attempt.continuity && nativeHandoverAttempt === attempt)
+            {
+                nativeHandoverAttempt = null;
+            }
+            if (failed)
+            {
+                throw original;
+            }
+            return !attempt.native && !attempt.continuity;
+        }
+        finally
+        {
+            attempt.cancelling = false;
+        }
+    };
     const recordReferenceFailure = (attempt: SnapshotReferenceAttempt, cause: unknown): void =>
     {
         if (!attempt.failed)
@@ -475,6 +585,88 @@ export function createFsusUiEditorSessionFactory(
     };
 
     const factory: ArticleWorkspaceFsusUiEditorSessionFactory = {
+        prepareNativeHandoverContinuity(entry, snapshot, draftStateRef, registry, handle, hasInstallation)
+        {
+            assertAdmission();
+            if (referenceAdmissionRetired || nativeHandoverAttempt)
+            {
+                throw new Error('public-editor-native-handover-owner-unavailable');
+            }
+            const attempt: NativeHandoverAttempt = { active: true, preparing: true, cancelling: false,
+                failed: false, firstCause: undefined, latestCause: undefined, continuity: null, native: null };
+            nativeHandoverAttempt = attempt;
+            try
+            {
+                const { binding, session } = resolveSession(entry);
+                const editor = binding.editor;
+                const identity = Object.freeze({ ...binding.identity });
+                const context = Object.freeze({ ...binding.documentContext });
+                const revision = binding.editorRevision;
+                const prepareNative = session.prepareNativeHandover.bind(session);
+                const hasSnapshot = session.hasRetainedSnapshotCustody.bind(session);
+                const draft = factory.inspectOriginalDraftCheckpoint(entry, draftStateRef);
+                if (snapshot.editorSessionRef !== entry.editorSessionRef || snapshot.documentIdentity.id !== identity.documentId
+                    || snapshot.documentIdentity.epoch !== context.documentEpoch || snapshot.revision !== revision
+                    || snapshot.editorContentDigest !== draft.editorContentDigest || !hasSnapshot(snapshot))
+                {
+                    throw new Error('public-editor-native-handover-snapshot-owner-mismatch');
+                }
+                const hasComposition = (): boolean => !referenceAdmissionRetired && nativeHandoverAttempt === attempt
+                    && attempt.active && !attempt.cancelling && hasInstallation();
+                attempt.continuity = createArticleWorkspaceNativeHandoverContinuity(useAdminStore(), registry,
+                    handle, entry, draft.info.principalIdentityId, hasComposition);
+                const continuity = attempt.continuity;
+                continuity.acquire();
+                const hasContinuity = continuity.hasCustody.bind(continuity);
+                const principal = continuity.principal;
+                const hasCustody = (): boolean => hasComposition() && hasContinuity() && hasComposition();
+                const assertSource = (): void =>
+                {
+                    assertAdmission();
+                    const current = resolveSession(entry);
+                    assertBinding(current.binding, identity, context);
+                    if (current.session !== session || current.binding.editor !== editor || current.binding.editorRevision !== revision
+                        || current.binding.draftCheckpoint !== binding.draftCheckpoint || !hasSnapshot(snapshot) || !hasCustody())
+                    {
+                        throw new Error('public-editor-native-handover-original-source-revoked');
+                    }
+                };
+                assertSource();
+                attempt.native = prepareNative(snapshot, principal);
+                const nativeHandover = attempt.native;
+                const reservation: ArticleWorkspaceNativeHandoverReservation = Object.freeze({
+                    scope: 'observed-local-auth-and-registry-membership', sourceEditor: editor, sourceSession: session,
+                    handle, principal, nativeHandover, fullRefsRestored: false, resourcesValidated: false,
+                    missingAuthorities: Object.freeze(['root:native-recreation-target-custody',
+                        'renderer:checkpoint-recreation', 'session:complete-ref-resource-restoration']),
+                    hasCustody, cancel: () => cancelNativeHandoverAttempt(attempt),
+                    inspectFailure: () => Object.freeze({ failed: attempt.failed,
+                        firstCause: attempt.firstCause, latestCause: attempt.latestCause })
+                });
+                assertSource();
+                attempt.preparing = false;
+                if (!hasCustody())
+                {
+                    throw new Error('public-editor-native-handover-final-continuity-revoked');
+                }
+                return reservation;
+            }
+            catch (cause)
+            {
+                recordNativeHandoverFailure(attempt, cause);
+                attempt.preparing = false;
+                try
+                {
+                    cancelNativeHandoverAttempt(attempt);
+                }
+                catch
+                { /* Same original cleanup holders remain for retry. */ }
+                throw cause;
+            }
+        },
+        inspectNativeHandoverCleanup: () => Object.freeze({ pending: nativeHandoverAttempt !== null,
+            failed: nativeHandoverAttempt?.failed ?? false, firstCause: nativeHandoverAttempt?.firstCause,
+            latestCause: nativeHandoverAttempt?.latestCause }),
         async prepareSnapshotReferenceAdmission(entry, recoveryCheckpoint, draftStateRef, crashJournalRef)
         {
             assertAdmission();
@@ -696,6 +888,18 @@ export function createFsusUiEditorSessionFactory(
             let firstCause: unknown;
             try
             {
+                if (nativeHandoverAttempt && !cancelNativeHandoverAttempt(nativeHandoverAttempt))
+                {
+                    throw new Error('public-editor-native-handover-retirement-cleanup-pending');
+                }
+            }
+            catch (cause)
+            {
+                failed = true;
+                firstCause = cause;
+            }
+            try
+            {
                 if (referenceAttempt && !cancelReferenceAttempt(referenceAttempt))
                 {
                     throw new Error('public-editor-reference-cleanup-pending');
@@ -703,8 +907,11 @@ export function createFsusUiEditorSessionFactory(
             }
             catch (cause)
             {
+                if (!failed)
+                {
+                    firstCause = cause;
+                }
                 failed = true;
-                firstCause = cause;
             }
             try
             {

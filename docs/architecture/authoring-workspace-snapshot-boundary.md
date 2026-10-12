@@ -1343,6 +1343,47 @@ pointer/generation query, without owner availability or view/source reads.
 | Writer/Root | `useAdminArticleWrite.ts`, existing Root startup/session binding | Original permanent cleanup exists; a retained-session save/draft/image/network/effectScope census and reversible pause/resume port is absent. Root must forward that exact producer port. Server draft pause or abort signal alone is no completion acknowledgement. |
 | Native/Renderer restoration | Original transaction/session and Renderer checkpoint owners | Same-owner/same-revision retained restoration exists. After unmount the original transaction pin is released, participant disposal is not recoverable, and validated same-process owner handover/reattach/full-ref restore is absent. No cross-startup memory restoration requirement is introduced. |
 
+### Bounded native handover local continuity bridge
+
+The original native SDK `00e5cee85c82419703c7bfd57a51113747cdaba1`
+checkpoint recreation candidate is under independent review. Main's separate
+`prepareArticleWorkspaceNativeHandoverContinuity` uses the sole installed host,
+original resolver/Writer draft checkpoint, and canonical Registry handle issuer.
+It verifies the actual current source editor/session, exact published native
+snapshot, document/source epoch and digest, and the original Writer's principal.
+It then retains original Admin `seal/has/cancelAdminPrincipalAuthority` tokens and
+original Registry membership seals. No copied seal, second principal/document
+issuer, body/history store, mount discovery or serialized reconstruction is added.
+
+The borrower carries the same original application guard into native
+`prepareNativeHandover`. That guard joins only original local Auth custody,
+canonical membership/publication and private composition/attempt eligibility.
+Its pure path does not read clock, principal projections, Doc inspections,
+resolver/native getters, or reacquire tickets. Admission performs actual original
+readers before the final private join, including a late canonical entry digest
+check after issuing both seals. These are observed local Auth guarantees; an
+unobserved remote expiry/revocation or server-side atomic handover guarantee is
+not introduced. Existing server validation and all security/privacy holds remain.
+
+One pending factory operation retains actual native/Auth/Registry handles. The
+continuity cleanup owner is saved before original acquisitions, cancellation
+withdraws publication before callbacks, and cleanup attempts all owned siblings.
+Original native terminal state permits releasing only its completed source loan;
+pending/refused cleanup and original first/latest causes remain held for retry.
+It never cancels the transferred target checkpoint or fabricates disposal.
+
+This reservation explicitly lacks `root:native-recreation-target-custody`.
+The existing mounted resolver does not issue a staging target lease with pure
+identity/generation and pre-retirement withdrawal while native revision is still
+zero. The original Root owner must lend that actual new editor/session/document
+binding before native target adoption; an old mounted/native seal cannot replace
+it, and late readers after history transfer cannot promise rollback of old pins.
+That target integration is unimplemented, not an interface-only success path.
+Renderer candidate and complete panel/provider/resource restoration also remain
+independent dependencies. Reservation flags stay `fullRefsRestored:false` and
+`resourcesValidated:false`; full host capture/restore/readiness/eviction guards
+and all runtime/native/IME/receipt qualification holds remain unchanged.
+
 Unqualified labels and runtime/list/native holds are not automatically source
 gaps, and old diagnostic dependency strings are not interface inventories.
 All complete/recoverable/eviction guards remain; unknown resources remain unknown.
