@@ -1,0 +1,1 @@
+[frontend-style] src/frontend/src/services/authoring/articleDocumentContext.ts:1502:49 eslint/@typescript-eslint/prefer-optional-chain: Prefer using an optional chain expression instead, as it's more concise and easier to read.

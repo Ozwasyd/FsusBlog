@@ -3,12 +3,25 @@
   "sources": [
     "artifacts/article-editor/retained-document-source-offer/build-source-offer-manifest.py",
     "artifacts/article-editor/retained-document-source-offer/01-canonical-group-registry.patch",
-    "artifacts/article-editor/retained-document-source-offer/02-retained-document-producer.patch"
+    "artifacts/article-editor/retained-document-source-offer/02-retained-document-producer.patch",
+    "artifacts/article-editor/retained-primary-handover/capture-source-offer.py",
+    "src/frontend/src/services/authoring/articleDocumentContext.ts",
+    "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+    "docs/architecture/authoring-workspace-snapshot-boundary.md",
+    "artifacts/article-editor/retained-document-authority/preflight.md"
   ],
   "outputs": [
     {
       "path": "artifacts/article-editor/retained-document-source-offer/source-offer.json",
       "sha256": "3297202a35907d2e6a97719a9c8c4f8444d1c72aadf4ed73d89023b7b999efe8"
+    },
+    {
+      "path": "artifacts/article-editor/retained-primary-handover/consumer-1b8.patch",
+      "sha256": "d2f72d03afa7126afcfeb9b90c9dae55535de0f07c5775c52ee23394ca94b8a9"
+    },
+    {
+      "path": "artifacts/article-editor/retained-primary-handover/source-offer.json",
+      "sha256": "d3da22072afb27cdb50674b9270a5b56c4a825dee8939ad535e1cd2238364052"
     }
   ]
 }
