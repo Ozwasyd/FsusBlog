@@ -10,6 +10,7 @@ import {
     retainedArticleDocumentHandleBelongsTo,
     revokeRetainedArticleDocumentScope,
     subscribeRetainedArticleDocumentHandle,
+    subscribeRetainedArticleDocumentRetirement,
     type OpenOrActivateArticleCommand,
     type RetainedArticleDocumentHandle
 } from '@/services/authoring/openArticleDocumentRegistry';
@@ -302,5 +303,58 @@ describe('original Registry retained document handle source controls', () =>
         expect(notified).toBe(true);
         expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
         expect(sealRetainedArticleDocumentMembership(handle)).toBeNull();
+    });
+    it('signals original retirement before command getters and canonical mutation, with same-handle unsubscribe', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const revision = registry.getRevision();
+        const seal = sealRetainedArticleDocumentMembership(handle)!;
+        const events: string[] = [];
+        const stop = subscribeRetainedArticleDocumentRetirement(handle, () =>
+        {
+            events.push('pre');
+            expect(registry.getRevision()).toBe(revision);
+            expect(hasSealedRetainedArticleDocumentMembershipCustody(seal)).toBe(false);
+        });
+        const command = open(registry, 2);
+        Object.defineProperty(command, 'schema', { enumerable: true, get: () =>
+        {
+            events.push('getter');
+            expect(events[0]).toBe('pre');
+            return openArticleDocumentCommandSchema;
+        } });
+        registry.execute(command);
+        stop();
+        expect(() => subscribeRetainedArticleDocumentRetirement({ ...handle }, () => undefined)).toThrow('subscription-unavailable');
+        expect(events[0]).toBe('pre');
+    });
+
+    it('attempts every genuine pre-retirement callback and aborts mutation with retained original cause', () =>
+    {
+        const registry = new OpenArticleDocumentRegistry();
+        registry.execute(open(registry));
+        const handle = registry.issueRetainedDocumentHandle('tab:1');
+        const revision = registry.getRevision();
+        const failure = new Error('actual-pre-retirement-failure');
+        let secondCalled = false;
+        subscribeRetainedArticleDocumentRetirement(handle, () => { throw failure; });
+        subscribeRetainedArticleDocumentRetirement(handle, () => { secondCalled = true; });
+        let caught: unknown;
+        try
+        {
+            registry.execute(open(registry, 2));
+        }
+        catch (error)
+        {
+            caught = error;
+        }
+        expect(caught).toBeInstanceOf(AggregateError);
+        expect((caught as AggregateError).cause).toBe(failure);
+        expect(secondCalled).toBe(true);
+        expect(registry.getRevision()).toBe(revision);
+        expect(registry.getEntry('tab:2')).toBeNull();
+        expect(inspectRetainedArticleDocumentHandle(handle).notificationFailed).toBe(true);
     });
 });

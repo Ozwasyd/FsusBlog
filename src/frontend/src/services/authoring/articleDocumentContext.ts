@@ -1525,9 +1525,11 @@ export class ArticleDocumentContextAuthority
     #scopeRetirementSequence = 0;
     #scopeRetirementQueue: { siteScope: string; principalIdentityId: string; }[] = [];
     #currentScopeRetirement: { siteScope: string; principalIdentityId: string; } | null = null;
+    #ownerRetirementDepth = 0;
 
     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
     {
+        this.#assertRetirementNotPending();
         this.#assertAuthorityInput(input);
         if (this.#adapter && preparedPrimaryGuards.get(this.#adapter)?.isAdmitted() === false)
         {
@@ -1829,6 +1831,7 @@ export class ArticleDocumentContextAuthority
     /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
     public revokeRetainedScope(siteScope: string, principalIdentityId: string): void
     {
+        this.#assertRetirementNotPending();
         const target = { siteScope, principalIdentityId };
         const retiring = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
             owner.siteScope === siteScope && owner.principalIdentityId === principalIdentityId);
@@ -1938,9 +1941,18 @@ export class ArticleDocumentContextAuthority
 
     #assertRetainedOwnerAdmission(): void
     {
+        this.#assertRetirementNotPending();
         if (this.#scopeRevocationPending)
         {
             throw new Error('article-document-scope-revocation-in-progress');
+        }
+    }
+
+    #assertRetirementNotPending(): void
+    {
+        if (this.#ownerRetirementDepth !== 0)
+        {
+            throw new Error('article-document-owner-retirement-in-progress');
         }
     }
 
@@ -2006,6 +2018,7 @@ export class ArticleDocumentContextAuthority
         }
         owner.lifetimePublication = null;
         owner.retirementPending = true;
+        this.#ownerRetirementDepth += 1;
         const failures: unknown[] = [];
         try
         {
@@ -2024,6 +2037,7 @@ export class ArticleDocumentContextAuthority
         finally
         {
             owner.retirementPending = false;
+            this.#ownerRetirementDepth -= 1;
         }
         if (failures.length > 0)
         {
@@ -2038,7 +2052,7 @@ export class ArticleDocumentContextAuthority
         const handle = owner.handle;
         const port = nativeDocumentLifetimePorts.get(owner.adapter);
         if (!handle || !port || owner.binding !== binding || owner.scopeRetired || owner.invalidationFailed
-            || owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0
+            || owner.attachingConsumer || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
             || owner.consumerInvalidationState !== 'not-requested')
         {
             return null;
@@ -2185,7 +2199,7 @@ export class ArticleDocumentContextAuthority
             cancelLifetimeAuthority: (seal: ArticleDocumentLifetimeSeal) => this.#cancelLifetimeAuthority(owner, binding, seal),
             subscribeRetirement: (listener: () => void) =>
             {
-                if (typeof listener !== 'function' || owner.retirementPending || owner.retirementActivityDepth !== 0
+                if (typeof listener !== 'function' || owner.retirementPending || owner.retirementActivityDepth !== 0 || this.#ownerRetirementDepth !== 0
                     || owner.attachingConsumer || owner.scopeRetired || owner.invalidationFailed
                     || nativeDocumentLifetimePorts.get(owner.adapter)?.retirementActive())
                 {
@@ -2412,10 +2426,10 @@ export class ArticleDocumentContextAuthority
         {
             return;
         }
-        owner.consumerInvalidationState = 'pending';
         try
         {
             this.#retireOwnerAuthority(owner);
+            owner.consumerInvalidationState = 'pending';
             const pending = owner.consumer.invalidateDocument(this.#inspectRetainedOwner(owner));
             if (!pending)
             {

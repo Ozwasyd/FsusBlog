@@ -1102,4 +1102,51 @@ describe('original retained document authority source controls', () =>
         expect(retained.hasLifetimeAuthorityCustody(currentSeal)).toBe(true);
         expect(retained.hasLifetimeAuthorityCustody(originalSeal)).toBe(false);
     });
+    it('signals genuine Document retirement before context mutation, guards and task abort', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const previous = retained.adapter.context;
+        const pending = retained.adapter.beginTask('attachment', 'producer:actual');
+        const seal = retained.sealLifetimeAuthority()!;
+        const events: string[] = [];
+        const stop = retained.subscribeRetirement(() =>
+        {
+            events.push('pre');
+            expect(retained.adapter.context).toBe(previous);
+            expect(pending.signal.aborted).toBe(false);
+            expect(retained.hasLifetimeAuthorityCustody(seal)).toBe(false);
+            expect(retained.sealLifetimeAuthority()).toBeNull();
+            expect(() => authority.acquire(input(2))).toThrow('retirement-in-progress');
+        });
+        pending.signal.addEventListener('abort', () =>
+        {
+            events.push('abort');
+            expect(events[0]).toBe('pre');
+        });
+        retained.adapter.updateSource('# actual next body');
+        stop();
+        expect(events[0]).toBe('pre');
+        expect(events).toContain('abort');
+        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
+    });
+
+    it('preserves actual Document context and pending custody when a pre-retirement listener fails', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const retained = create(authority, new OpenArticleDocumentRegistry(), 1, 'first');
+        const previous = retained.adapter.context;
+        const pending = retained.adapter.beginTask('attachment', 'producer:actual');
+        const failure = new Error('actual-root-retirement-failure');
+        let secondCalled = false;
+        retained.subscribeRetirement(() => { throw failure; });
+        retained.subscribeRetirement(() => { secondCalled = true; });
+        expect(() => retained.adapter.updateSource('# refused body mutation')).toThrow('pre-retirement-failed');
+        expect(secondCalled).toBe(true);
+        expect(retained.adapter.context).toBe(previous);
+        expect(pending.signal.aborted).toBe(false);
+        expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
+        expect(retained.inspect().invalidationFailed).toBe(true);
+        expect(retained.sealLifetimeAuthority()).toBeNull();
+    });
 });
