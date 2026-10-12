@@ -430,7 +430,11 @@ export class AuthoringWorkspaceSnapshotSync
             }
             if (this.serverChoiceRequired || this.generation === generation)
             {
-                this.adopt(result);
+                const choiceGeneration = this.serverChoiceGeneration;
+                if (!this.adopt(result))
+                {
+                    this.recoverRejectedAdoption(result, epoch, choiceGeneration);
+                }
             }
             else
             {
@@ -598,6 +602,7 @@ export class AuthoringWorkspaceSnapshotSync
             {
                 if (!this.adopt(server))
                 {
+                    this.recoverRejectedAdoption(server, epoch, choiceGeneration);
                     return false;
                 }
             }
@@ -637,6 +642,24 @@ export class AuthoringWorkspaceSnapshotSync
         this.serverChoiceGeneration = {};
         this.serverChoiceRequired = true;
         this.pendingServer = null;
+    }
+    private recoverRejectedAdoption(server: AuthoringWorkspaceServerObservation, epoch: number, choiceGeneration: object): void
+    {
+        if (!this.isCurrentOperation(epoch))
+        {
+            return;
+        }
+        // Automatic adoption refusal still owes a fresh read, including startup/reconnect callers.
+        this.readAfterMutation = true;
+        if (choiceGeneration !== this.serverChoiceGeneration || !this.hasAuthority(server)
+            || !this.isCurrentOperation(epoch) || choiceGeneration !== this.serverChoiceGeneration || this.serverChoiceRequired)
+        {
+            return;
+        }
+        // Keep the actual verified baseline without adopting layout or resolving a user's choice.
+        this.observation = server;
+        this.status = server.status === 'missing' ? 'defaulted' : 'current';
+        this.reason = 'server_layout_adoption_deferred';
     }
     private adopt(server: AuthoringWorkspaceServerObservation, explicitChoice = false): boolean
     {

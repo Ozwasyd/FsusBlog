@@ -645,3 +645,37 @@ CAS conflict, synchronous clone/listener layout setters, and nested acceptance
 that invalidates an outer acceptance. These declarations
 are not runtime receipts. This remaining P2 awaits independent exact-source
 review; all tests/list/attack/auth/security/runtime/native/receipt holds remain.
+
+
+## Automatic adoption refusal recovery source
+
+Independent exact `2638f4ed937e0af6224315336e5f28ce972ee6fe` review source-closed
+the delayed-GET intent-generation P2, but found reset ignoring `adopt(false)`:
+a genuine applied R2 revoked R1, while a reentrant clone setter correctly
+preserved new local layout but left the obsolete R1 baseline without refresh.
+
+All three adoption call sites are now accounted for. Explicit acceptance keeps
+its refusal semantics and unresolved choice. Reset handles refusal explicitly;
+automatic read refusal, including startup/reconnect, uses the same recovery.
+Recovery retains the existing bounded fresh-read duty. Only a still-live actual
+server observation, original lifecycle and same choice generation permit
+updating the baseline without adopting layout. An unresolved/newer user choice
+is never cleared or replaced by this path. Dirty layout stays in memory;
+subsequent real server reads restore current authority or expose a genuine
+new revision conflict. Failed refresh retains duty for the existing bounded
+retry and periodic boundary. There is no forced clone/adoption, local snapshot
+authority, reset fallback, new queue, timer owner or synthetic result.
+
+The real verified reset receipt may still be cached/broadcast/recorded even
+when layout adoption is deferred; it proves the actual CAS result, not whole
+workspace restoration. Fresh-read failure remains a read failure, not an
+invented unknown reset result. Original provenance, generation checks, admission,
+unknown-mutation refresh and explicit conflict selection remain required.
+
+Six additional ordinary UNRUN cells cover applied-reset clone reentry with
+fresh refresh, failed immediate refresh followed by periodic recovery, a new
+actual peer CAS conflict, cache denial, and automatic startup/reconnect refusal.
+They assert retained layout, live baseline, correct subsequent CAS revision,
+no extra reset and no implicit acceptance. The new P2 awaits independent exact
+source review. All tests/list/discovery/attack/auth/security/runtime/native/
+receipt holds and upstream canonical/batch/host/session/shell WIP remain.

@@ -891,6 +891,129 @@ describe('server choice generation fences delayed reads and reentrant acceptance
         expect(server.resets).toBe(0);
     });
 });
+describe('automatic adoption refusal retains verified baseline and bounded refresh', () => {
+    it.each(['fresh-read', 'failed-read-periodic', 'new-conflict', 'cache-denied'] as const)
+    ('preserves reentrant layout after genuine applied reset through %s', async path => {
+        // Source-only UNRUN controls; fixture replies are not runtime receipts or restore qualification.
+        const server = new Server();
+        const originalRead = server.read.bind(server);
+        let failRefresh = false;
+        server.read = async () => {
+            const result = await originalRead();
+            if (failRefresh)
+                throw new Error('server_read_failed');
+            return result;
+        };
+        const { sync, api, storage } = setup(server);
+        await sync.start();
+        const old = sync.getServerObservation()!;
+        const clone = globalThis.structuredClone.bind(globalThis);
+        let reentered = false;
+        let peer: Promise<AuthoringWorkspaceSnapshotResult> | undefined;
+        const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+            if (value && typeof value === 'object' && 'tabs' in value && 'groups' in value && 'shell' in value) {
+                cloning.mockRestore();
+                reentered = true;
+                sync.onInteraction('tabs', layout(7));
+                if (path === 'failed-read-periodic')
+                    failRefresh = true;
+                if (path === 'cache-denied')
+                    storage.fail = true;
+                if (path === 'new-conflict')
+                    peer = server.write({ expectedRevision: 2, layout: layout(9) });
+            }
+            return clone(value);
+        });
+        try {
+            await sync.reset(true, 1, api.resetConfirmation(1));
+        } finally {
+            cloning.mockRestore();
+        }
+        if (peer)
+            expect((await peer).status).toBe('applied');
+        expect(reentered).toBe(true);
+        expect(server.resets).toBe(1);
+        expect(() => requireWorkspaceServerObservation(old)).toThrow('server_observation_required');
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        expect(sync.getState().dirty).toBe(true);
+        expect(sync.getReceipt().events.some(event => event.kind === 'server-reset')).toBe(true);
+        expect(sync.getReceipt().events.some(event => event.kind === 'accepted-server')).toBe(false);
+        if (path === 'new-conflict') {
+            expect(sync.getState().status).toBe('conflict');
+            expect(sync.getServerObservation()).toBeNull();
+            const writes = server.writes.length;
+            await sync.flush();
+            expect(server.writes).toHaveLength(writes);
+            await expect(sync.reset(true, 2, api.resetConfirmation(2))).rejects.toThrow('reset_requires_current_server');
+            sync.acceptServerAfterConflict();
+            expect(sync.getCurrentSessionLayout()).toEqual(layout(9));
+            expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 3, dirty: false });
+            return;
+        }
+        expect(server.writes).toHaveLength(0);
+        if (path === 'failed-read-periodic') {
+            expect(sync.getState()).toMatchObject({ status: 'failed', reason: 'server_read_failed', serverRevision: 2, dirty: true });
+            expect(sync.getServerObservation()).toBeNull();
+            const reads = server.reads;
+            failRefresh = false;
+            await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+            expect(server.reads).toBeGreaterThan(reads);
+        }
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 2, dirty: true });
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('verified_reset_baseline_missing');
+        requireWorkspaceServerObservation(observed);
+        await sync.flush();
+        expect(server.writes).toHaveLength(1);
+        expect(server.writes[0].expectedRevision).toBe(2);
+        expect(server.current!.layout).toEqual(layout(7));
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 3, dirty: false });
+    });
+    it.each(['startup', 'reconnect'] as const)
+    ('retains a usable actual baseline and fresh-read duty after automatic %s refusal', async path => {
+        const { sync, server } = setup();
+        if (path === 'reconnect') {
+            await sync.start();
+            await sync.setOnline(false);
+        }
+        const clone = globalThis.structuredClone.bind(globalThis);
+        let reentered = false;
+        const cloning = vi.spyOn(globalThis, 'structuredClone').mockImplementation(value => {
+            if (value && typeof value === 'object' && 'tabs' in value && 'groups' in value && 'shell' in value) {
+                cloning.mockRestore();
+                reentered = true;
+                sync.onInteraction('tabs', layout(7));
+            }
+            return clone(value);
+        });
+        try {
+            if (path === 'startup')
+                await sync.start();
+            else
+                await sync.setOnline(true);
+        } finally {
+            cloning.mockRestore();
+        }
+        expect(reentered).toBe(true);
+        expect(sync.getCurrentSessionLayout()).toEqual(layout(7));
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 1, dirty: true, reason: 'server_layout_adoption_deferred' });
+        const observed = sync.getServerObservation();
+        if (!observed)
+            throw new Error('verified_read_baseline_missing');
+        requireWorkspaceServerObservation(observed);
+        await sync.flush();
+        expect(server.writes).toHaveLength(1);
+        expect(server.writes[0].expectedRevision).toBe(1);
+        expect(server.current!.layout).toEqual(layout(7));
+        const reads = server.reads;
+        await vi.advanceTimersByTimeAsync(workspaceSnapshotSyncPolicy.safetyFlushMs);
+        expect(server.reads).toBeGreaterThan(reads);
+        expect(sync.getState()).toMatchObject({ status: 'current', serverRevision: 2, dirty: false });
+        expect(server.resets).toBe(0);
+    });
+});
 describe('verified non-authoritative cache', () => {
     it('stores server success only and reports missing/current/stale with finite expiry', async () => {
         const { api, cache, storage } = setup();
