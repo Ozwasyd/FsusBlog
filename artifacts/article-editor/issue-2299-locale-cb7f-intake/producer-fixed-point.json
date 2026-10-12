@@ -1,0 +1,127 @@
+{
+    "scope": "literal source AST only; no product import/runtime/test/list; no authority/fixture/receipt refresh",
+    "mode": "--write",
+    "status": "PASS",
+    "changed": false,
+    "domain": "admin",
+    "before": "fnv1a64:91f19fb7a7303f1f",
+    "derived": "fnv1a64:91f19fb7a7303f1f",
+    "algorithmAstSha256": "52736241ae9f8104f5b1437744b33df1a601474ce9b4283758e31557e14eefc7",
+    "canonicalShapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+    "schemas": [
+        {
+            "locale": "zh-CN",
+            "path": "src/frontend/src/locales/zh-CN/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "en-US",
+            "path": "src/frontend/src/locales/en-US/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "zh-Hant",
+            "path": "src/frontend/src/locales/zh-Hant/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "ja-JP",
+            "path": "src/frontend/src/locales/ja-JP/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "ko-KR",
+            "path": "src/frontend/src/locales/ko-KR/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "es-419",
+            "path": "src/frontend/src/locales/es-419/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "fr-FR",
+            "path": "src/frontend/src/locales/fr-FR/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "de-DE",
+            "path": "src/frontend/src/locales/de-DE/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "pt-BR",
+            "path": "src/frontend/src/locales/pt-BR/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        },
+        {
+            "locale": "ru-RU",
+            "path": "src/frontend/src/locales/ru-RU/admin.ts",
+            "shapeSha256": "8efd0e9025176e00c1be49c972dd30b8d02b730217afc42de802c71e7053d080",
+            "schemaDigest": "fnv1a64:91f19fb7a7303f1f"
+        }
+    ],
+    "inputs": [
+        {
+            "path": "src/shared/Contracts/Localization/locale-catalog.json",
+            "sha256": "1bcee2ac64272ee1df135e6545854ef50ccf9c9dfcbe4ef411234b209f29201a"
+        },
+        {
+            "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+            "sha256": "8a13559e874f4abfc301aaf486fd49250e3720953483bd9c9ae3bdf8c389aaf5"
+        },
+        {
+            "path": "src/frontend/src/locales/zh-CN/admin.ts",
+            "sha256": "968fa1c4285932421db10597047f29a37b0e1aa64eae0f569ea2ec62a4b2bbd7"
+        },
+        {
+            "path": "src/frontend/src/locales/en-US/admin.ts",
+            "sha256": "2ff8ad67327d400ce84b40c763c61cdd36bec7d03918bd1df004f44c8b1c2d7e"
+        },
+        {
+            "path": "src/frontend/src/locales/zh-Hant/admin.ts",
+            "sha256": "5d1872a53471bc675aea64a47a2b187a89d32448497d3fae6cafc886f24c2048"
+        },
+        {
+            "path": "src/frontend/src/locales/ja-JP/admin.ts",
+            "sha256": "81c3a591e7cf6c6c5607e6f6a582c036550bbc13b4f9c863e9883f130caccd68"
+        },
+        {
+            "path": "src/frontend/src/locales/ko-KR/admin.ts",
+            "sha256": "e3b9ab98a35aca0ebbcf690c9022d255c6268910815b9ad80917c1c0de704742"
+        },
+        {
+            "path": "src/frontend/src/locales/es-419/admin.ts",
+            "sha256": "21185992901619076386042583f0b58a5e40f4037ea9bd92681bdf2ef3ec9fea"
+        },
+        {
+            "path": "src/frontend/src/locales/fr-FR/admin.ts",
+            "sha256": "37cd14d3631ff01343e16682560420633917f8a43b72536fdcf9c6fa4411c459"
+        },
+        {
+            "path": "src/frontend/src/locales/de-DE/admin.ts",
+            "sha256": "44a98a5332ca0cc0531725f99ae5264bc746736a50ab75f1ac78f05ae79666d3"
+        },
+        {
+            "path": "src/frontend/src/locales/pt-BR/admin.ts",
+            "sha256": "a7a0448033493c4921f0b4131d08be99c0f0f8b99a664e0413425b5b7f37bbe2"
+        },
+        {
+            "path": "src/frontend/src/locales/ru-RU/admin.ts",
+            "sha256": "5debea687a57f57426cf3db9f04d60409297b7083b0fd5d3cfb862ee8e2577fc"
+        }
+    ],
+    "output": {
+        "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+        "sha256": "8a13559e874f4abfc301aaf486fd49250e3720953483bd9c9ae3bdf8c389aaf5"
+    }
+}

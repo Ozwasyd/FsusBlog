@@ -1,0 +1,51 @@
+{
+  "baselineMain": "b6bca4fe693e175570ae69fe4acba03a429918b5",
+  "originalLocaleSource": "cb7f8b30aabf6d1805b45c63a74309433593731f",
+  "actualUi": "f2533351ddf729d797b372d8ee6eba85e2f4234b",
+  "actualOriginalPatch": {
+    "indexCheck": 0,
+    "indexApply": 0,
+    "paths": 13,
+    "postimagesExact": 13
+  },
+  "producer": {
+    "check": 0,
+    "writeFixedPoint": 0,
+    "changed": false,
+    "recheck": 0,
+    "localeSchemas": 10,
+    "derived": "fnv1a64:91f19fb7a7303f1f"
+  },
+  "localeGate": {
+    "exit": 0,
+    "artifacts": 100,
+    "locales": 10,
+    "domains": 10
+  },
+  "AST": {
+    "exit": 0,
+    "files": 13
+  },
+  "strictFull": {
+    "exit": 0,
+    "files": 11
+  },
+  "toolsESLint": {
+    "exit": 0,
+    "files": 2,
+    "firstAttempt": "Wrong Blog root binary path did not start; raw failure preserved. Correct existing UI binary under original Blog config0."
+  },
+  "wholeOriginalApplication": {
+    "exit": 2,
+    "before": 254,
+    "after": 251,
+    "added": 0,
+    "removed": 3,
+    "onlyRemoved": "Three Write workspaceLayout key TS2554 findings"
+  },
+  "Separator": "original a775 source P2 still blocked/unapplied; current8missing public export errors persist",
+  "supplierResults": "14 author/24 independent source controls and guards separate, not current execution qualification; controls tool source consumed but NOT executed here",
+  "frozenAndFocused": "All actual baseline protected bytes unchanged, no refresh",
+  "runtime": "ALL HOLD/UNRUN",
+  "newCompositeReview": "pending"
+}

@@ -1,0 +1,230 @@
+{
+  "actualMain": "b6bca4fe693e175570ae69fe4acba03a429918b5",
+  "originalSource": "cb7f8b30aabf6d1805b45c63a74309433593731f",
+  "pinnedPatchBase": "ef7b3f9b9b65a299fe4f3a7a7b2382e5ebd2a539",
+  "patchSha256": "091bcf1373266cd425ab877c785e9e51fdbc4439b66c223f824795570ca11c69",
+  "paths": [
+    {
+      "path": "src/frontend/src/locales/de-DE/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/en-US/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/es-419/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/fr-FR/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/ja-JP/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/ko-KR/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/pt-BR/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/ru-RU/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/zh-CN/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/zh-Hant/admin.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "existing exact pinned preimage"
+    },
+    {
+      "path": "tools/frontend/check-locale-domain-schema-source-controls.mjs",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "new original tool"
+    },
+    {
+      "path": "tools/frontend/sync-locale-domain-schema.mjs",
+      "currentPreimageEqualsPinnedEf7": true,
+      "kind": "new original tool"
+    }
+  ],
+  "gitApplyCheckWithOriginalUnidiffZero": 0,
+  "actualPatchApplication": true,
+  "producerExecution": true,
+  "focusedCheckExecution": false,
+  "sourceStatus": "Original supplier independently SOURCE CLOSED per parent; new Main composite pending review",
+  "freezeBoundary": "Ordinary application schema table source; no SOURCE registrations/fixtures/receipt/catalog authority refresh",
+  "runtime": "ALL HOLD/UNRUN",
+  "isolatedScratchCheckApplyExit": 0,
+  "scratchRoot": "/tmp/2295-locale-cb7f-b6-static-only-20261012",
+  "scratchPostimages": [
+    {
+      "path": "src/frontend/src/locales/de-DE/admin.ts",
+      "originalBlob": "1b92ea5166161d331373da621fd266a2d4deef24",
+      "sha256": "44a98a5332ca0cc0531725f99ae5264bc746736a50ab75f1ac78f05ae79666d3",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "1b92ea5166161d331373da621fd266a2d4deef24"
+    },
+    {
+      "path": "src/frontend/src/locales/en-US/admin.ts",
+      "originalBlob": "db87649607fa2a5f886da690c9633944560846ec",
+      "sha256": "2ff8ad67327d400ce84b40c763c61cdd36bec7d03918bd1df004f44c8b1c2d7e",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "db87649607fa2a5f886da690c9633944560846ec"
+    },
+    {
+      "path": "src/frontend/src/locales/es-419/admin.ts",
+      "originalBlob": "61348e3b27ba054b30bbbf06da30a347df9cd293",
+      "sha256": "21185992901619076386042583f0b58a5e40f4037ea9bd92681bdf2ef3ec9fea",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "61348e3b27ba054b30bbbf06da30a347df9cd293"
+    },
+    {
+      "path": "src/frontend/src/locales/fr-FR/admin.ts",
+      "originalBlob": "4efd1e1ff71a3ea1ee82c11d2e755b67ac956660",
+      "sha256": "37cd14d3631ff01343e16682560420633917f8a43b72536fdcf9c6fa4411c459",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "4efd1e1ff71a3ea1ee82c11d2e755b67ac956660"
+    },
+    {
+      "path": "src/frontend/src/locales/ja-JP/admin.ts",
+      "originalBlob": "c7f3120ab5d71319da00b0cea5a1d1a542a21233",
+      "sha256": "81c3a591e7cf6c6c5607e6f6a582c036550bbc13b4f9c863e9883f130caccd68",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "c7f3120ab5d71319da00b0cea5a1d1a542a21233"
+    },
+    {
+      "path": "src/frontend/src/locales/ko-KR/admin.ts",
+      "originalBlob": "c506d46561e088babe9a726ed34cdaa7316da874",
+      "sha256": "e3b9ab98a35aca0ebbcf690c9022d255c6268910815b9ad80917c1c0de704742",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "c506d46561e088babe9a726ed34cdaa7316da874"
+    },
+    {
+      "path": "src/frontend/src/locales/pt-BR/admin.ts",
+      "originalBlob": "d247973d9c7b233834a320e5f611c1f8ba587270",
+      "sha256": "a7a0448033493c4921f0b4131d08be99c0f0f8b99a664e0413425b5b7f37bbe2",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "d247973d9c7b233834a320e5f611c1f8ba587270"
+    },
+    {
+      "path": "src/frontend/src/locales/ru-RU/admin.ts",
+      "originalBlob": "bce3fded131183dcd694bc0611dc17d5d974e717",
+      "sha256": "5debea687a57f57426cf3db9f04d60409297b7083b0fd5d3cfb862ee8e2577fc",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "bce3fded131183dcd694bc0611dc17d5d974e717"
+    },
+    {
+      "path": "src/frontend/src/locales/zh-CN/admin.ts",
+      "originalBlob": "90d8f12bf15b2bd49daacff715a2a2ed70838043",
+      "sha256": "968fa1c4285932421db10597047f29a37b0e1aa64eae0f569ea2ec62a4b2bbd7",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "90d8f12bf15b2bd49daacff715a2a2ed70838043"
+    },
+    {
+      "path": "src/frontend/src/locales/zh-Hant/admin.ts",
+      "originalBlob": "e45312f4ba35620bde36af5b74f54efc4372da0c",
+      "sha256": "5d1872a53471bc675aea64a47a2b187a89d32448497d3fae6cafc886f24c2048",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "e45312f4ba35620bde36af5b74f54efc4372da0c"
+    },
+    {
+      "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
+      "originalBlob": "a296923328e085cb5a8284223c9e15636d11934e",
+      "sha256": "8a13559e874f4abfc301aaf486fd49250e3720953483bd9c9ae3bdf8c389aaf5",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "a296923328e085cb5a8284223c9e15636d11934e"
+    },
+    {
+      "path": "tools/frontend/check-locale-domain-schema-source-controls.mjs",
+      "originalBlob": "59029022250be35eae38d3b7d0b79132f3cfad5d",
+      "sha256": "e5a1e0a41e5dc179ef7759cf8b17756d7576155c95515c1160a2da8d4a2ac82d",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "59029022250be35eae38d3b7d0b79132f3cfad5d"
+    },
+    {
+      "path": "tools/frontend/sync-locale-domain-schema.mjs",
+      "originalBlob": "920182aa570f224b0cf08676ed639cb18907aadc",
+      "sha256": "ec2eead367e9d9b74d8c6f7737b324bf81532129167069833bda74682326228e",
+      "exactOriginalBytes": true,
+      "actualIndexBlob": "920182aa570f224b0cf08676ed639cb18907aadc"
+    }
+  ],
+  "sourceASTOnly": {
+    "files": 13,
+    "exit": 0,
+    "productOrProducerEvaluated": false
+  },
+  "actualBaselineMain": "b6bca4fe693e175570ae69fe4acba03a429918b5",
+  "checkIndexUnidiffZero": 0,
+  "applyIndexUnidiffZero": 0,
+  "allThirteenOriginalPostimagesExact": true,
+  "protectedActualMainFrozenAndFocusedFiles": [
+    {
+      "path": "config/testing/release-final-execution-authority-index.json",
+      "beforeActualMainSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+      "beforeBlob": "32eb40651cd94f7e531f4b5bccf94e8f38ab26b6",
+      "supplierBytesSame": true
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "beforeActualMainSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+      "beforeBlob": "5acd7ceb23f9b17e959588e53a8a06acab7b49d7",
+      "supplierBytesSame": true
+    },
+    {
+      "path": "tests/browser-contract/public-shell-finite-input-owner.mjs",
+      "beforeActualMainSha256": "7087375c2be055460248f44424bc005c28d170286350222780d18d07c6954b20",
+      "beforeBlob": "9d793e5e8a4a9069183cd1452ac83eda0aa44b83",
+      "supplierBytesSame": true
+    },
+    {
+      "path": "tools/test-matrix/register-public-shell-finite-input.mjs",
+      "beforeActualMainSha256": "df39fabd0f004cd9bb45d3ec811dc85b3840b882c6fe677403ad1df33b71f6a1",
+      "beforeBlob": "a4c83cb3f1ab51834ea183a754512d1bf6451ae8",
+      "supplierBytesSame": true
+    },
+    {
+      "path": "artifacts/change-contract/public-shell-finite-input-generated-binding.json",
+      "beforeActualMainSha256": "b825b82a410b5f34e1ed1366c7b12b6abcf913501f69fc268dbc1aa3cf3219a6",
+      "beforeBlob": "ec8ee735ba91413af67c019ca76a7bb78b44556a",
+      "supplierBytesSame": true
+    },
+    {
+      "path": "tests/frontend/unit/locales/localeDomainBundleStore.test.ts",
+      "beforeActualMainSha256": "8a9e431c1089a2a096cc244fcb676bacc0c90c7412fabaff81f22c8e16107498",
+      "beforeBlob": "f2f2c51dc8e58be11c04a23fa03c303e1198a8b2",
+      "supplierBytesSame": true
+    }
+  ],
+  "actualProducerExecution": "Authorized original static tooling only; no product imports/evaluation",
+  "producerCheckExit": 0,
+  "producerWriteFixedPointExit": 0,
+  "producerWriteChanged": false,
+  "producerRecheckExit": 0,
+  "parentMainB6SourceReview": "Exact prior Auth+Writer production SOURCE CLOSED/no P1/P2; independent AST7PASS/linttypeUNRUN distinct",
+  "newMainCompositeReview": "Pending new exact locale intake source review",
+  "originalFocusedTestExecution": "HOLD/UNRUN"
+}

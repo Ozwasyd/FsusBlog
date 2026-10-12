@@ -1180,9 +1180,10 @@ its scope/ref; no fallback snapshot or synthetic successful interaction exists.
 
 This composite is source-reviewable but not build-ready: the current local FsusUI
 alias lacks the original public ResizeSeparator component and its payload/range
-types. Current locale leaves also lack three workspaceLayout names; donor locale
-schema admission is not closed, so neither leaf copies nor digest/catalog changes
-are applied. Missing provider, mounted authority, original token reservations and
+types. Original locale schema repair cb7f is now consumed through its exact thirteen
+source paths: ten canonical leaf additions, the derived admin entry and original
+static producer/controls. No catalog/generated/frozen authority refresh is applied.
+Missing provider, mounted authority, original token reservations and
 complete resource/refset admission continue to refuse. Precise source identities,
 preserved owners, actual failing whole-program delta and zero-execution preflight
 are in `artifacts/article-editor/issue-2299-layout-e387-main-intake`. Original donor
@@ -1193,17 +1194,20 @@ is no package publication or authority refresh.
 Original upstream offer d615cc2064c4c14946d341d43f2eebf473d7bd8d now pins the
 actual ResizeSeparator a775 source. Its eight new files and five additive entry
 hunks check against current UIf253 without overwriting shared entries; actual UI
-remains unchanged pending original source review. The locale gap is an original
-three-string-leaf addition across ten dictionaries without admin schema table
-synchronization. Current and donor shape calculations are source diagnostics;
-the original locale owner must supply the synchronized closure under the existing
-calculation/focused contract. No standalone table generator or catalog projection
-can substitute for it. Precise applicability and minimum owner scope are recorded
-in `artifacts/article-editor/issue-2299-upstream-source-applicability`.
+remains unchanged: original a775 has an unresolved P2; repair candidate
+e570e2c82d5f137eefc831fb193dbb6f2764703b awaits independent closure and is not
+consumed. Compatibility is not source acceptance. The original locale owner
+now supplies a genuine static literal-AST producer deriving the existing algorithm
+from all ten schemas. Its real admin check/write fixed point and original static
+locale gate pass without evaluating product modules. Ordinary application schema
+source is distinct from frozen registrations/fixtures/receipts; all protected
+objects and original focused test remain unchanged. Precise intake, output hashes,
+raw checks and holds are in `artifacts/article-editor/issue-2299-locale-cb7f-intake`.
 
 Parent reports original Auth819e six-owner local source closure and Writer91d
 positive source closure. This Main now consumes those exact original postimages
 through their owning patches, keeping newer Registry/Doc and Layout adapters.
-Actual positive local token capability is separate from source-review/qualification
-of this new composite. No parallel Auth/Writer, native/resource completion receipt,
+Parent also reports Mainb6 exact Auth/Writer source intake independently closed;
+the current new locale composite still needs independent review/qualification.
+No parallel Auth/Writer, native/resource completion receipt,
 or missing provider/refset/resource authority is supplied by this source intake.
