@@ -1,0 +1,637 @@
+diff --git a/.changeset/markdown-editor-native-panel-checkpoints.md b/.changeset/markdown-editor-native-panel-checkpoints.md
+new file mode 100644
+index 00000000..e5a6ece7
+--- /dev/null
++++ b/.changeset/markdown-editor-native-panel-checkpoints.md
+@@ -0,0 +1,10 @@
++---
++'element-plus': minor
++---
++
++Retain immutable original native active-node, scroll-anchor, outline, search and
++settled attachment-state checkpoints in the existing single editor session custody.
++Expose real panel refs and readPanelState on the same original snapshot. Refuse
++missing projection/DOM owners, queued continuations, unsettled/unknown attachment
++dispatches and revoked original job custody; do not mint replacement controllers.
++Complete application snapshot, resources, disposal and eviction remain unavailable.
+diff --git a/docs/components/markdown-editor.md b/docs/components/markdown-editor.md
+index fa711cd5..2534700d 100644
+--- a/docs/components/markdown-editor.md
++++ b/docs/components/markdown-editor.md
+@@ -552,6 +552,43 @@ consumer callback runs after the final renderer/view read and before original
+ transaction retain/restore, with native availability/context checks preserved.
+ A thrown guard preserves prior custody/selection/history. The consuming factory
+ supplies its real owner/reference/admission guard; no success or receipt is issued.
++The final admission is followed by the actual panel quiescence/custody fence before
++transaction retain or restore. Public `openSearch()` can enqueue an original
++nextTick continuation at unchanged document/revision; it refuses before native
++history/selection mutation or replacement of the previous retained token.
++
++The original native owner now optionally captures immutable panel metadata into
++that SAME bounded checkpoint. `snapshot.panelRefs` contains independent backed
++`activeNodeRef`, `scrollAnchorRef`, `outlineRef`, `searchRef` and nullable
++`attachmentStateRef`; these are not aliases of the partial `viewStateRef`.
++`session.readPanelState(originalSnapshot)` resolves only current original native
++token/projection/DOM/job custody. Foreign/copied/superseded/epoch/revision/ABA or
++replaced owners refuse. Missing projection/required native DOM or queued original
++frame/layout/search continuations keep panel capture unavailable.
++
++Active state uses original syntax/selection/link/anchor/contextual/atomic state.
++Scroll metadata retains actual original live anchor and native textarea/preview
++offsets, without recomputing geometry. Outline is derived by the existing original
++projection/outline owner; search UI/matches are deeply frozen metadata copies.
++Restore writes the original native refs and DOM targets and preserves the same
++original projection and attachment jobs. No parser, body, history or job/controller
++is cloned/replaced. Actual retained metadata/reference memory is counted by the
++original native surface's measured usage; it does not qualify complete resources.
++
++Attachment refs require real completed dispatch settlement, same original weak
++job/controller identities and dispatch proof, exact metadata and cleared original
++batch/item/File custody. Pending/progress/legacy unknown/unwind/cleanup cases yield
++null attachment ref. Terminal cleanup, removal, retry, signal or phase/attempt/range
++changes invalidate it. State restoration preserves verified original settled jobs;
++it cannot revive a File loan/controller/request or rewind a terminal operation.
++Weak identity witnesses retain no additional File/controller ownership. This is
++not a completed nonempty production attachment checkpoint path: the current
++terminal owner retains batch/item records, and the original map cleanup also
++removes jobs. That missing original-owner transition keeps nonempty attachment
++refs unavailable; isolated helper settlement does not establish production custody.
++This is
++same-owner/same-revision state source only; full factory/draft/renderer/resource and
++native/worker/kernel/geometry/privacy acceptance remain blocked/UNRUN.
+ 
+ `restoreSnapshot(snapshot, expected)` accepts only the exact retained snapshot
+ object, on the same mounted owner, document identity/epoch and source revision.
+diff --git a/vue/packages/components/markdown-editor/__tests__/markdown-editor.test.tsx b/vue/packages/components/markdown-editor/__tests__/markdown-editor.test.tsx
+index 55827f02..44f2342a 100644
+--- a/vue/packages/components/markdown-editor/__tests__/markdown-editor.test.tsx
++++ b/vue/packages/components/markdown-editor/__tests__/markdown-editor.test.tsx
+@@ -6,6 +6,8 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+ import MarkdownEditor from '../src/markdown-editor.vue'
+ import { createMarkdownOutlineModel } from '../src/markdown-editor-outline'
+ import { createMarkdownEditorSessionBinding } from '../src/markdown-editor-session'
++import { captureMarkdownEditorSessionAttachmentState } from '../src/markdown-editor-session-attachment-state'
++import { createMarkdownAttachmentJob, runMarkdownAttachmentDispatch } from '../src/markdown-editor-attachment-lifecycle'
+ import { MarkdownEditorTransactionStore } from '../src/markdown-editor-transaction'
+ import {
+   defaultMarkdownEditorCommands,
+@@ -26,6 +28,69 @@ import type {
+ import { getMarkdownXssSourceUrl } from '../../../../tests/support/markdown-xss-corpus'
+ 
+ describe('MarkdownEditor', () => {
++  it('retains only original settled attachment state and invalidates phase, signal and removal changes', async () => {
++    const controller = new AbortController()
++    const job = createMarkdownAttachmentJob('panel-item', {
++      documentIdentity: { id: 'panel-document', epoch: 1 }, revision: 0, signalController: controller,
++    })
++    let jobs = [job]
++    let finish!: (result: MarkdownAttachmentProviderResult) => void
++    const future = new Promise<MarkdownAttachmentProviderResult>((resolve) => { finish = resolve })
++    const pending = runMarkdownAttachmentDispatch(job, () => future)
++    expect(captureMarkdownEditorSessionAttachmentState(() => jobs, () => {})).toBeNull()
++    finish({ status: 'cancelled', batchId: 'panel-batch', itemId: 'panel-item',
++      documentIdentity: { id: 'panel-document', epoch: 1 }, revision: 0 })
++    await pending
++    job.phase = 'cancelled'
++    const captured = captureMarkdownEditorSessionAttachmentState(() => jobs, () => {})!
++    expect(captured.isCurrent()).toBe(true)
++    expect(Object.isFrozen(captured.state)).toBe(true)
++    expect(Object.isFrozen(captured.state[0])).toBe(true)
++    job.progress = 1
++    expect(captured.state[0]!.progress).toBe(0)
++    expect(captured.isCurrent()).toBe(false)
++    job.progress = 0
++    controller.abort()
++    expect(captured.isCurrent()).toBe(false)
++    jobs = []
++    expect(captured.isCurrent()).toBe(false)
++    const legacy = createMarkdownAttachmentJob('legacy', { documentIdentity: { id: 'panel-document', epoch: 1 }, revision: 0 })
++    legacy.phase = 'cancelled'
++    expect(captureMarkdownEditorSessionAttachmentState(() => [legacy], () => {})).toBeNull()
++  })
++
++  it('refuses final admission openSearch continuations before native panel retain or restore', async () => {
++    const wrapper = mount(MarkdownEditor, { props: {
++      mode: 'source', modelValue: '# Original panel', documentIdentity: { id: 'panel-admission-document', epoch: 1 },
++    } })
++    await flushPromises()
++    await nextTick()
++    const editor = wrapper.vm as MarkdownEditorInstance
++    const session = editor.getSession('session:panel-admission')
++    const snapshot = session.captureSnapshot(() => 'a'.repeat(64))
++    expect(snapshot.panelRefs).not.toBeNull()
++    const expected = { documentIdentity: snapshot.documentIdentity, revision: snapshot.revision }
++    editor.dispatchTransaction({ changes: [], selection: { start: 0, end: 0, direction: 'none' }, history: 'skip', origin: 'programmatic' })
++    await nextTick()
++    await flushPromises()
++    const textarea = wrapper.find('textarea').element as HTMLTextAreaElement
++    const selection = { start: textarea.selectionStart, end: textarea.selectionEnd, direction: textarea.selectionDirection }
++    const proof = session.restoreSnapshot(snapshot, { ...expected, assertAdmission: () => editor.openSearch() })
++    expect(proof.reason).toBe('editor-session-panel-owner-stale')
++    expect({ start: textarea.selectionStart, end: textarea.selectionEnd, direction: textarea.selectionDirection }).toEqual(selection)
++    expect(editor.dispatchTransaction({ changes: [], history: 'skip', origin: 'programmatic' }).selection).toEqual({ start: 0, end: 0, direction: 'none' })
++    expect(session.validateRetainedSnapshot(snapshot, expected)).toBe(true)
++    await nextTick()
++    await flushPromises()
++    let calls = 0
++    expect(() => session.captureSnapshot(() => 'b'.repeat(64), {
++      ...expected, assertAdmission: () => { if (++calls === 3) editor.openSearch() },
++    })).toThrow('editor-session-panel-owner-stale')
++    expect(calls).toBe(3)
++    expect(session.validateRetainedSnapshot(snapshot, expected)).toBe(true)
++    wrapper.unmount()
++  })
++
+   it('checks actual consumer admission after view capture and before replacing or restoring original custody', () => {
+     const identity = { id: 'admission-document', epoch: 1 }
+     const store = new MarkdownEditorTransactionStore('source', undefined, identity)
+diff --git a/vue/packages/components/markdown-editor/src/markdown-editor-session-attachment-state.ts b/vue/packages/components/markdown-editor/src/markdown-editor-session-attachment-state.ts
+new file mode 100644
+index 00000000..f14fe7d4
+--- /dev/null
++++ b/vue/packages/components/markdown-editor/src/markdown-editor-session-attachment-state.ts
+@@ -0,0 +1,47 @@
++import { toRaw } from 'vue'
++import { inspectMarkdownAttachmentDispatch } from './markdown-editor-attachment-lifecycle'
++import type { MarkdownAttachmentJob } from './markdown-editor-attachment-lifecycle'
++import type { MarkdownEditorSessionAttachmentState } from './markdown-editor-session-panels'
++
++/** Same original jobs/dispatches, no cloned job/controller, attempt minting or terminal replay. */
++export const captureMarkdownEditorSessionAttachmentState = (
++  readJobs: () => readonly MarkdownAttachmentJob[],
++  assertOwnerQuiescent: () => void,
++): {
++  readonly state: readonly MarkdownEditorSessionAttachmentState[]
++  isCurrent(): boolean
++} | null => {
++  if (typeof WeakRef !== 'function') return null
++  try { assertOwnerQuiescent() } catch { return null }
++  const jobs = readJobs().map((job) => toRaw(job))
++  const proofs = jobs.map(inspectMarkdownAttachmentDispatch)
++  const jobReferences = jobs.map((job) => new WeakRef(job))
++  const controllers = jobs.map((job) => job.signalController ? new WeakRef(job.signalController) : null)
++  // UI terminal phase/abort alone cannot prove the original invocation settled.
++  if (jobs.some((job, index) => !job.documentIdentity || job.revision === undefined ||
++    job.phase === 'pending' || job.phase === 'progress' ||
++    !proofs[index]?.settlementAvailable || !proofs[index]?.settled || proofs[index]?.dispatching)) return null
++  const readState = (job: MarkdownAttachmentJob): MarkdownEditorSessionAttachmentState => Object.freeze({
++    id: job.id, batchId: job.batchId ?? null, itemId: job.itemId ?? null,
++    documentIdentity: Object.freeze({ ...job.documentIdentity! }), revision: job.revision!,
++    attempt: job.attempt, phase: job.phase, progress: job.progress,
++    code: job.code ?? null, message: job.message ?? null,
++    range: job.range ? Object.freeze({ ...job.range }) : null,
++    signalAborted: job.signalController?.signal.aborted ?? null,
++  })
++  const state = Object.freeze(jobs.map(readState))
++  const serialized = JSON.stringify(state)
++  return Object.freeze({
++    state,
++    isCurrent() {
++      try { assertOwnerQuiescent() } catch { return false }
++      const current = readJobs().map((job) => toRaw(job))
++      return current.length === jobReferences.length && current.every((job, index) => {
++        const proof = inspectMarkdownAttachmentDispatch(job)
++        return job === jobReferences[index]!.deref() && job.signalController === (controllers[index]?.deref() ?? undefined) &&
++          proof?.dispatchRef === proofs[index]?.dispatchRef &&
++          proof?.settled === true && proof.settlementAvailable && !proof.dispatching
++      }) && JSON.stringify(current.map(readState)) === serialized
++    },
++  })
++}
+diff --git a/vue/packages/components/markdown-editor/src/markdown-editor-session-panels.ts b/vue/packages/components/markdown-editor/src/markdown-editor-session-panels.ts
+new file mode 100644
+index 00000000..259b07fe
+--- /dev/null
++++ b/vue/packages/components/markdown-editor/src/markdown-editor-session-panels.ts
+@@ -0,0 +1,127 @@
++import type { MarkdownAtomicNodeSession } from './markdown-editor-live-selection'
++import type { MarkdownEditorMode } from './markdown-editor-live-contract'
++import type { MarkdownLiveLayoutAnchor } from './markdown-editor-live-layout'
++import type { MarkdownEditorOutlineItem } from './markdown-editor-outline'
++import type { MarkdownSearchUiState } from './markdown-editor-search-ui'
++import type { MarkdownEditorDocumentIdentity, MarkdownEditorResolvedSelection } from './markdown-editor-transaction'
++import type { MarkdownSearchMatch, MarkdownSearchMode } from '../../../wasm/markdown-search-model'
++
++export interface MarkdownEditorSessionPanelState {
++  readonly mode: MarkdownEditorMode
++  readonly activeNode: Readonly<{
++    selection: MarkdownEditorResolvedSelection
++    syntaxNodeId: string | null
++    syntaxKind: string | null
++    linkNodeId: string
++    anchorNodeId: string
++    atomicSession: MarkdownAtomicNodeSession | null
++    contextualSurface: 'anchor-properties' | 'link-properties' | null
++    contextualEpoch: number
++    contextualRevision: number
++    contextualError: string
++    linkLabel: string
++    linkDestination: string
++    linkTitle: string
++    anchorId: string
++  }>
++  readonly scrollAnchor: Readonly<{
++    anchor: MarkdownLiveLayoutAnchor | null
++    textareaTop: number | null
++    textareaLeft: number | null
++    previewTop: number | null
++    previewLeft: number | null
++    retainedPreviewLeft: number
++  }>
++  readonly outline: readonly MarkdownEditorOutlineItem[]
++  readonly search: Readonly<{
++    ui: MarkdownSearchUiState
++    query: string
++    replaceText: string
++    matches: readonly MarkdownSearchMatch[]
++    currentIndex: number | null
++    mode: MarkdownSearchMode
++  }>
++  readonly attachment: readonly MarkdownEditorSessionAttachmentState[] | null
++}
++
++export interface MarkdownEditorSessionAttachmentState {
++  readonly id: string
++  readonly batchId: string | null
++  readonly itemId: string | null
++  readonly documentIdentity: MarkdownEditorDocumentIdentity
++  readonly revision: number
++  readonly attempt: number
++  readonly phase: string
++  readonly progress: number
++  readonly code: string | null
++  readonly message: string | null
++  readonly range: Readonly<{ start: number; end: number }> | null
++  readonly signalAborted: boolean | null
++}
++
++export interface MarkdownEditorSessionPanelRefs {
++  readonly activeNodeRef: string
++  readonly scrollAnchorRef: string
++  readonly outlineRef: string
++  readonly searchRef: string
++  /** Null when real attachment settlement/custody cannot be retained safely. */
++  readonly attachmentStateRef: string | null
++}
++
++/** Private original-owner capture; retained ONLY in the existing single session checkpoint. */
++export interface MarkdownEditorSessionPanelCapture {
++  readonly state: MarkdownEditorSessionPanelState
++  readonly missingOwners: readonly string[]
++  readonly memoryUnits: number
++  /** Actual original owner/projection/DOM/job custody, never equal metadata alone. */
++  isCurrent(): boolean
++  /** Restore mutable UI through original refs; preserve derived projection and original jobs. */
++  restore(): void
++}
++
++/** Whitelisted immutable UI metadata, no parser/body/history, DOM, File or controller cloning. */
++export const freezeMarkdownEditorSessionPanelState = (
++  input: MarkdownEditorSessionPanelState,
++): MarkdownEditorSessionPanelState => Object.freeze({
++  mode: input.mode,
++  activeNode: Object.freeze({
++    ...input.activeNode,
++    selection: Object.freeze({ ...input.activeNode.selection }),
++    atomicSession: input.activeNode.atomicSession
++      ? Object.freeze({ nodeId: input.activeNode.atomicSession.nodeId, phase: input.activeNode.atomicSession.phase }) : null,
++  }),
++  scrollAnchor: Object.freeze({
++    ...input.scrollAnchor,
++    anchor: input.scrollAnchor.anchor ? Object.freeze({
++      ...input.scrollAnchor.anchor,
++      documentIdentity: Object.freeze({ ...input.scrollAnchor.anchor.documentIdentity }),
++      range: Object.freeze({ ...input.scrollAnchor.anchor.range }),
++      visual: Object.freeze({ ...input.scrollAnchor.anchor.visual }),
++    }) : null,
++  }),
++  outline: Object.freeze(input.outline.map((item) => Object.freeze({
++    ...item,
++    sourceRange: Object.freeze({ ...item.sourceRange }),
++    contentRange: Object.freeze({ ...item.contentRange }),
++    diagnostics: Object.freeze(item.diagnostics.map((diagnostic) => Object.freeze({ ...diagnostic }))),
++  }))),
++  search: Object.freeze({
++    ...input.search,
++    ui: Object.freeze({ ...input.search.ui, aria: Object.freeze({ ...input.search.ui.aria }) }),
++    matches: Object.freeze(input.search.matches.map((match) => Object.freeze({
++      ...match, range: Object.freeze({ ...match.range }),
++    }))),
++  }),
++  attachment: input.attachment === null ? null : Object.freeze(input.attachment.map((job) => Object.freeze({
++    ...job,
++    documentIdentity: Object.freeze({ ...job.documentIdentity }),
++    range: job.range ? Object.freeze({ ...job.range }) : null,
++  }))),
++})
++
++export const markdownEditorSessionPanelMemoryUnits = (state: MarkdownEditorSessionPanelState): number => {
++  // Actual retained immutable records plus their string payload, not complete resource usage.
++  const strings = JSON.stringify(state).length
++  return 5 + state.outline.length + state.search.matches.length + (state.attachment?.length ?? 0) +
++    Math.ceil(strings * 2 / 65_536)
++}
+diff --git a/vue/packages/components/markdown-editor/src/markdown-editor-session.ts b/vue/packages/components/markdown-editor/src/markdown-editor-session.ts
+index 2a9a725e..887bb554 100644
+--- a/vue/packages/components/markdown-editor/src/markdown-editor-session.ts
++++ b/vue/packages/components/markdown-editor/src/markdown-editor-session.ts
+@@ -1,4 +1,5 @@
+ import { createMarkdownEditorSessionResourceCoordinator } from './markdown-editor-session-resources'
++import type { MarkdownEditorSessionPanelCapture, MarkdownEditorSessionPanelRefs, MarkdownEditorSessionPanelState } from './markdown-editor-session-panels'
+ import type { MarkdownEditorSessionResourceCensus, MarkdownEditorSessionResourceParticipant } from './markdown-editor-session-resources'
+ import type {
+   MarkdownEditorDocumentIdentity,
+@@ -39,6 +40,7 @@ export interface MarkdownEditorSessionSnapshot {
+   readonly historyRef: string
+   readonly viewStateRef: string
+   readonly lastValidRender: MarkdownEditorSessionLastValidRender | null
++  readonly panelRefs: MarkdownEditorSessionPanelRefs | null
+ }
+ 
+ export interface MarkdownEditorSessionCapabilities {
+@@ -119,6 +121,8 @@ export interface MarkdownEditorSession {
+     readonly documentIdentity: MarkdownEditorDocumentIdentity
+     readonly revision: number
+   }): boolean
++  /** Resolve only the original current bounded panel custody; foreign/string-only/stale refs refuse. */
++  readPanelState(snapshot: MarkdownEditorSessionSnapshot): MarkdownEditorSessionPanelState | null
+   restoreSnapshot(
+     snapshot: MarkdownEditorSessionSnapshot,
+     expected: { readonly documentIdentity: MarkdownEditorDocumentIdentity; readonly revision: number; readonly assertAdmission?: () => void },
+@@ -140,6 +144,7 @@ export interface MarkdownEditorSessionOwner<ViewState> {
+   readonly isDisposed: () => boolean
+   readonly captureViewState: () => ViewState
+   readonly restoreViewState: (state: ViewState) => void
++  readonly capturePanelState?: () => MarkdownEditorSessionPanelCapture | null
+   readonly resourceParticipants: () => readonly MarkdownEditorSessionResourceParticipant[]
+   readonly captureLastValidRender: () => MarkdownEditorSessionLastValidRender | null
+   readonly inspectRendererResourceSource?: () => MarkdownEditorSessionRendererResourceSource | null
+@@ -164,13 +169,14 @@ const capabilities: MarkdownEditorSessionCapabilities = Object.freeze({
+ 
+ export const createMarkdownEditorSessionBinding = <ViewState>(
+   owner: MarkdownEditorSessionOwner<ViewState>,
+-): MarkdownEditorSessionExpose => {
++): MarkdownEditorSessionExpose & { inspectRetainedPanelMemoryUnits(): number } => {
+   const resources = createMarkdownEditorSessionResourceCoordinator(owner.resourceParticipants)
+   let session: MarkdownEditorSession | undefined
+   let retained: {
+     readonly snapshot: MarkdownEditorSessionSnapshot
+     readonly transaction: MarkdownEditorRetainedTransactionSnapshot
+     readonly view: ViewState
++    readonly panels: MarkdownEditorSessionPanelCapture | null
+   } | undefined
+   let sequence = 0
+   let capturing = false
+@@ -203,6 +209,7 @@ export const createMarkdownEditorSessionBinding = <ViewState>(
+   }
+ 
+   return Object.freeze({
++    inspectRetainedPanelMemoryUnits: () => retained?.panels?.memoryUnits ?? 0,
+     getSession(editorSessionRef: string) {
+       assertAvailable()
+       if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u.test(editorSessionRef)) {
+@@ -315,6 +322,7 @@ export const createMarkdownEditorSessionBinding = <ViewState>(
+             }
+             const lastValidRender = captureLastValidRender()
+             const view = owner.captureViewState()
++            const panels = owner.capturePanelState?.() ?? null
+             // Actual consumer admission follows the last owner callback, before custody replacement.
+             assertAdmission?.()
+             assertAvailable()
+@@ -322,6 +330,16 @@ export const createMarkdownEditorSessionBinding = <ViewState>(
+                 store.documentIdentity.id !== identity.id || store.documentIdentity.epoch !== identity.epoch) {
+               throw new Error('editor-session-snapshot-stale')
+             }
++            if (panels && !panels.isCurrent()) throw new Error('editor-session-panel-owner-stale')
++            assertAdmission?.()
++            assertAvailable()
++            // Admission can synchronously schedule original panel continuations
++            // without changing the document. Fence them before retaining history.
++            if (panels && !panels.isCurrent()) throw new Error('editor-session-panel-owner-stale')
++            if (store.revision !== revision || store.value !== source ||
++                store.documentIdentity.id !== identity.id || store.documentIdentity.epoch !== identity.epoch) {
++              throw new Error('editor-session-snapshot-stale')
++            }
+             const transaction = store.retainSnapshot()
+             const snapshotRef = `${editorSessionRef}:snapshot:${++sequence}`
+             const snapshot: MarkdownEditorSessionSnapshot = Object.freeze({
+@@ -337,13 +355,30 @@ export const createMarkdownEditorSessionBinding = <ViewState>(
+               historyRef: `${snapshotRef}:history`,
+               viewStateRef: `${snapshotRef}:view`,
+               lastValidRender,
++              panelRefs: panels ? Object.freeze({
++                activeNodeRef: `${snapshotRef}:active-node`,
++                scrollAnchorRef: `${snapshotRef}:scroll-anchor`,
++                outlineRef: `${snapshotRef}:outline`,
++                searchRef: `${snapshotRef}:search`,
++                attachmentStateRef: panels.state.attachment === null ? null : `${snapshotRef}:attachment`,
++              }) : null,
+             })
+-            retained = { snapshot, transaction, view }
++            retained = { snapshot, transaction, view, panels }
+             return snapshot
+           } finally {
+             capturing = false
+           }
+         },
++        readPanelState(snapshot: MarkdownEditorSessionSnapshot): MarkdownEditorSessionPanelState | null {
++          assertAvailable()
++          const custody = retained
++          if (capturing || !custody || snapshot !== custody.snapshot || !custody.panels ||
++              !owner.transactionStore.validateRetainedSnapshot(custody.transaction)) return null
++          if (!custody.panels.isCurrent()) return null
++          assertAvailable()
++          return retained === custody && owner.transactionStore.validateRetainedSnapshot(custody.transaction)
++            ? custody.panels.state : null
++        },
+         validateRetainedSnapshot(snapshot: MarkdownEditorSessionSnapshot, expected: {
+           readonly documentIdentity: MarkdownEditorDocumentIdentity
+           readonly revision: number
+@@ -391,14 +426,19 @@ export const createMarkdownEditorSessionBinding = <ViewState>(
+               return blocked('editor-session-render-checkpoint-custody-invalid')
+             }
+           }
++          if (custody.panels && !custody.panels.isCurrent()) return blocked('editor-session-panel-owner-stale')
+           // Final actual admission after renderer callbacks and before history/selection mutation.
+           assertAdmission?.()
+           assertAvailable()
++          // openSearch and other public callbacks can enqueue original nextTick
++          // work at the same revision. No native mutation precedes this fence.
++          if (custody.panels && !custody.panels.isCurrent()) return blocked('editor-session-panel-owner-stale')
+           if (retained !== custody) return blocked('editor-session-snapshot-custody-invalid')
+           if (!store.restoreRetainedSnapshot(custody.transaction)) {
+             return blocked('editor-session-history-checkpoint-invalid')
+           }
+-          owner.restoreViewState(custody.view)
++          if (custody.panels) custody.panels.restore()
++          else owner.restoreViewState(custody.view)
+           return Object.freeze({ status: 'restored', snapshotRef: snapshot.snapshotRef, reason: null })
+         },
+         inspectResources: () => { assertAvailable(); return resources.inspectResources() },
+diff --git a/vue/packages/components/markdown-editor/src/markdown-editor.ts b/vue/packages/components/markdown-editor/src/markdown-editor.ts
+index 5bea448c..8ca21d45 100644
+--- a/vue/packages/components/markdown-editor/src/markdown-editor.ts
++++ b/vue/packages/components/markdown-editor/src/markdown-editor.ts
+@@ -1902,6 +1902,11 @@ export type {
+   MarkdownEditorSessionRenderRestoreProof,
+   MarkdownEditorSessionSnapshot,
+ } from './markdown-editor-session'
++export type {
++  MarkdownEditorSessionPanelState,
++  MarkdownEditorSessionPanelRefs,
++  MarkdownEditorSessionAttachmentState,
++} from './markdown-editor-session-panels'
+ 
+ export type {
+   MarkdownEditorSessionResourceCensus,
+diff --git a/vue/packages/components/markdown-editor/src/markdown-editor.vue b/vue/packages/components/markdown-editor/src/markdown-editor.vue
+index 6c36c5ab..c9e52319 100644
+--- a/vue/packages/components/markdown-editor/src/markdown-editor.vue
++++ b/vue/packages/components/markdown-editor/src/markdown-editor.vue
+@@ -1326,6 +1326,8 @@ import {
+ } from './markdown-editor-outline'
+ import { planMarkdownOutlineReveal } from './markdown-editor-outline-active'
+ import { createMarkdownEditorSessionBinding } from './markdown-editor-session'
++import { freezeMarkdownEditorSessionPanelState, markdownEditorSessionPanelMemoryUnits } from './markdown-editor-session-panels'
++import { captureMarkdownEditorSessionAttachmentState } from './markdown-editor-session-attachment-state'
+ import { createMarkdownAttachmentEmbedResourceOwner } from './markdown-editor-attachment-embed-owner'
+ import { createMarkdownEditorSessionCommandResources, isMarkdownEditorSessionOwnedCommand } from './markdown-editor-session-command-resources'
+ import type { MarkdownRendererLastValidRender, createMarkdownRendererSessionResourceOwner } from '../../markdown-renderer/src/markdown-renderer-session-resources'
+@@ -6581,7 +6583,8 @@ const surfaceResourceParticipant: MarkdownEditorSessionResourceParticipant = {
+         timers: layoutGestureTimer === undefined ? 0 : 1,
+         backgroundTasks: 0,
+         networkRequests: 0,
+-        memoryUnits: Math.ceil((transactionStore.value.length + transactionStore.retainedSessionUnits) * 2 / 65536),
++        memoryUnits: Math.ceil((transactionStore.value.length + transactionStore.retainedSessionUnits) * 2 / 65536) +
++          sessionBinding.inspectRetainedPanelMemoryUnits(),
+       },
+     }
+   },
+@@ -6728,6 +6731,127 @@ const sessionBinding = createMarkdownEditorSessionBinding({
+       return blocked('editor-session-renderer-owner-replaced')
+     return proof
+   },
++  capturePanelState: () => {
++    const projection = editorProjection.value
++    if (!projection || isComposing.value || sessionDisposed) return null
++    const textarea = textareaRef.value
++    const renderer = previewRendererRef.value
++    const preview = previewElement()
++    const mode = currentMode.value
++    if ((mode !== 'preview' && !textarea) || (mode !== 'source' && !preview)) return null
++    const identity = transactionStore.documentIdentity
++    const revision = transactionStore.revision
++    const liveAnchor = liveLayout.value.anchor
++    if (liveAnchor && (liveAnchor.documentIdentity.id !== identity.id ||
++        liveAnchor.documentIdentity.epoch !== identity.epoch || liveAnchor.revision !== revision)) return null
++    if (searchMatches.value.some((match) => match.documentId !== identity.id ||
++        match.documentEpoch !== identity.epoch || match.revision !== revision)) return null
++    if (atomicSession.value && !projection.nodes.some((node) => node.id === atomicSession.value!.nodeId)) return null
++    const originalAtomic = liveAtomic.value
++    const requireQuiescent = () => {
++      const frames = frameScheduler.resourceState()
++      if (frames.runningPhase || frames.pendingFrames || frames.pendingAuxiliaryFrames || frames.runningAuxiliaryFrames ||
++          sessionLayoutResources.participant.inspect().usage.backgroundTasks ||
++          languageSearchParticipant?.inspect().usage.backgroundTasks) {
++        throw new Error('editor-session-panel-continuation-active')
++      }
++    }
++    try { requireQuiescent() } catch { return null }
++    const attachment = captureMarkdownEditorSessionAttachmentState(() => attachmentJobs.value, () => {
++      assertAttachmentFileControlIdle()
++      if (attachmentJobs.value.some((job) => job.documentIdentity?.id !== identity.id ||
++          job.documentIdentity.epoch !== identity.epoch || job.revision === undefined || job.revision > revision))
++        throw new Error('editor-session-attachment-document-custody-unavailable')
++      const usage = attachmentResourceParticipant.inspect().usage
++      if (attachmentBatches.size || attachmentItems.size || usage.backgroundTasks || usage.networkRequests)
++        throw new Error('editor-session-attachment-state-unsettled')
++    })
++    const outline = currentOutlineContext()
++    const state = freezeMarkdownEditorSessionPanelState({
++      mode,
++      activeNode: {
++        selection: transactionStore.selection,
++        syntaxNodeId: currentSyntaxNode.value?.id ?? null,
++        syntaxKind: currentSyntaxNode.value?.kind ?? null,
++        linkNodeId: activeLinkNodeId.value,
++        anchorNodeId: activeAnchorNodeId.value,
++        atomicSession: atomicSession.value,
++        contextualSurface: contextualSurface.value,
++        contextualEpoch: contextualSurfaceEpoch.value,
++        contextualRevision: contextualSurfaceRevision.value,
++        contextualError: contextualError.value,
++        linkLabel: linkLabelDraft.value, linkDestination: linkDestinationDraft.value,
++        linkTitle: linkTitleDraft.value, anchorId: anchorIdDraft.value,
++      },
++      scrollAnchor: {
++        anchor: liveAnchor,
++        textareaTop: textarea?.scrollTop ?? null, textareaLeft: textarea?.scrollLeft ?? null,
++        previewTop: preview?.scrollTop ?? null, previewLeft: preview?.scrollLeft ?? null,
++        retainedPreviewLeft: retainedPreviewScrollLeft.value,
++      },
++      outline: outline.model.items,
++      search: { ui: searchUiState.value, query: searchQuery.value, replaceText: searchReplaceText.value,
++        matches: searchMatches.value, currentIndex: searchCurrentIndex.value, mode: searchMode.value },
++      attachment: attachment?.state ?? null,
++    })
++    const isCurrent = () => {
++      // Attachment inspection reads original owner inputs. Recheck continuations
++      // and native identity after that reader, not only before it.
++      try {
++        requireQuiescent()
++        if (attachment && !attachment.isCurrent()) return false
++        requireQuiescent()
++      } catch { return false }
++      const currentPreview = previewElement()
++      if (sessionDisposed || isComposing.value || editorProjection.value !== projection ||
++          transactionStore.documentIdentity.id !== identity.id || transactionStore.documentIdentity.epoch !== identity.epoch ||
++          transactionStore.revision !== revision || textareaRef.value !== textarea ||
++          previewRendererRef.value !== renderer || currentPreview !== preview) return false
++      return true
++    }
++    return Object.freeze({
++      state, missingOwners: Object.freeze(attachment ? [] : ['attachment-original-settled-state-custody']),
++      memoryUnits: markdownEditorSessionPanelMemoryUnits(state) + Number(textarea !== null) + Number(preview !== null) +
++        (attachment?.state.length ?? 0) + 2,
++      isCurrent,
++      restore() {
++        if (!isCurrent()) throw new Error('editor-session-panel-owner-stale')
++        // Same original projection backs immutable outline; original jobs/proofs must remain exact.
++        currentMode.value = state.mode
++        contextualSurface.value = state.activeNode.contextualSurface
++        contextualSurfaceEpoch.value = state.activeNode.contextualEpoch
++        contextualSurfaceRevision.value = state.activeNode.contextualRevision
++        contextualError.value = state.activeNode.contextualError
++        linkLabelDraft.value = state.activeNode.linkLabel
++        linkDestinationDraft.value = state.activeNode.linkDestination
++        linkTitleDraft.value = state.activeNode.linkTitle
++        anchorIdDraft.value = state.activeNode.anchorId
++        atomicSession.value = state.activeNode.atomicSession
++        liveAtomic.value = originalAtomic
++        searchUiState.value = state.search.ui
++        searchQuery.value = state.search.query
++        searchReplaceText.value = state.search.replaceText
++        searchMatches.value = state.search.matches
++        searchCurrentIndex.value = state.search.currentIndex
++        searchMode.value = state.search.mode
++        editorSelection.value = transactionStore.selection
++        if (textarea) {
++          const selection = transactionStore.selection
++          textarea.setSelectionRange(selection.start, selection.end, selection.direction)
++        }
++        liveLayout.value = Object.freeze({ ...liveLayout.value, anchor: state.scrollAnchor.anchor })
++        retainedPreviewScrollLeft.value = state.scrollAnchor.retainedPreviewLeft
++        if (textarea && state.scrollAnchor.textareaTop !== null && state.scrollAnchor.textareaLeft !== null) {
++          textarea.scrollTop = state.scrollAnchor.textareaTop
++          textarea.scrollLeft = state.scrollAnchor.textareaLeft
++        }
++        if (preview && state.scrollAnchor.previewTop !== null && state.scrollAnchor.previewLeft !== null) {
++          preview.scrollTop = state.scrollAnchor.previewTop
++          preview.scrollLeft = state.scrollAnchor.previewLeft
++        }
++      },
++    })
++  },
+   captureViewState: () => ({
+     mode: currentMode.value,
+     search: {

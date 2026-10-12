@@ -359,12 +359,26 @@ export function createFsusUiEditorSessionFactory(
         captureRetainedSnapshot(entry)
         {
             const { binding, session } = resolveSession(entry);
+            const identity = Object.freeze({ ...binding.identity });
+            const context = Object.freeze({ ...binding.documentContext });
+            const revision = binding.editorRevision;
+            const editor = binding.editor;
             const snapshot = session.captureSnapshot(calculateOpenArticleDocumentDigest, {
                 documentIdentity: {
-                    id: binding.identity.documentId,
-                    epoch: binding.documentContext.documentEpoch
+                    id: identity.documentId,
+                    epoch: context.documentEpoch
                 },
-                revision: binding.editorRevision
+                revision,
+                assertAdmission: () =>
+                {
+                    const current = resolveSession(entry);
+                    assertBinding(current.binding, identity, context);
+                    if (current.session !== session || current.binding.editor !== editor
+                        || current.binding.editorRevision !== revision)
+                    {
+                        throw new Error('public-editor-retained-snapshot-stale');
+                    }
+                }
             });
             // Re-resolve after the digest callback; a document replacement must
             // not be silently accepted as the requested registry session.
@@ -391,7 +405,17 @@ export function createFsusUiEditorSessionFactory(
                     id: identity.documentId,
                     epoch: context.documentEpoch
                 },
-                revision
+                revision,
+                assertAdmission: () =>
+                {
+                    const current = resolveSession(entry);
+                    assertBinding(current.binding, identity, context);
+                    if (current.session !== session || current.binding.editor !== editor
+                        || current.binding.editorRevision !== revision)
+                    {
+                        throw new Error('public-editor-retained-restore-owner-stale');
+                    }
+                }
             });
             const current = resolveSession(entry);
             assertBinding(current.binding, identity, context);
