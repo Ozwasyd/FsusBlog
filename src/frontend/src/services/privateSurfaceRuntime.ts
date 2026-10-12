@@ -194,6 +194,13 @@ class PrivateSurfaceRuntime
             }
             catch (error)
             {
+                if (this.#transition !== reservation)
+                {
+                    // The callback already supplied a real failure. Supersession
+                    // cannot replace that cause with an unconfirmed-completion error.
+                    void Promise.allSettled(terminationOutcomes);
+                    throw error;
+                }
                 clearOutcome = new Promise<never>(() =>
                 {
                     throw error;
