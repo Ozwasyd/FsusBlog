@@ -1,0 +1,14 @@
+{
+  "baselineSource": "de1f888a253d9c63ddc09dff0cb54b050fa1a394",
+  "testedSource": "5a8b9df7764ac791dad34261c716e90502437556",
+  "baselineDiagnosticCount": 221,
+  "diagnosticCount": 223,
+  "normalization": "diagnostic path/code/message, excluding line/column only",
+  "added": [
+    "src/services/authoring/articleFsusUiRenderProducer.ts: TS2448: Block-scoped variable 'work' used before its declaration.",
+    "src/services/authoring/articleFsusUiRenderProducer.ts: TS2454: Variable 'work' is used before being assigned."
+  ],
+  "removed": [],
+  "typeExit": 2,
+  "runtimeQualification": false
+}

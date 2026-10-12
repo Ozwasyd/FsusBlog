@@ -307,35 +307,30 @@ alongside refresh actions, failure reason and last-valid time. It never writes
 HTML or projection data back to the draft. Entry bytes, age, canonical result
 bytes and receipt count have explicit caller-supplied bounds.
 
-`ArticleRenderCache.startRefresh()` exposes the original task's `receipt` and
-`terminal` separately. The receipt preserves prompt cancellation/admission;
-`terminal` awaits the actual producer render future, admission finalization and
-required synchronous release before calling that same lease's `settle()`.
-Successful commit transfers the original public result reference to this existing
-cache; it does not release the retained result. A rejected producer supplies no
-result reference or failure-cleanup endpoint; `producerFailure` and its original
-pending obligation remain until that producer supplies the actual capability.
-An undeclared asynchronous release is retained in `cleanupFailure.cause`, never
-accepted as synchronous completion. A late release failure rejects `terminal` and
-retains the original work, result reference and pending lease. The same cache's
-`pendingRefreshWork` preserves these actual futures through superseding refreshes
-and disposal; it stores no source/body copy or independent resource ledger.
-Failed cleanup is not retried or converted to successful drain. Existing entry
-custody remains when replacement release throws, including callback reentry.
-The original producer's release contract is synchronous; an unrepresented native
-or asynchronous cleanup future still needs its original producer API and cannot
-be qualified by this terminal endpoint. Tool/preview leases remain separate:
-awaiting a cache cancellation receipt alone does not settle their actual work.
-The unproduced sentinel is distinct from every fulfilled value, including whole
-null/undefined outputs. `productionState` observes only the actual producer
-Promise; fulfillment is not no-resource or cleanup authority. Invalid structures,
-unbound or unverified references, and every null-reference status (including
-schema-valid fatal/projection-failed metadata) remain pending until the original
-producer supplies its real terminal capability. Validator/getter/verification
-exceptions retain their causes; cleanup classification is reserved before these
-callbacks and is not retried. The cloned cache entry is revalidated before commit,
-so an external verifier cannot mutate a null-reference clone into an accepted
-transfer. Serialized receipts do not carry these private unknown outputs/errors.
+`ArticleRenderCache.startRefresh()` exposes the same original task's `receipt`
+and `terminal` separately. A private unproduced sentinel is distinct from every
+fulfilled output, including null/undefined. `productionState` observes only the
+real producer Promise and does not grant cleanup or resource absence. The cloned
+cache entry is validated before transfer; invalid/null structures and validator
+or verifier exceptions remain recorded without creating a no-resource flag.
+
+After its actual `producer.render(request)` call, this same cache captures the
+original `getRequestWork(theSameRequest)` reference. Success and rejection both
+await its actual terminal, strictly checking request object, work object and
+Promise identity before and after the wait. Missing, changed or rejected
+capabilities retain original work/lease obligations. Cleanup uses that producer
+work's original owned reference, never a raw invalid result or source/null
+inference. Transferred results remain owned by this existing cache; uncommitted
+owned references are released only after the producer endpoint. Physical release
+failure or undeclared asynchronous cleanup remains held. Only then does this
+original lease receive `settle()`. Logical errors remain observable even when the
+original producer proves its actual cleanup ended.
+
+`pendingRefreshWork` preserves the same actual futures through superseding
+requests and disposal. It creates no second body store, owner or resource ledger.
+Replacement release failure retains the original entry; callback reentry cannot
+authorize transfer. Separate tool/preview/native restoration work still needs its
+own real terminal endpoint. Runtime/native and product qualification remain held.
 
 `ArticleFsusUiRenderProducer` consumes the public renderer/projection APIs through
 the existing FsusUI boundary. Its canonical result references are released on

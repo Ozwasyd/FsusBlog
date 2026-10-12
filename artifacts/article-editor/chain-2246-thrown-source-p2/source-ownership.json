@@ -1,0 +1,61 @@
+{
+  "base": "938371b5d4c1ba96e785ebd76c797a9cac3d3e21",
+  "testedSource": "3916a5ea219238d0ebb57a2e4a58dd61980fc867",
+  "onlyOwnedCodePaths": [
+    "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts",
+    "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts"
+  ],
+  "frozenPostimages": {
+    "src/frontend/src/services/authoring/articleRenderCache.ts": {
+      "base": "a73ea5ce1f27fdbdd25bca7d5d9f0cc85ff85903",
+      "current": "a73ea5ce1f27fdbdd25bca7d5d9f0cc85ff85903"
+    },
+    "src/frontend/src/services/authoring/articleEditorContinuity.ts": {
+      "base": "510177ab2d41949f16cd7214dab5d2fab67e0214",
+      "current": "510177ab2d41949f16cd7214dab5d2fab67e0214"
+    },
+    "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts": {
+      "base": "d8132a6701d34214e8a87ad7b4bbf08fd6d62a01",
+      "current": "d8132a6701d34214e8a87ad7b4bbf08fd6d62a01"
+    },
+    "src/frontend/src/services/authoring/articleSourceCompare.ts": {
+      "base": "323127c16880f130f01abace6711b1e6f625b6a4",
+      "current": "323127c16880f130f01abace6711b1e6f625b6a4"
+    },
+    "src/frontend/src/services/authoring/articleDocumentContext.ts": {
+      "base": "4221025bd452c6c8299832a07af9ddfeaf4ed9f2",
+      "current": "4221025bd452c6c8299832a07af9ddfeaf4ed9f2"
+    },
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": {
+      "base": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+      "current": "d0fba443d5d0522fdefa1b24249fae858564ca34"
+    },
+    "src/frontend/src/services/authoring/articleRenderRefreshPolicy.ts": {
+      "base": "1383a4c29dca48f58c1f1e2aceaed5252d49b0c4",
+      "current": "1383a4c29dca48f58c1f1e2aceaed5252d49b0c4"
+    },
+    "src/frontend/src/services/authoring/index.ts": {
+      "base": "0310fb13b85a4cafcce1fc0df19310d52d94864c",
+      "current": "0310fb13b85a4cafcce1fc0df19310d52d94864c"
+    },
+    "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts": {
+      "base": "7d70543f9593cd2d3b29f504bea94107d43cd26c",
+      "current": "7d70543f9593cd2d3b29f504bea94107d43cd26c"
+    },
+    "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts": {
+      "base": "425f2221d1da49ddee4e9d44314ce190205a62c6",
+      "current": "425f2221d1da49ddee4e9d44314ce190205a62c6"
+    },
+    "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts": {
+      "base": "27cb10f09a7328ff867fceba0997a88a5651204e",
+      "current": "27cb10f09a7328ff867fceba0997a88a5651204e"
+    },
+    "src/frontend/src/views/admin/article/Write.vue": {
+      "base": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48",
+      "current": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48"
+    }
+  },
+  "cacheConsumesProducerTerminal": false,
+  "cacheLeaseLossClaim": false,
+  "runtimeQualification": false
+}

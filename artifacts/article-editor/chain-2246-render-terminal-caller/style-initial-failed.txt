@@ -1,0 +1,10 @@
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:152:23 eslint/@typescript-eslint/only-throw-error: Expected an error object to be thrown.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:162:29 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:162:29 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:162:57 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:163:35 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:163:35 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:163:61 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:164:34 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:164:34 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts:164:59 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.

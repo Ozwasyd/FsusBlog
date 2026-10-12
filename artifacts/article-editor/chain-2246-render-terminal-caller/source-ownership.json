@@ -1,0 +1,44 @@
+{
+  "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
+  "testedSource": "79da045da19a57b6a73ce4ec735d68120cd49d5f",
+  "cacheSupplier": "f67f79e91a3f9742d5d4dc28ad7d1de727299fc6",
+  "cacheSourceClosed": false,
+  "cacheP2": "invalid-valid-null result and unproduced sentinel must be retained by original #2245 owner",
+  "cachePostimageExact": true,
+  "frozenPostimages": {
+    "src/frontend/src/services/authoring/articleDocumentContext.ts": {
+      "baseBlob": "4221025bd452c6c8299832a07af9ddfeaf4ed9f2",
+      "currentBlob": "4221025bd452c6c8299832a07af9ddfeaf4ed9f2"
+    },
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": {
+      "baseBlob": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+      "currentBlob": "d0fba443d5d0522fdefa1b24249fae858564ca34"
+    },
+    "src/frontend/src/services/authoring/articleRenderRefreshPolicy.ts": {
+      "baseBlob": "1383a4c29dca48f58c1f1e2aceaed5252d49b0c4",
+      "currentBlob": "1383a4c29dca48f58c1f1e2aceaed5252d49b0c4"
+    },
+    "src/frontend/src/services/authoring/index.ts": {
+      "baseBlob": "0310fb13b85a4cafcce1fc0df19310d52d94864c",
+      "currentBlob": "0310fb13b85a4cafcce1fc0df19310d52d94864c"
+    },
+    "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts": {
+      "baseBlob": "7d70543f9593cd2d3b29f504bea94107d43cd26c",
+      "currentBlob": "7d70543f9593cd2d3b29f504bea94107d43cd26c"
+    },
+    "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts": {
+      "baseBlob": "425f2221d1da49ddee4e9d44314ce190205a62c6",
+      "currentBlob": "425f2221d1da49ddee4e9d44314ce190205a62c6"
+    },
+    "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts": {
+      "baseBlob": "27cb10f09a7328ff867fceba0997a88a5651204e",
+      "currentBlob": "27cb10f09a7328ff867fceba0997a88a5651204e"
+    },
+    "src/frontend/src/views/admin/article/Write.vue": {
+      "baseBlob": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48",
+      "currentBlob": "bbd1ea3594c9cc9eb4c9a385c7dadc8cf4758f48"
+    }
+  },
+  "candidateModulesExecuted": false,
+  "runtimeQualification": false
+}
