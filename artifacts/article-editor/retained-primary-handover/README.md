@@ -1,9 +1,9 @@
 # Genuine loaded primary handover source offer
 
-Repaired producer `590f2c83d2c80e5260ed711bb5a63713cc733b50` follows the original source-closed
+Repaired producer `26f5d8eb84b163e7b2cb4e94e3f829ec9b270f9e` follows the original source-closed
 17c producer, without repeating or inheriting its qualification. This four-path
 increment adds the original authority's `preparePrimaryRetainedHandover` and
-consumer registration repair, twelve dedicated handover source cases (UNRUN), nearest
+consumer registration repair, thirteen dedicated handover source cases (UNRUN), nearest
 boundary docs and original complete entry preflight notes. No Writer/Main/Rail,
 Registry/Group/native/server/lock/frozen authority implementation changes.
 
@@ -62,7 +62,7 @@ Static source observations: original unchanged strict-full authority command
 PASS1file/0violations (initial optional-chain and P2 brace-style findings recorded/fixed); pure AST2
 files/0parse diagnostics with no candidate import; original whole application
 local FsusUI alias compiler RED2/249 diagnostics, exact headline multiplicities
-unchanged from recordedad35 baseline with same UI8db source. Raw observations are
+unchanged from recorded590f baseline with same UI8db source. Raw observations are
 under `static-evidence`. No full application/native/runtime green claim.
 
 The raw patch retains standard blank context syntax. An aggregate publisher
@@ -76,3 +76,8 @@ Independent review of originalad35/03c75 found THREE P2 lifetime gaps; those hea
 are not accepted for consumption. This updated original offer contains their
 source repairs and requires independent review at the repaired exact source.
 It still changes only the original four source/test/doc/preflight paths in Main.
+
+Actual borrowed-primary disposal listener failure now retains failure custody,
+continues all original queued scope cleanup, then reports aggregate real errors.
+Its original-module negative source case is written only; no native/resource
+completion or zero-pending qualification is implied.

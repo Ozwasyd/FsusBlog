@@ -1,8 +1,8 @@
 diff --git a/artifacts/article-editor/retained-document-authority/preflight.md b/artifacts/article-editor/retained-document-authority/preflight.md
-index defab5c0d..0c0b9f4a8 100644
+index defab5c0d..61b87b905 100644
 --- a/artifacts/article-editor/retained-document-authority/preflight.md
 +++ b/artifacts/article-editor/retained-document-authority/preflight.md
-@@ -272,3 +272,56 @@ original application compiler exits2, fixed5cf baseline249/current249 diagnostic
+@@ -272,3 +272,62 @@ original application compiler exits2, fixed5cf baseline249/current249 diagnostic
  0added/removed complete headline messages and0owned diagnostics. AST/diff checks
  PASS; fixed Registry/Group/ratio/Snapshot postimages match5cf byte-for-byte.
  Source controls29 authority/10 Registry remain UNRUN; no execution qualification.
@@ -59,11 +59,17 @@ index defab5c0d..0c0b9f4a8 100644
 +preflight remains unchanged; source cases are written only, with all test/list/
 +discovery/import/native/browser/mount/security/privacy/receipt/race/DB/storage/
 +fullfactory qualifications HOLD. New repaired-head source review is required.
++
++Borrowed-primary cleanup may invoke its actual context listeners. A real listener
++failure now records original owner failure custody, drains the remaining queued
++scopes, then reports aggregate actual errors instead of dropping the queue. One
++additional original-module source case checks that failure with real queued owner
++retirement and preserved pending tasks. This case also remains UNRUN/HOLD.
 diff --git a/docs/architecture/authoring-workspace-snapshot-boundary.md b/docs/architecture/authoring-workspace-snapshot-boundary.md
-index cc9c06537..b7cf29d0e 100644
+index cc9c06537..351df3df7 100644
 --- a/docs/architecture/authoring-workspace-snapshot-boundary.md
 +++ b/docs/architecture/authoring-workspace-snapshot-boundary.md
-@@ -42,6 +42,59 @@ and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission fo
+@@ -42,6 +42,63 @@ and `revokeRetainedScope(siteScope, rawPrincipalIdentityId)` revoke admission fo
  the original owners and notify their consumers. Scope-revocation callbacks cannot
  admit new owners reentrantly.
  
@@ -107,7 +113,11 @@ index cc9c06537..b7cf29d0e 100644
 +An explicit module-private marker records ONLY actual target context publication.
 +That marker, not any context difference, determines failed-publication custody and
 +discard refusal. Strict adoption cannot bypass an unbound handover pin. These
-+facts do not settle tasks or prove native/full-ref restoration.
++facts do not settle tasks or prove native/full-ref restoration. If a borrowed
++primary's real disposal listener fails, its failure custody remains retained while
++the original drain processes the remaining queued scopes. Only afterward does
++revocation report the aggregate actual cleanup failures; no failed cleanup is
++recorded as settled or silently discarded.
 +
 +This handover does not validate a loaded body against a snapshot, grant full native
 +restore or label arbitrary source as current. A different article/draft, unmatched
@@ -124,7 +134,7 @@ index cc9c06537..b7cf29d0e 100644
  `subscribeLifetime(listener)` and `attachConsumer(factory)`. The original Writer
  attaches its actual existing form/effects/runtime object once, using one stable
 diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
-index 4221025bd..2e8487d3b 100644
+index 4221025bd..3d36ef1e4 100644
 --- a/src/frontend/src/services/authoring/articleDocumentContext.ts
 +++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
 @@ -230,6 +230,7 @@ interface ArticleDocumentRetainedOwner {
@@ -425,7 +435,15 @@ index 4221025bd..2e8487d3b 100644
              {
                  owner.scopeRetired = true;
              }
-@@ -1534,7 +1742,7 @@ export class ArticleDocumentContextAuthority
+@@ -1523,6 +1731,7 @@ export class ArticleDocumentContextAuthority
+             return;
+         }
+         this.#scopeRevocationPending = true;
++        const cleanupFailures: unknown[] = [];
+         try
+         {
+             while (this.#scopeRetirementQueue.length > 0)
+@@ -1534,7 +1743,7 @@ export class ArticleDocumentContextAuthority
                  }
                  this.#currentScopeRetirement = current;
                  const targets = [...new Set([...this.#scopedOwners, ...this.#preparedOwners])].filter(owner =>
@@ -434,7 +452,35 @@ index 4221025bd..2e8487d3b 100644
                  const handles: RetainedArticleDocumentHandle[] = [];
                  for (const owner of targets)
                  {
-@@ -1573,9 +1781,10 @@ export class ArticleDocumentContextAuthority
+@@ -1549,7 +1758,15 @@ export class ArticleDocumentContextAuthority
+                 {
+                     if (!owner.handle)
+                     {
+-                        owner.adapter.dispose();
++                        try
++                        {
++                            owner.adapter.dispose();
++                        }
++                        catch (error)
++                        {
++                            owner.invalidationFailed = true;
++                            cleanupFailures.push(error);
++                        }
+                     }
+                 }
+             }
+@@ -1559,6 +1776,10 @@ export class ArticleDocumentContextAuthority
+             this.#scopeRevocationPending = false;
+             this.#currentScopeRetirement = null;
+         }
++        if (cleanupFailures.length > 0)
++        {
++            throw new AggregateError(cleanupFailures, 'article-document-retained-scope-cleanup-failed');
++        }
+     }
+ 
+     #assertRetainedOwnerAdmission(): void
+@@ -1573,9 +1794,10 @@ export class ArticleDocumentContextAuthority
          scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedOwner
      {
          const scopeRetirementSequence = this.#scopeRetirementSequence;
@@ -447,7 +493,7 @@ index 4221025bd..2e8487d3b 100644
          {
              throw new Error('article-document-retained-scope-invalid');
          }
-@@ -1588,7 +1797,7 @@ export class ArticleDocumentContextAuthority
+@@ -1588,7 +1810,7 @@ export class ArticleDocumentContextAuthority
              throw new Error('article-document-retained-registry-owner-mismatch');
          }
          this.#retainedRegistry = registry;
@@ -456,7 +502,7 @@ index 4221025bd..2e8487d3b 100644
              consumer: null, consumerFactory: null, attachingConsumer: false, invalidationFailed: false,
              consumerInvalidationState: 'not-requested', pendingConsumerInvalidation: null,
              lastState: 'live', listeners: new Set() };
-@@ -1719,7 +1928,12 @@ export class ArticleDocumentContextAuthority
+@@ -1719,7 +1941,12 @@ export class ArticleDocumentContextAuthority
                      owner.consumerFactory = create;
                      try
                      {
@@ -471,10 +517,10 @@ index 4221025bd..2e8487d3b 100644
                          if (!owner.consumer || typeof owner.consumer.invalidateDocument !== 'function')
                          {
 diff --git a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
-index 14c3f34b5..e257091ce 100644
+index 14c3f34b5..a6122c83a 100644
 --- a/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
 +++ b/tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts
-@@ -663,4 +663,251 @@ describe('original retained document authority source controls', () =>
+@@ -663,4 +663,288 @@ describe('original retained document authority source controls', () =>
          expect(() => retained.attachConsumer(factory)).toThrow('consumer-unavailable');
          expect(cleanupCalls).toBe(1);
      });
@@ -724,5 +770,42 @@ index 14c3f34b5..e257091ce 100644
 +        expect(() => authority.acquireRetainedDocument(handle, preparation)).toThrow('actual-publication-failure');
 +        expect(() => authority.discardRetainedPreparation(preparation)).toThrow();
 +        expect(() => primary.adapter.updateSource('# after publication failure')).toThrow('owner-unavailable');
++    });
++    it('drains queued original scopes after a real borrowed-primary disposal listener failure', () =>
++    {
++        const authority = new ArticleDocumentContextAuthority();
++        const registry = new OpenArticleDocumentRegistry();
++        const make = (articleId: number, principal: string) =>
++        {
++            const originalScope = { readPrincipalIdentityId: () => principal, readSiteScope: () => `site:${principal}` };
++            const prepared = authority.prepareRetainedDocument(registry,
++                { articleId, siteScope: `site:${principal}`, userScope: `user:${principal}`, content: '# original' }, originalScope);
++            return authority.acquireRetainedDocument(admit(registry, prepared.context, principal), prepared);
++        };
++        const outer = make(2, 'outer');
++        const tail = make(3, 'tail');
++        const tailTask = tail.adapter.beginTask('attachment', 'producer:tail');
++        let tailCleanup = false;
++        tail.attachConsumer(() => ({ invalidateDocument: () => { tailCleanup = true; } }));
++        const canonical = new ArticleDocumentContextAuthority().prepareRetainedDocument(registry, input(1), scope);
++        const handle = admit(registry, canonical.context, 'restored');
++        const primary = authority.acquire(input(1));
++        const preparation = authority.preparePrimaryRetainedHandover(registry, handle, primary, scope);
++        const primaryTask = primary.adapter.beginTask('refresh', 'producer:primary');
++        primary.adapter.subscribeContext(() => { throw new Error('actual-borrowed-cleanup-failure'); });
++        outer.attachConsumer(() => ({ invalidateDocument: () =>
++        {
++            authority.revokeRetainedScope('site:test', 'test');
++            authority.revokeRetainedScope('site:tail', 'tail');
++        } }));
++        expect(() => authority.revokeRetainedScope('site:outer', 'outer')).toThrow('scope-cleanup-failed');
++        expect(tailCleanup).toBe(true);
++        expect(tail.inspect().registry.state).toBe('revoked');
++        expect(tailTask.signal.aborted).toBe(true);
++        expect(tail.inspect().pendingTaskRefs).toContain(tailTask.taskRef);
++        expect(primaryTask.signal.aborted).toBe(true);
++        expect(primary.adapter.pendingTaskRefs).toContain(primaryTask.taskRef);
++        expect(() => authority.discardRetainedPreparation(preparation)).toThrow('not-unused');
++        expect(() => primary.adapter.beginTask('render', 'producer:late')).toThrow('owner-unavailable');
 +    });
  });

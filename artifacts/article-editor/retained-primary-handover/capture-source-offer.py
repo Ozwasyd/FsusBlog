@@ -11,7 +11,7 @@ if len(sys.argv) != 3:
 source, consumer = (Path(value).resolve() for value in sys.argv[1:])
 out = Path(__file__).resolve().parent
 before = '801ca1157990e2a9ddee390cc16fe766c0b1eff1'
-producer = '590f2c83d2c80e5260ed711bb5a63713cc733b50'
+producer = '26f5d8eb84b163e7b2cb4e94e3f829ec9b270f9e'
 main = '1b8cb055dfd92cb4ee3381e69d6f1dd06000032d'
 paths = ['src/frontend/src/services/authoring/articleDocumentContext.ts',
          'tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts',

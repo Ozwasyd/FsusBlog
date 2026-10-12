@@ -17,11 +17,11 @@
     },
     {
       "path": "artifacts/article-editor/retained-primary-handover/consumer-1b8.patch",
-      "sha256": "bdf6fa63d3030fb2f2b47963a23e8e0a0dad3962078ed30f609356f019e0e22e"
+      "sha256": "deed9d5618952aea3c9411ef7a2ea500e236b44d1e3f04162812aae18bf1291e"
     },
     {
       "path": "artifacts/article-editor/retained-primary-handover/source-offer.json",
-      "sha256": "9ddf2800d607575a598600f9f005b99c08109b24b11b46dae83a6d0c79f3234b"
+      "sha256": "95c1ea3a33b64db52f72fa83b77183fcf149ff3f88638c814650e909e64eb3d7"
     }
   ]
 }
