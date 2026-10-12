@@ -1,0 +1,16 @@
+{
+  "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+  "blob": "dfcf87bdf6b313a6b329f7fae57508f9fb186b4c",
+  "diagnostics": [],
+  "sourceChecks": {
+    "privateOwnGroupMap": true,
+    "identityDedup": true,
+    "singleErrorIdentity": true,
+    "collectorKeepsLaterErrors": true,
+    "aggregateBuiltAfterLoop": true,
+    "unmountUsesSameCollector": true
+  },
+  "helperExecuted": false,
+  "counterexampleExecuted": false,
+  "runtime": "HOLD/UNRUN"
+}

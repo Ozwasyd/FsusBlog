@@ -1,0 +1,36 @@
+{
+  "source": "0b19a7f2c680dd7e5510b8d418916a20ee32e3bb",
+  "base": "918a00abb0d55f86df8c8327078a1cee4423474a",
+  "frontendFiles": 730,
+  "mismatch": [],
+  "protected": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "76761edf0b89bb538a5aa24cc7c87e6df0294d9b",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "blob": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "blob": "808468e4efe9f72b92ba3799a7df233cda48ad30",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/store/admin.ts",
+      "blob": "101e78249b17901956bb2d249290801a0a42811d",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/privateSurfaceRuntime.ts",
+      "blob": "81964e4adf69a875e92612276caf8221e04f38d4",
+      "unchanged": true
+    }
+  ],
+  "writerBlob": "dfcf87bdf6b313a6b329f7fae57508f9fb186b4c",
+  "runtime": "HOLD/UNRUN",
+  "dynamicCounterexample": "UNRUN"
+}
