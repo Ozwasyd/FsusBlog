@@ -30,16 +30,19 @@ function createOpaqueGeneration(): string
     return `private-surface-${Date.now().toString(36)}-${entropy}`;
 }
 
+interface PrivateSurfaceReservation {
+    completion: Promise<void> | null;
+}
+
 class PrivateSurfaceRuntime
 {
     readonly #generationState = shallowRef(createOpaqueGeneration());
     readonly #clearingState = ref(false);
     readonly #authoritySeals = new WeakMap<PrivateSurfaceAuthoritySeal, object>();
     #authorityEpoch: object | null = {};
-    #authorityTransition: object | null = null;
     private readonly terminationHandlers = new Set<PrivateSurfaceTerminationHandler>();
     private navigationHandler: PrivateSurfaceNavigationHandler | null = null;
-    private transition: Promise<void> | null = null;
+    #transition: PrivateSurfaceReservation | null = null;
 
     readonly authGeneration: Readonly<Ref<string>> = computed(() => this.#generationState.value);
     readonly isClearing: Readonly<Ref<boolean>> = computed(() => this.#clearingState.value);
@@ -91,33 +94,89 @@ class PrivateSurfaceRuntime
         // Revoke before reactive observers, entropy allocation, request aborts,
         // termination, or cleanup can reenter the original producer.
         this.#authorityEpoch = null;
-        const authorityTransition = {};
-        this.#authorityTransition = authorityTransition;
-        // These writes are deliberately synchronous: Vue removes the old private
-        // route tree on the next render tick before storage cleanup can yield.
-        this.#clearingState.value = true;
-        this.#generationState.value = createOpaqueGeneration();
-        privateRequestRuntime.advanceForAuthTransition(reason);
-        const previousTransition = this.transition;
-        const currentTransition = (async () =>
+        const previousTransition = this.#transition;
+        const reservation: PrivateSurfaceReservation = { completion: null };
+        // Reserve ownership before even Promise construction can reenter.
+        this.#transition = reservation;
+        const settlement: {
+            resolve?: () => void;
+            reject?: (reason: unknown) => void;
+        } = {};
+        const currentTransition = new Promise<void>((resolve, reject) =>
         {
-            if (previousTransition)
+            settlement.resolve = resolve;
+            settlement.reject = reject;
+        });
+        reservation.completion = currentTransition;
+        // This completion belongs only to its already-published reservation;
+        // assigning it cannot replace a newer transition.
+        const performTransition = async (): Promise<void> =>
+        {
+            if (this.#transition !== reservation)
             {
-                await previousTransition.catch(() =>
-                {});
+                return;
+            }
+            this.#clearingState.value = true;
+            if (this.#transition !== reservation)
+            {
+                return;
+            }
+            const generation = createOpaqueGeneration();
+            if (this.#transition !== reservation)
+            {
+                return;
+            }
+            this.#generationState.value = generation;
+            if (this.#transition !== reservation)
+            {
+                return;
+            }
+            privateRequestRuntime.advanceForAuthTransition(reason);
+            if (this.#transition !== reservation)
+            {
+                return;
+            }
+            if (previousTransition?.completion)
+            {
+                await previousTransition.completion.catch(() =>
+                {
+                    // A failed earlier cleanup must not prevent this transition.
+                });
+            }
+            if (this.#transition !== reservation)
+            {
+                return;
             }
 
-            const terminationOutcomes = [...this.terminationHandlers].map(handler =>
+            const terminationOutcomes: Promise<void>[] = [];
+            for (const handler of [...this.terminationHandlers])
             {
+                if (this.#transition !== reservation)
+                {
+                    // Observe already-started outcomes without waiting on a
+                    // callback that may itself depend on the newer transition.
+                    void Promise.allSettled(terminationOutcomes);
+                    return;
+                }
                 try
                 {
-                    return Promise.resolve(handler(reason));
+                    terminationOutcomes.push(Promise.resolve(handler(reason)));
                 }
                 catch (error)
                 {
-                    return Promise.reject(error);
+                    // Preserve the exact callback exception as an immediate
+                    // rejection, including values that are not Error instances.
+                    terminationOutcomes.push(new Promise<never>(() =>
+                    {
+                        throw error;
+                    }));
                 }
-            });
+            }
+            if (this.#transition !== reservation)
+            {
+                void Promise.allSettled(terminationOutcomes);
+                return;
+            }
             let clearOutcome: Promise<void>;
             try
             {
@@ -125,14 +184,32 @@ class PrivateSurfaceRuntime
             }
             catch (error)
             {
-                clearOutcome = Promise.reject(error);
+                clearOutcome = new Promise<never>(() =>
+                {
+                    throw error;
+                });
+            }
+            if (this.#transition !== reservation)
+            {
+                void Promise.allSettled([...terminationOutcomes, clearOutcome]);
+                return;
             }
             let navigationComplete = this.navigationHandler === null;
             try
             {
                 const outcomes = await Promise.allSettled([...terminationOutcomes, clearOutcome]);
+                if (this.#transition !== reservation)
+                {
+                    return;
+                }
                 const clearResult = outcomes.at(-1);
-                await this.navigationHandler?.(reason);
+                const navigationOutcome = Promise.resolve(this.navigationHandler?.(reason));
+                if (this.#transition !== reservation)
+                {
+                    void Promise.allSettled([navigationOutcome]);
+                    return;
+                }
+                await navigationOutcome;
                 navigationComplete = true;
                 if (clearResult?.status === 'rejected')
                 {
@@ -141,37 +218,42 @@ class PrivateSurfaceRuntime
             }
             finally
             {
-                // A failed redirect must remain fail-closed instead of remounting the
-                // old private tree. A later successful transition can recover it.
-                if (this.transition === currentTransition)
+                // Only the same reservation can restore admission. A reentrant
+                // transition owns both clearing and its own completion promise.
+                if (this.#transition === reservation)
                 {
-                    if (navigationComplete && authorityTransition === this.#authorityTransition)
+                    if (navigationComplete)
                     {
                         this.#authorityEpoch = {};
                         this.#clearingState.value = false;
                     }
-                    this.transition = null;
+                    if (this.#transition === reservation)
+                    {
+                        this.#transition = null;
+                    }
                 }
             }
-        })();
-        this.transition = currentTransition;
-
+        };
+        void performTransition().then(settlement.resolve, settlement.reject);
         return currentTransition;
     }
 
     resetForTests(): void
     {
         this.#authorityEpoch = null;
-        const authorityTransition = {};
-        this.#authorityTransition = authorityTransition;
+        const reservation: PrivateSurfaceReservation = { completion: null };
+        this.#transition = reservation;
         this.terminationHandlers.clear();
         this.navigationHandler = null;
-        this.transition = null;
         this.#generationState.value = createOpaqueGeneration();
-        if (authorityTransition === this.#authorityTransition)
+        if (this.#transition === reservation)
         {
             this.#authorityEpoch = {};
             this.#clearingState.value = false;
+            if (this.#transition === reservation)
+            {
+                this.#transition = null;
+            }
         }
     }
 }

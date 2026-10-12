@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, onScopeDispose, ref } from 'vue';
+import { computed, customRef, onScopeDispose, ref } from 'vue';
 
 import { getAdminMe, logoutAdmin } from '@/api/auth';
 import { clearLocalFixtureAdminSession } from '@/services/localFixtureSession';
@@ -97,6 +97,7 @@ const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.
 // Capture the original owner's pure predicate once; final custody must not
 // consult reactive/public runtime projections or a replaceable method property.
 const hasPrivateSurfaceAuthorityCustody = privateSurfaceRuntime.hasAuthorityCustody.bind(privateSurfaceRuntime);
+const cancelPrivateSurfaceAuthority = privateSurfaceRuntime.cancelAuthority.bind(privateSurfaceRuntime);
 
 export const useAdminStore = defineStore('admin', () =>
 {
@@ -116,20 +117,23 @@ export const useAdminStore = defineStore('admin', () =>
     let producerDisposed = false;
     let authorityExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const retirePrincipalAuthority = (): void =>
+    const retirePrincipalAuthority = (reserveMutation = false): object | null =>
     {
         const authority = principalAuthority;
         principalAuthority = null;
-        principalMutation = null;
-        if (authorityExpiryTimer !== null)
+        const mutation = reserveMutation ? {} : null;
+        principalMutation = mutation;
+        const expiryTimer = authorityExpiryTimer;
+        authorityExpiryTimer = null;
+        if (expiryTimer !== null)
         {
-            clearTimeout(authorityExpiryTimer);
-            authorityExpiryTimer = null;
+            clearTimeout(expiryTimer);
         }
         if (authority)
         {
-            privateSurfaceRuntime.cancelAuthority(authority.surfaceSeal);
+            cancelPrivateSurfaceAuthority(authority.surfaceSeal);
         }
+        return mutation;
     };
 
     onScopeDispose(() =>
@@ -147,7 +151,12 @@ export const useAdminStore = defineStore('admin', () =>
             return null;
         }
         // Clock reads belong to admission, never to the final custody lookup.
-        if (Date.now() - authority.checkedAt >= ADMIN_ACTIVE_TTL_MS)
+        const now = Date.now();
+        if (principalAuthority !== authority || principalMutation || producerDisposed)
+        {
+            return null;
+        }
+        if (now - authority.checkedAt >= ADMIN_ACTIVE_TTL_MS)
         {
             retirePrincipalAuthority();
             return null;
@@ -207,9 +216,11 @@ export const useAdminStore = defineStore('admin', () =>
 
     const setAdminPrincipal = (snapshot: AdminPrincipalSnapshot | null): void =>
     {
-        retirePrincipalAuthority();
-        const mutation = {};
-        principalMutation = mutation;
+        const mutation = retirePrincipalAuthority(true);
+        if (!mutation || principalMutation !== mutation)
+        {
+            return;
+        }
         let surfaceSeal: PrivateSurfaceAuthoritySeal | null = null;
         try
         {
@@ -251,20 +262,25 @@ export const useAdminStore = defineStore('admin', () =>
             if (principal?.adminSessionStatus === 'active' && principal.source === 'independent'
                 && principal.id.length > 0 && principal.permissions.length > 0
                 && principal.totpStepUpRequired !== true && surfaceSeal
-                && privateSurfaceRuntime.hasAuthorityCustody(surfaceSeal))
+                && hasPrivateSurfaceAuthorityCustody(surfaceSeal))
             {
                 const authority = { identityId: principal.id, surfaceSeal, checkedAt };
-                authorityExpiryTimer = setTimeout(() =>
+                const expiryTimer = setTimeout(() =>
                 {
                     if (principalAuthority === authority)
                     {
                         retirePrincipalAuthority();
                     }
                 }, ADMIN_ACTIVE_TTL_MS);
-                if (principalMutation === mutation && !producerDisposed && privateSurfaceRuntime.hasAuthorityCustody(surfaceSeal))
+                if (principalMutation === mutation && !producerDisposed && hasPrivateSurfaceAuthorityCustody(surfaceSeal))
                 {
+                    authorityExpiryTimer = expiryTimer;
                     principalAuthority = authority;
                     surfaceSeal = null;
+                }
+                else
+                {
+                    clearTimeout(expiryTimer);
                 }
             }
         }
@@ -276,17 +292,23 @@ export const useAdminStore = defineStore('admin', () =>
             }
             if (surfaceSeal)
             {
-                privateSurfaceRuntime.cancelAuthority(surfaceSeal);
+                cancelPrivateSurfaceAuthority(surfaceSeal);
             }
         }
     };
 
     const clearAdminPrincipal = (state: AdminSessionState = 'missing'): void =>
     {
-        retirePrincipalAuthority();
-        const mutation = {};
-        principalMutation = mutation;
+        const mutation = retirePrincipalAuthority(true);
+        if (!mutation || principalMutation !== mutation)
+        {
+            return;
+        }
         const checkedAt = state === 'unknown' ? 0 : Date.now();
+        if (principalMutation !== mutation)
+        {
+            return;
+        }
         adminPrincipal.value = null;
         if (principalMutation !== mutation)
         {
@@ -325,13 +347,13 @@ export const useAdminStore = defineStore('admin', () =>
         };
     };
 
-    const ensureAdminSessionFresh = async (options?: EnsureAdminSessionFreshOptions | unknown): Promise<void> =>
+    const ensureAdminSessionFresh = async (options?: unknown): Promise<void> =>
     {
         const force = Boolean(
             options
       && typeof options === 'object'
       && 'force' in options
-      && (options as EnsureAdminSessionFreshOptions).force
+      && options.force
         );
         const now = Date.now();
 
@@ -512,10 +534,47 @@ export const useAdminStore = defineStore('admin', () =>
         }
     };
 
+    // Keep Pinia's original state/ref entry points while routing every public
+    // top-level write through this owner. Getters track the private backing refs.
+    const principalProjection = customRef<AdminPrincipalSnapshot | null>(() => ({
+        get: () => adminPrincipal.value,
+        set: setAdminPrincipal
+    }));
+    const stateProjection = customRef<AdminSessionState>(() => ({
+        get: () => adminState.value,
+        set: (state) =>
+        {
+            const mutation = retirePrincipalAuthority(true);
+            if (mutation && principalMutation === mutation)
+            {
+                adminState.value = state;
+                if (principalMutation === mutation)
+                {
+                    principalMutation = null;
+                }
+            }
+        }
+    }));
+    const checkedAtProjection = customRef<number>(() => ({
+        get: () => adminCheckedAt.value,
+        set: (checkedAt) =>
+        {
+            const mutation = retirePrincipalAuthority(true);
+            if (mutation && principalMutation === mutation)
+            {
+                adminCheckedAt.value = checkedAt;
+                if (principalMutation === mutation)
+                {
+                    principalMutation = null;
+                }
+            }
+        }
+    }));
+
     return {
-        adminPrincipal: computed(() => adminPrincipal.value),
-        adminState: computed(() => adminState.value),
-        adminCheckedAt: computed(() => adminCheckedAt.value),
+        adminPrincipal: principalProjection,
+        adminState: stateProjection,
+        adminCheckedAt: checkedAtProjection,
         lastLogoutOutcome,
         anonymousCommentPolicy,
         adminSessionStatus,
@@ -531,9 +590,11 @@ export const useAdminStore = defineStore('admin', () =>
         publicOnlyMode,
         totpStepUpRequired,
         hasPermission,
-        sealAdminPrincipalAuthority,
-        hasAdminPrincipalAuthorityCustody,
-        cancelAdminPrincipalAuthority,
+        // These are stable functions rather than Pinia actions: its action
+        // wrapper allocates and notifies subscribers even for a final `has`.
+        sealAdminPrincipalAuthority: computed(() => sealAdminPrincipalAuthority),
+        hasAdminPrincipalAuthorityCustody: computed(() => hasAdminPrincipalAuthorityCustody),
+        cancelAdminPrincipalAuthority: computed(() => cancelAdminPrincipalAuthority),
         setAdminPrincipal,
         clearAdminPrincipal,
         markMissing,
