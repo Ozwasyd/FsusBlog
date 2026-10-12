@@ -193,7 +193,7 @@
       },
       {
         "path": "src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts",
-        "sha256": "7d0e87f2454c2c5c4345e0486b7f748c225cdc1e34346d597316040d93b41cd2",
+        "sha256": "5a34c567acecce860b0041fca3fc31e236d59fee772d3d4d19055ffbef31c387",
         "ownership": "Root reconciled integration; original offer hunks with retained cleanup/current real caller guards"
       }
     ],
@@ -205,5 +205,45 @@
     "query_inspected_source": "ca42f58bdb92309dd11d62e52ee9c607f75f87c9",
     "status": "BLOCKED_NO_COMPLETE_ORIGINAL_APPLICATION_PRODUCER",
     "scope": "Actual App -> AccountLayout -> manage frame graph checked. Latest4092 remains internal bounded source/coordinator, not complete v1 response/cache or resolveBatch. No provider shim, store, query, body adoption or authority activation added."
+  },
+  "root_retirement_source_boundary": {
+    "source_path": "src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts",
+    "source_sha256": "5a34c567acecce860b0041fca3fc31e236d59fee772d3d4d19055ffbef31c387",
+    "actual_composition_retirement": "retireArticleWorkspaceEditorSessions(host): void from the SAME existing sole installer module; current original07ea504 implementation and Main36 producer have the same public retirement signature",
+    "source_interface": "AuthoringWorkspaceSessionSource.retire(): void",
+    "implemented": "After actual install returned a Host, failed binding/source construction or source read validation closes this Root source before calling the original admission retirement. Reads check local retirement and original group/router binding before/after. Native disposal/settlement is not asserted. Retirement succeeds bookkeeping only after original return; throw preserves closed state and real retry of same Host; validation plus retirement errors aggregate original causes.",
+    "actual_existing_caller": "AdminWorkspaceFrame.startArticleWorkspace -> connectAuthoringWorkspaceSessionSource(groupOwner, resolver, original physical preparation); Root gets resources.sessions only after the call returned, so local post-install failure cleanup is now real.",
+    "caller_join_stop": "Layout writer owns AdminWorkspaceFrame; no edit here. For actual startup retirement that owns this source, use sessions.retire() before external callbacks instead of bypassing this Root source with direct Main retirement. A handed-off ongoing owner is not retired merely by a view remount. Current direct Main call is retained until the owning writer reconciles it.",
+    "main_producer_request": {
+      "source": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
+      "path": "artifacts/article-editor/issue-2295-composition-admission-seal/original-producer-requests.json",
+      "blob": "5d88403894eb93b29a438dd0cb48cbbda3353435",
+      "sha256": "9ae27f8fa6bae980c8299bb2316d9ef507c316308c4af9d8f13d824b34514fc8",
+      "status": "read-only inspected; composition-admission seal source reviewed but no actual mount/member/principal authority; Main production postimages not imported/re-written by this Root delta"
+    },
+    "missing_real_producers": [
+      "Original Registry/Group membership private seal",
+      "Original Document lifetime private seal",
+      "Original Writer mounted-runtime private seal",
+      "Original auth principal/private-surface private seal",
+      "Original Layout actual retained-mount private seal currently under its own writer",
+      "Query v1/Cache/resolveBatch/canonical producer join"
+    ],
+    "ordinary_preflight": {
+      "entry": "Original ./tools/test.sh frontend-unit-shard / existing Vitest config/shared setup; no new entry, imports/list/discovery or cases executed",
+      "exact_cases": [
+        "group invalidation after actual sole install returned Host",
+        "source construction freeze callback invalidates or retires before publication",
+        "read getSession/exportState callback invalidates group or calls source retirement",
+        "explicit retirement closes Root reads before same-host Main operation",
+        "repeated retirement skips only after actual success; failure keeps closed and retries same original Host",
+        "validation plus original retirement failure preserves both original causes",
+        "installer throws before Host returned remains original Main constructor custody",
+        "handoff/view remount does not infer full native disposal or revoke foreign/ongoing owner"
+      ],
+      "status": "UNRUN_HELD"
+    },
+    "qualification": false,
+    "activation": false
   }
 }
