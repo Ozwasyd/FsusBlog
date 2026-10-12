@@ -28,6 +28,13 @@ export interface ArticleRenderRequest {
     readonly signal: AbortSignal;
 }
 
+/** Read-only consumer slice of the original producer's actual per-request work. */
+export interface ArticleRenderProducerRequestWork {
+    readonly request: ArticleRenderRequest;
+    readonly terminal: Promise<void>;
+    readonly resultRef: string | null;
+}
+
 // References are owned and verified by the FsusUI consumer, never draft content.
 export interface ArticleRenderResult {
     readonly contextDigest: string;
@@ -47,6 +54,8 @@ export interface ArticleRenderProducer {
     // Must check the actual public result/projection and its retained reference.
     verify(request: ArticleRenderRequest, result: ArticleRenderResult): boolean;
     release(resultRef: string): void;
+    /** Missing capability is held, never replaced with an inferred terminal. */
+    getRequestWork?(request: ArticleRenderRequest): ArticleRenderProducerRequestWork | null;
 }
 
 export interface ArticleRenderCacheEntry {
@@ -95,6 +104,7 @@ export interface ArticleRenderRefreshWork {
     readonly resultRef: string | null;
     readonly cleanupFailure: Error | null;
     readonly producerFailure: Error | null;
+    readonly producerWork: ArticleRenderProducerRequestWork | null;
 }
 
 export interface ArticleRenderCachePolicy {
@@ -465,6 +475,9 @@ export class ArticleRenderCache
         let producedResult: unknown = notProduced;
         let productionState: ArticleRenderRefreshWork['productionState'] = 'pending';
         let committed = false;
+        let committedRef: string | null = null;
+        let producerWork: ArticleRenderProducerRequestWork | null = null;
+        let requestWorkFailure: Error | null = null;
         let releaseAttempted = false;
         let cleanupFailure: Error | null = null;
         let producerFailure: Error | null = null;
@@ -472,7 +485,7 @@ export class ArticleRenderCache
         {
             cleanupFailure ??= new Error('article-render-cleanup-failed', { cause });
         };
-        const releaseUncommitted = (): void =>
+        const classifyUncommitted = (): void =>
         {
             if (committed || releaseAttempted || producedResult === notProduced)
             {
@@ -481,7 +494,6 @@ export class ArticleRenderCache
             // Reserve before validators/getters/verification callbacks. Their
             // failure is not permission to retry cleanup or infer no resources.
             releaseAttempted = true;
-            let releaseInvoked = false;
             try
             {
                 if (!validateArticleRenderResult(producedResult))
@@ -505,20 +517,28 @@ export class ArticleRenderCache
                     producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: producedResult });
                     return;
                 }
-                releaseInvoked = true;
-                this.releaseReference(resultRef);
             }
             catch (error)
             {
-                if (!releaseInvoked)
-                {
-                    producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: error });
-                }
-                rememberCleanupFailure(error);
+                producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: error });
                 throw error;
             }
         };
-        const produced = Promise.resolve().then(() => this.producer.render(request)).then(value =>
+        const produced = Promise.resolve().then(() =>
+        {
+            const rendering = this.producer.render(request);
+            try
+            {
+                producerWork = this.producer.getRequestWork?.(request) ?? null;
+            }
+            catch (cause)
+            {
+                // Still await the original rendering future; lookup failure must
+                // not replace it with an early rejected wrapper and lose custody.
+                requestWorkFailure = new Error('article-render-request-work-lookup-failed', { cause });
+            }
+            return rendering;
+        }).then(value =>
         {
             producedResult = value;
             productionState = 'fulfilled';
@@ -592,6 +612,7 @@ export class ArticleRenderCache
                                 this.entry = entry;
                                 this.entryRequest = request;
                                 committed = true;
+                                committedRef = entry.result.resultRef;
                                 status = 'committed';
                                 reason = null;
                             }
@@ -614,12 +635,12 @@ export class ArticleRenderCache
                 task.signal.removeEventListener('abort', onAbort);
                 try
                 {
-                    releaseUncommitted();
+                    classifyUncommitted();
                 }
                 catch
                 {
                     status = 'failed';
-                    reason = 'render-cleanup-failed';
+                    reason = cleanupFailure ? 'render-cleanup-failed' : 'render-producer-failed';
                 }
             }
             if (task.envelope.status === 'running')
@@ -659,18 +680,58 @@ export class ArticleRenderCache
                 producerFailure = new Error('article-render-producer-terminal-unconfirmed', { cause });
             }
             await receipt;
-            // A cancellation receipt may precede the actual result by any duration.
-            releaseUncommitted();
+            // Both success and rejection require the ORIGINAL work for this exact
+            // request object. Result shape/source/null does not authorize cleanup.
+            const lookupFailure = requestWorkFailure;
+            if (lookupFailure)
+            {
+                throw lookupFailure;
+            }
+            const actualWork = producerWork ?? this.producer.getRequestWork?.(request);
+            const actualTerminal = actualWork?.terminal;
+            if (!actualWork || actualWork.request !== request || !Object.isFrozen(actualWork)
+                || !(actualTerminal instanceof Promise))
+            {
+                throw work.producerFailure ?? new Error('article-render-request-terminal-unconfirmed');
+            }
+            producerWork = actualWork;
+            await actualTerminal;
+            if (actualWork.request !== request || actualWork.terminal !== actualTerminal
+                || this.producer.getRequestWork?.(request) !== actualWork)
+            {
+                throw new Error('article-render-request-terminal-binding-changed');
+            }
+            const ownedRef = actualWork.resultRef;
+            if (ownedRef !== null && !isRef(ownedRef))
+            {
+                throw new Error('article-render-producer-cleanup-reference-invalid');
+            }
+            if (committed)
+            {
+                if (committedRef === null || ownedRef !== committedRef)
+                {
+                    throw new Error('article-render-transferred-reference-unconfirmed');
+                }
+            }
+            else if (ownedRef !== null)
+            {
+                try
+                {
+                    this.releaseReference(ownedRef);
+                }
+                catch (cause)
+                {
+                    rememberCleanupFailure(cause);
+                    throw work.cleanupFailure ?? new Error('article-render-cleanup-failed', { cause });
+                }
+            }
             const failure = work.cleanupFailure;
             if (failure)
             {
                 throw failure;
             }
-            const unconfirmed = work.producerFailure;
-            if (unconfirmed)
-            {
-                throw unconfirmed;
-            }
+            // Logical producer/admission errors remain observable. Only the bound
+            // real terminal above can discharge their resource obligation.
             task.settle();
             this.refreshWork.delete(work);
         });
@@ -698,6 +759,10 @@ export class ArticleRenderCache
             get producerFailure(): Error | null
             {
                 return producerFailure;
+            },
+            get producerWork(): ArticleRenderProducerRequestWork | null
+            {
+                return producerWork;
             }
         });
         this.refreshWork.add(work);

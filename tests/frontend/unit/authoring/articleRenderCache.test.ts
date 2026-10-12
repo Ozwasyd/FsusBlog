@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { MARKDOWN_RENDERER_VERSION } from '@/fsusui/markdown';
 import {
     ArticleRenderCache, createArticleDocumentContextAdapter, calculateOpenArticleDocumentDigest as digest,
-    validateArticleRenderCacheEntry, validateArticleRenderReceipt, validateArticleRenderState,
+    validateArticleRenderCacheEntry, validateArticleRenderReceipt, validateArticleRenderState, validateArticleRenderResult,
     evaluateArticleRenderRefreshPolicy, articleRenderSourceByteLimit,
-    type ArticleRenderIdentity, type ArticleRenderProducer, type ArticleRenderRequest, type ArticleRenderResult
+    type ArticleRenderIdentity, type ArticleRenderProducer, type ArticleRenderRequest, type ArticleRenderResult,
+    type ArticleRenderProducerRequestWork
 } from '@/services/authoring';
 
 const identity: ArticleRenderIdentity = {
@@ -20,8 +21,9 @@ const resultFor = (request: ArticleRenderRequest, overrides: Partial<ArticleRend
 const deferred = <T>() =>
 {
     let resolve!: (value: T) => void;
-    const promise = new Promise<T>(accept => { resolve = accept; });
-    return { promise, resolve };
+    let reject!: (cause: unknown) => void;
+    const promise = new Promise<T>((accept, refuse) => { resolve = accept; reject = refuse; });
+    return { promise, resolve, reject };
 };
 const setup = (maxEntryBytes = 65536, maxAgeMs = 1000) =>
 {
@@ -29,6 +31,30 @@ const setup = (maxEntryBytes = 65536, maxAgeMs = 1000) =>
         siteScope: 'site:test', userScope: 'user:test', content: '# source' });
     const producer: ArticleRenderProducer = {
         render: vi.fn(async request => resultFor(request)), verify: vi.fn(() => true), release: vi.fn()
+    };
+    // Unit-only real call futures; this synthetic producer has no native work.
+    // Unknown/null/rejected outputs deliberately supply no successful endpoint.
+    const requestWork = new WeakMap<ArticleRenderRequest, ArticleRenderProducerRequestWork>();
+    producer.getRequestWork = request =>
+    {
+        const previous = requestWork.get(request);
+        if (previous) return previous;
+        const call = vi.mocked(producer.render).mock.calls.findIndex(args => args[0] === request);
+        const rendering: unknown = vi.mocked(producer.render).mock.results[call]?.value;
+        if (!(rendering instanceof Promise)) return null;
+        let ownedRef: string | null = null;
+        const terminal = rendering.then((output: unknown) =>
+        {
+            if (!validateArticleRenderResult(output)) throw new Error('article-render-producer-output-invalid');
+            if (output.resultRef === null) throw new Error('article-render-no-resource-terminal-unconfirmed');
+            if (output.contextDigest !== request.context.contextDigest || output.requestId !== request.requestId
+                || digest(output.identity) !== digest(request.identity)) throw new Error('article-render-producer-result-unconfirmed');
+            ownedRef = output.resultRef;
+        }, (cause: unknown) => { throw new Error('article-render-producer-terminal-unconfirmed', { cause }); });
+        const work = Object.freeze({ request, terminal, get resultRef() { return ownedRef; } });
+        requestWork.set(request, work);
+        void terminal.catch(() => undefined);
+        return work;
     };
     let now = 10;
     const cache = new ArticleRenderCache(adapter, identity, producer, { maxEntryBytes, maxAgeMs, maxReceipts: 3 }, () => now);
@@ -374,7 +400,7 @@ describe('original render future and cleanup settlement (#2245)', () =>
         cache.cancel();
         await work.receipt;
         late.resolve(resultFor(request));
-        await expect(work.terminal).rejects.toThrow('actual-release-failure');
+        await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
         expect(work.cleanupFailure).not.toBeNull();
         expect(work.resultRef).toBe(resultFor(request).resultRef);
         cache.dispose();
@@ -581,10 +607,10 @@ describe('original render future and cleanup settlement (#2245)', () =>
             });
             const work = cache.startRefresh();
             await work.receipt;
-            await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
+            await expect(work.terminal).rejects.toThrow('actual-validator-property-failure');
             expect(work.producerFailure?.cause).toBe(actualError);
-            expect(work.cleanupFailure?.cause).toBe(actualError);
-            expect(read).toHaveBeenCalledTimes(2);
+            expect(work.cleanupFailure).toBeNull();
+            expect(read).toHaveBeenCalledTimes(3);
             expect(adapter.pendingTaskRefs).toContain(work.taskRef);
             expect(cache.pendingRefreshWork).toContain(work);
             expect(producer.release).not.toHaveBeenCalled();
@@ -608,12 +634,13 @@ describe('original render future and cleanup settlement (#2245)', () =>
             });
             const work = cache.startRefresh();
             await work.receipt;
-            await expect(work.terminal).rejects.toThrow(failure.startsWith('throw')
-                ? 'article-render-cleanup-failed' : 'article-render-producer-result-unconfirmed');
+            await work.terminal;
+            // Logical verifier errors remain recorded; the explicit original
+            // unit-producer terminal and owned-reference cleanup actually ended.
             expect(work.producerFailure).not.toBeNull();
-            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
-            expect(cache.pendingRefreshWork).toContain(work);
-            expect(producer.release).not.toHaveBeenCalled();
+            expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).not.toContain(work);
+            expect(producer.release).toHaveBeenCalledTimes(1);
         }
     });
 
@@ -692,12 +719,89 @@ describe('original render future and cleanup settlement (#2245)', () =>
             const response = await work.receipt;
             expect(response.status).not.toBe('committed');
             await expect(work.terminal).rejects.toThrow(mutation === 'verify-null-reference'
-                ? 'article-render-producer-output-invalid' : 'article-render-cleanup-failed');
+                ? 'article-render-producer-output-invalid' : 'actual-result-validation-trap');
             expect(work.producerFailure).not.toBeNull();
             expect(cache.state.content).toBeNull();
             expect(cache.pendingRefreshWork).toContain(work);
             expect(adapter.pendingTaskRefs).toContain(work.taskRef);
             expect(producer.release).not.toHaveBeenCalled();
+        }
+    });
+
+
+    it('waits for the same actual producer terminal after either success or clean rejection', async () =>
+    {
+        for (const outcome of ['success', 'rejection'] as const)
+        {
+            const { adapter, cache, producer } = setup();
+            const ended = deferred<void>();
+            let request!: ArticleRenderRequest;
+            let output: ArticleRenderResult | null = null;
+            let originalWork!: ArticleRenderProducerRequestWork;
+            vi.mocked(producer.render).mockImplementationOnce(input =>
+            {
+                request = input;
+                output = outcome === 'success' ? resultFor(input) : null;
+                originalWork = Object.freeze({ request: input, terminal: ended.promise,
+                    get resultRef() { return output?.resultRef ?? null; } });
+                return outcome === 'success' ? Promise.resolve(output!) : Promise.reject(new Error('actual-clean-rejection'));
+            });
+            producer.getRequestWork = input => input === request ? originalWork : null;
+            const work = cache.startRefresh();
+            const response = await work.receipt;
+            expect(response.status).toBe(outcome === 'success' ? 'committed' : 'failed');
+            expect(work.producerWork).toBe(originalWork);
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
+            ended.resolve();
+            await work.terminal;
+            expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).not.toContain(work);
+            if (outcome === 'rejection') expect(work.producerFailure).not.toBeNull();
+        }
+    });
+
+    it('refuses a foreign actual request even when its copied identity fields match', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        producer.getRequestWork = input => Object.freeze({ request: { ...input }, terminal: Promise.resolve(), resultRef: null });
+        const work = cache.startRefresh();
+        await work.receipt;
+        await expect(work.terminal).rejects.toThrow('article-render-request-terminal-unconfirmed');
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        expect(cache.pendingRefreshWork).toContain(work);
+    });
+
+    it('preserves opaque real terminal rejection and changes to the original work binding', async () =>
+    {
+        for (const boundary of ['native-failure', 'work-changed', 'lookup-throw'] as const)
+        {
+            const { adapter, cache, producer } = setup();
+            const ended = deferred<void>();
+            const actualError = new Error('opaque-original-terminal-failure');
+            let captured: ArticleRenderProducerRequestWork | null = null;
+            let request: ArticleRenderRequest | null = null;
+            producer.getRequestWork = input =>
+            {
+                request = input;
+                if (boundary === 'lookup-throw') throw actualError;
+                captured ??= Object.freeze({ request: input, terminal: ended.promise, resultRef: null });
+                return captured;
+            };
+            const work = cache.startRefresh();
+            await work.receipt;
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            if (boundary === 'native-failure') ended.reject(actualError);
+            if (boundary === 'work-changed')
+            {
+                captured = Object.freeze({ request: request!, terminal: ended.promise, resultRef: null });
+                ended.resolve();
+            }
+            await expect(work.terminal).rejects.toThrow(boundary === 'lookup-throw'
+                ? 'article-render-request-work-lookup-failed' : boundary === 'native-failure'
+                    ? 'opaque-original-terminal-failure' : 'article-render-request-terminal-binding-changed');
+            expect(cache.pendingRefreshWork).toContain(work);
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
         }
     });
 
