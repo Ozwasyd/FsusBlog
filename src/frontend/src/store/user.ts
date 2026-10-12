@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 
 import { getMe, logout as logoutApi, type CurrentUserSnapshot } from '@/api/auth';
 import { clearLocalFixtureSession } from '@/services/localFixtureSession';
-import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
+import { PrivateSurfaceCleanupIncompleteError, privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime';
 import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds';
 import { isAbortError } from '@/utils/errors';
@@ -100,15 +100,30 @@ export const useUserStore = defineStore('user', () =>
         isLoading.value = false;
     };
 
-    const expireAuthentication = async (options?: { broadcastCredentialPurge?: boolean; }) =>
+    const expireAuthentication = async (options?: {
+        broadcastCredentialPurge?: boolean;
+        ownsCleanup?: () => boolean;
+    }) =>
     {
+        const requireCleanupOwner = (): void =>
+        {
+            if (options?.ownsCleanup && !options.ownsCleanup())
+            {
+                throw new PrivateSurfaceCleanupIncompleteError();
+            }
+        };
+        requireCleanupOwner();
         await privateSurfaceRuntime.invalidate('session-expired', async () =>
         {
+            requireCleanupOwner();
             cancelUserInfoRequest();
+            requireCleanupOwner();
             markGuest();
+            requireCleanupOwner();
             await clearPrivateBrowserState('session-expired', {
                 broadcastCredentialPurge: options?.broadcastCredentialPurge ?? true
             });
+            requireCleanupOwner();
         });
     };
 

@@ -20,6 +20,16 @@ import { clearPrivateBrowserState } from './serviceWorkerRuntime';
 
 import type { Pinia } from 'pinia';
 
+/** A retained cleanup callback no longer owns the state it was asked to clear. */
+export class AuthBroadcastCleanupIncompleteError extends Error
+{
+    constructor()
+    {
+        super('Auth broadcast cleanup ownership retired before completion.');
+        this.name = 'AuthBroadcastCleanupIncompleteError';
+    }
+}
+
 interface AuthBroadcastCompositionOwnership {
     readonly pinia: Pinia;
     unsubscribe: (() => void) | null;
@@ -96,99 +106,74 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
     owner.unregisterInvalidation = unregisterInvalidation;
     const isActiveOwner = (): boolean => ownsWrite() && owner.unsubscribe !== null;
 
-    const stopAuthenticatedRuntime = (): void =>
+    const requireActiveOwner = (): void =>
     {
-        notificationStore.dispose();
-        notificationStore.resetCursor();
-        notificationStore.setStatus('stopped');
-        void notificationStreamRuntime.stop(true);
+        if (!isActiveOwner())
+        {
+            throw new AuthBroadcastCleanupIncompleteError();
+        }
+    };
+    const cleanupStep = (work: () => void): void =>
+    {
+        requireActiveOwner();
+        work();
+        requireActiveOwner();
+    };
+    const stopAuthenticatedRuntime = (): Promise<void> =>
+    {
+        cleanupStep(() => notificationStore.dispose());
+        cleanupStep(() => notificationStore.resetCursor());
+        cleanupStep(() => notificationStore.setStatus('stopped'));
+        requireActiveOwner();
+        const stop = notificationStreamRuntime.stop(true);
+        // Preserve actual rejection unchanged; only confirmed completion can
+        // satisfy this original queued cleanup obligation for the same owner.
+        return stop.then(() => requireActiveOwner());
     };
 
     const cleanupRegistrations = [
         () => registerPrivateStateCleanupHandler('account-pinia', (trigger: PrivateStateCleanupTrigger) =>
         {
-            if (!isActiveOwner())
-            {
-                return;
-            }
-            userStore.cancelUserInfoRequest();
+            cleanupStep(() => userStore.cancelUserInfoRequest());
             if (trigger === 'account-switch')
             {
-                userStore.invalidateIdentityCache();
+                cleanupStep(() => userStore.invalidateIdentityCache());
             }
             else
             {
-                userStore.markGuest();
+                cleanupStep(() => userStore.markGuest());
             }
         }),
         () => registerPrivateStateCleanupHandler('admin-pinia', () =>
-        {
-            if (!isActiveOwner())
-            {
-                return;
-            }
-            adminStore.clearAdminPrincipal();
-        }),
-        () => registerPrivateStateCleanupHandler('notification-runtime', () =>
-        {
-            if (!isActiveOwner())
-            {
-                return;
-            }
-            stopAuthenticatedRuntime();
-        }),
+            cleanupStep(() => adminStore.clearAdminPrincipal())),
+        () => registerPrivateStateCleanupHandler('notification-runtime', () => stopAuthenticatedRuntime()),
         () => registerPrivateStateCleanupHandler('challenge-proof-runtime', () =>
-        {
-            if (!isActiveOwner())
-            {
-                return;
-            }
-            defaultChallengeProofStore.clear();
-        })
+            cleanupStep(() => defaultChallengeProofStore.clear()))
     ];
     const surfaceRegistrations = [
         () => privateSurfaceRuntime.registerTerminationHandler((reason) =>
         {
-            if (!isActiveOwner())
-            {
-                return;
-            }
-            userStore.cancelUserInfoRequest();
+            cleanupStep(() => userStore.cancelUserInfoRequest());
             if (reason === 'account-switch')
             {
-                userStore.invalidateIdentityCache();
+                cleanupStep(() => userStore.invalidateIdentityCache());
             }
             else if (reason !== 'admin-logout')
             {
-                userStore.markGuest();
+                cleanupStep(() => userStore.markGuest());
             }
         }),
         () => privateSurfaceRuntime.registerTerminationHandler((reason) =>
         {
-            if (!isActiveOwner())
-            {
-                return;
-            }
-            adminStore.cancelAdminSessionRequest();
+            cleanupStep(() => adminStore.cancelAdminSessionRequest());
             if (reason === 'admin-logout')
             {
-                adminStore.clearAdminPrincipal();
+                cleanupStep(() => adminStore.clearAdminPrincipal());
             }
         }),
+        () => privateSurfaceRuntime.registerTerminationHandler(() => stopAuthenticatedRuntime()),
         () => privateSurfaceRuntime.registerTerminationHandler(() =>
-        {
-            if (isActiveOwner())
-            {
-                stopAuthenticatedRuntime();
-            }
-        }),
-        () => privateSurfaceRuntime.registerTerminationHandler(() =>
-        {
-            if (isActiveOwner())
-            {
-                defaultChallengeProofStore.clear();
-            }
-        })
+            cleanupStep(() => defaultChallengeProofStore.clear()))
     ];
 
     for (const register of cleanupRegistrations)
@@ -239,7 +224,17 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
             if (origin === 'remote')
             {
                 clearLocalFixtureAdminSession();
-                void invalidatePrivateSurfaceForBroadcast('admin-logout', origin).then(() => dispatchAdminLogout());
+                if (!isActiveOwner())
+                {
+                    return;
+                }
+                void invalidatePrivateSurfaceForBroadcast('admin-logout', origin, requireActiveOwner).then(() =>
+                {
+                    if (isActiveOwner())
+                    {
+                        dispatchAdminLogout();
+                    }
+                });
             }
             else
             {
@@ -268,14 +263,30 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
         // by another tab, Passkey completion, or admin step-up. Neither negative
         // cache is allowed to outlive that transition.
         userStore.invalidateGuestCache();
+        if (!isActiveOwner())
+        {
+            return;
+        }
         adminStore.invalidateMissingCache();
+        if (!isActiveOwner())
+        {
+            return;
+        }
 
         if (event.type === 'login')
         {
-            void invalidatePrivateSurfaceForBroadcast('account-switch', origin);
+            void invalidatePrivateSurfaceForBroadcast('account-switch', origin, requireActiveOwner);
+            if (!isActiveOwner())
+            {
+                return;
+            }
             if (origin === 'remote')
             {
                 userStore.invalidateIdentityCache();
+                if (!isActiveOwner())
+                {
+                    return;
+                }
                 dispatchSessionExpired();
             }
             return;
@@ -284,12 +295,34 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
         if (event.type === 'user-expired')
         {
             clearLocalFixtureSession();
-            const expiry = userStore.expireAuthentication({ broadcastCredentialPurge: origin !== 'remote' });
+            if (!isActiveOwner())
+            {
+                return;
+            }
+            const expiry = userStore.expireAuthentication({ broadcastCredentialPurge: origin !== 'remote', ownsCleanup: isActiveOwner });
+            if (!isActiveOwner())
+            {
+                return;
+            }
             appShellStore.markSessionExpired();
-            stopAuthenticatedRuntime();
+            if (!isActiveOwner())
+            {
+                return;
+            }
+            void stopAuthenticatedRuntime();
+            if (!isActiveOwner())
+            {
+                return;
+            }
             if (origin === 'remote')
             {
-                void expiry.then(() => dispatchSessionExpired());
+                void expiry.then(() =>
+                {
+                    if (isActiveOwner())
+                    {
+                        dispatchSessionExpired();
+                    }
+                });
             }
             return;
         }
@@ -299,7 +332,7 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
         {
             if (origin === 'remote')
             {
-                transition = userStore.expireAuthentication({ broadcastCredentialPurge: false });
+                transition = userStore.expireAuthentication({ broadcastCredentialPurge: false, ownsCleanup: isActiveOwner });
             }
             else
             {
@@ -311,12 +344,26 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
         }
         else
         {
-            transition = invalidatePrivateSurfaceForBroadcast('logout', origin);
+            transition = invalidatePrivateSurfaceForBroadcast('logout', origin, requireActiveOwner);
         }
-        stopAuthenticatedRuntime();
+        if (!isActiveOwner())
+        {
+            return;
+        }
+        void stopAuthenticatedRuntime();
+        if (!isActiveOwner())
+        {
+            return;
+        }
         if (origin === 'remote')
         {
-            void transition.then(() => dispatchSessionExpired());
+            void transition.then(() =>
+            {
+                if (isActiveOwner())
+                {
+                    dispatchSessionExpired();
+                }
+            });
         }
     });
 
@@ -453,19 +500,26 @@ export function disposeAuthBroadcastComposition(): void
 
 function clearPrivateStateForBroadcast(
     reason: Extract<PrivateBrowserStateClearReason, 'account-switch' | 'logout' | 'admin-logout' | 'session-expired'>,
-    origin: AuthBroadcastEventOrigin
+    origin: AuthBroadcastEventOrigin,
+    requireOwner: () => void
 ): Promise<void>
 {
+    requireOwner();
     const clear = origin === 'remote'
         ? clearPrivateBrowserState(reason, { broadcastCredentialPurge: false })
         : clearPrivateBrowserState(reason);
-    return clear.then(() => undefined);
+    return clear.then(() =>
+    {
+        requireOwner();
+    });
 }
 
 function invalidatePrivateSurfaceForBroadcast(
     reason: Extract<PrivateBrowserStateClearReason, 'account-switch' | 'logout' | 'admin-logout' | 'session-expired'>,
-    origin: AuthBroadcastEventOrigin
+    origin: AuthBroadcastEventOrigin,
+    requireOwner: () => void
 ): Promise<void>
 {
-    return privateSurfaceRuntime.invalidate(reason, () => clearPrivateStateForBroadcast(reason, origin));
+    requireOwner();
+    return privateSurfaceRuntime.invalidate(reason, () => clearPrivateStateForBroadcast(reason, origin, requireOwner));
 }
