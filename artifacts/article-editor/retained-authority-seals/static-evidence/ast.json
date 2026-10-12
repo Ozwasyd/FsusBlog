@@ -1,0 +1,22 @@
+{
+  "rows": [
+    {
+      "file": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "parseDiagnostics": 0
+    },
+    {
+      "file": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "parseDiagnostics": 0
+    },
+    {
+      "file": "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
+      "parseDiagnostics": 0
+    },
+    {
+      "file": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "parseDiagnostics": 0
+    }
+  ],
+  "candidateModulesImported": false,
+  "qualification": false
+}

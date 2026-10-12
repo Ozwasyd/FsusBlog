@@ -1,0 +1,1 @@
+[frontend-style] src/frontend/src/services/authoring/openArticleDocumentRegistry.ts:863:120 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.

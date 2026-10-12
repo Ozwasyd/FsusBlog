@@ -1,0 +1,162 @@
+{
+  "schema": "fsusblog.retained-authority-seals-source-offer.v1",
+  "producerRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+  "consumerRevision": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
+  "sourceBase": "da0e8f0cd11ca2bfbe9d7e8e393c113717e8756e",
+  "patchSha256": "f510519af1e2251c3f135c43ad77ac55689d32687b4ecdd110c2db4bc3873145",
+  "paths": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "before": {
+        "gitBlob": "3d36ef1e420fc20ff5434a59cc3bb6fd1084dbeb",
+        "sha256": "51c77c2362ee3015a55d8c98c5ff571024e1e8df692d5376de7a7f9045c14674",
+        "bytes": 83792,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "9c5358a9a4e3ecbb517e6f47f2645a825b2f2291",
+        "sha256": "e921c3819d378b5da2384458085462c1c44e79561c3048ba269ae9050a8c5235",
+        "bytes": 90287,
+        "mode": "100644"
+      },
+      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donor": {
+        "gitBlob": "9c5358a9a4e3ecbb517e6f47f2645a825b2f2291",
+        "sha256": "e921c3819d378b5da2384458085462c1c44e79561c3048ba269ae9050a8c5235",
+        "bytes": 90287,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "before": {
+        "gitBlob": "d0fba443d5d0522fdefa1b24249fae858564ca34",
+        "sha256": "237c7bd746eaff6eba422a83a4f64556fe5a02b0d6823500ec8b0b9221372f25",
+        "bytes": 86792,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "cf423ce2ced59fd2133e5e09a4bad7ab2a4149ee",
+        "sha256": "d2bf1634b10068f8d5d2d952564fc0c918d34e551070cabe11dbbf80d6e9e983",
+        "bytes": 91168,
+        "mode": "100644"
+      },
+      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donor": {
+        "gitBlob": "cf423ce2ced59fd2133e5e09a4bad7ab2a4149ee",
+        "sha256": "d2bf1634b10068f8d5d2d952564fc0c918d34e551070cabe11dbbf80d6e9e983",
+        "bytes": 91168,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    },
+    {
+      "path": "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
+      "before": {
+        "gitBlob": "d5b46ac426f374c5419bac646d46d3c0d434bba0",
+        "sha256": "25fc5eb7692706143fbf2a8339ddadc3a2e27c3b85513916985d341c0eb16808",
+        "bytes": 11473,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "35597d3616509c630b76653de436ae9976d2b0d9",
+        "sha256": "c16c3a66092beedcf8b0f96b617d891285fff2af02186d4d8a947d07b39813ed",
+        "bytes": 14826,
+        "mode": "100644"
+      },
+      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donor": {
+        "gitBlob": "35597d3616509c630b76653de436ae9976d2b0d9",
+        "sha256": "c16c3a66092beedcf8b0f96b617d891285fff2af02186d4d8a947d07b39813ed",
+        "bytes": 14826,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "before": {
+        "gitBlob": "a6122c83a7d06e8694b6487f72ecce066d96dd24",
+        "sha256": "c15addba375263437a23107a43dbc073f2da460e738b40a2ee432ee986cd2b2b",
+        "bytes": 56194,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "c0f8e33e9ae27bd10051a5a8579f7768142055c4",
+        "sha256": "1e7d4d30a96af70a58fc844e56a865ad16620a6e6b9dae3c54ff1434ed3011cf",
+        "bytes": 60191,
+        "mode": "100644"
+      },
+      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donor": {
+        "gitBlob": "c0f8e33e9ae27bd10051a5a8579f7768142055c4",
+        "sha256": "1e7d4d30a96af70a58fc844e56a865ad16620a6e6b9dae3c54ff1434ed3011cf",
+        "bytes": 60191,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    },
+    {
+      "path": "docs/architecture/authoring-workspace-snapshot-boundary.md",
+      "before": {
+        "gitBlob": "75f2d6f4ffad8ce961f262f56e5f49da463bdf58",
+        "sha256": "8a1d9dcb6d880ed0395318da94a697ffc7a16ba790c0dc152a0bbc4dc5293b1c",
+        "bytes": 72836,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "cfed1a56a59572a643717074188ea56949bb8bba",
+        "sha256": "8fcf7ec86b280e5528bb172f881be2f80c7fe1b67ddf55e9836d59d134dd4385",
+        "bytes": 75116,
+        "mode": "100644"
+      },
+      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donor": {
+        "gitBlob": "ba2d63bbd9cd04e8a4fff87fff7747f1b574faa3",
+        "sha256": "bf58a8031f2beb041491a43449342e673a07353dfc826d1f7a4616b8fdd183b8",
+        "bytes": 28448,
+        "mode": "100644"
+      },
+      "composition": "original owning doc increment applied to complete Main document"
+    },
+    {
+      "path": "artifacts/article-editor/retained-document-authority/preflight.md",
+      "before": {
+        "gitBlob": "61b87b90539ffa370d5daf0d1480c97e727d0bda",
+        "sha256": "e5fe8c9634701cecd439e412d44b59d819dbf46435545e936efbb28fddaa8232",
+        "bytes": 21248,
+        "mode": "100644"
+      },
+      "after": {
+        "gitBlob": "6162aadbe2900b25a6b89c1efa66dec60c77ff2f",
+        "sha256": "f5ad62b244782b9fbc55e85f7833429df189fd83fe7880c541f7bf8a2a72f0d3",
+        "bytes": 22951,
+        "mode": "100644"
+      },
+      "donorRevision": "711265f6e0717dffd13aa078f82bc6118d0952d6",
+      "donor": {
+        "gitBlob": "6162aadbe2900b25a6b89c1efa66dec60c77ff2f",
+        "sha256": "f5ad62b244782b9fbc55e85f7833429df189fd83fe7880c541f7bf8a2a72f0d3",
+        "bytes": 22951,
+        "mode": "100644"
+      },
+      "composition": "exact producer postimage"
+    }
+  ],
+  "productionPatchSha256": "520691cb0ea4f86ba216d559c3ed10b71f910877282224cd4cbf3c164c36bf8b",
+  "productionApplyCheckExit": 0,
+  "productionApplyExit": 0,
+  "productionDiffCheckExit": 0,
+  "protectedConsumerBlobsChecked": 7577,
+  "protectedMismatches": [],
+  "actualOrderedApplyCheckExit": 0,
+  "actualApplyExit": 0,
+  "appliedSourceDiffCheckExit": 0,
+  "generator": {
+    "path": "capture-source-offer.py",
+    "sha256": "e912b773d2c96c5e6904922388ccccb9d3fa0d4526eee3ef78702296690fe07c"
+  },
+  "qualification": false,
+  "candidateModulesImported": false
+}

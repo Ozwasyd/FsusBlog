@@ -8,7 +8,10 @@
     "src/frontend/src/services/authoring/articleDocumentContext.ts",
     "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
     "docs/architecture/authoring-workspace-snapshot-boundary.md",
-    "artifacts/article-editor/retained-document-authority/preflight.md"
+    "artifacts/article-editor/retained-document-authority/preflight.md",
+    "artifacts/article-editor/retained-authority-seals/capture-source-offer.py",
+    "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+    "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts"
   ],
   "outputs": [
     {
@@ -22,6 +25,18 @@
     {
       "path": "artifacts/article-editor/retained-primary-handover/source-offer.json",
       "sha256": "95c1ea3a33b64db52f72fa83b77183fcf149ff3f88638c814650e909e64eb3d7"
+    },
+    {
+      "path": "artifacts/article-editor/retained-authority-seals/consumer-36d.patch",
+      "sha256": "f510519af1e2251c3f135c43ad77ac55689d32687b4ecdd110c2db4bc3873145"
+    },
+    {
+      "path": "artifacts/article-editor/retained-authority-seals/production-36d.patch",
+      "sha256": "520691cb0ea4f86ba216d559c3ed10b71f910877282224cd4cbf3c164c36bf8b"
+    },
+    {
+      "path": "artifacts/article-editor/retained-authority-seals/source-offer.json",
+      "sha256": "b73081b2331f49d110ba194bfe6cfc44e66d571c381082b51cede9651af8c7af"
     }
   ]
 }
