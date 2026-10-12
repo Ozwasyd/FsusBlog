@@ -1,0 +1,19 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleAttachmentContext.test.ts",
+      "parseDiagnostics": []
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleAttachmentAcceptedCapture.test.ts",
+      "parseDiagnostics": []
+    }
+  ],
+  "sourceASTOnly": true,
+  "candidateModulesExecuted": false,
+  "sourceControlsRun": false
+}

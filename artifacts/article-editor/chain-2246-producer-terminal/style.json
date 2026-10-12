@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "src/frontend/src/services/authoring/articleAttachmentContext.ts"
+  ],
+  "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+  "exitCode": 0,
+  "seconds": 13.012,
+  "testedSource": "de1f888a253d9c63ddc09dff0cb54b050fa1a394",
+  "runtimeQualification": false
+}
