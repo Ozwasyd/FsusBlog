@@ -1,0 +1,176 @@
+{
+    "kind": "source-static-observations",
+    "qualification": false,
+    "baseCommit": "29051db2a80db7770dfe78a1db6e4c6998337324",
+    "sourceCommit": "6dfebf83b779cd3c927a824e841ef652916ba692",
+    "sourceStages": [
+        "403e11ea6d2823ecce45055c5d1ba7a71e0e1aab",
+        "567d98cfd001656bb9bdf28a393ff1e88fd4c454",
+        "801e65f61757db29b7977e169a1707e8d5c3a8c0",
+        "6dfebf83b779cd3c927a824e841ef652916ba692"
+    ],
+    "sourceBindings": {
+        "src/frontend/src/services/binaryTransport.ts": {
+            "base": {
+                "gitBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+                "sha256": "80ad026cc8f5d741fe449b60b8a2539617c8989f42e4d59f481cf055c5620305"
+            },
+            "candidate": {
+                "gitBlob": "8a89dd3a20006d8140de4d5e8210eb6cb1f7eebe",
+                "sha256": "7d6f239673dba7862e790c945132d71b83674429a9dc565bb90c0e29b8893585"
+            }
+        },
+        "src/frontend/src/contracts/binaryTransport.ts": {
+            "base": {
+                "gitBlob": "7d3617b1452258aaa6e1750483bff2a8c68a2ace",
+                "sha256": "18500a42be8297151ce1885e79d5bc1c0bff663f5bb329195c48a01d1abaa0b2"
+            },
+            "candidate": {
+                "gitBlob": "dcee8b3fb6120e78b5cfac7983f5aa9b9f1b4294",
+                "sha256": "0c0ba60deb42fc161e412dc6855989975556de3527ce4f7539b0bc58e60063f8"
+            }
+        },
+        "src/frontend/src/workers/wasmDecode.worker.ts": {
+            "base": {
+                "gitBlob": "b1ae18fccf7843e43a53e16daceb87b228ce05ed",
+                "sha256": "a25c3e96eab144c7293b0fd8823c59397054537d2c7ed963112529175fbe6688"
+            },
+            "candidate": {
+                "gitBlob": "641610a15281c7921e09de9eab9a49093902e1e8",
+                "sha256": "89c8df0c594badb77cbdfaa616cf8dd6ac34a9cb7085273952406566fc2d78cb"
+            }
+        },
+        "tests/frontend/unit/services/binaryTransport.test.ts": {
+            "base": {
+                "gitBlob": "c0c12ee169a81dc8f702f2e27ea7208084dfcf0e",
+                "sha256": "c0229fb0770102fc829f621ebbb73e8bcb67c439c429e44fae5e6ce7d72ced75"
+            },
+            "candidate": {
+                "gitBlob": "cd76ac8bf35b0ce1cd7aa7311ec23fa8b3d93b01",
+                "sha256": "7d5f6a1c8f180000b9b5a96d17f7247392230c9fc25355a71e2487063ca8ef7d"
+            }
+        },
+        "docs/architecture/overview.md": {
+            "base": {
+                "gitBlob": "b6f3c68481fa0b28174066f82c609b5d597dcda0",
+                "sha256": "dec702e76bc1b090a32dc61f94be0afdf626818ef093f9f773e7dda539d0b0f9"
+            },
+            "candidate": {
+                "gitBlob": "0af69c4c0f01c1de14eebfedf05ea40edf33419c",
+                "sha256": "9850a60157c2cbe52fe1e87fb22cd09cc4836e05e2d25c14d006a221347a80c0"
+            }
+        }
+    },
+    "cwd": "/workspace/FsusBlog",
+    "localFsusUI": {
+        "path": "/workspace/FsusUI",
+        "commit": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+        "workingTreeClean": true
+    },
+    "tools": {
+        "node": "v24.19.0",
+        "typescript": "6.0.3",
+        "vue-tsc": "3.2.7"
+    },
+    "typecheck": {
+        "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "baselineExit": 2,
+        "candidateExit": 2,
+        "baselineSourceProcedure": "Temporarily reverse only the three owned app-source changes to exact base bytes; original app/Wasm/scripts/tsconfig input diff against base was empty; complete baseline finished before restoring candidate. No reduced project.",
+        "preliminaryDuringEditing": "Excluded from baseline/candidate evidence; retained only in /tmp.",
+        "comparison": {
+            "baselineDiagnostics": 162,
+            "candidateDiagnostics": 161,
+            "added": [],
+            "removed": [
+                "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read."
+            ],
+            "normalization": "diagnostic header source position only; full multiline text and multiplicity preserved"
+        },
+        "controlsTypecheck": "UNRUN: original complete app program excludes original test file; syntax only",
+        "baselineLog": "artifacts/binary-transport-local-terminal/20261012/baseline-typecheck.log",
+        "candidateLog": "artifacts/binary-transport-local-terminal/20261012-posted-census/candidate-typecheck.log"
+    },
+    "configuredStyle": {
+        "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/binaryTransport.ts --file src/frontend/src/contracts/binaryTransport.ts --file src/frontend/src/workers/wasmDecode.worker.ts",
+        "exit": 1,
+        "status": "BLOCKED",
+        "reason": "Configured ESLint and Stylelint executable paths missing; no installation, fallback or reduced configuration",
+        "log": "artifacts/binary-transport-local-terminal/20261012/configured-style.log",
+        "scope": "Unchanged environment blockage before source lint; no final-source lint pass claimed"
+    },
+    "syntax": {
+        "commands": [
+            "node --check src/frontend/src/services/binaryTransport.ts",
+            "node --check src/frontend/src/contracts/binaryTransport.ts",
+            "node --check src/frontend/src/workers/wasmDecode.worker.ts",
+            "node --check tests/frontend/unit/services/binaryTransport.test.ts"
+        ],
+        "exits": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "scope": "Parse only; no product/test import, collection, listing or execution"
+    },
+    "diff": {
+        "command": "git diff --check 29051db2a80db7770dfe78a1db6e4c6998337324 801e65f61757db29b7977e169a1707e8d5c3a8c0",
+        "exit": 0
+    },
+    "originalControlFile": "tests/frontend/unit/services/binaryTransport.test.ts",
+    "newControls": 4,
+    "controlsStatus": "HOLD/UNRUN, no discovery or collection",
+    "openPRInspection": {
+        "count": 385,
+        "overlaps": [
+            3839,
+            3849,
+            4068,
+            4124,
+            4125,
+            4127,
+            4170,
+            4207,
+            4209
+        ],
+        "workerProducerOverlaps": [],
+        "note": "3849 has separate request/route boundary changes; not consumed"
+    },
+    "blockers": [
+        {
+            "action": "GET repos/Ozwasyd/FsusBlog/rulesets",
+            "status": 403,
+            "reason": "Upgrade to GitHub Pro or make this repository public to enable this feature.",
+            "alternateAccessAttempted": false
+        },
+        "Missing configured style executables",
+        "Independent source review pending",
+        "Existing composition exports requestBinaryOnly only; shared DI integration remains with its owner",
+        "Underlying network and shared Wasm initialization terminal unavailable"
+    ],
+    "holds": [
+        "runtime",
+        "test discovery/list/collection/execution",
+        "product import/setup",
+        "native/browser/worker/network/security/receipt/backuprestore qualification"
+    ],
+    "noClaims": [
+        "full resource settlement",
+        "business/upload settlement",
+        "session recovery",
+        "issue closure",
+        "package publication",
+        "deployment",
+        "remote check pass"
+    ],
+    "rawLogs": {
+        "artifacts/binary-transport-local-terminal/20261012/baseline-typecheck.log": "74bcc685242f3ba3a8c05d58df78781e8ede75e127bb6142395e214899622675",
+        "artifacts/binary-transport-local-terminal/20261012/configured-style.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+        "artifacts/binary-transport-local-terminal/20261012-posted-census/candidate-typecheck.log": "5c05f8b4c3ee24f26d3824c6ce9162aedf851570b9180040a41707aedb719588",
+        "artifacts/binary-transport-local-terminal/20261012-posted-census/typecheck-comparison.json": "c3e7a399b39040b3b56639d7b3615d407bf9e653ba486c3e7e0f8343180b23aa"
+    },
+    "priorObservationCommit": "de3ddccdb4caaa438a725e142d15f80e6be2976f",
+    "priorObservationPath": "artifacts/binary-transport-local-terminal/20261012/static-observations.json",
+    "consumerBoundary": "Factory startBinaryOnly on same canonical instance; composition only exports requestBinaryOnly and was not edited. Not-used requires no accepted worker post; cancellation is not acknowledgement. Local observed never completes network/shared initialization."
+}
