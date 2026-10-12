@@ -1,0 +1,136 @@
+--- a/src/frontend/src/layouts/AdminWorkspaceFrame.vue
++++ b/src/frontend/src/layouts/AdminWorkspaceFrame.vue
+@@ -6,7 +6,6 @@
+         frame-class="admin-workspace-frame"
+         :motion-policy="motionPolicy"
+         :route-view-key="articleRouteViewKey"
+-        :route-outlet-enabled="!isArticleWorkspaceRouteValue || workspaceStartupState !== 'starting'"
+         @route-outlet="captureRouteOutlet"
+     >
+         <template #before-content="{ mobileNavigationActive }">
+@@ -71,7 +70,7 @@
+     type ArticleWorkspaceRouterReceipt
+ } from '@/services/authoring/articleWorkspaceTabRouter';
+ import { AuthoringTabGroupRegistry, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
+-import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
++import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+ import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
+ import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
+ import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
+@@ -164,6 +163,11 @@
+     resources: NonNullable<typeof workspaceInstallation>['resources'])
+ {
+     const checked = <Value>(read: () => Value): Value => checkedStartupRead(ports, read);
++    const mountOwner = checked(() => ports.prepareMountedEditor);
++    if (typeof mountOwner !== 'function')
++    {
++        throw new Error('article-workspace-original-retained-mount-owner-required');
++    }
+     const assertCapability = checked(() => ports.assertRuntimeCapability);
+     checked(() => assertCapability.call(ports));
+     const getRegistry = checked(() => articleWorkspaceTabRouter.getRegistry.bind(articleWorkspaceTabRouter));
+@@ -231,7 +235,12 @@
+     const mountedEditors = checked(() => ports.mountedEditors);
+     const resolver = checked(() => createArticleWorkspaceMountedEditorResolver(mountedEditors));
+     resources.resolver = resolver;
+-    const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, resolver);
++    const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, resolver, async (entry) =>
++    {
++        requireStartupAdmission(ports);
++        await mountOwner.call(ports, entry, signal);
++        requireStartupAdmission(ports);
++    });
+     resources.sessions = sessions;
+     requireStartupAdmission(ports);
+     const assertRuntimeCapability = checked(() => ports.assertRuntimeCapability);
+@@ -384,6 +393,7 @@
+ const workspaceLayoutSource = shallowRef<AuthoringWorkspaceLayoutSource | null>(null);
+ // Keep original owner objects unproxied while preventing descendants from replacing the ref.
+ provide(authoringWorkspaceLayoutSourceKey, shallowReadonly(workspaceLayoutSource));
++provide(authoringWorkspacePrimaryMountOnlyKey, computed(() => isArticleWorkspaceRouteValue.value && workspaceStartupState.value === 'starting'));
+ const layoutInvalidationListeners = new Set<() => void>();
+ const routeOutletInstance = shallowRef<unknown>(null);
+ let mounted = true;
+--- a/src/frontend/src/layouts/adminArticleWorkspaceStartup.ts
++++ b/src/frontend/src/layouts/adminArticleWorkspaceStartup.ts
+@@ -1,6 +1,6 @@
+ import type { ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
+ import type { AuthoringTabGroupOptions, AuthoringGroupCommandIdentity } from '@/services/authoring/authoringTabGroupRegistry';
+-import type { AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
++import type { AuthoringWorkspaceLayoutPort, AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+ import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
+ import type { AuthoringWorkspaceSnapshotRestoreCommands } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
+ import type { AuthoringWorkspaceSnapshotSync } from '@/services/authoring/authoringWorkspaceSnapshotSync';
+@@ -10,6 +10,8 @@
+     readonly sync: AuthoringWorkspaceSnapshotSync;
+     readonly resolutionPort: AuthoringWorkspaceSnapshotRestoreCommands['resolutionPort'];
+     readonly mountedEditors: ArticleWorkspaceMountedEditorSource;
++    /** Actual original physical Write operation; a stub cannot satisfy native admission. */
++    readonly prepareMountedEditor: AuthoringWorkspacePrimaryMountPort['prepareMountedEditor'];
+     readonly groupOptions: Omit<AuthoringTabGroupOptions, 'initialGroupId' | 'initialGroupIds'>;
+     readonly createGroupIdentity: () => AuthoringGroupCommandIdentity;
+     readonly operationEpoch: number;
+--- a/src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts
++++ b/src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts
+@@ -138,6 +138,11 @@
+             throw new Error('article-workspace-snapshot-batch-source-required');
+         }
+         const mountedEditors = checked(() => original.mountedEditors);
++        const mountOwner = checked(() => original.prepareMountedEditor);
++        if (typeof mountOwner !== 'function')
++        {
++            throw new Error('article-workspace-original-retained-mount-owner-required');
++        }
+         const groupOptions = checked(() => original.groupOptions);
+         const createGroupIdentity = checked(() => original.createGroupIdentity.bind(original));
+         const operationEpoch = checked(() => original.operationEpoch);
+@@ -160,6 +165,22 @@
+         const ports = Object.freeze<AdminArticleWorkspaceStartupPorts>({
+             sync, resolutionPort, mountedEditors, groupOptions, createGroupIdentity, operationEpoch,
+             signal, layout,
++            prepareMountedEditor: async (entry, commandSignal) =>
++            {
++                assertCurrent();
++                commandSignal.throwIfAborted();
++                if (checked(() => original.prepareMountedEditor) !== mountOwner)
++                {
++                    throw new Error('article-workspace-original-retained-mount-owner-changed');
++                }
++                await mountOwner.call(original, entry, commandSignal);
++                assertCurrent();
++                commandSignal.throwIfAborted();
++                if (checked(() => original.prepareMountedEditor) !== mountOwner)
++                {
++                    throw new Error('article-workspace-original-retained-mount-owner-changed');
++                }
++            },
+             assertRuntimeCapability: () => checked(() => assertCapability()),
+             isCurrent: guard => checked(() => isCurrent(guard)),
+             applyShell: async (shell, commandSignal) =>
+--- a/src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts
++++ b/src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts
+@@ -1,4 +1,4 @@
+-import { installArticleWorkspaceEditorSessions } from './articleWorkspaceEditorSessionComposition';
++import { installArticleWorkspaceEditorSessions, type ArticleWorkspaceMountedEditorPreparation } from './articleWorkspaceEditorSessionComposition';
+ import { articleWorkspaceTabRouter } from './articleWorkspaceTabRouter';
+ 
+ import type { AuthoringSessionHost, AuthoringSessionHostState, AuthoringSessionRecordState } from './authoringSessionHost';
+@@ -19,7 +19,8 @@
+  */
+ export function connectAuthoringWorkspaceSessionSource(
+     groups: AuthoringTabGroupRegistry,
+-    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver): AuthoringWorkspaceSessionSource
++    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver,
++    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation): AuthoringWorkspaceSessionSource
+ {
+     const assertBinding = (): void =>
+     {
+@@ -31,7 +32,7 @@
+     // The sole installer binds its host to this exact router's article registry.
+     // Refuse a foreign group before installation can mutate the router port.
+     assertBinding();
+-    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor);
++    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor, prepareMountedEditor);
+     assertBinding();
+     return Object.freeze({ groups, host,
+         readSession: (editorSessionRef: string): AuthoringSessionRecordState | null =>

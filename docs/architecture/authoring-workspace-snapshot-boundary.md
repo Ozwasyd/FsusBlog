@@ -877,3 +877,35 @@ Vitest config/shared setup/hooks are unchanged. Its shared beforeAll still reach
 locale/auth/private transport/font and happy-dom/WASM globals; source parsing
 does not qualify import side effects. The exact targeted journal CLI is pending
 parent confirmation and has not run or listed tests.
+
+The Layout owner now supplies Write.getArticleWorkspacePrimaryMountPort(), returning
+its actual AuthoringWorkspacePrimaryMountPort or null after disposal. Its
+prepareMountedEditor(entry, signal) waits for the original single native editor
+under the stable Teleport subtree, with actual owned connected DOM refs and original
+Writer/native binding. It checks the canonical Registry instance/revision/entry
+digest, original current context object and identity/epoch/revisions, mount/binding
+generation and document ownership across native reads. Abort/unmount removes its
+watchers/listeners and rejects; concurrent operations refuse. It acquires no editor,
+copies no body/history and invokes no open/move/focus/host attachment. Physical
+completion alone does not satisfy original factory resources or complete refset.
+
+The original Root must provide authoringWorkspacePrimaryMountOnlyKey from its actual
+startup phase. During that phase Write remains physically mounted/inert and its
+existing route registration/status publications are suppressed. The source-only
+four-file Root offer is pinned to62564bb29270a2bfc53e0ba5c24a2f30f24ecb42 and depends
+on Main07ea5048bc8c01eaf3dd9b95dc22434016ae4dc5. It removes the Root's starting
+RouterView destruction gate and forwards the real mount operation through the same
+authenticated caller/session installer. Root/composition/session/native production
+files are untouched in this Layout branch. At that Root head, the snapshot connector
+has only its declaration in the entire frontend; the real startup capability producer
+and actual route-outlet-to-Write operation binding remain absent. The original Writer
+also lacks a consumed restored-handle/full-form/body adoption API, so nonmatching
+or read-only entries explicitly refuse. A second owner is not reconstructed.
+
+These are concrete producer gaps, not an accepted production mount chain. The exact
+offer and blockers are in artifacts/article-editor/issue-2299-primary-physical-mount-source.
+Owned strict ESLint/SCSS and AST/SFC checks pass; the same actual UI9f92+a775 strict
+graph remains FAIL209, zero added and zero owned diagnostics. Root offer syntax and
+exact patch application are static checks only. All tests/list/mount/browser/native/
+auth/receipt/security/privacy/race/IME/resource/full-refset qualifications stay HOLD/
+UNRUN. No factory resource refusal or startup final-publication order is weakened.

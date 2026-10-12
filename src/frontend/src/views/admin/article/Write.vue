@@ -1,8 +1,10 @@
 <template>
     <main
+        ref="workspaceWriteElement"
         class="account-page write-article-wrapper account-motion-enter w-full"
         aria-labelledby="article-write-title"
-        :aria-busy="pageLoading || submitting"
+        :aria-busy="pageLoading || submitting || workspacePrimaryMountOnly"
+        :inert="workspacePrimaryMountOnly"
     >
         <div
             class="write-workspace"
@@ -182,28 +184,33 @@
                                         prop="content"
                                         data-article-form-property="content"
                                     >
-                                        <ArticleWriteEditor
-                                            ref="articleEditorRef"
-                                            v-model="articleForm.content"
-                                            textarea-id="article-content"
-                                            labelled-by="article-body-heading"
-                                            outline-panel-id="article-write-outline-panel"
-                                            outline-title-id="article-write-outline-title"
-                                            :command-surfaces="authoringCommandSurfaces"
-                                            :article-identity="authoringDocumentIdentity.id"
-                                            :document-identity="authoringDocumentIdentity"
-                                            :document-context="authoringDocumentContext"
-                                            :loading="pageLoading"
-                                            :saving="submitting"
-                                            @save="saveDraftNow"
-                                            @draft-save="saveDraftNow"
-                                            @submit="requestSubmit"
-                                            @upload-img="handleUploadImg"
-                                            @attachment-capture="consumeAcceptedAttachmentCapture"
-                                            @transaction="consumeAuthoringTransaction"
-                                            @selection-change="consumeAuthoringSelection"
-                                            @editor-focus="consumeAuthoringFocus"
-                                        />
+                                        <div
+                                            ref="workspaceNativeMountElement"
+                                            class="write-native-editor-mount w-full min-w-0"
+                                        >
+                                            <ArticleWriteEditor
+                                                ref="articleEditorRef"
+                                                v-model="articleForm.content"
+                                                textarea-id="article-content"
+                                                labelled-by="article-body-heading"
+                                                outline-panel-id="article-write-outline-panel"
+                                                outline-title-id="article-write-outline-title"
+                                                :command-surfaces="authoringCommandSurfaces"
+                                                :article-identity="authoringDocumentIdentity.id"
+                                                :document-identity="authoringDocumentIdentity"
+                                                :document-context="authoringDocumentContext"
+                                                :loading="pageLoading"
+                                                :saving="submitting"
+                                                @save="saveDraftNow"
+                                                @draft-save="saveDraftNow"
+                                                @submit="requestSubmit"
+                                                @upload-img="handleUploadImg"
+                                                @attachment-capture="consumeAcceptedAttachmentCapture"
+                                                @transaction="consumeAuthoringTransaction"
+                                                @selection-change="consumeAuthoringSelection"
+                                                @editor-focus="consumeAuthoringFocus"
+                                            />
+                                        </div>
                                     </ElFormItem>
                                 </AuthoringWorkspaceSessionOutlet>
                             </template>
@@ -790,7 +797,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue';
+import { computed, inject, nextTick, onBeforeUnmount, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { ArticlePublishStatus } from '@/api/article';
@@ -831,7 +838,7 @@ import {
     type ArticleWorkspaceStatusSummary
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
-import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation, type AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import {
     calculateOpenArticleDocumentDigest,
     type ArticleDocumentContextRef,
@@ -845,6 +852,7 @@ defineOptions({ name: 'ArticleWriteView' });
 
 const workspaceLayoutContext = inject(authoringWorkspaceLayoutSourceKey, null);
 const workspaceLayoutSource = computed(() => workspaceLayoutContext?.value ?? null);
+const workspacePrimaryMountOnly = inject(authoringWorkspacePrimaryMountOnlyKey, computed(() => false));
 
 const articleRecoveryPrivacyNotice = ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE;
 
@@ -990,10 +998,13 @@ const workspaceIdentity = computed<ArticleDocumentIdentity>(() => workspaceDocum
 const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => workspaceDocument.value.documentContext);
 const workspaceMountedSource = shallowRef<ArticleWorkspaceMountedEditorSource | null>(null);
 const workspaceLayoutRef = shallowRef<AuthoringWorkspaceLayoutPort | null>(null);
+const workspaceWriteElement = shallowRef<HTMLElement | null>(null);
+const workspaceNativeMountElement = shallowRef<HTMLElement | null>(null);
 defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value,
                getAuthoringWorkspaceLayoutPort: () => workspaceLayoutRef.value,
                getArticleWorkspaceRecoveryCheckpoint,
-               getArticleWorkspaceRetainedRecoveryPort });
+               getArticleWorkspaceRetainedRecoveryPort,
+               getArticleWorkspacePrimaryMountPort: () => primaryMountDisposed ? null : primaryMountPort });
 const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
     dirty: requiresLeaveConfirm.value && !pageLoading.value,
     saving: submitting.value,
@@ -1069,7 +1080,8 @@ let workspaceSyncToken = 0;
 let lastWorkspaceStatusDigest = '';
 
 const workspaceCanRegister = computed(() => (
-    !pageLoading.value
+    !workspacePrimaryMountOnly.value
+    && !pageLoading.value
     && !(isEdit.value && workspaceArticleId.value === null)
     && (!isEdit.value || articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0)
 ));
@@ -1094,7 +1106,7 @@ const syncWorkspaceTab = async (): Promise<void> =>
             route: route.fullPath
         }
     ));
-    if (token !== workspaceSyncToken || workspaceIdentity.value.documentId !== identity.documentId)
+    if (token !== workspaceSyncToken || workspacePrimaryMountOnly.value || workspaceIdentity.value.documentId !== identity.documentId)
     {
         return;
     }
@@ -1123,7 +1135,7 @@ watch(
     [() => articleForm.title, workspaceStatus],
     ([title, status]) =>
     {
-        if (!workspaceTabId.value)
+        if (workspacePrimaryMountOnly.value || !workspaceTabId.value)
         {
             return;
         }
@@ -1290,6 +1302,165 @@ function getArticleWorkspaceRetainedRecoveryPort(): ArticleWorkspaceRetainedReco
 {
     return getArticleWorkspaceRecoveryCheckpoint() ? retainedRecoveryPort : null;
 }
+
+let primaryMountDisposed = false;
+let primaryMountGeneration = 0n;
+let cancelPrimaryMount: (() => void) | null = null;
+
+/** Await the existing real subtree; this cannot adopt a different restored document/body owner. */
+function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
+{
+    if (primaryMountDisposed || cancelPrimaryMount)
+    {
+        return Promise.reject(new Error('article-workspace-primary-mount-owner-unavailable'));
+    }
+    const generation = ++primaryMountGeneration;
+    return new Promise<void>((resolve, reject) =>
+    {
+        let settled = false;
+        let stopWatching: (() => void) | null = null;
+        const cancel = (): void => finish(false, new Error('article-workspace-primary-mount-cancelled'));
+        const finish = (completed: boolean, error?: unknown): void =>
+        {
+            if (settled)
+            {
+                return;
+            }
+            settled = true;
+            stopWatching?.();
+            signal.removeEventListener('abort', cancel);
+            if (cancelPrimaryMount === cancel)
+            {
+                cancelPrimaryMount = null;
+            }
+            if (!completed)
+            {
+                reject(error instanceof Error ? error : new Error('article-workspace-primary-mount-failed'));
+            }
+            else
+            {
+                resolve();
+            }
+        };
+        // Reserve before any caller-held entry/native read can synchronously reenter.
+        cancelPrimaryMount = cancel;
+        let registry: ReturnType<typeof articleWorkspaceTabRouter.getRegistry>;
+        let registryRevision: number;
+        let context: typeof authoringDocumentContext.value;
+        let identity: ArticleDocumentIdentity;
+        let documentContext: ArticleDocumentContextRef;
+        let mountOnly: boolean;
+        let expectedDigest: string;
+        const assertCurrent = (): void =>
+        {
+            signal.throwIfAborted();
+            if (settled || primaryMountDisposed || primaryMountGeneration !== generation || cancelPrimaryMount !== cancel
+                || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== registryRevision
+                || authoringDocumentContext.value !== context || workspaceIdentity.value !== identity
+                || workspaceDocumentContext.value !== documentContext
+                || workspacePrimaryMountOnly.value !== mountOnly
+                || calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) !== expectedDigest
+                || calculateOpenArticleDocumentDigest(entry) !== expectedDigest)
+            {
+                throw new Error('article-workspace-primary-mount-association-stale');
+            }
+        };
+        const attempt = (): void =>
+        {
+            if (settled)
+            {
+                return;
+            }
+            try
+            {
+                assertCurrent();
+                const root = workspaceWriteElement.value;
+                const element = workspaceNativeMountElement.value;
+                const component = articleEditorRef.value;
+                const source = workspaceMountedSource.value;
+                const bound = mountedWriterBinding;
+                if (pageLoading.value || !root?.isConnected || !element?.isConnected || !component || !source || !bound)
+                {
+                    return;
+                }
+                if (element.ownerDocument !== root.ownerDocument || !root.contains(element) || bound.mountedSource !== source)
+                {
+                    throw new Error('article-workspace-primary-physical-mount-owner-mismatch');
+                }
+                const bindingGeneration = editorBindingGeneration;
+                const ownerDocument = root.ownerDocument;
+                const native = component.getAuthoringSessionPort?.();
+                const mounted = source.readMountedEditor(entry.editorSessionRef);
+                const observed = source.readDocumentBinding(entry.editorSessionRef);
+                assertCurrent();
+                if (!native || mounted !== native || native !== boundEditorPort
+                    || articleEditorRef.value !== component || workspaceMountedSource.value !== source || mountedWriterBinding !== bound
+                    || editorBindingGeneration !== bindingGeneration || workspaceWriteElement.value !== root
+                    || workspaceNativeMountElement.value !== element || !root.isConnected || !element.isConnected || !root.contains(element)
+                    || root.ownerDocument !== ownerDocument || element.ownerDocument !== ownerDocument
+                    || observed?.identity.articleId !== identity.articleId || observed.identity.draftId !== identity.draftId
+                    || observed.identity.documentId !== identity.documentId
+                    || observed.documentContext.documentEpoch !== documentContext.documentEpoch
+                    || observed.documentContext.sourceRevision !== documentContext.sourceRevision
+                    || observed.documentContext.draftRevision !== documentContext.draftRevision)
+                {
+                    throw new Error('article-workspace-primary-native-document-owner-unavailable');
+                }
+                // Only physical completion. The original composition/factory still checks resources/admission.
+                finish(true);
+            }
+            catch (error)
+            {
+                finish(false, error);
+            }
+        };
+        try
+        {
+            registry = articleWorkspaceTabRouter.getRegistry();
+            registryRevision = registry.getRevision();
+            context = authoringDocumentContext.value;
+            identity = workspaceIdentity.value;
+            documentContext = workspaceDocumentContext.value;
+            mountOnly = workspacePrimaryMountOnly.value;
+            const expected = registry.getEntry(entry.tabId);
+            expectedDigest = calculateOpenArticleDocumentDigest(expected);
+            if (!expected || calculateOpenArticleDocumentDigest(entry) !== expectedDigest
+                || expected.identity.articleId !== identity.articleId || expected.identity.draftId !== identity.draftId
+                || expected.identity.documentId !== identity.documentId
+                || expected.documentContext.documentEpoch !== documentContext.documentEpoch
+                || expected.documentContext.sourceRevision !== documentContext.sourceRevision
+                || expected.documentContext.draftRevision !== documentContext.draftRevision
+                || expected.status.permission !== 'allowed' || expected.status.lifecycle !== 'current')
+            {
+                throw new Error('article-workspace-primary-retained-document-adoption-owner-required');
+            }
+            assertCurrent();
+            signal.addEventListener('abort', cancel, { once: true });
+            stopWatching = watch([workspaceWriteElement, workspaceNativeMountElement, articleEditorRef, workspaceMountedSource,
+                                  authoringDocumentContext, workspaceDocument, pageLoading, workspacePrimaryMountOnly], attempt, { flush: 'post' });
+            if (settled)
+            {
+                stopWatching();
+            }
+            else
+            {
+                void nextTick().then(attempt, error => finish(false, error));
+            }
+        }
+        catch (error)
+        {
+            finish(false, error);
+        }
+    });
+}
+
+const primaryMountPort = Object.freeze({ prepareMountedEditor: preparePrimaryMountedEditor }) satisfies AuthoringWorkspacePrimaryMountPort;
+onBeforeUnmount(() =>
+{
+    primaryMountDisposed = true;
+    primaryMountGeneration += 1n;
+    cancelPrimaryMount?.();
+});
 
 watch([workspaceMountedSource, workspaceTabId, workspaceDocumentContext], bindWorkspaceRecoveryCheckpoint, { flush: 'post' });
 
