@@ -211,6 +211,31 @@ earlier loans. An original document transaction invalidates its current lease an
 intent; observed upload facts grant no reference, cleanup or document permission.
 This source API alone does not qualify Writer wiring or product endpoints.
 
+The same upload producers expose `requestUploadFile`, `requestStartUpload` and
+`requestResumeUpload` with separate `result` and `settled` promises, `cancelLocal`
+and a fresh immutable `inspectLocalResources` census. Existing Promise callers
+use these producers' results. Each private attempt retains its original File,
+options, runtime options and observed work; each Flow run retains its original
+context and actual child requests after public reset. Resource IDs are local to
+the request; Flow prefixes child IDs with the actual file occurrence. Cancellation
+passes an owned signal to the existing init/status/map/part/complete API calls,
+clears actual retry timers and revokes finite borrow scopes. It requests the
+existing Flow task cancellation without cancelling another run. Canonical remote
+abort retains its original init acknowledgement and separate cleanup authority;
+its result is not an atomic local or remote cancellation receipt.
+
+The census distinguishes pending results, owned active timers/listeners, known
+timer/listener cleanup and unknown producer terminals. Compression, hash,
+transport and consumer callbacks currently expose results without full local
+terminal capabilities, so their terminal remains `unknown` even after fulfillment
+or rejection. `settled` stays pending while any such unknown, active resource or
+unfinished execution remains. No checkpoint is exposed. This attempt census
+does not claim termination of shared codec initialization, hidden compression
+resources, fetch/body/decode work or worker requests. Their original owners must
+provide terminal capabilities before this boundary can qualify full local
+settlement; generation invalidation, remote abort and result completion do not
+substitute for those capabilities.
+
 `useAdminArticleWrite.authoringEditorRuntime.bindEditor` composes the existing
 anchor, attachment, render-cache and continuity owners on one actual public editor
 port. The returned `binding` keeps live canonical context, render-state and pending
