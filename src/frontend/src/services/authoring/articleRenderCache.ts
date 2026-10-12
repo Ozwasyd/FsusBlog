@@ -494,7 +494,6 @@ export class ArticleRenderCache
             // Reserve before validators/getters/verification callbacks. Their
             // failure is not permission to retry cleanup or infer no resources.
             releaseAttempted = true;
-            let verifierReturned = false;
             try
             {
                 if (!validateArticleRenderResult(producedResult))
@@ -519,7 +518,6 @@ export class ArticleRenderCache
                     return;
                 }
                 const verified = this.producer.verify(request, producedResult);
-                verifierReturned = true;
                 // Verification is an external callback. Its true return cannot
                 // authorize cleanup of a pre-captured reference after mutation.
                 if (!validateArticleRenderResult(producedResult)
@@ -541,10 +539,10 @@ export class ArticleRenderCache
             }
             catch (error)
             {
-                if (verifierReturned)
-                {
-                    rememberCleanupFailure(error);
-                }
+                // A synchronous validator/verifier can throw unfinished work.
+                // Reserve its ACTUAL cause before propagating; return/complete of
+                // the separate render endpoint cannot attest this obligation.
+                rememberCleanupFailure(error);
                 producerFailure ??= new Error('article-render-producer-result-unconfirmed', { cause: error });
                 throw error;
             }

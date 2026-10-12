@@ -1,5 +1,5 @@
 {
-  "recordedAtUtc": "2026-10-12T03:03:51.741402+00:00",
+  "recordedAtUtc": "2026-10-12T03:28:13.109443+00:00",
   "sourceOnly": true,
   "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
   "lastVerifiedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
@@ -11,16 +11,16 @@
   "branch": "codex/issue-2245-render-terminal",
   "changes": {
     "src/frontend/src/services/authoring/articleRenderCache.ts": {
-      "sha256": "aebd3246382673bd3bd7c607158addf375425fca6e5cbc11a2d4fb3b086f9462",
-      "blob": "35256e567aaef8d6885fc8d8d0da005d61c8f9f7"
+      "sha256": "08cf6a7d5b2432250672daac6cbc83152a7d28a955a341e919a9569b2d3cfc55",
+      "blob": "d9d579c7cb6d486c122dc1320bb9a01e92f8fb30"
     },
     "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
-      "sha256": "3f0a58369934f3d669e62d546c7a4af4e24136adb52be15d0cd5b72a2df22749",
-      "blob": "abd2675d9303d6beeb4b1a0d239ef97596eca9cd"
+      "sha256": "f7fd6db5db7aa7352321c87c75de8d30eee0d93c0a9714afc6def197d8b1b377",
+      "blob": "b62cd39ddbf8f072ada27eaccfbc69caf2b8f838"
     },
     "docs/architecture/overview.md": {
-      "sha256": "685cc11b1deabcd4917ed66a3de88bd160a9c75937b7eb660b4edd5a250f6a38",
-      "blob": "89e3d9e732547826663cb59842d9db970351cefa"
+      "sha256": "ed0406a0db0258d86feebf824384af0bdf20a70493a40b6ab2570ea2e0a7a668",
+      "blob": "cb61f582c93c50a3f489e55f45946368393e04c3"
     }
   },
   "frozen": {
@@ -77,7 +77,7 @@
       "exitCode": 0
     }
   ],
-  "sourceControls": "Cache21 source blocks unchanged, UNRUN/HOLD; upstream two additional observer source controls separately UNRUN; no collection/test-list or runtime executed",
+  "sourceControls": "Cache22 source blocks UNRUN/HOLD, including pre-return cleanup verifier actual unknown/future throw; supplier observer controls separately UNRUN",
   "holds": [
     "runtime",
     "test",
@@ -90,13 +90,13 @@
     "migration/ProjectXML/Git replacement QA"
   ],
   "qualification": false,
-  "remainingProducerGap": "Observer P2 original source repair is consumed, not independently accepted here. Cache3e40 and producer3c5e3f19 original independent reviews and the latest intake/composition remain pending; opaque native cleanup and all runtime/product qualification remain HOLD.",
+  "remainingProducerGap": "NEW OPEN original producer species-subclass/await hidden derived rejection P2 is assigned to original Writer owner. Canonical efec36c9 source is unchanged here and latest combination is not source closed. Independent review, native cleanup and all execution qualifications remain HOLD.",
   "remainingCallerGap": "Same-work continuity/runtime/source-compare exact supplier source consumed. Original product mounts, separate tool/preview/native restoration futures and full-session factory/cleanup acceptance remain open.",
   "contentApiWrites": "Only explicitly authorized own draft PR creation/update; no issue/other PR/comment/label writes",
   "newPr": "https://github.com/Ozwasyd/FsusBlog/pull/4230",
   "oldDraftPrUpdated": false,
-  "checkedSourcePreimage": "3600adc6906a3b296357c3bc5cfb8ed1844be9ae",
-  "reviewRepair": "Exact original producer observer repair consumed from3c5e3f19/efec36c9; explicit fulfillment discard and original derived Promise/completion/async cause custody. Own cache3e40 and same-request/work/Promise consumer source unchanged. No second authority or widened implementation.",
+  "checkedSourcePreimage": "9e293a59fa04241113e31b26f1fa123be0471cad",
+  "reviewRepair": "Remove verifierReturned exemption. Every actual cleanup classification exception is latched with original cause/future before propagation. Successful render endpoint never overrides verification obligation; original owned R/work/lease remains held through future resolution/dispose. No second authority.",
   "currentStackedSupplier": "efec36c93f305b0f12f8398c6fd6b701a044bfee",
   "supplierActualRepair": "3c5e3f19b0f9cf1a6aafc6b308a76f43f9a03b0e",
   "supersededKnownDefectSupplier": "79da045da19a57b6a73ce4ec735d68120cd49d5f",
@@ -133,13 +133,5 @@
       "matchesSupplier": true
     }
   },
-  "preservedOwnCleanupVerifierRepair": "3e40f95b108e5609fa2b4d6c720f3b4c3b0817f8",
-  "preservedOwnSourceBlobs": {
-    "src/frontend/src/services/authoring/articleRenderCache.ts": {
-      "matches3e40": true
-    },
-    "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
-      "matches3e40": true
-    }
-  }
+  "preservedOwnCleanupVerifierRepair": "3e40f95b108e5609fa2b4d6c720f3b4c3b0817f8 (immutable historical repair; this follow-up strengthens pre-return failure custody)"
 }

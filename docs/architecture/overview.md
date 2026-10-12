@@ -335,7 +335,12 @@ is classified after the render future ends. Cleanup verifier return is followed
 by full closed-result/request/reference/digest revalidation; mutation or a
 post-callback validation exception latches this original owner's cleanup failure.
 Even a completed producer endpoint cannot authorize release or settlement over
-that held validation failure. The original work/owned reference/lease stay held. Separate tool/preview/native restoration work still needs its
+that held validation failure.
+This lock also applies before the cleanup verifier returns: synchronous validation
+or verification can throw an actual unfinished future or opaque cause. The cause
+is retained before propagation, without a `verifierReturned` exemption. A separate
+successful render terminal or later resolution of that undeclared future does
+not prove verification cleanup ended or permit settlement. The original work/owned reference/lease stay held. Separate tool/preview/native restoration work still needs its
 own real terminal endpoint. Runtime/native and product qualification remain held.
 
 `ArticleFsusUiRenderProducer` consumes the public renderer/projection APIs through

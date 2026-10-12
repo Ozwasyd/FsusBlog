@@ -610,7 +610,7 @@ describe('original render future and cleanup settlement (#2245)', () =>
             await work.receipt;
             await expect(work.terminal).rejects.toThrow('actual-validator-property-failure');
             expect(work.producerFailure?.cause).toBe(actualError);
-            expect(work.cleanupFailure).toBeNull();
+            expect(work.cleanupFailure?.cause).toBe(actualError);
             expect(read).toHaveBeenCalledTimes(3);
             expect(adapter.pendingTaskRefs).toContain(work.taskRef);
             expect(cache.pendingRefreshWork).toContain(work);
@@ -635,13 +635,22 @@ describe('original render future and cleanup settlement (#2245)', () =>
             });
             const work = cache.startRefresh();
             await work.receipt;
-            await work.terminal;
-            // Logical verifier errors remain recorded; the explicit original
-            // unit-producer terminal and owned-reference cleanup actually ended.
+            if (failure.startsWith('throw'))
+            {
+                await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
+                expect(work.cleanupFailure?.cause).toBe(actualError);
+                expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+                expect(cache.pendingRefreshWork).toContain(work);
+                expect(producer.release).not.toHaveBeenCalled();
+            }
+            else
+            {
+                await work.terminal;
+                expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
+                expect(cache.pendingRefreshWork).not.toContain(work);
+                expect(producer.release).toHaveBeenCalledTimes(1);
+            }
             expect(work.producerFailure).not.toBeNull();
-            expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
-            expect(cache.pendingRefreshWork).not.toContain(work);
-            expect(producer.release).toHaveBeenCalledTimes(1);
         }
     });
 
@@ -885,6 +894,48 @@ describe('original render future and cleanup settlement (#2245)', () =>
             expect(cache.pendingRefreshWork).toContain(work);
             cache.dispose();
             expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(producer.release).not.toHaveBeenCalled();
+        }
+    });
+
+
+    it('latches an actual pre-return cleanup verification future independently of successful rendering', async () =>
+    {
+        for (const kind of ['pending-future', 'external-error', 'opaque-thenable', 'null', 'undefined'] as const)
+        {
+            const { adapter, cache, producer } = setup(1);
+            const pending = deferred<void>();
+            const then = vi.fn(() => { throw new Error('unknown-verifier-cause-must-not-be-assimilated'); });
+            const cause: unknown = kind === 'pending-future' ? pending.promise
+                : kind === 'external-error' ? new Error('actual-before-return-verifier-failure')
+                    : kind === 'opaque-thenable' ? Object.freeze({ get then() { return then(); } })
+                        : kind === 'null' ? null : undefined;
+            let output!: ArticleRenderResult;
+            vi.mocked(producer.render).mockImplementationOnce(async request =>
+            {
+                output = resultFor(request);
+                return output;
+            });
+            vi.mocked(producer.verify).mockReturnValueOnce(true);
+            vi.mocked(producer.verify).mockImplementationOnce(() => { throw cause; });
+            const work = cache.startRefresh();
+            const response = await work.receipt;
+            expect(response.status).toBe('failed');
+            expect(work.productionState).toBe('fulfilled');
+            expect(work.producerWork?.resultRef).toBe(output.resultRef);
+            await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
+            expect(work.cleanupFailure?.cause).toBe(cause);
+            expect(work.producerFailure?.cause).toBe(cause);
+            expect(producer.verify).toHaveBeenCalledTimes(2);
+            expect(producer.release).not.toHaveBeenCalled();
+            expect(then).not.toHaveBeenCalled();
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
+            pending.resolve();
+            await pending.promise;
+            cache.dispose();
+            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).toContain(work);
             expect(producer.release).not.toHaveBeenCalled();
         }
     });
