@@ -1,0 +1,21 @@
+{
+  "source": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
+  "requestPath": "artifacts/article-editor/issue-2295-composition-admission-seal/original-producer-requests.json",
+  "writerRequest": {
+    "owner": "original Writer",
+    "file": "src/frontend/src/composables/useAdminArticleWrite.ts",
+    "actual": "same authoringEditorRuntime.bindEditor runtime; release; originalMountedEditor/originalMountedRuntime/editorRuntimeBinding; componentAttached/active; fullDraftPrincipalRetired; preparedDraftCustody; subscribeLifetime",
+    "requested": [
+      "same original mounted runtime.sealMountedAuthority(editorSessionRef: string): MountedWriterSeal | null",
+      "same original mounted runtime.hasMountedAuthorityCustody(seal: MountedWriterSeal): boolean",
+      "same original mounted runtime.cancelMountedAuthority(seal: MountedWriterSeal): boolean"
+    ],
+    "events": "retire BEFORE release() first recoveryCheckpoint.release callback, pointer replacement, component unmount/scope dispose/active=false, context/retained member changes, actual auth token invalidation. Existing draft candidate private has is genuine but downstream lifetime listener occurs after Document cleanup; id-only principal watch does not attest permissions/admin admission.",
+    "actualSourceBlobs": {
+      "src/frontend/src/composables/useAdminArticleWrite.ts": "ab2a1ab6630a2129094ea4b559bfcf2c97357f1e"
+    }
+  },
+  "actualSource": "b697029cf7debd9f368bd0420a1d120717affa71",
+  "authDocumentApis": "not present; positive issuance blocked",
+  "mainAdaptation": "exact three-path patch, derived actual original Writer type aliases; no full file overwrite"
+}

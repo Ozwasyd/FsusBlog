@@ -1,0 +1,6 @@
+{
+  "source": "b697029cf7debd9f368bd0420a1d120717affa71",
+  "base": "69b62c3d71592b63cae325ea5cd9836dec97e58b",
+  "sha256": "5c37477f0c4495eab3d492bc51c351799c590121832db86f51c99840dbe9d567",
+  "normalization": "only space-only blank context lines in tracked artifact"
+}

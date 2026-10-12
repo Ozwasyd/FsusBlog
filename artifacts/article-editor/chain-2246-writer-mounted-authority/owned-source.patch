@@ -1,0 +1,368 @@
+diff --git a/src/frontend/src/composables/useAdminArticleWrite.ts b/src/frontend/src/composables/useAdminArticleWrite.ts
+index 9d96bbe32..1520a71cb 100644
+--- a/src/frontend/src/composables/useAdminArticleWrite.ts
++++ b/src/frontend/src/composables/useAdminArticleWrite.ts
+@@ -1,4 +1,4 @@
+-import { computed, effectScope, onMounted, onScopeDispose, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
++import { computed, effectScope, onActivated, onBeforeUnmount, onDeactivated, onMounted, onScopeDispose, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
+ import { useRoute, useRouter } from 'vue-router';
+
+ import {
+@@ -92,11 +92,19 @@ import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspace
+ import { createArticleWriterMountedEditorSource } from '@/services/authoring/articleWriterMountedEditorSource';
+ import { calculateOpenArticleDocumentDigest, type RetainedArticleDocumentHandle } from '@/services/authoring/openArticleDocumentRegistry';
+ import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
++import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
+ import { useAdminStore } from '@/store/admin';
+ import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
+ import { isAbortError } from '@/utils/errors';
+
+-import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
++import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSession, MarkdownEditorSessionExpose, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
++
++const mountedWriterAuthorityBrand: unique symbol = Symbol('article-writer-mounted-authority');
++
++/** Accepted only by the issuing original mounted runtime, never copied metadata. */
++export interface MountedWriterSeal {
++    readonly [mountedWriterAuthorityBrand]: true;
++}
+
+ interface ArticleParams {
+     title: string;
+@@ -1017,8 +1025,35 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+     // This slot retains only the original object identity; the mounted source validates its public ports.
+     let originalMountedEditor: object | null = null;
+     let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
++    // Original Writer physical custody only. This hook is not auth/member authority.
++    let revokeCurrentMountedAuthority: (() => void) | null = null;
++    let mountedComponentActive = true;
++    onDeactivated(() =>
++    {
++        mountedComponentActive = false;
++        revokeCurrentMountedAuthority?.();
++    });
++    onActivated(() =>
++    {
++        revokeCurrentMountedAuthority?.();
++        mountedComponentActive = true;
++    });
++    onBeforeUnmount(() =>
++    {
++        mountedComponentActive = false;
++        revokeCurrentMountedAuthority?.();
++        componentAttached = false;
++    });
++    onScopeDispose(() => revokeCurrentMountedAuthority?.());
++    const unsubscribeMountedAuthorityContext = articleDocumentContextAdapter.subscribeContext(() => revokeCurrentMountedAuthority?.());
++    onScopeDispose(unsubscribeMountedAuthorityContext);
++    // Revocation-only observation of real auth/private-surface source. These watches
++    // cannot issue an auth token or attest permissions, expiry or admin admission.
++    watch(() => [adminStore.adminPrincipal, adminStore.adminState, adminStore.adminSessionStatus,
++        adminStore.permissions, privateSurfaceRuntime.authGeneration.value, privateSurfaceRuntime.isClearing.value],
++    () => revokeCurrentMountedAuthority?.(), { deep: true, flush: 'sync' });
+     const authoringEditorRuntime = Object.freeze({
+-        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
++        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort> & Partial<MarkdownEditorSessionExpose>, options: ArticleEditorRuntimeBindingOptions,
+             readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
+         {
+             if (!active || editorRuntimeBinding)
+@@ -1049,12 +1084,122 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                 releaseAttachmentEditor();
+                 throw error;
+             }
++            revokeCurrentMountedAuthority?.();
+             editorRuntimeBinding = binding;
+             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
+             let recoveryCheckpoint: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
+             let recoveryCheckpointCreating = false;
++            // One reservation in this actual mounted runtime, not a second mount/session store.
++            interface MountedWriterCustody {
++                readonly seal: MountedWriterSeal;
++                readonly runtime: object;
++                readonly editor: object;
++                readonly binding: ArticleEditorRuntimeBinding;
++                readonly editorSessionRef: string;
++                readonly session: MarkdownEditorSession;
++                readonly generation: number;
++            }
++            let mountedAuthorityCustody: MountedWriterCustody | null = null;
++            let mountedAuthorityGeneration = 0;
++            let mountedAuthorityReleased = false;
++            let mountedAuthorityPreparing = false;
++            const revokeMountedAuthority = (): void =>
++            {
++                mountedAuthorityCustody = null;
++                // Retire before any original external callback; old generations cannot revive.
++                if (mountedAuthorityGeneration === Number.MAX_SAFE_INTEGER)
++                {
++                    mountedAuthorityReleased = true;
++                }
++                else
++                {
++                    mountedAuthorityGeneration += 1;
++                }
++            };
++            const mountedAuthorityCurrent = (): boolean =>
++                !mountedAuthorityReleased && active && componentAttached && mountedComponentActive && writerScope.active
++                && !fullDraftPrincipalRetired && !fullDraftReleased
++                && editorRuntimeBinding === binding && originalMountedEditor === editor && originalMountedRuntime === mountedRuntime;
++            const sealMountedAuthority = (editorSessionRef: string): MountedWriterSeal | null =>
++            {
++                if (mountedAuthorityPreparing || !mountedAuthorityCurrent() || typeof editorSessionRef !== 'string' || !editorSessionRef)
++                {
++                    return null;
++                }
++                mountedAuthorityPreparing = true;
++                const generation = mountedAuthorityGeneration;
++                let candidate: MountedWriterCustody | null = null;
++                try
++                {
++                    const context = articleDocumentContextAdapter.context;
++                    const mounted = mountedSource?.readMountedEditor(editorSessionRef);
++                    if (mounted !== editor || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
++                    {
++                        return null;
++                    }
++                    const session = mounted.getSession(editorSessionRef);
++                    const native = session.inspectDocumentState();
++                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
++                        || native.documentIdentity.id !== context.documentId || native.documentIdentity.epoch !== context.documentEpoch
++                        || native.revision !== context.sourceRevision || !articleDocumentContextAdapter.isCurrentContext(context)
++                        || mountedSource?.readMountedEditor(editorSessionRef) !== mounted || mounted.getSession(editorSessionRef) !== session
++                        || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
++                    {
++                        return null;
++                    }
++                    const seal = Object.freeze<MountedWriterSeal>({ [mountedWriterAuthorityBrand]: true });
++                    candidate = Object.freeze({ seal, runtime: mountedRuntime, editor, binding, editorSessionRef, session, generation });
++                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
++                    {
++                        return null;
++                    }
++                    mountedAuthorityCustody = candidate;
++                    // Actual auth and Document membership/lifetime seal APIs are absent
++                    // at this source. Do not return the physical candidate as authority.
++                    // Their genuine token types/private has/cancel must be supplied by
++                    // the original producers (issue2295) before issuance can be enabled.
++                    return null;
++                }
++                finally
++                {
++                    if (candidate && mountedAuthorityCustody === candidate)
++                    {
++                        mountedAuthorityCustody = null;
++                    }
++                    mountedAuthorityPreparing = false;
++                }
++            };
++            const hasMountedAuthorityCustody = (seal: MountedWriterSeal): boolean =>
++            {
++                const custody = mountedAuthorityCustody;
++                if (!seal || custody?.seal !== seal || mountedAuthorityPreparing || !mountedAuthorityCurrent()
++                    || custody.runtime !== originalMountedRuntime || custody.editor !== originalMountedEditor
++                    || custody.binding !== editorRuntimeBinding || custody.generation !== mountedAuthorityGeneration)
++                {
++                    return false;
++                }
++                // Pure physical custody alone is insufficient; no real upstream
++                // auth/member token has been issued or joined in this WIP.
++                return false;
++            };
++            const cancelMountedAuthority = (seal: MountedWriterSeal): boolean =>
++            {
++                if (!seal || mountedAuthorityCustody?.seal !== seal)
++                {
++                    return false;
++                }
++                mountedAuthorityCustody = null;
++                return true;
++            };
+             const release = (): void =>
+             {
++                // This is actual producer retirement, BEFORE recovery release can reenter/throw.
++                mountedAuthorityReleased = true;
++                mountedAuthorityCustody = null;
++                if (revokeCurrentMountedAuthority === revokeMountedAuthority)
++                {
++                    revokeCurrentMountedAuthority = null;
++                }
+                 if (editorRuntimeBinding !== binding)
+                 {
+                     return;
+@@ -1123,11 +1268,13 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+             };
+             const mountedSource = readMountedEditor
+                 ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
+-                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
++                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding,
++                    () => active && writerScope.active && componentAttached && editorRuntimeBinding === binding && originalMountedEditor === editor
++                        ? authoringDraftCheckpointRuntime : null)
+                 : null;
+             const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointPublicationBinding & {
+                 /** Native retained snapshot only; complete application factory custody remains unavailable. */
+-                captureRetainedSnapshot(reference: string): MarkdownEditorSessionSnapshot;
++                captureRetainedSnapshot(reference: string, assertAdmission?: () => void): MarkdownEditorSessionSnapshot;
+             } =>
+             {
+                 const identityId = recoveryIdentityId();
+@@ -1236,7 +1383,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                         hasPreparedCustody: (candidate, info) => issued.hasPreparedCustody(candidate, info),
+                         publishPrepared: (candidate, info) => issued.publishPrepared(candidate, info),
+                         cancelPrepared: candidate => issued.cancelPrepared(candidate),
+-                        captureRetainedSnapshot: reference =>
++                        captureRetainedSnapshot: (reference, assertAdmission?: () => void) =>
+                         {
+                             const source = readSource();
+                             const mounted = mountedSource.readMountedEditor(editorSessionRef);
+@@ -1255,7 +1402,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                                     throw new Error('article-recovery-native-source-checkpoint-mismatch');
+                                 }
+                                 return calculateOpenArticleDocumentDigest(nativeSource);
+-                            }, { documentIdentity: { id: source.documentId, epoch: source.documentEpoch }, revision: source.editorRevision });
++                            }, { documentIdentity: { id: source.documentId, epoch: source.documentEpoch }, revision: source.editorRevision, assertAdmission });
+                             if (mountedSource.readMountedEditor(editorSessionRef) !== mounted
+                                 || mounted.getSession(editorSessionRef) !== session || !issued.inspectReference(reference)
+                                 || snapshot.documentIdentity.id !== source.documentId
+@@ -1288,7 +1435,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+                 }
+             };
+             const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
++                sealMountedAuthority, hasMountedAuthorityCustody, cancelMountedAuthority,
+                 search: searchRuntime, mountedSource });
++            revokeCurrentMountedAuthority?.();
++            revokeCurrentMountedAuthority = revokeMountedAuthority;
+             originalMountedEditor = editor;
+             originalMountedRuntime = mountedRuntime;
+             return mountedRuntime;
+@@ -2545,6 +2695,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+             }
+         },
+         inspectDraftReference,
++        /** Original private slot continuity only; never replaces preceding fresh owner/body inspection. */
++        hasDraftReferenceCustody: (reference: string, info: ReturnType<typeof fullDraftInfo>): boolean =>
++            !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
++            && fullDraftCustody?.info === info && fullDraftCustody.info.draftStateRef === reference,
+         validateDraftReference: (reference: string, nativeSource: string): boolean =>
+             !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
+         restoreDraftReference: (reference: string) =>
+@@ -2602,6 +2756,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+     {
+         if (identity !== previous)
+         {
++            revokeCurrentMountedAuthority?.();
+             // Retirement is permanent for this original owner, including A→null/B→A.
+             fullDraftPrincipalRetired = true;
+             invalidateDraftCheckpoint();
+@@ -4221,6 +4376,9 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+             unsubscribeRetainedContext = retained.adapter.subscribeContext(syncAuthoringDocumentContext);
+             unsubscribeRetainedLifetime = retained.subscribeLifetime(() =>
+             {
++                // Local physical revocation only; this late listener is NOT a
++                // replacement for Document's early private lifetime/member seal.
++                revokeCurrentMountedAuthority?.();
+                 // Genuine member/lifetime notification cancels only the pending candidate.
+                 if (preparedDraftCustody)
+                 {
+@@ -4392,6 +4550,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+         {
+             return;
+         }
++        revokeCurrentMountedAuthority?.();
+         synchronousCleanupRunning = true;
+         active = false;
+         invalidateDraftCheckpoint();
+@@ -4476,6 +4635,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
+     };
+     onUnmounted(() =>
+     {
++        revokeCurrentMountedAuthority?.();
+         componentAttached = false;
+         if (!retainedPrimaryReady)
+         {
+diff --git a/src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts b/src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts
+index 425f2221d..086a67669 100644
+--- a/src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts
++++ b/src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts
+@@ -1,7 +1,10 @@
+ import type { ArticleWorkspaceMountedEditorResolver } from './fsusUiEditorSessionFactory';
+ import type { ArticleDocumentContextRef, ArticleDocumentIdentity } from './openArticleDocumentRegistry';
++import type { useAdminArticleWrite } from '../../composables/useAdminArticleWrite';
+ import type { MarkdownEditorSessionExpose } from '@ozwasyd/element-plus';
+
++type ArticleWorkspaceOriginalDraftCheckpoint = ReturnType<typeof useAdminArticleWrite>['authoringDraftCheckpointRuntime'];
++
+ /** Read the original Writer's retained mounts and document owner; do not echo router entries. */
+ export interface ArticleWorkspaceMountedEditorSource {
+     readMountedEditor(editorSessionRef: string): MarkdownEditorSessionExpose | null;
+@@ -9,6 +12,8 @@ export interface ArticleWorkspaceMountedEditorSource {
+         readonly identity: ArticleDocumentIdentity;
+         readonly documentContext: ArticleDocumentContextRef;
+     } | null;
++    /** Same actual original Writer owner; absent on sources that cannot borrow it. */
++    readDraftCheckpoint?(editorSessionRef: string): ArticleWorkspaceOriginalDraftCheckpoint | null;
+ }
+
+ /** No registry, mount creation, body/history copy or route fallback is owned here. */
+@@ -57,6 +62,18 @@ export function createArticleWorkspaceMountedEditorResolver(
+         {
+             throw new Error('article-workspace-mounted-editor-document-changed');
+         }
+-        return { editor, identity, documentContext, editorRevision: document.revision };
++        const draftCheckpoint = source.readDraftCheckpoint?.(sessionRef) ?? null;
++        const finalOwner = source.readDocumentBinding(sessionRef);
++        const finalDocument = session.inspectDocumentState();
++        if (source.readMountedEditor(sessionRef) !== editor || editor.getSession(sessionRef) !== session
++            || finalOwner?.identity.articleId !== identity.articleId || finalOwner.identity.draftId !== identity.draftId
++            || finalOwner.identity.documentId !== identity.documentId || finalOwner.documentContext.documentEpoch !== documentContext.documentEpoch
++            || finalOwner.documentContext.sourceRevision !== documentContext.sourceRevision || finalOwner.documentContext.draftRevision !== documentContext.draftRevision
++            || finalDocument.documentIdentity.id !== document.documentIdentity.id || finalDocument.documentIdentity.epoch !== document.documentIdentity.epoch
++            || finalDocument.revision !== document.revision)
++        {
++            throw new Error('article-workspace-mounted-editor-draft-source-changed');
++        }
++        return { editor, identity, documentContext, editorRevision: document.revision, draftCheckpoint };
+     };
+ }
+diff --git a/src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts b/src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts
+index 5f7b1f7bc..b804e0428 100644
+--- a/src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts
++++ b/src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts
+@@ -2,6 +2,9 @@ import type { ArticleDocumentContext, ArticleDocumentContextAdapter } from './ar
+ import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from './articleEditorContinuity';
+ import type { ArticleWorkspaceMountedEditorSource } from './articleWorkspaceMountedEditorResolver';
+ import type { OpenArticleDocumentRegistry } from './openArticleDocumentRegistry';
++import type { useAdminArticleWrite } from '../../composables/useAdminArticleWrite';
++
++type ArticleWorkspaceOriginalDraftCheckpoint = ReturnType<typeof useAdminArticleWrite>['authoringDraftCheckpointRuntime'];
+
+ /** Project the original context into the existing workspace reference vocabulary; this is not an identity or permission issuer. */
+ export function projectArticleWriterWorkspaceDocument(document: ArticleDocumentContext):
+@@ -20,7 +23,8 @@ export function createArticleWriterMountedEditorSource(
+     registry: OpenArticleDocumentRegistry,
+     editor: ArticleEditorContinuityPort,
+     readMountedEditor: () => ArticleEditorMountedSessionPort | null,
+-    isActive: () => boolean
++    isActive: () => boolean,
++    readOriginalDraft?: () => ArticleWorkspaceOriginalDraftCheckpoint | null
+ ): ArticleWorkspaceMountedEditorSource
+ {
+     const readMounted = (editorSessionRef: string): ArticleEditorMountedSessionPort | null =>
+@@ -53,6 +57,18 @@ export function createArticleWriterMountedEditorSource(
+     };
+     return Object.freeze({
+         readMountedEditor: readMounted,
++        readDraftCheckpoint: (editorSessionRef: string) =>
++        {
++            const mounted = readMounted(editorSessionRef);
++            const document = owner.context;
++            if (!mounted || !readOriginalDraft)
++            {
++                return null;
++            }
++            const draft = readOriginalDraft();
++            return draft && readMounted(editorSessionRef) === mounted && isActive() && owner.isCurrentContext(document)
++                ? draft : null;
++        },
+         readDocumentBinding: (editorSessionRef: string) =>
+         {
+             const mounted = readMounted(editorSessionRef);

@@ -1,0 +1,31 @@
+{
+  "files": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "1520a71cba6aea95540ec53a5810ab217ed07209",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts",
+      "blob": "b804e042888171bc9f5c93bed5273242d8e1256f",
+      "diagnostics": []
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts",
+      "blob": "086a67669b89519f3cb0ceea66d478bd681937f6",
+      "diagnostics": []
+    }
+  ],
+  "originalReleaseFirstStatements": [
+    "mountedAuthorityReleased = true;",
+    "mountedAuthorityCustody = null;",
+    "if (revokeCurrentMountedAuthority === revokeMountedAuthority)\n                {\n                    revokeCurrentMountedAuthority = null;\n                }",
+    "if (editorRuntimeBinding !== binding)\n                {\n                    return;\n                }",
+    "recoveryCheckpoint?.release();"
+  ],
+  "actualMain": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
+  "authDocumentGenuineSeals": "missing: issuance refused, no positive authority",
+  "candidateExecuted": false,
+  "testsRun": false,
+  "runtime": "HOLD/UNRUN"
+}

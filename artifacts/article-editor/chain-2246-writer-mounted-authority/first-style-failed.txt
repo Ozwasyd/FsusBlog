@@ -1,0 +1,12 @@
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1127:27 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1127:37 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1128:27 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1128:36 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1128:44 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .inspectDocumentState on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1130:35 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .documentIdentity on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1130:88 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .documentIdentity on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1131:35 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .revision on a type that cannot be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1132:94 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/composables/useAdminArticleWrite.ts:1138:115 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/services/authoring/articleWorkspaceMountedEditorResolver.ts:3:1 eslint/import-x/order: `./openArticleDocumentRegistry` type import should occur before type import of `../../composables/useAdminArticleWrite`
+[frontend-style] src/frontend/src/services/authoring/articleWriterMountedEditorSource.ts:5:1 eslint/import-x/order: `./openArticleDocumentRegistry` type import should occur before type import of `../../composables/useAdminArticleWrite`
