@@ -1,0 +1,105 @@
+{
+    "scope": "literal source AST controls only; all runtime/tests/list UNRUN",
+    "status": "PASS",
+    "failures": [],
+    "results": [
+        {
+            "id": "actual-original-admin",
+            "expectedAccepted": true,
+            "actualAccepted": true,
+            "passed": true,
+            "error": null
+        },
+        {
+            "id": "translated-values-do-not-change-schema",
+            "expectedAccepted": true,
+            "actualAccepted": true,
+            "passed": true,
+            "error": null
+        },
+        {
+            "id": "spread-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:unsupported-property-expression"
+        },
+        {
+            "id": "computed-key-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:unsupported-property-expression"
+        },
+        {
+            "id": "duplicate-key-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:duplicate-or-prototype-key:workspaceLayout"
+        },
+        {
+            "id": "identifier-value-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:unsupported-locale-value-expression"
+        },
+        {
+            "id": "getter-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:unsupported-property-expression"
+        },
+        {
+            "id": "method-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:unsupported-property-expression"
+        },
+        {
+            "id": "runtime-import-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:unsupported-locale-module-statement"
+        },
+        {
+            "id": "export-mutation-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:unsupported-locale-module-statement"
+        },
+        {
+            "id": "wrong-module-identity-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:locale-module-identity-mismatch"
+        },
+        {
+            "id": "algorithm-seed-drift-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:original-calculation-algorithm-drift"
+        },
+        {
+            "id": "algorithm-kind-drift-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:original-calculation-algorithm-drift"
+        },
+        {
+            "id": "algorithm-function-missing-refused",
+            "expectedAccepted": false,
+            "actualAccepted": false,
+            "passed": true,
+            "error": "locale-domain-schema-source:original-calculation-algorithm-drift"
+        }
+    ]
+}

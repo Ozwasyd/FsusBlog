@@ -1,0 +1,55 @@
+{
+    "rootBase": "62564bb29270a2bfc53e0ba5c24a2f30f24ecb42",
+    "mainDependency": "07ea5048bc8c01eaf3dd9b95dc22434016ae4dc5",
+    "sourceOfferOnly": true,
+    "paths": [
+        {
+            "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+            "baseBlob": "fdf41eb1aaaf9c502bfefb6a5f39ce595b0563d9",
+            "postimageSha256": "b88dce0d050e5a890014bdf499c5d2633525609c9c64561362a38fb3367331e8",
+            "productionEdited": false
+        },
+        {
+            "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
+            "baseBlob": "14819769ada8332a0125d686996cada2abe3709f",
+            "postimageSha256": "d5bf54ad19abdad1776175d177f04000f906f6d6001ee1ed8d94f001ed3600c6",
+            "productionEdited": false
+        },
+        {
+            "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
+            "baseBlob": "166e0b6f3da6b500e1a70579b7a7b6a9228b46b6",
+            "postimageSha256": "52d32a26c69ee6a984f057343e716d89a44ce6ac285dfe1f1d9b3a10a75ecde7",
+            "productionEdited": false
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts",
+            "baseBlob": "7b78e7cdb9b7bf299f83af96937b132d1d8cecaa",
+            "postimageSha256": "7d0e87f2454c2c5c4345e0486b7f748c225cdc1e34346d597316040d93b41cd2",
+            "productionEdited": false
+        }
+    ],
+    "missingProductionProvider": "connectAdminArticleWorkspaceSnapshotStartup has declaration only in entire Root625 frontend; original startup.prepareMountedEditor still needs real route-outlet/native-view operation binding",
+    "nativeRetainedAdoption": "Original useAdminArticleWrite is one route-owned adapter; no actual restored handle/full-form/view adoption API in this source; nonmatching/read-only entries refuse",
+    "runtime": "ALL HOLD/UNRUN",
+    "patchSha256": "45fa6f9944317b8083378cff4323c9643c1822c7480ff360746fbe2cc6a778ed",
+    "layoutBase": "1374af6fa184933b4448d7e457a374cf14f8fd52",
+    "ownedSource": [
+        {
+            "path": "src/frontend/src/views/admin/article/Write.vue",
+            "sha256": "ce2885086930584288ebcd709dcc93e39bcd45c9fc0d07ee10a1adfbe74464b6"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
+            "sha256": "acb3b22dae5472e061d1196cffca2885c1f2d5e4c79640865e78df3f51d03521"
+        }
+    ],
+    "layoutPatch": {
+        "base": "1374af6fa184933b4448d7e457a374cf14f8fd52",
+        "rootSourceFilesAt625MatchBase": true,
+        "sha256": "a5a74089b1d15299e358944da1ddaa30769df648d6e9cfb538800c846126b2a4",
+        "paths": [
+            "src/frontend/src/views/admin/article/Write.vue",
+            "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts"
+        ]
+    }
+}

@@ -1,0 +1,426 @@
+diff --git a/src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue b/src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue
+index ba63dff63..680728696 100644
+--- a/src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue
++++ b/src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue
+@@ -88,11 +88,12 @@
+
+ <script setup lang="ts">
+ import { FsusResizeSeparator } from '@ozwasyd/element-plus';
+-import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue';
++import { computed, inject, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, shallowRef, watch } from 'vue';
+
+ import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
+ import type { AuthoringWorkspaceGeometryPlan } from '@/services/authoring/authoringWorkspaceGeometryPolicy';
+ import type { AuthoringWorkspaceLayoutPort, AuthoringWorkspaceOutletExpectation } from '@/services/authoring/authoringWorkspaceLayoutContext';
++import { authoringWorkspaceMountedAuthorityBeforeReadKey } from '@/services/authoring/authoringWorkspaceLayoutContext';
+ import { copyAuthoringWorkspaceLayoutObservation, copyAuthoringWorkspaceLayoutProjection, createAuthoringWorkspaceLayoutController, unavailableAuthoringWorkspaceLayout } from '@/services/authoring/authoringWorkspaceLayoutController';
+ import type { AuthoringWorkspaceLayoutObservation, AuthoringWorkspaceLayoutProjection, AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
+ import type { AuthoringWorkspaceSeparatorProps } from '@/services/authoring/authoringWorkspaceSeparatorAdapter';
+@@ -100,6 +101,8 @@ import type { AuthoringWorkspaceSeparatorProps } from '@/services/authoring/auth
+ import type { ResizeSeparatorCancelPayload, ResizeSeparatorPayload } from '@ozwasyd/element-plus';
+
+ defineOptions({ name: 'AuthoringWorkspaceLayout' });
++const revokeMountedBeforeRead = inject(authoringWorkspaceMountedAuthorityBeforeReadKey, null);
++onBeforeUpdate(() => revokeMountedBeforeRead?.());
+
+ const props = defineProps<{
+     source: AuthoringWorkspaceLayoutSource | null;
+@@ -185,6 +188,7 @@ function cancelPublicSeparator(): void
+
+ function refresh(): void
+ {
++    revokeMountedBeforeRead?.();
+     if (disposed || invalidating)
+     {
+         return;
+@@ -232,6 +236,7 @@ function refresh(): void
+
+ function invalidate(): void
+ {
++    revokeMountedBeforeRead?.();
+     generation++;
+     renderState.value = fallbackRenderState();
+     if (invalidating)
+@@ -405,8 +410,16 @@ const separatorStyle = computed(() => geometry.value?.status === 'planned'
+ // These are this component's own elements, not private FsusUI DOM. The caller
+ // measures the public reserved region and its actual frame in the same CSS space.
+ defineExpose({ refresh, invalidate,
+-               readFrameRect: () => frameElement.value?.getBoundingClientRect() ?? null,
+-               readSeparatorRect: () => separatorRegion.value?.getBoundingClientRect() ?? null
++               readFrameRect: () =>
++               {
++                   revokeMountedBeforeRead?.();
++                   return frameElement.value?.getBoundingClientRect() ?? null;
++               },
++               readSeparatorRect: () =>
++               {
++                   revokeMountedBeforeRead?.();
++                   return separatorRegion.value?.getBoundingClientRect() ?? null;
++               }
+ } satisfies AuthoringWorkspaceLayoutPort);
+ </script>
+
+diff --git a/src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue b/src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue
+index 7d16c41d9..2202f388f 100644
+--- a/src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue
++++ b/src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue
+@@ -19,12 +19,15 @@
+ </template>
+
+ <script setup lang="ts">
+-import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue';
++import { computed, inject, onBeforeUnmount, onBeforeUpdate, onMounted, shallowRef, watch } from 'vue';
+
++import { authoringWorkspaceMountedAuthorityBeforeReadKey } from '@/services/authoring/authoringWorkspaceLayoutContext';
+ import type { AuthoringWorkspaceOutletExpectation } from '@/services/authoring/authoringWorkspaceLayoutContext';
+ import type { OpenArticleDocumentEntry } from '@/services/authoring/openArticleDocumentRegistry';
+
+ defineOptions({ name: 'AuthoringWorkspaceSessionOutlet' });
++const revokeMountedBeforeRead = inject(authoringWorkspaceMountedAuthorityBeforeReadKey, null);
++onBeforeUpdate(() => revokeMountedBeforeRead?.());
+
+ const props = defineProps<{
+     expectation: AuthoringWorkspaceOutletExpectation | null;
+@@ -101,6 +104,7 @@ function fallback(value: Snapshot): Readonly<{ target: HTMLElement | null; visib
+ // without acquiring, rebinding, releasing or constructing another native editor.
+ const placement = computed(() =>
+ {
++    revokeMountedBeforeRead?.();
+     const value = snapshot();
+     const expected = value.expectation;
+     if (!expected)
+diff --git a/src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts b/src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts
+index a45ccf423..89cbc6fa6 100644
+--- a/src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts
++++ b/src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts
+@@ -15,8 +15,47 @@ export interface AuthoringWorkspaceLayoutPort {
+ /** Physical completion for the existing primary Write mount; no host/resource admission. */
+ export interface AuthoringWorkspacePrimaryMountPort {
+     prepareMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>;
++    sealMountedAuthority(editorSessionRef: string): AuthoringWorkspaceRootMountedSeal | null;
++    hasMountedAuthorityCustody(seal: AuthoringWorkspaceRootMountedSeal): boolean;
++    cancelMountedAuthority(seal: AuthoringWorkspaceRootMountedSeal): boolean;
++    /** Root must invoke this BEFORE route-outlet/retained identity/startup retirement changes. */
++    revokeBeforeChange(): void;
++    /** Revoke outstanding custody BEFORE any external resolver/native/source callback. */
++    revokeBeforeExternalRead(): void;
++    /** Original Root calls BEFORE its same sessions.retire()/startup cancellation callbacks. */
++    retireMountedAuthority(): void;
+ }
+
++declare const rootMountedSealBrand: unique symbol;
++export interface AuthoringWorkspaceRootMountedSeal {
++    readonly [rootMountedSealBrand]: true;
++    readonly scope: 'root-mounted';
++}
++
++/** Required original producer join, not an auth/membership assertion or a boolean snapshot. */
++export interface AuthoringWorkspaceMountedAuthorityReservation {
++    readonly nativeEditor: object;
++    readonly retainedIdentity: object;
++    /** Pure original private token joins; not reactive reads, cell.read() or listener caches. */
++    hasCustody(): boolean;
++    /** Cancel reservations only; do not release the actual document/native owner. */
++    cancel(): void;
++}
++export interface AuthoringWorkspaceMountedAuthoritySources {
++    /**
++     * Root must reserve the ORIGINAL membership/document/Writer/principal tokens,
++     * and connect revoke at their private pre-mutation boundary BEFORE callbacks.
++     * Missing tokens or pre-revocation support must return null.
++     */
++    reserve(editorSessionRef: string, originalMountedRuntime: object, nativeEditor: object,
++        revokeBeforeChange: () => void): AuthoringWorkspaceMountedAuthorityReservation | null;
++}
++/** No default authority source. Root provides its actual original producer join or null. */
++export const authoringWorkspaceMountedAuthoritySourcesKey: InjectionKey<Readonly<ShallowRef<AuthoringWorkspaceMountedAuthoritySources | null>>>
++    = Symbol('authoring-workspace-mounted-authority-sources');
++export const authoringWorkspaceMountedAuthorityBeforeReadKey: InjectionKey<() => void>
++    = Symbol('authoring-workspace-mounted-authority-before-read');
++
+ /** Actual Root startup phase suppresses route registration while preserving the physical subtree. */
+ export const authoringWorkspacePrimaryMountOnlyKey: InjectionKey<Readonly<Ref<boolean>>>
+     = Symbol('authoring-workspace-primary-mount-only');
+diff --git a/src/frontend/src/views/admin/article/Write.vue b/src/frontend/src/views/admin/article/Write.vue
+index 5f91d2c1a..c5f410d3e 100644
+--- a/src/frontend/src/views/admin/article/Write.vue
++++ b/src/frontend/src/views/admin/article/Write.vue
+@@ -797,7 +797,7 @@
+ </template>
+
+ <script setup lang="ts">
+-import { computed, inject, nextTick, onBeforeUnmount, onUnmounted, ref, shallowRef, watch } from 'vue';
++import { computed, inject, nextTick, onBeforeUnmount, onUnmounted, provide, ref, shallowRef, watch } from 'vue';
+ import { useRoute } from 'vue-router';
+
+ import { ArticlePublishStatus } from '@/api/article';
+@@ -838,7 +838,7 @@ import {
+     type ArticleWorkspaceStatusSummary
+ } from '@/services/authoring/articleWorkspaceTabRouter';
+ import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
+-import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation, type AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
++import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, authoringWorkspaceMountedAuthorityBeforeReadKey, type AuthoringWorkspaceMountedAuthorityReservation, type AuthoringWorkspaceRootMountedSeal, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation, type AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+ import {
+     calculateOpenArticleDocumentDigest,
+     type ArticleDocumentContextRef,
+@@ -853,6 +853,7 @@ defineOptions({ name: 'ArticleWriteView' });
+ const workspaceLayoutContext = inject(authoringWorkspaceLayoutSourceKey, null);
+ const workspaceLayoutSource = computed(() => workspaceLayoutContext?.value ?? null);
+ const workspacePrimaryMountOnly = inject(authoringWorkspacePrimaryMountOnlyKey, computed(() => false));
++const mountedAuthoritySources = inject(authoringWorkspaceMountedAuthoritySourcesKey, null);
+
+ const articleRecoveryPrivacyNotice = ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE;
+
+@@ -1182,6 +1183,7 @@ let editorBindingGeneration = 0;
+
+ function releaseRecoveryCheckpoint(): void
+ {
++    revokeMountedAuthorityBeforeRead();
+     const checkpoint = recoveryCheckpoint;
+     recoveryCheckpoint = null;
+     recoveryCheckpointSessionRef = null;
+@@ -1191,6 +1193,7 @@ function releaseRecoveryCheckpoint(): void
+ /** This returns original journal custody; a nullable host port is not snapshot readiness. */
+ function getArticleWorkspaceRecoveryCheckpoint(): WriterRecoveryCheckpoint | null
+ {
++    revokeMountedAuthorityBeforeRead();
+     const checkpoint = recoveryCheckpoint;
+     const source = workspaceMountedSource.value;
+     const bound = mountedWriterBinding;
+@@ -1222,6 +1225,7 @@ function getArticleWorkspaceRecoveryCheckpoint(): WriterRecoveryCheckpoint | nul
+
+ function bindWorkspaceRecoveryCheckpoint(): void
+ {
++    revokeMountedAuthorityBeforeRead();
+     const bound = mountedWriterBinding;
+     const source = workspaceMountedSource.value;
+     const tabId = workspaceTabId.value;
+@@ -1300,17 +1304,153 @@ const retainedRecoveryPort = createArticleWorkspaceRetainedRecoveryPort({
+ /** Original Rail may borrow this partial port after SAME composition installation; null is unavailable. */
+ function getArticleWorkspaceRetainedRecoveryPort(): ArticleWorkspaceRetainedRecoveryPort | null
+ {
++    revokeMountedAuthorityBeforeRead();
+     return getArticleWorkspaceRecoveryCheckpoint() ? retainedRecoveryPort : null;
+ }
+
+ let primaryMountDisposed = false;
+ let primaryMountGeneration = 0n;
+ let cancelPrimaryMount: (() => void) | null = null;
++type PrimaryPhysicalMount = Readonly<{
++    editorSessionRef: string;
++    root: HTMLElement;
++    element: HTMLElement;
++    component: NonNullable<typeof articleEditorRef.value>;
++    native: ArticleEditorMountedSessionPort;
++    bound: MountedWriterBinding;
++    context: typeof authoringDocumentContext.value;
++}>;
++let completedPrimaryMount: PrimaryPhysicalMount | null = null;
++let mountedAuthorityEpoch = 0n;
++let sealingMountedAuthority = false;
++let mountedAuthorityCancellationFailed = false;
++let mountedAuthorityRetired = false;
++let mountedAuthorityCustody: { seal: AuthoringWorkspaceRootMountedSeal; epoch: bigint;
++                               physical: PrimaryPhysicalMount; reservation: AuthoringWorkspaceMountedAuthorityReservation; } | null = null;
++
++function cancelOriginalMountedReservation(reservation: AuthoringWorkspaceMountedAuthorityReservation | null): void
++{
++    try
++    {
++        reservation?.cancel();
++    }
++    catch
++    {
++        mountedAuthorityCancellationFailed = true;
++        completedPrimaryMount = null;
++    }
++}
++
++function revokeMountedAuthorityBeforeRead(): void
++{
++    const previous = mountedAuthorityCustody;
++    mountedAuthorityCustody = null;
++    mountedAuthorityEpoch += 1n;
++    // Retire private custody BEFORE the original producer cancellation callback.
++    const wasSealing = sealingMountedAuthority;
++    sealingMountedAuthority = true;
++    try
++    {
++        cancelOriginalMountedReservation(previous?.reservation ?? null);
++    }
++    finally
++    {
++        sealingMountedAuthority = wasSealing;
++    }
++}
++function revokeMountedAuthorityBeforeChange(): void
++{
++    completedPrimaryMount = null;
++    revokeMountedAuthorityBeforeRead();
++}
++function hasMountedAuthorityCustody(seal: AuthoringWorkspaceRootMountedSeal): boolean
++{
++    // Only this issuer's private state; no DOM/ref/source/clock/read/clone/allocation/callback.
++    return !primaryMountDisposed && !mountedAuthorityRetired && !sealingMountedAuthority && !mountedAuthorityCancellationFailed && mountedAuthorityCustody !== null
++        && mountedAuthorityCustody.seal === seal && mountedAuthorityCustody.epoch === mountedAuthorityEpoch
++        && mountedAuthorityCustody.physical === completedPrimaryMount;
++}
++function cancelMountedAuthority(seal: AuthoringWorkspaceRootMountedSeal): boolean
++{
++    if (mountedAuthorityCustody?.seal !== seal)
++    {
++        return false;
++    }
++    revokeMountedAuthorityBeforeRead();
++    return true;
++}
++function sealMountedAuthority(editorSessionRef: string): AuthoringWorkspaceRootMountedSeal | null
++{
++    if (sealingMountedAuthority || primaryMountDisposed || mountedAuthorityRetired || mountedAuthorityCancellationFailed)
++    {
++        return null;
++    }
++    revokeMountedAuthorityBeforeRead();
++    const physical = completedPrimaryMount;
++    const source = mountedAuthoritySources?.value;
++    // Physical completion or a principal-id watch is not original joint producer authority.
++    if (physical?.editorSessionRef !== editorSessionRef || !source)
++    {
++        return null;
++    }
++    sealingMountedAuthority = true;
++    let reservation: AuthoringWorkspaceMountedAuthorityReservation | null = null;
++    try
++    {
++        const epoch = mountedAuthorityEpoch;
++        reservation = source.reserve(editorSessionRef, physical.bound, physical.native, revokeMountedAuthorityBeforeChange);
++        const seal = Object.freeze({ scope: 'root-mounted' }) as AuthoringWorkspaceRootMountedSeal;
++        if (reservation?.nativeEditor !== physical.native || !reservation.retainedIdentity
++            || typeof reservation.retainedIdentity !== 'object' || !reservation.hasCustody()
++            || primaryMountDisposed || completedPrimaryMount !== physical || mountedAuthorityEpoch !== epoch
++            || mountedAuthoritySources?.value !== source || workspaceWriteElement.value !== physical.root
++            || workspaceNativeMountElement.value !== physical.element || articleEditorRef.value !== physical.component
++            || mountedWriterBinding !== physical.bound || boundEditorPort !== physical.native
++            || authoringDocumentContext.value !== physical.context || !physical.root.isConnected || !physical.element.isConnected
++            || physical.root.ownerDocument !== physical.element.ownerDocument || !physical.root.contains(physical.element))
++        {
++            cancelOriginalMountedReservation(reservation);
++            return null;
++        }
++        mountedAuthorityCustody = { seal, epoch, physical, reservation };
++        return seal;
++    }
++    catch
++    {
++        cancelOriginalMountedReservation(reservation);
++        return null;
++    }
++    finally
++    {
++        sealingMountedAuthority = false;
++    }
++}
++provide(authoringWorkspaceMountedAuthorityBeforeReadKey, revokeMountedAuthorityBeforeRead);
++function retireMountedAuthority(): void
++{
++    mountedAuthorityRetired = true;
++    revokeMountedAuthorityBeforeChange();
++    cancelPrimaryMount?.();
++}
++watch([workspaceWriteElement, workspaceNativeMountElement, articleEditorRef, workspaceMountedSource, authoringDocumentContext,
++       workspacePrimaryMountOnly, () => route.fullPath, () => mountedAuthoritySources?.value], revokeMountedAuthorityBeforeChange, { flush: 'sync' });
++let mountedSubtreeObserver: MutationObserver | null = null;
++watch(workspaceWriteElement, root =>
++{
++    revokeMountedAuthorityBeforeChange();
++    mountedSubtreeObserver?.disconnect();
++    mountedSubtreeObserver = root ? new MutationObserver(() => revokeMountedAuthorityBeforeChange()) : null;
++    if (root)
++    {
++        // The document sees removal/reparenting of the root itself; inspect no outside content.
++        mountedSubtreeObserver?.observe(root.ownerDocument, { childList: true, subtree: true, attributes: true });
++    }
++}, { flush: 'post' });
+
+ /** Await the existing real subtree; this cannot adopt a different restored document/body owner. */
+ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>
+ {
+-    if (primaryMountDisposed || cancelPrimaryMount)
++    if (primaryMountDisposed || mountedAuthorityRetired || sealingMountedAuthority || cancelPrimaryMount)
+     {
+         return Promise.reject(new Error('article-workspace-primary-mount-owner-unavailable'));
+     }
+@@ -1327,6 +1467,10 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+                 return;
+             }
+             settled = true;
++            if (!completed)
++            {
++                revokeMountedAuthorityBeforeChange();
++            }
+             stopWatching?.();
+             signal.removeEventListener('abort', cancel);
+             if (cancelPrimaryMount === cancel)
+@@ -1344,6 +1488,8 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+         };
+         // Reserve before any caller-held entry/native read can synchronously reenter.
+         cancelPrimaryMount = cancel;
++        // Producer cancellation may synchronously reenter preparation: the slot is already owned.
++        revokeMountedAuthorityBeforeChange();
+         let registry: ReturnType<typeof articleWorkspaceTabRouter.getRegistry>;
+         let registryRevision: number;
+         let context: typeof authoringDocumentContext.value;
+@@ -1359,6 +1505,7 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+                 || authoringDocumentContext.value !== context || workspaceIdentity.value !== identity
+                 || workspaceDocumentContext.value !== documentContext
+                 || workspacePrimaryMountOnly.value !== mountOnly
++                || mountedAuthorityRetired
+                 || calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) !== expectedDigest
+                 || calculateOpenArticleDocumentDigest(entry) !== expectedDigest)
+             {
+@@ -1389,8 +1536,11 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+                 }
+                 const bindingGeneration = editorBindingGeneration;
+                 const ownerDocument = root.ownerDocument;
++                revokeMountedAuthorityBeforeRead();
+                 const native = component.getAuthoringSessionPort?.();
++                revokeMountedAuthorityBeforeRead();
+                 const mounted = source.readMountedEditor(entry.editorSessionRef);
++                revokeMountedAuthorityBeforeRead();
+                 const observed = source.readDocumentBinding(entry.editorSessionRef);
+                 assertCurrent();
+                 if (!native || mounted !== native || native !== boundEditorPort
+@@ -1407,6 +1557,8 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+                     throw new Error('article-workspace-primary-native-document-owner-unavailable');
+                 }
+                 // Only physical completion. The original composition/factory still checks resources/admission.
++                completedPrimaryMount = Object.freeze({ editorSessionRef: entry.editorSessionRef, root, element, component,
++                                                        native, bound, context });
+                 finish(true);
+             }
+             catch (error)
+@@ -1454,11 +1606,15 @@ function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>,
+     });
+ }
+
+-const primaryMountPort = Object.freeze({ prepareMountedEditor: preparePrimaryMountedEditor }) satisfies AuthoringWorkspacePrimaryMountPort;
++const primaryMountPort = Object.freeze({ prepareMountedEditor: preparePrimaryMountedEditor, sealMountedAuthority,
++                                         hasMountedAuthorityCustody, cancelMountedAuthority, revokeBeforeChange: revokeMountedAuthorityBeforeChange,
++                                         revokeBeforeExternalRead: revokeMountedAuthorityBeforeRead, retireMountedAuthority }) satisfies AuthoringWorkspacePrimaryMountPort;
+ onBeforeUnmount(() =>
+ {
+     primaryMountDisposed = true;
+     primaryMountGeneration += 1n;
++    revokeMountedAuthorityBeforeChange();
++    mountedSubtreeObserver?.disconnect();
+     cancelPrimaryMount?.();
+ });
+
+@@ -1466,6 +1622,7 @@ watch([workspaceMountedSource, workspaceTabId, workspaceDocumentContext], bindWo
+
+ watch(articleEditorRef, () =>
+ {
++    revokeMountedAuthorityBeforeChange();
+     const generation = ++editorBindingGeneration;
+     releaseRecoveryCheckpoint();
+     mountedWriterBinding = null;

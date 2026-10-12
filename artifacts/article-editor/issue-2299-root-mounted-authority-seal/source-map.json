@@ -1,0 +1,54 @@
+{
+    "request": "36d835088f310dd31d1e76ca240d5cc606dcbb65",
+    "layoutBase": "2f38650f6c86414cd88a13404af50de7939ed077",
+    "rootBase": "bb9d2de4abc428ed1a64b8e2d9450506722efdaf",
+    "rootUpstreamReview": "parent reports bounded bb9 bridge SOURCE CLOSED/no newmustfix; this Root caller offer pending independent review",
+    "scope": "three-file Root offer only; no Root source overwrite",
+    "paths": [
+        {
+            "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+            "baseBlob": "09eab6ad276af22bd9d1abaa4371827732cd0dc2",
+            "postimageSha256": "ae141ce80e3ae80c146ff68d7740b1858b9db49dda339a53a8b28dd1240d0e81",
+            "productionEdited": false
+        },
+        {
+            "path": "src/frontend/src/layouts/adminArticleWorkspaceStartup.ts",
+            "baseBlob": "0c4a817bf0fad5ce11045946082d64f8f896f335",
+            "postimageSha256": "b17706428b4ff1cd2229d598f128dca99b98d2c1d4d0ea95be791db7698d0a0a",
+            "productionEdited": false
+        },
+        {
+            "path": "src/frontend/src/layouts/adminArticleWorkspaceSnapshotCaller.ts",
+            "baseBlob": "2ca3e52eab57573f47990282231d074ccff5a497",
+            "postimageSha256": "662a87beb1bb3cd21afac6609198bd70198a71c7862ce69775466eb77698a03c",
+            "productionEdited": false
+        }
+    ],
+    "patchSha256": "c289dcf531c26e2c7ceb20b86a67cbb73c32582227987fabe3e2dd15a5aea1e7",
+    "missingOriginalAuthMembershipProducers": true,
+    "runtime": "ALL HOLD/UNRUN",
+    "ownedSource": [
+        {
+            "path": "src/frontend/src/views/admin/article/Write.vue",
+            "sha256": "9c67e9ad4a822de0af5c9c0c34c4e403b4ed90c4d1b3818e3232cbacf1e3c1e7"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
+            "sha256": "7d98f6daba3cb5b121145bdab24a15d78e80f1fa1d98d33513321910b27c8bfb"
+        },
+        {
+            "path": "src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue",
+            "sha256": "12ef084de61545c7f3c4dcf99fd697dae1330bb3fc62c4283d19ce729b7a759e"
+        },
+        {
+            "path": "src/frontend/src/components/admin/article/AuthoringWorkspaceSessionOutlet.vue",
+            "sha256": "f50b6c1a8570596c03d91f6c1a0618b3c1028cb79fe36f4fe74ed3e1ce3e542c"
+        }
+    ],
+    "layoutPatchSha256": "f84574fc9337c68e9d2f4be958f147c8aefe2eb68b608511e7c3aadf5bdeb9be",
+    "reviewRepairs": {
+        "P1": "distinct pinned actual Write.retireMountedAuthority before custody/same sessions.retire and view teardown; generic revocation remains separate",
+        "P2": "prepare refuses sealing; own pending slot set before any producer revoke/cancel callback",
+        "status": "source corrected; independent rereview pending; all runtime HOLD/UNRUN"
+    }
+}

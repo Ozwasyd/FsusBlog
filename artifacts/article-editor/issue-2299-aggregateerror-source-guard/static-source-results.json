@@ -1,0 +1,54 @@
+{
+    "base": "4431aa6e4d9d83a25afbf9eb0b3ec43da0d94d66",
+    "before": {
+        "command": "node tools/frontend/check-authoring-workspace-layout-source.mjs",
+        "exitCode": 1,
+        "status": "source-check-fail",
+        "failure": "session-source: alternate-host-or-registry-construction",
+        "outputSha256": "589da9fd9ed0e36e9fda553b4308a6c1adc5392e73621361b1cd4c96c2281b98",
+        "originalFailureRecordRetained": true
+    },
+    "after": {
+        "coreGuard": "PASS/exit0",
+        "componentGuard": "PASS/exit0",
+        "strictToolLint": "PASS/exit0/0warnings",
+        "staticSourceControls": 23,
+        "positive": 1,
+        "negative": 22
+    },
+    "productionSourcesChanged": false,
+    "frozenAuthorityEvidenceChanged": false,
+    "lastActualTypecheck": "4431 imported actual UI9f92+a775 program FAIL209; unchanged production source; not rerun for tool-only patch",
+    "scope": "AST compiler tooling controls only; never evaluate product or fixture source",
+    "runtimeTestsListQualification": "ALL HOLD/UNRUN",
+    "writeGuardFollowup": {
+        "reviewedBase": "8894efde9cdb4c85ccc32d2cb0dd52fe6b160efc",
+        "finding": "Parent reported seven write bypasses; local additive seven explicit syntax variants reproduce seven failures while all original23 remain PASS.",
+        "before": {
+            "command": "node tools/frontend/check-authoring-workspace-session-construction-source-controls.mjs",
+            "matcher": "unchanged8894 policy plus additive30-control static runner",
+            "exitCode": 1,
+            "status": "FAIL",
+            "passed": 23,
+            "failed": 7,
+            "record": "before-write-policy-controls-fail.json",
+            "sha256": "1cd9f15ec41c3c17050ec7e8e6eac2190fb47855284376ebe98b65c8061179cb"
+        },
+        "after": {
+            "command": "node tools/frontend/check-authoring-workspace-session-construction-source-controls.mjs",
+            "exitCode": 0,
+            "status": "PASS",
+            "positive": 1,
+            "negative": 40,
+            "original23Retained": true,
+            "record": "after-write-policy-controls-pass.json",
+            "sha256": "aac1dfa0b23a4980b5151e57827aa5a5c9f6f86b071195ce9500e9a4f2f1e34c",
+            "coreGuard": "PASS/exit0",
+            "componentGuard": "PASS/exit0",
+            "strictToolLint": "PASS/exit0/0warnings"
+        },
+        "scope": "Static assignment patterns, syntactic identifier aliases, direct Object.assign/defineProperty/defineProperties and Reflect.set/defineProperty calls; unresolved relevant key/source denied. No general JS security proof.",
+        "productionDiffAgainst8894": false,
+        "holds": "ALL prior holds HOLD/UNRUN; old FAIL records retained"
+    }
+}

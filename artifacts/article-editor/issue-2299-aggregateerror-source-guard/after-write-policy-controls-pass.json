@@ -1,0 +1,374 @@
+{
+    "scope": "static AST policy controls only; product/test/runtime UNRUN",
+    "status": "PASS",
+    "failures": [],
+    "results": [
+        {
+            "id": "actual-original-standard-aggregation",
+            "expectedAllowed": true,
+            "actualAllowed": true,
+            "passed": true,
+            "denied": []
+        },
+        {
+            "id": "other-host-constructor",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AuthoringSessionHost"
+            ]
+        },
+        {
+            "id": "other-registry-constructor",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "OpenArticleDocumentRegistry"
+            ]
+        },
+        {
+            "id": "other-authority-constructor",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AuthoringWorkspaceRatioOwner"
+            ]
+        },
+        {
+            "id": "constructor-alias",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "Alias"
+            ]
+        },
+        {
+            "id": "global-member-alias",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "globalThis.AggregateError"
+            ]
+        },
+        {
+            "id": "shadowed-const",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "shadowed-class",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "shadowed-function",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "shadowed-import",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "shadowed-parameter",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "shadowed-destructuring",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-constructor-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "bare-constructor-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-constructor-define",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "destructured-global-property-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "destructured-global-array-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-alias-property-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-alias-define-property",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-object-assign",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-alias-object-assign",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-alias-reflect-set",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-reflect-set",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "nested-destructuring-default-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-alias-chain-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "unknown-global-alias-key",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "unknown-assign-key",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "unknown-assign-spread",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "unknown-assign-source",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "unknown-reflect-set-key",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "reflect-receiver-alias-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "object-receiver-alias-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "global-define-properties-write",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "wrong-error-order",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "wrong-message",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "wrong-cause",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "extra-option",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "outside-original-callback",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "outside-original-connector",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "fake-retirement-call",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        },
+        {
+            "id": "generic-constructor",
+            "expectedAllowed": false,
+            "actualAllowed": false,
+            "passed": true,
+            "denied": [
+                "AggregateError"
+            ]
+        }
+    ]
+}

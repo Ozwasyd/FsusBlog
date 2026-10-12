@@ -1,0 +1,40 @@
+{
+    "schema": "fsusblog.authoring-workspace-layout-source-scan.v1",
+    "scope": "ratio-geometry-separator-original-group-and-session-consumers-source-only",
+    "status": "source-check-fail",
+    "sources": [
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceRatioOwner.ts",
+            "sha256": "6ede2f9aef40d949547cd82fa4a4dc37eabba375e9211501e36e7d9d277c9551"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceGeometryPolicy.ts",
+            "sha256": "b0ef38fc5d21ab57ea7004f9fdce035425a261a3c8da28ab620c9912ff2da9cc"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts",
+            "sha256": "bbb0e8e59f6c2a380c8d46125a2667403714305436989ebcf6b7b5b3e147a65c"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceGroupLayoutPorts.ts",
+            "sha256": "6ef3bdd1a8ac902a8f9e74fbcfdcf342232dc729a46d2b33c268366f5fe22493"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts",
+            "sha256": "5a34c567acecce860b0041fca3fc31e236d59fee772d3d4d19055ffbef31c387"
+        }
+    ],
+    "failures": [
+        "session-source: alternate-host-or-registry-construction"
+    ],
+    "notCovered": [
+        "group-projection",
+        "session-retention",
+        "repository-wide-owner-count",
+        "SFC-DOM-font-stack-destroy-split-mutations",
+        "public-splitter",
+        "runtime-receipt-verifier",
+        "browser-geometry",
+        "tamper-race-security-privacy-IME-native"
+    ]
+}
