@@ -13,6 +13,7 @@ import {
 } from './fsusUiEditorSessionFactory';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
 
+import type { ArticleWorkspaceNativeDocumentReservation } from './articleWorkspaceNativeDocumentAuthority';
 import type {
     ArticleWorkspaceRetainedRecoveryCheckpoint,
     ArticleWorkspaceRetainedRecoveryPort,
@@ -91,6 +92,9 @@ export function installArticleWorkspaceEditorSessions(
     {
         retired = true;
         sealedAdmission = null;
+        // Admission closes before native receiver callbacks; failed original
+        // unsubscribe handles stay in the SAME factory for subsequent retries.
+        factory.retireNativeDocumentAuthorities();
     };
     const sealAdmission = (): ArticleWorkspaceEditorSessionCompositionSeal =>
     {
@@ -185,6 +189,30 @@ export function retireArticleWorkspaceEditorSessions(host: AuthoringSessionHost)
         throw new Error('article-workspace-session-composition-owner-mismatch');
     }
     installed.retire();
+}
+
+/** Borrow only the installed native document authority; no joint Root/host admission. */
+export function reserveArticleWorkspaceNativeDocumentAuthority(
+    entry: OpenArticleDocumentEntry,
+    revokeBeforeChange: () => void
+): ArticleWorkspaceNativeDocumentReservation | null
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    installed.assertActive();
+    return installed.factory.reserveNativeDocumentAuthority(entry, revokeBeforeChange);
+}
+
+/** Failed native subscriptions remain visible after retirement, never replaced by a new issuer. */
+export function inspectArticleWorkspaceNativeDocumentCleanup()
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    return installed.factory.inspectNativeDocumentCleanup();
 }
 
 /** Seal only the same original successful installation's private admission. */

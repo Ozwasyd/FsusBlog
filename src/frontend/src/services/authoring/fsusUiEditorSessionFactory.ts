@@ -1,3 +1,4 @@
+import { createArticleWorkspaceNativeDocumentAuthorityConsumer } from './articleWorkspaceNativeDocumentAuthority';
 import {
     calculateRetainedRecoveryRefsDigest,
     type ArticleWorkspaceRetainedRecoveryCheckpoint,
@@ -17,6 +18,7 @@ import {
 
 import type { useAdminArticleWrite } from '../../composables/useAdminArticleWrite';
 import type { ArticleRecoveryJournalCheckpointInfo, ArticleRecoveryJournalCheckpointReferenceBinding } from '../articleRecoveryJournal';
+import type { ArticleWorkspaceNativeDocumentReservation } from './articleWorkspaceNativeDocumentAuthority';
 import type {
     MarkdownEditorSession,
     MarkdownEditorSessionAttachmentResourceSource,
@@ -74,6 +76,9 @@ export interface ArticleWorkspaceEditorSnapshotPreparation {
 }
 
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
+    reserveNativeDocumentAuthority(entry: OpenArticleDocumentEntry, revokeBeforeChange: () => void): ArticleWorkspaceNativeDocumentReservation | null;
+    retireNativeDocumentAuthorities(): void;
+    inspectNativeDocumentCleanup(): ReturnType<ReturnType<typeof createArticleWorkspaceNativeDocumentAuthorityConsumer>['inspectCleanupCustody']>;
     prepareRetainedSnapshot(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorSnapshotPreparation;
     inspectOriginalDraftCheckpoint(entry: OpenArticleDocumentEntry, reference: string): ArticleWorkspaceOriginalDraftInspection;
     inspectResourceSources(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorResourceSources;
@@ -117,6 +122,7 @@ export function createFsusUiEditorSessionFactory(
     assertAdmission: () => void
 ): ArticleWorkspaceFsusUiEditorSessionFactory
 {
+    const nativeDocumentAuthority = createArticleWorkspaceNativeDocumentAuthorityConsumer();
     function resolveSession(entry: OpenArticleDocumentEntry): {
         binding: ArticleWorkspaceMountedEditorBinding;
         session: MarkdownEditorSession;
@@ -321,6 +327,30 @@ export function createFsusUiEditorSessionFactory(
     };
 
     return {
+        reserveNativeDocumentAuthority(entry, revokeBeforeChange)
+        {
+            const { binding, session } = resolveSession(entry);
+            const editor = binding.editor;
+            const identity = Object.freeze({ ...binding.identity });
+            const context = Object.freeze({ ...binding.documentContext });
+            const revision = binding.editorRevision;
+            const assertOwner = (): void =>
+            {
+                const current = resolveSession(entry);
+                assertBinding(current.binding, identity, context);
+                if (current.session !== session || current.binding.editor !== editor
+                    || current.binding.editorRevision !== revision)
+                {
+                    throw new Error('public-editor-native-document-owner-stale');
+                }
+                assertAdmission();
+            };
+            return nativeDocumentAuthority.reserve(editor, session,
+                { documentKey: identity.documentId, documentEpoch: context.documentEpoch, revision },
+                revokeBeforeChange, assertOwner);
+        },
+        retireNativeDocumentAuthorities: () => nativeDocumentAuthority.retire(),
+        inspectNativeDocumentCleanup: () => nativeDocumentAuthority.inspectCleanupCustody(),
         inspectOriginalDraftCheckpoint(entry, reference)
         {
             const { binding, session } = resolveSession(entry);

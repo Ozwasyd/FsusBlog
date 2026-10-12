@@ -1,0 +1,49 @@
+{
+  "baselineMain": "39618d97bec91971299eae4078d0ac6c176a6f5a",
+  "actualUi": "a56205f00ede4b6d70425285f85bb2c6b7facf92",
+  "source": [
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceNativeDocumentAuthority.ts",
+      "blob": "1437503abbf94ed329234a3715053ee0024c3fbe",
+      "sha256": "a88ae60d79c75a379128a2e0fd3b379ce86ab6ffa3b604cab1dda25710589b22"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts",
+      "blob": "1980ebcc8491794e457850af865aeaa13168e704",
+      "sha256": "819fd26060d3ec887ca7918d47b29692575b1c46e3fd2c4fd4b896f74dfabace"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts",
+      "blob": "39d6b43ca1e2f54d7dc53f1119a3828a5bc40fe8",
+      "sha256": "9b4554d2951c4476d95121f235def495745a27773a0fde8b54c23811b114649b"
+    }
+  ],
+  "producerFilesUnchanged": [
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "a8cb13c20c3d37977c3935ddd625e2200e17e8b0"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "76761edf0b89bb538a5aa24cc7c87e6df0294d9b"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "blob": "fbe62dab14a586b8e9aa046470a0ab6ac4cbac6e"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts",
+      "blob": "4e78c48bd891a856c6f19c2a3492b9920e3c01da"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "blob": "c5f410d3e6f602b20fa9883c726b096fe1cb37e5"
+    },
+    {
+      "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "blob": "37bda2fbd81cf08616c850431df9138d8f72c022"
+    }
+  ],
+  "scope": "native original ticket/subscription only; no issuer/realm/joint ready",
+  "runtime": "ALL HOLD/UNRUN"
+}

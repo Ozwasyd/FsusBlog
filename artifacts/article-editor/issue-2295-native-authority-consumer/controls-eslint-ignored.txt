@@ -1,0 +1,6 @@
+
+/workspace/session-2295-blog/tests/frontend/unit/authoring/articleWorkspaceNativeDocumentAuthority.test.ts
+  0:0  warning  File ignored because no matching configuration was supplied
+
+✖ 1 problem (0 errors, 1 warning)
+

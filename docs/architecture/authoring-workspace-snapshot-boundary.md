@@ -1211,3 +1211,27 @@ Parent also reports Mainb6 exact Auth/Writer source intake independently closed;
 the current new locale composite still needs independent review/qualification.
 No parallel Auth/Writer, native/resource completion receipt,
 or missing provider/refset/resource authority is supplied by this source intake.
+
+### Public native document reservation consumer (#2295)
+
+The same installed factory now borrows `session.documentAuthority` from the
+actual public UI session. It registers the original retirement receiver, captures
+the original ticket, checks document key/epoch/revision and rereads the same real
+mount before returning a native-only reservation. Pure custody checks call only
+captured original native/registration predicates and private reservation state;
+they do not capture, resolve a mount, read DOM or invoke admission callbacks.
+
+Retirement closes admission and local native reservation custody before original
+unsubscribe callbacks. Failed or currently notifying handles remain owned by that
+same factory. Cancellation false is no unlink acknowledgement; the original handle
+must be retained/retried. Failed receiver obligations retry their real callback,
+never become a retired successful noop. Original creation errors are rethrown
+unchanged even when cancellation also fails; the actual handle and both causes
+remain available through cleanup inspection. Factory retirement attempts every
+owned handle, keeps failures and can retry through the original composition host.
+
+This consumes only native document authority and owns subscription obligations,
+not a new issuer, realm, document generation or article index. Writer/Doc/Auth
+joint Root admission and full refset/resource readiness remain separate original
+producer work. Missing public native authority still returns null; no resources,
+pause/disposal/restore/eviction or full-host ready receipt follows from this port.
