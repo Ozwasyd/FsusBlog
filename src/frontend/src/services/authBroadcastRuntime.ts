@@ -14,6 +14,13 @@ export type AuthBroadcastEventSubscriber = (
     origin: AuthBroadcastEventOrigin
 ) => void;
 
+/** Inject the original principal owner's synchronous retirement, never its state. */
+export type AdminPrincipalInvalidationHandler = () => void;
+
+interface AdminPrincipalInvalidationBinding {
+    readonly invalidate: AdminPrincipalInvalidationHandler;
+}
+
 const AUTH_BROADCAST_CHANNEL = 'fsus-auth';
 const AUTH_BROADCAST_STORAGE_KEY = 'fsus:auth:broadcast';
 const MAX_RECENT_EVENT_KEYS = 64;
@@ -60,11 +67,33 @@ export class AuthBroadcastRuntime
     private initialized = false;
     private readonly subscribers = new Set<AuthBroadcastEventSubscriber>();
     private readonly recentEventKeys = new Set<string>();
+    #adminPrincipalInvalidation: AdminPrincipalInvalidationBinding | null = null;
+
+    registerAdminPrincipalInvalidation(handler: AdminPrincipalInvalidationHandler): () => void
+    {
+        const binding: AdminPrincipalInvalidationBinding = { invalidate: handler };
+        const previous = this.#adminPrincipalInvalidation;
+        this.#adminPrincipalInvalidation = binding;
+        previous?.invalidate();
+        return () =>
+        {
+            if (this.#adminPrincipalInvalidation !== binding)
+            {
+                return;
+            }
+            binding.invalidate();
+            if (this.#adminPrincipalInvalidation === binding)
+            {
+                this.#adminPrincipalInvalidation = null;
+            }
+        };
+    }
 
     // The optional argument keeps bootstrap call sites transport-agnostic. Store
     // composition is installed separately by authBroadcastComposition.
     init(_bootstrapContext?: unknown): void
     {
+        void _bootstrapContext;
         if (typeof window === 'undefined' || this.initialized)
         {
             return;
@@ -97,6 +126,13 @@ export class AuthBroadcastRuntime
 
     dispose(): void
     {
+        const binding = this.#adminPrincipalInvalidation;
+        binding?.invalidate();
+        if (this.#adminPrincipalInvalidation !== binding)
+        {
+            return;
+        }
+        this.#adminPrincipalInvalidation = null;
         this.channel?.removeEventListener('message', this.handleChannelMessage);
         this.channel?.close();
         this.channel = null;
@@ -142,6 +178,9 @@ export class AuthBroadcastRuntime
 
     broadcastAdminChanged(): void
     {
+        // Local transition intent retires prior custody before clock/event
+        // allocation, regardless of subscriber order or timestamp collisions.
+        this.#adminPrincipalInvalidation?.invalidate();
         this.broadcast(createEvent('admin-changed'));
     }
 
@@ -191,6 +230,14 @@ export class AuthBroadcastRuntime
                 break;
             }
             this.recentEventKeys.delete(oldest);
+        }
+
+        if (event.type === 'admin-changed')
+        {
+            // Remember the original type/time key first, so a reentrant repeat
+            // is still suppressed. Local clock evaluation may have reentered
+            // the owner, so retire again before every accepted subscriber delivery.
+            this.#adminPrincipalInvalidation?.invalidate();
         }
 
         for (const subscriber of this.subscribers)

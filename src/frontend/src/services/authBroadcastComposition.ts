@@ -9,19 +9,20 @@ import {
 import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
 import type { PrivateBrowserStateClearReason } from '@/services/serviceWorkerRuntime';
 import { useAdminStore } from '@/store/admin';
-
 import { useAppShellStore } from '@/store/appShell';
-import { authBroadcastRuntime, type AuthBroadcastEventOrigin } from './authBroadcastRuntime'
-import { notificationStreamRuntime } from './notificationStreamRuntime'
-import { clearLocalFixtureAdminSession, clearLocalFixtureSession } from './localFixtureSession'
-import { clearPrivateBrowserState } from './serviceWorkerRuntime'
 import { useNotificationStreamStore } from '@/store/notificationStream';
 import { useUserStore } from '@/store/user';
+
+import { authBroadcastRuntime, type AuthBroadcastEventOrigin } from './authBroadcastRuntime';
+import { clearLocalFixtureAdminSession, clearLocalFixtureSession } from './localFixtureSession';
+import { notificationStreamRuntime } from './notificationStreamRuntime';
+import { clearPrivateBrowserState } from './serviceWorkerRuntime';
 
 import type { Pinia } from 'pinia';
 
 let activePinia: Pinia | null = null;
 let unsubscribe: (() => void) | null = null;
+let unregisterAdminPrincipalInvalidation: (() => void) | null = null;
 let unregisterPrivateCleanupHandlers: (() => void)[] = [];
 let unregisterPrivateSurfaceHandlers: (() => void)[] = [];
 
@@ -39,6 +40,12 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
     const adminStore = useAdminStore(pinia);
     const appShellStore = useAppShellStore(pinia);
     const notificationStore = useNotificationStreamStore(pinia);
+
+    // The original transport invokes this stable, unwrapped owner function
+    // before event clock/publication or remote subscriber/request callbacks.
+    unregisterAdminPrincipalInvalidation = authBroadcastRuntime.registerAdminPrincipalInvalidation(
+        adminStore.invalidateAdminPrincipalAuthority
+    );
 
     const stopAuthenticatedRuntime = (): void =>
     {
@@ -200,6 +207,15 @@ export function installAuthBroadcastComposition(pinia: Pinia): void
 
 export function disposeAuthBroadcastComposition(): void
 {
+    const unregisterInvalidation = unregisterAdminPrincipalInvalidation;
+    unregisterAdminPrincipalInvalidation = null;
+    unregisterInvalidation?.();
+    if (unregisterAdminPrincipalInvalidation)
+    {
+        // Retirement reentered a newer install; this disposer owns neither its
+        // handlers nor its subscriber/publisher pointers.
+        return;
+    }
     for (const unregister of unregisterPrivateSurfaceHandlers)
     {
         unregister();
