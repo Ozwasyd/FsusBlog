@@ -689,7 +689,7 @@ export class ArticleRenderCache
             }
             const actualWork = producerWork ?? this.producer.getRequestWork?.(request);
             const actualTerminal = actualWork?.terminal;
-            if (!actualWork || actualWork.request !== request || !Object.isFrozen(actualWork)
+            if (actualWork?.request !== request || !Object.isFrozen(actualWork)
                 || !(actualTerminal instanceof Promise))
             {
                 throw work.producerFailure ?? new Error('article-render-request-terminal-unconfirmed');
@@ -806,13 +806,22 @@ export class ArticleRenderCache
         const cleanup: unknown = this.producer.release(resultRef);
         if (cleanup !== undefined)
         {
+            const failure = new Error('article-render-cleanup-endpoint-missing', { cause: cleanup });
             // The original contract is synchronous. Keep an undeclared future
             // in failure custody; do not silently treat its return as cleanup.
-            if (cleanup instanceof Promise)
+            try
             {
-                void cleanup.catch(() => undefined);
+                if (cleanup instanceof Promise)
+                {
+                    void Promise.prototype.then.call(cleanup, undefined, () => undefined);
+                }
             }
-            throw new Error('article-render-cleanup-endpoint-missing', { cause: cleanup });
+            catch (observationFailure)
+            {
+                throw new AggregateError([failure], 'article-render-cleanup-observer-unconfirmed',
+                    { cause: observationFailure });
+            }
+            throw failure;
         }
     }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MARKDOWN_RENDERER_VERSION } from '@/fsusui/markdown';
+import { ArticleFsusUiRenderProducer } from '@/services/authoring/articleFsusUiRenderProducer';
 import {
     ArticleRenderCache, createArticleDocumentContextAdapter, calculateOpenArticleDocumentDigest as digest,
     validateArticleRenderCacheEntry, validateArticleRenderReceipt, validateArticleRenderState, validateArticleRenderResult,
@@ -718,13 +719,24 @@ describe('original render future and cleanup settlement (#2245)', () =>
             const work = cache.startRefresh();
             const response = await work.receipt;
             expect(response.status).not.toBe('committed');
-            await expect(work.terminal).rejects.toThrow(mutation === 'verify-null-reference'
-                ? 'article-render-producer-output-invalid' : 'actual-result-validation-trap');
+            if (mutation === 'verify-null-reference')
+            {
+                // The clone is rejected. Only the explicit original unit call
+                // endpoint/ref, retained before mutation, authorizes its cleanup.
+                await work.terminal;
+                expect(cache.pendingRefreshWork).not.toContain(work);
+                expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
+                expect(producer.release).toHaveBeenCalledTimes(1);
+            }
+            else
+            {
+                await expect(work.terminal).rejects.toThrow('actual-result-validation-trap');
+                expect(cache.pendingRefreshWork).toContain(work);
+                expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+                expect(producer.release).not.toHaveBeenCalled();
+            }
             expect(work.producerFailure).not.toBeNull();
             expect(cache.state.content).toBeNull();
-            expect(cache.pendingRefreshWork).toContain(work);
-            expect(adapter.pendingTaskRefs).toContain(work.taskRef);
-            expect(producer.release).not.toHaveBeenCalled();
         }
     });
 
@@ -802,6 +814,33 @@ describe('original render future and cleanup settlement (#2245)', () =>
                     ? 'opaque-original-terminal-failure' : 'article-render-request-terminal-binding-changed');
             expect(cache.pendingRefreshWork).toContain(work);
             expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        }
+    });
+
+    it('consumes the actual canonical producer no-reference and local-cancel endpoints', async () =>
+    {
+        for (const outcome of ['no-reference', 'local-cancel'] as const)
+        {
+            const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
+                editorSessionId: 'session:canonical-terminal', siteScope: 'site:test', userScope: 'user:test', content: '# source' });
+            // Deliberate configuration identity refusal occurs before native work.
+            // These are the original constructor and request-work registry, not a
+            // synthetic no-resource flag or a replacement renderer/native receipt.
+            const producer = new ArticleFsusUiRenderProducer(() => '# source',
+                { allowLatex: false, allowMermaid: false, baseUrl: null }, 65536);
+            const cache = new ArticleRenderCache(adapter, identity, producer,
+                { maxEntryBytes: 65536, maxAgeMs: 1000, maxReceipts: 3 });
+            const work = cache.startRefresh();
+            if (outcome === 'local-cancel') cache.cancel();
+            expect((await work.receipt).status).toBe(outcome === 'local-cancel' ? 'canceled' : 'failed');
+            await work.terminal;
+            expect(work.producerWork).not.toBeNull();
+            expect(work.producerWork?.resultRef).toBeNull();
+            expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
+            expect(cache.pendingRefreshWork).not.toContain(work);
+            expect(work.producerFailure).not.toBeNull();
+            cache.dispose();
+            adapter.dispose();
         }
     });
 

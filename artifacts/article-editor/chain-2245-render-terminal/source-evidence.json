@@ -1,5 +1,5 @@
 {
-  "recordedAtUtc": "2026-10-12T01:07:20.620921+00:00",
+  "recordedAtUtc": "2026-10-12T02:26:05.619397+00:00",
   "sourceOnly": true,
   "base": "9b954ae0ea65ada5a8916c5896951c20f030df10",
   "lastVerifiedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
@@ -11,16 +11,16 @@
   "branch": "codex/issue-2245-render-terminal",
   "changes": {
     "src/frontend/src/services/authoring/articleRenderCache.ts": {
-      "sha256": "590df3bf28a40da96a354aca21845ac5a47bee609af42cf00751db2cc6597977",
-      "blob": "83bb2aa0272926923f70d02f9ec86ac2d80861eb"
+      "sha256": "5dd624c12467166e0eb4230ef224e75e47b7784c5e637f335b4667e352920b55",
+      "blob": "7ff6b1cdc6324d2cbb350463d5a26db1ca40df65"
     },
     "tests/frontend/unit/authoring/articleRenderCache.test.ts": {
-      "sha256": "fc59d8e220c58ce8fad18f9602fadf71d7267ed978921be47d2c4a9c9d17620b",
-      "blob": "9ceba27a7c1d0e09b771b285f9ea0fd233ff64f8"
+      "sha256": "8309bad552f1efec5c49cdab2b0777fbd299fb3a25b4620b69b94aa202081f7b",
+      "blob": "4285da28f49a62bc6c2df2effd1218804b95a73c"
     },
     "docs/architecture/overview.md": {
-      "sha256": "b4fda7535ef254a852f3dff69ede30f08a6c17eeb7213ff224f111fa3005a921",
-      "blob": "8bad5dace68eb1ddded6fdff7fa765ae46e1a188"
+      "sha256": "322308e95ca862c5468e37f06a84aba51b39e740952d85feeac008957177ddf6",
+      "blob": "3fbd5cc6b5847d6b2089785e58a6092b60725566"
     }
   },
   "frozen": {
@@ -34,14 +34,6 @@
     },
     "src/frontend/src/services/authoring/articleRenderRefreshPolicy.ts": {
       "blob": "1383a4c29dca48f58c1f1e2aceaed5252d49b0c4",
-      "matchesBase": true
-    },
-    "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": {
-      "blob": "aa9900dd2c607b62bf47ee24a1d23b831a00293f",
-      "matchesBase": true
-    },
-    "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts": {
-      "blob": "30a37cf0b430e577b0f3edc8cca168a167cb2c75",
       "matchesBase": true
     },
     "src/frontend/src/services/authoring/index.ts": {
@@ -85,7 +77,7 @@
       "exitCode": 0
     }
   ],
-  "sourceControls": "Original nine source controls plus seven complete null/invalid/exception matrix blocks (16 appended blocks), all UNRUN/HOLD; no test-list/collection performed",
+  "sourceControls": "20 appended source blocks (nine original + seven null/invalid matrices + four actual-request endpoint blocks), UNRUN/HOLD; no collection/test-list executed",
   "holds": [
     "runtime",
     "test",
@@ -98,11 +90,47 @@
     "migration/ProjectXML/Git replacement QA"
   ],
   "qualification": false,
-  "remainingProducerGap": "Original producer must bind actual failure/no-resource terminal capability. Whole-invalid output, schema-valid fatal/projection-failed null reference and false/exceptional verification stay pending; no stub, metadata grant or forced drain is added.",
-  "remainingCallerGap": "#2246 continuity/runtime currently await cache.refresh cancellation response. Its original caller must consume the same startRefresh work.terminal or delegate pendingRefreshWork; never start a second refresh or settle tool/preview leases on receipt alone.",
-  "contentApiWrites": false,
-  "newPr": null,
+  "remainingProducerGap": "Corrected actual request endpoint consumed; opaque native failure/undeclared or thrown unknown obligations still reject it. No stronger failed-native/public runtime cleanup API exists. Supplier independent re-review and all native/product qualification pending.",
+  "remainingCallerGap": "Same-work continuity/runtime/source-compare exact supplier source consumed. Original product mounts, separate tool/preview/native restoration futures and full-session factory/cleanup acceptance remain open.",
+  "contentApiWrites": "Only explicitly authorized own draft PR creation/update; no issue/other PR/comment/label writes",
+  "newPr": "https://github.com/Ozwasyd/FsusBlog/pull/4230",
   "oldDraftPrUpdated": false,
-  "checkedSourcePreimage": "f67f79e91a3f9742d5d4dc28ad7d1de727299fc6",
-  "reviewRepair": "Reviewed P2: distinct unproduced Symbol versus actual fulfilled unknown/null output; no-resource metadata never grants terminal settlement; classify once before external validation/verification, retain exception causes and validate cloned entry before acceptance."
+  "checkedSourcePreimage": "755f77d4e85a73cd80393e3c68043bc0a634f516",
+  "reviewRepair": "Own invalid/null correction preserved; actual same request/work/Promise terminal joins success and rejection. Known supplier throw-unknown P2 corrected by exact3916/7cd9 source. Logical diagnostics remain observable; no metadata/source/null cleanup inference.",
+  "currentStackedSupplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+  "supplierActualRepair": "3916a5ea219238d0ebb57a2e4a58dd61980fc867",
+  "supersededKnownDefectSupplier": "79da045da19a57b6a73ce4ec735d68120cd49d5f",
+  "publishedOwnP2": "b605f2f1137fa8d7342769c9182ae24601ae996c",
+  "exactConsumedPostimages": {
+    "src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts": {
+      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "blob": "37cdcf9f48faf5ded73d3b5fbcc1c2240870c60c",
+      "matchesSupplier": true
+    },
+    "src/frontend/src/services/authoring/articleEditorContinuity.ts": {
+      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "blob": "510177ab2d41949f16cd7214dab5d2fab67e0214",
+      "matchesSupplier": true
+    },
+    "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts": {
+      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "blob": "d8132a6701d34214e8a87ad7b4bbf08fd6d62a01",
+      "matchesSupplier": true
+    },
+    "src/frontend/src/services/authoring/articleSourceCompare.ts": {
+      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "blob": "323127c16880f130f01abace6711b1e6f625b6a4",
+      "matchesSupplier": true
+    },
+    "tests/frontend/unit/authoring/articleFsusUiRenderProducer.test.ts": {
+      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "blob": "076d219101e7e96f4ddbb54f4c2355dd7822fd30",
+      "matchesSupplier": true
+    },
+    "tests/frontend/unit/authoring/articleEditorContinuity.test.ts": {
+      "supplier": "7cd9e3806ffe7de7156950de31e2021ff34afe5b",
+      "blob": "de79562f03a9a08edf281e1973a20fe8be4c66bf",
+      "matchesSupplier": true
+    }
+  }
 }
