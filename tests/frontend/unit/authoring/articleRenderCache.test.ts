@@ -325,3 +325,164 @@ describe('ArticleRenderCache (#2245)', () => {
         expect(validateArticleRenderReceipt({ ...forgedReceipt, receiptDigest: digest(forgedReceipt) })).toBe(false);
     });
 });
+
+// Source controls only: runtime/test/list execution remains HOLD.
+describe('original render future and cleanup settlement (#2245)', () =>
+{
+    it('settles the original lease after accepted render transfer, not merely its receipt', async () =>
+    {
+        const { adapter, cache } = setup();
+        const work = cache.startRefresh();
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        expect(cache.pendingRefreshWork).toContain(work);
+        expect((await work.receipt).status).toBe('committed');
+        await work.terminal;
+        expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
+        expect(cache.pendingRefreshWork).not.toContain(work);
+        expect(cache.state.content?.result.resultRef).toBe(work.resultRef);
+    });
+
+    it('keeps aborted/disposed work pending until the actual late result has been released', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        const late = deferred<ArticleRenderResult>();
+        let request!: ArticleRenderRequest;
+        vi.mocked(producer.render).mockImplementationOnce(input => { request = input; return late.promise; });
+        const work = cache.startRefresh();
+        await Promise.resolve();
+        cache.dispose();
+        expect((await work.receipt).status).toBe('canceled');
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        expect(cache.pendingRefreshWork).toContain(work);
+        expect(producer.release).not.toHaveBeenCalled();
+        late.resolve(resultFor(request));
+        await work.terminal;
+        expect(producer.release).toHaveBeenCalledExactlyOnceWith(work.resultRef);
+        expect(adapter.pendingTaskRefs).not.toContain(work.taskRef);
+        expect(cache.pendingRefreshWork).toEqual([]);
+    });
+
+    it('retains the failed late release and original obligation without retry or fake settlement', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        const late = deferred<ArticleRenderResult>();
+        let request!: ArticleRenderRequest;
+        vi.mocked(producer.render).mockImplementationOnce(input => { request = input; return late.promise; });
+        vi.mocked(producer.release).mockImplementationOnce(() => { throw new Error('actual-release-failure'); });
+        const work = cache.startRefresh();
+        await Promise.resolve();
+        cache.cancel();
+        await work.receipt;
+        late.resolve(resultFor(request));
+        await expect(work.terminal).rejects.toThrow('actual-release-failure');
+        expect(work.cleanupFailure).not.toBeNull();
+        expect(work.resultRef).toBe(resultFor(request).resultRef);
+        cache.dispose();
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        expect(cache.pendingRefreshWork).toContain(work);
+        expect(producer.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves an earlier unfinished generation after a newer generation truly settles', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        const late = deferred<ArticleRenderResult>();
+        let request!: ArticleRenderRequest;
+        vi.mocked(producer.render).mockImplementationOnce(input => { request = input; return late.promise; });
+        const first = cache.startRefresh();
+        await Promise.resolve();
+        const second = cache.startRefresh();
+        expect((await first.receipt).status).toBe('canceled');
+        await second.terminal;
+        expect(adapter.pendingTaskRefs).toContain(first.taskRef);
+        expect(adapter.pendingTaskRefs).not.toContain(second.taskRef);
+        expect(cache.pendingRefreshWork).toEqual([first]);
+        late.resolve(resultFor(request));
+        await first.terminal;
+        expect(producer.release).toHaveBeenCalledExactlyOnceWith(first.resultRef);
+        expect(cache.state.content?.result.resultRef).toBe(second.resultRef);
+    });
+
+    it('keeps a rejected producer future pending when its failure cleanup endpoint is unconfirmed', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        vi.mocked(producer.render).mockRejectedValueOnce(new Error('actual-render-rejection'));
+        const work = cache.startRefresh();
+        expect((await work.receipt).status).toBe('failed');
+        await expect(work.terminal).rejects.toThrow('article-render-producer-terminal-unconfirmed');
+        expect(work.producerFailure).not.toBeNull();
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        expect(cache.pendingRefreshWork).toContain(work);
+        expect(producer.release).not.toHaveBeenCalled();
+    });
+
+    it('retains the old entry when replacement release fails and leaves new work pending', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        await cache.startRefresh().terminal;
+        const original = cache.state.content;
+        adapter.updateSource('# replacement');
+        vi.mocked(producer.release).mockImplementationOnce(() => { throw new Error('old-entry-release-failure'); });
+        const replacement = cache.startRefresh();
+        expect((await replacement.receipt).status).toBe('failed');
+        await expect(replacement.terminal).rejects.toThrow('article-render-cleanup-failed');
+        expect(cache.state.content).toBe(original);
+        expect(adapter.pendingTaskRefs).toContain(replacement.taskRef);
+        expect(cache.pendingRefreshWork).toContain(replacement);
+        expect(producer.release).toHaveBeenCalledTimes(2);
+        expect(() => cache.dispose()).toThrow('article-render-entry-release-failed');
+        expect(adapter.pendingTaskRefs).toContain(replacement.taskRef);
+    });
+
+    it('rejects an undeclared cleanup future without dropping it or settling the original lease', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        const cleanup = deferred<void>();
+        producer.release = vi.fn(() => cleanup.promise);
+        vi.mocked(producer.render).mockImplementationOnce(async request => resultFor(request, { requestId: 'foreign-request' }));
+        const work = cache.startRefresh();
+        await work.receipt;
+        await expect(work.terminal).rejects.toThrow('article-render-cleanup-failed');
+        const actualFailure = work.cleanupFailure?.cause;
+        expect(actualFailure).toBeInstanceOf(Error);
+        if (!(actualFailure instanceof Error))
+        {
+            throw new Error('missing-original-cleanup-failure');
+        }
+        expect(actualFailure.cause).toBe(cleanup.promise);
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        cleanup.resolve();
+        await cleanup.promise;
+        expect(cache.pendingRefreshWork).toContain(work);
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+    });
+
+    it('rejects commit when the actual release callback changes the original context', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        await cache.startRefresh().terminal;
+        adapter.updateSource('# replacement');
+        vi.mocked(producer.release).mockImplementationOnce(() => { adapter.updateSource('# release callback revision'); });
+        const replacement = cache.startRefresh();
+        expect((await replacement.receipt).status).toBe('rejected');
+        await replacement.terminal;
+        expect(cache.state.content).toBeNull();
+        expect(adapter.pendingTaskRefs).not.toContain(replacement.taskRef);
+        expect(producer.release).toHaveBeenCalledTimes(2);
+    });
+
+
+    it('retains a producer result with an unusable cleanup reference rather than assuming no resource', async () =>
+    {
+        const { adapter, cache, producer } = setup();
+        vi.mocked(producer.render).mockImplementationOnce(async request => resultFor(request, { resultRef: 'invalid ref' }));
+        const work = cache.startRefresh();
+        expect((await work.receipt).status).toBe('failed');
+        await expect(work.terminal).rejects.toThrow('article-render-cleanup-reference-invalid');
+        expect(work.cleanupFailure).not.toBeNull();
+        expect(cache.pendingRefreshWork).toContain(work);
+        expect(adapter.pendingTaskRefs).toContain(work.taskRef);
+        expect(producer.release).not.toHaveBeenCalled();
+    });
+
+});
