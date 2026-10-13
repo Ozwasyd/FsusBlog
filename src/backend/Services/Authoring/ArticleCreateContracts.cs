@@ -248,6 +248,17 @@ public sealed record ArticleCreateVerificationSnapshot(
 
 public interface IArticleCreateStore
 {
+    /// <summary>
+    /// Reads the original durable outcome for the exact Inbox input after actor admission.
+    /// Null means no committed receipt was observed, not cancellation or proof of zero writes.
+    /// This domain port does not derive HTTP session/site authority or perform a create.
+    /// </summary>
+    Task<ArticleCreateReceipt?> ReconcileInboxAsync(
+        ArticleTemplateActor actor,
+        Guid requestId,
+        ArticleInboxCreateRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<ArticleCreateReceipt> CreateInboxAsync(
         ArticleTemplateActor actor,
         Guid requestId,

@@ -13,6 +13,23 @@ public sealed class ArticleCreateStore(
     IArticleCreatePersistence persistence,
     IArticleTemplateExpansionVerifier expansionVerifier) : IArticleCreateStore
 {
+    public async Task<ArticleCreateReceipt?> ReconcileInboxAsync(
+        ArticleTemplateActor actor,
+        Guid requestId,
+        ArticleInboxCreateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        var command = new ArticleCreateCommand(actor, requestId, request);
+        RequireArticleWrite(command.Actor);
+        ArticleCreateReceipt? receipt = await persistence.ResolveRequestAsync(
+            command.Actor.AdminPrincipalId, command.RequestId, ComputeRequestDigest(command), cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return receipt;
+    }
+
     public Task<ArticleCreateReceipt> CreateInboxAsync(
         ArticleTemplateActor actor,
         Guid requestId,

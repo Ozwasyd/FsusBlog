@@ -80,6 +80,21 @@ their genuine owners; this bounded request does not admit or silently discard
 those fields. Template property/rights/responsibility/prepublish defaults still
 refuse with `article_create_defaults_receiver_unavailable` pending real receivers.
 
+The same store exposes the read-only domain operation
+`ReconcileInboxAsync(actor, requestId, request, cancellationToken)`. It checks the
+existing article-write actor admission and computes the same title/body request
+digest before querying the original owner/request ledger. A matching durable
+outcome returns the actual stored receipt; changed input reusing the UUID follows
+the original conflict path. This operation never calls the create writer, plan
+verifier or title lookup and makes no business writes. A null result only means no
+committed receipt was observed by that read; an in-flight create may still commit.
+Recovery must preserve its unknown outcome and exact request identity rather than
+claim cancellation, generate another UUID or mark the input saved. The returned
+create receipt is an immutable outcome, not a new permission/document grant or an
+independent verification of current article state. Original authenticated
+session/site admission and typed AEDS create/reconcile/receipt bindings are still
+required before a public transport can consume this domain port.
+
 The additive `20261011-post-article-inbox-editable-source` migration only defines
 the nullable provenance column. The separate source definition
 `20261011-post-article-inbox-create-receipt` replaces the exact mode/template/status
