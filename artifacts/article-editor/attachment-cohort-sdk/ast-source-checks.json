@@ -1,0 +1,13 @@
+{
+  "typescript": "6.0.3",
+  "parseDiagnostics": [],
+  "preservedOrdinaryMethods": [
+    "isTaskCurrent",
+    "isCurrentContext",
+    "settleTask",
+    "updateSource",
+    "updateDraftRevision",
+    "switchDocument",
+    "dispose"
+  ]
+}

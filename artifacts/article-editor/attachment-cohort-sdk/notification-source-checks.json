@@ -1,0 +1,22 @@
+{
+  "kind": "source-static-observations",
+  "qualification": false,
+  "base": "2f88313642b9d5b3f3fb53254b7c19986962ec45",
+  "ui": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+  "sourceBlob": "adb0ca27c62fa20f971d581c61bc35b6730c09f1",
+  "acceptedP2": "Parent source accepts final-native-proof ordering in 2f883136",
+  "remainingP2Repair": "Producer binding refuses original context notification depth, adapter retirement, retained notificationActive and retryActive guards; public notification behavior unchanged",
+  "changedMethodOnly": "hasAttachmentRevisionCohortBinding",
+  "counterexampleControl": "notification-source-cases.json; UNRUN, no producer/test imports executed",
+  "compiler": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 231,
+    "afterDiagnostics": 231,
+    "added": [],
+    "removed": [],
+    "normalization": "positions only, complete multiline blocks/multiplicity"
+  },
+  "style": "original strict-full one production source exit0/0 violations",
+  "holds": "runtime/tests/import/discovery/qualification HOLD; whole candidate independent source review pending"
+}

@@ -20,6 +20,9 @@ import type {
     RetainedArticleDocumentInspection
 } from './openArticleDocumentRegistry';
 import type {
+    MarkdownAttachmentTerminalCohort,
+    MarkdownAttachmentTerminalCohortIssuer,
+    MarkdownAttachmentTerminalCohortMember,
     MarkdownAttachmentTerminalCustody,
     MarkdownAttachmentTerminalRevisionIssuer,
     MarkdownAttachmentTerminalRevisionReservation,
@@ -160,7 +163,8 @@ export interface ArticleDocumentAttachmentRevisionAssociation {
 
 /** Structurally consumes the original Main ArticleAttachmentNativeRevisionProducer. */
 export interface ArticleDocumentAttachmentRevisionProducer {
-    reserve(lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody): ArticleDocumentAttachmentRevisionAssociation | null;
+    reserve(lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody,
+        continuation?: Readonly<{ cohort: ArticleDocumentAttachmentRevisionCohort; context: ArticleDocumentContext; }>): ArticleDocumentAttachmentRevisionAssociation | null;
     hasAssociation(association: ArticleDocumentAttachmentRevisionAssociation,
         phase: 'applying' | 'accepted' | 'committed', transaction?: MarkdownEditorTransactionEvent): boolean;
     cancelAssociation(association: ArticleDocumentAttachmentRevisionAssociation): boolean;
@@ -170,6 +174,13 @@ declare const attachmentRevisionTransitionBrand: unique symbol;
 
 export interface ArticleDocumentAttachmentRevisionTransition {
     readonly [attachmentRevisionTransitionBrand]: true;
+}
+
+declare const attachmentRevisionCohortBrand: unique symbol;
+
+/** SDK-private original leases and the actual native continuation token. */
+export interface ArticleDocumentAttachmentRevisionCohort {
+    readonly [attachmentRevisionCohortBrand]: true;
 }
 
 export interface ArticleDocumentTaskRegistry {
@@ -820,6 +831,7 @@ interface ArticleDocumentAttachmentRevisionRecord {
     readonly before: ArticleDocumentContext;
     readonly originalEnvelope: ArticleDocumentTaskEnvelope;
     readonly taskPort: AttachmentRevisionTaskPort;
+    cohort?: ArticleDocumentAttachmentCohortRecord;
     association: ArticleDocumentAttachmentRevisionAssociation | null;
     transaction: MarkdownEditorTransactionEvent | null;
     after: ArticleDocumentContext | null;
@@ -838,9 +850,35 @@ interface AttachmentRevisionTaskPort {
     cancel(reason: string): ArticleDocumentTaskEnvelope;
 }
 
+interface ArticleDocumentAttachmentCohortMember {
+    readonly native: MarkdownAttachmentTerminalCohortMember;
+    readonly lease: ArticleDocumentTaskLeaseImpl;
+    readonly envelope: ArticleDocumentTaskEnvelope;
+    readonly port: AttachmentRevisionTaskPort;
+    completed: boolean;
+}
+
+interface ArticleDocumentAttachmentCohortRecord {
+    readonly token: ArticleDocumentAttachmentRevisionCohort;
+    readonly issuer: MarkdownAttachmentTerminalCohortIssuer;
+    readonly before: ArticleDocumentContext;
+    readonly capture: MarkdownAttachmentTerminalCustody['capture'];
+    readonly members: Map<ArticleDocumentTaskLeaseImpl, ArticleDocumentAttachmentCohortMember>;
+    native: MarkdownAttachmentTerminalCohort | null;
+    current: ArticleDocumentContext;
+    publications: MarkdownEditorTransactionEvent[];
+    closed: boolean;
+    cancelling: boolean;
+    nativeWithdrawn: boolean;
+    failure: { readonly firstCause: unknown; latestCause: unknown; } | null;
+    cleanupFailure?: { readonly cause: unknown; };
+}
+
 const attachmentRevisionTaskPorts = new WeakMap<ArticleDocumentTaskLeaseImpl, AttachmentRevisionTaskPort>();
 
 const attachmentRevisionTaskCancellations = new WeakMap<ArticleDocumentTaskLeaseImpl, () => void>();
+
+const attachmentCohortTaskCancellations = new WeakMap<ArticleDocumentTaskLeaseImpl, () => void>();
 
 const taskFinalizationTokens = new WeakMap<ArticleDocumentTaskLeaseImpl, object>();
 
@@ -900,6 +938,7 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
             return this.#currentEnvelope;
         }
         attachmentRevisionTaskCancellations.get(this)?.();
+        attachmentCohortTaskCancellations.get(this)?.();
         if (this.#finishing)
         {
             this.#cancelReason ??= reason;
@@ -1005,9 +1044,15 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     #retirementListeners = new Set<NotificationSubscriptionRecord>();
     #retirementFailures: unknown[] = [];
     #attachmentRevisionOperation = false;
+    #attachmentRevisionProducerFrame: Readonly<{ transition: ArticleDocumentAttachmentRevisionRecord;
+        producer: ArticleDocumentAttachmentRevisionProducer; }> | null = null;
     #attachmentRevisionTransition: ArticleDocumentAttachmentRevisionRecord | null = null;
     #attachmentRevisionCompletion: ArticleDocumentAttachmentRevisionRecord | null = null;
     #attachmentRevisionTokens = new WeakMap<ArticleDocumentAttachmentRevisionTransition, ArticleDocumentAttachmentRevisionRecord>();
+    #attachmentCohort: ArticleDocumentAttachmentCohortRecord | null = null;
+    #attachmentCohortTokens = new WeakMap<ArticleDocumentAttachmentRevisionCohort, ArticleDocumentAttachmentCohortRecord>();
+    #attachmentCohortFailures = new WeakMap<ArticleDocumentAttachmentRevisionCohort,
+        Readonly<{ firstCause: unknown; latestCause: unknown; }>>();
 
     public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): RetainedNotificationSubscription
     {
@@ -1093,8 +1138,12 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         });
     }
 
-    #retireLifetimeAuthority(): void
+    #retireLifetimeAuthority(publicationCohort?: ArticleDocumentAttachmentCohortRecord): void
     {
+        if (this.#attachmentCohort && this.#attachmentCohort !== publicationCohort)
+        {
+            this.#revokeAttachmentCohort('document-lifetime-retired');
+        }
         if (this.#retirementPending)
         {
             throw new Error('article-document-retirement-in-progress');
@@ -1331,13 +1380,18 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     /** Called only by the original attachment owner inside its one applying loan. */
     public reserveAttachmentRevisionTransition(lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody,
-        producer: ArticleDocumentAttachmentRevisionProducer): ArticleDocumentAttachmentRevisionTransition | null
+        producer: ArticleDocumentAttachmentRevisionProducer,
+        cohortToken?: ArticleDocumentAttachmentRevisionCohort): ArticleDocumentAttachmentRevisionTransition | null
     {
         this.#assertAttachmentRevisionEntry();
         if (this.#attachmentRevisionTransition || !(lease instanceof ArticleDocumentTaskLeaseImpl)
             || !this.#pendingTasks.has(lease) || !this.#activeTasksHas(lease))
         {
             return null;
+        }
+        if (!cohortToken && this.#attachmentCohort)
+        {
+            this.#revokeAttachmentCohort('attachment-non-cohort-transition');
         }
         this.#attachmentRevisionOperation = true;
         const token = {};
@@ -1357,6 +1411,20 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             Object.freeze(token);
             this.#assertContextMutation();
+            if (cohortToken)
+            {
+                const cohort = this.#attachmentCohortTokens.get(cohortToken);
+                if (!cohort)
+                {
+                    this.#withdrawAttachmentRevision(record);
+                    return null;
+                }
+                record.cohort = cohort;
+                if (!this.#readAttachmentCohortContinuation(cohort, lease))
+                {
+                    throw new Error('article-document-attachment-cohort-continuation-unavailable');
+                }
+            }
             if (!this.#hasAttachmentRevisionLease(record, record.before) || record.originalEnvelope.kind !== 'attachment'
                 || custody.beforeRevision !== record.before.sourceRevision
                 || custody.batch.documentIdentity.id !== record.before.documentId
@@ -1365,8 +1433,15 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
                 this.#withdrawAttachmentRevision(record);
                 return null;
             }
-            const association = producer.reserve(lease, custody);
+            const reserve = producer.reserve.bind(producer);
+            const association = this.#withAttachmentRevisionProducer(record, () => reserve(lease, custody, record.cohort
+                ? Object.freeze({ cohort: record.cohort.token, context: record.before }) : undefined));
             record.association = association;
+            if (record.cohort && association && (!record.cohort.native || !record.cohort.issuer.join(record.cohort.native,
+                custody, association.reservation, lease)))
+            {
+                throw new Error('article-document-attachment-cohort-join-unavailable');
+            }
             if (association?.lease !== lease || association.custody !== custody
                 || !this.#hasAttachmentRevisionLease(record, record.before)
                 || !this.#hasAttachmentRevisionProvenance(record, 'applying'))
@@ -1388,6 +1463,347 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
     }
 
+    /** Bind the complete authentic native capture to existing SDK leases, never issue peers. */
+    public reserveAttachmentRevisionCohort(token: ArticleDocumentAttachmentRevisionTransition,
+        issuer: MarkdownAttachmentTerminalCohortIssuer,
+        members: readonly MarkdownAttachmentTerminalCohortMember[]): ArticleDocumentAttachmentRevisionCohort | null
+    {
+        this.#assertAttachmentRevisionEntry();
+        const transition = this.#readAttachmentRevision(token, 'reserved');
+        if (this.#attachmentCohort)
+        {
+            return null;
+        }
+        this.#attachmentRevisionOperation = true;
+        const cohortToken = Object.freeze({}) as ArticleDocumentAttachmentRevisionCohort;
+        const record: ArticleDocumentAttachmentCohortRecord = { token: cohortToken, issuer,
+            before: transition.before, current: transition.before, capture: transition.custody.capture,
+            members: new Map(), native: null, publications: [], closed: false, cancelling: false,
+            nativeWithdrawn: false, failure: null };
+        this.#attachmentCohort = record;
+        this.#attachmentCohortTokens.set(cohortToken, record);
+        transition.cohort = record;
+        try
+        {
+            this.#assertContextMutation();
+            if (Object.getPrototypeOf(members) !== Array.prototype || members.length !== record.capture.batch.items.length
+                || members.length !== record.capture.plan.jobs.length)
+            {
+                throw new Error('article-document-attachment-cohort-members-invalid');
+            }
+            const nativeMembers: MarkdownAttachmentTerminalCohortMember[] = [];
+            for (const [index, input] of members.entries())
+            {
+                const { item, jobRef, leaseRef } = input;
+                if (!(leaseRef instanceof ArticleDocumentTaskLeaseImpl) || record.members.has(leaseRef)
+                    || item !== record.capture.batch.items[index] || jobRef !== record.capture.plan.jobs[index]
+                    || !this.#activeTasksHas(leaseRef) || !this.#pendingTasks.has(leaseRef)
+                    || leaseRef.envelope.context !== record.before || leaseRef.envelope.kind !== 'attachment'
+                    || leaseRef.envelope.status !== 'running' || leaseRef.signal.aborted)
+                {
+                    throw new Error('article-document-attachment-cohort-lease-invalid');
+                }
+                const port = attachmentRevisionTaskPorts.get(leaseRef)!;
+                if (port.finishing())
+                {
+                    throw new Error('article-document-attachment-cohort-lease-finishing');
+                }
+                const native = Object.freeze({ item, jobRef, leaseRef });
+                record.members.set(leaseRef, { native, lease: leaseRef, envelope: leaseRef.envelope, port, completed: false });
+                nativeMembers.push(native);
+                attachmentCohortTaskCancellations.set(leaseRef, () =>
+                {
+                    // Revoke SDK permission before the original abort/finalization callbacks.
+                    // Physical native/peer cleanup remains an explicit retained duty.
+                    record.closed = true;
+                });
+            }
+            if (!record.members.has(transition.lease) || !this.#hasAttachmentRevisionLease(transition, transition.before)
+                || !this.#hasAttachmentRevisionProvenance(transition, 'applying') || !transition.association)
+            {
+                throw new Error('article-document-attachment-cohort-source-unavailable');
+            }
+            record.native = issuer.reserve(transition.custody, transition.association.reservation, nativeMembers);
+            if (!record.native || record.closed || !this.#readAttachmentCohortContinuation(record, transition.lease)
+                || !this.#hasAttachmentRevisionProvenance(transition, 'applying')
+                || ![...record.members.keys()].every(lease => this.#hasAttachmentCohortMember(record, lease, record.before)))
+            {
+                throw new Error('article-document-attachment-cohort-reservation-unavailable');
+            }
+            return cohortToken;
+        }
+        catch (cause)
+        {
+            this.#abortAttachmentRevision(transition, cause);
+            throw cause;
+        }
+        finally
+        {
+            this.#attachmentRevisionOperation = false;
+        }
+    }
+
+    /** Actual native event-chain observation. Does not change ordinary task/context predicates. */
+    public readAttachmentRevisionContinuation(token: ArticleDocumentAttachmentRevisionCohort,
+        lease: ArticleDocumentTaskLease): ArticleDocumentContext | null
+    {
+        this.#assertAttachmentRevisionEntry();
+        const record = this.#attachmentCohortTokens.get(token);
+        if (!record || !(lease instanceof ArticleDocumentTaskLeaseImpl))
+        {
+            return null;
+        }
+        this.#attachmentRevisionOperation = true;
+        try
+        {
+            this.#assertRetainedAdmission();
+            return this.#readAttachmentCohortContinuation(record, lease);
+        }
+        catch (cause)
+        {
+            this.#failAttachmentCohort(record, cause);
+            try
+            {
+                this.#cleanupAttachmentCohort(record, 'attachment-cohort-continuation-failed');
+            }
+            catch (cleanupCause)
+            {
+                this.#failAttachmentCohort(record, cleanupCause);
+            }
+            throw cause;
+        }
+        finally
+        {
+            this.#attachmentRevisionOperation = false;
+        }
+    }
+
+    /** Pure binding for the actual SDK-invoked producer frame, never ordinary task admission. */
+    public hasAttachmentRevisionCohortBinding(token: ArticleDocumentAttachmentRevisionCohort,
+        lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody, context: ArticleDocumentContext): boolean
+    {
+        const transition = this.#attachmentRevisionTransition;
+        const cohort = this.#attachmentCohort;
+        const frame = this.#attachmentRevisionProducerFrame;
+        return this.#attachmentRevisionOperation && this.#contextNotificationDepth === 0 && !this.#retirementPending
+            && retainedAdapterGuards.get(this)?.notificationActive() !== true
+            && retainedAdapterGuards.get(this)?.retryActive() !== true
+            && !!transition && frame?.transition === transition
+            && frame.producer === transition.producer && !!cohort && transition.cohort === cohort
+            && cohort.token === token && !cohort.closed && !cohort.failure && !transition.invalidated && !transition.failure
+            && transition.lease === lease && transition.custody === custody && cohort.capture === custody.capture
+            && this.#current === context && cohort.current === context
+            && (transition.before === context || transition.after === context);
+    }
+
+    /** Synchronize a real peer's anchor/form from the exact already-published event only. */
+    public hasAttachmentRevisionCohortPublication(token: ArticleDocumentAttachmentRevisionCohort,
+        lease: ArticleDocumentTaskLease, transaction: MarkdownEditorTransactionEvent, context: ArticleDocumentContext): boolean
+    {
+        const transition = this.#attachmentRevisionTransition;
+        const cohort = this.#attachmentCohort;
+        return !this.#attachmentRevisionOperation && this.#contextNotificationDepth === 0
+            && !this.#contextMutationPending && !this.#retirementPending && !this.#disposed
+            && !!transition && !!cohort && transition.cohort === cohort && cohort.token === token
+            && transition.stage === 'published' && !transition.invalidated && !transition.failure
+            && transition.transaction === transaction && transition.after === context
+            && lease instanceof ArticleDocumentTaskLeaseImpl && this.#hasAttachmentCohortMember(cohort, lease, context);
+    }
+
+    public cancelAttachmentRevisionCohort(token: ArticleDocumentAttachmentRevisionCohort | ArticleDocumentTaskLease,
+        reason = 'attachment-cohort-canceled'): boolean
+    {
+        this.#assertAttachmentRevisionEntry();
+        const record = token instanceof ArticleDocumentTaskLeaseImpl && this.#attachmentCohort?.members.has(token)
+            ? this.#attachmentCohort : this.#attachmentCohortTokens.get(token as ArticleDocumentAttachmentRevisionCohort);
+        if (!record || this.#attachmentCohort !== record)
+        {
+            return false;
+        }
+        assertAbortReason(reason);
+        this.#attachmentRevisionOperation = true;
+        try
+        {
+            return this.#cleanupAttachmentCohort(record, reason);
+        }
+        finally
+        {
+            this.#attachmentRevisionOperation = false;
+        }
+    }
+
+    public inspectAttachmentRevisionCohortCleanup(): Readonly<{ pending: number; closed: boolean; failed: boolean;
+        firstCause: unknown; latestCause: unknown; }>
+    {
+        const record = this.#attachmentCohort;
+        return Object.freeze({ pending: record ? 1 : 0, closed: record?.closed ?? false, failed: !!record?.failure,
+            firstCause: record?.failure?.firstCause, latestCause: record?.failure?.latestCause });
+    }
+
+    public readAttachmentRevisionCohortFailure(token: ArticleDocumentAttachmentRevisionCohort):
+        Readonly<{ firstCause: unknown; latestCause: unknown; }> | null
+    {
+        const failure = this.#attachmentCohortTokens.get(token)?.failure ?? this.#attachmentCohortFailures.get(token);
+        return failure ? Object.freeze({ ...failure }) : null;
+    }
+
+    #hasAttachmentCohortMember(record: ArticleDocumentAttachmentCohortRecord,
+        lease: ArticleDocumentTaskLeaseImpl, context: ArticleDocumentContext): boolean
+    {
+        const member = record.members.get(lease);
+        return this.#attachmentCohort === record && !record.closed && !record.failure && record.current === context
+            && this.#current === context && !!member && !member.completed && member.port.envelope() === member.envelope
+            && member.envelope.context === record.before && member.envelope.status === 'running'
+            && this.#activeTasksHas(lease) && this.#pendingTasks.has(lease) && !member.port.signal().aborted;
+    }
+
+    #readAttachmentCohortContinuation(record: ArticleDocumentAttachmentCohortRecord,
+        lease: ArticleDocumentTaskLeaseImpl): ArticleDocumentContext | null
+    {
+        if (!record.native || !this.#hasAttachmentCohortMember(record, lease, this.#current))
+        {
+            return null;
+        }
+        this.#assertRetainedAdmission();
+        if (!record.native || !this.#hasAttachmentCohortMember(record, lease, this.#current))
+        {
+            return null;
+        }
+        // Retained scope readers may revoke the native token without changing this SDK lease.
+        // This final native proof follows those external checks; only private checks follow it.
+        const continuation = record.issuer.inspectContinuation(record.native, record.members.get(lease)!.native);
+        if (continuation?.capture !== record.capture || continuation.beforeRevision !== record.before.sourceRevision
+            || continuation.revision !== record.current.sourceRevision || continuation.publications.length !== record.publications.length
+            || continuation.publications.some((event, index) => event !== record.publications[index]))
+        {
+            return null; // Native application in flight or unavailable is not a completion/ended ACK.
+        }
+        return this.#hasAttachmentCohortMember(record, lease, this.#current) ? record.current : null;
+    }
+
+    #failAttachmentCohort(record: ArticleDocumentAttachmentCohortRecord, cause: unknown): void
+    {
+        record.closed = true;
+        record.failure ??= { firstCause: cause, latestCause: cause };
+        record.failure.latestCause = cause;
+        if (record.cancelling)
+        {
+            record.cleanupFailure ??= { cause };
+        }
+        this.#retirementFailures.push(cause);
+        if (this.#attachmentCohort !== record)
+        {
+            this.#attachmentCohortFailures.set(record.token, Object.freeze({ ...record.failure }));
+        }
+    }
+
+    #cleanupAttachmentCohort(record: ArticleDocumentAttachmentCohortRecord, reason: string): boolean
+    {
+        record.closed = true;
+        if (record.cancelling)
+        {
+            const cause = new Error('article-document-attachment-cohort-cleanup-reentrant');
+            this.#failAttachmentCohort(record, cause);
+            throw cause;
+        }
+        record.cancelling = true;
+        record.cleanupFailure = undefined;
+        // Use the original cancellation fence before native or abort callbacks can issue tasks.
+        this.#taskCancellationDepth += 1;
+        const failures: unknown[] = [];
+        const run = (work: () => void): void =>
+        {
+            try
+            {
+                work();
+            }
+            catch (cause)
+            {
+                failures.push(cause);
+                this.#failAttachmentCohort(record, cause);
+            }
+        };
+        try
+        {
+            run(() =>
+            {
+                if (record.native && !record.nativeWithdrawn && record.issuer.cancel(record.native) !== true)
+                {
+                    throw new Error('article-document-attachment-cohort-withdrawal-unconfirmed');
+                }
+                record.nativeWithdrawn = true;
+            });
+            for (const member of record.members.values())
+            {
+                run(() =>
+                {
+                    if (member.port.envelope().status === 'running')
+                    {
+                        member.port.cancel(reason);
+                    }
+                    if (member.port.envelope().status === 'running')
+                    {
+                        throw new Error('article-document-attachment-cohort-task-cancellation-pending');
+                    }
+                });
+            }
+            const cleanupFailure = this.#readAttachmentCohortCleanupFailure(record);
+            if (cleanupFailure && !failures.length)
+            {
+                failures.push(cleanupFailure.cause);
+            }
+            if (failures.length)
+            {
+                throw new AggregateError(failures, 'article-document-attachment-cohort-cleanup-failed', { cause: failures[0] });
+            }
+            for (const member of record.members.values())
+            {
+                attachmentCohortTaskCancellations.delete(member.lease);
+            }
+            if (this.#attachmentCohort === record)
+            {
+                this.#attachmentCohort = null;
+            }
+            if (record.failure)
+            {
+                this.#attachmentCohortFailures.set(record.token, Object.freeze({ ...record.failure }));
+            }
+            this.#attachmentCohortTokens.delete(record.token);
+            record.members.clear();
+            record.publications = [];
+            return true; // Association/task cancellation only. Pending SDK tasks still require genuine settle.
+        }
+        finally
+        {
+            this.#taskCancellationDepth -= 1;
+            record.cancelling = false;
+        }
+    }
+
+    #revokeAttachmentCohort(reason: string): void
+    {
+        const record = this.#attachmentCohort;
+        if (!record)
+        {
+            return;
+        }
+        this.#assertAttachmentRevisionEntry();
+        this.#attachmentRevisionOperation = true;
+        try
+        {
+            this.#cleanupAttachmentCohort(record, reason);
+        }
+        finally
+        {
+            this.#attachmentRevisionOperation = false;
+        }
+    }
+
+    #readAttachmentCohortCleanupFailure(record: ArticleDocumentAttachmentCohortRecord): { readonly cause: unknown; } | undefined
+    {
+        return record.cleanupFailure;
+    }
+
     /** Publish the exact accepted native event before its public source callbacks. */
     public publishAttachmentRevisionTransition(token: ArticleDocumentAttachmentRevisionTransition,
         transaction: MarkdownEditorTransactionEvent): ArticleDocumentContext
@@ -1406,7 +1822,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             }
             record.stage = 'publishing';
             record.transaction = transaction;
-            this.#retireLifetimeAuthority();
+            this.#retireLifetimeAuthority(record.cohort);
             this.#contextMutationPending = true;
             this.#assertContextMutation();
             const next = createArticleDocumentContext({ ...record.before, sourceRevision: transaction.revision,
@@ -1421,6 +1837,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             this.#current = next;
             record.after = next;
             record.stage = 'published';
+            if (record.cohort)
+            {
+                record.cohort.current = next;
+                record.cohort.publications.push(transaction);
+            }
             this.#contextMutationPending = false;
             this.#notifyContext();
             this.#assertRetainedAdmission();
@@ -1473,6 +1894,14 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             }
             record.stage = 'completed';
             this.#withdrawAttachmentRevision(record);
+            if (record.cohort)
+            {
+                record.cohort.members.get(record.lease)!.completed = true;
+                if ([...record.cohort.members.values()].every(member => member.completed))
+                {
+                    this.#cleanupAttachmentCohort(record.cohort, 'attachment-cohort-completed');
+                }
+            }
             return accepted;
         }
         catch (cause)
@@ -1522,6 +1951,17 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             {
                 failures.push(cause);
             }
+            if (record.cohort)
+            {
+                try
+                {
+                    this.#cleanupAttachmentCohort(record.cohort, reason);
+                }
+                catch (cause)
+                {
+                    failures.push(cause);
+                }
+            }
             if (failures.length)
             {
                 for (const cause of failures)
@@ -1546,6 +1986,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             || retainedAdapterGuards.get(this)?.retryActive())
         {
             const cause = new Error('article-document-attachment-revision-operation-in-progress');
+            if (this.#attachmentCohort)
+            {
+                this.#failAttachmentCohort(this.#attachmentCohort, cause);
+            }
             if (this.#attachmentRevisionTransition)
             {
                 this.#failAttachmentRevision(this.#attachmentRevisionTransition, cause);
@@ -1572,6 +2016,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     #failAttachmentRevision(record: ArticleDocumentAttachmentRevisionRecord, cause: unknown): void
     {
+        if (record.cohort)
+        {
+            this.#failAttachmentCohort(record.cohort, cause);
+        }
         record.invalidated = true;
         record.cancellationRequested = true;
         record.failure ??= { firstCause: cause, latestCause: cause };
@@ -1601,13 +2049,26 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             this.#failAttachmentRevision(record, cleanupCause);
         }
+        if (record.cohort)
+        {
+            try
+            {
+                this.#cleanupAttachmentCohort(record.cohort, 'attachment-cohort-transition-failed');
+            }
+            catch (cleanupCause)
+            {
+                this.#failAttachmentCohort(record.cohort, cleanupCause);
+            }
+        }
     }
 
     #hasAttachmentRevisionLease(record: ArticleDocumentAttachmentRevisionRecord, context: ArticleDocumentContext): boolean
     {
         return this.#attachmentRevisionTransition === record && !record.invalidated && !record.failure && !this.#disposed
+            && (!record.cohort || !record.cohort.closed && this.#attachmentCohort === record.cohort)
             && this.#current === context && this.#activeTasksHas(record.lease) && this.#pendingTasks.has(record.lease)
-            && record.originalEnvelope.context === record.before
+            && (record.originalEnvelope.context === record.before || !!record.cohort
+                && this.#hasAttachmentCohortMember(record.cohort, record.lease, context))
             && record.taskPort.envelope() === record.originalEnvelope && !record.taskPort.signal().aborted
             && (!record.taskPort.finishing() || this.#attachmentRevisionCompletion === record);
     }
@@ -1622,10 +2083,35 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
         // These are the same original Main private association and actual mounted native issuer,
         // not free callbacks or structural transaction metadata acting as a grant.
-        return record.producer.hasAssociation(association, phase, transaction) === true
+        const hasAssociation = record.producer.hasAssociation.bind(record.producer);
+        return this.#withAttachmentRevisionProducer(record, () => hasAssociation(association, phase, transaction)) === true
             && !record.invalidated && !record.failure && this.#attachmentRevisionTransition === record
             && association.issuer.hasReservation(association.reservation, record.lease, phase, transaction) === true
-            && !record.invalidated && !record.failure && this.#attachmentRevisionTransition === record;
+            && !record.invalidated && !record.failure && this.#attachmentRevisionTransition === record
+            && (!record.cohort || !record.cohort.closed && this.#attachmentCohort === record.cohort
+                && record.cohort.capture === record.custody.capture
+                && (phase === 'applying' || !!record.cohort.native && !!transaction
+                    && record.cohort.issuer.hasPublication(record.cohort.native, association.reservation, record.lease, phase, transaction) === true)
+                && !record.cohort.closed && !record.invalidated && !record.failure);
+    }
+
+    #withAttachmentRevisionProducer<T>(record: ArticleDocumentAttachmentRevisionRecord, invoke: () => T): T
+    {
+        if (this.#attachmentRevisionProducerFrame)
+        {
+            const cause = new Error('article-document-attachment-producer-frame-reentrant');
+            this.#failAttachmentRevision(record, cause);
+            throw cause;
+        }
+        this.#attachmentRevisionProducerFrame = Object.freeze({ transition: record, producer: record.producer });
+        try
+        {
+            return invoke();
+        }
+        finally
+        {
+            this.#attachmentRevisionProducerFrame = null;
+        }
     }
 
     #assertAttachmentRevisionTransaction(record: ArticleDocumentAttachmentRevisionRecord,
@@ -1650,7 +2136,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             for (const task of [...this.#activeTasks.values()])
             {
-                if (task !== record.lease)
+                if (task !== record.lease && (!record.cohort || !this.#hasAttachmentCohortMember(record.cohort, task, record.before)))
                 {
                     task.cancel('source-revision-changed');
                 }
@@ -1665,9 +2151,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     #withdrawAttachmentRevision(record: ArticleDocumentAttachmentRevisionRecord): void
     {
         record.invalidated = true;
-        if (record.association && !record.nativeWithdrawn)
+        const association = record.association;
+        if (association && !record.nativeWithdrawn)
         {
-            if (record.producer.cancelAssociation(record.association) !== true)
+            const cancelAssociation = record.producer.cancelAssociation.bind(record.producer);
+            if (this.#withAttachmentRevisionProducer(record, () => cancelAssociation(association)) !== true)
             {
                 throw new Error('article-document-attachment-revision-withdrawal-unavailable');
             }
@@ -1917,6 +2405,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
         assertAbortReason(reason);
         const refs = [...this.#activeTasks.values()].map(task => task.taskRef).sort();
+        this.#revokeAttachmentCohort(reason);
         // Synchronous abort listeners must not register work outside this cancellation snapshot.
         this.#taskCancellationDepth += 1;
         try
@@ -1992,6 +2481,13 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             throw new Error('article-document-task-finalization-invalid');
         }
         const transition = this.#attachmentRevisionTransition;
+        if (status === 'completed' && this.#attachmentCohort?.members.has(task)
+            && this.#attachmentRevisionCompletion?.lease !== task)
+        {
+            const cause = new Error('article-document-attachment-cohort-completion-requires-token');
+            this.#failAttachmentCohort(this.#attachmentCohort, cause);
+            throw cause;
+        }
         if (status === 'completed' && transition?.lease === task && this.#attachmentRevisionCompletion !== transition)
         {
             const cause = new Error('article-document-attachment-revision-completion-requires-token');

@@ -1,0 +1,22 @@
+{
+  "kind": "source-static-observations",
+  "qualification": false,
+  "sourceBase": "3f8b27eb6a2f8048f153204a2353cc03adb6e6ed",
+  "sourceProduction": "b5472e648c4a9320edeac61c3be87fba6873c2b5",
+  "sourceBlob": "60acc8b966e6a96e6951141279ae6d30bd076f20",
+  "actualUiComposite": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+  "uiStatus": "cohort reviewer bounded source accepts composition per parent; separate end reviewer pending, no runtime/physical qualification",
+  "cohortInterfacesMatchAcceptedF2": true,
+  "compiler": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 231,
+    "afterDiagnostics": 231,
+    "added": [],
+    "removed": [],
+    "normalization": "positions only; complete blocks/multiplicity"
+  },
+  "style": "original strict-full one source exit0/0 violations",
+  "applicationEnded": "not consumed; not settlement or full-ready",
+  "holds": "all runtime/tests/import/discovery/qualification HOLD/UNRUN"
+}

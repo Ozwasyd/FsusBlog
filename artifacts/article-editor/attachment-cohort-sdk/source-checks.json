@@ -1,0 +1,23 @@
+{
+  "kind": "source-static-observations",
+  "qualification": false,
+  "base": "3f8b27eb6a2f8048f153204a2353cc03adb6e6ed",
+  "upstreamUi": "f2cee189a19b7c9827b4ef46e0049f1bf4379f60",
+  "upstreamStatus": "independently bounded SOURCE accepted per parent; no SDK/composite/runtime qualification",
+  "sourceBlob": "60acc8b966e6a96e6951141279ae6d30bd076f20",
+  "sourceSha256": "a9ef18c1fd6d96e4d1f6c97e59f0cdac757aba2b1d17e1fd6d7ba7f26982417c",
+  "compiler": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 231,
+    "afterDiagnostics": 231,
+    "added": [],
+    "removed": [],
+    "normalization": "header positions only; complete multiline blocks and multiplicity"
+  },
+  "style": "original strict-full one production file, exit0, violations0",
+  "execution": "all runtime/tests/import/discovery/qualification HOLD/UNRUN; no producer/test executed",
+  "main": "c50/66c remain untouched; no caller registration or activation",
+  "applicationEnded": "UI956 is separate and not consumed",
+  "initialFailures": "one TS2339 control-flow latch error and original style failures corrected; raw intermediate logs retained locally, not final PASS"
+}
