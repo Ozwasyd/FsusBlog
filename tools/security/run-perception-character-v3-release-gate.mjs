@@ -226,4 +226,44 @@ function main()
     }
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    main();
+}
+
+import { buildIndependentReview } from './perception-character-v3-independent-review.mjs';
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['success']), describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeJobEvidence(receipt),
+    async verify({ domainInputs, repositoryRoot, context })
+    {
+        const { readOwnerEvidenceFile, readOwnerEvidenceReference } = await import(new URL('../release/required-evidence-owner-input.mjs', import.meta.url));
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const refs = Object.fromEntries(['gate', 'implementation', 'independent', 'poolManifest', 'corpus', 'benchmark', 'migration'].map((key) =>
+            [key, readOwnerEvidenceReference(domainInputs?.[key], { repositoryRoot, context })]));
+        const implementation = refs.implementation.receipt;
+        const independent = refs.independent.receipt;
+        const replay = buildIndependentReview({ implementation, poolManifest: refs.poolManifest.receipt,
+            corpus: refs.corpus.receipt, benchmark: refs.benchmark.receipt, migration: refs.migration.receipt,
+            repositoryRoot, evidenceReader(entry)
+            {
+                return readOwnerEvidenceFile({ path: entry.path, digest: `sha256:${entry.sha256}` },
+                    { repositoryRoot, context }).digest.replace(/^sha256:/u, '');
+            } });
+        if (JSON.stringify(independent) !== JSON.stringify(replay))
+        {
+            throw new Error('independent perception review replay mismatch');
+        }
+        const gate = refs.gate.receipt;
+        if (gate.schema !== 'fsusblog.security.perception-character-v3-release-gate-summary.v1' || gate.status !== 'passed'
+            || gate.testedCommit !== context.sourceCommit || implementation.testedCommit !== context.sourceCommit
+            || independent.testedCommit !== context.sourceCommit || gate.targetFingerprint !== implementation.releaseTarget.targetFingerprint
+            || gate.implementationReceiptFingerprint !== implementation.receiptFingerprint
+            || gate.independentReceiptFingerprint !== independent.receiptFingerprint
+            || implementation.unresolvedFindings.high.length || implementation.unresolvedFindings.critical.length
+            || independent.unresolvedFindings.high.length || independent.unresolvedFindings.critical.length)
+        {
+            throw new Error('perception release receipts do not converge on this source/target');
+        }
+        return verifiedOwnerResult({ gateDigest: refs.gate.digest, reviewFingerprint: replay.receiptFingerprint });
+    }
+});

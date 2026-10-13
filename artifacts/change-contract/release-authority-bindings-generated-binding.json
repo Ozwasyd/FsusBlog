@@ -1,0 +1,56 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/generate-evidence-location-governance.mjs",
+        "config/testing/required-evidence-authority-ledger.json",
+        "tools/release/register-required-evidence-verifier-imports.mjs",
+        "tools/release/required-evidence-verifier-registry.mjs",
+        "tools/test-matrix/required-evidence-dependencies.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/ci/check-job-summaries.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test/lanes/static-governance.sh",
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tools/test/run-matrix-governance-once.sh",
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tools/release/test-evidence-receipts.mjs",
+        "tools/release/check-release-final.mjs",
+        "tests/tools/release-final-verified-authority-binding.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "6f6f81391834ab73c160648a472a76a557d42dda6088ba49644cd68d4a10d1f1"
+        },
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "a865bc917f81ce1faba6440a12ef5028a775a887677faad38801cae8fa7cf239"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "1549c07069e21ce81458fa151af4ada82533d7b480eb23dde59548f8e5c86172"
+        },
+        {
+            "path": "config/testing/release-final-execution-authority-index.json",
+            "sha256": "99a620b87c44a3ecc0b60cc4ac39ce3697060a33786f6ff0f3d5ed0d0df2290f"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "d571e9d5c1c5378aa8b1eaee24aa5b0a8cbb3ce310a70a557bb58f1da823a566"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+        }
+    ]
+}

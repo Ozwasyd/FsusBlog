@@ -1,0 +1,43 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/ci/check-job-summaries.mjs",
+                "tools/ci/run-stage.mjs",
+                "tools/test-matrix/release-final-evidence-contract.mjs",
+                "tools/test-matrix/required-evidence-dependencies.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve existing caller-visible process environment names while projecting and recording catalog dependencies."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh",
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "Preserve canonical shell environment names while registering regressions and projecting the declared validation SDK root."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/execution-dependency-contract.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "config/schemas/test-execution-envelope-applicability.schema.json"
+            ],
+            "reason": "Preserve canonical execution, inventory, applicability and schema wire keys while repairing exact projection requirements and digests."
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve existing GitHub Actions job, timeout, artifact and environment keys while synchronizing canonical matrix projections."
+        }
+    ]
+}
