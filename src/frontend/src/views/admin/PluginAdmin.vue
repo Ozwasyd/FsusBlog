@@ -230,29 +230,46 @@
                                 id="plugin-config"
                             >
                                 <div class="plugin-config-form">
-                                    <label
+                                    <component
+                                        :is="field.enumOptions.length ? 'fieldset' : 'label'"
                                         v-for="field in configFields"
                                         :key="field.name"
                                         class="plugin-config-field"
+                                        :class="{ 'plugin-config-field--enum': field.enumOptions.length > 0 }"
                                     >
-                                        <span>{{ field.title }}</span>
+                                        <legend v-if="field.enumOptions.length">{{ field.title }}</legend>
+                                        <span v-else>{{ field.title }}</span>
                                         <small>{{ field.description }}</small>
+                                        <div
+                                            v-if="field.enumOptions.length"
+                                            class="plugin-config-enum"
+                                        >
+                                            <label
+                                                v-for="option in field.enumOptions"
+                                                :key="option.key"
+                                                class="plugin-config-enum-option"
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    :name="`${configInputId}:${field.name}`"
+                                                    :checked="selectedEnumOption(field) === option"
+                                                    @change="selectEnumOption(field, option)"
+                                                >
+                                                <span>{{ option.label }}</span>
+                                            </label>
+                                            <p
+                                                v-if="!Object.hasOwn(configDraft, field.name)"
+                                                class="plugin-config-enum-status"
+                                            >未设置</p>
+                                            <p
+                                                v-else-if="!selectedEnumOption(field)"
+                                                class="plugin-config-enum-status"
+                                            >当前配置值不在选项中，请选择一个合法值。</p>
+                                        </div>
                                         <ElSwitch
-                                            v-if="field.type === 'boolean'"
+                                            v-else-if="field.type === 'boolean'"
                                             v-model="configDraft[field.name]"
                                         />
-                                        <ElSelect
-                                            v-else-if="field.enumValues.length"
-                                            v-model="configDraft[field.name]"
-                                            :placeholder="field.title"
-                                        >
-                                            <ElOption
-                                                v-for="option in field.enumValues"
-                                                :key="String(option)"
-                                                :label="String(option)"
-                                                :value="option"
-                                            />
-                                        </ElSelect>
                                         <ElInputNumber
                                             v-else-if="field.type === 'integer' || field.type === 'number'"
                                             v-model="configDraft[field.name]"
@@ -264,7 +281,7 @@
                                             v-model="configDraft[field.name]"
                                             :placeholder="field.title"
                                         />
-                                    </label>
+                                    </component>
                                     <p
                                         v-if="configFields.length === 0"
                                         class="plugin-admin-empty"
@@ -482,7 +499,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from 'vue';
+import { computed, onMounted, ref, shallowRef, toRaw, useId } from 'vue';
 
 import {
     getPlugin,
@@ -504,12 +521,14 @@ import {
 import { confirmDanger, confirmWarning, toast } from '@/fsusui/feedback';
 import { showErrorToast } from '@/utils/errorPresentation';
 
+import { createPluginConfigEnumOptions, pluginConfigJsonValuesEqual, type PluginConfigEnumOption } from './pluginConfigEnum';
+
 interface ConfigField {
     name: string;
     title: string;
     description: string;
     type: string;
-    enumValues: unknown[];
+    enumOptions: readonly PluginConfigEnumOption[];
     minimum?: number;
     maximum?: number;
 }
@@ -524,6 +543,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const overview = shallowRef<PluginAdminOverview | null>(null);
 const detail = shallowRef<PluginAdminDetail | null>(null);
 const configDraft = ref<Record<string, any>>({});
+const configInputId = useId();
 
 const configFields = computed<ConfigField[]>(() =>
 {
@@ -537,11 +557,33 @@ const configFields = computed<ConfigField[]>(() =>
         title: String(schema.title ?? name),
         description: String(schema.description ?? ''),
         type: String(schema.type ?? 'string'),
-        enumValues: Array.isArray(schema.enum) ? schema.enum : [],
+        enumOptions: Array.isArray(schema.enum) ? createPluginConfigEnumOptions(schema.enum) : [],
         minimum: typeof schema.minimum === 'number' ? schema.minimum : undefined,
         maximum: typeof schema.maximum === 'number' ? schema.maximum : undefined
     }));
 });
+
+function selectedEnumOption(field: ConfigField): PluginConfigEnumOption | null
+{
+    if (!Object.hasOwn(configDraft.value, field.name))
+    {
+        return null;
+    }
+    const value = toRaw(configDraft.value[field.name]);
+    return field.enumOptions.find((option) => option.value === value)
+        ?? field.enumOptions.find((option) => pluginConfigJsonValuesEqual(option.value, value))
+        ?? null;
+}
+
+function selectEnumOption(field: ConfigField, option: PluginConfigEnumOption): void
+{
+    if (!configFields.value.includes(field) || !field.enumOptions.includes(option))
+    {
+        return;
+    }
+    // Keep the canonical value itself, including null and nested objects/arrays.
+    configDraft.value = { ...configDraft.value, [field.name]: option.value };
+}
 
 async function loadOverview(): Promise<void>
 {
@@ -975,6 +1017,42 @@ onMounted(loadOverview);
  {
     grid-column: 2;
     grid-row: 1 / span 2;
+}
+
+.plugin-config-field--enum
+ {
+    display: block;
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+
+.plugin-config-enum
+ {
+    display: grid;
+    gap: var(--fsus-space-2);
+    margin-top: var(--fsus-space-2);
+}
+
+.plugin-config-enum-option
+ {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--fsus-space-2);
+    min-width: 0;
+}
+
+.plugin-config-enum-option span
+ {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.plugin-config-enum-status
+ {
+    margin: 0;
+    color: var(--fsusblog-text-secondary);
 }
 
 .plugin-config-footer
