@@ -357,6 +357,9 @@ function collectFixtureIdentity(repositoryRoot, env, runId, imageDigest, errors)
             }
             topology.content = {
                 schema: document.schema,
+                runId: document.runId,
+                namespace: document.namespace,
+                resourceState: document.resourceState,
                 contentDigest: digestValue(document),
                 postgres: document.postgres,
                 redis: document.redis,

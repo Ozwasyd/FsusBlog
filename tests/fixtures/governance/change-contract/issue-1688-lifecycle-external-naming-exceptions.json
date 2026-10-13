@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-runtime/production-observer-ports.mjs",
+                "tools/test/collect-release-reliability-fixture.mjs",
+                "tools/test/release-reliability-lifecycle-actions.mjs",
+                "tools/test/release-reliability-lifecycle.mjs",
+                "tools/test/release-reliability-receipt.mjs",
+                "tools/test/verify-release-reliability-lifecycle-action.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs"
+            ],
+            "reason": "Preserve process environment, Docker label and existing runtime receipt field spellings while the canonical lifecycle owners bind actual native observations and scoped cache resets."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/release-reliability-lifecycle-action-registry.schema.json",
+                "config/testing/release-reliability-lifecycle-action-registry.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/fixtures/governance/change-contract/issue-1688-lifecycle-generated-binding.json",
+                "tests/fixtures/governance/change-contract/issue-1688-lifecycle-external-naming-exceptions.json"
+            ],
+            "reason": "Preserve registered JSON schema, action registry, NuGet lock and generated authority keys. The new review manifests bind unchanged naming surfaces and actual canonical producer output without renaming caller-visible fields."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/production-build-artifacts.sh"
+            ],
+            "reason": "Pass the existing FSUSBLOG_TEST_SOURCE_COMMIT through the canonical Migration production build, retaining the required no-dependencies ordering and immutable assembly source binding."
+        }
+    ]
+}

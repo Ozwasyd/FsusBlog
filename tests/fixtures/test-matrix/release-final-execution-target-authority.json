@@ -2180,8 +2180,8 @@
         },
         {
             "path": "tests/tools/release-reliability-receipt.test.mjs",
-            "contentDigest": "sha256:8d1ebbf5a1ad92fc0bae243ee69c31c2da878a4cb15ba38d78495dbc1be291ac",
-            "indexDigest": "sha256:8d1ebbf5a1ad92fc0bae243ee69c31c2da878a4cb15ba38d78495dbc1be291ac"
+            "contentDigest": "sha256:ffd6a9c172db2eff69391301d9becb853d935a7969b98a135d2b9f31ab4d2674",
+            "indexDigest": "sha256:ffd6a9c172db2eff69391301d9becb853d935a7969b98a135d2b9f31ab4d2674"
         },
         {
             "path": "tests/tools/resource-utilization.test.mjs",
@@ -4735,8 +4735,8 @@
         },
         {
             "path": "tools/test-runtime/production-observer-ports.mjs",
-            "contentDigest": "sha256:fb9ca72efa1097fd88fb9e92b653a7a162209c2cdeca709fc1bd1b454ef7a1d9",
-            "indexDigest": "sha256:fb9ca72efa1097fd88fb9e92b653a7a162209c2cdeca709fc1bd1b454ef7a1d9"
+            "contentDigest": "sha256:1e2eb8e686fe304032726c88de9230f1d59f757e3d88fa819b23d2006f8d9362",
+            "indexDigest": "sha256:1e2eb8e686fe304032726c88de9230f1d59f757e3d88fa819b23d2006f8d9362"
         },
         {
             "path": "tools/test-runtime/production-receipt-observer-ports.mjs",
@@ -4885,8 +4885,8 @@
         },
         {
             "path": "tools/test/collect-release-reliability-fixture.mjs",
-            "contentDigest": "sha256:25578e9468e118700abd18488b54a1e9002bdd41d226b867afc7a84dcba4dcca",
-            "indexDigest": "sha256:25578e9468e118700abd18488b54a1e9002bdd41d226b867afc7a84dcba4dcca"
+            "contentDigest": "sha256:e8c5caee4c3286c5d3aef9ab7509c38a2569c028269cb35de97e7fa02110ac21",
+            "indexDigest": "sha256:e8c5caee4c3286c5d3aef9ab7509c38a2569c028269cb35de97e7fa02110ac21"
         },
         {
             "path": "tools/test/command-manifest-runtime.mjs",
@@ -5090,8 +5090,8 @@
         },
         {
             "path": "tools/test/lanes/production-build-artifacts.sh",
-            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
-            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a"
+            "contentDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce",
+            "indexDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce"
         },
         {
             "path": "tools/test/lanes/project-privacy-zk-prebuild.mjs",
@@ -5290,18 +5290,18 @@
         },
         {
             "path": "tools/test/release-reliability-lifecycle-actions.mjs",
-            "contentDigest": "sha256:2761d8c498f6739f17a028b6874e88ee39afba3fbeddbbbafe800b9eb6b0d864",
-            "indexDigest": "sha256:2761d8c498f6739f17a028b6874e88ee39afba3fbeddbbbafe800b9eb6b0d864"
+            "contentDigest": "sha256:e422281577b35e56ca644f4531fe9b37b8000a8cfbdde42b5cc48951b091498a",
+            "indexDigest": "sha256:e422281577b35e56ca644f4531fe9b37b8000a8cfbdde42b5cc48951b091498a"
         },
         {
             "path": "tools/test/release-reliability-lifecycle.mjs",
-            "contentDigest": "sha256:5859a6285c2d2d49bddc54ac4fd33b632bd193a2a2eafe23679693b14ba93198",
-            "indexDigest": "sha256:5859a6285c2d2d49bddc54ac4fd33b632bd193a2a2eafe23679693b14ba93198"
+            "contentDigest": "sha256:85ce966ebdad7b6b850e7b993201c22645c64a83935228695521c48daa47c4e9",
+            "indexDigest": "sha256:85ce966ebdad7b6b850e7b993201c22645c64a83935228695521c48daa47c4e9"
         },
         {
             "path": "tools/test/release-reliability-receipt.mjs",
-            "contentDigest": "sha256:87d9ba95dda82bf2cbefdf9eb637f86a03f46b348769b8b4aa31b82e08519536",
-            "indexDigest": "sha256:87d9ba95dda82bf2cbefdf9eb637f86a03f46b348769b8b4aa31b82e08519536"
+            "contentDigest": "sha256:3a4bfa5a20f4e8a6518333ce2a4a444da7b840ad8ac8b3ae7774acb3ea0cd3db",
+            "indexDigest": "sha256:3a4bfa5a20f4e8a6518333ce2a4a444da7b840ad8ac8b3ae7774acb3ea0cd3db"
         },
         {
             "path": "tools/test/release-reliability-runtime-admission.mjs",
@@ -5575,13 +5575,13 @@
         },
         {
             "path": "tools/test/verify-release-reliability-lifecycle-action.mjs",
-            "contentDigest": "sha256:b3676e81071a9edaf693e74e47f66ebb9ee5da61e12a5cd50f0a3859781020fd",
-            "indexDigest": "sha256:b3676e81071a9edaf693e74e47f66ebb9ee5da61e12a5cd50f0a3859781020fd"
+            "contentDigest": "sha256:696f9174e52fe5dfe0365ff621380e664e6d51c4ef12dbd0932ffdba3d027ff9",
+            "indexDigest": "sha256:696f9174e52fe5dfe0365ff621380e664e6d51c4ef12dbd0932ffdba3d027ff9"
         },
         {
             "path": "tools/test/verify-release-reliability-receipt.mjs",
-            "contentDigest": "sha256:4d44a8423168ff80070be3197437536bb96ff6cbae31aa7243718c4a3868932a",
-            "indexDigest": "sha256:4d44a8423168ff80070be3197437536bb96ff6cbae31aa7243718c4a3868932a"
+            "contentDigest": "sha256:1b894b437e773a9851beb7ed22c9bb8eba59ab991c1d8177ce9ff3842ceaff37",
+            "indexDigest": "sha256:1b894b437e773a9851beb7ed22c9bb8eba59ab991c1d8177ce9ff3842ceaff37"
         },
         {
             "path": "tools/test/verify-replay-qualification.mjs",
@@ -18049,6 +18049,7 @@
                 "tools/test-observations/ledger.mjs",
                 "tools/test-observations/source-identity.mjs",
                 "tools/test-observations/validation.mjs",
+                "tools/test-runtime/production-observer-ports.mjs",
                 "tools/test/attempt-provenance.mjs",
                 "tools/test/attempt-runner.mjs",
                 "tools/test/behavior-doc-nuget-preparation.mjs",
@@ -23067,6 +23068,7 @@
                 "tools/test-matrix/scheduler-run-owner.mjs",
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
+                "tools/test-runtime/production-observer-ports.mjs",
                 "tools/test/attempt-provenance.mjs",
                 "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/csharp-source-mask.mjs",
@@ -33273,8 +33275,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
-            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
+            "contentDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce",
+            "indexDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/frontend/package.json",
@@ -45684,6 +45686,7 @@
                 "tools/test-matrix/scheduler-run-owner.mjs",
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
+                "tools/test-runtime/production-observer-ports.mjs",
                 "tools/test/attempt-provenance.mjs",
                 "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/bundles/bundle-steps.mjs",
@@ -45928,6 +45931,7 @@
                 "tools/test-matrix/scheduler-run-owner.mjs",
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
+                "tools/test-runtime/production-observer-ports.mjs",
                 "tools/test/attempt-provenance.mjs",
                 "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/bundles/runtime-environment.mjs",

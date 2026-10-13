@@ -10,6 +10,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const { postgresqlDatabaseStateDigest } = await import(new URL('../../tools/test-runtime/production-observer-ports.mjs', import.meta.url));
+function diagnosticResourceState(namespace)
+{
+    const postgres = { status: 'observed', database: 'fsusblog', schemaDigest: `sha256:${'a'.repeat(64)}`, relations: [] };
+    postgres.stateDigest = postgresqlDatabaseStateDigest(postgres);
+    return { postgres, redis: { status: 'observed', namespacePrefix: `FsusBlog_${namespace}_`, publicKeyCount: 0, keyDigests: [] } };
+}
+
 const {
     collectRunIdentity,
     createCandidateReceipt,
@@ -110,7 +118,8 @@ function runtimeEnvironmentText({
         'FSUSBLOG_RELEASE_PREVIEW_URL=http://127.0.0.1:28501',
         'ASPNETCORE_URLS=http://127.0.0.1:24501',
         'FSUSBLOG_DATA_ROOT=/host/run-bound/data',
-        'PublicAot__SsrClientRoot=/host/run-bound/frontend/dist'
+        'PublicAot__SsrClientRoot=/host/run-bound/frontend/dist',
+        `RedisOptions__InstanceName=FsusBlog_${namespace}_`
     ].join('\n') + '\n';
 }
 
@@ -1228,7 +1237,7 @@ test('identity collector consumes the canonical production build receipt without
     {
         const alias = name === 'fixture-postgres' ? 'postgres' : 'redis';
         collectorState[name] = {
-            Id: `${name}-id`,
+            Id: (alias === 'postgres' ? '1' : '2').repeat(64),
             Image: digest('d'),
             State: { Running: true },
             Config: { Image: `${name}:fixture`, Labels: { ...collectorLabels } },
@@ -1260,7 +1269,11 @@ test('identity collector consumes the canonical production build receipt without
 const fs = require('node:fs'); const state = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_COLLECTOR_DOCKER_STATE, 'utf8'));
 if (process.argv[2] === 'image') { process.stdout.write(JSON.stringify([state.image])); process.exit(0); }
 if (process.argv[2] === 'network' && process.argv[3] === 'inspect') { const value = state[process.argv.at(-1)]; if (!value) process.exit(1); process.stdout.write(JSON.stringify([value])); process.exit(0); }
-if (process.argv[2] === 'exec') { const command = process.argv.at(-1); const value = state.process; if (command.includes('/proc/1/stat')) { const tail = ['S', '0', String(value.processGroupId), String(value.sessionId), ...Array(15).fill('0'), String(value.startTimeTicks)]; process.stdout.write('1 (FsusBlog.Server) ' + tail.join(' ') + '\n'); } else if (command.includes('/proc/1/environ')) process.stdout.write(Object.entries(value.environment).map(([key, item]) => key + '=' + item).join('\n') + '\n'); else if (command.includes('/proc/1/exe')) process.stdout.write(value.executable + '\n'); else if (command.includes('/proc/1/cmdline')) process.stdout.write(value.commandLine.join('\n') + '\n'); else if (command.includes('/proc/1/cwd')) process.stdout.write(value.workingDirectory + '\n'); else process.exit(1); process.exit(0); }
+if (process.argv[2] === 'exec') {
+if (process.argv.includes('pg_dump')) { process.stdout.write('fixture schema\n'); process.exit(0); }
+if (process.argv.includes('psql')) { process.stdout.write(JSON.stringify({kind:'inventory',relations:[]})+'\n'); process.exit(0); }
+if (process.argv.includes('redis-cli') && process.argv.includes('SCAN')) { process.stdout.write(JSON.stringify(['0',[]])); process.exit(0); }
+const command = process.argv.at(-1); const value = state.process; if (command.includes('/proc/1/stat')) { const tail = ['S', '0', String(value.processGroupId), String(value.sessionId), ...Array(15).fill('0'), String(value.startTimeTicks)]; process.stdout.write('1 (FsusBlog.Server) ' + tail.join(' ') + '\n'); } else if (command.includes('/proc/1/environ')) process.stdout.write(Object.entries(value.environment).map(([key, item]) => key + '=' + item).join('\n') + '\n'); else if (command.includes('/proc/1/exe')) process.stdout.write(value.executable + '\n'); else if (command.includes('/proc/1/cmdline')) process.stdout.write(value.commandLine.join('\n') + '\n'); else if (command.includes('/proc/1/cwd')) process.stdout.write(value.workingDirectory + '\n'); else process.exit(1); process.exit(0); }
 const value = state[process.argv.at(-1)]; if (process.argv[2] !== 'inspect' || !value) process.exit(1); process.stdout.write(JSON.stringify([value]));
 `);
     fs.chmodSync(collectorDocker, 0o755);
@@ -1331,6 +1344,9 @@ const value = state[process.argv.at(-1)]; if (process.argv[2] !== 'inspect' || !
     assert.deepEqual(identity.build.image.layers, [digest('a'), digest('b')]);
     assert.equal('receiptImageDigest' in identity.build, false);
     assert.equal(identity.fixture.topology.content.runtime.imageDigest, digest('9'));
+    assert.equal(identity.fixture.topology.content.runId, runId);
+    assert.equal(identity.fixture.topology.content.namespace, 'collector-fixture');
+    assert.equal(identity.fixture.topology.content.resourceState.postgres.status, 'observed');
     const lsof = identity.tools.find((tool) => tool.id === 'lsof');
     assert.equal(lsof.status, 'complete');
     assert.equal(lsof.executable, fs.realpathSync(fakeLsof));
@@ -1832,6 +1848,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         status: 'complete',
         runId,
         namespace: fixtureNamespace,
+        resourceState: diagnosticResourceState(fixtureNamespace),
         root: 'fixtures/runtime',
         config: {
             path: 'fixtures/config.env',
@@ -1976,6 +1993,9 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
                 ...binding('.tmp/topology.json'),
                 content: {
                     schema: topology.schema,
+                    runId: topology.runId,
+                    namespace: topology.namespace,
+                    resourceState: topology.resourceState,
                     contentDigest: digestValue(topology),
                     postgres: topology.postgres,
                     redis: topology.redis,
@@ -2073,6 +2093,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             scenario.isolation.lifecycle.resetsAfter[0]
         ];
         const runtimeObservation = {
+            resourceState: topology.resourceState,
             expectedBaseUrl: 'http://127.0.0.1:24501',
             configuredBaseUrl: 'http://127.0.0.1:24501',
             backend: {

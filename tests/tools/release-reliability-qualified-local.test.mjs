@@ -235,17 +235,31 @@ function runContainerCleanup(fixtureRoot, state, {
 
 function copyProductionBuildEnvironmentTool(targetRoot)
 {
-    for (const relativePath of [
-        'tools/test/export-production-build-environment.mjs',
-        'tools/test/process-identity.mjs',
-        'tools/test-matrix/production-build-layout.mjs',
-        'tools/test-matrix/scheduler-run-owner.mjs'
-    ])
+    const pending = ['tools/test/export-production-build-environment.mjs'];
+    const copied = new Set();
+    while (pending.length > 0)
     {
+        const relativePath = pending.pop();
+        if (copied.has(relativePath))
+        {
+            continue;
+        }
+        copied.add(relativePath);
+        const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
         const target = path.join(targetRoot, relativePath);
         fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.copyFileSync(path.join(root, relativePath), target);
+        fs.writeFileSync(target, source);
+        // Keep the real static import closure, including literal new URL imports.
+        for (const match of source.matchAll(/(?:from\s*|import\s*\(\s*|new URL\(\s*)['"](\.[^'"]+\.mjs)['"]/gu))
+        {
+            const dependency = path.normalize(path.join(path.dirname(relativePath), match[1]));
+            assert.ok(!dependency.startsWith('..') && !path.isAbsolute(dependency));
+            pending.push(dependency);
+        }
     }
+    const policy = 'config/testing/temporal-policy.json';
+    fs.mkdirSync(path.dirname(path.join(targetRoot, policy)), { recursive: true });
+    fs.copyFileSync(path.join(root, policy), path.join(targetRoot, policy));
     return path.join(targetRoot, 'tools/test/export-production-build-environment.mjs');
 }
 
@@ -601,7 +615,9 @@ NODE
         sealMatrixFixtureProfile(bootstrapTiers[0])
     );
     assert.equal(expected.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID, 'acceptance-representative');
-    assert.equal(expected.FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS, 'acceptance');
+    // The acceptance profile and runtime execution class are separate canonical contracts.
+    assert.equal(bootstrapTiers[0].executionClass, 'runtime');
+    assert.equal(expected.FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS, 'runtime');
     assert.deepEqual(JSON.parse(fs.readFileSync(capture, 'utf8')), {
         FSUSBLOG_SEALED_FIXTURE_PROFILE_ID: expected.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID,
         FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST: expected.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST,

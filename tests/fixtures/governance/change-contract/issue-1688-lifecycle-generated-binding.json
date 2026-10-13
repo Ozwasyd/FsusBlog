@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/release-reliability-receipt.test.mjs",
+        "tools/test-runtime/production-observer-ports.mjs",
+        "tools/test/collect-release-reliability-fixture.mjs",
+        "tools/test/release-reliability-lifecycle-actions.mjs",
+        "tools/test/release-reliability-lifecycle.mjs",
+        "tools/test/release-reliability-receipt.mjs",
+        "tools/test/verify-release-reliability-lifecycle-action.mjs",
+        "tools/test/verify-release-reliability-receipt.mjs",
+        "tools/test/lanes/production-build-artifacts.sh",
+        "tests/tools/release-reliability-qualified-local.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "6b1ba27162187fa9f4bc36bbb86de67c653e8644cc87ce716d9c24b19eb046f3"
+        }
+    ]
+}

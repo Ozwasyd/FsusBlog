@@ -807,6 +807,9 @@ function verifyFixture(repositoryRoot, fixture, identity, runtimeImage)
         || !topology.redis?.instance || !topology.redis?.version
         || !digestPattern.test(topology.redis?.configDigest)
         || topology.contentDigest !== semanticDigest(topology)
+        || fixture.topology.content?.runId !== topology.runId
+        || fixture.topology.content?.namespace !== topology.namespace
+        || JSON.stringify(fixture.topology.content?.resourceState) !== JSON.stringify(topology.resourceState)
         || fixture.topology.content?.contentDigest !== topology.contentDigest
         || JSON.stringify(fixture.topology.content?.postgres) !== JSON.stringify(topology.postgres)
         || JSON.stringify(fixture.topology.content?.redis) !== JSON.stringify(topology.redis)
