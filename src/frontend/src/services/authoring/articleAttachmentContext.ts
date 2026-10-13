@@ -187,6 +187,7 @@ interface PendingInput {
     nativeFinalization?: { readonly observation: Extract<MarkdownAttachmentTerminalObservation, { phase: 'committed'; }>;
         readonly proof: Readonly<{ transactionRef: string; providerResultDigest: string; }>; sdkAccepted: boolean; };
     nativeFinishing?: boolean;
+    nativeCleanupPending?: boolean;
     nativeCleanupReentry?: { readonly cause: unknown; };
     file?: File;
     releaseFile?: () => void;
@@ -1013,7 +1014,8 @@ export class ArticleAttachmentContextAdapter
     /** Same original resource holders; no aggregate editor census or work-settlement claim. */
     public inspectNativeTransitionCleanup(): Readonly<{ pending: number; }>
     {
-        return Object.freeze({ pending: [...this.pending.values()].filter(entry => entry.nativeSdkCleanupPending === true
+        return Object.freeze({ pending: [...this.pending.values()].filter(entry => entry.nativeCleanupPending === true
+            || entry.nativeSdkCleanupPending === true
             || entry.nativeTerminal?.taskCompletion === 'completed').length });
     }
 
@@ -1255,7 +1257,8 @@ export class ArticleAttachmentContextAdapter
         }
         for (const entry of this.pending.values())
         {
-            if (this.ownedOperations.has(entry.intent.task.taskRef) || entry.nativeTerminal?.taskCompletion === 'completed')
+            if (this.ownedOperations.has(entry.intent.task.taskRef) || entry.nativeCleanupPending
+                || entry.nativeTerminal?.taskCompletion === 'completed')
             {
                 continue;
             }
@@ -1544,7 +1547,7 @@ export class ArticleAttachmentContextAdapter
     private findPending(handle: ArticleAttachmentPendingHandle): PendingInput
     {
         const entry = this.pendingHandles.get(handle);
-        if (!entry || this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted
+        if (!entry || this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted || entry.nativeCleanupPending
             || entry.nativeTerminal?.taskCompletion === 'completed')
         {
             throw new Error('attachment-pending-handle-invalid');
@@ -1554,7 +1557,7 @@ export class ArticleAttachmentContextAdapter
 
     private finish(entry: PendingInput, state: 'cancelled' | 'stale' | 'removed' | 'failed', reason: string): ArticleAttachmentLifecycleSnapshot
     {
-        if (entry.nativeCapture && (entry.nativeSdkCleanupPending || entry.nativeFinalization))
+        if (entry.nativeCapture && (entry.nativeCleanupPending || entry.nativeSdkCleanupPending || entry.nativeFinalization))
         {
             return this.finishNativeEntry(entry, reason, state);
         }
@@ -1577,6 +1580,7 @@ export class ArticleAttachmentContextAdapter
     private finishNativeEntry(entry: PendingInput, reason: string,
         state: 'cancelled' | 'stale' | 'removed' | 'failed' = 'failed'): ArticleAttachmentLifecycleSnapshot
     {
+        entry.nativeCleanupPending = true;
         if (entry.nativeFinishing)
         {
             const cause = new Error('attachment-native-cleanup-reentrant');
@@ -1670,6 +1674,7 @@ export class ArticleAttachmentContextAdapter
             {
                 this.pending.delete(entry.intent.task.taskRef);
             }
+            entry.nativeCleanupPending = false;
             return entry.snapshot;
         }
         finally
