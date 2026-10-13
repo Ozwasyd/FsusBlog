@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs"
+            ],
+            "reason": "Preserve existing process-environment spelling under trusted path-based backend source admission for the five native module paths and nine exact existing common prerequisite paths; this component adds no environment switch and preserves all reviewed production blobs while consuming two original-owner structural ownership registrations in the shared registry."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/code-intent-registry.json"
+            ],
+            "reason": "Preserve trusted registry JSON schema and field spelling while consuming the two exact original-owner structural ownership registrations; no checker, existing registration or qualification claim is changed."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/development/code-intent-governance.md"
+            ],
+            "reason": "Bind the already registered document path while preserving its existing DocClaim fields and generated-section markers; the original source-backed extractor and renderer update only the scalar count derived from the actual registry, without changing the naming exception authority."
+        }
+    ]
+}
