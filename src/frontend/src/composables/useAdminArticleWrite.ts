@@ -1119,13 +1119,20 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const attachmentUploadObligations = new Map<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
     // Original rich requests remain owned until their actual full-settlement observation.
     const nativeUploadQueue = createArticleAttachmentUploadQueue();
-    const nativeUploadRequests = new Map<ArticleAttachmentPendingHandle, ArticleAttachmentQueuedUploadRequest>();
+    interface NativeUploadRequestCustody {
+        readonly request: ArticleAttachmentQueuedUploadRequest;
+        readonly lease: ArticleDocumentTaskLease;
+        // Populated only by this SAME original future's existing fulfilled callback.
+        observedSettledFuture: ArticleAttachmentQueuedUploadRequest['settled'] | null;
+        observedFailures: ReturnType<ArticleAttachmentQueuedUploadRequest['inspectObservationFailures']> | null;
+    }
+    const nativeUploadRequests = new Map<ArticleAttachmentPendingHandle, NativeUploadRequestCustody>();
     const nativeUploadFailures: { cause: unknown; }[] = [];
     const cancelNativeUploadRequests = (reason: string): void =>
     {
         let failed = false;
         let firstCause: unknown;
-        for (const request of nativeUploadRequests.values())
+        for (const { request } of nativeUploadRequests.values())
         {
             try
             {
@@ -1144,6 +1151,52 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         if (failed)
         {
             throw firstCause;
+        }
+    };
+    const settleOriginalNativeUpload = (handle: ArticleAttachmentPendingHandle, custody: NativeUploadRequestCustody): void =>
+    {
+        if (nativeUploadRequests.get(handle) !== custody || custody.observedSettledFuture !== custody.request.settled)
+        {
+            return;
+        }
+        if (!custody.observedFailures)
+        {
+            const observed = custody.request.inspectObservationFailures();
+            nativeUploadFailures.push(...observed);
+            custody.observedFailures = observed;
+        }
+        const lease = authoringAttachments.readCleanedNativeLease(handle);
+        if (lease !== custody.lease || nativeUploadRequests.get(handle) !== custody
+            || custody.observedSettledFuture !== custody.request.settled)
+        {
+            return;
+        }
+        // Actual original upload/provider/queue future fulfilled AND physical native/Main
+        // cleanup proved. The terminal envelope alone never authorizes this acknowledgment.
+        lease.settle();
+        if (nativeUploadRequests.get(handle) === custody)
+        {
+            nativeUploadRequests.delete(handle);
+        }
+    };
+    const attemptNativeSettlementDuties = (operations: readonly (() => void)[]): void =>
+    {
+        let firstFailure: { cause: unknown; } | null = null;
+        for (const operation of operations)
+        {
+            try
+            {
+                operation();
+            }
+            catch (cause)
+            {
+                firstFailure ??= { cause };
+                nativeUploadFailures.push({ cause });
+            }
+        }
+        if (firstFailure)
+        {
+            throw firstFailure.cause;
         }
     };
     const assertUploadObligationAbsent = (handle?: ArticleAttachmentPendingHandle): void =>
@@ -1166,16 +1219,17 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             requestNativeAttachmentUpload(input, anchorOptions),
         get nativeUploadRequests()
         {
-            return Object.freeze([...nativeUploadRequests].map(([handle, request]) => Object.freeze({ handle, request })));
+            return Object.freeze([...nativeUploadRequests].map(([handle, custody]) => Object.freeze({ handle, request: custody.request })));
         },
         retryNativeUploadCleanup: (handle: ArticleAttachmentPendingHandle, reason?: string): void =>
         {
-            const request = nativeUploadRequests.get(handle);
-            if (!request)
+            const custody = nativeUploadRequests.get(handle);
+            if (!custody)
             {
                 throw new Error('article-native-upload-original-request-unavailable');
             }
-            request.cancelLocal(reason);
+            attemptNativeSettlementDuties([() => custody.request.cancelLocal(reason),
+                () => settleOriginalNativeUpload(handle, custody)]);
         },
         // Stable original producer, not an automatic reservation or task-completion grant.
         getNativeRevisionProducer: () => authoringAttachments.getNativeRevisionProducer(),
@@ -1184,7 +1238,19 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         readNativeTerminalTransaction: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalTransaction(handle),
         readNativeTerminalFailure: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalFailure(handle),
         inspectNativeApplicationEnd: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.inspectNativeApplicationEnd(handle),
-        retryNativeApplicationEnd: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.retryNativeApplicationEnd(handle),
+        retryNativeApplicationEnd: (handle: ArticleAttachmentPendingHandle) =>
+        {
+            let observation: ReturnType<ArticleAttachmentContextAdapter['retryNativeApplicationEnd']> = null;
+            attemptNativeSettlementDuties([() => observation = authoringAttachments.retryNativeApplicationEnd(handle), () =>
+            {
+                const custody = nativeUploadRequests.get(handle);
+                if (custody)
+                {
+                    settleOriginalNativeUpload(handle, custody);
+                }
+            }]);
+            return observation;
+        },
         inspectNativeTransitionCleanup: () => authoringAttachments.inspectNativeTransitionCleanup(),
         retryNativeTransitionCleanup: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.retryNativeTransitionCleanup(handle),
         readUploadObservation: (handle: ArticleAttachmentPendingHandle) => consumedAttachmentUploads.get(handle) ?? null,
@@ -2138,15 +2204,27 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 intent: binding.intent, lease: binding.lease, getBinding: () => attachmentPort.binding() },
             options, runtimeOptions,
             requestProviderResult: completion => requestArticleAttachmentCommittedFacts(completion, batch, item) }));
-        nativeUploadRequests.set(binding.intent, request);
-        void request.settled.then(() =>
+        const custody: NativeUploadRequestCustody = { request, lease: binding.lease,
+            observedSettledFuture: null, observedFailures: null };
+        nativeUploadRequests.set(binding.intent, custody);
+        const settled = request.settled;
+        void settled.then(() =>
         {
-            if (nativeUploadRequests.get(binding.intent) === request)
+            if (nativeUploadRequests.get(binding.intent) !== custody)
             {
-                nativeUploadFailures.push(...request.inspectObservationFailures());
-                nativeUploadRequests.delete(binding.intent);
+                return;
             }
-            // Actual producer settlement does not itself complete the SDK task or grant references.
+            // Retain the actual original fulfilled future, never result/status/digest permission.
+            custody.observedSettledFuture = settled;
+            try
+            {
+                settleOriginalNativeUpload(binding.intent, custody);
+            }
+            catch (cause)
+            {
+                nativeUploadFailures.push({ cause });
+            }
+            // Missing native/Main proof or a thrown settle retains this same original holder.
         }, (cause: unknown) => nativeUploadFailures.push({ cause }));
         return request;
     };
@@ -5023,8 +5101,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 recoveryLifecycle: disposeArticleRecoveryLifecycle !== null }),
             attachmentObservationActive: attachmentUploadAttempt !== null,
             attachmentObligationCount: attachmentUploadObligations.size,
-            nativeUploadRequests: Object.freeze([...nativeUploadRequests.values()].map(request =>
-                request.inspectUploadResources())),
+            nativeUploadRequests: Object.freeze([...nativeUploadRequests.values()].map(custody =>
+                custody.request.inspectUploadResources())),
             nativeUploadFailures: Object.freeze(nativeUploadFailures.map(failure => Object.freeze({ ...failure }))),
             nativeTransitionCleanup,
             imageResumeContextRetained: imageUploadFlow.pendingContext.value !== null,
