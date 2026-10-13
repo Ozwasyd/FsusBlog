@@ -159,17 +159,23 @@ const canExecutePlannedImport = computed(() => props.canExecuteImport
         || unresolvedDecisions.value[item.nodeId] === 'leave-broken'
         || unresolvedDecisions.value[item.nodeId] === 'remove-node'));
 let planGeneration = 0;
-watch(() => [props.visible, props.mode], () =>
+function invalidateImportPlan()
 {
     planGeneration++;
     importPlan.value = null;
     importError.value = null;
     unresolvedDecisions.value = {};
-});
+}
+watch(importInput, invalidateImportPlan, { flush: 'sync' });
+watch(() => [props.visible, props.mode], () =>
+{
+    invalidateImportPlan();
+    importInput.value = '';
+}, { flush: 'sync' });
 async function handleValidateAndPlan()
 {
-    const generation = ++planGeneration;
-    importError.value = null;
+    invalidateImportPlan();
+    const generation = planGeneration;
     const validation = validateAndParseCanvasPackage(importInput.value);
     if (!validation.valid || !validation.package)
     {
@@ -203,7 +209,10 @@ async function handleValidateAndPlan()
     }
     catch
     {
-        importError.value = t('admin.canvas.unavailable');
+        if (generation === planGeneration && props.visible)
+        {
+            importError.value = t('admin.canvas.unavailable');
+        }
     }
 }
 function handleUnresolvedDecision(nodeId: string, action: unknown)
