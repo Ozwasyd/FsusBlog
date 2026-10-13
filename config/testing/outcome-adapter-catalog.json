@@ -1,0 +1,115 @@
+{
+    "schema": "fsusblog.outcome-adapter-catalog.v1",
+    "schemaVersion": "1",
+    "candidateSchema": "fsusblog.producer-semantic-outcome-candidate.v1",
+    "fieldDispositionSchema": "fsusblog.outcome-field-dispositions.v2",
+    "membershipSchema": "config/schemas/outcome-adapter-membership.schema.json",
+    "entries": [
+        {
+            "family": "backend",
+            "producerIds": [
+                "backend-unit",
+                "backend-xunit"
+            ],
+            "authorityId": "tools/test-matrix/outcomes/backend-test-adapter.mjs",
+            "adapterExport": "adaptBackendTestSemanticOutcome",
+            "verifierExport": "verifyBackendTestSemanticOutcomeCandidate",
+            "sourceCommit": "dae524b96b2ac0e444eb223de89f57ae0a00a92d",
+            "sourceDigest": "sha256:47e95b74415f3df3451dd2f83826638d0545a5d33682012899e4a004b0381dfb",
+            "membershipSchema": "#/$defs/backend",
+            "normalizationStatus": "data-only-schema",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:domain-profiles"
+        },
+        {
+            "family": "frontend",
+            "producerIds": [
+                "frontend-vitest"
+            ],
+            "authorityId": "tools/test-matrix/outcomes/frontend-vitest-adapter.mjs",
+            "adapterExport": "adaptFrontendVitestSemanticOutcome",
+            "verifierExport": "verifyFrontendVitestSemanticOutcomeCandidate",
+            "sourceCommit": "fc3c3499a843917d31805a136efedd04fffcc61b",
+            "sourceDigest": "sha256:5739f68a3131af37d1293800f5146f2c57191c8ff70fbe331b9a1da634aaa7df",
+            "membershipSchema": "#/$defs/frontend",
+            "normalizationStatus": "data-only-schema",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:domain-profiles"
+        },
+        {
+            "family": "browser",
+            "producerIds": [
+                "browser-contract-semantic-outcome"
+            ],
+            "authorityId": "tools/test-matrix/outcomes/browser-contract-adapter.mjs",
+            "adapterExport": "adaptBrowserContractSemanticOutcome",
+            "verifierExport": null,
+            "sourceCommit": "36bcb99ef10c1db7b07ac3717cfd8e178766699a",
+            "sourceDigest": "sha256:92503892f10e022bea7ad10d947afd0bcf9a23be0cf21617049c70aa01bdc567",
+            "membershipSchema": "#/$defs/browser",
+            "normalizationStatus": "data-only-schema",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:domain-profiles"
+        },
+        {
+            "family": "reliability",
+            "producerIds": [
+                "release-reliability-semantic-outcome"
+            ],
+            "authorityId": "tools/test-matrix/outcomes/release-reliability-adapter.mjs",
+            "adapterExport": "adaptReleaseReliabilitySemanticOutcome",
+            "verifierExport": null,
+            "sourceCommit": "e5a78f39d80935db7d2eabb81d8b30c7d39bc945",
+            "sourceDigest": "sha256:f6c6aa11b528842463c5bdcc3a470eec6a27ab6cd2dc11ccbbc684d30b01ac1e",
+            "membershipSchema": "#/$defs/reliability",
+            "normalizationStatus": "data-only-schema",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:domain-profiles"
+        },
+        {
+            "family": "immutable-build-semantic-outcome",
+            "producerIds": [
+                "immutable-build-semantic-outcome"
+            ],
+            "authorityId": "tools/test-matrix/outcomes/immutable-build-adapter.mjs",
+            "adapterExport": "adaptImmutableBuildSemanticOutcome",
+            "verifierExport": "verifyImmutableBuildSemanticOutcomeCandidate",
+            "sourceCommit": "bddf472b38612d8817257e393d46218394c3f308",
+            "sourceDigest": "sha256:374d9790720e06f26d7ab0415bd833f23edf7b56441621709f1e347d2d8d6814",
+            "membershipSchema": "#/$defs/immutable-build-semantic-outcome",
+            "normalizationStatus": "existing-v2",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:domain-profiles"
+        },
+        {
+            "family": "release-projection-semantic-outcome",
+            "producerIds": [
+                "release-projection-semantic-outcome"
+            ],
+            "authorityId": "tools/test-matrix/outcomes/release-projection-adapter.mjs",
+            "adapterExport": "adaptReleaseProjectionSemanticOutcome",
+            "verifierExport": "verifyReleaseProjectionSemanticOutcomeCandidate",
+            "sourceCommit": "bddf472b38612d8817257e393d46218394c3f308",
+            "sourceDigest": "sha256:1e6f6f7607ae63d1c6b9579d85cc3ce00b1b446dfe852ac89f0a42a4190019e1",
+            "membershipSchema": "#/$defs/release-projection-semantic-outcome",
+            "normalizationStatus": "existing-v2",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:domain-profiles"
+        },
+        {
+            "family": "release-finalizer-semantic-outcome",
+            "producerIds": [
+                "release-finalizer-semantic-outcome"
+            ],
+            "authorityId": "tools/test-matrix/outcomes/release-finalizer-adapter.mjs",
+            "adapterExport": "adaptReleaseFinalizerSemanticOutcome",
+            "verifierExport": "verifyReleaseFinalizerSemanticOutcomeCandidate",
+            "sourceCommit": "bddf472b38612d8817257e393d46218394c3f308",
+            "sourceDigest": "sha256:0c89fc865eccad9eef662c9d749350f23a15f82b9c4f2a9be90c41dd682bbce5",
+            "membershipSchema": "#/$defs/release-finalizer-semantic-outcome",
+            "normalizationStatus": "existing-v2",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:domain-profiles"
+        }
+    ]
+}

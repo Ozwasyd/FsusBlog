@@ -123,6 +123,33 @@ internal static class Program
                 throw new InvalidOperationException($"slot queue collection {collection.TestCollectionUniqueId} has invalid membership");
         }
 
+        using var journal = SlotEventJournal.Open($"{output}.events.jsonl", queue.PlanDigest, queue.SlotId,
+            tests.Length, queue.Collections.Count);
+        try
+        {
+            var exitCode = await RunAdmittedSlotAsync(assembly, output, queue, tests, expectedCases, journal);
+            journal.Record("runner-terminal", new
+            {
+                ExitCode = exitCode,
+                Signal = (string?)null
+            });
+            return exitCode;
+        }
+        catch (Exception exception)
+        {
+            journal.Record("runner-terminal", new
+            {
+                ExitCode = 2,
+                Signal = (string?)null,
+                ExceptionType = exception.GetType().FullName
+            });
+            throw;
+        }
+    }
+
+    private static async Task<int> RunAdmittedSlotAsync(string assembly, string output, SlotQueue queue,
+        QueuedTest[] tests, HashSet<string> expectedCases, SlotEventJournal journal)
+    {
         var projectAssembly = CreateProjectAssembly(assembly);
         await using var controller = XunitFrontController.Create(projectAssembly)
             ?? throw new InvalidOperationException("xUnit did not create an execution front controller");
@@ -142,13 +169,25 @@ internal static class Program
                     test.TestCollectionUniqueID,
                     test.TestDisplayName,
                     test.StartTime));
+                journal.Record("test-started", starts[^1]);
             }
         };
-        sink.TestPassedEvent += message => AddOutcome(outcomes, gate, message.Message, "passed", null);
-        sink.TestFailedEvent += message => AddOutcome(outcomes, gate, message.Message, "failed", string.Join("\n", message.Message.Messages));
-        sink.TestSkippedEvent += message => AddOutcome(outcomes, gate, message.Message, "skipped", message.Message.Reason);
-        sink.TestNotRunEvent += message => AddOutcome(outcomes, gate, message.Message, "not-run", null);
-        sink.TestAssemblyFinishedEvent += _ => complete.Set();
+        sink.TestPassedEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "passed", null);
+        sink.TestFailedEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "failed", string.Join("\n", message.Message.Messages), message.Message);
+        sink.TestSkippedEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "skipped", message.Message.Reason);
+        sink.TestNotRunEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "not-run", null);
+        sink.TestAssemblyFinishedEvent += _ =>
+        {
+            lock (gate)
+            {
+                journal.Record("assembly-finished", new
+                {
+                    StartedTests = starts.Count,
+                    OutcomeTests = outcomes.Count
+                });
+                complete.Set();
+            }
+        };
 
         var admittedAt = DateTimeOffset.UtcNow;
         var admissions = queue.Collections.Select((collection, index) => new CollectionAdmission(
@@ -156,6 +195,10 @@ internal static class Program
             collection.TestCollectionUniqueId,
             collection.Tests.Select(test => test.TestCaseUniqueId).ToArray(),
             admittedAt)).ToArray();
+        foreach (var admission in admissions)
+        {
+            journal.Record("collection-admitted", admission);
+        }
         var configuration = new TestAssemblyConfiguration
         {
             MaxParallelThreads = 1,
@@ -196,9 +239,11 @@ internal static class Program
     private static void AddOutcome(
         ICollection<TestOutcome> outcomes,
         object gate,
+        SlotEventJournal journal,
         ITestResultMessage test,
         string outcome,
-        string? detail)
+        string? detail,
+        ITestFailed? failure = null)
     {
         lock (gate)
         {
@@ -210,6 +255,22 @@ internal static class Program
                 test.ExecutionTime,
                 test.FinishTime,
                 detail));
+            journal.Record("test-outcome", outcomes.Last());
+            if (failure is not null)
+            {
+                journal.Record("test-failure", new
+                {
+                    TestUniqueId = failure.TestUniqueID,
+                    TestCaseUniqueId = failure.TestCaseUniqueID,
+                    TestCollectionUniqueId = failure.TestCollectionUniqueID,
+                    failure.FinishTime,
+                    Cause = failure.Cause.ToString(),
+                    failure.ExceptionParentIndices,
+                    failure.ExceptionTypes,
+                    failure.Messages,
+                    failure.StackTraces
+                });
+            }
         }
     }
 

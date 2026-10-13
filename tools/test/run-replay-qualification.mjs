@@ -2,7 +2,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +27,7 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const inventoryFile = path.join(root, 'config/testing/replay-qualification-producers.json');
+const { readPrivateFile } = await import(new URL('../test-fixtures/receipt/private-io.mjs', import.meta.url));
 
 function fail(message)
 {
@@ -97,14 +98,74 @@ function inventory()
     return document;
 }
 
-function spawnCommand(executable, args, env = process.env, cwd = root)
+function spawnCommand(executable, args, env = process.env, cwd = root, { onStarted = null, retainSpawnError = false } = {})
 {
     return new Promise((resolve, reject) =>
     {
         const child = spawn(executable, args, { cwd, env, stdio: ['ignore', 'inherit', 'inherit'] });
-        child.once('error', reject);
-        child.once('close', (code, signal) => resolve({ code, signal, processId: child.pid }));
+        let spawnError = null;
+        child.once('error', (error) =>
+        {
+            spawnError = error;
+            if (!retainSpawnError)
+            {
+                reject(error);
+            }
+        });
+        child.once('close', (code, signal) => resolve({ code, signal, processId: child.pid,
+            ...(retainSpawnError ? { spawnError } : {}) }));
+        try
+        {
+            onStarted?.(child.pid ?? null);
+        }
+        catch (error)
+        {
+            child.kill('SIGTERM');
+            reject(error);
+        }
     });
+}
+
+export async function executeRandomizedCommand({ command, environment, evidenceDirectory, context,
+    ordinal = 0, observationStreams = [] })
+{
+    const retainedContext = JSON.parse(JSON.stringify(context));
+    const file = path.join(evidenceDirectory, `process-${ordinal}.json`);
+    const startedAt = new Date().toISOString();
+    const base = { schema: 'fsusblog.randomized-command-process.v1', qualificationEligible: false,
+        context: retainedContext, executable: command.executable, args: [...command.args], cwd: command.cwd, startedAt };
+    const result = await spawnCommand(command.executable, command.args, environment, command.cwd, {
+        retainSpawnError: true,
+        onStarted(processId)
+        {
+            atomicJson(`${file}.running.json`, { ...base, processId });
+        }
+    });
+    const observations = observationStreams.map((streamId) =>
+    {
+        const journal = path.join(evidenceDirectory, `${streamId}.events.jsonl`);
+        if (!existsSync(journal))
+        {
+            return { streamId, reference: null, error: 'journal unavailable' };
+        }
+        try
+        {
+            const { bytes } = readPrivateFile(journal, { maximumBytes: 16 * 1024 * 1024, label: 'random execution callback journal' });
+            return { streamId, reference: { path: path.relative(root, journal).replaceAll(path.sep, '/'),
+                digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` }, error: null };
+        }
+        catch (error)
+        {
+            return { streamId, reference: null, error: error.message };
+        }
+    });
+    atomicJson(file, { ...base, processId: result.processId ?? null, code: result.code, signal: result.signal,
+        finishedAt: new Date().toISOString(), spawnError: result.spawnError?.message ?? null, observations });
+    if (result.spawnError)
+    {
+        throw result.spawnError;
+    }
+    return { code: result.code, signal: result.signal, processId: result.processId };
 }
 
 function adapterArguments(producer, { outputDirectory, rootSeed, runId, workers })
@@ -436,7 +497,7 @@ export function reopenRandomizedProducerEvidence({ producerId, consumers, proces
     return { bindings, observationDigest };
 }
 
-function qualificationSourceIdentity()
+export function qualificationSourceIdentity()
 {
     const commit = process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? runGit('rev-parse', 'HEAD');
     const configured = process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT;
@@ -521,7 +582,7 @@ function randomizedProducerCommands(producerId, workers, evidenceDirectory)
     fail(`randomized producer command is not owned: ${producerId}`);
 }
 
-export async function runRandomizedProducer({ producerId, consumers, workers, options, plan, attempt, directory })
+export async function runRandomizedProducer({ producerId, consumers, workers, options, plan, attempt, directory, inputReferences = [] })
 {
     const evidenceDirectory = path.join(directory, attempt);
     mkdirSync(evidenceDirectory, { recursive: true });
@@ -545,7 +606,10 @@ export async function runRandomizedProducer({ producerId, consumers, workers, op
     const processes = [];
     for (const command of commands)
     {
-        const result = await spawnCommand(command.executable, command.args, environment, command.cwd);
+        const result = await executeRandomizedCommand({ command, environment, evidenceDirectory,
+            ordinal: processes.length, observationStreams: consumers.map((consumer) => consumer.streamId),
+            context: { source: plan.source, run: plan.run, producer: plan.producer,
+                replayPlan: plan, replayPlanDigest: plan.planDigest, attemptId: attempt, inputReferences } });
         if (result.code !== 0 || result.signal !== null)
         {
             fail(`${producerId}/${plan.frameworkModes[1].value} ${attempt} producer failed`);

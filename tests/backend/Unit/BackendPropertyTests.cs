@@ -22,22 +22,27 @@ public sealed class BackendPropertyTests
         int seed = ReplaySeed(
             $"xunit:{Source}#AedsRoundTripProperty_PreservesPayloadAndFrameType",
             "backend-aeds-roundtrip-payloads");
+        using var execution = BackendPropertyExecutionJournal.Open($"xunit:{Source}#{nameof(AedsRoundTripProperty_PreservesPayloadAndFrameType)}", "backend-aeds-roundtrip-payloads");
 
         foreach (AedsFrameType frameType in frameTypes)
         {
             foreach (byte[] payload in GeneratePayloads(unchecked((int)frameType + seed)))
             {
-                byte[] frame = encoder.Encode(frameType, payload);
-                var decoded = encoder.TryDecode(frame);
+                execution.Observe($"{frameType}:{Convert.ToHexString(payload)}", cases.Count, () =>
+                {
+                    byte[] frame = encoder.Encode(frameType, payload);
+                    var decoded = encoder.TryDecode(frame);
 
-                Assert.True(decoded.IsSuccess);
-                Assert.Equal(frameType, decoded.Value.FrameType);
-                Assert.Equal((uint)payload.Length, decoded.Value.Header.PayloadLength);
-                Assert.True(decoded.Value.Payload.Span.SequenceEqual(payload));
-                RecordCase(cases, $"{frameType}:{Convert.ToHexString(payload)}");
+                    Assert.True(decoded.IsSuccess);
+                    Assert.Equal(frameType, decoded.Value.FrameType);
+                    Assert.Equal((uint)payload.Length, decoded.Value.Header.PayloadLength);
+                    Assert.True(decoded.Value.Payload.Span.SequenceEqual(payload));
+                    RecordCase(cases, $"{frameType}:{Convert.ToHexString(payload)}");
+                });
             }
         }
         PublishExecution(nameof(AedsRoundTripProperty_PreservesPayloadAndFrameType), "backend-aeds-roundtrip-payloads", cases);
+        execution.Complete(cases.Count);
     }
 
     [Fact]
@@ -48,18 +53,23 @@ public sealed class BackendPropertyTests
         int seed = ReplaySeed(
             $"xunit:{Source}#AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing",
             "backend-aeds-truncation-payloads");
+        using var execution = BackendPropertyExecutionJournal.Open($"xunit:{Source}#{nameof(AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing)}", "backend-aeds-truncation-payloads");
         byte[] payload = GeneratePayloads(seed).Last();
         byte[] frame = encoder.Encode(AedsFrameType.ArticleDetail, payload);
 
         for (int length = 0; length < frame.Length; length++)
         {
             byte[] truncated = frame[..length];
-            var decoded = encoder.TryDecode(truncated);
+            execution.Observe(Convert.ToHexString(truncated), cases.Count, () =>
+            {
+                var decoded = encoder.TryDecode(truncated);
 
-            Assert.False(decoded.IsSuccess);
-            RecordCase(cases, Convert.ToHexString(truncated));
+                Assert.False(decoded.IsSuccess);
+                RecordCase(cases, Convert.ToHexString(truncated));
+            });
         }
         PublishExecution(nameof(AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing), "backend-aeds-truncation-payloads", cases);
+        execution.Complete(cases.Count);
     }
 
     [Fact]
@@ -70,6 +80,7 @@ public sealed class BackendPropertyTests
         int seed = ReplaySeed(
             $"xunit:{Source}#AedsBitFlipProperty_DetectsPayloadCorruption",
             "backend-aeds-bitflip-payloads");
+        using var execution = BackendPropertyExecutionJournal.Open($"xunit:{Source}#{nameof(AedsBitFlipProperty_DetectsPayloadCorruption)}", "backend-aeds-bitflip-payloads");
         byte[] frame = encoder.Encode(AedsFrameType.ApiError, GeneratePayloads(seed).Last());
 
         for (int offset = AedsFrameHeader.Size; offset < frame.Length; offset += 3)
@@ -77,12 +88,16 @@ public sealed class BackendPropertyTests
             byte[] mutated = (byte[])frame.Clone();
             mutated[offset] ^= 0x5a;
 
-            var decoded = encoder.TryDecode(mutated);
+            execution.Observe(Convert.ToHexString(mutated), cases.Count, () =>
+            {
+                var decoded = encoder.TryDecode(mutated);
 
-            Assert.False(decoded.IsSuccess);
-            RecordCase(cases, Convert.ToHexString(mutated));
+                Assert.False(decoded.IsSuccess);
+                RecordCase(cases, Convert.ToHexString(mutated));
+            });
         }
         PublishExecution(nameof(AedsBitFlipProperty_DetectsPayloadCorruption), "backend-aeds-bitflip-payloads", cases);
+        execution.Complete(cases.Count);
     }
 
     [Fact]

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { closeSync, existsSync, openSync, readFileSync, mkdirSync, renameSync, writeFileSync, writeSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +21,9 @@ import { verifyExecutionReplay } from './execution-replay-verifier.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const runnerProject = path.join(root, 'tools/test/xunit-replay-runner/FsusBlog.XunitReplayRunner.csproj');
+const { readPrivateFile } = await import(new URL('../test-fixtures/receipt/private-io.mjs', import.meta.url));
+const { buildBackendNativeExecutionEvents } = await import(new URL('../test-matrix/outcomes/backend-native-execution-events.mjs', import.meta.url));
+const maximumOutputBytes = 16 * 1024 * 1024;
 const runnerDll = path.join(root, 'tools/test/xunit-replay-runner/bin/Release/net10.0/FsusBlog.XunitReplayRunner.dll');
 
 function fail(message)
@@ -252,10 +256,120 @@ function validateManifest(plan, manifest)
     }
 }
 
-function spawnSlot({ manifest, slot, outputDirectory })
+function evidencePath(file)
+{
+    return path.relative(root, file).split(path.sep).join('/');
+}
+
+function rawReference(file)
+{
+    return { path: evidencePath(file), digest: `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex')}` };
+}
+
+function availableReceiptReference(file)
+{
+    try
+    {
+        return { reference: rawReference(file), error: null };
+    }
+    catch (error)
+    {
+        return { reference: null, error: error.message };
+    }
+}
+
+function outputCapture(file, mirror)
+{
+    const fd = openSync(file, 'wx', 0o600);
+    const hash = createHash('sha256');
+    let totalBytes = 0;
+    let storedBytes = 0;
+    let outputError = null;
+    return {
+        receive(bytes)
+        {
+            mirror.write(bytes);
+            totalBytes += bytes.length;
+            const selected = bytes.subarray(0, Math.max(0, maximumOutputBytes - storedBytes));
+            if (selected.length && outputError === null)
+            {
+                try
+                {
+                    let offset = 0;
+                    while (offset < selected.length)
+                    {
+                        const written = writeSync(fd, selected, offset, selected.length - offset);
+                        if (written === 0)
+                        {
+                            throw new Error('process output write made no progress');
+                        }
+                        hash.update(selected.subarray(offset, offset + written));
+                        storedBytes += written;
+                        offset += written;
+                    }
+                }
+                catch (error)
+                {
+                    outputError = error.message;
+                }
+            }
+        },
+        finish()
+        {
+            closeSync(fd);
+            return { path: evidencePath(file), digest: `sha256:${hash.digest('hex')}`,
+                totalBytes, storedBytes, truncated: totalBytes !== storedBytes, outputError };
+        }
+    };
+}
+
+function observeJournal(file, manifest, slot, pid)
+{
+    const observation = { reference: null, status: 'unavailable', incompleteLastLine: false, events: [], error: null };
+    if (!existsSync(file))
+    {
+        return observation;
+    }
+    try
+    {
+        const { bytes } = readPrivateFile(file, { maximumBytes: maximumOutputBytes, label: 'native xUnit callback journal' });
+        observation.reference = { path: evidencePath(file), digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` };
+        const lastNewline = bytes.lastIndexOf(10);
+        observation.incompleteLastLine = lastNewline !== bytes.length - 1;
+        const lines = bytes.subarray(0, lastNewline + 1).toString('utf8').split('\n').filter(Boolean);
+        for (const line of lines)
+        {
+            if (Buffer.byteLength(line) + 1 > 128 * 1024 || observation.events.length >= 100000)
+            {
+                fail('native journal callback budget exceeded');
+            }
+            const event = JSON.parse(line);
+            if (event.schema !== 'fsusblog.xunit-replay-slot-journal-event.v1'
+                || event.planDigest !== manifest.planDigest || event.slotId !== slot.id
+                || event.processId !== pid || event.sequence !== observation.events.length
+                || event.qualificationEligible !== false)
+            {
+                fail('native journal callback identity is incomplete');
+            }
+            observation.events.push(event);
+        }
+        observation.status = observation.events.some((event) => event.kind === 'journal-stopped') ? 'stopped'
+            : observation.events.at(-1)?.kind === 'runner-terminal' && !observation.incompleteLastLine ? 'complete' : 'partial';
+    }
+    catch (error)
+    {
+        observation.status = 'invalid';
+        observation.error = error.message;
+    }
+    return observation;
+}
+
+export function spawnSlot({ manifest, slot, outputDirectory, inputReferences = [], executionReferences = [] })
 {
     const queueFile = path.join(outputDirectory, 'queues', `${slot.id}.json`);
     const receiptFile = path.join(outputDirectory, 'slots', `${slot.id}.json`);
+    const processFile = path.join(outputDirectory, 'processes', `${slot.id}.json`);
+    const references = JSON.parse(JSON.stringify({ inputReferences, executionReferences }));
     atomicJson(queueFile, {
         schema: 'fsusblog.xunit-replay-slot-queue.v1',
         planDigest: manifest.planDigest,
@@ -269,26 +383,71 @@ function spawnSlot({ manifest, slot, outputDirectory })
             }))
         }))
     });
+    mkdirSync(path.dirname(processFile), { recursive: true });
+    const outputPrefix = `${processFile}.${process.pid}-${Date.now()}`;
+    const stdout = outputCapture(`${outputPrefix}.stdout.log`, process.stdout);
+    const stderr = outputCapture(`${outputPrefix}.stderr.log`, process.stderr);
+    const command = ['dotnet', runnerDll, 'run-slot', '--assembly', manifest.assembly,
+        '--queue', queueFile, '--output', receiptFile];
+    const childEnvironment = { ...process.env };
+    const attemptContext = childEnvironment.FSUSBLOG_RANDOM_EXECUTION_ATTEMPT === undefined ? null : {
+        source: 'random-child-execution-environment',
+        attemptId: childEnvironment.FSUSBLOG_RANDOM_EXECUTION_ATTEMPT,
+        runId: childEnvironment.FSUSBLOG_RANDOM_EXECUTION_RUN ?? null,
+        replayPlanDigest: childEnvironment.FSUSBLOG_REPLAY_PLAN_DIGEST ?? null
+    };
+    const startedAt = new Date().toISOString();
     return new Promise((resolve, reject) =>
     {
-        const child = spawn('dotnet', [runnerDll, 'run-slot',
-            '--assembly', manifest.assembly,
-            '--queue', queueFile,
-            '--output', receiptFile], {
-            cwd: root,
-            env: process.env,
-            stdio: ['ignore', 'inherit', 'inherit']
+        const child = spawn(command[0], command.slice(1), { cwd: root, env: childEnvironment,
+            stdio: ['ignore', 'pipe', 'pipe'] });
+        const pid = child.pid ?? null;
+        let spawnError = null;
+        child.stdout.on('data', stdout.receive);
+        child.stderr.on('data', stderr.receive);
+        child.once('error', (error) =>
+        {
+            spawnError = error.message;
         });
-        const pid = child.pid;
-        child.once('error', reject);
-        child.once('close', (code, signal) => resolve({ slot, receiptFile, pid, code, signal }));
+        const processBase = { schema: 'fsusblog.xunit-replay-slot-process.v1', qualificationEligible: false,
+            planDigest: manifest.planDigest, slotId: slot.id, processId: pid, command, startedAt, attemptContext,
+            queueReference: rawReference(queueFile), ...references };
+        child.once('close', (code, signal) =>
+        {
+            try
+            {
+                const journal = observeJournal(`${receiptFile}.events.jsonl`, manifest, slot, pid);
+                const finalReceipt = availableReceiptReference(receiptFile);
+                const processResult = { ...processBase, exitCode: code, signal, finishedAt: new Date().toISOString(),
+                    spawnError, stdout: stdout.finish(), stderr: stderr.finish(), journal: {
+                        reference: journal.reference, status: journal.status, incompleteLastLine: journal.incompleteLastLine,
+                        error: journal.error }, finalReceiptReference: finalReceipt.reference, finalReceiptError: finalReceipt.error };
+                atomicJson(processFile, processResult);
+                resolve({ slot, receiptFile, pid, code, signal, journal, processResult,
+                    processReference: rawReference(processFile) });
+            }
+            catch (error)
+            {
+                reject(error);
+            }
+        });
+        try
+        {
+            atomicJson(`${processFile}.running.json`, processBase);
+        }
+        catch (error)
+        {
+            spawnError = error.message;
+            child.kill('SIGTERM');
+        }
     });
 }
 
-async function execute({ plan, manifest, outputDirectory })
+export async function execute({ plan, manifest, outputDirectory, inputReferences = [], executionReferences = [] })
 {
     validateReplayPlan(plan);
     validateManifest(plan, manifest);
+    ({ inputReferences, executionReferences } = JSON.parse(JSON.stringify({ inputReferences, executionReferences })));
     mkdirSync(outputDirectory, { recursive: true });
     const dispatches = manifest.slots.map((slot, ordinal) => ({
         ordinal,
@@ -296,7 +455,36 @@ async function execute({ plan, manifest, outputDirectory })
         collectionIds: slot.collections.map((collection) => collection.testCollectionUniqueId),
         testIds: slot.collections.flatMap((collection) => collection.tests.map((test) => test.canonicalTestId))
     }));
-    const results = await Promise.all(manifest.slots.map((slot) => spawnSlot({ manifest, slot, outputDirectory })));
+    const results = await Promise.all(manifest.slots.map((slot) => spawnSlot({ manifest, slot, outputDirectory, inputReferences, executionReferences })));
+    const canonicalByCase = new Map(manifest.slots.flatMap((slot) => slot.collections.flatMap((collection) =>
+        collection.tests.map((test) => [test.testCaseUniqueId, test.canonicalTestId]))));
+    atomicJson(path.join(outputDirectory, 'backend-execution-events.json'), buildBackendNativeExecutionEvents({
+        plan, manifest, results, inputReferences, executionReferences
+    }));
+    atomicJson(path.join(outputDirectory, 'process-results.json'), {
+        schema: 'fsusblog.xunit-replay-process-results.v1', qualificationEligible: false,
+        planDigest: plan.planDigest, source: plan.source, producer: plan.producer, run: plan.run,
+        inputReferences, executionReferences, processes: results.map((result) => result.processResult)
+    });
+    if (results.some((result) => result.signal !== null || result.code === null || result.processResult.finalReceiptReference === null))
+    {
+        const workers = results.map((result) =>
+        {
+            const records = (kind) => result.journal.events.filter((event) => event.kind === kind).map((event) => event.payload);
+            const identified = (kind) => records(kind).map((record) => ({ ...record,
+                canonicalTestId: canonicalByCase.get(record.testCaseUniqueId) ?? null }));
+            return { slotId: result.slot.id, processId: result.pid, exitCode: result.code, signal: result.signal,
+                processReference: result.processReference, queueReference: result.processResult.queueReference,
+                journal: result.processResult.journal, finalReceiptReference: result.processResult.finalReceiptReference,
+                admissions: records('collection-admitted'), starts: identified('test-started'), outcomes: identified('test-outcome') };
+        });
+        atomicJson(path.join(outputDirectory, 'partial-framework-actual.json'), {
+            schema: 'fsusblog.xunit-replay-partial-actual.v1', qualificationEligible: false,
+            planDigest: plan.planDigest, source: plan.source, producer: plan.producer, run: plan.run,
+            inputReferences, executionReferences, preDispatch: dispatches, workers
+        });
+        fail('xUnit run is incomplete; actual process and partial callback evidence retained');
+    }
     const slotActuals = results.map((result) =>
     {
         if (!Number.isInteger(result.pid))
@@ -313,8 +501,6 @@ async function execute({ plan, manifest, outputDirectory })
         }
         return { ...result, receipt };
     });
-    const canonicalByCase = new Map(manifest.slots.flatMap((slot) => slot.collections.flatMap((collection) =>
-        collection.tests.map((test) => [test.testCaseUniqueId, test.canonicalTestId]))));
     const actualIds = slotActuals.flatMap((slot) => slot.receipt.outcomes.map((outcome) =>
         canonicalByCase.get(outcome.testCaseUniqueId) ?? fail(`unknown actual xUnit case ${outcome.testCaseUniqueId}`)))
         .sort();
@@ -465,7 +651,10 @@ async function createAndExecute(options)
     const manifest = manifestFrom({ plan, entries, discovery, assignments });
     atomicJson(planFile, plan);
     atomicJson(manifestFile, manifest);
-    return execute({ plan, manifest, outputDirectory: path.join(outputDirectory, 'actual') });
+    return execute({ plan, manifest, outputDirectory: path.join(outputDirectory, 'actual'),
+        inputReferences: [{ kind: 'replay-plan', path: evidencePath(planFile), digest: plan.planDigest },
+            { kind: 'queue-manifest', path: evidencePath(manifestFile), digest: manifest.contentDigest }],
+        executionReferences: suppliedExecutionReferences(options) });
 }
 
 async function replay(options)
@@ -488,22 +677,45 @@ async function replay(options)
             fail(`replay ${name} drift`);
         }
     }
-    return execute({ plan, manifest, outputDirectory });
+    return execute({ plan, manifest, outputDirectory,
+        inputReferences: [{ kind: 'replay-plan', path: evidencePath(planFile), digest: plan.planDigest },
+            { kind: 'queue-manifest', path: evidencePath(manifestFile), digest: manifest.contentDigest }],
+        executionReferences: suppliedExecutionReferences(options) });
 }
 
-try
+function suppliedExecutionReferences(options)
 {
-    const options = parseArgs(process.argv.slice(2));
-    const result = options.one('replay-plan', false)
-        ? await replay(options)
-        : await createAndExecute(options);
-    if (!result.passed)
+    const file = options.one('execution-references', false);
+    if (file === undefined)
     {
+        return [];
+    }
+    const { bytes } = readPrivateFile(repoPath(file, 'execution reference file'), {
+        maximumBytes: 64 * 1024, label: 'owner supplied execution references' });
+    const references = JSON.parse(bytes.toString('utf8'));
+    if (!Array.isArray(references))
+    {
+        fail('owner supplied execution references must be an array');
+    }
+    return references;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    try
+    {
+        const options = parseArgs(process.argv.slice(2));
+        const result = options.one('replay-plan', false)
+            ? await replay(options)
+            : await createAndExecute(options);
+        if (!result.passed)
+        {
+            process.exitCode = 1;
+        }
+    }
+    catch (error)
+    {
+        process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`);
         process.exitCode = 1;
     }
-}
-catch (error)
-{
-    process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`);
-    process.exitCode = 1;
 }
