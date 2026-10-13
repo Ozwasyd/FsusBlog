@@ -96,6 +96,8 @@ internal sealed class ArticleBulkEditableLifecycleGroupAuthority(ISqlSugarClient
             await ArticleLifecycleTransitionWriter.RevalidateBulkCallerPermissionAfterLockAsync(database, transaction,
                 context, configuration, caller, cancellationToken).ConfigureAwait(false);
             RequireFinalDeadlines(context, caller, command.Plan, cancellationToken);
+            RequireSameScope(transaction, context);
+            cancellationToken.ThrowIfCancellationRequested();
             var facts = new ArticleBulkEditableLifecycleLockedFacts(command.Request.ContentDigest, command.Plan.ContentDigest,
                 command.Plan.FrozenSetDigest, caller, articles, draftFacts);
             _scope = new(transaction, new(context), command, ordered, caller, draftReservation, facts);
@@ -151,6 +153,8 @@ internal sealed class ArticleBulkEditableLifecycleGroupAuthority(ISqlSugarClient
             await ArticleLifecycleTransitionWriter.RevalidateBulkCallerPermissionAfterLockAsync(database, scope.Transaction,
                 context, configuration, scope.Caller, cancellationToken).ConfigureAwait(false);
             RequireFinalDeadlines(context, scope.Caller, scope.Command.Plan, cancellationToken);
+            RequireSameScope(scope.Transaction, context);
+            cancellationToken.ThrowIfCancellationRequested();
         }
         catch
         {

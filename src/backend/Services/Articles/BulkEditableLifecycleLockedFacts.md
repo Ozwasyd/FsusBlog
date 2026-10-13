@@ -79,6 +79,10 @@ ticket times, checked against the caller's private original custody and never
 accepted from a new constructor/DTO as authority. A final fresh original business
 clock check covers both retained JWT and original plan deadlines after the final
 blocking caller read, before publishing reusable data.
+Both successful exits then recheck the exact original native transaction/connection,
+current context and registered original source bindings, followed by cancellation,
+before enrollment or a successful return. A scope ended/replaced during the last
+projection wait fails inside the original poison branch; no replacement scope is used.
 
 Failure/cancellation after entering a fact stage poisons this instance; draft and
 caller owner failures retain their own original poison semantics. A cancelled
