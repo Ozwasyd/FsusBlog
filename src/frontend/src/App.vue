@@ -1,7 +1,5 @@
 <template>
-    <ElConfigProvider
-        :config-producer="configProducer"
-    >
+    <ElConfigProvider :config-producer="configProducer">
         <RouterView
             v-if="isPublicShellRoute"
             v-slot="{ Component }"
@@ -225,7 +223,9 @@ const onDocumentClick = (event: MouseEvent): void =>
     event.preventDefault();
     void router.push(`${url.pathname}${url.search}${url.hash}`)
         .catch(() =>
-        {});
+        {
+            // Retain the current view without logging private navigation URLs.
+        });
 };
 
 function runAppRouteMotion(el: Element, phase: MotionPhase, done: () => void): void
