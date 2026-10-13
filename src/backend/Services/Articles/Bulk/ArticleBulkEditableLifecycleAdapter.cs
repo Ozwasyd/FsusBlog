@@ -5,6 +5,8 @@ using FsusBlog.Contracts.Articles;
 
 using Microsoft.Extensions.Configuration;
 
+using Npgsql;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Articles.Bulk;
@@ -69,7 +71,7 @@ internal sealed class ArticleBulkEditableLifecycleAdapter(
         foreach (ArticleBulkPlanItem item in items)
         {
             _ = ParseArticleId(item.ArticleId);
-            _ = ParsePositiveInt64(item.ExpectedRevision);
+            ArticleLifecycleTransitionWriter.RequireBulkRevisionReferenceShape(item.ExpectedRevision);
             if (item.Status != ArticleBulkPlanItemStatus.Eligible
                 || item.Lifecycle is null || !operation.ExpectedArticleStates.Contains(item.Lifecycle, StringComparer.Ordinal)
                 || plan.OperationId == "lifecycle.archive" && item.Lifecycle != "inbox")
@@ -88,8 +90,10 @@ internal sealed class ArticleBulkEditableLifecycleAdapter(
             ISqlSugarClient database = group.Database;
             IConfiguration configuration = group.Configuration;
             DateTime transitionedAtUtc = group.TransitionedAtUtc;
-            object transaction = database.Ado.Transaction
-                ?? throw new ArticleBulkContractException("article-bulk.original-transaction-unavailable");
+            if (database.Ado.Transaction is not NpgsqlTransaction transaction)
+            {
+                throw new ArticleBulkContractException("article-bulk.original-native-transaction-unavailable");
+            }
             var scope = new TransactionScope(database, configuration, transaction, transitionedAtUtc);
             if (transitionedAtUtc.Kind != DateTimeKind.Utc)
             {
@@ -100,16 +104,19 @@ internal sealed class ArticleBulkEditableLifecycleAdapter(
             foreach (ArticleBulkPlanItem item in items)
             {
                 RequireTransaction(group, scope);
+                // Only the original writer resolves this opaque reference from real locked rows.
+                // A matching token is data identity, never whole-set or operation admission.
+                ArticleLifecycleTransitionWriter.BulkRevisionResolution resolution = await
+                    ArticleLifecycleTransitionWriter.ResolveBulkRevisionReferenceAfterLockAsync(
+                        database, transaction, ParseArticleId(item.ArticleId), item.ExpectedRevision!,
+                        cancellationToken).ConfigureAwait(false);
+                RequireTransaction(group, scope);
                 ArticleLifecycleTransitionWriter.EditableTransitionPreparation prepared = await
-                    ArticleLifecycleTransitionWriter.PrepareEditableTransitionAsync(
-                        database,
-                        new ArticleLifecycleTransitionWriter.EditableTransitionRequest(
-                            ParseArticleId(item.ArticleId), ParsePositiveInt64(item.ExpectedRevision),
-                            transitionedAtUtc, principalId, semanticRole),
-                        transition,
+                    ArticleLifecycleTransitionWriter.PrepareEditableTransitionFromBulkRevisionAsync(
+                        database, transaction, resolution, principalId, transitionedAtUtc, semanticRole, transition,
                         cancellationToken).ConfigureAwait(false);
                 if (prepared.ArticleId != ParseArticleId(item.ArticleId)
-                    || prepared.ExpectedRevisionId != ParsePositiveInt64(item.ExpectedRevision)
+                    || prepared.ExpectedRevisionId != resolution.RevisionId
                     || prepared.Operation != transition
                     || ArticleStatusValues.Token((int)prepared.Before.Status) != item.Lifecycle)
                 {
@@ -207,7 +214,7 @@ internal sealed class ArticleBulkEditableLifecycleAdapter(
     private sealed record TransactionScope(
         ISqlSugarClient Database,
         IConfiguration Configuration,
-        object Transaction,
+        NpgsqlTransaction Transaction,
         DateTime TransitionedAtUtc);
 
     private static void RequireTransaction(
