@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* eslint-disable import-x/no-relative-parent-imports -- Integrate the existing canonical lifecycle and resource observer owners. */
+
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -7,10 +9,17 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import {
+    readDockerPostgresqlDatabaseState,
+    readDockerPublicCacheState,
+    resetDockerPublicCache
+} from '../test-runtime/production-observer-ports.mjs';
+
 import { readReleaseReliabilityEvidenceBinding } from './release-reliability-evidence-binding.mjs';
 import {
     expandLifecycleTemplate,
-    loadLifecycleActionContracts
+    loadLifecycleActionContracts,
+    ordinaryRuntimeResourceStateErrors
 } from './release-reliability-lifecycle-actions.mjs';
 import { digestValue, sealDocument } from './release-reliability-receipt.mjs';
 
@@ -358,6 +367,37 @@ function inspectResourceCounters(containerId, spawnProcess, repositoryRoot)
     };
 }
 
+/** Observe actual fixture data using the sealed endpoint identities, never ambient names. */
+export async function observeOrdinaryRuntimeResourceState({ topology, runId, repositoryRoot = root })
+{
+    const result = {};
+    for (const kind of ['postgres', 'redis'])
+    {
+        try
+        {
+            const expected = topology?.[kind];
+            const actual = inspectContainer(expected?.instance, spawnSync, repositoryRoot);
+            if (topology?.runId !== runId || !topology?.namespace
+                || actual.status !== 'running' || actual.image !== expected.imageId
+                || actual.labels['io.fsusblog.test.run-id'] !== runId
+                || actual.labels['io.fsusblog.test.namespace'] !== topology.namespace)
+            {
+                throw new Error('resource identity is not owned by the admitted run');
+            }
+            result[kind] = kind === 'postgres'
+                ? readDockerPostgresqlDatabaseState({ container: actual.id })
+                : await readDockerPublicCacheState({ container: actual.id,
+                    namespacePrefix: topology.runtime?.environmentProjection?.effective
+                        ?.RedisOptions__InstanceName });
+        }
+        catch
+        {
+            result[kind] = { status: 'failed', reason: 'run-bound native state observation failed' };
+        }
+    }
+    return result;
+}
+
 async function inspectRuntime(context, { spawnProcess, fetchImpl })
 {
     const topology = context.identity.fixture?.topology?.content;
@@ -461,6 +501,12 @@ async function inspectRuntime(context, { spawnProcess, fetchImpl })
             ? readMeasurementProcessTreeObservation(context)
             : null,
         network: inspectNetwork(topology, spawnProcess, context.repositoryRoot),
+        resourceState: await observeOrdinaryRuntimeResourceState({
+            topology, runId: context.runId, repositoryRoot: context.repositoryRoot
+        }),
+        ...(context.action.targets ? { targets: context.action.targets.map(
+            (target) => inspectPath(context.repositoryRoot, target)
+        ) } : {}),
         live
     };
 }
@@ -773,7 +819,7 @@ export async function observeLifecycleAction(
     } = {}
 )
 {
-    if (context.action.operation === 'observe-runtime')
+    if (['observe-runtime', 'reset-runtime-state'].includes(context.action.operation))
     {
         return inspectRuntime(context, { spawnProcess, fetchImpl });
     }
@@ -797,10 +843,10 @@ export async function observeLifecycleAction(
     };
 }
 
-function observationErrors(action, observation)
+function observationErrors(action, observation, context, operation)
 {
     const errors = [];
-    if (action.operation === 'observe-runtime')
+    if (['observe-runtime', 'reset-runtime-state'].includes(action.operation))
     {
         if (observation.backend?.status !== 'running'
             || observation.live?.status !== 'live')
@@ -837,6 +883,10 @@ function observationErrors(action, observation)
         {
             errors.push('measurement descendant zero-state is unproved');
         }
+        errors.push(...ordinaryRuntimeResourceStateErrors({
+            action, observation, topology: context.identity.fixture?.topology?.content,
+            reset: operation.publicCacheReset
+        }));
     }
     if (action.operation === 'observe-mutation'
         || action.operation === 'cleanup-mutation-output')
@@ -910,7 +960,8 @@ function observationErrors(action, observation)
             errors.push('data-scale measurement descendant zero-state is unproved');
         }
     }
-    if (action.operation === 'prepare-evidence-files'
+    if (['prepare-evidence-files', 'reset-runtime-state'].includes(action.operation)
+        && action.targets
         && observation.targets.some((target) => target.status !== 'absent'))
     {
         errors.push('evidence-file preparation left an owned output');
@@ -936,6 +987,7 @@ function lifecycleContext({
         'observe-mutation',
         'observe-runtime',
         'prepare-evidence-files',
+        'reset-runtime-state',
         'teardown-data-scale-runtime'
     ]
         .includes(action.operation))
@@ -1029,21 +1081,32 @@ export async function runLifecycleAction({
                 })()
             }
             : {}),
-        ...(context.action.operation === 'observe-runtime'
+        ...(['observe-runtime', 'reset-runtime-state'].includes(context.action.operation)
             && context.action.phase !== 'precondition'
             ? {
                 runtimeBaselineReceipt: (() =>
                 {
-                    const baseline = runtimeBaseline(context);
-                    return {
-                        path: baseline.path,
-                        bytesDigest: baseline.bytesDigest,
-                        contentDigest: baseline.contentDigest,
-                        resourceCounters:
-                            baseline.document.observations.after.resourceCounters,
-                        backend: baseline.document.observations.after.backend,
-                        network: baseline.document.observations.after.network
-                    };
+                    try
+                    {
+                        const baseline = runtimeBaseline(context);
+                        return {
+                            path: baseline.path,
+                            bytesDigest: baseline.bytesDigest,
+                            contentDigest: baseline.contentDigest,
+                            resourceCounters:
+                                baseline.document.observations.after.resourceCounters,
+                            backend: baseline.document.observations.after.backend,
+                            network: baseline.document.observations.after.network
+                        };
+                    }
+                    catch (error)
+                    {
+                        if (!context.action.safeAfterFailure)
+                        {
+                            throw error;
+                        }
+                        return null;
+                    }
                 })()
             }
             : {}),
@@ -1063,9 +1126,9 @@ export async function runLifecycleAction({
             }
             : {})
     };
-    if (context.action.operation === 'prepare-evidence-files')
+    if (['prepare-evidence-files', 'reset-runtime-state'].includes(context.action.operation))
     {
-        for (const target of context.action.targets)
+        for (const target of context.action.targets ?? [])
         {
             const resolved = repositoryPath(
                 context.repositoryRoot,
@@ -1078,6 +1141,24 @@ export async function runLifecycleAction({
                 fs.rmSync(resolved.absolute, { recursive: true, force: true });
             }
             operation.deleted.push({ path: resolved.relative, existed });
+        }
+    }
+    if (context.action.operation === 'reset-runtime-state')
+    {
+        const topology = context.identity.fixture?.topology?.content;
+        try
+        {
+            operation.publicCacheReset = await resetDockerPublicCache({
+                container: topology?.redis?.instance, runId: context.runId,
+                namespace: topology?.namespace,
+                namespacePrefix: topology?.runtime?.environmentProjection?.effective
+                    ?.RedisOptions__InstanceName
+            });
+        }
+        catch
+        {
+            operation.publicCacheReset = { status: 'failed',
+                reason: 'run-bound public cache reset failed' };
         }
     }
     if (context.action.operation === 'cleanup-mutation-output')
@@ -1166,7 +1247,12 @@ export async function runLifecycleAction({
         delete before.ownerReceipt;
         delete after.ownerReceipt;
     }
-    const errors = observationErrors(context.action, after);
+    const errors = observationErrors(context.action, after, context, operation);
+    if (Object.hasOwn(operation, 'runtimeBaselineReceipt')
+        && operation.runtimeBaselineReceipt === null)
+    {
+        errors.push('runtime baseline receipt is unavailable; safe cleanup was still attempted');
+    }
     if (operation.baselineReceipt
         && operation.baselineReceipt.inventoryDigest
             !== after.productionBuild?.inventoryDigest)
