@@ -4660,11 +4660,101 @@ function preprocessorFingerprint(source)
     return output;
 }
 
+export function csharpFormatFingerprint(source)
+{
+    const exact = () => JSON.stringify({ source });
+    // Normalize only the bounded import prefix; never lex or normalize the body.
+    // Any hash is conservatively refused, including hashes in comments or literals.
+    // This avoids interpreting directives with any C# line terminator.
+    if (source.includes('#'))
+    {
+        return exact();
+    }
+    const keywords = new Set((
+        '__arglist __makeref __reftype __refvalue abstract as base bool break byte case catch char checked class const continue decimal '
+        + 'default delegate do double else enum event explicit extern false finally fixed float '
+        + 'for foreach goto if implicit in int interface internal is lock long namespace new null '
+        + 'object operator out override params private protected public readonly ref return sbyte '
+        + 'sealed short sizeof stackalloc static string struct switch this throw true try typeof '
+        + 'uint ulong unchecked unsafe ushort using virtual void volatile while'
+    ).split(' '));
+    const skipWhitespace = (offset, commentLookahead = false) =>
+    {
+        // Import normalization stays ASCII-only; the unsupported-import lookahead
+        // must traverse every legal C# whitespace and line-terminator character.
+        const whitespace = commentLookahead
+            ? /[\p{Zs}\t\v\f\r\n\u0085\u2028\u2029]/u
+            : /[ \t\r\n]/u;
+        while (whitespace.test(source[offset] ?? ''))
+        {
+            offset += 1;
+        }
+        return offset;
+    };
+    const skipComments = (offset) =>
+    {
+        offset = skipWhitespace(offset, true);
+        while (source.startsWith('//', offset) || source.startsWith('/*', offset))
+        {
+            if (source.startsWith('//', offset))
+            {
+                const end = source.slice(offset).search(/[\r\n\u0085\u2028\u2029]/u);
+                offset = end < 0 ? source.length : offset + end;
+            }
+            else
+            {
+                const end = source.indexOf('*/', offset + 2);
+                if (end < 0)
+                {
+                    return source.length;
+                }
+                offset = end + 2;
+            }
+            offset = skipWhitespace(offset, true);
+        }
+        return offset;
+    };
+    const first = skipComments(0);
+    let cursor = first;
+    const directives = [];
+    const directive = /using[ \t\r\n]+(?<name>[A-Za-z_][A-Za-z0-9_]*(?:[ \t\r\n]*\.[ \t\r\n]*[A-Za-z_][A-Za-z0-9_]*)*)[ \t\r\n]*;/uy;
+    while (source.startsWith('using', cursor))
+    {
+        directive.lastIndex = cursor;
+        const match = directive.exec(source);
+        if (!match)
+        {
+            return exact();
+        }
+        const name = match.groups.name.replace(/[ \t\r\n]/gu, '');
+        if (name.split('.').some((part) => keywords.has(part)))
+        {
+            return exact();
+        }
+        directives.push(name);
+        cursor = skipWhitespace(directive.lastIndex);
+    }
+    const next = skipComments(cursor);
+    if (directives.length < 2 || /^(?:using|global|extern)\b/u.test(source.slice(next)))
+    {
+        return exact();
+    }
+    return JSON.stringify({
+        header: source.slice(0, first),
+        usingDirectives: directives.sort(),
+        remainder: source.slice(cursor)
+    });
+}
+
 function formatFingerprint(source, path)
 {
     if (/\.(?:mjs|cjs|js)$/u.test(path))
     {
         return javascriptFormatFingerprint(source, path);
+    }
+    if (/\.cs$/u.test(path))
+    {
+        return csharpFormatFingerprint(source);
     }
     const normalized = source.replace(/\r\n/gu, '\n');
     if (/\.ya?ml$/u.test(path) && /^\s*[^#\r\n][^\r\n]*:\s*[|>][-+0-9]*\s*(?:#.*)?$/mu.test(normalized))
