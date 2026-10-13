@@ -56,7 +56,17 @@ class PrivateSurfaceRuntime
         this.generationState.value = createOpaqueGeneration();
         privateRequestRuntime.advanceForAuthTransition(reason);
         const previousTransition = this.transition;
-        const currentTransition = (async () =>
+        // Initialize the actual completion before its cleanup closure captures it.
+        const settlement: {
+            resolve?: () => void;
+            reject?: (reason: unknown) => void;
+        } = {};
+        const currentTransition = new Promise<void>((resolve, reject) =>
+        {
+            settlement.resolve = resolve;
+            settlement.reject = reject;
+        });
+        const performTransition = async (): Promise<void> =>
         {
             if (previousTransition)
             {
@@ -109,7 +119,8 @@ class PrivateSurfaceRuntime
                     this.transition = null;
                 }
             }
-        })();
+        };
+        void performTransition().then(settlement.resolve, settlement.reject);
         this.transition = currentTransition;
 
         return currentTransition;
