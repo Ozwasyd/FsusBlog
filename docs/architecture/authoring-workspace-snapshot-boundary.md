@@ -2299,3 +2299,25 @@ rendering qualification. The exact donor checkpoint and its newly introduced
 unsafe-assignment failure remain preserved in the preceding ordinary WIP. All
 protected owners, frozen contracts and original execution qualifications remain
 held. Residual original plugin lint findings remain separately disclosed.
+
+
+## Audit Picker Payload P2 Successor
+
+The original business A Date-only AuditLog boundary rejects the actual public
+picker's legitimate manual-edit Dayjs pair. Its earlier Date-path source
+acceptance was too broad and is corrected; the same original History postimage
+shares the defect. The Audit portion of business A and its dependent consumer
+checkpoints remain conditionally held pending independent source review of the
+separate successor. Original checkpoints and failure records remain preserved.
+
+UI957 manual start/end edits pass valid Dayjs values to emitInput. Without
+value-format, its formatter returns those values unchanged and the public
+date-picker forwards them. The consumer now accepts finite native Date values
+and valid Dayjs values through the existing library predicate, validation and
+toDate conversion. Both endpoints normalize before the original atomic pair
+assignment; clear stays null and invalid values retain the rejection boundary.
+No string or number is parsed, no date or default range is invented, and no
+shared producer/type declaration is changed. Canonical audit IDs, permission
+actions, request payloads and pagination owners remain unchanged. This is a
+source repair candidate; actual manual editing/rendering remains UNRUN and every
+existing execution qualification hold remains.

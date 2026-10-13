@@ -6,7 +6,7 @@
             "paths": [
                 "docs/architecture/authoring-workspace-snapshot-boundary.md"
             ],
-            "reason": "Preserve external CSS-like contracts in current architecture documentation while describing only the real unknown receiver boundary; no authority or qualification refresh."
+            "reason": "Preserve external CSS-like names in current architecture documentation while correcting the actual Audit picker Dayjs payload boundary; no authority or qualification refresh."
         }
     ]
 }
