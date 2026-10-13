@@ -36,6 +36,7 @@
             :command-surfaces="commandSurfaces"
             :document-identity="documentIdentity"
             :native-attachment-input="true"
+            :attachment-terminal-observer="attachmentTerminalObserver"
             @attachment-capture="handleAttachmentCapture"
             @save="$emit('draft-save')"
             @draft-save="$emit('draft-save')"
@@ -98,7 +99,7 @@ import {
     useArticleOutline,
     type ArticleOutlineSelection
 } from '@/composables/useArticleOutline';
-import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation, MarkdownAttachmentTerminalObserver } from '@/fsusui/articleAttachments';
 import type {
     FsusUiAuthoringCommand,
     FsusUiAuthoringDocumentIdentity,
@@ -143,6 +144,7 @@ const props = withDefaults(defineProps<{
     articleIdentity?: string;
     surfacePreference?: ArticleEditorSurfacePreference | null;
     documentContext?: ArticleDocumentContext | null;
+    attachmentTerminalObserver?: MarkdownAttachmentTerminalObserver;
 }>(), {
     layoutMode: 'standard',
     textareaId: 'article-content',

@@ -1,4 +1,4 @@
-import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentFileConsumer, MarkdownAttachmentItemIntent } from '@/fsusui/articleAttachments';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentFileConsumer, MarkdownAttachmentItemIntent, MarkdownAttachmentTerminalObservation, MarkdownAttachmentTerminalConsumer } from '@/fsusui/articleAttachments';
 import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection, MarkdownEditorSessionExpose } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringCommand } from '@/fsusui/authoringCommands';
 
@@ -55,6 +55,8 @@ type Focus = 'editor' | 'outside' | 'unobserved';
 export interface ArticleEditorContinuityPort
 {
     dispatchTransaction(transaction: Transaction): MarkdownEditorDispatchResult;
+    withAttachmentTerminalTransaction?(observation: MarkdownAttachmentTerminalObservation,
+        consume: MarkdownAttachmentTerminalConsumer): boolean;
     /** Original mounted editor File loan; absent capability must remain unavailable. */
     withAttachmentFile?(batch: MarkdownAttachmentBatchIntent, item: MarkdownAttachmentItemIntent,
         consume: MarkdownAttachmentFileConsumer): boolean;

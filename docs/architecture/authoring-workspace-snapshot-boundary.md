@@ -1464,3 +1464,43 @@ Main preview/Auth reconciliations, and native business completion refusal are
 unchanged. This source fix removes two receiver-binding lint findings; raw
 rejection and existing FileReader stringification findings remain WIP. It supplies
 no business acknowledgement or runtime/resource qualification.
+
+### Native terminal transaction observation and original task transition gap
+
+The independent local native terminal source exposes a synchronous
+`attachmentTerminalObserver` and the same mounted editor's
+`withAttachmentTerminalTransaction` loan. Original private result admission and
+dispatch reference/attempt precede application; the actual native publication
+barrier remains held while the callback and original File release execute. Only
+this exact application's in-progress release may defer the original input abort
+listener. True cancellation, document/epoch replacement, failed notification and
+lost original job/dispatch custody still refuse. The committed observation carries
+the accepted terminal event from the existing native dispatcher after synchronous
+transaction/model callbacks, never the placeholder capture or progress boolean.
+
+The original Writer forwards this callback through the existing editor components
+and lends that exact mounted native port to `ArticleAttachmentContextAdapter`.
+The original accepted-capture weak registry retains its actual pending entries;
+no second handle/job/lease issuer is added. Applying reserves the same entry for
+its own transaction map. Committed verifies the current original document binding
+and records the same historical accepted native event through
+`readNativeTerminalTransaction`. It never calls generic completion or dispatches
+content again. Raw notification causes remain readable on the same handle; no
+provider or native work settlement is inferred.
+
+A separate existing SDK/Doc contract blocks completed task qualification:
+`ArticleDocumentContextAdapter.updateSource` cancels all tasks from the preceding
+revision, and `ArticleDocumentTaskLease.accept` only admits the current exact
+context/revision. The real terminal transaction's synchronous source update
+therefore aborts the original provider lease before the final observation. The
+bridge keeps that same handle/entry/lease, records its actual envelope with
+`taskCompletion: 'unavailable'`, and finishes it cancelled with
+`attachment-native-task-transition-unavailable`. The original SDK/Doc owner must
+supply a controlled same-lease revision-transition completion capability; a new
+completed successor lease or a copied receipt cannot substitute for it.
+`transaction-committed` qualification, the rich business request adapter, full
+resource/ready/recovery/eviction and runtime/native/receipt/IME holds remain open.
+
+This source depends explicitly on the isolated UI terminal draft based on accepted
+UI914, while UI943 atomic retry remains separate. Static checks use the exact local
+UI terminal root; no package is published or default source authority refreshed.

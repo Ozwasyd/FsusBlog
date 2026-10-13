@@ -46,6 +46,7 @@
             @selection-change="trackAuthoringSelection"
             @save="emitSave"
             @submit="emitSubmit"
+            :attachment-terminal-observer="attachmentTerminalObserver"
             @transaction="trackAuthoringTransaction"
             @upload-image="requestImageUpload"
         />
@@ -109,7 +110,7 @@ import {
     markdownEditorCommands
 } from '@/components/ui/markdown-editor/commands';
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection';
-import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation, MarkdownAttachmentTerminalObserver } from '@/fsusui/articleAttachments';
 import type { MarkdownEditorSessionExpose } from '@/fsusui/articlePositionMaps';
 import {
     mergeFsusUiAuthoringCommands,
@@ -130,6 +131,7 @@ import type {
 type FsusUiMarkdownEditorExpose = MarkdownEditorSessionExpose & Readonly<{
     dispatchTransaction: ArticleEditorContinuityPort['dispatchTransaction'];
     withAttachmentFile: NonNullable<ArticleEditorContinuityPort['withAttachmentFile']>;
+    withAttachmentTerminalTransaction: NonNullable<ArticleEditorContinuityPort['withAttachmentTerminalTransaction']>;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     closeCommandPalette?: () => void;
@@ -168,6 +170,7 @@ const props = withDefaults(defineProps<{
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
     nativeAttachmentInput?: boolean;
+    attachmentTerminalObserver?: MarkdownAttachmentTerminalObserver;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     toolbarsExclude?: string[];
     saving?: boolean;

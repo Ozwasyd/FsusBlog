@@ -27,6 +27,7 @@
             :command-surfaces="commandSurfaces"
             :document-identity="documentIdentity"
             :native-attachment-input="nativeAttachmentInput"
+            :attachment-terminal-observer="attachmentTerminalObserver"
             @upload-image="handleAttachmentCapture"
             @on-save="emit('save')"
             @on-draft-save="emit('draft-save')"
@@ -43,7 +44,7 @@
 import { computed, ref } from 'vue';
 
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
-import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation, MarkdownAttachmentTerminalObserver } from '@/fsusui/articleAttachments';
 import type {
     FsusUiAuthoringCommand,
     FsusUiAuthoringDocumentIdentity,
@@ -89,6 +90,7 @@ const props = withDefaults(defineProps<{
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
     nativeAttachmentInput?: boolean;
+    attachmentTerminalObserver?: MarkdownAttachmentTerminalObserver;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     authoringCommands?: readonly FsusUiAuthoringCommand[];
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;

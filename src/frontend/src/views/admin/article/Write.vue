@@ -205,6 +205,7 @@
                                                 @draft-save="saveDraftNow"
                                                 @submit="requestSubmit"
                                                 @upload-img="handleUploadImg"
+                                                :attachment-terminal-observer="authoringAttachmentRuntime.observeNativeTerminal"
                                                 @attachment-capture="consumeAcceptedAttachmentCapture"
                                                 @transaction="consumeAuthoringTransaction"
                                                 @selection-change="consumeAuthoringSelection"

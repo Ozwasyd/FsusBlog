@@ -72,7 +72,7 @@ import {
 import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { createArticleAttachmentBusinessIntentReader } from '@/services/authoring/articleAttachmentBusinessIntentReader';
-import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort, type ArticleAttachmentFilePort } from '@/services/authoring/articleAttachmentContext';
+import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort, type ArticleAttachmentFilePort, type ArticleAttachmentTerminalPort } from '@/services/authoring/articleAttachmentContext';
 import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
 import {
     articleDocumentContextAuthority,
@@ -1049,8 +1049,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const authoringAnchors = new ArticleAnchorContextAdapter(articleDocumentContextAdapter);
     const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
         'article-assets', 'article-assets:v1', authoringAnchors);
-    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort> | null = null;
-    const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort = {
+    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort> | null = null;
+    const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort & ArticleAttachmentTerminalPort = {
+        withAttachmentTerminalTransaction: (observation, consume) => active && !!attachmentEditor
+            && attachmentEditor.withAttachmentTerminalTransaction?.(observation, consume) === true,
         withAttachmentFile: (batch, item, consume) => active && !!attachmentEditor
             && attachmentEditor.withAttachmentFile?.(batch, item, consume) === true,
         dispatch: transaction =>
@@ -1101,6 +1103,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
     const authoringAttachmentRuntime = Object.freeze({
+        observeNativeTerminal: (observation: Parameters<ArticleAttachmentContextAdapter['observeNativeTerminal']>[0]) =>
+            active && authoringAttachments.observeNativeTerminal(observation, attachmentPort),
+        readNativeTerminalTransaction: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalTransaction(handle),
+        readNativeTerminalFailure: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalFailure(handle),
         readUploadObservation: (handle: ArticleAttachmentPendingHandle) => consumedAttachmentUploads.get(handle) ?? null,
         get uploadObligations()
         {
@@ -1145,7 +1151,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             return authoringAttachments.lifecycleReceipts;
         },
-        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort>) =>
+        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort>) =>
         {
             if (!active || attachmentEditor)
             {
@@ -1205,7 +1211,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         adminStore.permissions, privateSurfaceRuntime.authGeneration.value, privateSurfaceRuntime.isClearing.value],
     () => revokeCurrentMountedAuthority?.(), { deep: true, flush: 'sync' });
     const authoringEditorRuntime = Object.freeze({
-        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort> & Partial<MarkdownEditorSessionExpose>, options: ArticleEditorRuntimeBindingOptions,
+        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort> & Partial<MarkdownEditorSessionExpose>, options: ArticleEditorRuntimeBindingOptions,
             readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
         {
             if (!active || editorRuntimeBinding)
@@ -1215,7 +1221,9 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             // Retire an old physical owner before allocating any replacement resources.
             revokeCurrentMountedAuthority?.();
             const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
-                withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true });
+                withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true,
+                withAttachmentTerminalTransaction: (observation, consume) =>
+                    editor.withAttachmentTerminalTransaction?.(observation, consume) === true });
             let binding: ArticleEditorRuntimeBinding;
             try
             {
