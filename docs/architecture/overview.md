@@ -84,6 +84,87 @@ FsusUI supplies the visual system and reusable UI foundation. FsusBlog owns appl
 
 The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, so any FsusUI boundary warning fails before merge.
 
+## Authoring navigation history boundary
+
+`AuthoringNavigationHistory` in
+`src/frontend/src/services/authoring/authoringNavigationHistory.ts` owns one
+process-local semantic history per canonical `OpenArticleDocumentRegistry`.
+The closed v1 state binds session, workspace, user and site scopes. It retains
+at most 128 entries (64 by default) and 256 command fingerprints. It has no
+hydration or persistence API: reload discards the history; logout or workspace
+replacement must discard the owning Registry and create a new scope. Clearing
+this session removes entries and pending intents while retaining command/user
+sequence watermarks and bounded retry fingerprints to prevent delayed reentry.
+
+Entries preserve Registry article/draft/document identities, its original
+string-or-null source/draft revisions and document epoch, exact owning and target
+group IDs, explicit user action sequence/time, cause, validity observation refs
+and digests. An optional anchor preserves the public source node ID, node-bound
+range and affinity, original numeric Anchor source revision and source/context
+identity digests. The two upstream revision types are never converted into each
+other. No body, title, heading text, URL, DOM coordinate, editor instance,
+private selection, browser route state or undo state is retained. A range without
+a public node ID is inadmissible as an anchor identity.
+
+The closed cause registry admits internal link, relation inspector, Rail, Quick
+Switcher, future global search, explicit anchor reveal and recent-closed restore
+visits. Automatic activation/restore/refresh and caret/scroll/input events have
+no visit cause. Same-action route-to-anchor settling shares one sequence and
+coalesces only the same document, revisions, groups and cause within 500 ms;
+an existing anchor cannot be replaced by another anchor in the same action.
+A rapid identical semantic target/cause coalesces within that window. Distinct
+anchors form distinct visits. Every new visit truncates the forward branch and
+evicts oldest entries above capacity; entry IDs survive coalescing.
+
+Commands carry exact scope, expected history revision, increasing command
+sequence and idempotency coordinates. An identical retry within the bounded
+fingerprint window returns a replay receipt with no executable target. Conflicts
+fail closed; older commands outside that window fail CAS or sequence checks.
+User sequence/time watermarks also reject delayed visit settling after branch
+changes, eviction or clear. Receipts contain only semantic command/cursor/entry,
+cause/validity/ref/digest projections. Digests detect changed coordinates; they
+are not producer authentication or permission grants.
+
+Back/forward revalidates the adjacent entry, emits a closed semantic target
+intent and leaves the committed cursor unchanged. A matching CAS settlement
+commits the cursor only for `completed`; cancellation/failure preserves it.
+Pending traversal rejects another back/forward; a new user visit, invalidation
+or clear cancels that pending intent, so late settlement fails closed. Missing,
+deleted, archived, stale revision, permission revoked, missing/partial anchor,
+missing group and unknown targets produce an unavailable intent without moving
+or skipping the cursor. Unknown observations never become current implicitly.
+`replace-invalid` updates validity only, preserving document/group/anchor facts.
+
+The pure observation helper consumes actual Registry status/context and Group
+projections. Anchor currentness additionally requires the exact numeric source
+and context digest projection supplied by the Anchor owner. An absent mounted
+entry alone proves only unknown; a confirmed missing fact must come from its
+source owner. Existing ownership is never moved to satisfy the requested target
+group. A recent restore visit stores only upstream entry/restore-receipt refs
+and a digest, after the recent-closed owner has validated the real restore. It
+has no recent stack, close policy or restore implementation.
+
+The independent verifier reconstructs each command transition without invoking
+the mutation reducer or owner, checks full seals, bounds, branch/coalescing,
+cursor/cancellation/idempotency and receipt/target equality, and replays up to
+1,024 supplied transitions from explicit genesis. External observation and
+recent-restore provenance remain upstream obligations; replay cannot certify
+them. Closed validators reject added URL/title/heading/DOM/offset or recent
+payload fields. The module exposes no event subscriptions, component stacks,
+browser-history replacement or persistence hooks.
+
+This source slice uses type-only imports from the actual Group and Anchor
+contracts. Their canonical sources must land before the master application can
+resolve those imports. Group additionally needs the canonical Registry atomic
+ownership cell/transaction capability; the history owner cannot supply it.
+Registry's open-or-activate command and Anchor's restore command require real
+session/map/current-document inputs beyond a history intent. Future adapters
+must obtain them from those owners; a semantic intent cannot be cast into a
+mounted target or a full Anchor context. Recent restore receipt provenance also
+requires the actual recent-closed owner. This slice does not attach to Write,
+Frame, Main, SDK, routing, transport or storage and establishes no runtime,
+privacy/security, IME or full issue acceptance.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
