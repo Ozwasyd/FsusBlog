@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Coordinate authority using-order formatter, exact current consumer commit (#2474)
+afae0e36e48955e560a24b8653fde93f861da577

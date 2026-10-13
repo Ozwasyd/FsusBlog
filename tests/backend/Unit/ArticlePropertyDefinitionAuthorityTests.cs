@@ -6,6 +6,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
 
@@ -1441,16 +1442,11 @@ public sealed class ArticlePropertyDefinitionAuthorityTests
         {
             DefaultValue = hydrated
         }));
-        string root = AppContext.BaseDirectory;
-        while (!File.Exists(Path.Combine(root, "FsusBlog.slnx")))
-        {
-            root = Directory.GetParent(root)?.FullName ?? throw new InvalidOperationException("repository root missing");
-        }
         string[] owners = ["src/migration/Definitions/ArticlePropertyDefinitionAuthorityMigrationDefinitions.cs",
             "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs"];
         Assert.All(owners, path =>
         {
-            string source = File.ReadAllText(Path.Combine(root, path));
+            string source = BackendTestPaths.ReadAllTextFromRoot(path);
             var match = System.Text.RegularExpressions.Regex.Match(source, @"default_option_ids varchar\((\d+)\)");
             Assert.True(match.Success, path);
             int capacity = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
