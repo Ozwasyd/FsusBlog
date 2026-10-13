@@ -1,0 +1,96 @@
+{
+    "kind": "ordinary exact original business source WIP; no authority/receipt/qualification",
+    "mainBase": "8d5bc2fefb1196c6c40119f6fbf7bb7b82582292",
+    "acceptedHistory": "0f4c13b45e771037287c8d0c4ad067aedf9183b7",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "selected": [
+        {
+            "leaf": "01617b77f32b3f7ec065a1da5b9aa36a6824386d",
+            "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue",
+            "preimage": "db38d90f454f5841ba5162fbb58d10ed16ca4fe4",
+            "postimage": "8d4aaf52ea1d6f3e3a8a0eb30592784826d29257",
+            "main": "db38d90f454f5841ba5162fbb58d10ed16ca4fe4",
+            "protectedOwnerOrFrozenSurface": false,
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed",
+            "currentStatus": "exact-original-postimage-consumed"
+        },
+        {
+            "leaf": "810b7541e2a91ef382122939ae55ed34a71dc9e1",
+            "path": "src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue",
+            "preimage": "50488287e19f6d97bc39b563c2ccf6f010f31819",
+            "postimage": "69d42cc15fea2d9a2da4607eb240ceca57cdd0c7",
+            "main": "50488287e19f6d97bc39b563c2ccf6f010f31819",
+            "protectedOwnerOrFrozenSurface": false,
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed",
+            "currentStatus": "exact-original-postimage-consumed"
+        },
+        {
+            "leaf": "0b239c1a89f56e46e4986507d7ad173254dc5222",
+            "path": "src/frontend/src/views/admin/AuditLog.vue",
+            "preimage": "c1b8baed44a3fecef974edbb5a04e63149d77f95",
+            "postimage": "9f089f71d8777f70bc714204813d8d5901b938c1",
+            "main": "c1b8baed44a3fecef974edbb5a04e63149d77f95",
+            "protectedOwnerOrFrozenSurface": false,
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed",
+            "currentStatus": "exact-original-postimage-consumed"
+        },
+        {
+            "leaf": "e52840e7d75c7e4b3f2b37a9e968d6b774c4443d",
+            "path": "src/frontend/src/views/admin/Settings.vue",
+            "preimage": "d0fa3843806a6612dcf9e8e1b871fa6f1c69d1bf",
+            "postimage": "8e225ae17f403cbae295b69d3256cf90aa75280b",
+            "main": "d0fa3843806a6612dcf9e8e1b871fa6f1c69d1bf",
+            "protectedOwnerOrFrozenSurface": false,
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed",
+            "currentStatus": "exact-original-postimage-consumed"
+        },
+        {
+            "leaf": "9194beb669733714bc7919c58ead1cc30ef86ca6",
+            "path": "src/frontend/src/views/admin/ClusterRuntime.vue",
+            "preimage": "56282ed47694823da5a79ff9a56cbc2e7fdf0985",
+            "postimage": "46bfb474184749db4a6a69aa49fbeae4d25e1864",
+            "main": "56282ed47694823da5a79ff9a56cbc2e7fdf0985",
+            "protectedOwnerOrFrozenSurface": false,
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed",
+            "currentStatus": "exact-original-postimage-consumed"
+        }
+    ],
+    "authorization": "Parent explicitly lifts ONLY temporary nonauthoring business-template grouping restriction; original18 UI template/codegen,7 enums and Blog Analytics regionChartRef unchanged; all execution/render/tests/qualification HOLD",
+    "actualPrerequisites": "Canonical comments API already returns CommentTreeRoot node/childrenPreview; real readonly moderation row objects copied only at array-container boundary; real Date pair and string audit IDs; public original TableV2 bridge already exact; actual nullable copyright year and actual task-status union; no fake data/ref/void/cast",
+    "boundaries": "Protected authoring/Writer/SDK/upload/FIFO/cohort/end/settlement, actualUI957alias, template/codegen mechanism, enum declaration, compiler config and frozenDTO/schema/authority unchanged",
+    "staticEvidence": {
+        "fullProgram": {
+            "before": 147,
+            "after": 133,
+            "beforeUI": 25,
+            "afterUI": 25,
+            "added": [],
+            "removed": [
+                "src/components/admin/comment-moderation/CommentModerationQueue.vue(POSITION): error TS4104: The type 'readonly CommentModerationViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'unknown[]'.",
+                "src/components/admin/comment-moderation/CommentModerationQueue.vue(POSITION): error TS2322: Type '(row: CommentModerationViewItem) => string' is not assignable to type 'ResponsiveCollectionRowKey | undefined'.\n  Type '(row: CommentModerationViewItem) => string' is not assignable to type '(item: unknown, index: number) => string | number'.\n    Types of parameters 'row' and 'item' are incompatible.\n      Type 'unknown' is not assignable to type 'CommentModerationViewItem'.",
+                "src/components/admin/comment-moderation/CommentModerationQueue.vue(POSITION): error TS4104: The type 'readonly CommentModerationViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'any[]'.",
+                "src/public-renderers/PublicArticleCommentsIsland.vue(POSITION): error TS2322: Type '(CommentTreeRoot | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; })[]' is not assignable to type 'CommentThreadItem[] | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; }[]'.\n  Type '(CommentTreeRoot | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; })[]' is not assignable to type 'CommentThreadItem[]'.\n    Type 'CommentTreeRoot | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; }' is not assignable to type 'CommentThreadItem'.\n      Type 'CommentTreeRoot' is missing the following properties from type 'CommentThreadItem': id, content, createTime, author, and 6 more.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2322: Type '(targetPage?: number) => Promise<void>' is not assignable to type '(evt: MouseEvent) => any'.\n  Types of parameters 'targetPage' and 'evt' are incompatible.\n    Type 'MouseEvent' is not assignable to type 'number'.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2322: Type '(targetPage?: number) => Promise<void>' is not assignable to type '(evt: MouseEvent) => any'.\n  Types of parameters 'targetPage' and 'evt' are incompatible.\n    Type 'MouseEvent' is not assignable to type 'number'.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2322: Type '(targetPage?: number) => Promise<void>' is not assignable to type '(evt: MouseEvent) => any'.\n  Types of parameters 'targetPage' and 'evt' are incompatible.\n    Type 'MouseEvent' is not assignable to type 'number'.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2322: Type 'AuditDateRange' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.\n  Type 'null' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2367: This comparison appears to be unintentional because the types 'number | null' and 'string' have no overlap.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2367: This comparison appears to be unintentional because the types 'number | null' and 'string' have no overlap.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2322: Type 'TableV2Column<AuditLogItemResponse>[]' is not assignable to type 'AnyColumn[]'.\n  Type 'TableV2Column<AuditLogItemResponse>' is not assignable to type 'AnyColumn'.\n    Types of property 'fixed' are incompatible.\n      Type 'true | \"left\" | \"right\" | undefined' is not assignable to type 'true | FixedDir | undefined'.\n        Type '\"left\"' is not assignable to type 'true | FixedDir | undefined'.",
+                "src/views/admin/AuditLog.vue(POSITION): error TS2322: Type 'string' is not assignable to type 'number'.",
+                "src/views/admin/ClusterRuntime.vue(POSITION): error TS2345: Argument of type 'string' is not assignable to parameter of type '\"alive\" | \"draining\" | \"suspect\" | \"dead\" | \"maintenance\"'.",
+                "src/views/admin/Settings.vue(POSITION): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.\n  Type 'null' is not assignable to type 'number | undefined'."
+            ]
+        },
+        "strictFull": {
+            "before": 3,
+            "after": 3,
+            "added": [],
+            "removed": []
+        },
+        "TS_SFC_AST": "all five original source scripts parse, zero diagnostics",
+        "docs": "original lifecycle7 / authoritative41 failures, no frozen refresh",
+        "execution": "all runtime, tests, product imports, discovery, render and qualifications HOLD/UNRUN",
+        "physicalAlias": "author environment source evidence only; independent reviewer UNVERIFIED"
+    }
+}
