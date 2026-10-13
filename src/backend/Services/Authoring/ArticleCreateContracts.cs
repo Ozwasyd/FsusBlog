@@ -1,13 +1,75 @@
+using System.Text;
+
 using FsusBlog.Contracts.Articles;
+using FsusBlog.Server.Services.Articles;
 
 namespace FsusBlog.Server.Services.Authoring;
 
-/// <summary>Closed create modes: blank Draft, explicit template Draft, or explicit blank Inbox.</summary>
+/// <summary>Closed create modes: blank Draft, explicit template Draft, or explicit Inbox.</summary>
 public enum ArticleCreateMode
 {
     Blank = 0,
     Template = 1,
     Inbox = 2
+}
+
+/// <summary>
+/// Immutable Quick Capture input for the existing Inbox create transaction. Title and
+/// Markdown are retained verbatim; at least one must contain non-whitespace input.
+/// This source contract does not admit URL or template fields or grant actor authority.
+/// </summary>
+public sealed class ArticleInboxCreateRequest
+{
+    public const int CurrentSchemaVersion = 1;
+
+    public ArticleInboxCreateRequest(int schemaVersion, string title, string markdownContent)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(markdownContent);
+        if (schemaVersion != CurrentSchemaVersion)
+        {
+            throw new ArticleCreateValidationException("article_inbox_create_schema_unknown");
+        }
+        if (title.Length > ArticleProductionNormalizers.MaxTitleLength || title.Any(char.IsControl))
+        {
+            throw new ArticleCreateValidationException("article_inbox_create_title_invalid");
+        }
+        try
+        {
+            _ = new UTF8Encoding(false, true).GetByteCount(title);
+        }
+        catch (EncoderFallbackException)
+        {
+            throw new ArticleCreateValidationException("article_inbox_create_title_invalid_utf16");
+        }
+        string source = ArticleMarkdownSourceAdmission.Require(markdownContent);
+        if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(source))
+        {
+            throw new ArticleCreateValidationException("article_inbox_create_input_empty");
+        }
+        SchemaVersion = schemaVersion;
+        Title = title;
+        MarkdownContent = source;
+        ContentDigest = ArticleTemplateContract.ComputeCommandDigest(
+            "article-inbox-create-input", schemaVersion, title, Encoding.UTF8.GetBytes(source));
+    }
+
+    public int SchemaVersion
+    {
+        get;
+    }
+    public string Title
+    {
+        get;
+    }
+    public string MarkdownContent
+    {
+        get;
+    }
+    public string ContentDigest
+    {
+        get;
+    }
 }
 
 /// <summary>
@@ -26,11 +88,34 @@ public sealed class ArticleCreateCommand
         Guid? templateVersionId = null,
         ArticleTemplateExpansionPlan? plan = null,
         string? planDigest = null)
+        : this(actor, requestId, mode, templateId, templateVersionId, plan, planDigest, null)
+    {
+    }
+
+    public ArticleCreateCommand(ArticleTemplateActor actor, Guid requestId, ArticleInboxCreateRequest request)
+        : this(actor, requestId, ArticleCreateMode.Inbox, null, null, null, null,
+            request ?? throw new ArgumentNullException(nameof(request)))
+    {
+    }
+
+    private ArticleCreateCommand(
+        ArticleTemplateActor actor,
+        Guid requestId,
+        ArticleCreateMode mode,
+        Guid? templateId,
+        Guid? templateVersionId,
+        ArticleTemplateExpansionPlan? plan,
+        string? planDigest,
+        ArticleInboxCreateRequest? inboxRequest)
     {
         ArticleTemplateContract.ValidateActor(actor);
         if (requestId == Guid.Empty || !Enum.IsDefined(mode))
         {
             throw new ArticleCreateValidationException("article_create_mode_invalid");
+        }
+        if (inboxRequest is not null && mode != ArticleCreateMode.Inbox)
+        {
+            throw new ArticleCreateValidationException("article_inbox_create_mode_mismatch");
         }
 
         bool completeTemplateSet = templateId.HasValue
@@ -70,6 +155,7 @@ public sealed class ArticleCreateCommand
         TemplateVersionId = templateVersionId;
         Plan = plan;
         PlanDigest = planDigest;
+        InboxRequest = inboxRequest;
     }
 
     public ArticleTemplateActor Actor
@@ -104,6 +190,10 @@ public sealed class ArticleCreateCommand
         get;
     }
     public string? PlanDigest
+    {
+        get;
+    }
+    public ArticleInboxCreateRequest? InboxRequest
     {
         get;
     }
@@ -158,6 +248,12 @@ public sealed record ArticleCreateVerificationSnapshot(
 
 public interface IArticleCreateStore
 {
+    Task<ArticleCreateReceipt> CreateInboxAsync(
+        ArticleTemplateActor actor,
+        Guid requestId,
+        ArticleInboxCreateRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<ArticleCreateReceipt> CreateInboxAsync(
         ArticleTemplateActor actor,
         Guid requestId,

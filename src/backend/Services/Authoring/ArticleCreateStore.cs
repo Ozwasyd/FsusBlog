@@ -16,6 +16,16 @@ public sealed class ArticleCreateStore(
     public Task<ArticleCreateReceipt> CreateInboxAsync(
         ArticleTemplateActor actor,
         Guid requestId,
+        ArticleInboxCreateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return CreateAsync(new ArticleCreateCommand(actor, requestId, request), cancellationToken);
+    }
+
+    public Task<ArticleCreateReceipt> CreateInboxAsync(
+        ArticleTemplateActor actor,
+        Guid requestId,
         CancellationToken cancellationToken = default)
         => CreateAsync(new ArticleCreateCommand(actor, requestId, ArticleCreateMode.Inbox), cancellationToken);
 
@@ -41,6 +51,17 @@ public sealed class ArticleCreateStore(
 
         ArticleCreatePayload payload = command.Mode switch
         {
+            ArticleCreateMode.Inbox when command.InboxRequest is not null => new ArticleCreatePayload(
+                Title: command.InboxRequest.Title,
+                Summary: null,
+                CategoryId: 0,
+                TagIds: Array.Empty<int>(),
+                MarkdownContent: command.InboxRequest.MarkdownContent,
+                ExplicitAssetIds: Array.Empty<Guid>(),
+                SourceDigest: ArticleTemplateExpansionPlanner.ComputeSha256(
+                    Encoding.UTF8.GetBytes(command.InboxRequest.MarkdownContent)),
+                DefaultsDigest: null,
+                ReferenceDigest: null),
             ArticleCreateMode.Blank or ArticleCreateMode.Inbox => new ArticleCreatePayload(
                 Title: string.Empty,
                 Summary: null,
@@ -137,6 +158,12 @@ public sealed class ArticleCreateStore(
             values.Add(command.TemplateId);
             values.Add(command.TemplateVersionId);
             values.Add(command.PlanDigest);
+        }
+        if (command.InboxRequest is not null)
+        {
+            values.Add("article-inbox-create-input");
+            values.Add(command.InboxRequest.SchemaVersion);
+            values.Add(command.InboxRequest.ContentDigest);
         }
         return ArticleTemplateContract.ComputeCommandDigest([.. values]);
     }
