@@ -13,6 +13,13 @@ That acceptance does not certify this SDK or Main composition. UI956 application
 capability and is not consumed. The task-owned detached local alias references
 f2 without editing the original UI branch or publishing a package.
 
+Actual UI957 composite903db034a14254fb162f51b9c25d3703ea20ccb5 is separately
+published and PENDING composite source review. Its four cohort public interfaces
+are byte-identical to f2; its new application-ended interfaces are separate and
+unused here. Current compiler evidence is against f2, not a UI957 composite pass.
+Final Main intake must bind that actual reviewed composite or its reviewed
+successor; independently accepted UI955/956 sources are not a composed alias.
+
 ## Owning API and caller order
 
 All APIs live on the original ArticleDocumentContextAdapter. New native imports
