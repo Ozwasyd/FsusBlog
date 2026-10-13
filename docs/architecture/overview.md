@@ -318,6 +318,44 @@ cleanup failures and business recovery obligations retain their separate gates.
 Finite local image/hash completion alone cannot qualify full upload, shared
 codec disposal, SDK host acceptance or asset cleanup.
 
+`requestArticleAttachmentUpload` in the dedicated
+`articleAttachmentUploadRequest` module is an unactivated request adapter for the
+original FsusUI rich attachment contract. Main must supply the actual admitted
+native File, batch/item, same pending intent and lease, configured upload runtime,
+and its own `requestProviderResult(completion)` producer. The adapter probes the
+accepted Main owner's actual `matchesCapturedFile` method; an older owner without
+that capability fails closed. It does not capture another job, issue a task lease,
+dispatch a native transaction, publish a Doc revision, or activate caller wiring.
+
+The adapter starts one original `requestUploadFile` with that File/options/binding.
+Inside the actual ACK-time bounded session loan it binds Main's returned original
+`MarkdownAttachmentConsumerRequest` and awaits only that provider's result. The
+returned rich result is the provider's original value, correlated with the native
+batch/item/document/revision; resolved content must carry its actual AssetId and
+the correlated ACK URL. Upload URL or Flow `Promise<void>` fulfillment cannot
+substitute for provider acceptance, native committed application, original Doc
+task completion, business reference receipt or asset release. A provider must not
+await this request, the upstream upload, or native application that depends on its
+own rich result; direct upstream-future identity cycles are refused.
+
+The original upload and provider requests remain inspectable by their invocation
+owner. Full settlement is a separate Promise that waits for actual upload and
+provider full-settlement observations, closed provider acquisition, finished
+adapter execution and fulfilled original consumer cancellation cleanup. Failed or
+unobservable settlement/acquisition stays unresolved. Cancellation permanently
+records the first request before independently attempting both original owners;
+failed cleanup can be retried without repeating upload or provider creation, and
+raw failures including undefined remain separate from content result.
+
+The upload census has no authoritative complete numeric network/memory totals.
+The UI's six-number `inspectLocalResources` contract therefore explicitly throws
+`ArticleAttachmentUploadResourcesUnavailable`, carrying the actual upload census;
+the canonical FsusUI binding reports inspection unsupported. It never converts
+unknown network/shared-Wasm work or retained File state to zero. No checkpoint is
+offered. Main's private binding/provider hookup, full numeric resource capability
+and genuine receiver/native/SDK integration remain separate unresolved gates;
+this source adapter does not establish runtime or migration qualification.
+
 `useAdminArticleWrite.authoringEditorRuntime.bindEditor` composes the existing
 anchor, attachment, render-cache and continuity owners on one actual public editor
 port. The returned `binding` keeps live canonical context, render-state and pending
