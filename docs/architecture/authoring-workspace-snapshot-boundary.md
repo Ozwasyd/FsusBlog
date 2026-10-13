@@ -1533,3 +1533,31 @@ Root preparation/readmission of that SAME target. It cannot clone native history
 or issue a new document/principal authority. Full references/resources/readiness,
 restoration and runtime/native/IME/receipt qualification remain incomplete and
 unrun. Main Frame/Write reconciliation remains independently reviewable.
+
+### Original native adoption and same-target Root readmission composition
+
+The sole installed session composition receives an actual Frame-owned native
+recreation port through its original startup and group/session source. It is not
+caller-selected mount discovery or another host. The port keeps Frame's original
+startup signal and real reserve/ordinary prepare/admission functions.
+`recreateArticleWorkspaceNativeSession` uses that SAME installed factory to
+prepare the existing original source offer and Auth/Registry principal, then
+borrows Root's real physical target lease.
+
+The driver preserves source/target/document/offer identity and subscribes to the
+real target lease's pre-invalidation withdrawal. Revocation withdraws the original
+source/principal before native transfer can continue. The actual target session
+performs original `adoptNativeHandover` and original receiving cleanup. Only after
+real accepted native proof/current custody does it cancel the staging lease's
+subscriptions/tokens, then invoke original Root preparation and admission for the
+SAME target editor/session. It compares original mounted authority and physical
+target before/after readers. No duplicate native history, document/principal
+issuer, disposal or host-ready receipt is introduced.
+
+One driver operation retains original source/staging/target receiving-cleanup
+holders and raw first/latest failures for actual retries; cleanup attempts all
+owned siblings. Accepted native content/history is not rolled back by Main after
+a later Root failure. Full reference/resource validation/readiness/recovery and
+native/IME/receipt/runtime qualification remain false/unrun. This newly composed
+source is independently reviewable; real execution and all authority refresh
+remain held. Same-lease attachment transition is a separate SDK lane.

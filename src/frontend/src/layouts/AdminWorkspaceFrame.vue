@@ -64,6 +64,7 @@ import {
 import type { ArticleNativeRecreationSource, ArticleNativeRecreationStagingLease } from '@/services/authoring/articleNativeRecreationStaging';
 import { installArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
 import { createArticleWorkspaceMountedEditorResolver } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
+import type { ArticleWorkspaceNativeRecreationRootPort } from '@/services/authoring/articleWorkspaceNativeRecreation';
 import {
     articleWorkspaceTabRouter,
     isArticleWorkspaceRoute,
@@ -105,6 +106,7 @@ let workspaceInstallation: {
         readonly retireMountedAuthority: () => void;
         readonly admitMountedEditor: AdminArticleWorkspaceStartupPorts['prepareMountedEditor'];
         readonly readMountedAuthority: (editorSessionRef: string) => ArticleWorkspaceMountedAuthority | null;
+        readonly nativeRecreationRoot: ArticleWorkspaceNativeRecreationRootPort;
         readonly invalidateLayouts: Set<() => void>;
     };
     readonly task: Promise<{
@@ -262,7 +264,7 @@ async function startArticleWorkspace(
         // must still join its actual Write/Writer/Doc reservation before host admission.
         await resources.admitMountedEditor(entry, signal);
         requireStartupAdmission(ports);
-    });
+    }, resources.nativeRecreationRoot);
     resources.sessions = sessions;
     requireStartupAdmission(ports);
     const assertRuntimeCapability = checked(() => ports.assertRuntimeCapability);
@@ -284,7 +286,8 @@ async function startArticleWorkspace(
 function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts, signal: AbortSignal,
                                         revokeMountedAuthority: () => void, retireMountedAuthority: () => void,
                                         admitMountedEditor: AdminArticleWorkspaceStartupPorts['prepareMountedEditor'],
-                                        readMountedAuthority: (editorSessionRef: string) => ArticleWorkspaceMountedAuthority | null): NonNullable<typeof workspaceInstallation>['task']
+                                        readMountedAuthority: (editorSessionRef: string) => ArticleWorkspaceMountedAuthority | null,
+                                        nativeRecreationRoot: ArticleWorkspaceNativeRecreationRootPort): NonNullable<typeof workspaceInstallation>['task']
 {
     const installed = workspaceInstallation;
     if (installed)
@@ -293,7 +296,8 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
             || installed.resources.revokeMountedAuthority !== revokeMountedAuthority
             || installed.resources.retireMountedAuthority !== retireMountedAuthority
             || installed.resources.admitMountedEditor !== admitMountedEditor
-            || installed.resources.readMountedAuthority !== readMountedAuthority)
+            || installed.resources.readMountedAuthority !== readMountedAuthority
+            || installed.resources.nativeRecreationRoot !== nativeRecreationRoot)
         {
             return Promise.reject(new Error('article-workspace-startup-owner-changed'));
         }
@@ -316,6 +320,7 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         retireMountedAuthority,
         admitMountedEditor,
         readMountedAuthority,
+        nativeRecreationRoot,
         invalidateLayouts: new Set()
     };
     // Reserve the sole installation before any original capability callback can re-enter it.
@@ -1034,6 +1039,52 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     }
 }
 
+/** Same Frame-private startup signal and original preparation/admission, never a discovered mount. */
+const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootPort>({
+    reserveTarget: (entry, source) =>
+    {
+        const signal = viewStartupSignal;
+        if (!signal)
+        {
+            throw new Error('article-native-recreation-original-startup-signal-required');
+        }
+        return reserveCurrentNativeRecreationTarget(entry, source, signal);
+    },
+    readmitTarget: async (entry, target) =>
+    {
+        const signal = viewStartupSignal;
+        const ports = viewStartupPorts;
+        const instance = routeOutletInstance.value;
+        if (!signal || !ports)
+        {
+            throw new Error('article-native-recreation-original-root-required');
+        }
+        const verify = (): void =>
+        {
+            signal.throwIfAborted();
+            requireStartupAdmission(ports);
+            if (viewStartupSignal !== signal || viewStartupPorts !== ports || routeOutletInstance.value !== instance)
+            {
+                throw new Error('article-native-recreation-root-owner-replaced');
+            }
+        };
+        verify();
+        await prepareCurrentPrimaryMountedEditor(entry, signal);
+        verify();
+        await admitCurrentPrimaryMountedEditor(entry, signal);
+        verify();
+        const mounted = readCurrentMountedAuthority(entry.editorSessionRef);
+        if (mounted?.nativeEditor !== target.editor || !mounted.hasCustody()
+            || target.editor.getSession(entry.editorSessionRef) !== target.session)
+        {
+            throw new Error('article-native-recreation-root-target-replaced');
+        }
+        verify();
+        return mounted;
+    },
+    retryCleanup: () => closeFrameNativeStaging()
+});
+
 defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
                reserveNativeRecreationTarget: reserveCurrentNativeRecreationTarget,
                retryNativeStagingCleanup: closeFrameNativeStaging,
@@ -1290,7 +1341,7 @@ function startWorkspaceFromPorts(selectedPorts: AdminArticleWorkspaceStartupPort
     const installationTask = Promise.resolve().then(() =>
     {
         return installArticleWorkspaceStartup(startupPorts, startupSignal, mountedRevoker, mountedRetirer,
-                                              admitCurrentPrimaryMountedEditor, readCurrentMountedAuthority);
+                                              admitCurrentPrimaryMountedEditor, readCurrentMountedAuthority, nativeRecreationRoot);
     });
     void installationTask.then(({ plan, sessions }) =>
     {

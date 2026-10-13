@@ -1,3 +1,4 @@
+import { createArticleWorkspaceNativeRecreationDriver, type ArticleWorkspaceNativeRecreationRootPort } from './articleWorkspaceNativeRecreation';
 import {
     articleWorkspaceTabRouter,
     createArticleWorkspaceSessionPort
@@ -36,6 +37,8 @@ export interface ArticleWorkspaceEditorSessionCompositionSeal {
 let installed: {
     readonly resolveMountedEditor: ArticleWorkspaceMountedEditorResolver;
     readonly prepareMountedEditor: ArticleWorkspaceMountedEditorPreparation | undefined;
+    readonly nativeRecreationRoot: ArticleWorkspaceNativeRecreationRootPort | undefined;
+    readonly nativeRecreation: ReturnType<typeof createArticleWorkspaceNativeRecreationDriver> | null;
     readonly host: AuthoringSessionHost;
     readonly factory: ArticleWorkspaceFsusUiEditorSessionFactory;
     readonly assertActive: () => void;
@@ -53,13 +56,15 @@ let installed: {
  */
 export function installArticleWorkspaceEditorSessions(
     resolveMountedEditor: ArticleWorkspaceMountedEditorResolver,
-    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation
+    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation,
+    nativeRecreationRoot?: ArticleWorkspaceNativeRecreationRootPort
 ): AuthoringSessionHost
 {
     if (installed)
     {
         if (installed.resolveMountedEditor !== resolveMountedEditor
-            || (prepareMountedEditor && installed.prepareMountedEditor !== prepareMountedEditor))
+            || (prepareMountedEditor && installed.prepareMountedEditor !== prepareMountedEditor)
+            || (nativeRecreationRoot && installed.nativeRecreationRoot !== nativeRecreationRoot))
         {
             throw new Error('article-workspace-session-composition-already-installed');
         }
@@ -97,7 +102,33 @@ export function installArticleWorkspaceEditorSessions(
         sealedAdmission = null;
         // Admission closes before native receiver callbacks; failed original
         // unsubscribe handles stay in the SAME factory for subsequent retries.
-        factory.retireNativeDocumentAuthorities();
+        let failed = false;
+        let first: unknown;
+        try
+        {
+            nativeRecreation?.retryCleanup();
+        }
+        catch (cause)
+        {
+            failed = true;
+            first = cause;
+        }
+        try
+        {
+            factory.retireNativeDocumentAuthorities();
+        }
+        catch (cause)
+        {
+            if (!failed)
+            {
+                first = cause;
+            }
+            failed = true;
+        }
+        if (failed)
+        {
+            throw first;
+        }
     };
     const sealAdmission = (): ArticleWorkspaceEditorSessionCompositionSeal =>
     {
@@ -132,7 +163,10 @@ export function installArticleWorkspaceEditorSessions(
         return true;
     };
     const hasInstallationCustody = (): boolean => installationComplete && !retired;
-    installed = { resolveMountedEditor, prepareMountedEditor, host, factory, assertActive, hasInstallationCustody, retire,
+    const nativeRecreation = nativeRecreationRoot ? createArticleWorkspaceNativeRecreationDriver(nativeRecreationRoot,
+        (entry, snapshot, draftStateRef) => prepareArticleWorkspaceNativeHandoverContinuity(host, entry, snapshot, draftStateRef),
+        () => installed?.host === host && hasInstallationCustody()) : null;
+    installed = { resolveMountedEditor, prepareMountedEditor, nativeRecreationRoot, nativeRecreation, host, factory, assertActive, hasInstallationCustody, retire,
         sealAdmission, hasAdmissionCustody, cancelAdmission };
     try
     {
@@ -255,6 +289,37 @@ export function prepareArticleWorkspaceNativeHandoverContinuity(
     // Canonical producer returns the existing genuine cell/handle for the active member.
     return composition.factory.prepareNativeHandoverContinuity(entry, snapshot, draftStateRef,
         registry, handle, hasInstallation);
+}
+
+/** Drive the actual installed Root staging and original native offer; no host ready receipt. */
+export function recreateArticleWorkspaceNativeSession(host: AuthoringSessionHost, entry: OpenArticleDocumentEntry,
+    snapshot: MarkdownEditorSessionSnapshot, draftStateRef: string)
+{
+    const composition = installed;
+    if (composition?.host !== host || !composition.nativeRecreation)
+    {
+        throw new Error('article-workspace-native-recreation-original-root-unavailable');
+    }
+    composition.assertActive();
+    return composition.nativeRecreation.recreate(entry, snapshot, draftStateRef);
+}
+
+export function retryArticleWorkspaceNativeRecreationCleanup(host: AuthoringSessionHost): boolean
+{
+    if (installed?.host !== host || !installed.nativeRecreation)
+    {
+        throw new Error('article-workspace-native-recreation-cleanup-owner-mismatch');
+    }
+    return installed.nativeRecreation.retryCleanup();
+}
+
+export function inspectArticleWorkspaceNativeRecreationCleanup(host: AuthoringSessionHost)
+{
+    if (installed?.host !== host || !installed.nativeRecreation)
+    {
+        throw new Error('article-workspace-native-recreation-cleanup-owner-mismatch');
+    }
+    return installed.nativeRecreation.inspect();
 }
 
 /** Failed native/issuer cleanup remains observable after original installation retirement. */

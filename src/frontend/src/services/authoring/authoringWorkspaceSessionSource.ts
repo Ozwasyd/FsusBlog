@@ -1,6 +1,7 @@
 import { installArticleWorkspaceEditorSessions, retireArticleWorkspaceEditorSessions, type ArticleWorkspaceMountedEditorPreparation } from './articleWorkspaceEditorSessionComposition';
 import { articleWorkspaceTabRouter } from './articleWorkspaceTabRouter';
 
+import type { ArticleWorkspaceNativeRecreationRootPort } from './articleWorkspaceNativeRecreation';
 import type { AuthoringSessionHost, AuthoringSessionHostState, AuthoringSessionRecordState } from './authoringSessionHost';
 import type { AuthoringTabGroupRegistry } from './authoringTabGroupRegistry';
 import type { ArticleWorkspaceMountedEditorResolver } from './fsusUiEditorSessionFactory';
@@ -22,7 +23,8 @@ export interface AuthoringWorkspaceSessionSource {
 export function connectAuthoringWorkspaceSessionSource(
     groups: AuthoringTabGroupRegistry,
     resolveMountedEditor: ArticleWorkspaceMountedEditorResolver,
-    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation): AuthoringWorkspaceSessionSource
+    prepareMountedEditor?: ArticleWorkspaceMountedEditorPreparation,
+    nativeRecreationRoot?: ArticleWorkspaceNativeRecreationRootPort): AuthoringWorkspaceSessionSource
 {
     const assertBinding = (): void =>
     {
@@ -34,7 +36,7 @@ export function connectAuthoringWorkspaceSessionSource(
     // The sole installer binds its host to this exact router's article registry.
     // Refuse a foreign group before installation can mutate the router port.
     assertBinding();
-    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor, prepareMountedEditor);
+    const host = installArticleWorkspaceEditorSessions(resolveMountedEditor, prepareMountedEditor, nativeRecreationRoot);
     let retired = false;
     let retirementComplete = false;
     const retire = (): void =>
