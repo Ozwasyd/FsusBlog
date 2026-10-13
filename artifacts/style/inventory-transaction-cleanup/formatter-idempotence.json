@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "978f9af371ba5a946236baa42c6e2c13939aba9d",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "node tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js --config eslint.config.mjs --fix --fix-type layout tools/test-inventory/ts-ast-adapter/index.mjs tools/test-replacement/transaction.mjs tests/tools/test-replacement-transaction.test.mjs"
+    },
+    "paths": [
+        "tools/test-inventory/ts-ast-adapter/index.mjs",
+        "tools/test-replacement/transaction.mjs",
+        "tests/tools/test-replacement-transaction.test.mjs"
+    ],
+    "firstPassTreeSha256": "edc835f4d1ad2e3a0a5bcd81be2bbf985d4f0c97136d9b5398ba2ccb1979a575",
+    "secondPassTreeSha256": "edc835f4d1ad2e3a0a5bcd81be2bbf985d4f0c97136d9b5398ba2ccb1979a575",
+    "idempotent": true,
+    "beforeTreeSha256": "edc835f4d1ad2e3a0a5bcd81be2bbf985d4f0c97136d9b5398ba2ccb1979a575",
+    "changedBytes": false,
+    "formatCommit": null,
+    "blameIgnoreRevision": null,
+    "firstPassExitCode": 0,
+    "secondPassExitCode": 0,
+    "stdout": [
+        "",
+        ""
+    ],
+    "acceptanceLimit": "Canonical formatter is a no-op on current candidate. No format-only commit or blame registration is applicable; unchanged paths are not claimed as format-only PR evidence."
+}

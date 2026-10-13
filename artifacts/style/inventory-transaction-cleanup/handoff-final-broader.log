@@ -1,0 +1,200 @@
+file:///workspace/FsusBlog/tools/test-inventory/discovery.mjs:444
+        throw new Error(`xunit project ${configuration} build output or intermediate context is missing for ${project.project}`);
+              ^
+
+Error: xunit project Debug build output or intermediate context is missing for tests/backend/FsusBlog.Server.Tests.csproj
+    at projectXunitCompileContext (file:///workspace/FsusBlog/tools/test-inventory/discovery.mjs:444:15)
+    at evaluate (file:///workspace/FsusBlog/tools/test-inventory/discovery.mjs:482:16)
+    at readXunitProjectContext (file:///workspace/FsusBlog/tools/test-inventory/discovery.mjs:484:19)
+    at file:///workspace/FsusBlog/tools/test-inventory/discovery.mjs:934:20
+    at Array.map (<anonymous>)
+    at discoverTestInventory (file:///workspace/FsusBlog/tools/test-inventory/discovery.mjs:933:14)
+    at loadCanonicalInventory (file:///workspace/FsusBlog/tools/test-inventory/api.mjs:188:12)
+    at file:///workspace/FsusBlog/tests/tools/static-governance-host.test.mjs:20:19
+
+Node.js v24.16.0
+✖ tests/tools/static-governance-host.test.mjs (3004.951392ms)
+[test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,56): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,61): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Program.cs(26,55): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Program.cs(26,57): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Program.cs(26,79): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Program.cs(26,120): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,29): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,31): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,42): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/src/backend/Services/SystemService.cs(16,1): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+/workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(458,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedConnection.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(513,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedCommand.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(23,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(24,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(25,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+    1069 Warning(s)
+    4 Error(s)
+
+Time Elapsed 00:01:47.83
+✔ xunit project ownership separates compile contexts without changing case identity (2.230558ms)
+✔ xunit project ownership rejects unknown duplicate ambiguous and noncanonical sources (0.632495ms)
+✔ xunit project reports reject incomplete diagnostic foreign and duplicate cases (0.352382ms)
+✖ xunit discovery fails closed when project or canonical adapter is absent (17.699978ms)
+✔ canonical discovery covers xunit, vitest, node:test, playwright, tests/tools, native fuzz and matrix shell entrypoints (9.487356ms)
+✔ xunit files outside .test.* globs and tests/tools test/spec files are not missed (5.570131ms)
+✔ support, fixture and corpus surfaces are distinguished from discoverable cases (4.218951ms)
+✔ matrix-referenced unknown executable entrypoint fails closed (0.81428ms)
+✔ duplicate adapter ownership fails closed (0.39086ms)
+✔ the shared xunit project table closes backend and migration directories without promoting support files (4.890535ms)
+✔ xunit project union rejects duplicate compiled sources, duplicate cases and mismatched project ownership (0.939889ms)
+✔ source, path and adapter changes make a stored inventory stale (6.418342ms)
+✔ quality and retention consumers no longer own private walk or file-discovery authority (913.909682ms)
+✖ identical inputs produce byte-stable inventory artifacts (108255.528899ms)
+✔ inventory schema is closed: runtime metadata and unknown fields are rejected (8.359934ms)
+✔ loadCanonicalInventory fails closed on stale artifacts and missing required artifacts (26.701471ms)
+✖ CI produces one sealed inventory and static governance only consumes it (0.879018ms)
+✔ LocalRedis retention resolves current producer members and preserves ordinary cases in a mixed file (22.272012ms)
+✔ LocalRedis retention rejects unknown fixture members, missing traits, duplicates and incomplete discovery (0.848381ms)
+✔ LocalRedis retention fails closed for absent or ambiguous matrix and coverage ownership (0.809353ms)
+✔ retention snapshot follows evidence inputs and aggregate authority siblings without scheduling them (0.526645ms)
+✔ full repository inventory includes node test suites outside frontend and backend folders (0.782522ms)
+✔ tier invocation inference accounts for ordinary, coverage, specialized, and viewport lanes (0.381145ms)
+✔ extractTestRecords creates stable xUnit and Vitest test ids with assertion targets (0.802081ms)
+✔ extractTestRecords retains every distinct assertion target in a large test body (0.347474ms)
+✔ extractTestRecords gives xUnit collection and fixture support files auditable test ids (0.266883ms)
+✔ extractTestRecords ignores class-like words in comments before an xUnit method (0.359062ms)
+✔ extractTestRecords returns to the outer class after a nested helper closes (0.236287ms)
+✔ risk classification scans the full test body before permitting replacement (0.282236ms)
+✔ vitestHistoryEntries maps JSON reporter assertions to stable test ids (0.554121ms)
+✔ xunitTrxHistoryEntries maps UnitTestResult rows to stable Class.Method ids (0.776993ms)
+✔ auditTestRecords folds xUnit method history into p50, p95, and failure history (4.063836ms)
+[test-retention] xunit project Debug build output or intermediate context is missing for tests/backend/FsusBlog.Server.Tests.csproj
+✔ retentionSourceState binds evidence to commit and excludes ignored .tmp files (90.446899ms)
+✖ retention audit CLI records scheduler or explicit production run identity in producer metadata (2500.566611ms)
+✔ compact before snapshot preserves deletion evidence and rejects an unbound audit (2.950506ms)
+✔ percentile reports p50 and p95 from timing history (0.121223ms)
+✔ reviewCandidateFiles retains unique evidence and only permits exact safe replacement (0.561178ms)
+✔ auditTestRecords emits required timing, failure, coverage, invocation, and replacement fields (8.404261ms)
+✔ retention consumes case oracle, production owner and quality facts without risk-name promotion (3.04597ms)
+✔ xUnit tier invocation inference is per test method instead of the first trait in a file (4.005879ms)
+✔ candidate replacement prefers retained evidence over a lexically earlier review candidate (2.19857ms)
+✔ semantic replacement does not collapse distinct URL assertions as line comments (7.063536ms)
+✔ replacement manifest requires live replacement tests and assertion targets (0.865677ms)
+✔ replacement manifest resolves an acyclic retirement chain to live tests (0.412192ms)
+✔ replacement manifest resolves legacy xUnit method ids to live adapter cases (0.180102ms)
+✔ replacement manifest resolves unique legacy JavaScript test titles to hashed live ids (0.310549ms)
+✔ tier replacement requires a live target and valid catalog mappings (0.654869ms)
+✔ Migration retention projects its independent executor without Server coverage or summary invocations (3.887681ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 44
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 109356.302481
+
+✖ failing tests:
+
+test at tests/tools/static-governance-host.test.mjs:1:1
+✖ tests/tools/static-governance-host.test.mjs (3004.951392ms)
+  'test failed'
+
+test at tests/tools/test-inventory.test.mjs:213:1
+✖ xunit discovery fails closed when project or canonical adapter is absent (17.699978ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:220:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /xunit test project is missing: tests\/backend\/FsusBlog.Server.Tests.csproj/u,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/tools/test-inventory.test.mjs:519:1
+✖ identical inputs produce byte-stable inventory artifacts (108255.528899ms)
+  Error: Command failed: /tmp/issue-3242-node2416/node-v24.16.0-linux-x64/bin/node tools/test-inventory/produce.mjs --out /tmp/fsus-test-inventory-first-61249.json
+  [test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,56): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,61): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Program.cs(26,55): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Program.cs(26,57): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Program.cs(26,79): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Program.cs(26,120): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,29): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,31): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,42): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/src/backend/Services/SystemService.cs(16,1): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(458,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedConnection.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(513,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedCommand.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(23,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(24,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(25,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+      1069 Warning(s)
+      4 Error(s)
+
+  Time Elapsed 00:01:47.83
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at checkExecSyncError (node:child_process:925:11)
+      at execFileSync (node:child_process:961:15)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:525:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12) {
+    status: 1,
+    signal: null,
+    output: [ null, '', "[test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,56): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,61): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,55): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,57): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,79): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,120): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,29): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,31): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,42): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/SystemService.cs(16,1): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(458,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedConnection.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(513,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedCommand.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(23,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(24,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(25,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n    1069 Warning(s)\n    4 Error(s)\n\nTime Elapsed 00:01:47.83\n" ],
+    pid: 61424,
+    stdout: '',
+    stderr: "[test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,56): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,61): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,55): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,57): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,79): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Program.cs(26,120): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,29): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,31): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,42): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/src/backend/Services/SystemService.cs(16,1): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(458,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedConnection.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs(513,23): warning CS0108: 'AuthoringCanvasCoordinateAuthorityTests.BorrowedCommand.Disposed' hides inherited member 'Component.Disposed'. Use the new keyword if hiding was intended. [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(23,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(24,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(25,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n    1069 Warning(s)\n    4 Error(s)\n\nTime Elapsed 00:01:47.83\n"
+  }
+
+test at tests/tools/test-inventory.test.mjs:638:1
+✖ CI produces one sealed inventory and static governance only consumes it (0.879018ms)
+  AssertionError [ERR_ASSERTION]: validate-matrix must set up .NET before producing the inventory
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:682:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/tools/test-retention-audit.test.mjs:584:1
+✖ retention audit CLI records scheduler or explicit production run identity in producer metadata (2500.566611ms)
+  Error: Command failed: /tmp/issue-3242-node2416/node-v24.16.0-linux-x64/bin/node tools/check-test-retention.mjs --out .tmp/test-retention-producer-61257-1791429623546.json --run-id production-final
+  [test-retention] xunit project Debug build output or intermediate context is missing for tests/backend/FsusBlog.Server.Tests.csproj
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at checkExecSyncError (node:child_process:925:11)
+      at execFileSync (node:child_process:961:15)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-retention-audit.test.mjs:591:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12) {
+    status: 1,
+    signal: null,
+    output: [ null, '', '[test-retention] xunit project Debug build output or intermediate context is missing for tests/backend/FsusBlog.Server.Tests.csproj\n' ],
+    pid: 61569,
+    stdout: '',
+    stderr: '[test-retention] xunit project Debug build output or intermediate context is missing for tests/backend/FsusBlog.Server.Tests.csproj\n'
+  }

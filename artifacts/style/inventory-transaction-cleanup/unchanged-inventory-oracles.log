@@ -1,0 +1,43 @@
+✖ xunit discovery fails closed when project or canonical adapter is absent (15.563138ms)
+✖ CI produces one sealed inventory and static governance only consumes it (0.809814ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 88.874877
+
+✖ failing tests:
+
+test at tests/tools/test-inventory.test.mjs:213:1
+✖ xunit discovery fails closed when project or canonical adapter is absent (15.563138ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:220:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /xunit test project is missing: tests\/backend\/FsusBlog.Server.Tests.csproj/u,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/tools/test-inventory.test.mjs:638:1
+✖ CI produces one sealed inventory and static governance only consumes it (0.809814ms)
+  AssertionError [ERR_ASSERTION]: validate-matrix must set up .NET before producing the inventory
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:682:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

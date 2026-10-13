@@ -1,0 +1,180 @@
+{
+    "schema": "fsusblog.issue-3242-bounded-verification.v1",
+    "issue": 3242,
+    "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "testedSourceCommit": "978f9af371ba5a946236baa42c6e2c13939aba9d",
+    "runId": "issue-3242-20261008T023700Z",
+    "branch": "codex/issue-3242-inventory-transaction-style",
+    "status": "implementation-complete-acceptance-blocked",
+    "toolchain": {
+        "node": "24.19.0",
+        "npm": "11.13.0",
+        "typescript": "6.0.3",
+        "eslint": "10.8.0",
+        "dotnetSDK": "10.0.401"
+    },
+    "scope": {
+        "removedUnusedParameters": [
+            "collectImports.root",
+            "collectImports.file",
+            "callFacts.caseId",
+            "currentSuitePath.ctx"
+        ],
+        "transactionFilesChanged": false,
+        "testOraclesChanged": false,
+        "formatterChangedBytes": false,
+        "formatCommit": null,
+        "blameIgnoreRegistration": "not applicable: canonical layout is already satisfied"
+    },
+    "checks": [
+        {
+            "command": "node --test tests/tools/ts-ast-adapter.test.mjs tests/tools/test-replacement-transaction.test.mjs",
+            "exitCode": 1,
+            "artifact": "baseline-focused-installed.log",
+            "sha256": "14db4cf725e0b5ea36201c7319aad6e203305c89f2453ebbee850cbe4819be93",
+            "rawLogSha256": "ff0f7d878250aafcdc08130e5f5511f63aa9309e605ee8b340439f3fc6246198",
+            "rawLog": "/tmp/issue-3242-evidence/baseline-focused-installed.log",
+            "storedLogNormalization": "trailing whitespace removed; raw stdout/stderr retained at rawLog"
+        },
+        {
+            "command": "node --test tests/tools/ts-ast-adapter.test.mjs tests/tools/test-replacement-transaction.test.mjs tests/tools/test-inventory.test.mjs",
+            "exitCode": 1,
+            "artifact": "candidate-focused.log",
+            "sha256": "59a1ce94b5355ec11b567ff04ab011b97f4bc82122c078a3830533855b371727",
+            "rawLogSha256": "31172a626c5d7c2014e0650a59d7d16d5c90fe89defe5115f8f38a235c74ccd1",
+            "rawLog": "/tmp/issue-3242-evidence/candidate-focused.log",
+            "storedLogNormalization": "trailing whitespace removed; raw stdout/stderr retained at rawLog"
+        },
+        {
+            "command": "node --test --test-name-pattern='JavaScript|canonical transaction|checker parser installation' tests/tools/change-contract.test.mjs",
+            "exitCode": 0,
+            "artifact": "parser-regressions.log",
+            "sha256": "934dd435efc8cfa20bfed4ceddbf1f0aceeef588c5b124330cab9efe3dba8894"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode source-diff --base 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 --file tools/test-inventory/ts-ast-adapter/index.mjs --file tools/test-replacement/transaction.mjs --file tests/tools/test-replacement-transaction.test.mjs",
+            "exitCode": 0,
+            "artifact": "candidate-source-style.log",
+            "sha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/test-inventory/ts-ast-adapter/index.mjs --file tools/test-replacement/transaction.mjs --file tests/tools/test-replacement-transaction.test.mjs",
+            "exitCode": 0,
+            "artifact": "candidate-strict-style.log",
+            "sha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7"
+        },
+        {
+            "command": "node --test --test-name-pattern='xunit discovery fails closed|CI produces one sealed' tests/tools/test-inventory.test.mjs",
+            "exitCode": 1,
+            "artifact": "unchanged-inventory-oracles.log",
+            "sha256": "e7e792457d65bb274c722e56b18b8989aeb782184c771b076e914bdd5be8aadd"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+            "exitCode": 1,
+            "artifact": "candidate-global-style-excerpt.log",
+            "rawLog": "/tmp/issue-3242-evidence/candidate-global-style.log",
+            "rawLogSha256": "e29328b760bc1c325c2516d31284eb49bd4a2097552b18c645427920bea794d0",
+            "diagnosticLines": 83361,
+            "binding": "candidate source commit"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+            "exitCode": 1,
+            "artifact": "baseline-global-style-excerpt.log",
+            "rawLog": "/tmp/issue-3242-evidence/baseline-global-style.log",
+            "rawLogSha256": "e29328b760bc1c325c2516d31284eb49bd4a2097552b18c645427920bea794d0",
+            "diagnosticLines": 83361,
+            "binding": "initial pre-edit invocation; no stronger snapshot binding claimed"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs ci-pr-plan --base-ref 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 --out /tmp/issue-3242-evidence/pr-plan.json",
+            "exitCode": 1,
+            "artifact": "pr-plan.log",
+            "reason": "applicable PR execution authority rejected: independent release-final Node parser identity drifted; applicable execution authority schema, source index or parser identity drifted"
+        }
+    ],
+    "passed": {
+        "transactionTests": 23,
+        "adapterTests": 13,
+        "inventoryTests": 14,
+        "parserTests": 6,
+        "strictStyleFiles": 3,
+        "strictStyleViolations": 0,
+        "sourceDiffStyleViolations": 0
+    },
+    "failed": [
+        {
+            "check": "adapter oracle",
+            "location": "tests/tools/ts-ast-adapter.test.mjs:630",
+            "reason": "unchanged test searches for removed input-only change invalidates title in repository-governance-authority.test.mjs; assert.ok(start > 0 && end > start) fails on base and candidate",
+            "currentStatus": "repaired on bounded canonical owner; original failed run retained as historical evidence",
+            "recoveryEvidence": "anchor-repair-verification.json"
+        },
+        {
+            "check": "inventory negative control",
+            "location": "tests/tools/test-inventory.test.mjs:220",
+            "reason": "Missing expected exception; original negative control preserved"
+        },
+        {
+            "check": "inventory byte stability integration",
+            "reason": "real .NET canonical xUnit compile-context build exits 1 with CS0182 at tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs:23-26 before inventory output"
+        },
+        {
+            "check": "inventory CI ownership",
+            "location": "tests/tools/test-inventory.test.mjs:682",
+            "reason": "validate-matrix must set up .NET before producing the inventory; original assertion preserved"
+        },
+        {
+            "check": "global style authority",
+            "reason": "baseline configuration digest, source-state digest and generatedFrom are stale; full check reports broad unrelated violations including parent imports. Scoped strict/source-diff are separately zero."
+        },
+        {
+            "check": "PR matrix planner authority",
+            "reason": "independent release-final Node parser identity drifted; authority schema/source index/parser identity rejected; no execution plan produced",
+            "currentStatus": "recovered with official Node 24.16.0; original failure retained as historical evidence",
+            "recoveryEvidence": "pinned-toolchain-recovery.json"
+        }
+    ],
+    "acceptanceLimits": [
+        "Full focused command is 50/54 passing, exit 1; no suite qualification claimed.",
+        "980-file byte-identical adapter reports preserve 169 existing diagnostics, without qualifying dynamic cases.",
+        "Global style authority is checked independently and remains outside this bounded cleanup.",
+        "Product runtime/UI/API/database acceptance is not applicable to this source-only internal refactor.",
+        "No suppressions, gate changes, baseline writes, test-oracle changes, deployment, merge, or issue closure."
+    ],
+    "cleanup": [
+        "Inventory integration test rewrote tests/backend/packages.lock.json during real dotnet build; restored only that task-produced drift to the starting Git blob."
+    ],
+    "sourceBlobs": {
+        "tools/test-inventory/ts-ast-adapter/index.mjs": "95ac03e4b25f03c69785446aeb8dbe6e5f7c0c81",
+        "tools/test-replacement/transaction.mjs": "20006700774c879686d2ef3d60d3eb733ca6cb2c",
+        "tests/tools/test-replacement-transaction.test.mjs": "a645ec4eb5e56d9e047c2c5cb0505694cae2e4ee"
+    },
+    "followupToolchainRecovery": "pinned-toolchain-recovery.json",
+    "followupAnchorRepair": "anchor-repair-verification.json",
+    "coordinatorAssignedRemainingOwners": {
+        "CS0182": 3654,
+        "sharedInventoryRetention": 3521,
+        "consumerLock": 3568
+    },
+    "followupSharedHandoff": {
+        "evidence": "handoff-verification.json",
+        "testedCandidate": "024956bf617d929e07e3651d981a51b26e71c30a",
+        "suppliedPrerequisites": {
+            "registry": "f7b29774ae4aebad286539cc033aa736b9dbe613",
+            "retention": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+            "lockHead": "2c380fee5cff5fa0e368b3da0a4052a4fe124263",
+            "backendLock": "bd3dbde7939dc95c81cef4ab6b50f883459ee85d"
+        },
+        "status": "supplied-ready-capabilities-consumed-qualified-runtime-gates-still-open"
+    },
+    "followupCompilerPrerequisite": {
+        "evidence": "compiler-prerequisite-verification.json",
+        "testedCandidate": "342f0176145be43dd020334ec83f662d5b95fbae",
+        "CS0182Cleared": true,
+        "actualRemainingCompilerErrors": 10,
+        "affectedSourceFiles": 6,
+        "acceptance": "bounded-source-capability-consumed-runtime-compile-gates-open"
+    }
+}

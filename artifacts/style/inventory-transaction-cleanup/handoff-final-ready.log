@@ -1,0 +1,168 @@
+✔ current canonical article graph factory satisfies static governance (559.860548ms)
+✔ governance rejects missing authority file (0.881221ms)
+✔ governance rejects direct SQL in factory (8.483922ms)
+✔ governance rejects database provider dependencies in factory (1.366083ms)
+✔ governance rejects database writes in factory (0.944486ms)
+✔ governance rejects sentinel hashes in factory (1.349758ms)
+✔ governance rejects cache writes in factory (24.137589ms)
+✔ governance rejects second graph factory (1.168133ms)
+✔ governance rejects forged proof signature and hardcoded id=1 authority (3.583411ms)
+✔ current canonical article lifecycle authority satisfies static governance (18.647438ms)
+✔ governance rejects copying preparation projection facts during independent verification (14.588971ms)
+✔ governance rejects independent observation without its original sealed aggregate comparison (5.951537ms)
+✔ governance rejects missing lifecycle authority file (2.643872ms)
+✔ governance rejects lifecycle fixture direct article SQL (29.021744ms)
+✔ governance rejects scheduled completion using the future due time as now (3.157668ms)
+✔ governance rejects a verifier that trusts future transition timestamps (11.188255ms)
+✔ governance rejects lifecycle port without rollback history (4.994792ms)
+✔ governance rejects unconditional lifecycle port registration (11.175756ms)
+✔ governance rejects a second handwritten required edge list (3.655941ms)
+✔ governance rejects fixture projection rebuild fallback (3.095765ms)
+✔ governance rejects a lifecycle branch routed through legacy rebuilds (4.427997ms)
+✔ governance rejects projection verifier writes (2.745706ms)
+✔ governance rejects manual Redis StringIncrementAsync in canonical projection verification (7.550562ms)
+✔ governance rejects manual Redis KeyDeleteAsync in canonical projection verification (5.623321ms)
+✔ governance rejects manual Redis SortedSetAddAsync in canonical projection verification (13.983747ms)
+✔ governance rejects manual Redis ScriptEvaluateAsync in canonical projection verification (32.308898ms)
+✔ governance rejects a verifier detached from current-run authority refs (5.318531ms)
+✔ current canonical article publication authority satisfies static governance (7.46353ms)
+✔ governance rejects missing authority file (4.134824ms)
+✔ governance rejects fixture port registered unconditionally outside fixture block (1.355187ms)
+✔ governance rejects direct SQL in fixture port (3.466454ms)
+✔ governance rejects manual Redis in fixture port (1.764905ms)
+✔ governance rejects removing admin 0 rejection (26.588941ms)
+✔ governance rejects removing recompute sentinel rejection (1.320635ms)
+✔ governance rejects production not calling shared seams (2.847049ms)
+✔ governance rejects fixture port without create mutation authority call (1.40387ms)
+✔ authority manifest has five exclusive canonical owners and complete identities (23.40306ms)
+✔ manifest rejects checker and rule ownership shared across authorities (56.062963ms)
+workflow-lint ok
+✔ receipt seals source, complete inputs, checker, toolchain, rules and output content (383.5166ms)
+test-asset-governance ok
+✔ governance receipt identity invalidation mutation table [input-tree:test-asset-governance] (566.237843ms)
+community-governance ok
+✔ governance receipt identity invalidation mutation table [checker-source:community-governance] (764.539493ms)
+document-governance ok
+✔ governance receipt identity invalidation mutation table [parser-toolchain:document-governance] (686.137508ms)
+application-static-governance ok
+✔ tampered rule IDs or command-output digests cannot be repaired by retaining the old outer digest (526.700127ms)
+workflow-lint ok
+[repository-governance] produced authority=workflow-lint receipt=.cache/repository-governance/workflow-lint/1be9e64a4f53f3d704ba76d24da4034fd1c7b1740e5d74ed879b62adde38b773.json digest=sha256:1be9e64a4f53f3d704ba76d24da4034fd1c7b1740e5d74ed879b62adde38b773
+[repository-governance] verified authority=workflow-lint receipt=.cache/repository-governance/workflow-lint/current.json digest=sha256:1be9e64a4f53f3d704ba76d24da4034fd1c7b1740e5d74ed879b62adde38b773
+[repository-governance] current receipt unavailable authority=test-asset-governance; executing exact-input checker
+✔ receipt validation has no wall-clock age path but remains source/worktree exact (455.796642ms)
+[repository-governance] produced authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/ffca78ccf1f446051a403880f756fe19cbcf0ee97a10d40443d7d6fe10e58d28.json digest=sha256:ffca78ccf1f446051a403880f756fe19cbcf0ee97a10d40443d7d6fe10e58d28
+[repository-governance] verified authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/current.json digest=sha256:ffca78ccf1f446051a403880f756fe19cbcf0ee97a10d40443d7d6fe10e58d28
+[repository-governance] current receipt unavailable authority=test-asset-governance; executing exact-input checker
+[repository-governance] produced authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/ab99702f3ba5a96538fc7d615e1e76213feb64cc7b67933ac53e3a3a3705feaf.json digest=sha256:ab99702f3ba5a96538fc7d615e1e76213feb64cc7b67933ac53e3a3a3705feaf
+✔ ensure reuses test-asset receipt until an exact declared input changes (835.36302ms)
+✔ Production consumes authorities while release-final never reruns repository-only checkers (23.51565ms)
+✔ lifecycle report binds every test ID and assertion target to one physical owner (2.03319ms)
+✔ unowned and duplicate physical execution fail closed (0.260804ms)
+✔ mixed xunit files preserve the resolved singleton case owner instead of the file first tier (0.407095ms)
+✔ case tiers cannot replace explicit Node canonical or projection owners (0.217489ms)
+✔ singleton case owners reject malformed and unregistered tiers without forging matrix identities (0.415197ms)
+✔ static governance metadata requires the canonical lifecycle owner (0.161774ms)
+✔ projection and summary records cannot execute a producer (0.127702ms)
+✔ replacement conclusions need proof and migration retirement cannot depend on age (15.448959ms)
+✔ fixture distinguishes source mirrors, compatibility wrappers, and unique behavior owners (0.321776ms)
+✔ registry classification resolves lane, authority, workflow and package-script owners (2.641949ms)
+✔ registry reconciliation preserves explicit owners and reaches a byte-identical fixed point (0.929804ms)
+✔ registry reconciliation rejects entries whose Node test no longer exists (0.135504ms)
+✔ registry reconciliation rejects duplicate unowned Node test paths (0.386524ms)
+✔ lifecycle audit input rejects invalid or stale artifacts and never invokes the standalone producer (2.243448ms)
+✔ test-assets phase invokes one canonical retention producer before lifecycle consumes it (21.976375ms)
+✔ rename transaction seals exact identities, compatibility and catalog closure (5.623422ms)
+✔ rename transaction accepts complete explicit mappings for all five renamed dimensions (1.208164ms)
+✔ rename transaction rejects missing assertion mappings and invalid mapped targets (1.187523ms)
+✔ merge, parameterize and split preserve every case through explicit mappings (3.954261ms)
+✔ delete requires explicit retirement and a generated empty ledger disposition (1.657373ms)
+✔ planning fails closed on missing IDs, failed quality and lost compatibility dimensions (3.718625ms)
+✔ transaction validation rejects partial catalogs and sealed-content tampering (5.691064ms)
+✔ atomic apply deletes and writes as one unit and rolls everything back on verification failure (33.815613ms)
+✔ diff checker uses exact AST case identities for JS rewrites and fails closed on removal or discovery errors (6412.073864ms)
+✔ a renamed source cannot mask a separate JS case removal (854.32869ms)
+✔ diff checker binds multiline JS case identities without relying on removed call text (6575.769535ms)
+✔ diff checker binds exact NUL-delimited Git paths without quoted-display false removals (7481.335704ms)
+✔ diff checker rejects dynamic case placeholders that can conceal changed runtime cases (1419.740137ms)
+✔ tool-owned JS test cases require the same exact replacement transaction (1068.224708ms)
+✔ receipt publication exposes a complete validated receipt only after all six files pass verification (3.167012ms)
+✔ partial receipt staging write restores all six files without publishing terminal bytes (3.316808ms)
+✔ preexisting receipt retains its exact bytes and inode without applying any files (1.884626ms)
+✔ racing receipt publication preserves the other publisher inode and rolls back all six files (2.331471ms)
+✔ receipt link I/O failure leaves no final receipt and restores all six files (3.064998ms)
+✔ each of six staging write and rename failures restores the complete before state (15.617022ms)
+✔ null and undefined verification failures remain failures and preserve the original thrown value (3.411912ms)
+✔ post-publication cleanup failure preserves the complete receipt and all six applied files (3.194203ms)
+✔ diff checker detects deleted tests, renamed tests and removed discoverable cases (70.702535ms)
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+✔ #2348 canonical MFA retirement retains before identities without post-baseline self-admission (343.59647ms)
+✔ matrix is the single current command and retention governance authority (154.74038ms)
+✔ backend source-locking owner accepts runtime artifacts and rejects production docs and test source (2.031638ms)
+✔ backend source-locking owner does not mistake a temporary JSON artifact for repository source (0.292962ms)
+✔ backend source-locking owner reconstructs segmented repository paths (0.303348ms)
+✔ replacement merge accepts identical declarations and reports conflicting owners (0.380084ms)
+✔ replacement chains remain acyclic without a fixed historical edge count (0.3441ms)
+✔ issue-local replacement manifest count is exact (0.138069ms)
+✔ retention audit reports every undeclared deletion and missing replacement target in one pass (0.372262ms)
+✔ retention audit accepts a declared deletion whose replacement exists after convergence (4.51662ms)
+✔ compact retention audit resolves hashed deletions, replacement targets, and path bindings (4.524402ms)
+✔ retention audit inherits pre-baseline declarations but rejects a wrong baseline path (0.164669ms)
+✔ final after snapshot must be independently run-bound and source-bound (0.379403ms)
+✔ final evidence contracts report every invalid status field (0.269898ms)
+✔ child issue evidence requires the exact closed #1032 through #1050 set (0.690533ms)
+✔ path migration expansion emits every exact baseline test ID (5.428147ms)
+✔ convergence plan enforces all child issues exactly once and only earlier dependencies (0.653617ms)
+✔ vitest adapter extracts named, aliased and namespace registrations with suite hierarchy (514.032818ms)
+✔ node:test adapter supports default import, describe/it, options and skip/todo (576.326365ms)
+✔ vitest object rows preserve named identity and resolve aliased production imports (371.329205ms)
+✔ vitest facts follow local helper calls to production owners (424.267716ms)
+✔ native helper and nested callback returns do not hide actual test callback exits (403.32105ms)
+✔ native immutable closed table has exact runtime and static row identities (1631.202426ms)
+✔ native tables fail closed for unknown mutable escaped shadowed and unsupported registration (12138.90067ms)
+✔ native table preserves actual governance receipt surrounding oracles and ten runtime cases (2854.45065ms)
+✔ playwright adapter extracts fixtures, describe, use annotations and skip (219.602988ms)
+✔ behaviorTest registration is extracted with behavior identity traits (187.602726ms)
+✔ local same-name non-test function is not misdetected as a test (195.535636ms)
+✔ syntax errors fail closed with a precise file location (195.679562ms)
+✔ identical inputs produce byte-stable adapter reports (392.233255ms)
+✔ raw string and template titles never create false cases (242.754945ms)
+ℹ tests 115
+ℹ suites 0
+ℹ pass 115
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24822.43144

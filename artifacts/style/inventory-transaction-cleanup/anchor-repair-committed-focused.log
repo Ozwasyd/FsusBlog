@@ -1,0 +1,68 @@
+✔ authority manifest has five exclusive canonical owners and complete identities (2.258601ms)
+✔ manifest rejects checker and rule ownership shared across authorities (74.153397ms)
+workflow-lint ok
+✔ receipt seals source, complete inputs, checker, toolchain, rules and output content (268.499825ms)
+test-asset-governance ok
+✔ governance receipt identity invalidation mutation table [input-tree:test-asset-governance] (288.923877ms)
+community-governance ok
+✔ governance receipt identity invalidation mutation table [checker-source:community-governance] (246.45751ms)
+document-governance ok
+✔ governance receipt identity invalidation mutation table [parser-toolchain:document-governance] (262.615244ms)
+application-static-governance ok
+✔ tampered rule IDs or command-output digests cannot be repaired by retaining the old outer digest (237.764257ms)
+workflow-lint ok
+[repository-governance] produced authority=workflow-lint receipt=.cache/repository-governance/workflow-lint/043109be66c995e7543b4b33c6a9246565864895264bab5ac234f4c4eef1069e.json digest=sha256:043109be66c995e7543b4b33c6a9246565864895264bab5ac234f4c4eef1069e
+[repository-governance] verified authority=workflow-lint receipt=.cache/repository-governance/workflow-lint/current.json digest=sha256:043109be66c995e7543b4b33c6a9246565864895264bab5ac234f4c4eef1069e
+[repository-governance] current receipt unavailable authority=test-asset-governance; executing exact-input checker
+✔ receipt validation has no wall-clock age path but remains source/worktree exact (275.802784ms)
+[repository-governance] produced authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/db08c1c8f57b94f016c5df9038e84790103340fdd9f8465147bdc7db62e2fe64.json digest=sha256:db08c1c8f57b94f016c5df9038e84790103340fdd9f8465147bdc7db62e2fe64
+[repository-governance] verified authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/current.json digest=sha256:db08c1c8f57b94f016c5df9038e84790103340fdd9f8465147bdc7db62e2fe64
+[repository-governance] current receipt unavailable authority=test-asset-governance; executing exact-input checker
+[repository-governance] produced authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/3363bd3ed2212d6a38339e4067c2999edcd573dae655640b5299c628c53a85e6.json digest=sha256:3363bd3ed2212d6a38339e4067c2999edcd573dae655640b5299c628c53a85e6
+✔ ensure reuses test-asset receipt until an exact declared input changes (403.897756ms)
+✔ Production consumes authorities while release-final never reruns repository-only checkers (0.941452ms)
+✔ rename transaction seals exact identities, compatibility and catalog closure (4.7551ms)
+✔ rename transaction accepts complete explicit mappings for all five renamed dimensions (0.756622ms)
+✔ rename transaction rejects missing assertion mappings and invalid mapped targets (1.246272ms)
+✔ merge, parameterize and split preserve every case through explicit mappings (3.722812ms)
+✔ delete requires explicit retirement and a generated empty ledger disposition (1.472434ms)
+✔ planning fails closed on missing IDs, failed quality and lost compatibility dimensions (3.385512ms)
+✔ transaction validation rejects partial catalogs and sealed-content tampering (3.467616ms)
+✔ atomic apply deletes and writes as one unit and rolls everything back on verification failure (6.220684ms)
+✔ diff checker uses exact AST case identities for JS rewrites and fails closed on removal or discovery errors (3405.758849ms)
+✔ a renamed source cannot mask a separate JS case removal (405.299443ms)
+✔ diff checker binds multiline JS case identities without relying on removed call text (2154.195032ms)
+✔ diff checker binds exact NUL-delimited Git paths without quoted-display false removals (4978.669089ms)
+✔ diff checker rejects dynamic case placeholders that can conceal changed runtime cases (1202.740885ms)
+✔ tool-owned JS test cases require the same exact replacement transaction (833.038972ms)
+✔ receipt publication exposes a complete validated receipt only after all six files pass verification (2.328497ms)
+✔ partial receipt staging write restores all six files without publishing terminal bytes (2.622741ms)
+✔ preexisting receipt retains its exact bytes and inode without applying any files (1.1589ms)
+✔ racing receipt publication preserves the other publisher inode and rolls back all six files (1.729101ms)
+✔ receipt link I/O failure leaves no final receipt and restores all six files (2.170968ms)
+✔ each of six staging write and rename failures restores the complete before state (12.889023ms)
+✔ null and undefined verification failures remain failures and preserve the original thrown value (2.280033ms)
+✔ post-publication cleanup failure preserves the complete receipt and all six applied files (1.729642ms)
+✔ diff checker detects deleted tests, renamed tests and removed discoverable cases (40.984831ms)
+✔ vitest adapter extracts named, aliased and namespace registrations with suite hierarchy (351.360065ms)
+✔ node:test adapter supports default import, describe/it, options and skip/todo (286.101946ms)
+✔ vitest object rows preserve named identity and resolve aliased production imports (239.925766ms)
+✔ vitest facts follow local helper calls to production owners (214.234801ms)
+✔ native helper and nested callback returns do not hide actual test callback exits (226.227831ms)
+✔ native immutable closed table has exact runtime and static row identities (809.093764ms)
+✔ native tables fail closed for unknown mutable escaped shadowed and unsupported registration (5374.316916ms)
+✔ native table preserves actual governance receipt surrounding oracles and ten runtime cases (2363.006054ms)
+✔ playwright adapter extracts fixtures, describe, use annotations and skip (187.48444ms)
+✔ behaviorTest registration is extracted with behavior identity traits (184.539108ms)
+✔ local same-name non-test function is not misdetected as a test (173.05077ms)
+✔ syntax errors fail closed with a precise file location (173.754112ms)
+✔ identical inputs produce byte-stable adapter reports (364.351739ms)
+✔ raw string and template titles never create false cases (180.831614ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 47
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13149.474691

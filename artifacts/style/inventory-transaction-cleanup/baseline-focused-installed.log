@@ -1,0 +1,68 @@
+✔ rename transaction seals exact identities, compatibility and catalog closure (5.133952ms)
+✔ rename transaction accepts complete explicit mappings for all five renamed dimensions (0.786768ms)
+✔ rename transaction rejects missing assertion mappings and invalid mapped targets (0.869252ms)
+✔ merge, parameterize and split preserve every case through explicit mappings (2.303789ms)
+✔ delete requires explicit retirement and a generated empty ledger disposition (1.504612ms)
+✔ planning fails closed on missing IDs, failed quality and lost compatibility dimensions (4.610682ms)
+✔ transaction validation rejects partial catalogs and sealed-content tampering (2.798415ms)
+✔ atomic apply deletes and writes as one unit and rolls everything back on verification failure (5.773117ms)
+✔ diff checker uses exact AST case identities for JS rewrites and fails closed on removal or discovery errors (3589.896424ms)
+✔ a renamed source cannot mask a separate JS case removal (522.985825ms)
+✔ diff checker binds multiline JS case identities without relying on removed call text (2722.892861ms)
+✔ diff checker binds exact NUL-delimited Git paths without quoted-display false removals (5883.694187ms)
+✔ diff checker rejects dynamic case placeholders that can conceal changed runtime cases (1712.796119ms)
+✔ tool-owned JS test cases require the same exact replacement transaction (933.956798ms)
+✔ receipt publication exposes a complete validated receipt only after all six files pass verification (3.084538ms)
+✔ partial receipt staging write restores all six files without publishing terminal bytes (6.415667ms)
+✔ preexisting receipt retains its exact bytes and inode without applying any files (1.517912ms)
+✔ racing receipt publication preserves the other publisher inode and rolls back all six files (2.74814ms)
+✔ receipt link I/O failure leaves no final receipt and restores all six files (2.327554ms)
+✔ each of six staging write and rename failures restores the complete before state (18.323658ms)
+✔ null and undefined verification failures remain failures and preserve the original thrown value (2.553165ms)
+✔ post-publication cleanup failure preserves the complete receipt and all six applied files (2.138519ms)
+✔ diff checker detects deleted tests, renamed tests and removed discoverable cases (62.735749ms)
+✔ vitest adapter extracts named, aliased and namespace registrations with suite hierarchy (270.163893ms)
+✔ node:test adapter supports default import, describe/it, options and skip/todo (248.748036ms)
+✔ vitest object rows preserve named identity and resolve aliased production imports (254.03581ms)
+✔ vitest facts follow local helper calls to production owners (243.136733ms)
+✔ native helper and nested callback returns do not hide actual test callback exits (238.407596ms)
+✔ native immutable closed table has exact runtime and static row identities (820.903024ms)
+✔ native tables fail closed for unknown mutable escaped shadowed and unsupported registration (6889.308293ms)
+✖ native table preserves actual governance receipt surrounding oracles and ten runtime cases (4.822552ms)
+✔ playwright adapter extracts fixtures, describe, use annotations and skip (250.987567ms)
+✔ behaviorTest registration is extracted with behavior identity traits (229.699788ms)
+✔ local same-name non-test function is not misdetected as a test (212.022231ms)
+✔ syntax errors fail closed with a precise file location (245.620488ms)
+✔ identical inputs produce byte-stable adapter reports (389.346168ms)
+✔ raw string and template titles never create false cases (242.238105ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 36
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15579.89574
+
+✖ failing tests:
+
+test at tests/tools/ts-ast-adapter.test.mjs:613:1
+✖ native table preserves actual governance receipt surrounding oracles and ten runtime cases (4.822552ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(start > 0 && end > start)
+
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/ts-ast-adapter.test.mjs:630:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

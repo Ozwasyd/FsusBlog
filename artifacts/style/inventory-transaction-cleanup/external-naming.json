@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-inventory/ts-ast-adapter/index.mjs"
+            ],
+            "reason": "Preserve existing Node/TypeScript and process-facing external spellings in the inventory adapter while removing only unused internal helper parameters; this change introduces no environment or API naming change."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Consume coordinator-supplied canonical registry and NuGet lock increments while preserving existing JSON contract keys, canonical file/owner identities and external package names. These externally bound names cannot be replaced by private internal spellings."
+        }
+    ]
+}

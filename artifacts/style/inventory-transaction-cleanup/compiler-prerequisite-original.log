@@ -1,0 +1,185 @@
+✔ authority manifest has five exclusive canonical owners and complete identities (2.632956ms)
+✔ manifest rejects checker and rule ownership shared across authorities (56.760783ms)
+workflow-lint ok
+✔ receipt seals source, complete inputs, checker, toolchain, rules and output content (318.50529ms)
+test-asset-governance ok
+✔ governance receipt identity invalidation mutation table [input-tree:test-asset-governance] (329.142673ms)
+community-governance ok
+✔ governance receipt identity invalidation mutation table [checker-source:community-governance] (437.623125ms)
+document-governance ok
+✔ governance receipt identity invalidation mutation table [parser-toolchain:document-governance] (398.702092ms)
+application-static-governance ok
+✔ tampered rule IDs or command-output digests cannot be repaired by retaining the old outer digest (394.938409ms)
+workflow-lint ok
+[repository-governance] produced authority=workflow-lint receipt=.cache/repository-governance/workflow-lint/67b788e7f3de311514d26cfaf503da2d6485cc4c2490a478f1c2fdd77896ed5f.json digest=sha256:67b788e7f3de311514d26cfaf503da2d6485cc4c2490a478f1c2fdd77896ed5f
+[repository-governance] verified authority=workflow-lint receipt=.cache/repository-governance/workflow-lint/current.json digest=sha256:67b788e7f3de311514d26cfaf503da2d6485cc4c2490a478f1c2fdd77896ed5f
+[repository-governance] current receipt unavailable authority=test-asset-governance; executing exact-input checker
+✔ receipt validation has no wall-clock age path but remains source/worktree exact (658.921263ms)
+[repository-governance] produced authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/dd9825df621ad9f2374c0671c68ffb29b00f24aace26d44ee8f99ef380c95a4e.json digest=sha256:dd9825df621ad9f2374c0671c68ffb29b00f24aace26d44ee8f99ef380c95a4e
+[repository-governance] verified authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/current.json digest=sha256:dd9825df621ad9f2374c0671c68ffb29b00f24aace26d44ee8f99ef380c95a4e
+[repository-governance] current receipt unavailable authority=test-asset-governance; executing exact-input checker
+[repository-governance] produced authority=test-asset-governance receipt=.cache/repository-governance/test-asset-governance/c40961de9eb27439156cecdd8d74780feea2e26479ae604b3a0d2238ddfbc925.json digest=sha256:c40961de9eb27439156cecdd8d74780feea2e26479ae604b3a0d2238ddfbc925
+✔ ensure reuses test-asset receipt until an exact declared input changes (1366.082089ms)
+✔ Production consumes authorities while release-final never reruns repository-only checkers (1.260824ms)
+[test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs(615,36): warning xUnit2031: Do not use a Where clause to filter before calling Assert.Single. Use the overload of Assert.Single that accepts a filtering function. (https://xunit.net/xunit.analyzers/rules/xUnit2031) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(142,9): warning xUnit2012: Do not use Assert.True() to check if a value exists in a collection. Use Assert.Contains instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(144,9): warning xUnit2012: Do not use Assert.False() to check if a value exists in a collection. Use Assert.DoesNotContain instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs(505,17): error CS0246: The type or namespace name 'CanonicalAuthoringFilePathVerifier' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/TaxonomyExactMetadataTests.cs(200,22): error CS0103: The name 'ErrorCode' does not exist in the current context [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs(1006,14): error CS1061: 'ConfigurationBuilder' does not contain a definition for 'AddInMemoryCollection' and no accessible extension method 'AddInMemoryCollection' accepting a first argument of type 'ConfigurationBuilder' could be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(566,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(568,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(121,28): error CS0246: The type or namespace name 'IArticlePublicationValidator' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(130,33): error CS0246: The type or namespace name 'ArticleWriteValidationException' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+    1511 Warning(s)
+    13 Error(s)
+
+Time Elapsed 00:01:44.25
+✔ xunit project ownership separates compile contexts without changing case identity (2.588729ms)
+✔ xunit project ownership rejects unknown duplicate ambiguous and noncanonical sources (0.798276ms)
+✔ xunit project reports reject incomplete diagnostic foreign and duplicate cases (0.855011ms)
+✖ xunit discovery fails closed when project or canonical adapter is absent (20.677353ms)
+✔ canonical discovery covers xunit, vitest, node:test, playwright, tests/tools, native fuzz and matrix shell entrypoints (16.848943ms)
+✔ xunit files outside .test.* globs and tests/tools test/spec files are not missed (6.036435ms)
+✔ support, fixture and corpus surfaces are distinguished from discoverable cases (8.456921ms)
+✔ matrix-referenced unknown executable entrypoint fails closed (1.63593ms)
+✔ duplicate adapter ownership fails closed (0.436178ms)
+✔ the shared xunit project table closes backend and migration directories without promoting support files (9.745817ms)
+✔ xunit project union rejects duplicate compiled sources, duplicate cases and mismatched project ownership (0.883855ms)
+✔ source, path and adapter changes make a stored inventory stale (6.647569ms)
+✔ quality and retention consumers no longer own private walk or file-discovery authority (541.205366ms)
+✖ identical inputs produce byte-stable inventory artifacts (104606.015029ms)
+✔ inventory schema is closed: runtime metadata and unknown fields are rejected (18.840801ms)
+✔ loadCanonicalInventory fails closed on stale artifacts and missing required artifacts (45.996509ms)
+✖ CI produces one sealed inventory and static governance only consumes it (1.465754ms)
+✔ rename transaction seals exact identities, compatibility and catalog closure (6.272392ms)
+✔ rename transaction accepts complete explicit mappings for all five renamed dimensions (1.243007ms)
+✔ rename transaction rejects missing assertion mappings and invalid mapped targets (3.051988ms)
+✔ merge, parameterize and split preserve every case through explicit mappings (3.312462ms)
+✔ delete requires explicit retirement and a generated empty ledger disposition (1.380985ms)
+✔ planning fails closed on missing IDs, failed quality and lost compatibility dimensions (6.473195ms)
+✔ transaction validation rejects partial catalogs and sealed-content tampering (4.755371ms)
+✔ atomic apply deletes and writes as one unit and rolls everything back on verification failure (9.928843ms)
+✔ diff checker uses exact AST case identities for JS rewrites and fails closed on removal or discovery errors (4663.537257ms)
+✔ a renamed source cannot mask a separate JS case removal (1767.874091ms)
+✔ diff checker binds multiline JS case identities without relying on removed call text (3543.989749ms)
+✔ diff checker binds exact NUL-delimited Git paths without quoted-display false removals (12793.841359ms)
+✔ diff checker rejects dynamic case placeholders that can conceal changed runtime cases (1482.599034ms)
+✔ tool-owned JS test cases require the same exact replacement transaction (860.245114ms)
+✔ receipt publication exposes a complete validated receipt only after all six files pass verification (2.909854ms)
+✔ partial receipt staging write restores all six files without publishing terminal bytes (2.295416ms)
+✔ preexisting receipt retains its exact bytes and inode without applying any files (1.564402ms)
+✔ racing receipt publication preserves the other publisher inode and rolls back all six files (1.82781ms)
+✔ receipt link I/O failure leaves no final receipt and restores all six files (1.989504ms)
+✔ each of six staging write and rename failures restores the complete before state (14.00633ms)
+✔ null and undefined verification failures remain failures and preserve the original thrown value (2.570782ms)
+✔ post-publication cleanup failure preserves the complete receipt and all six applied files (1.782541ms)
+✔ diff checker detects deleted tests, renamed tests and removed discoverable cases (56.268153ms)
+✔ vitest adapter extracts named, aliased and namespace registrations with suite hierarchy (701.950372ms)
+✔ node:test adapter supports default import, describe/it, options and skip/todo (754.203387ms)
+✔ vitest object rows preserve named identity and resolve aliased production imports (259.327793ms)
+✔ vitest facts follow local helper calls to production owners (346.710145ms)
+✔ native helper and nested callback returns do not hide actual test callback exits (281.927084ms)
+✔ native immutable closed table has exact runtime and static row identities (1096.276129ms)
+✔ native tables fail closed for unknown mutable escaped shadowed and unsupported registration (12669.449086ms)
+✔ native table preserves actual governance receipt surrounding oracles and ten runtime cases (3385.997443ms)
+✔ playwright adapter extracts fixtures, describe, use annotations and skip (203.901531ms)
+✔ behaviorTest registration is extracted with behavior identity traits (193.833989ms)
+✔ local same-name non-test function is not misdetected as a test (176.489969ms)
+✔ syntax errors fail closed with a precise file location (178.329727ms)
+✔ identical inputs produce byte-stable adapter reports (387.559774ms)
+✔ raw string and template titles never create false cases (179.514757ms)
+ℹ tests 64
+ℹ suites 0
+ℹ pass 61
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 105401.432687
+
+✖ failing tests:
+
+test at tests/tools/test-inventory.test.mjs:213:1
+✖ xunit discovery fails closed when project or canonical adapter is absent (20.677353ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:220:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /xunit test project is missing: tests\/backend\/FsusBlog.Server.Tests.csproj/u,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/tools/test-inventory.test.mjs:519:1
+✖ identical inputs produce byte-stable inventory artifacts (104606.015029ms)
+  Error: Command failed: /tmp/issue-3242-node2416/node-v24.16.0-linux-x64/bin/node tools/test-inventory/produce.mjs --out /tmp/fsus-test-inventory-first-68886.json
+  [test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs(615,36): warning xUnit2031: Do not use a Where clause to filter before calling Assert.Single. Use the overload of Assert.Single that accepts a filtering function. (https://xunit.net/xunit.analyzers/rules/xUnit2031) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(142,9): warning xUnit2012: Do not use Assert.True() to check if a value exists in a collection. Use Assert.Contains instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(144,9): warning xUnit2012: Do not use Assert.False() to check if a value exists in a collection. Use Assert.DoesNotContain instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs(505,17): error CS0246: The type or namespace name 'CanonicalAuthoringFilePathVerifier' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/TaxonomyExactMetadataTests.cs(200,22): error CS0103: The name 'ErrorCode' does not exist in the current context [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs(1006,14): error CS1061: 'ConfigurationBuilder' does not contain a definition for 'AddInMemoryCollection' and no accessible extension method 'AddInMemoryCollection' accepting a first argument of type 'ConfigurationBuilder' could be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(566,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(568,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(121,28): error CS0246: The type or namespace name 'IArticlePublicationValidator' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(130,33): error CS0246: The type or namespace name 'ArticleWriteValidationException' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  /workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+      1511 Warning(s)
+      13 Error(s)
+
+  Time Elapsed 00:01:44.25
+
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at checkExecSyncError (node:child_process:925:11)
+      at execFileSync (node:child_process:961:15)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:525:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12) {
+    status: 1,
+    signal: null,
+    output: [ null, '', "[test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs(615,36): warning xUnit2031: Do not use a Where clause to filter before calling Assert.Single. Use the overload of Assert.Single that accepts a filtering function. (https://xunit.net/xunit.analyzers/rules/xUnit2031) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(142,9): warning xUnit2012: Do not use Assert.True() to check if a value exists in a collection. Use Assert.Contains instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(144,9): warning xUnit2012: Do not use Assert.False() to check if a value exists in a collection. Use Assert.DoesNotContain instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs(505,17): error CS0246: The type or namespace name 'CanonicalAuthoringFilePathVerifier' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/TaxonomyExactMetadataTests.cs(200,22): error CS0103: The name 'ErrorCode' does not exist in the current context [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs(1006,14): error CS1061: 'ConfigurationBuilder' does not contain a definition for 'AddInMemoryCollection' and no accessible extension method 'AddInMemoryCollection' accepting a first argument of type 'ConfigurationBuilder' could be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(566,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(568,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(121,28): error CS0246: The type or namespace name 'IArticlePublicationValidator' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(130,33): error CS0246: The type or namespace name 'ArticleWriteValidationException' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n    1511 Warning(s)\n    13 Error(s)\n\nTime Elapsed 00:01:44.25\n" ],
+    pid: 68989,
+    stdout: '',
+    stderr: "[test-inventory] canonical xUnit compile context build failed for tests/backend/FsusBlog.Server.Tests.csproj (exit 1): /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs(615,36): warning xUnit2031: Do not use a Where clause to filter before calling Assert.Single. Use the overload of Assert.Single that accepts a filtering function. (https://xunit.net/xunit.analyzers/rules/xUnit2031) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(142,9): warning xUnit2012: Do not use Assert.True() to check if a value exists in a collection. Use Assert.Contains instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthorSavedViewContractTests.cs(144,9): warning xUnit2012: Do not use Assert.False() to check if a value exists in a collection. Use Assert.DoesNotContain instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs(505,17): error CS0246: The type or namespace name 'CanonicalAuthoringFilePathVerifier' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/TaxonomyExactMetadataTests.cs(200,22): error CS0103: The name 'ErrorCode' does not exist in the current context [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs(1006,14): error CS1061: 'ConfigurationBuilder' does not contain a definition for 'AddInMemoryCollection' and no accessible extension method 'AddInMemoryCollection' accepting a first argument of type 'ConfigurationBuilder' could be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(566,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(568,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(121,28): error CS0246: The type or namespace name 'IArticlePublicationValidator' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(130,33): error CS0246: The type or namespace name 'ArticleWriteValidationException' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n/workspace/FsusBlog/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n    1511 Warning(s)\n    13 Error(s)\n\nTime Elapsed 00:01:44.25\n"
+  }
+
+test at tests/tools/test-inventory.test.mjs:638:1
+✖ CI produces one sealed inventory and static governance only consumes it (1.465754ms)
+  AssertionError [ERR_ASSERTION]: validate-matrix must set up .NET before producing the inventory
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-inventory.test.mjs:682:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
