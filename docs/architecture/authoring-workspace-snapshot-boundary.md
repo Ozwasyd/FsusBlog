@@ -1766,3 +1766,25 @@ existing ImageCompressionOptions contract. Original File, batch/item, intent,
 lease, runtime and getBinding provenance remain the same objects; no document
 or authority snapshot is manufactured. Admission, real FIFO settlement/relay/
 listener cleanup and cancellation/raw-failure debt are unchanged.
+
+
+## UI954 and Accepted Main Source Composition
+
+The isolated Main composition retains the exact accepted cleanup58dc and FIFO
+final2cc owning postimages, including cover/Flow admission and enqueue scalar
+snapshots. It consumes the exact accepted Config conventions114 two-file
+postimages. The installed frontend alias uses the actual detached local UI954
+52269303b48eddc545fc901cd170eba7e6fb581e through the original alias producer,
+with FSUSBLOG_LOCAL_FSUSUI_ROOT set to that checkout; it does not build/publish
+or recreate UI source. App's producer export, ElConfigProvider and the renderer
+feed all resolve the original shared config-provider hook/registry.
+
+UI954 success-content and retry-canonical-custody fixes are source dependencies,
+not Main runtime/qualification acceptance. Original provider/File/lease/event/
+history/document identity and epoch guards stay unchanged. c50 and every earlier
+review checkpoint remain fixed. Full compiler comparison uses SAME UI954 for
+both prior2cc and current composition; old UI949231FAIL is a separate historical
+profile and is never substituted as this baseline. No producer settle is inferred
+from content, accepted or committed; native cohort/application-ended confirmation,
+full census/recovery/eviction/readiness and all execution/qualification holds
+remain separate unresolved original-owner capabilities.
