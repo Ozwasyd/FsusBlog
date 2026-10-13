@@ -168,6 +168,50 @@ FontTheme payload checks. Frozen vectors cover all thirteen roots and malformed
 inputs. Codec, source, PostgreSQL, HTTP/session and rendered UX evidence remain
 separate acceptance stages.
 
+## Package command-intention prerequisite
+
+`compileAuthoringCanvasPackageCommandIntention` in
+`src/frontend/src/services/authoringCanvasPackageCommandIntention.ts` compiles
+validated Canvas node/edge facts into the original `AuthoringCanvasCommand`
+batch. Its consumption point belongs to the #2495 package adapter: after real
+Canvas artifact validation, an explicit existing-target snapshot read through
+`readAuthoringCanvasPackageSource`, and fresh UUID allocation; before
+`authoringCanvasSession.canvasWireCommands` and the original server
+`AuthoringCanvasOperationEngine.ValidatePreparationAsync`. No current UI or
+package execution path invokes this prerequisite. The existing
+`authoringCanvasPackage.ts` `planCanvasPackageImport` remains a legacy preview
+pipeline and does not supply canonical package admission.
+
+The compiler accepts original `AuthoringCanvasNode[]` and
+`AuthoringCanvasEdge[]` facts, the target's `id`, `revision`, `contentDigest`,
+`nodeIds` and `edgeIds`, and explicit source-to-fresh-ID node and edge bindings.
+Only `plain-text-note` nodes and `visual-only` edges are admitted. Groups,
+references and unknown kinds reject the entire candidate. Bindings must be
+complete, exact and unique canonical nonzero lowercase UUIDs. Duplicate source
+or target rosters reject the candidate; fresh IDs must not collide with any
+supplied source or target identity or another fresh binding. Original record
+and command limits, presentation validators and `CanvasWireWriter` validation
+remain in force.
+
+Notes precede edges in the batch, preserving original source array order within
+each kind. The receiver's original command writer assigns append order; this
+stage does not copy source document title, viewport, timestamps or foreign
+record order. The output owns and freezes its payloads and batch and copies the
+expected target coordinate. It issues no new digest, status, grant or receipt,
+and calls no storage, API or executor. Shape and syntax checks do not observe
+authority or establish that the supplied target is still current; original
+server preparation and execution must retain their permission, digest, history,
+CAS and receipt boundaries.
+
+Canonical portable artifact validation, package admission and immutable plan
+binding remain with #2495 and its original authority dependencies. Atomic
+new-header-plus-graph import and authoritative export/download descriptor
+contracts are still missing; this prerequisite cannot enable them or substitute
+an empty-canvas write followed by a graph write. There is no local shadow
+document. All runtime, tests/list/discovery, security, privacy, native, race,
+receipt, frozen-authority and UI qualification for this source stage remain
+HOLD / UNRUN.
+
 ## Authorized current-source stage
 
 `IAuthoringArticleCurrentSourceReader` composes the existing article-reference
