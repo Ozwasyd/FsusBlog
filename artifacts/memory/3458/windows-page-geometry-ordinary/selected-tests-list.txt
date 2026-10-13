@@ -1,0 +1,26 @@
+Test run for ${CHECKOUT}/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+The following Tests are available:
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.SystemInfoLayoutMatchesSdkFieldWidthsAndPointerAlignment
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ImportsUseExactKernel32ExportsAndSdkSignatures
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls(isWindows: True)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls(isWindows: False)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls(mode: Auto)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls(mode: Required)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct(mode: Auto)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct(mode: Required)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ReturnedLargePageZeroIsUnsupportedRatherThanMissingOrSuccessful
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown(pageSize: 0, allocationGranularity: 65536)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown(pageSize: 4096, allocationGranularity: 0)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown(pageSize: 0, allocationGranularity: 0)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes(failure: 0)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes(failure: 1)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes(failure: 2)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero(failure: 0)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero(failure: 1)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero(failure: 2)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize(mode: Auto)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize(mode: Required)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnsignedSizesArePreservedWithoutSignedOrDwordTruncation
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall(isWindows: True)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall(isWindows: False)
+    FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonLoaderFailuresAreNotHiddenAsMissingInformation

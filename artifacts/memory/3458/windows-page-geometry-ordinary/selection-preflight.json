@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "d9e54fb049c609baf445ca1fb4b63ebcc31c2671",
+  "expectedMethods": 13,
+  "expectedCases": 24,
+  "methods": [
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.SystemInfoLayoutMatchesSdkFieldWidthsAndPointerAlignment",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ImportsUseExactKernel32ExportsAndSdkSignatures",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ReturnedLargePageZeroIsUnsupportedRatherThanMissingOrSuccessful",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnsignedSizesArePreservedWithoutSignedOrDwordTruncation",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall",
+    "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonLoaderFailuresAreNotHiddenAsMissingInformation"
+  ],
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.SystemInfoLayoutMatchesSdkFieldWidthsAndPointerAlignment|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ImportsUseExactKernel32ExportsAndSdkSignatures|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ReturnedLargePageZeroIsUnsupportedRatherThanMissingOrSuccessful|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnsignedSizesArePreservedWithoutSignedOrDwordTruncation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonLoaderFailuresAreNotHiddenAsMissingInformation",
+  "readerSha256": "3a7ee3ef40e1fa71cc427bc2a5399c9ce7723c829007d503a983e389846596fc",
+  "testsSha256": "53218f394dc10aae378385e968bcf078093e6c94cfb922bcd0ad8424c0aac518",
+  "checks": "nonempty exact positive selectors; counts; source identity; imports; hooks; optional discovered membership",
+  "result": "PASS"
+}

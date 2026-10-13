@@ -1,0 +1,28 @@
+{
+  "head": "d9e54fb049c609baf445ca1fb4b63ebcc31c2671",
+  "base": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+  "policyBlob": "7947a604ddfa427e95e991a35b7d4af919e81312",
+  "toolchain": ".NET SDK 10.0.401; Clang 23.0.0git c6c2ad52586c28e74a724570985a48dc0022d250",
+  "host": "Debian 13 linux-x64; Windows host unavailable",
+  "source": {
+    "src/backend/Infrastructure/Memory/Platform/WindowsPageGeometryReader.cs": "3a7ee3ef40e1fa71cc427bc2a5399c9ce7723c829007d503a983e389846596fc",
+    "tests/backend/Unit/WindowsPageGeometryReaderTests.cs": "53218f394dc10aae378385e968bcf078093e6c94cfb922bcd0ad8424c0aac518"
+  },
+  "diffSha256": "0b83487bd16436e4a6fbc73c5fd8303a9691e5d76cbe54fe81e4683a63e4aabd",
+  "results": {
+    "backendCompile": "PASS, 323 warnings in unchanged files, 0 errors",
+    "csharpStyle": "PASS files=2 violations=0 new=0",
+    "pinnedSdkSignatures": "PASS",
+    "windowsSdkExcerptLayoutX64": "PASS size=48 page=4 granularity=40",
+    "windowsSdkExcerptLayoutArm64": "PASS size=48 page=4 granularity=40",
+    "windowsSdkExcerptLayoutX86": "PASS size=36 page=4 granularity=28",
+    "owningTestProjectOfflineRestore": "FAIL NU1101, exact package gaps recorded",
+    "ordinaryTests": "UNRUN: failed before test startup; no TRX or passing tests",
+    "testSourceCompilation": "UNRUN: missing dependencies",
+    "windowsNativeExecution": "UNRUN: no Windows host",
+    "backendQualification": "UNRUN: outside authorized scope",
+    "diffCheck": "PASS",
+    "metadataTitleAndMessage": "PASS",
+    "push": "PASS: new exact destination ref reads back full head SHA"
+  }
+}

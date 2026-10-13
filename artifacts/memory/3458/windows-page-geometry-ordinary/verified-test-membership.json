@@ -1,0 +1,174 @@
+{
+  "sourceCommit": "d9e54fb049c609baf445ca1fb4b63ebcc31c2671",
+  "expectedMethods": 13,
+  "observedMethods": 13,
+  "expectedCases": 24,
+  "observedCases": 24,
+  "counters": {
+    "total": "24",
+    "executed": "24",
+    "passed": "24",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "result": "PASS",
+  "outsideAllowlist": [],
+  "executedAndExcluded": [],
+  "cases": [
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls(isWindows: False)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0044837"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls(isWindows: True)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0002474"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct(mode: Auto)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003271"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct(mode: Required)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0006311"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ImportsUseExactKernel32ExportsAndSdkSignatures",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ImportsUseExactKernel32ExportsAndSdkSignatures",
+      "outcome": "Passed",
+      "duration": "00:00:00.0147279"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall(isWindows: False)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004080"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall(isWindows: True)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0008657"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize(mode: Auto)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003178"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize(mode: Required)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004355"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonLoaderFailuresAreNotHiddenAsMissingInformation",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonLoaderFailuresAreNotHiddenAsMissingInformation",
+      "outcome": "Passed",
+      "duration": "00:00:00.0008611"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls(mode: Auto)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0002191"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls(mode: Required)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0002401"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ReturnedLargePageZeroIsUnsupportedRatherThanMissingOrSuccessful",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ReturnedLargePageZeroIsUnsupportedRatherThanMissingOrSuccessful",
+      "outcome": "Passed",
+      "duration": "00:00:00.0005943"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.SystemInfoLayoutMatchesSdkFieldWidthsAndPointerAlignment",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.SystemInfoLayoutMatchesSdkFieldWidthsAndPointerAlignment",
+      "outcome": "Passed",
+      "duration": "00:00:00.0029887"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes(failure: 0)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0002204"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes(failure: 1)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003697"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes(failure: 2)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0000152"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero(failure: 0)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0102883"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero(failure: 1)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0000328"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero(failure: 2)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003962"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown(pageSize: 0, allocationGranularity: 0)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0000306"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown(pageSize: 0, allocationGranularity: 65536)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003143"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown(pageSize: 4096, allocationGranularity: 0)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003945"
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnsignedSizesArePreservedWithoutSignedOrDwordTruncation",
+      "case": "FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnsignedSizesArePreservedWithoutSignedOrDwordTruncation",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004861"
+    }
+  ]
+}

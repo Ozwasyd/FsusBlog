@@ -1,0 +1,47 @@
+[
+  {
+    "id": "coverlet.collector",
+    "version": "6.0.4",
+    "source": "https://api.nuget.org/v3/index.json",
+    "nugetContentHash": "lkhqpF8Pu2Y7IiN7OntbsTtdbpR1syMsm2F3IgX6ootA4ffRqWL5jF7XipHuZQTdVuWG/gVAAcf8mjk8Tz0xPg==",
+    "archiveSha512": "oKvOHvCNwSZ8vgfejYvGmjKjVZ6pzVXeHqNAutE5c2TDBbME4ainGOQVSeDmQSPucG+zjKI+qz+VmSi5QZPpOQ==",
+    "lockAndAssetsMatch": true,
+    "archiveDigestMatch": true
+  },
+  {
+    "id": "Microsoft.AspNetCore.TestHost",
+    "version": "10.0.7",
+    "source": "https://api.nuget.org/v3/index.json",
+    "nugetContentHash": "2UM9EtTmX6yF6Efa6WOO7wmHz2kPksmnzPmMwveuOGJQwbtNg5wKGj7usGLr8Ve3AMhIAc2yqyRXt1xNsed3hg==",
+    "archiveSha512": "uGnRFt9J0vhbpt9ZJCWx6Vg7VFAWFPWP4yXaBdWSR0bgsFFVQJxp5UtKd/FptzCXhdSh307n04TOKhByOdeKEQ==",
+    "lockAndAssetsMatch": true,
+    "archiveDigestMatch": true
+  },
+  {
+    "id": "Microsoft.IdentityModel.Protocols",
+    "version": "8.2.0",
+    "source": "https://api.nuget.org/v3/index.json",
+    "nugetContentHash": "ytjEaWazvXO8aza2+voDW2WcInIu1aI/GT+Rdo6ZGgd0yDncR9Ze9rcIST3HO9uHsdoe4kbKCIF2CltCl6qPtw==",
+    "archiveSha512": "7ZuWJZ1G8I1F9NUDnH+mQq1UDzh5MQi82ICP6l7sakp4wqSXtOZJsaoeXfzHQxKZMNBeg6t5ausyp79gcaSPpw==",
+    "lockAndAssetsMatch": true,
+    "archiveDigestMatch": true
+  },
+  {
+    "id": "Microsoft.IdentityModel.Protocols.OpenIdConnect",
+    "version": "8.2.0",
+    "source": "https://api.nuget.org/v3/index.json",
+    "nugetContentHash": "SqTIhvZZfs4Pv7KigYTLdirB5OWf2siQPjLAeOONpyYf0oxkN2rkp6RRbL9qZSJR9QJWtgCsmXTgtU0wDYWOSA==",
+    "archiveSha512": "9t6mQzN5T94uXiqzd7UHontVW+AQDktNbpUlRG6utYZCmP20G59OjYbCIamTMfUQyV8oSYNK8RYRbyG18VjnHQ==",
+    "lockAndAssetsMatch": true,
+    "archiveDigestMatch": true
+  },
+  {
+    "id": "System.IdentityModel.Tokens.Jwt",
+    "version": "8.2.0",
+    "source": "https://api.nuget.org/v3/index.json",
+    "nugetContentHash": "M61kEnR2ljMFL2vLHmHrodCqPO/zKsYsaRu3jdagYOP/y0ZdFoFoATyfwR0bJ5quBsWEPL5y8QU7CJiEh2kq+Q==",
+    "archiveSha512": "pTTSpHHkmvD9yCoFFhPV3giMOKtXirj0VVpRU3J7iS2/Xh7wBC5CHE5fNSqwFDpttc1IF99Hc/6qKQXrTcMkqg==",
+    "lockAndAssetsMatch": true,
+    "archiveDigestMatch": true
+  }
+]

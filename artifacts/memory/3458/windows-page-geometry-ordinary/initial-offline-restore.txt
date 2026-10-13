@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  Restored ${CHECKOUT}/src/shared/FsusBlog.Shared.csproj (in 238 ms).
+  Restored ${CHECKOUT}/src/core/FsusBlog.Core.csproj (in 110 ms).
+  Restored ${CHECKOUT}/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 149 ms).
+  Restored ${CHECKOUT}/src/migration/FsusBlog.Migration.csproj (in 260 ms).
+${CHECKOUT}/tests/backend/FsusBlog.Server.Tests.csproj : error NU1101: Unable to find package coverlet.collector. No packages exist with this id in source(s): ${TASK_EVIDENCE}/empty-feed
+${CHECKOUT}/tests/backend/FsusBlog.Server.Tests.csproj : error NU1101: Unable to find package Microsoft.IdentityModel.Protocols. No packages exist with this id in source(s): ${TASK_EVIDENCE}/empty-feed
+${CHECKOUT}/tests/backend/FsusBlog.Server.Tests.csproj : error NU1101: Unable to find package Microsoft.IdentityModel.Protocols.OpenIdConnect. No packages exist with this id in source(s): ${TASK_EVIDENCE}/empty-feed
+${CHECKOUT}/tests/backend/FsusBlog.Server.Tests.csproj : error NU1101: Unable to find package Microsoft.AspNetCore.TestHost. No packages exist with this id in source(s): ${TASK_EVIDENCE}/empty-feed
+${CHECKOUT}/tests/backend/FsusBlog.Server.Tests.csproj : error NU1101: Unable to find package System.IdentityModel.Tokens.Jwt. No packages exist with this id in source(s): ${TASK_EVIDENCE}/empty-feed
+  Failed to restore ${CHECKOUT}/tests/backend/FsusBlog.Server.Tests.csproj (in 111 ms).
+  Restored ${CHECKOUT}/src/backend/FsusBlog.Server.csproj (in 15 ms).
