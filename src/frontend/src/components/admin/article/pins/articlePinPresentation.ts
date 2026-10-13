@@ -45,6 +45,7 @@ export interface ArticlePinCopy {
     readonly reorderLabel: string;
     readonly previousLabel: string;
     readonly nextLabel: string;
+    readonly headDropLabel: string;
     readonly nextPageLabel: string;
     readonly refreshLabel: string;
     readonly statusCurrent: string;
