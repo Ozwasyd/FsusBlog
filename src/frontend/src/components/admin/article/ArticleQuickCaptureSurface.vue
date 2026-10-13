@@ -47,6 +47,7 @@ const scopeCurrent = computed(() => openedScope !== null && props.currentScope !
     && props.currentScope.canCreateInbox === true && props.captureId === openedCaptureId
     && !(props.stageResult?.status === 'blocked' && props.stageResult.reason === 'scope-retired'));
 const attempted = computed(() => props.stageResult !== null);
+const blockedObservation = computed(() => props.stageResult?.status === 'blocked');
 const editable = computed(() => scopeCurrent.value && !attempted.value);
 const boundInput = computed<ArticleCaptureInboxInput | null>(() =>
 {
@@ -65,9 +66,14 @@ const boundInput = computed<ArticleCaptureInboxInput | null>(() =>
         return null;
     }
 });
-const visibleInput = computed<ArticleCaptureInboxInput>(() => scopeCurrent.value
-    ? attempted.value ? boundInput.value ?? { schemaVersion: 1, title: '', markdownContent: '' } : props.modelValue
-    : { schemaVersion: 1, title: '', markdownContent: '' });
+const visibleInput = computed<ArticleCaptureInboxInput>(() =>
+{
+    if (!scopeCurrent.value) return { schemaVersion: 1, title: '', markdownContent: '' };
+    // A blocked observation carries no request input. Keep the caller's current raw input readable;
+    // it does not prove that the original recovery instance has no pinned request.
+    if (blockedObservation.value || !attempted.value) return props.modelValue;
+    return boundInput.value ?? { schemaVersion: 1, title: '', markdownContent: '' };
+});
 const inputValid = computed(() =>
 {
     if (!scopeCurrent.value || props.currentScope === null || props.captureId === null || props.requestIdentity === null)
@@ -91,6 +97,10 @@ const statusText = computed(() =>
 {
     if (!scopeCurrent.value)
         return '当前捕获不可用，请关闭后重新进入。';
+    if (blockedObservation.value)
+        return '捕获暂不可用。当前输入仅供查看和复制；保存结果尚未确认，恢复和重试尚不可用。';
+    if (attempted.value && boundInput.value === null)
+        return '无法核对已绑定请求的输入。保存结果尚未确认；请关闭后由原捕获流程处理。';
     if (attempted.value || pendingDiscovery.value)
         return '保存结果尚未确认。请保留原输入；恢复和重试尚不可用。';
     if (!inputValid.value && (visibleInput.value.title.length > 0 || visibleInput.value.markdownContent.length > 0))
@@ -126,7 +136,8 @@ function requestClose(): void
                 <ElInput
                     :id="titleId"
                     :model-value="visibleInput.title"
-                    :disabled="!editable"
+                    :disabled="!scopeCurrent"
+                    :readonly="!editable"
                     :aria-describedby="statusId"
                     autocomplete="off"
                     @update:model-value="updateTitle"
@@ -139,7 +150,8 @@ function requestClose(): void
                     type="textarea"
                     :rows="6"
                     resize="vertical"
-                    :disabled="!editable"
+                    :disabled="!scopeCurrent"
+                    :readonly="!editable"
                     :aria-describedby="statusId"
                     @update:model-value="updateBody"
                 />

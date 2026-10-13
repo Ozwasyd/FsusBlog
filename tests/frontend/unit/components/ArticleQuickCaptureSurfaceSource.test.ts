@@ -19,7 +19,7 @@ describe('Quick Capture unactivated leaf source boundary', () =>
     {
         for (const label of ['保存到收件箱', '保存并打开', '恢复', '重试', '丢弃未确认输入'])
         {
-            const button = source.match(new RegExp(`<ElButton\\b([^>]*)>${label}</ElButton>`))?.[1];
+            const button = source.match(new RegExp(String.raw`<ElButton\b([^>]*)>${label}</ElButton>`))?.[1];
             expect(button, label).toBeDefined();
             expect(button, label).toMatch(/\sdisabled(?:\s|$)/u);
             expect(button, label).not.toContain('@click');
@@ -34,6 +34,18 @@ describe('Quick Capture unactivated leaf source boundary', () =>
         expect(source).toContain('scopeCurrent.value && !attempted.value');
         expect(source).toContain('保存结果尚未确认');
         expect(source).toContain('未确认窗口不受本地保护');
+    });
+
+    it('keeps blocked input readable without treating a blocked observation as an unbound request', () =>
+    {
+        expect(source).toContain("props.stageResult?.status === 'blocked'");
+        expect(source).toContain("if (!scopeCurrent.value) return { schemaVersion: 1, title: '', markdownContent: '' };");
+        expect(source).toContain('if (blockedObservation.value || !attempted.value) return props.modelValue;');
+        expect(source).toContain('return boundInput.value ??');
+        expect(source.match(/:readonly="!editable"/gu)).toHaveLength(2);
+        expect(source.match(/:disabled="!scopeCurrent"/gu)).toHaveLength(2);
+        expect(source).toContain("props.stageResult.reason === 'scope-retired'");
+        expect(source).toContain('当前输入仅供查看和复制');
     });
 
     it('names input fields, announces status and hides input when the original scope changes', () =>
