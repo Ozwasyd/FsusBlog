@@ -38,6 +38,60 @@ AEDS is the internal binary frame protocol used by the main runtime API. The cli
 
 Internal AEDS frame contracts are experimental unless explicitly documented as stable. See [API stability](../api/stability.md).
 
+The original frontend `createBinaryTransport` also exposes `startBinaryOnly(options)`.
+Its frozen request handle separates the existing public `result` from `terminal`,
+and provides `cancel(reason)`, `inspectResources()` and `inspectFailures()`.
+The terminal observes only the original transport execution, private-lease release,
+caller listener removal and request-local decode bookkeeping. Resource inspection
+reads the actual queue, pending entries, timeout and abort-listener holders; raw
+local failures retain their first/latest causes and occurrence counts by stage on
+the handle, outside telemetry. A canceled caller or settled result alone does not
+prove the decode ended. The original worker sends a separate terminal after its
+request-local active/cancel records are removed, including late failure metadata
+when cancellation suppressed the public response. The terminal carries no decoded
+data or access profile. Idle-worker lifetime and Wasm initialization remain shared.
+
+Cancellation and timeout request only the original decode's cancellation. Its
+pending slot remains within the existing active/queue bounds until a producer
+terminal or channel failure; a hung producer can therefore exhaust capacity.
+Fatal channel loss reports `local: unknown` for posted work, even if `terminate()`
+returned, and never fabricates a worker acknowledgement. Failed local cleanup
+retains its original holder and cause; repeated cancellation can retry original
+listener/timeout cleanup and a failed cancel send. A failed private-lease release
+remains unknown because its retired no-op cannot prove cleanup. Terminal snapshots
+are immutable; subsequent inspections retain later observations on the same handle.
+
+Decode-listener cleanup custody lives on the original owning decode task before
+registration, including direct submission and queue/backpressure refusal. A failed
+removal preserves the actual callback and cause even without a queue/pending entry;
+the unposted task ends with local cleanup unknown rather than a hanging terminal.
+Repeated cancellation retries that same removal holder. Worker acquisition may
+emit synchronous telemetry, so the original signal is checked again before any
+request-local allocation/post. A manual abort path performs guarded removal;
+only actual once-listener dispatch proves automatic detachment. Registration/setup
+failure and queue-pump cleanup failure retain the same custody and refuse posting.
+Each original caller/task removal holder has its own synchronous in-progress guard
+for initial cleanup and retry. Reentry keeps the holder visible and performs no
+second removal; only the outer successful removal clears the same holder identity.
+Failure restores retry eligibility and preserves first/latest raw causes. A nested
+queue pump refuses a holder already being removed rather than inventing a failure.
+
+If termination of a broken shared worker throws, the shared owner retains that
+same worker and its failure instead of allocating replacements without bound.
+The next shared acquisition retries that original cleanup before replacement;
+the request handle's cancellation has no shared termination authority. The
+`sharedWorkerCleanupPending` observation reports the actual retained holder.
+Posted original work remains terminal-unknown even after a later termination call
+returns successfully.
+
+The underlying network producer does not expose a terminal observer for its
+shared deduplicated reads, and shared Wasm initialization has no request-scoped
+terminal authority. Both are explicitly `unavailable` on this bounded handle.
+`local: observed` is consequently not a complete network/resource release receipt,
+upload/business settlement, recovery acknowledgement or qualification result.
+Existing route authorization, access profiles, private generations, PoW, response
+assertion and legacy `requestBinaryOnly()` result/error behavior remain applicable.
+
 ## Public HotRead
 
 Public HotRead is the optimized read path for hot public content. It exists to serve common public article/list reads without forcing every request through the full dynamic application path. HotRead artifacts must preserve the same semantic contract as runtime public data while using cache-friendly representations.
