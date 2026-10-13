@@ -60,6 +60,26 @@ nor returns title/count metadata or a query/transition receipt. The public Inbox
 request/bucket gate still refuses before permission or source enumeration. Missing
 slug/cursor and full query/Rail/Saved View composition remain separate obligations.
 
+Quick Capture has a bounded title/body source entry on the same create store:
+`IArticleCreateStore.CreateInboxAsync(actor, requestId, request, cancellationToken)`,
+where `request` is an immutable `ArticleInboxCreateRequest(1, title, markdownContent)`.
+At least one input must contain non-whitespace text. Title retains its exact Unicode
+text within the existing 256-character bound and refuses controls/invalid UTF-16;
+Markdown uses the original 200,000-character source admission without trimming,
+newline conversion or truncation. The input digest binds schema, title and exact
+UTF-8 Markdown bytes; the existing request digest additionally binds mode, actor
+and request UUID. Reusing that UUID with changed title/body is a conflict, while
+an exact retry uses the original durable receipt path after authorization.
+The original persistence writes this payload into article/revision/draft/body and
+asset/outbox/audit coordinates in its existing direct-Inbox transaction. The older
+no-input lifecycle Inbox entry and ordinary Blank/Template Draft entries retain
+their prior shape and digest. This is a callable backend source contract, not an
+HTTP/AEDS binding or runtime acceptance. Source URL, explicit Inbox template,
+persistent document identity and current site/session admission still require
+their genuine owners; this bounded request does not admit or silently discard
+those fields. Template property/rights/responsibility/prepublish defaults still
+refuse with `article_create_defaults_receiver_unavailable` pending real receivers.
+
 The additive `20261011-post-article-inbox-editable-source` migration only defines
 the nullable provenance column. The separate source definition
 `20261011-post-article-inbox-create-receipt` replaces the exact mode/template/status
