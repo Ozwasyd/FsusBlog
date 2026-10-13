@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.PropertyIntake.cs"
+            ],
+            "reason": "Preserve the original full-text evaluator external unavailable-reason and source/index identifiers while consuming exact canonical typed operand contracts. No process environment key, operator registry, field binding or query permission is added."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve the original API document external source-stage identifiers and unadmitted typed intake limits."
+        }
+    ]
+}

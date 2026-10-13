@@ -2424,6 +2424,22 @@ lease 保留首个读取 fault/cancel，即使该 Task 已完成、被 callback 
 缺失该 capability 的 adapter 明确 unsupported。该数据读能力不计算或签发 v1 SourceDigest：真实 Slug、
 完整 permission/history binding、Archived query grant 和 successful query response/cache/receipt 仍未就绪。
 
+原 `AuthorFullTextSearchQueryEvaluator.InspectPropertyOperandsAsync` 仅接收 PR4208 的
+`AuthorSearchPropertyOperand`，在原 clause+operand 64 上限内冻结输入，复用原 `ValidatePropertyOperand`
+核验 definition ID/schema/digest、type/operator/payload 及当前 registry，并保持原 full-text definition
+owner/site/SearchEligible 限制。原 `InspectIndexAsync` 和 `RevalidateIndexAsync` 仍核验原 index/source
+generation；重查 supplied definitions，输入、definition 或 index 变化均拒绝。intake digest 只封闭内部
+输入及原未准入 token evidence，不是新 query AST、fullSourceDigest、权限或 receipt。
+
+该阶段没有对 candidates 执行 property predicates。原 `IAuthorFullTextSearchIndexSource.ReadAsync`
+返回的 article 只有 raw fields 与 Definitions，没有 `ArticlePropertyValueEntry`/typed snapshot；
+field reference 也没有 definition digest/value digest 的精确 binding。不得从 raw string、revision 或
+guid 单独推造该映射。原 Property string clause 和 grammar 仍 unavailable，原 updated-at、完整
+ranking/cursor、fresh permission/source adapter、Slug 与 fullSourceDigest holds 保留。日期/时区、between
+端点、text collation、collection equality 等未定义语义不由 intake 补齐。SavedView adapter/persistence、
+Definition provider/writer 与原 operator registry 保持各自 owner；provider 的 Projection.Current 仅是
+Definition dependency fact，condition/sort 的 MigrationRequired 不会被此 intake 转成 query admission。
+
 `AuthorArticleQueryHistoryIdentityReader` 独立消费原规范 history projection，最多 1000 entries、每页 100。
 全部页面必须绑定同一 user/site、collection revision、permission/site/session identity、projection/cache references
 和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；
