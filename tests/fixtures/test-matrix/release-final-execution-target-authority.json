@@ -4325,8 +4325,8 @@
         },
         {
             "path": "tools/test-matrix/fixture-profile-contract.mjs",
-            "contentDigest": "sha256:620e379af1943fcd97ba6f83b484b092567d99e69f93a1ddc3c1801ce4b66ebf",
-            "indexDigest": "sha256:620e379af1943fcd97ba6f83b484b092567d99e69f93a1ddc3c1801ce4b66ebf"
+            "contentDigest": "sha256:b84b4e71f8a8b5d504471aaeed1310dc9bf587aa8d5ff047ab34573784b7bc28",
+            "indexDigest": "sha256:b84b4e71f8a8b5d504471aaeed1310dc9bf587aa8d5ff047ab34573784b7bc28"
         },
         {
             "path": "tools/test-matrix/fresh-production.mjs",
@@ -4900,8 +4900,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+            "indexDigest": "sha256:f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
@@ -5630,8 +5630,8 @@
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
-            "contentDigest": "sha256:82f5f7ea7a9ee31702f7ce08046094ae06020684782813b3676fc9fb8c5e55a9",
-            "indexDigest": "sha256:82f5f7ea7a9ee31702f7ce08046094ae06020684782813b3676fc9fb8c5e55a9"
+            "contentDigest": "sha256:644e10f14b48fc441495bc9ea6c37cfbb40d03b045b4e0f7696bd9782c3f076c",
+            "indexDigest": "sha256:644e10f14b48fc441495bc9ea6c37cfbb40d03b045b4e0f7696bd9782c3f076c"
         },
         {
             "path": "tools/ux/release-preview-readiness.mjs",

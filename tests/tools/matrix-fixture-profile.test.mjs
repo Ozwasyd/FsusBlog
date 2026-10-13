@@ -5,21 +5,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    buildFixtureProfileMatrixInventory,
-    classifyTierExecutionClass,
-    expectedFixtureProfileReason,
-    FIXTURE_EXECUTION_CLASSES,
-    validateFixtureProfileMatrix
-} from '../../tools/test-matrix/fixture-profile-contract.mjs';
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
-import { validateFixtureCatalogs } from '../../tools/testing/fixture-catalog.mjs';
+const {buildFixtureProfileMatrixInventory, classifyTierExecutionClass, expectedFixtureProfileReason, FIXTURE_EXECUTION_CLASSES, validateFixtureProfileMatrix} = await import(new URL('../../tools/test-matrix/fixture-profile-contract.mjs', import.meta.url));
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
+const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
+const {validateFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const schema = JSON.parse(readFileSync(path.join(root, 'tests/matrix.schema.json'), 'utf8'));
 const catalog = JSON.parse(readFileSync(path.join(root, 'config/testing/fixture-profile-catalog.json'), 'utf8'));
-const profileIds = new Set(catalog.profiles.map((item) => item.id));
 
 function profileTier(id, fixtureProfile, executionClass)
 {
@@ -238,4 +231,29 @@ test('closed execution-class vocabulary is stable and classification is determin
     assert.equal(classifyTierExecutionClass({ id: 'security' }), 'security');
     assert.equal(classifyTierExecutionClass({ id: 'frontend-build' }), 'build');
     assert.equal(classifyTierExecutionClass({ id: 'fast', executionMode: 'summary' }), 'coordination');
+});
+
+test('source declaration and governance tiers coordinate checks without fixture mutation', () =>
+{
+    const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    for (const id of ['validate-declarations', 'source-governance'])
+    {
+        const tier = matrix.tiers.find((candidate) => candidate.id === id);
+        assert.equal(tier.executionClass, 'coordination');
+        assert.equal(tier.qualificationEligible, false);
+        assert.equal(tier.fixtureProfile, 'none');
+        assert.equal(tier.fixtureMutatorAllowed, false);
+        assert.equal(tier.requiresBootstrap, 'none');
+        assert.equal(tier.requiresDotnet, false);
+        assert.equal(tier.requiresPlaywright, 'none');
+        assert.deepEqual(tier.services, []);
+        assert.equal(classifyTierExecutionClass(tier), 'coordination');
+        assert.equal(expectedFixtureProfileReason(tier), 'none-coordination');
+        assert.deepEqual(errorsFor({ tiers: [tier] }), []);
+        const misclassified = {
+            ...tier, executionClass: 'runtime', fixtureProfileReason: 'none-runtime'
+        };
+        assert.match(errorsFor({ tiers: [misclassified] }).join('\n'), /executionClass must be coordination/u);
+    }
+    assert.equal(classifyTierExecutionClass({ id: 'unregistered', executionClass: 'coordination' }), 'runtime');
 });
