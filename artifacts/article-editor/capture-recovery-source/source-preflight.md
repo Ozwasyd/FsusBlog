@@ -162,3 +162,46 @@ happy-dom and loads protocol/actual locale graph. No runner/help/list/discovery,
 candidate import, test, browser/native/security/privacy/receipt/backupmigration
 execution or frozen write occurs. No package publication/private registry/credential.
 Root original preflight and every runtime/qualification HOLD remain in force.
+
+## Independent request-binding P2 correction
+
+Review of exact `a9ad2f84d0b79b54bd737458e9b5dde58d67fd16` found that journal
+unavailable could return a changed B before the prior A identity check, while
+missing/throwing native locks and catch paths bypassed that check entirely. An
+initially unprotected A also did not retain independent immutable identity.
+
+The adapter now pins one frozen scalar tuple of request UUID, client revision,
+input digest and canonical request digest immediately after the first valid input,
+before every await/lock/storage operation. That tuple is separate from mutable
+local-protection/record coordinates and retains no title/body. A changed tuple
+refuses capture-conflict before local I/O. Every request-bearing protected or
+unprotected result passes a language-private exact-tuple check, including unavailable
+journal, no lock, contention, throwing lock, readback and exception paths. The
+binding is not cleared by storage failure, record absence/expiry or degradation;
+explicit discard/retirement retains existing permanent binding retirement. Unknown
+server outcome is unchanged and never justifies a new request identity.
+
+Held SOURCE controls cover both protected A followed by degradation and first
+unprotected A, for unavailable journal, missing locks and throwing locks. Each
+refuses changed UUID/revision/title/body before journal/lock access, repeats only
+the same A with unchanged digests, keeps unknown outcome and preserves discard
+retirement. Real original journal persistence is used in the protected source
+setup; local IDB/lock fixtures are unit-source controls, not fake server receipt
+ports or native/browser/authority qualification. All controls remain UNRUN.
+
+Original strict-full adapter style PASS. Strict target and complete new control
+source compiler each remain RED exit2 with exactly the original journal
+`(821,9) TS1294`; no new adapter/control diagnostic. Initial source-control generic
+callback type diagnostic is preserved, then repaired with the actual DOM generic
+type. The unchanged original complete application configuration remains RED
+167 before/after, exact complete diagnostics added/removed 0. Raw current outputs,
+supplemental unit-source config and original-application comparison live in
+`request-binding-p2-*`. No source/control/module/native import execution or test,
+listing, browser/security/privacy/receipt qualification occurred.
+
+The original journal is plaintext **unencrypted**, with the unchanged 168-hour
+policy. Hashes are integrity/correlation, not encryption. No original journal,
+createwriter/Main source, security setting, frozen output/seal or authority is
+edited. Route/registration/production generated/native wiring and historical
+receipt/context dependencies remain uncompleted; the adapter issues no saved,
+cancelled-server, zero-server-write-history or historical-site/document grant.

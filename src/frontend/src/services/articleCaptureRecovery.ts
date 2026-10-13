@@ -109,6 +109,9 @@ interface OwnedCapture {
     protection: ArticleRecoveryJournalWriteStatus;
 }
 
+type CaptureRequestBinding = Readonly<Pick<ArticleCaptureRequestDescription,
+    'requestId' | 'clientRevision' | 'inputDigest' | 'requestDigest'>>;
+
 function exactKeys(value: unknown, keys: readonly string[]): value is Record<string, unknown>
 {
     return typeof value === 'object' && value !== null
@@ -296,6 +299,7 @@ export class ArticleCaptureRecovery
     readonly #readScope: () => ArticleCaptureRecoveryScope | null;
     readonly #unsubscribe: () => void;
     #owned: OwnedCapture | null = null;
+    #requestBinding: CaptureRequestBinding | null = null;
     #busy = false;
     #retired = false;
     #detached = false;
@@ -373,6 +377,28 @@ export class ArticleCaptureRecovery
             { mode: 'exclusive', ifAvailable: true }, lock => lock ? operation() : Promise.resolve(unavailable));
     }
 
+    #matchesRequest(request: ArticleCaptureRequestDescription): boolean
+    {
+        const binding = this.#requestBinding;
+        return binding !== null && binding.requestId === request.requestId
+            && binding.clientRevision === request.clientRevision && binding.inputDigest === request.inputDigest
+            && binding.requestDigest === request.requestDigest;
+    }
+
+    #requestResult(
+        request: ArticleCaptureRequestDescription,
+        protection: ArticleRecoveryJournalWriteStatus,
+        protectedInput: boolean,
+        reason?: ArticleCaptureBlockedReason
+    ): ArticleCaptureStageResult
+    {
+        if (!this.#matchesRequest(request))
+        {
+            return Object.freeze({ status: 'blocked', reason: 'capture-conflict', serverOutcome: 'unknown' });
+        }
+        return Object.freeze({ status: protectedInput ? 'protected' : 'unprotected', protection, request, reason, serverOutcome: 'unknown' });
+    }
+
     /** Persist one immutable actual request; repeated/changed attempts require explicit discard/new identities. */
     async stage(identity: ArticleCaptureRequestIdentity, input: ArticleCaptureInboxInput): Promise<ArticleCaptureStageResult>
     {
@@ -390,6 +416,19 @@ export class ArticleCaptureRecovery
                 return blocked('scope-retired');
             }
             const request = describeArticleCaptureRequest(this.#scope.adminPrincipalId, this.#captureId, identity, input);
+            if (this.#requestBinding && !this.#matchesRequest(request))
+            {
+                return blocked('capture-conflict');
+            }
+            if (!this.#requestBinding)
+            {
+                // Pin scalar request identity BEFORE any await, lock/storage failure or request-bearing result.
+                // Local protection can fail; an unknown server outcome cannot replace this binding.
+                this.#requestBinding = Object.freeze({
+                    requestId: request.requestId, clientRevision: request.clientRevision,
+                    inputDigest: request.inputDigest, requestDigest: request.requestDigest
+                });
+            }
             description = request;
             const envelope: CaptureEnvelope = { ...request, schema: captureSchema, siteScope: this.#scope.siteScope, ownerTabId: this.#ownerTabId };
             const tabId = captureTabId(this.#ownerTabId, this.#captureId, request.requestId);
@@ -406,15 +445,10 @@ export class ArticleCaptureRecovery
                 }
                 if (before.status !== 'ready')
                 {
-                    return Object.freeze({ status: 'unprotected', protection: 'unavailable', request, serverOutcome: 'unknown' });
+                    return this.#requestResult(request, 'unavailable', false);
                 }
                 if (this.#owned)
                 {
-                    if (this.#owned.identity.requestId !== request.requestId || this.#owned.identity.clientRevision !== request.clientRevision
-                        || this.#owned.inputDigest !== request.inputDigest)
-                    {
-                        return blocked('capture-conflict');
-                    }
                     const expected = this.#owned.record;
                     const actual = before.records.find(record => record.id === expected?.id);
                     if (actual && expected && Object.entries(expected).some(([key, value]) => actual[key as keyof ArticleRecoveryJournalRecord] !== value))
@@ -427,7 +461,7 @@ export class ArticleCaptureRecovery
                         this.#owned.protection = 'unavailable';
                     }
                     // A repeated operation never writes/slides TTL, even after expiry or cleanup.
-                    return Object.freeze({ status: actual ? 'protected' : 'unprotected', protection: this.#owned.protection, request, serverOutcome: 'unknown' });
+                    return this.#requestResult(request, this.#owned.protection, actual !== undefined);
                 }
                 if (before.records.some(record => decodeEnvelope(record, this.#scope)?.captureId === this.#captureId
                     || (record.tabId.startsWith('capture-') && record.tabId.slice(-73, -37) === this.#captureId)))
@@ -474,7 +508,7 @@ export class ArticleCaptureRecovery
                     }
                     if (reread.status !== 'ready')
                     {
-                        return Object.freeze({ status: 'unprotected', protection: 'unavailable', request, serverOutcome: 'unknown' });
+                        return this.#requestResult(request, 'unavailable', false);
                     }
                     if (!actual || !decodeEnvelope(actual, this.#scope))
                     {
@@ -494,14 +528,14 @@ export class ArticleCaptureRecovery
                 {
                     this.#coordinator.notify('changed', null);
                 }
-                return Object.freeze({ status: record ? 'protected' : 'unprotected', protection: stored.status, request, serverOutcome: 'unknown' });
-            }, Object.freeze({ status: 'unprotected', protection: 'unavailable', reason: 'coordination-unavailable', request, serverOutcome: 'unknown' }));
+                return this.#requestResult(request, stored.status, record !== null);
+            }, this.#requestResult(request, 'unavailable', false, 'coordination-unavailable'));
             return this.#current() ? result : blocked('scope-retired');
         }
         catch
         {
             return description && this.#current()
-                ? Object.freeze({ status: 'unprotected', protection: 'unavailable', request: description, serverOutcome: 'unknown' })
+                ? this.#requestResult(description, 'unavailable', false)
                 : blocked(this.#retired ? 'scope-retired' : 'input-invalid');
         }
         finally

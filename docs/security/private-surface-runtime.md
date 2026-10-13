@@ -28,6 +28,12 @@ Source URL and template members are refused until the original request admits
 them. Input bytes, BOM, line endings and whitespace are retained. Local operations
 borrow actual Web Locks with `ifAvailable`; absence/contention cannot fall back to
 another store or queue. Existing captures conflict rather than silently overwrite.
+The first valid request pins immutable UUID/client-revision/input-digest/request-digest
+coordinates before any asynchronous lock/storage operation or request-bearing
+result, including an initially unprotected input. Every such result checks that
+same private binding. A later different request refuses as capture-conflict before
+local I/O; journal/lock failure can only reduce protection and never changes an
+unknown request's identity. This scalar pin retains no title/body cache.
 Repeated current input rereads the original journal without writing or extending
 its original 168-hour expiry. After expiry it remains unprotected with the same
 request identity, without inventing a new UUID or server absence.
