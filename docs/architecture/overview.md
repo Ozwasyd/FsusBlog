@@ -194,8 +194,12 @@ This isolated source composition retains the original Group, ratio owner and
 atomic Registry ownership implementation as one dependency set, together with
 the original Anchor, its position-map bridge and the matching Doc owner. It does
 not take the older Group/Registry pair from the Anchor branch, which lacks the
-original startup-custody guard. Each inherited producer file remains byte-exact;
-the composition does not create another Registry, ratio owner or source context.
+original startup-custody guard. Inherited producer files remain byte-exact. The consumed Snapshot API uses the
+independently accepted producer compatibility repair with explicit fields and
+constructor assignments in place of parameter properties. Only that already
+consumed dependency is intaken; Cache/Status/Sync and their restore/router edges
+are not introduced merely to import the repair's other paths. The composition
+does not create another Registry, ratio owner or source context.
 
 `observeAuthoringNavigationTargetFromOwners` first checks
 `groupOwner.verifyBinding(canonicalRegistry)`, then takes one real
@@ -218,10 +222,11 @@ producer can select an independent exact UI source worktree via
 `FSUSBLOG_LOCAL_FSUSUI_ROOT`; it must resolve both the package root and Markdown
 runtime into that same source, not a registry package or copied interface.
 
-The original Snapshot source still contains parameter properties rejected by
-the consumer full application's `erasableSyntaxOnly` policy. Complete consumer
-application types remain failed; the UI owner's separate Web project result and
-historical failures are not interchangeable with this application/project result.
+The accepted Snapshot API repair removes its parameter-property syntax under
+the existing consumer `erasableSyntaxOnly` policy, preserving the producer's
+public types, defaults and constructor ordering. Other complete consumer
+application diagnostics remain failed; the UI owner's separate Web project result
+and historical failures are not interchangeable with this application/project result.
 This composition does not substitute an export, cast, shim, reduced compilation
 surface or relaxed consumer policy. All inherited producer files remain exact.
 Recent restore receipt provenance remains with the actual recent-closed owner.
