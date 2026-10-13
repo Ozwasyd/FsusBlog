@@ -559,7 +559,7 @@
       },
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "153945fdaa8bd7a5d8e293b92d3e983051bb2032738b832345f1ef0a630e8a38"
+        "sha256": "bc764619ed711a1f76dc1a1733cc2c2a38c8d5791d5f1ba5348692fc3176dc82"
       },
       {
         "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
@@ -584,6 +584,7 @@
     ],
     "readmission": "Actual existing Frame.prepareMountedEditor first closes its own staging holds, then unchanged guarded physical prepare/real Doc adoption/ordinary seal for SAME current target. Explicit Main sequence: prepare native offer/principal in original Main -> Frame reserve -> native adoption/receiving cleanup via original SDK -> Frame prepare for real admission. No Root full snapshot/ref/resource acceptance.",
     "late_callback_fence_repair": "Target Writer single pre-retirement subscriber is pinned BEFORE every native port/session/lifetime/birth reader. Once actual target Writer is attached, explicit revoke withdraws staging even while creation flag remains set. Only unpublished intentional initial ref attachment is exempt; native/subscription/pure checks still refuse invalidation during allocation/publication.",
-    "frame_retry_failure_projection_repair": "Independent238b7491 P2 source repair: original same borrowed cleanup holder retained; each actual borrowed.retryCleanup throw is recorded as Frame latestCause and rethrown unchanged, firstCause preserved (including raw undefined). Explicit pendingCleanup is distinct from historical hasFailure; only confirmed original borrowed cancellation/cleanup plus abort/listener cleanup clears debt and same Frame slot. Historical failure remains observable; active stays false and authority never reopens. Cancel E -> retry throws F -> successful retry is a source-preflight case, UNRUN_HELD."
+    "frame_retry_failure_projection_repair": "Independent238b7491 P2 source repair: original same borrowed cleanup holder retained; each actual borrowed.retryCleanup throw is recorded as Frame latestCause and rethrown unchanged, firstCause preserved (including raw undefined). Explicit pendingCleanup is distinct from historical hasFailure; only confirmed original borrowed cancellation/cleanup plus abort/listener cleanup clears debt and same Frame slot. Historical failure remains observable; active stays false and authority never reopens. Cancel E -> retry throws F -> successful retry is a source-preflight case, UNRUN_HELD.",
+    "frame_borrowed_first_failure_custody_repair": "Independent1f25 continuation P2 source repair: before Frame first takeover, read SAME original borrowed readonly inspectFailure (inherited unchanged from actual staging publisher) and use explicit borrowed.failed===true presence to retain its firstCause, including undefined/null/false/0/empty-string; if borrowed has no history use actual Frame cause. Existing Frame hasFailure presence skips subsequent first-cause overwrite; actual new failure always becomes latestCause and is rethrown unchanged. No inspector in purehas, no native/DOM/resolver/readiness authority. Same original holders, successful debt-only clear and withdrawn authority unchanged. Source-only preflight both borrowed E->retry F/G and Frame E->later borrowed F/G; raw values and confirmed cleanup retain first/latest history while pending false. All UNRUN_HELD."
   }
 }

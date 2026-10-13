@@ -498,8 +498,10 @@ function recordFrameNativeStagingFailure(own: FrameNativeStaging, cause: unknown
 {
     if (!own.hasFailure)
     {
+        // The original readonly failure custody may already own a raw first cause.
+        const borrowedFailure = own.borrowed?.inspectFailure();
         own.hasFailure = true;
-        own.firstCause = cause;
+        own.firstCause = borrowedFailure?.failed === true ? borrowedFailure.firstCause : cause;
     }
     own.latestCause = cause;
     own.pendingCleanup = true;
