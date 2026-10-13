@@ -1,6 +1,9 @@
 import type { ImageCompressionOptions } from '@/api/upload';
 import { AppErrorCode, createAppError } from '@/utils/appError';
+import { createImageProducerOperation, type ImageProducerOperation, type ImageProducerOwner } from '@/utils/imageProducerOperation';
 import { WasmEncodeError, getWasmCapabilityLevel, getWasmImageCodec } from '@/utils/wasmImageCodec';
+
+export type { ImageProducerCleanupError, ImageProducerOperation, ImageProducerResource, ImageProducerResourceCensus } from '@/utils/imageProducerOperation';
 
 export interface ImageCompressionPreview {
     originalBytes: number;
@@ -20,6 +23,16 @@ export interface ImageCompressionPreview {
 
 export interface ImageCompressionRuntimeOptions {
     wasmOnly?: boolean;
+    signal?: AbortSignal;
+}
+
+export interface ImageHashRuntimeOptions {
+    signal?: AbortSignal;
+}
+
+export interface ImageCompressionResult {
+    file: File;
+    preview: ImageCompressionPreview;
 }
 
 let wasmOnlyCompressionMode = false;
@@ -34,32 +47,90 @@ export function isWasmOnlyCompressionMode(): boolean
     return wasmOnlyCompressionMode;
 }
 
-function blobToDataUrl(blob: Blob): Promise<string>
+async function blobToDataUrl(blob: Blob, owner: ImageProducerOwner): Promise<string>
 {
-    return new Promise((resolve, reject) =>
+    owner.ensureActive();
+    const reader = new FileReader();
+    const resource = owner.hold('file-reader', reader, () =>
     {
-        const reader = new FileReader();
-        reader.onerror = () => reject(reader.error ?? createAppError(AppErrorCode.InfraFailure, 'blob_read_failed'));
-        reader.onload = () => resolve(String(reader.result ?? ''));
-        reader.readAsDataURL(blob);
+        reader.onerror = null;
+        reader.onload = null;
+        reader.onabort = null;
+    }, () =>
+    {
+        if (reader.readyState === FileReader.LOADING)
+        {
+            reader.abort();
+        }
     });
+    try
+    {
+        return await new Promise<string>((resolve, reject) =>
+        {
+            reader.onerror = () => reject(reader.error ?? createAppError(AppErrorCode.InfraFailure, 'blob_read_failed'));
+            reader.onload = () => resolve(String(reader.result ?? ''));
+            reader.onabort = () =>
+            {
+                try
+                {
+                    owner.ensureActive();
+                    reject(new DOMException('Blob reader aborted', 'AbortError'));
+                }
+                catch (error)
+                {
+                    reject(error);
+                }
+            };
+            const readAsDataUrl = reader.readAsDataURL.bind(reader);
+            owner.ensureActive();
+            readAsDataUrl(blob);
+        });
+    }
+    finally
+    {
+        owner.release(resource);
+    }
 }
 
-async function loadImageBitmap(file: File): Promise<{ bitmap?: ImageBitmap; image?: HTMLImageElement; }>
+async function loadImageBitmap(file: File, owner: ImageProducerOwner): Promise<{
+    bitmap?: ImageBitmap;
+    image?: HTMLImageElement;
+    releaseBitmap?: () => void;
+}>
 {
+    owner.ensureActive();
     if ('createImageBitmap' in window)
     {
-        return { bitmap: await createImageBitmap(file) };
+        const bitmap = await owner.observe('bitmap-decode', () =>
+        {
+            const decode = createImageBitmap;
+            owner.ensureActive();
+            return decode(file);
+        });
+        // Adopt before cancellation or dimensions so early failures retain the original cleanup handle.
+        const resource = owner.hold('image-bitmap', bitmap, () => bitmap.close());
+        owner.ensureActive();
+        return { bitmap, releaseBitmap: () => owner.release(resource, true) };
     }
 
-    const dataUrl = await blobToDataUrl(file);
+    const dataUrl = await blobToDataUrl(file, owner);
+    owner.hold('image-data-url', dataUrl);
+    owner.ensureActive();
+    const element = new Image();
+    owner.hold('image-element', element, () =>
+    {
+        element.onload = null;
+        element.onerror = null;
+        element.removeAttribute('src');
+    });
     const image = await new Promise<HTMLImageElement>((resolve, reject) =>
     {
-        const element = new Image();
         element.onload = () => resolve(element);
         element.onerror = () => reject(createAppError(AppErrorCode.InfraFailure, 'image_decode_failed'));
+        owner.ensureActive();
         element.src = dataUrl;
     });
+    owner.ensureActive();
     return { image };
 }
 
@@ -130,19 +201,49 @@ function isEncodedImageLikelyValid(bytes: Uint8Array, format: ImageCompressionOp
     return false;
 }
 
-export async function compressImageFile(file: File, options: ImageCompressionOptions): Promise<{ file: File; preview: ImageCompressionPreview; }>
+/** The Promise API delegates to the same original producer invocation. */
+export function compressImageFile(file: File, options: ImageCompressionOptions): Promise<ImageCompressionResult>
 {
     return compressImageFileWithRuntime(file, options);
 }
 
-export async function compressImageFileWithRuntime(
+/** Compatible Promise API; runtime signal requests cancellation without racing native completion. */
+export function compressImageFileWithRuntime(
     file: File,
     options: ImageCompressionOptions,
     runtimeOptions: ImageCompressionRuntimeOptions = {}
-): Promise<{ file: File; preview: ImageCompressionPreview; }>
+): Promise<ImageCompressionResult>
+{
+    return requestCompressImageFileWithRuntime(file, options, runtimeOptions).result;
+}
+
+/** Starts the original compression once and exposes its finite local work/cleanup custody. */
+export function requestCompressImageFileWithRuntime(
+    file: File,
+    options: ImageCompressionOptions,
+    runtimeOptions: ImageCompressionRuntimeOptions = {}
+): ImageProducerOperation<ImageCompressionResult>
+{
+    return createImageProducerOperation(async (owner) =>
+    {
+        owner.hold('input-file', file);
+        owner.hold('compression-options', options);
+        owner.hold('runtime-options', runtimeOptions);
+        return await compressImageFileOwned(file, options, runtimeOptions, owner);
+    }, runtimeOptions?.signal);
+}
+
+async function compressImageFileOwned(
+    file: File,
+    options: ImageCompressionOptions,
+    runtimeOptions: ImageCompressionRuntimeOptions,
+    owner: ImageProducerOwner
+): Promise<ImageCompressionResult>
 {
     const wasmOnly = runtimeOptions.wasmOnly ?? wasmOnlyCompressionMode;
+    owner.ensureActive();
     const wasmCapability = getWasmCapabilityLevel();
+    owner.ensureActive();
 
     if (file.type === 'image/gif')
     {
@@ -171,7 +272,7 @@ export async function compressImageFileWithRuntime(
         };
     }
 
-    const decoded = await loadImageBitmap(file);
+    const decoded = await loadImageBitmap(file, owner);
     const sourceWidth = decoded.bitmap?.width ?? decoded.image?.naturalWidth ?? 0;
     const sourceHeight = decoded.bitmap?.height ?? decoded.image?.naturalHeight ?? 0;
     if (sourceWidth <= 0 || sourceHeight <= 0)
@@ -180,31 +281,58 @@ export async function compressImageFileWithRuntime(
     }
 
     const { width, height } = computeTargetSize(sourceWidth, sourceHeight, options);
-    const canvas = document.createElement('canvas');
+    const createElement = document.createElement.bind(document);
+    owner.ensureActive();
+    const canvas = createElement('canvas');
+    owner.hold('canvas', canvas, () =>
+    {
+        canvas.width = 0;
+        canvas.height = 0;
+    });
+    owner.ensureActive();
     canvas.width = width;
+    owner.ensureActive();
     canvas.height = height;
+    owner.ensureActive();
 
-    const context = canvas.getContext('2d', { alpha: options.preserveAlpha });
+    const contextOptions = { alpha: options.preserveAlpha };
+    const getContext: (contextId: '2d', options: CanvasRenderingContext2DSettings) => CanvasRenderingContext2D | null = canvas.getContext;
+    const readContext = getContext.bind(canvas);
+    owner.ensureActive();
+    const context = readContext('2d', contextOptions);
     if (!context)
     {
         throw createAppError(AppErrorCode.InfraFailure, 'canvas_context_unavailable');
     }
+    owner.hold('canvas-context', context);
+    owner.ensureActive();
 
-    context.clearRect(0, 0, width, height);
+    const clearRect = context.clearRect.bind(context);
+    owner.ensureActive();
+    clearRect(0, 0, width, height);
+    owner.ensureActive();
     if (!options.preserveAlpha && (options.format === 'jpeg' || options.format === 'webp' || options.format === 'avif'))
     {
+        owner.ensureActive();
         context.fillStyle = 'white';
-        context.fillRect(0, 0, width, height);
+        owner.ensureActive();
+        const fillRect = context.fillRect.bind(context);
+        owner.ensureActive();
+        fillRect(0, 0, width, height);
+        owner.ensureActive();
     }
 
-    if (decoded.bitmap)
+    owner.ensureActive();
+    const source = decoded.bitmap ?? decoded.image;
+    if (source)
     {
-        context.drawImage(decoded.bitmap, 0, 0, width, height);
-        decoded.bitmap.close();
-    }
-    else if (decoded.image)
-    {
-        context.drawImage(decoded.image, 0, 0, width, height);
+        const draw: (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => void = context.drawImage;
+        const drawImage = draw.bind(context);
+        owner.ensureActive();
+        drawImage(source, 0, 0, width, height);
+        owner.ensureActive();
+        decoded.releaseBitmap?.();
+        owner.ensureActive();
     }
 
     const mimeType = resolveOutputMime(options.format);
@@ -212,7 +340,10 @@ export async function compressImageFileWithRuntime(
     let pipeline: ImageCompressionPreview['pipeline'] = 'canvas-fallback';
     let wasmError: ImageCompressionPreview['wasmError'];
 
-    const wasmCodec = await getWasmImageCodec();
+    owner.ensureActive();
+    owner.noteThirdParty('shared-codec-loader-internals');
+    const wasmCodec = await owner.observe('codec-acquisition', () => getWasmImageCodec());
+    owner.ensureActive();
     if (!wasmCodec && wasmOnly)
     {
         throw new WasmEncodeError({
@@ -225,20 +356,40 @@ export async function compressImageFileWithRuntime(
 
     if (wasmCodec)
     {
+        owner.hold('codec-reference', wasmCodec);
         try
         {
-            const imageData = context.getImageData(0, 0, width, height);
-            const encoded = await wasmCodec.encode({
-                rgba: imageData.data,
-                width,
-                height,
-                format: options.format,
-                quality: options.quality,
-                preserveAlpha: options.preserveAlpha
-            });
-            if (isEncodedImageLikelyValid(encoded, options.format))
+            const getImageData = context.getImageData.bind(context);
+            owner.ensureActive();
+            const imageData = getImageData(0, 0, width, height);
+            const rgbaResource = owner.hold('image-data', imageData);
+            owner.ensureActive();
+            owner.noteThirdParty('codec-internal-custody');
+            const encoded = await owner.observe('codec-encode', () =>
             {
-                encodedBlob = new Blob([encoded as unknown as BlobPart], { type: mimeType });
+                const request = {
+                    rgba: imageData.data,
+                    width,
+                    height,
+                    format: options.format,
+                    quality: options.quality,
+                    preserveAlpha: options.preserveAlpha
+                };
+                const encode = wasmCodec.encode.bind(wasmCodec);
+                owner.ensureActive();
+                return encode(request);
+            });
+            owner.release(rgbaResource);
+            owner.hold('encoded-bytes', encoded);
+            const validationFormat = options.format;
+            owner.ensureActive();
+            if (isEncodedImageLikelyValid(encoded, validationFormat))
+            {
+                const createBlob = Blob;
+                owner.ensureActive();
+                encodedBlob = new createBlob([encoded as unknown as BlobPart], { type: mimeType });
+                owner.hold('encoded-blob', encodedBlob);
+                owner.ensureActive();
                 pipeline = wasmCodec.level === 'simd' ? 'wasm-simd' : 'wasm-basic';
             }
             else
@@ -254,6 +405,10 @@ export async function compressImageFileWithRuntime(
         }
         catch (error)
         {
+            if (owner.isCancellationError(error))
+            {
+                throw error;
+            }
             const normalized = error instanceof WasmEncodeError
                 ? error
                 : new WasmEncodeError({
@@ -264,7 +419,7 @@ export async function compressImageFileWithRuntime(
           codecVersion: wasmCodec.version,
           cause: error
         });
-            if (wasmOnly)
+            if (wasmOnly || owner.isCancellationRequested())
             {
                 throw normalized;
             }
@@ -278,9 +433,10 @@ export async function compressImageFileWithRuntime(
         }
     }
 
-    const blob = encodedBlob ?? await new Promise<Blob>((resolve, reject) =>
+    owner.ensureActive();
+    const blob = encodedBlob ?? await owner.observe('canvas-to-blob', () => new Promise<Blob>((resolve, reject) =>
     {
-        canvas.toBlob((value) =>
+        const onBlob = (value: Blob | null) =>
         {
             if (!value)
             {
@@ -288,14 +444,29 @@ export async function compressImageFileWithRuntime(
                 return;
             }
             resolve(value);
-        }, mimeType, Math.min(1, Math.max(0.05, options.quality / 100)));
-    });
+        };
+        const quality = Math.min(1, Math.max(0.05, options.quality / 100));
+        const toBlob = canvas.toBlob.bind(canvas);
+        owner.ensureActive();
+        toBlob(onBlob, mimeType, quality);
+    }));
+    if (!encodedBlob)
+    {
+        owner.hold('encoded-blob', blob);
+    }
+    owner.ensureActive();
 
     const extension = options.format === 'jpeg' ? 'jpg' : options.format;
-    const nextFile = new File([blob], file.name.replace(/\.[^.]+$/, `.${extension}`), {
+    const nextName = file.name.replace(/\.[^.]+$/, `.${extension}`);
+    const fileOptions = {
         type: mimeType,
         lastModified: Date.now()
-    });
+    };
+    const createFile = File;
+    owner.ensureActive();
+    const nextFile = new createFile([blob], nextName, fileOptions);
+    owner.hold('output-file', nextFile);
+    owner.ensureActive();
 
     return {
         file: nextFile,
@@ -313,9 +484,35 @@ export async function compressImageFileWithRuntime(
     };
 }
 
-export async function sha256Hex(blob: Blob): Promise<string>
+/** The original awaited hash pipeline; its Promise is the request's exact result Promise. */
+export function sha256Hex(blob: Blob): Promise<string>
 {
-    const buffer = await blob.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', buffer);
-    return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('');
+    return requestSha256Hex(blob).result;
+}
+
+/** Cancellation stops subsequent stages; already executing arrayBuffer/digest work is awaited. */
+export function requestSha256Hex(blob: Blob, runtimeOptions: ImageHashRuntimeOptions = {}): ImageProducerOperation<string>
+{
+    return createImageProducerOperation(async (owner) =>
+    {
+        owner.hold('input-blob', blob);
+        const buffer = await owner.observe('blob-array-buffer', () =>
+        {
+            const arrayBuffer = blob.arrayBuffer.bind(blob);
+            owner.ensureActive();
+            return arrayBuffer();
+        });
+        owner.hold('array-buffer', buffer);
+        owner.ensureActive();
+        const digest = await owner.observe('sha256-digest', () =>
+        {
+            const subtle = crypto.subtle;
+            const computeDigest = subtle.digest.bind(subtle);
+            owner.ensureActive();
+            return computeDigest('SHA-256', buffer);
+        });
+        owner.hold('digest-buffer', digest);
+        owner.ensureActive();
+        return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('');
+    }, runtimeOptions.signal);
 }
