@@ -1,0 +1,108 @@
+{
+    "kind": "source-static-observations",
+    "qualification": false,
+    "priorDelivery": "8ebacf5137459d4c0adcd68a0dd36f54660d411d",
+    "sourceCommit": "addad445297805fc6580850eca1e63d16269487f",
+    "consumerReportedHead": "30c295d511e76c8f93e02829f56d449b8bc414e2",
+    "repair": [
+        "Safe optional chain in original queued event guard",
+        "Select raw original primary/cleanup outcome only after finally completes; original primary failure wins, otherwise raw cleanup failure rejects unchanged",
+        "One meaningful original-file control adds raw non-Error cleanup identity after successful request; existing primary-plus-cleanup failure control remains"
+    ],
+    "unchangedRawRejectProof": "Entire original decodeInWorker function is byte-identical after reverting only optional-chain condition; three raw Promise rejection sites unchanged",
+    "exceptionNeed": {
+        "rule": "@typescript-eslint/prefer-promise-reject-errors",
+        "lockedPluginVersion": "8.65.0",
+        "scope": "src/frontend/src/services/binaryTransport.ts",
+        "function": "decodeInWorker",
+        "sites": [
+            {
+                "line": 952,
+                "source": "reject(released"
+            },
+            {
+                "line": 963,
+                "source": "reject(task.abortCleanupFailure);"
+            },
+            {
+                "line": 979,
+                "source": "reject(error);"
+            }
+        ],
+        "essentialContract": "Preserve original unknown rejection value identity, first/latest cause, cleanup custody and terminal behavior. Values need not be local Error instances.",
+        "upstreamDefault": "allowThrowingUnknown:false",
+        "documentedCapability": "allowThrowingUnknown:true preserves rule enabled and other rejection checks; any scope/registration requires original policy owner decision, not applied here",
+        "applied": false,
+        "approved": false,
+        "noWorkarounds": "No wrapping/stringification/type cast, hidden callback rejection alias, inline suppression, rule disable, config change or alternate harness",
+        "source": "https://raw.githubusercontent.com/typescript-eslint/typescript-eslint/v8.65.0/packages/eslint-plugin/src/rules/prefer-promise-reject-errors.ts"
+    },
+    "originalRuleClosure": {
+        "consumerConfigBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+        "consumerLockBlob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+        "bothByteIdenticalToProducer": true,
+        "eslint": "10.8.0",
+        "typescriptEslint": "8.65.0",
+        "jsRecommended": "10.0.1",
+        "configOverrideChanged": false,
+        "throwRuleSource": "https://raw.githubusercontent.com/typescript-eslint/typescript-eslint/v8.65.0/packages/eslint-plugin/src/rules/only-throw-error.ts"
+    },
+    "compiler": {
+        "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "cwd": "/workspace/FsusBlog",
+        "exit": 2,
+        "comparison": {
+            "priorDiagnostics": 161,
+            "candidateDiagnostics": 161,
+            "added": [],
+            "removed": [],
+            "normalization": "Diagnostic header source position only; complete continuation text and multiplicity retained"
+        },
+        "priorLog": "artifacts/binary-transport-local-terminal/20261013-this-void/candidate-typecheck.log",
+        "reducedConfig": false
+    },
+    "syntax": {
+        "commands": [
+            "node --check src/frontend/src/services/binaryTransport.ts",
+            "node --check tests/frontend/unit/services/binaryTransport.test.ts"
+        ],
+        "exits": [
+            0,
+            0
+        ],
+        "execution": "Syntax only; no product/test import/discovery/execution"
+    },
+    "diff": {
+        "command": "git diff --check 8ebacf5137459d4c0adcd68a0dd36f54660d411d addad445297805fc6580850eca1e63d16269487f",
+        "exit": 0
+    },
+    "lint": {
+        "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/binaryTransport.ts",
+        "exit": 1,
+        "status": "BLOCKED",
+        "reason": "Configured ESLint/Stylelint paths missing; actual original installed strict validation remains runtime owner responsibility; no false PASS/count claims"
+    },
+    "controls": "Six newly authored original-file controls HOLD/UNRUN; typecheck UNRUN because original app excludes tests. No harness/config/worker mocks added.",
+    "holds": "All runtime/test discovery/list/collection/execution/import/setup/native/browser/worker/network/security/receipt/backuprestore/qualification remain HOLD",
+    "independentReview": "New bounded source fix pending, three raw-rejection rule findings unresolved pending policy decision",
+    "unchanged": "DI/composition, original timeout qualification, original this:void declarations, auth/lease/cleanup/terminal/dependency boundaries unchanged",
+    "sourceBindings": {
+        "src/frontend/src/services/binaryTransport.ts": {
+            "gitBlob": "8f63667c47c4fbe208a408d9c0e357728d629f99",
+            "sha256": "69dfc63ca87cb46e4164f82ac558cbde58c0f5b9d6ec855c916dfd036282f941"
+        },
+        "tests/frontend/unit/services/binaryTransport.test.ts": {
+            "gitBlob": "35a385a4f13bbdb16948bb07e1227e854305818d",
+            "sha256": "c00ca1f8c88c8ef7f86f9f7a56785a7adaf33a6d78f4bbf0fc95851c771414ef"
+        },
+        "src/frontend/src/composition/binaryTransport.ts": {
+            "gitBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded",
+            "sha256": "19634006e8e2a36bd61887aec463f4799a53a56189806314823bc96c88660abf"
+        }
+    },
+    "rawArtifacts": {
+        "artifacts/binary-transport-local-terminal/20261013-strict-lint/typecheck-comparison.json": "c8373fc5bf0a9d77ef42496c19e104e1da24b466821ea9f8ae79d38c3921ad96",
+        "artifacts/binary-transport-local-terminal/20261013-strict-lint/configured-style.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+        "artifacts/binary-transport-local-terminal/20261013-strict-lint/candidate-typecheck.log": "f554005c56b13ee365f8e693dc29b3095a6b51e8cc33b8fe626118ece0851bb7"
+    }
+}
