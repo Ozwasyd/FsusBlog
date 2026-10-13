@@ -12,6 +12,7 @@ const {collectProductionToolchain, verifyProductionBuildReceipt} = await import(
 const {snapshotGitWorktree} = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
 const {validateReleaseReliabilitySchedulerCatalog} = await import(new URL('../test-matrix/release-reliability-scheduler-projection.mjs', import.meta.url));
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
+import { validateMutationReleaseParity, verifyReleaseArtifactBinding } from './mutation-release-parity.mjs';
 import {
     expandLifecycleTemplate,
     lifecycleActionIds,
@@ -21,6 +22,7 @@ import {
     projectQualifiedContainerEnvironment,
     releaseReliabilityAuditedContainerOverrides
 } from './release-reliability-runtime-environment.mjs';
+import { verifyTerminalEvents } from './release-reliability-terminal.mjs';
 import {
     verifyLifecycleActionReceipt
 } from './verify-release-reliability-lifecycle-action.mjs';
@@ -1384,7 +1386,7 @@ function verifyReleaseResourceEvidence(repositoryRoot, document, scenario, ident
     }
 }
 
-function verifyMutationEvidence(repositoryRoot, document, scenario, identity)
+async function verifyMutationEvidence(repositoryRoot, document, scenario, identity)
 {
     const qualification = scenario.qualification;
     const policyFile = verifyFileBinding(
@@ -1450,9 +1452,20 @@ function verifyMutationEvidence(repositoryRoot, document, scenario, identity)
     {
         throw new Error(`scenario ${scenario.id} release mutation parity receipt mismatch`);
     }
+    if (releaseParity.invocationId !== identity.invocationId
+        || releaseParity.attemptId !== `${identity.invocationId}.attempt-1`
+        || releaseParity.sourceState?.commit !== identity.sourceState.commit
+        || releaseParity.sourceState?.worktreeFingerprint.replace(/^sha256:/u, '')
+            !== identity.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
+        || releaseParity.attemptRoot?.immutableBuild?.contentDigest !== identity.build.contentDigest)
+    {
+        throw new Error(`scenario ${scenario.id} current-attempt root identity mismatch`);
+    }
+    validateMutationReleaseParity({ sourceMutationResult: document, releaseParityResult: releaseParity, selectionPolicy: policy });
+    await verifyReleaseArtifactBinding(releaseParity, repositoryRoot);
 }
 
-function verifyEvidence(repositoryRoot, reference, result, scenario, identity)
+async function verifyEvidence(repositoryRoot, reference, result, scenario, identity)
 {
     const file = readRegularFile(repositoryRoot, reference.evidencePath, `scenario ${scenario.id} evidence`, scenario.authoritativeEvidence.path);
     if (bytesDigest(file.bytes) !== reference.evidenceDigest
@@ -1502,7 +1515,7 @@ function verifyEvidence(repositoryRoot, reference, result, scenario, identity)
     }
     else if (scenario.qualification.kind === 'mutation-release-parity')
     {
-        verifyMutationEvidence(repositoryRoot, document, scenario, identity);
+        await verifyMutationEvidence(repositoryRoot, document, scenario, identity);
     }
     else
     {
@@ -1821,6 +1834,7 @@ function verifyLifecycle(
         exactKeys(record, [
             'actionId',
             'phase',
+            'producerSpawned',
             'status',
             'startedAt',
             'finishedAt',
@@ -1840,6 +1854,7 @@ function verifyLifecycle(
             || action.phase !== declaration.phase
             || record.actionId !== action.actionId
             || record.phase !== action.phase
+            || record.producerSpawned !== true
             || record.status !== 'passed'
             || record.exitCode !== 0
             || record.signal !== null
@@ -1910,7 +1925,7 @@ function verifyLifecycle(
     }
 }
 
-function verifyResult(
+async function verifyResult(
     repositoryRoot,
     aggregateReference,
     scenario,
@@ -1955,6 +1970,7 @@ function verifyResult(
         'startedAt',
         'finishedAt',
         'producer',
+        'producerSpawned',
         'lifecycle',
         'authoritativeEvidence',
         'outputs',
@@ -1967,6 +1983,7 @@ function verifyResult(
         'contentDigest'
     ], `scenario ${scenario.id} result`);
     if (result.schema !== 'fsusblog.release-reliability-scenario-result.v3' || result.status !== 'passed'
+        || result.producerSpawned !== true
         || result.evidenceClass !== 'correctness' || result.qualificationEligible !== true
         || result.scenarioId !== scenario.id || result.runId !== identity.runId
         || result.invocationId !== identity.invocationId || result.resultPath !== expectedPath
@@ -2049,7 +2066,7 @@ function verifyResult(
     {
         throw new Error(`scenario ${scenario.id} producer invocation mismatch`);
     }
-    verifyEvidence(repositoryRoot, aggregateReference, result, scenario, identity);
+    await verifyEvidence(repositoryRoot, aggregateReference, result, scenario, identity);
     verifyLifecycle(
         repositoryRoot,
         result,
@@ -2197,7 +2214,7 @@ function validateCandidateEnvelope(repositoryRoot, candidatePath)
     return { initial, candidate };
 }
 
-function validateVerifiedAttestation(repositoryRoot, candidatePath, attestationPath)
+async function validateVerifiedAttestation(repositoryRoot, candidatePath, attestationPath)
 {
     const { initial: candidateFile, candidate } = validateCandidateEnvelope(repositoryRoot, candidatePath);
     const attestationFile = readJsonFile(repositoryRoot, attestationPath, 'verified attestation');
@@ -2253,6 +2270,10 @@ function validateVerifiedAttestation(repositoryRoot, candidatePath, attestationP
             throw new Error(`attested persistent file changed: ${entry.path}`);
         }
     }
+    const mutation = candidate.scenarios.find(reference => reference.scenarioId === 'release-mutation-critical-slice');
+    const evidence = readJsonFile(repositoryRoot, mutation.evidencePath, 'retained mutation authority').document;
+    const parity = readJsonFile(repositoryRoot, evidence.releaseQualification.releaseParityReceipt.path, 'retained mutation parity').document;
+    await verifyReleaseArtifactBinding(parity, repositoryRoot);
     return { candidateFile, candidate, attestationFile, attestation };
 }
 
@@ -2275,9 +2296,9 @@ function createVerifiedAttestation(repositoryRoot, candidateFile, candidate)
     });
 }
 
-function createTerminalReceipt(repositoryRoot, candidatePath, attestationPath)
+async function createTerminalReceipt(repositoryRoot, candidatePath, attestationPath)
 {
-    const verified = validateVerifiedAttestation(repositoryRoot, candidatePath, attestationPath);
+    const verified = await validateVerifiedAttestation(repositoryRoot, candidatePath, attestationPath);
     const identity = readJsonFile(
         repositoryRoot,
         verified.candidate.identity.path,
@@ -2309,7 +2330,7 @@ function createTerminalReceipt(repositoryRoot, candidatePath, attestationPath)
     });
 }
 
-function verifyTerminalReceipt(repositoryRoot, receiptPath)
+async function verifyTerminalReceipt(repositoryRoot, receiptPath)
 {
     const file = readJsonFile(repositoryRoot, receiptPath, 'qualified receipt');
     const receipt = file.document;
@@ -2336,7 +2357,7 @@ function verifyTerminalReceipt(repositoryRoot, receiptPath)
     safeId(receipt.invocationId, 'receipt invocationId');
     safeId(receipt.runId, 'receipt runId');
     isoTime(receipt.finalizedAt, 'receipt.finalizedAt');
-    const verified = validateVerifiedAttestation(
+    const verified = await validateVerifiedAttestation(
         repositoryRoot,
         receipt.candidate?.path,
         receipt.attestation?.path
@@ -2434,13 +2455,13 @@ async function main()
     const options = parseArgs(process.argv.slice(2));
     if (options.terminalMode)
     {
-        const verified = verifyTerminalReceipt(options.repositoryRoot, options.receipt);
+        const verified = await verifyTerminalReceipt(options.repositoryRoot, options.receipt);
         console.log(`[release-reliability-receipt] qualified receipt=${verified.file.relative}`);
         return;
     }
     if (options.finalizeMode)
     {
-        const receipt = createTerminalReceipt(
+        const receipt = await createTerminalReceipt(
             options.repositoryRoot,
             options.candidate,
             options.attestation
@@ -2452,7 +2473,7 @@ async function main()
             throw new Error('qualified receipt output path is not canonical');
         }
         writeJsonAtomic(output.absolute, receipt);
-        const verified = verifyTerminalReceipt(options.repositoryRoot, output.relative);
+        const verified = await verifyTerminalReceipt(options.repositoryRoot, output.relative);
         console.log(`[release-reliability-finalize] qualified receipt=${verified.file.relative}`);
         return;
     }
@@ -2528,7 +2549,7 @@ async function main()
     {
         const reference = receipt.scenarios.find((candidate) => candidate.scenarioId === scenario.id);
         verifiedResults.push(
-            verifyResult(
+            await verifyResult(
                 options.repositoryRoot,
                 reference,
                 scenario,
@@ -2552,6 +2573,7 @@ async function main()
         'identity',
         'createdAt',
         'scenarioResults',
+        'terminalEvents',
         'contentDigest'
     ], 'timeline');
     if (timeline.schema !== 'fsusblog.release-reliability-timeline.v3' || timeline.status !== 'complete'
@@ -2568,6 +2590,7 @@ async function main()
     {
         throw new Error('timeline sealed references do not match the qualified receipt');
     }
+    verifyTerminalEvents(timeline.terminalEvents, verifiedResults);
     isoTime(timeline.createdAt, 'timeline.createdAt');
     const attestation = createVerifiedAttestation(options.repositoryRoot, initial, receipt);
     const attestationOutput = safePath(
@@ -2582,7 +2605,7 @@ async function main()
         throw new Error('verified attestation output path is not canonical');
     }
     writeJsonAtomic(attestationOutput.absolute, attestation);
-    validateVerifiedAttestation(options.repositoryRoot, initial.relative, attestationOutput.relative);
+    await validateVerifiedAttestation(options.repositoryRoot, initial.relative, attestationOutput.relative);
     console.log(`[release-reliability-attestation] verified attestation=${attestationOutput.relative}`);
 }
 

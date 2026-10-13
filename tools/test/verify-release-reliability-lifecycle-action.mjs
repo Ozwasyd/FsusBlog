@@ -6,6 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { validateMeasurementNoiseReceipt } from './measurement-noise-envelope.mjs';
 import {
     expandLifecycleTemplate,
     loadLifecycleActionContracts
@@ -1028,6 +1029,74 @@ function verifyLifecycleOrOwner({
     verifyFinalObservation(document);
     verifyContentDigest(document);
     return document.finalObservation;
+}
+
+export function verifyFailedMeasurementReceipt({
+    repositoryRoot = root, action, scenario, invocationId, runId, identity
+})
+{
+    if (action.phase !== 'measurement')
+    {
+        throw new Error('failure evidence requires a measurement action');
+    }
+    const expectedPath = expandLifecycleTemplate(action.expectedReceiptPath, {
+        actionId: action.actionId, invocationId, runId, scenarioId: scenario.id
+    });
+    const resolved = safeRelativePath(path.resolve(repositoryRoot), expectedPath, 'failed measurement receipt');
+    if (!fs.lstatSync(resolved.absolute).isFile())
+    {
+        throw new Error('failed measurement receipt is not a regular file');
+    }
+    const bytes = fs.readFileSync(resolved.absolute);
+    const document = JSON.parse(bytes.toString('utf8'));
+    const expected = scenario.authoritativeEvidence.expectedSchema;
+    requireFields(document, [...action.requiredFields, ...expected.required]);
+    if (expected.schema && document.schema !== expected.schema
+        || action.expectedReceiptSchema !== 'catalog-authoritative-evidence'
+        && document.schema !== action.expectedReceiptSchema
+        || JSON.stringify(document.releaseReliability) !== JSON.stringify(expectedMeasurementBinding({
+            invocationId, runId, scenarioId: scenario.id, identity
+        })))
+    {
+        throw new Error('failed measurement schema or current-run identity mismatch');
+    }
+    if (Object.hasOwn(document, 'contentDigest'))
+    {
+        verifyContentDigest(document);
+    }
+    const noisy = document.status === 'infra-no-conclusion'
+        || document.productConclusionEligible === false
+        || document.qualificationEligible === false
+        || document.classification === 'infra.noisy-measurement-window';
+    if (!noisy && !['failed', 'fail'].includes(document.status))
+    {
+        throw new Error('measurement evidence has no attributable failure');
+    }
+    if (!noisy && !expected.schema && !document.measurementNoiseEnvelope)
+    {
+        throw new Error('runtime measurement failure has no qualified measurement-window evidence');
+    }
+    if (!noisy && document.measurementNoiseEnvelope)
+    {
+        if (document.measurementNoiseEnvelope.authority?.runId !== runId)
+        {
+            throw new Error('measurement failure window belongs to another run');
+        }
+        validateMeasurementNoiseReceipt(document.measurementNoiseEnvelope, {
+            authoritySequence: document.measurementNoiseAuthoritySequence
+        });
+        if (document.measurementNoiseEnvelope.status !== 'clean'
+            || document.measurementNoiseEnvelope.productConclusionEligible !== true)
+        {
+            throw new Error('measurement window is not eligible for product attribution');
+        }
+    }
+    return {
+        actionId: action.actionId, phase: action.phase, path: resolved.relative,
+        schema: document.schema, status: document.status,
+        bytesDigest: rawDigest(bytes), contentDigest: document.contentDigest ?? null,
+        classification: noisy ? 'infra-no-conclusion' : 'product-failure'
+    };
 }
 
 export function verifyLifecycleActionReceipt({

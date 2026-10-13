@@ -2,7 +2,6 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 CURRENT_TIER=backend-mutation-critical
-RunTier "$CURRENT_TIER" RunBackendMutationCriticalOnly
 
 # Release-final consumes a second, isolated Release mutation execution.  The
 # scheduler reruns the very same sealed critical authority scope in Release;
@@ -11,11 +10,19 @@ RunTier "$CURRENT_TIER" RunBackendMutationCriticalOnly
 if [[ "${FSUSBLOG_RELEASE_MUTATION_PARITY:-0}" == "1" ]]; then
     : "${FSUSBLOG_MUTATION_RELEASE_SUBSET_POLICY:?release mutation parity requires fixed subset policy path}"
     : "${FSUSBLOG_TEST_RUN_ID:?release mutation parity requires scheduler run id}"
+    : "${FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID:?release mutation requires current invocation}"
+    : "${FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH:?release mutation requires verified run identity}"
+    : "${FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST:?release mutation requires pinned run identity}"
     Run node "$ROOT_DIR/tools/test/run-release-mutation-parity-build.mjs" \
+        --produce-source \
         --authority "$ROOT_DIR/.tmp/mutation/backend-critical/authority.json" \
         --policy "$FSUSBLOG_MUTATION_RELEASE_SUBSET_POLICY" \
-        --output-root "$ROOT_DIR/.tmp/mutation/backend-critical/release-parity" \
-        --run-id "$FSUSBLOG_TEST_RUN_ID"
+        --receipt-output "$ROOT_DIR/.tmp/mutation/backend-critical/release-parity/$FSUSBLOG_TEST_RUN_ID/release-parity-receipt.json" \
+        --run-id "$FSUSBLOG_TEST_RUN_ID" \
+        --invocation-id "$FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID" \
+        --attempt-id "$FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID.attempt-1" \
+        --identity "$FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH" \
+        --identity-digest "$FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST"
     Run node "$ROOT_DIR/tools/test/run-release-mutation-parity.mjs" \
         --authority "$ROOT_DIR/.tmp/mutation/backend-critical/authority.json" \
         --release "$ROOT_DIR/.tmp/mutation/backend-critical/release-parity/$FSUSBLOG_TEST_RUN_ID/release-parity-receipt.json" \
@@ -79,4 +86,6 @@ const temporary = `${authorityFile}.next-${process.pid}-${randomUUID()}`;
 fs.writeFileSync(temporary, `${JSON.stringify(authority, null, 2)}\n`, 'utf8');
 fs.renameSync(temporary, authorityFile);
 NODE
+else
+    RunTier "$CURRENT_TIER" RunBackendMutationCriticalOnly
 fi

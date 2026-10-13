@@ -17,6 +17,8 @@ import { fileURLToPath } from 'node:url';
 const { createMinimalCorrectnessEnvironment, observeExecutableIdentity } =
     await import(new URL('../test/execution-envelope-environment.mjs', import.meta.url));
 
+const { verifyMutationAttemptRoot } = await import(new URL('../test/release-mutation-attempt-root.mjs', import.meta.url));
+
 const scriptPath = fileURLToPath(import.meta.url);
 const rootDir = resolve(dirname(scriptPath), '../..');
 const policyPath = resolve(rootDir, 'config/testing/mutation/stryker-tool.v1.json');
@@ -132,7 +134,6 @@ function readPolicy()
 function ensureArchive(policy)
 {
     const archivePath = resolve(rootDir, `.tmp/tools/downloads/stryker-net-${policy.upstreamCommit}.tar.gz`);
-    mkdirSync(dirname(archivePath), { recursive: true });
     if (!existsSync(archivePath))
     {
         fail('reviewed official archive must be provisioned before admitted execution; bootstrap never downloads');
@@ -229,17 +230,26 @@ export function validateStrykerToolBinding(binding, { repositoryRoot = rootDir, 
     {
         fail('current source/run/policy producer binding mismatch');
     }
+    const custodyRoot = binding.mutationAttempt ? binding.mutationAttempt.root : repositoryRoot;
+    if (binding.mutationAttempt)
+    {
+        verifyMutationAttemptRoot(binding.mutationAttempt, {
+            runId: binding.runId, invocationId: binding.mutationAttempt.invocationId,
+            attemptId: binding.mutationAttempt.attemptId, sourceState,
+            buildReceiptDigest: binding.mutationAttempt.immutableBuild.contentDigest
+        });
+    }
     for (const field of ['package', 'executable'])
     {
         const artifact = binding[field];
         if (!/^[0-9a-f]{64}$/u.test(artifact?.sha256 ?? '')
-            || sha256(readFileSync(artifactPath(repositoryRoot, artifact.path))) !== artifact.sha256)
+            || sha256(readFileSync(artifactPath(custodyRoot, artifact.path))) !== artifact.sha256)
         {
             fail(`${field} custody digest mismatch`);
         }
     }
     if (!binding.installedRoot || !Array.isArray(binding.installedFiles)
-        || JSON.stringify(installedFileInventory(artifactPath(repositoryRoot, binding.installedRoot, { directory: true }), repositoryRoot))
+        || JSON.stringify(installedFileInventory(artifactPath(custodyRoot, binding.installedRoot, { directory: true }), custodyRoot))
             !== JSON.stringify(binding.installedFiles))
     {
         fail('installed tool dependency closure differs from custody');
@@ -253,7 +263,7 @@ export function validateStrykerToolBinding(binding, { repositoryRoot = rootDir, 
     return binding;
 }
 
-function buildTool(outputPath)
+function buildTool(outputPath, mutationAttempt = null)
 {
     const identity = requireStrykerExecutionIdentity(process.env);
     const { policy, patchPath, expressionTreePatchPath } = readPolicy();
@@ -264,7 +274,11 @@ function buildTool(outputPath)
     {
         fail('canonical mutation environment owner is missing');
     }
-    const injectedEnvironment = { FSUSBLOG_MUTATION_BUILD: '1', DOTNET_ROLL_FORWARD: 'Major' };
+    const injectedEnvironment = { FSUSBLOG_MUTATION_BUILD: '1', DOTNET_ROLL_FORWARD: 'Major',
+        ...(mutationAttempt ? { FSUSBLOG_PRODUCTION_BUILD_ROOT: mutationAttempt.paths.build,
+            CustomAfterMicrosoftCommonTargets: mutationAttempt.sdkBoundary.path,
+            DOTNET_CLI_USE_MSBUILD_SERVER: '0', MSBUILDDISABLENODEREUSE: '1' } : {}) };
+    const custodyRoot = mutationAttempt?.root ?? rootDir;
     for (const name of ['HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'NUGET_PACKAGES', 'DOTNET_CLI_HOME',
         'FSUSBLOG_TOOL_CACHE', 'FSUSBLOG_TEST_RUN_ID', 'FSUSBLOG_TEST_SOURCE_COMMIT', 'FSUSBLOG_TEST_SOURCE_FINGERPRINT'])
     {
@@ -363,10 +377,11 @@ function buildTool(outputPath)
         policySha256: sha256(readFileSync(policyPath)),
         hostExecutable,
         environment: minimal.observation,
-        installedRoot: relative(rootDir, binDir).split(sep).join('/'),
-        installedFiles: installedFileInventory(binDir, rootDir),
-        package: { path: relative(rootDir, packagePath).split(sep).join('/'), sha256: sha256(readFileSync(packagePath)) },
-        executable: { path: relative(rootDir, executable).split(sep).join('/'), sha256: sha256(readFileSync(executable)) }
+        ...(mutationAttempt ? { mutationAttempt } : {}),
+        installedRoot: relative(custodyRoot, binDir).split(sep).join('/'),
+        installedFiles: installedFileInventory(binDir, custodyRoot),
+        package: { path: relative(custodyRoot, packagePath).split(sep).join('/'), sha256: sha256(readFileSync(packagePath)) },
+        executable: { path: relative(custodyRoot, executable).split(sep).join('/'), sha256: sha256(readFileSync(executable)) }
     };
     validateStrykerToolBinding(binding, { sourceState: identity.sourceState, runId: identity.runId });
     writeFileSync(outputPath, `${JSON.stringify(binding, null, 2)}\n`);
@@ -395,6 +410,35 @@ function main(args)
     const workingDirectory = args.shift();
     const attestationFlag = args.shift();
     const attestationOutput = args.shift();
+    let mutationAttempt = null;
+    let mutationStage = 'Release';
+    if (args[0] === '--root-receipt')
+    {
+        args.shift();
+        const receiptPath = args.shift();
+        mutationAttempt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+        const identity = requireStrykerExecutionIdentity(process.env);
+        verifyMutationAttemptRoot(mutationAttempt, {
+            ...identity, invocationId: mutationAttempt.invocationId, attemptId: mutationAttempt.attemptId,
+            buildReceiptDigest: mutationAttempt.immutableBuild.contentDigest
+        });
+        if (resolve(receiptPath) !== resolve(mutationAttempt.root, 'root-receipt.json')
+            || resolve(workingDirectory) !== resolve(rootDir, 'src/core')
+            || process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT !== mutationAttempt.paths.build
+            || process.env.TMPDIR !== mutationAttempt.paths.scratch)
+        {
+            fail('Release mutation custody is not bound to the exact attempt and production source');
+        }
+    }
+    if (mutationAttempt && args[0] === '--stage')
+    {
+        args.shift();
+        mutationStage = args.shift();
+        if (!['Debug', 'Release'].includes(mutationStage))
+        {
+            fail('mutation stage is not canonical');
+        }
+    }
     const separator = args.shift();
     if (workingDirectoryFlag !== '--working-directory' || !workingDirectory
         || attestationFlag !== '--attestation-output' || !attestationOutput || separator !== '--')
@@ -404,11 +448,13 @@ function main(args)
         return;
     }
     const outputPath = resolve(rootDir, attestationOutput);
-    if (!relative(rootDir, outputPath).split(sep).join('/').startsWith('.tmp/mutation/'))
+    if (mutationAttempt ? outputPath !== resolve(mutationAttempt.paths.physical,
+        ...(mutationStage === 'Debug' ? ['debug'] : []), 'tool-binding.json')
+        : !relative(rootDir, outputPath).split(sep).join('/').startsWith('.tmp/mutation/'))
     {
         fail('tool binding output must belong to the current mutation output owner');
     }
-    const { executable, binding, hostExecutable } = buildTool(outputPath);
+    const { executable, binding, hostExecutable } = buildTool(outputPath, mutationAttempt);
     const result = spawnSync(hostExecutable.realPath, [executable, ...args], {
         cwd: resolve(rootDir, workingDirectory),
         env: childEnvironment,

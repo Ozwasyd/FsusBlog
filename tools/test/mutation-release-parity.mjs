@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { verifyMutationRootTerminal } from './release-mutation-attempt-root.mjs';
+
 function digest(value)
 {
     return `sha256:${crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
@@ -128,6 +130,10 @@ export function releaseArtifactDigest(directory)
         for (const entry of fs.readdirSync(current, { withFileTypes: true }))
         {
             const file = path.join(current, entry.name);
+            if (entry.isSymbolicLink())
+            {
+                throw new Error('release artifact closure contains a filesystem alias');
+            }
             if (entry.isDirectory())
             {
                 visit(file);
@@ -135,6 +141,10 @@ export function releaseArtifactDigest(directory)
             else if (entry.isFile() && entry.name !== 'release-parity-receipt.json')
             {
                 files.push(path.relative(directory, file).replaceAll(path.sep, '/'));
+            }
+            else if (!entry.isDirectory() && !entry.isFile())
+            {
+                throw new Error('release artifact closure contains a nonregular filesystem entry');
             }
         }
     };
@@ -144,8 +154,20 @@ export function releaseArtifactDigest(directory)
     ).join('\n'));
 }
 
-export function verifyReleaseArtifactBinding(releaseParityResult, repositoryRoot = process.cwd())
+export async function verifyReleaseArtifactBinding(releaseParityResult, repositoryRoot = process.cwd())
 {
+    const owner = releaseParityResult.attemptRoot;
+    if (!owner || owner.forbiddenRoots?.[0] !== fs.realpathSync(repositoryRoot)
+        || releaseParityResult.artifact.root !== owner.root
+        || releaseParityResult.artifact.buildRoot !== owner.paths.build)
+    {
+        throw new Error('release artifact has no exact current-attempt root owner');
+    }
+    await verifyMutationRootTerminal(owner, {
+        runId: releaseParityResult.runId, invocationId: releaseParityResult.invocationId,
+        attemptId: releaseParityResult.attemptId, sourceState: releaseParityResult.sourceState,
+        buildReceiptDigest: owner.immutableBuild.contentDigest
+    }, releaseParityResult.terminal);
     const root = path.resolve(repositoryRoot, releaseParityResult.artifact.root);
     const assembly = path.resolve(repositoryRoot, releaseParityResult.artifact.assembly.path);
     const smokeEvidence = path.resolve(repositoryRoot, releaseParityResult.artifact.smoke.evidencePath);
@@ -282,8 +304,18 @@ export function validateMutationReleaseParity({ sourceMutationResult, releasePar
         || !releaseParityResult.artifact?.smoke?.evidenceDigest
         || !releaseParityResult.artifact?.smoke?.trxDigest
         || !Array.isArray(releaseParityResult.artifact?.smoke?.killedMutantIds)
-        || !artifactRoot.includes('.tmp/')
-        || !buildRoot.startsWith(artifactRoot)
+        || !path.isAbsolute(artifactRoot)
+        || !releaseParityResult.attemptRoot
+        || releaseParityResult.attemptRoot.schema !== 'fsusblog.release-mutation-attempt-root.v1'
+        || releaseParityResult.attemptRoot.root !== artifactRoot
+        || releaseParityResult.attemptRoot.paths?.build !== buildRoot
+        || buildRoot !== path.join(artifactRoot, 'build')
+        || releaseParityResult.attemptRoot.runId !== releaseParityResult.runId
+        || releaseParityResult.attemptRoot.invocationId !== releaseParityResult.invocationId
+        || releaseParityResult.attemptRoot.attemptId !== releaseParityResult.attemptId
+        || JSON.stringify(releaseParityResult.attemptRoot.sourceState) !== JSON.stringify(releaseParityResult.sourceState)
+        || !releaseParityResult.terminal?.fileDigest
+        || releaseParityResult.terminal.path !== path.join(artifactRoot, 'root-terminal.json')
         || /(^|\/)(bin|obj)\/(Debug|Release)(\/|$)/u.test(artifactRoot))
     {
         throw new Error('release parity must bind isolated artifact smoke and run-bound build root');

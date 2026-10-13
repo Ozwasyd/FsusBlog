@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
+import { createTerminalEvents } from './release-reliability-terminal.mjs';
+
 const {collectProductionToolchain, verifyProductionBuildReceipt} = await import(new URL('../ci/production-build-artifacts.mjs', import.meta.url));
 const {requireCleanAttemptConsumerAdmission} = await import(new URL('../release/browser-release-clean-attempt-consumers.mjs', import.meta.url));
 const {snapshotGitWorktree} = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
@@ -1245,13 +1247,21 @@ function scenarioReference(result)
 
 export function createTimeline({ invocationId, runId, scenarioResults, identityReference, createdAt })
 {
+    if (scenarioResults.some(result => result.invocationId !== invocationId
+        || result.runId !== runId
+        || JSON.stringify(result.identity) !== JSON.stringify(identityReference)
+        || result.contentDigest !== digestValue(result)))
+    {
+        throw new Error('terminal timeline current-run identity or sealed result digest mismatch');
+    }
     const references = scenarioResults.map(scenarioReference);
     references.sort((left, right) => left.scenarioId.localeCompare(right.scenarioId));
     return sealDocument({
         schema: 'fsusblog.release-reliability-timeline.v3',
         invocationId,
         runId,
-        status: scenarioResults.every((result) => result.status === 'passed') ? 'complete' : 'partial',
+        status: 'complete',
+        terminalEvents: createTerminalEvents(scenarioResults),
         identity: identityReference,
         createdAt,
         scenarioResults: references

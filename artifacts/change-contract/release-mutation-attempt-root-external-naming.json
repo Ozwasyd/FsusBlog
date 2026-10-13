@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/mutation/stryker-tool.mjs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/execution-envelope-network.mjs",
+                "tools/test/mutation-release-parity.mjs",
+                "tools/test/release-mutation-attempt-root.mjs",
+                "tools/test/release-reliability-lifecycle-actions.mjs",
+                "tools/test/release-reliability-lifecycle.mjs",
+                "tools/test/release-reliability-receipt.mjs",
+                "tools/test/release-reliability-terminal.mjs",
+                "tools/test/run-release-mutation-parity-build.mjs",
+                "tools/test/run-release-mutation-parity.mjs",
+                "tools/test/run-release-reliability-scenarios.mjs",
+                "tools/test/verify-release-reliability-lifecycle-action.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs"
+            ],
+            "reason": "Preserve the existing SDK, native enforcement and mutation caller environment keys while binding writes to the current attempt root."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve the exact NuGet-generated dependency schema from the supplied supporting lock correction."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/backend-mutation-critical.sh"
+            ],
+            "reason": "Preserve canonical lane process environment transports while explicitly binding the mutation attempt and immutable build identity."
+        }
+    ]
+}

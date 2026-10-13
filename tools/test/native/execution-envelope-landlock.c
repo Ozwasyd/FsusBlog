@@ -161,6 +161,7 @@ int main(int argc, char** argv)
         return 0;
     }
     int separator = -1;
+    int restrictedReads = 0;
     const char* tempSource = NULL;
     const char* tempDevice = NULL;
     const char* tempInode = NULL;
@@ -184,7 +185,12 @@ int main(int argc, char** argv)
             index += 7;
             continue;
         }
-        if ((strcmp(argv[index], "--writable") != 0 && strcmp(argv[index], "--writable-file") != 0)
+        if (strcmp(argv[index], "--readable") == 0 || strcmp(argv[index], "--readable-file") == 0)
+        {
+            restrictedReads = 1;
+        }
+        if ((strcmp(argv[index], "--writable") != 0 && strcmp(argv[index], "--writable-file") != 0
+             && strcmp(argv[index], "--readable") != 0 && strcmp(argv[index], "--readable-file") != 0)
             || index + 1 >= argc)
         {
             fputs("execution-envelope-landlock: invalid arguments\n", stderr);
@@ -223,7 +229,10 @@ int main(int argc, char** argv)
     {
         readAccess |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
     }
-    AllowPath(rulesetFd, "/", readAccess);
+    if (!restrictedReads)
+    {
+        AllowPath(rulesetFd, "/", readAccess);
+    }
     if (tempSource)
     {
         AllowOwnedTemporaryAlias(rulesetFd, tempSource, tempDevice, tempInode, tempUid, handledAccess);
@@ -240,7 +249,15 @@ int main(int argc, char** argv)
             continue;
         }
         uint64_t allowedAccess = handledAccess;
-        if (strcmp(argv[index], "--writable-file") == 0)
+        if (strcmp(argv[index], "--readable") == 0)
+        {
+            allowedAccess = readAccess;
+        }
+        else if (strcmp(argv[index], "--readable-file") == 0)
+        {
+            allowedAccess = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_EXECUTE;
+        }
+        else if (strcmp(argv[index], "--writable-file") == 0)
         {
             allowedAccess = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_WRITE_FILE;
             if (abi >= 5)
