@@ -284,6 +284,10 @@ enum class FrameType : std::uint16_t
     ThemeActivation = 250,
     ApiError = 251,
     ThemeActivationHistory = 252,
+    ArticleRevisionCompareRequest = 253,
+    ArticleRevisionCompareResponse = 254,
+    ArticleRevisionCompareDraftCoordinateRequest = 255,
+    ArticleRevisionCompareDraftCoordinateResponse = 256,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -553,6 +557,10 @@ enum class FrameType : std::uint16_t
         case FrameType::ThemeActivation:
         case FrameType::ApiError:
         case FrameType::ThemeActivationHistory:
+        case FrameType::ArticleRevisionCompareRequest:
+        case FrameType::ArticleRevisionCompareResponse:
+        case FrameType::ArticleRevisionCompareDraftCoordinateRequest:
+        case FrameType::ArticleRevisionCompareDraftCoordinateResponse:
             return true;
         default:
             return false;

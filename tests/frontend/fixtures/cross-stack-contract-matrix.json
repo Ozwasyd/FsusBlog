@@ -2247,6 +2247,22 @@
           "requestFrame": "IntegrityFixRequest",
           "responseFrame": "IntegrityFixResponse",
           "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/revisions/compare",
+          "requestFrame": "ArticleRevisionCompareRequest",
+          "responseFrame": "ArticleRevisionCompareResponse",
+          "frontendWrapper": "src/frontend/src/api/articleRevisionCompare.ts"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/revisions/compare/draft-coordinate",
+          "requestFrame": "ArticleRevisionCompareDraftCoordinateRequest",
+          "responseFrame": "ArticleRevisionCompareDraftCoordinateResponse",
+          "frontendWrapper": "src/frontend/src/api/articleRevisionCompare.ts"
         }
       ]
     },

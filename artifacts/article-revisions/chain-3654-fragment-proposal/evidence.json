@@ -1,0 +1,671 @@
+{
+  "schema": "fsusblog.chain-3654.fragment-proposal-source-handoff.v1",
+  "status": "SOURCE_WIP_NOT_ACCEPTED",
+  "sourceBase": "d1f8a4e95348039d9db4cbcefce57d406399dc21",
+  "sourceCommits": [
+    "fc949d97a9bdad49ceab55705c26c7ca0ebb3d41",
+    "24b351cee936e681a18016efe8925b334a547ce0"
+  ],
+  "observedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "pr3828Head": "d1f8a4e95348039d9db4cbcefce57d406399dc21",
+  "branch": "task/3654-revision-fragment-proposal",
+  "newSourcePaths": [
+    {
+      "path": "src/frontend/src/services/revisionFragmentProposal.ts",
+      "blob": "99199b5c286dc7be8b29ee4d4da4cb1980dbc811"
+    },
+    {
+      "path": "tests/frontend/unit/services/revisionFragmentProposal.test.ts",
+      "blob": "2959550796d99e69001e57428308ca3e42daf212"
+    }
+  ],
+  "otherWritersAtStart": "No other live agent/writer found; original PR3828 worktree clean and unchanged at d1f8a4e.",
+  "runtimeInterfaceReadOnlyReference": {
+    "pr": 4153,
+    "head": "8f3811352120d907fd4cd88eb465284ed2de415e",
+    "consumed": false,
+    "paths": [
+      {
+        "path": "src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts",
+        "blob": "5434967ea9d022614f3845eadeb1625ee36dd29b"
+      },
+      {
+        "path": "src/frontend/src/services/authoring/articleEditorContinuity.ts",
+        "blob": "15e7f9473d15127ed52e484d468232de2cf6cdd7"
+      }
+    ]
+  },
+  "downstreamInterface": "createRevisionFragmentProposal(presentation, selection, readCurrent, signal?) => Promise<RevisionFragmentProposal>",
+  "authorityPrecondition": "Presentation must be the already authorized original article compare read for selection.articleId. This module joins identities; it cannot derive fresh permission or package authority from a digest or source bytes.",
+  "executionMissing": [
+    "current permission recheck",
+    "historical package recheck including article association and deletion/revocation",
+    "current document/epoch/source revision/native selection and fragment recheck",
+    "actual host composition using canonical FsusUI transaction and position map",
+    "execution deduplication and action receipts",
+    "undo/redo, dirty/autosave/conflict, continuity and immutable rollback runtime verification"
+  ],
+  "checks": [
+    {
+      "argv": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "src/frontend/src/services/revisionFragmentProposal.ts",
+        "--file",
+        "tests/frontend/unit/services/revisionFragmentProposal.test.ts"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740357.9365685,
+      "endedUnix": 1791740361.1710918,
+      "runtimeCasesExecuted": false,
+      "result": "[frontend-style] ok files=1 eslint=1 stylelint=0 violations=0 new=0"
+    },
+    {
+      "argv": [
+        "node",
+        "/workspace/3654-revision-fragment-proposal-evidence/scoped-typecheck.cjs"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 1,
+      "startedUnix": 1791740361.1714447,
+      "endedUnix": 1791740363.2974687,
+      "runtimeCasesExecuted": false,
+      "result": "FAILED: 30 dependency diagnostics; zero diagnostics in the two new source files",
+      "summary": {
+        "schema": "fsusblog.chain-3654.scoped-typescript-source-check.v1",
+        "typesVersion": "6.0.3",
+        "rootFiles": [
+          "src/frontend/src/services/revisionFragmentProposal.ts",
+          "tests/frontend/unit/services/revisionFragmentProposal.test.ts"
+        ],
+        "noEmit": true,
+        "diagnostics": 30
+      },
+      "baselineDiagnosticsExactlyEqual": true,
+      "normalizedDiagnosticSHA256": "9af00048fc90d3d010c7db36ee4e999fbb8d5e6a1857371304ef092a63d94a54",
+      "baselineDependencyRootFiles": [
+        "src/frontend/src/services/revisionComparePresentation.ts",
+        "src/frontend/src/services/authoring/articleDocumentContext.ts"
+      ],
+      "diagnosticSourceFiles": [
+        {
+          "path": "src/frontend/src/adapters/binary/fontThemeAdminAdapter.ts",
+          "baselineBlob": "f625508ba348de59f88a964214b1341f9137fb51",
+          "sourceBlob": "f625508ba348de59f88a964214b1341f9137fb51",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/api/binaryApiClient.ts",
+          "baselineBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+          "sourceBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/fsusui/markdown.ts",
+          "baselineBlob": "531c81d4379f6273ff07282eaf46dc539afeb98b",
+          "sourceBlob": "531c81d4379f6273ff07282eaf46dc539afeb98b",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/fsusui/result.ts",
+          "baselineBlob": "86ef6c7b20cfc3d2708c6d06a782b6a02792b162",
+          "sourceBlob": "86ef6c7b20cfc3d2708c6d06a782b6a02792b162",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/public-renderers/publicRouteRegistry.ts",
+          "baselineBlob": "058aab3f0a3bb30f1319dc4b76a9497531562452",
+          "sourceBlob": "058aab3f0a3bb30f1319dc4b76a9497531562452",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+          "baselineBlob": "734104e53f9efa1dc4342277bfd6e5e9e6794c04",
+          "sourceBlob": "734104e53f9efa1dc4342277bfd6e5e9e6794c04",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+          "baselineBlob": "ff768260127e37fae43f5f5e7703e0acaca3a236",
+          "sourceBlob": "ff768260127e37fae43f5f5e7703e0acaca3a236",
+          "unchanged": true
+        },
+        {
+          "path": "src/frontend/src/services/binaryTransport.ts",
+          "baselineBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+          "sourceBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+          "unchanged": true
+        }
+      ],
+      "newModuleDiagnostics": 0,
+      "newUnitSourceDiagnostics": 0,
+      "dependencyDiagnosticCounts": {
+        "src/frontend/src/adapters/binary/fontThemeAdminAdapter.ts": 2,
+        "src/frontend/src/api/binaryApiClient.ts": 1,
+        "src/frontend/src/fsusui/markdown.ts": 5,
+        "src/frontend/src/fsusui/result.ts": 1,
+        "src/frontend/src/public-renderers/publicRouteRegistry.ts": 11,
+        "src/frontend/src/services/authoring/articleDocumentContext.ts": 6,
+        "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts": 1,
+        "src/frontend/src/services/binaryTransport.ts": 3
+      }
+    },
+    {
+      "argv": [
+        "node",
+        "tools/governance/check-revision-compare-authority.mjs"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740363.297864,
+      "endedUnix": 1791740363.54714,
+      "runtimeCasesExecuted": false,
+      "result": "[revision-compare-authority] ok"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "d1f8a4e95348039d9db4cbcefce57d406399dc21..HEAD"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740363.5475159,
+      "endedUnix": 1791740364.6694672,
+      "runtimeCasesExecuted": false,
+      "result": "[change-contract] ok commit-range=d1f8a4e95348039d9db4cbcefce57d406399dc21..HEAD"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "d1f8a4e95348039d9db4cbcefce57d406399dc21..HEAD"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 0,
+      "startedUnix": 1791740364.6697075,
+      "endedUnix": 1791740364.6729238,
+      "runtimeCasesExecuted": false,
+      "result": "PASS"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+      "exitCode": 1,
+      "startedUnix": 1791740364.6730638,
+      "endedUnix": 1791740459.1821978,
+      "runtimeCasesExecuted": false,
+      "result": "FAILED before matrix parse completed; runtime cases not started",
+      "rejections": [
+        "execution target authority: independent release-final Node parser identity drifted",
+        "execution target authority owner, content, or dependency closure drifted: expected sha256:204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a; got sha256:48ce477b4d4a716774734eca3bbe255208f326f8d495500c89ec4b61977d8e88"
+      ]
+    }
+  ],
+  "typescriptRecipe": {
+    "compiler": "src/frontend/node_modules/typescript (6.0.3)",
+    "config": "src/frontend/tsconfig.app.json",
+    "rootFiles": [
+      "src/frontend/src/services/revisionFragmentProposal.ts",
+      "tests/frontend/unit/services/revisionFragmentProposal.test.ts",
+      "src/frontend/src/vite-env.d.ts",
+      "src/frontend/node_modules/vite/client.d.ts"
+    ],
+    "optionOverrides": {
+      "noEmit": true,
+      "composite": false,
+      "incremental": false,
+      "types": [],
+      "paths.vitest": "src/frontend/node_modules/vitest"
+    },
+    "exitPolicy": "Every config/program diagnostic causes exit 1; no filtered green result."
+  },
+  "lifecyclePrecheck": {
+    "defaultSystemManagerProbe": {
+      "argv": [
+        "systemctl",
+        "is-system-running"
+      ],
+      "exitCode": 1,
+      "output": "offline",
+      "classification": "environment-state hint, not proof that a user manager is unavailable and not a blanket ban on pure unit tests"
+    },
+    "originalCanonicalCliManagedPath": {
+      "guardSource": [
+        "tools/run-test-matrix.mjs:4539 runProductionBuildLifecycle",
+        "tools/run-test-matrix.mjs:4565 registerManagedProcess",
+        "tools/test-matrix/scheduler.mjs:6572 durableContainment Boolean(registerManagedProcess)",
+        "tools/test-matrix/scheduler.mjs:1514 durableSubprocessSpec (Linux systemd-run --user, KillMode=control-group)"
+      ],
+      "systemManagerOfflineIsNotTheGuard": true,
+      "managedLifecycleExecuted": false
+    },
+    "userManagerReadOnlyProbe": {
+      "argv": [
+        "systemctl",
+        "--user",
+        "show",
+        "--property=Version",
+        "--value"
+      ],
+      "exitCode": 1,
+      "stderr": "Failed to connect to user scope bus via local transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)",
+      "qualification": "Only a read-only bus probe; not an actual canonical lifecycle startup/cleanup receipt"
+    },
+    "ordinaryNpmDebugEntryHasSystemctlPreGuard": false,
+    "currentFirstBlocker": "Original preflight failed matrix parsing before tests/behavior-doc admission/scheduler or managed lifecycle started. No gate is changed and no original entry is executed to bypass it.",
+    "noGlobalPureUnitBanInferred": true,
+    "runtimeUnitCasesExecuted": 0
+  },
+  "originalTestEntry": "./tools/test.sh frontend-unit-shard",
+  "originalPhysicalCommand": "tools/test/lanes/frontend-unit-shard.sh",
+  "originalVitestScript": "src/frontend/package.json:test:unit:fast",
+  "unitSource": "tests/frontend/unit/services/revisionFragmentProposal.test.ts",
+  "unitExecution": "NOT RUN; original matrix/lifecycle admission has not passed",
+  "newRuntimeWriter": false,
+  "inspectorOrRuntimeChanged": false,
+  "permissionOrExecutionReceiptGranted": false,
+  "historyChanged": false,
+  "historicalPassInherited": false,
+  "all15IssueAcceptances": "OPEN",
+  "draftReviewScope": "New source increment is d1f8a4e..24b351ce; a master-targeted draft inherits 93 existing PR3828 paths. Do not treat inherited diff or WIP source as runtime acceptance.",
+  "ordinaryProposalUnits": {
+    "schema": "fsusblog.chain-3654.proposal-static-unit-roster.v1",
+    "sourceFile": "tests/frontend/unit/services/revisionFragmentProposal.test.ts",
+    "typescriptVersion": "6.0.3",
+    "parseDiagnostics": 0,
+    "declarationCount": 15,
+    "caseCount": 31,
+    "ordinaryCount": 11,
+    "parameterizedCount": 20,
+    "forLoopsNotAdditionalCases": true,
+    "runtimeDiscovery": false,
+    "cases": [
+      {
+        "name": "preserves BOM, CRLF, CJK, emoji, trailing bytes and backward native selection without executing",
+        "template": "preserves BOM, CRLF, CJK, emoji, trailing bytes and backward native selection without executing",
+        "data": null
+      },
+      {
+        "name": "uses an exact UTF-8 subrange of the original hunk without HTML conversion",
+        "template": "uses an exact UTF-8 subrange of the original hunk without HTML conversion",
+        "data": null
+      },
+      {
+        "name": "rejects mismatched planDigest instead of matching similar text",
+        "template": "rejects mismatched %s instead of matching similar text",
+        "data": "planDigest"
+      },
+      {
+        "name": "rejects mismatched basePackageDigest instead of matching similar text",
+        "template": "rejects mismatched %s instead of matching similar text",
+        "data": "basePackageDigest"
+      },
+      {
+        "name": "rejects mismatched comparePackageDigest instead of matching similar text",
+        "template": "rejects mismatched %s instead of matching similar text",
+        "data": "comparePackageDigest"
+      },
+      {
+        "name": "rejects mismatched sourceIdentity instead of matching similar text",
+        "template": "rejects mismatched %s instead of matching similar text",
+        "data": "sourceIdentity"
+      },
+      {
+        "name": "rejects mismatched sourceDigest instead of matching similar text",
+        "template": "rejects mismatched %s instead of matching similar text",
+        "data": "sourceDigest"
+      },
+      {
+        "name": "rejects mismatched packageDigest instead of matching similar text",
+        "template": "rejects mismatched %s instead of matching similar text",
+        "data": "packageDigest"
+      },
+      {
+        "name": "rejects mismatched chunkDigest instead of matching similar text",
+        "template": "rejects mismatched %s instead of matching similar text",
+        "data": "chunkDigest"
+      },
+      {
+        "name": "rejects another article, invalid action ID and invalid current context",
+        "template": "rejects another article, invalid action ID and invalid current context",
+        "data": null
+      },
+      {
+        "name": "rejects document drift during hashing: {\"documentId\":\"document:other\"}",
+        "template": "rejects document drift during hashing: %j",
+        "data": {
+          "documentId": "document:other"
+        }
+      },
+      {
+        "name": "rejects document drift during hashing: {\"documentEpoch\":4}",
+        "template": "rejects document drift during hashing: %j",
+        "data": {
+          "documentEpoch": 4
+        }
+      },
+      {
+        "name": "rejects document drift during hashing: {\"sourceRevision\":8}",
+        "template": "rejects document drift during hashing: %j",
+        "data": {
+          "sourceRevision": 8
+        }
+      },
+      {
+        "name": "rejects document drift during hashing: {\"content\":\"edited\"}",
+        "template": "rejects document drift during hashing: %j",
+        "data": {
+          "content": "edited"
+        }
+      },
+      {
+        "name": "rejects document drift during hashing: {\"editorSessionId\":\"session:other\"}",
+        "template": "rejects document drift during hashing: %j",
+        "data": {
+          "editorSessionId": "session:other"
+        }
+      },
+      {
+        "name": "rejects document drift during hashing: {\"siteScope\":\"site:other\"}",
+        "template": "rejects document drift during hashing: %j",
+        "data": {
+          "siteScope": "site:other"
+        }
+      },
+      {
+        "name": "rejects document drift during hashing: {\"userScope\":\"user:other\"}",
+        "template": "rejects document drift during hashing: %j",
+        "data": {
+          "userScope": "user:other"
+        }
+      },
+      {
+        "name": "rejects actual selection or direction drift: {\"start\":4,\"end\":5,\"direction\":\"backward\"}",
+        "template": "rejects actual selection or direction drift: %j",
+        "data": {
+          "start": 4,
+          "end": 5,
+          "direction": "backward"
+        }
+      },
+      {
+        "name": "rejects actual selection or direction drift: {\"start\":3,\"end\":5,\"direction\":\"forward\"}",
+        "template": "rejects actual selection or direction drift: %j",
+        "data": {
+          "start": 3,
+          "end": 5,
+          "direction": "forward"
+        }
+      },
+      {
+        "name": "rejects mutable package, bytes and action request drift while hashing",
+        "template": "rejects mutable package, bytes and action request drift while hashing",
+        "data": null
+      },
+      {
+        "name": "rejects ranges outside the chosen hunk, empty ranges and absent or ambiguous hunks",
+        "template": "rejects ranges outside the chosen hunk, empty ranges and absent or ambiguous hunks",
+        "data": null
+      },
+      {
+        "name": "rejects unchanged context hunks and current/live packages as historical fragments",
+        "template": "rejects unchanged context hunks and current/live packages as historical fragments",
+        "data": null
+      },
+      {
+        "name": "can select the base side only when it is an exact historical package",
+        "template": "can select the base side only when it is an exact historical package",
+        "data": null
+      },
+      {
+        "name": "rejects partial UTF-8 or invalid range {\"offset\":1,\"length\":2,\"end\":3}",
+        "template": "rejects partial UTF-8 or invalid range %j",
+        "data": {
+          "offset": 1,
+          "length": 2,
+          "end": 3
+        }
+      },
+      {
+        "name": "rejects partial UTF-8 or invalid range {\"offset\":0,\"length\":1,\"end\":1}",
+        "template": "rejects partial UTF-8 or invalid range %j",
+        "data": {
+          "offset": 0,
+          "length": 1,
+          "end": 1
+        }
+      },
+      {
+        "name": "rejects partial UTF-8 or invalid range {\"offset\":3,\"length\":3,\"end\":6}",
+        "template": "rejects partial UTF-8 or invalid range %j",
+        "data": {
+          "offset": 3,
+          "length": 3,
+          "end": 6
+        }
+      },
+      {
+        "name": "rejects partial UTF-8 or invalid range {\"offset\":0,\"length\":3,\"end\":4}",
+        "template": "rejects partial UTF-8 or invalid range %j",
+        "data": {
+          "offset": 0,
+          "length": 3,
+          "end": 4
+        }
+      },
+      {
+        "name": "rejects malformed full source even when the selected fragment is valid",
+        "template": "rejects malformed full source even when the selected fragment is valid",
+        "data": null
+      },
+      {
+        "name": "rejects byte, count and plan receipt drift without accepting stale fragments",
+        "template": "rejects byte, count and plan receipt drift without accepting stale fragments",
+        "data": null
+      },
+      {
+        "name": "repeated action preparation is deterministic and does not mutate the presentation or current document",
+        "template": "repeated action preparation is deterministic and does not mutate the presentation or current document",
+        "data": null
+      },
+      {
+        "name": "cancels before preparation and during final native capture without producing a proposal",
+        "template": "cancels before preparation and during final native capture without producing a proposal",
+        "data": null
+      }
+    ],
+    "sourceCommit": "24b351cee936e681a18016efe8925b334a547ce0",
+    "sourceBlob": "2959550796d99e69001e57428308ca3e42daf212"
+  },
+  "entryConfigurationAndImports": {
+    "canonicalPublicShellEntry": "./tools/test.sh frontend-unit-shard",
+    "canonicalCliExpansion": "node tools/run-test-matrix.mjs run frontend-unit-shard",
+    "physicalLane": "tools/test/lanes/frontend-unit-shard.sh",
+    "existingOrdinaryDebugScript": "npm run test:unit:fast",
+    "existingDebugFileSelection": "npm run test:unit:fast -- ../../tests/frontend/unit/services/revisionFragmentProposal.test.ts (cwd src/frontend; NOT RUN)",
+    "debugScriptExpansion": "npm run check:public-page-manifest-sync && npm run test:html-sink-ast && vitest run --config vitest.config.ts",
+    "config": "src/frontend/vitest.config.ts",
+    "runtimeOptions": "src/frontend/vitest.shared.mjs:createVitestRuntimeOptions(unit)",
+    "configuredEnvironment": "node",
+    "unitFileEnvironmentOverride": false,
+    "include": "../../tests/frontend/unit/**/*.test.ts",
+    "setup": "tests/frontend/support/unit/setup.ts",
+    "setupImports": [
+      "node:fs.appendFileSync",
+      "happy-dom.Window",
+      "vitest.afterAll/afterEach/beforeAll/beforeEach/vi",
+      "@wasm/protocol/frame.FrameType",
+      "./animationFrameEnvironment.createUnitAnimationFrameEnvironment"
+    ],
+    "setupBeforeAllActualImports": [
+      "@/locales/localeDomains",
+      "@/locales"
+    ],
+    "setupExistingMocks": [
+      "@wasm/aeds",
+      "@wasm/pow",
+      "@wasm/search"
+    ],
+    "unitRuntimeImports": [
+      "vitest.describe/expect/it",
+      "@/services/authoring/articleDocumentContext.createArticleDocumentContext",
+      "@/services/revisionFragmentProposal.createRevisionFragmentProposal",
+      "@/services/revisionComparePresentation.materializeRevisionSourcePresentation/revisionSourceDigest"
+    ],
+    "unitTypeOnlyImports": [
+      "@/api/articleRevisionCompare.ArticleRevisionCompareResponse",
+      "@/services/revisionFragmentProposal.RevisionFragmentCurrentSnapshot/RevisionFragmentSelection"
+    ],
+    "proposalRuntimeClosure": [
+      "@/services/authoring/articleDocumentContext.validateArticleDocumentContext",
+      "@/services/authoring/openArticleDocumentRegistry.calculateOpenArticleDocumentDigest",
+      "@/services/revisionComparePresentation.readRevisionSourceRange/revisionSourceDigest",
+      "@noble/hashes/sha2.js",
+      "@noble/hashes/utils.js",
+      "globalThis.crypto.subtle.digest"
+    ],
+    "importQualification": "Source inspection only. Type-only API imports do not execute authoring transport. Original setup dynamically loads its locale graph; setup and configuration are not removed or substituted."
+  },
+  "scopeAccounting": {
+    "sourceBase": "d1f8a4e95348039d9db4cbcefce57d406399dc21",
+    "masterObserved": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "masterMergeBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "ownedIncrementPaths": [
+      "artifacts/article-revisions/chain-3654-fragment-proposal/README.md",
+      "artifacts/article-revisions/chain-3654-fragment-proposal/evidence.json",
+      "src/frontend/src/services/revisionFragmentProposal.ts",
+      "tests/frontend/unit/services/revisionFragmentProposal.test.ts"
+    ],
+    "inheritedPathCount": 93,
+    "inheritedPaths": [
+      "artifacts/change-contract/current-correctness-inventory-generated-binding.json",
+      "artifacts/change-contract/shared-governance-external-naming.json",
+      "benchmarks/core/packages.lock.json",
+      "config/schemas/media-shape-catalog.schema.json",
+      "config/testing/content-field-contracts.generated.json",
+      "config/testing/correctness-attempt-producers.json",
+      "docs/api/article-publication-revisions.md",
+      "docs/testing.md",
+      "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+      "src/backend/Infrastructure/Results/AedsJsonResults.cs",
+      "src/backend/Models/Dtos/ArticleRevisionCompareDtos.cs",
+      "src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs",
+      "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+      "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs",
+      "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+      "src/backend/Services/Authoring/AuthoringRevisionCompareService.cs",
+      "src/backend/Services/Authoring/RevisionMetadataDiffEngine.cs",
+      "src/backend/Services/Authoring/RevisionMetadataDiffModels.cs",
+      "src/backend/Services/Authoring/RevisionMetadataDiffRepresentativeVerifier.cs",
+      "src/backend/Services/Authoring/RevisionMetadataSnapshotProjection.cs",
+      "src/core/Algorithms/AedsFrameType.cs",
+      "src/core/Services/Articles/RevisionCompareContract.cs",
+      "src/core/Services/Articles/RevisionCompareMetadataRegistry.cs",
+      "src/core/Services/Articles/RevisionComparePlanner.cs",
+      "src/frontend/src/api/articleRevisionCompare.ts",
+      "src/frontend/src/components/admin/article/ArticleRevisionMetadataDiffView.vue",
+      "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
+      "src/frontend/src/components/admin/article/ArticleRevisionSourceDiffView.vue",
+      "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "src/frontend/src/composables/useArticleRevisionCompare.ts",
+      "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "src/frontend/src/services/revisionComparePresentation.ts",
+      "src/frontend/src/views/admin/article/Write.vue",
+      "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "src/frontend/wasm/web/protocol/frame.ts",
+      "src/migration/FsusBlog.Migration.csproj",
+      "src/migration/packages.lock.json",
+      "src/shared/AedsFrameHeader.cs",
+      "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "src/shared/Contracts/Validation/aeds-protocol.json",
+      "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "tests/backend/Fixtures/aeds-golden-catalog.json",
+      "tests/backend/Unit/AedsJsonOutputBudgetTests.cs",
+      "tests/backend/Unit/ArticleRevisionCompareTransportTests.cs",
+      "tests/backend/Unit/AuthorFullTextSearchContractsTests.cs",
+      "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "tests/backend/Unit/AuthoringRevisionComparePackageReaderTests.cs",
+      "tests/backend/Unit/AuthoringRevisionCompareServiceTests.cs",
+      "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "tests/backend/Unit/RevisionComparePlannerPackageTests.cs",
+      "tests/backend/Unit/RevisionComparePlannerTests.cs",
+      "tests/backend/Unit/RevisionMetadataDiffEngineTests.cs",
+      "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "tests/backend/packages.lock.json",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+      "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+      "tests/frontend/unit/api/articleRevisionCompare.test.ts",
+      "tests/frontend/unit/components/admin/ArticleRevisionMetadataDiffView.test.ts",
+      "tests/frontend/unit/components/admin/ArticleRevisionPanel.test.ts",
+      "tests/frontend/unit/components/admin/ArticleRevisionSourceDiffView.test.ts",
+      "tests/frontend/unit/composables/useArticleRevisionCompare.test.ts",
+      "tests/governance/test-lifecycle-registry.json",
+      "tests/matrix.yml",
+      "tests/migration/packages.lock.json",
+      "tests/test-retention-replacements.json",
+      "tests/tools/aeds-protocol-generation.test.mjs",
+      "tests/tools/canonical-article-lifecycle-authority.test.mjs",
+      "tests/tools/correctness-attempt-migration.test.mjs",
+      "tests/tools/data-scale-legacy-writes.test.mjs",
+      "tests/tools/fixture-mutation-recovery-governance.test.mjs",
+      "tests/tools/media-positive-generator.test.mjs",
+      "tests/tools/media-shape-catalog.test.mjs",
+      "tests/tools/temporal-shape-catalog.test.mjs",
+      "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "tools/governance/check-canonical-article-lifecycle-authority.mjs",
+      "tools/governance/check-data-scale-legacy-writes.mjs",
+      "tools/governance/check-fixture-mutation-recovery-governance.mjs",
+      "tools/test-fixtures/media-codec-verifier.mjs",
+      "tools/test-fixtures/media-codec-verifier.py",
+      "tools/test-fixtures/media-positive-generator.mjs",
+      "tools/test-fixtures/media-shape-catalog.mjs",
+      "tools/test/check-temporal-shape-governance.mjs",
+      "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "masterDraftPathCountBeforeThisDocsCorrection": 97,
+    "sourceDelta": "d1f8a4e95348039d9db4cbcefce57d406399dc21..24b351cee936e681a18016efe8925b334a547ce0",
+    "supplierRuntimeCommitConsumed": false,
+    "writerRuntimeInspectorChangedByIncrement": false,
+    "executionIssueOwnership": [
+      3654,
+      2175,
+      2690,
+      2691,
+      2268,
+      2270,
+      2271,
+      2273,
+      2275,
+      2277,
+      2543,
+      2544
+    ],
+    "trackingOnlyOwnership": [
+      2176,
+      1724,
+      1811
+    ],
+    "allAcceptances": "OPEN"
+  }
+}

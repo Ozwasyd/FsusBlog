@@ -10,10 +10,14 @@ import {
     stableMediaStringify,
     validateMediaShapeCatalog
 } from './media-shape-catalog.mjs';
+import { verifyDecodedMediaBytes } from './media-codec-verifier.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const generatorVersion = 'fsusblog.deterministic-media-generator.v1';
-const jpegTemplate = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAH/AP/EABQQAQAAAAAAAAAAAAAAAAAAABD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8BP//EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQIBAT8BP//EABQQAQAAAAAAAAAAAAAAAAAAABD/2gAIAQEABj8Cf//Z', 'base64');
+const jpegFixtures = Object.freeze({
+    landscape: '/9j/4AAQSkZJRgABAQAAAQABAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAIAAwDAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD54+FfwK/1P+j+navJpY/zOHJuINtT6n8O/Ar/AIlUX+j/AKV6UcfpufseF4g/dL3j/9k=',
+    portrait: '/9j/4AAQSkZJRgABAQAAAQABAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAGAAgDAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD5r+Ffwjsv3PKdu1eZSxkjDJs5q6H/2Q==',
+});
 const sourceFiles = Object.freeze({
     'webp-landscape': path.join(root, 'src/frontend/public/social/x-card.webp'),
     'webp-square': path.join(root, 'src/frontend/public/social/social-square.webp')
@@ -23,7 +27,7 @@ function expectedGeneratorSource(shape)
 {
     if (shape.format === 'jpeg')
     {
-        return 'pinned-baseline-jpeg-template-v1';
+        return 'pinned-synthetic-jpeg-pillow-12.3.0-v1';
     }
     if (shape.format === 'png')
     {
@@ -176,40 +180,15 @@ function jpegSegments(bytes)
     return segments;
 }
 
-function exifOrientationSegment(orientation)
-{
-    const payload = Buffer.alloc(32);
-    payload.write('Exif\0\0', 0, 'binary');
-    payload.write('II', 6, 'ascii');
-    payload.writeUInt16LE(42, 8);
-    payload.writeUInt32LE(8, 10);
-    payload.writeUInt16LE(1, 14);
-    payload.writeUInt16LE(0x0112, 16);
-    payload.writeUInt16LE(3, 18);
-    payload.writeUInt32LE(1, 20);
-    payload.writeUInt16LE(orientation, 24);
-    payload.writeUInt32LE(0, 28);
-    const segment = Buffer.alloc(payload.length + 4);
-    segment[0] = 0xff;
-    segment[1] = 0xe1;
-    segment.writeUInt16BE(payload.length + 2, 2);
-    payload.copy(segment, 4);
-    return segment;
-}
-
 function generateJpeg(width, height, orientation)
 {
-    const bytes = Buffer.from(jpegTemplate);
-    const sof = jpegSegments(bytes).find((item) => item.marker >= 0xc0 && item.marker <= 0xc3);
-    if (!sof)
+    const key = width === 12 && height === 8 && orientation === 1 ? 'landscape'
+        : width === 8 && height === 6 && orientation === 6 ? 'portrait' : null;
+    if (!key)
     {
-        throw new Error('JPEG baseline template lacks SOF');
+        throw new Error('JPEG shape does not match a pinned synthetic fixture');
     }
-    bytes.writeUInt16BE(height, sof.dataOffset + 1);
-    bytes.writeUInt16BE(width, sof.dataOffset + 3);
-    return orientation === 1
-        ? bytes
-        : Buffer.concat([bytes.subarray(0, 2), exifOrientationSegment(orientation), bytes.subarray(2)]);
+    return Buffer.from(jpegFixtures[key], 'base64');
 }
 
 function generateSvg(width, height)
@@ -273,7 +252,35 @@ function readJpeg(bytes)
     const exif = segments.find((item) => item.marker === 0xe1 && bytes.subarray(item.dataOffset, item.dataOffset + 6).toString('binary') === 'Exif\0\0');
     if (exif)
     {
-        orientation = bytes.readUInt16LE(exif.dataOffset + 24);
+        const tiff = bytes.subarray(exif.dataOffset + 6, exif.dataOffset + exif.length);
+        const endian = tiff.subarray(0, 2).toString('ascii');
+        if (tiff.length < 8 || !['II', 'MM'].includes(endian))
+        {
+            throw new Error('JPEG EXIF byte order is invalid');
+        }
+        const short = (offset) => endian === 'II' ? tiff.readUInt16LE(offset) : tiff.readUInt16BE(offset);
+        const long = (offset) => endian === 'II' ? tiff.readUInt32LE(offset) : tiff.readUInt32BE(offset);
+        const directory = long(4);
+        if (short(2) !== 42 || directory + 2 > tiff.length)
+        {
+            throw new Error('JPEG EXIF directory is invalid');
+        }
+        const entries = short(directory);
+        if (entries > 64 || directory + 2 + entries * 12 > tiff.length)
+        {
+            throw new Error('JPEG EXIF directory is truncated or over budget');
+        }
+        for (let entry = directory + 2; entry < directory + 2 + entries * 12; entry += 12)
+        {
+            if (short(entry) === 0x0112)
+            {
+                if (short(entry + 2) !== 3 || long(entry + 4) !== 1)
+                {
+                    throw new Error('JPEG EXIF orientation type is invalid');
+                }
+                orientation = short(entry + 8);
+            }
+        }
     }
     return { width: bytes.readUInt16BE(sof.dataOffset + 3), height: bytes.readUInt16BE(sof.dataOffset + 1), alpha: false, orientation };
 }
@@ -341,6 +348,10 @@ export function inspectMediaBytes(bytes, declaration)
     {
         throw new Error('media bytes must be non-empty');
     }
+    if (bytes.length > 4 * 1024 * 1024)
+    {
+        throw new Error('media encoded byte budget exceeded');
+    }
     let facts;
     switch (declaration.format)
     {
@@ -360,8 +371,24 @@ export function inspectMediaBytes(bytes, declaration)
     {
         throw new Error('media MIME or extension does not match decoded format');
     }
+    if (facts.width > 8192 || facts.height > 8192 || facts.width * facts.height > 2_000_000)
+    {
+        throw new Error('media decoded dimensions budget exceeded');
+    }
     const byteDigest = sha256(bytes);
-    const decodedDigest = sha256(stableMediaStringify({ format: declaration.format, ...facts, byteDigest }));
+    if (declaration.format !== 'svg')
+    {
+        const decoded = verifyDecodedMediaBytes(bytes);
+        if (['format', 'width', 'height', 'alpha', 'orientation'].some((key) =>
+            decoded[key] !== (key === 'format' ? declaration.format : facts[key])))
+        {
+            throw new Error('media decoded facts disagree with independent codec');
+        }
+        facts = { ...facts, codec: decoded.codec, pixelDigest: decoded.pixelDigest,
+            orientedPixelDigest: decoded.orientedPixelDigest };
+    }
+    const decodedDigest = sha256(stableMediaStringify({ format: declaration.format, ...facts,
+        ...(declaration.format === 'svg' ? { byteDigest } : {}) }));
     return Object.freeze({ format: declaration.format, mime: declaration.mime, extension: declaration.extension, ...facts, byteDigest, byteLength: bytes.length, decodedDigest });
 }
 
@@ -371,6 +398,11 @@ export function generatePositiveMediaBytes(shape, catalog = loadMediaShapeCatalo
     if (errors.length)
     {
         throw new Error(errors.join('\n'));
+    }
+    const authoritativeShape = catalog.shapes.find((item) => item.id === shape.id);
+    if (!authoritativeShape || stableMediaStringify(shape) !== stableMediaStringify(authoritativeShape))
+    {
+        throw new Error('positive generator requires the exact current catalog shape');
     }
     if (shape.validityClass !== 'canonical-positive')
     {
@@ -428,7 +460,7 @@ export function materializePositiveMedia({ store, catalog = loadMediaShapeCatalo
         throw new Error('media positive replica count must be between 0 and 1000');
     }
     const selected = shapeIds.map((id) => catalog.shapes.find((item) => item.id === id));
-    if (selected.some((item) => !item))
+    if (selected.some((item) => !item) || new Set(shapeIds).size !== shapeIds.length)
     {
         throw new Error('media positive shape selection contains an unknown ID');
     }
@@ -443,6 +475,8 @@ export function materializePositiveMedia({ store, catalog = loadMediaShapeCatalo
             {
                 receipts.push(sealReceipt({
                     schema: 'fsusblog.media-positive-no-cover-receipt.v1',
+                    catalogDigest: catalog.contentDigest,
+                    shapeDigest: shape.contentDigest,
                     shapeId: shape.id,
                     validityClass: 'canonical-positive',
                     verificationStatus: 'verified',
@@ -454,8 +488,14 @@ export function materializePositiveMedia({ store, catalog = loadMediaShapeCatalo
                 continue;
             }
             const record = store.materialize({ shapeId: shape.id, extension: shape.extension, bytes: generated.bytes, metadata: generated.facts, ordinal });
+            if (stableMediaStringify(record.metadata) !== stableMediaStringify(generated.facts))
+            {
+                throw new Error('canonical media asset metadata does not match verified codec facts');
+            }
             receipts.push(sealReceipt({
                 schema: 'fsusblog.media-positive-asset-receipt.v1',
+                catalogDigest: catalog.contentDigest,
+                shapeDigest: shape.contentDigest,
                 validityClass: 'canonical-positive',
                 verificationStatus: 'verified',
                 materializationOwner: 'canonical-media-positive-generator',
@@ -472,6 +512,9 @@ export function materializePositiveMedia({ store, catalog = loadMediaShapeCatalo
                 byteDigest: generated.facts.byteDigest,
                 byteLength: generated.facts.byteLength,
                 decodedDigest: generated.facts.decodedDigest,
+                decoder: generated.facts.codec ?? { semantic: 'safe-svg-source-v1' },
+                pixelDigest: generated.facts.pixelDigest ?? null,
+                orientedPixelDigest: generated.facts.orientedPixelDigest ?? null,
                 mediaContentDigest: sha256(stableMediaStringify({ shapeId: shape.id, facts: generated.facts, generator: generated.sourceId })),
                 status: record.status
             }));
@@ -483,6 +526,12 @@ export function materializePositiveMedia({ store, catalog = loadMediaShapeCatalo
 export function verifyPositiveMediaReceipts({ receipts, store, catalog = loadMediaShapeCatalog() })
 {
     const errors = [];
+    let records;
+    const catalogErrors = validateMediaShapeCatalog(catalog);
+    if (catalogErrors.length)
+    {
+        return catalogErrors;
+    }
     for (const receipt of receipts)
     {
         if (receipt.contentDigest !== mediaContentDigest(receipt))
@@ -496,12 +545,19 @@ export function verifyPositiveMediaReceipts({ receipts, store, catalog = loadMed
             errors.push(`positive receipt references unknown shape ${receipt.shapeId}`);
             continue;
         }
+        if (receipt.catalogDigest !== catalog.contentDigest || receipt.shapeDigest !== shape.contentDigest)
+        {
+            errors.push(`positive receipt ${shape.id} catalog or shape identity is stale`);
+        }
         if (shape.id === 'no-cover')
         {
             if (receipt.schema !== 'fsusblog.media-positive-no-cover-receipt.v1'
         || receipt.assetId !== null
         || receipt.storageRef !== null
-        || receipt.explicitNoCover !== true)
+        || receipt.explicitNoCover !== true
+        || receipt.validityClass !== 'canonical-positive'
+        || receipt.verificationStatus !== 'verified'
+        || receipt.mediaContentDigest !== sha256(stableMediaStringify({ shapeId: shape.id, explicitNoCover: true })))
             {
                 errors.push('no-cover receipt created an asset or default image');
             }
@@ -524,6 +580,12 @@ export function verifyPositiveMediaReceipts({ receipts, store, catalog = loadMed
             }
             const bytes = store.read({ assetId: receipt.assetId, storageKey: receipt.storageRef?.storageKey, byteDigest: receipt.byteDigest });
             const facts = inspectMediaBytes(bytes, shape);
+            if (stableMediaStringify(receipt.decoder) !== stableMediaStringify(facts.codec ?? { semantic: 'safe-svg-source-v1' })
+                || receipt.pixelDigest !== (facts.pixelDigest ?? null)
+                || receipt.orientedPixelDigest !== (facts.orientedPixelDigest ?? null))
+            {
+                errors.push(`positive receipt ${shape.id} decoder or pixel identity is invalid`);
+            }
             for (const key of ['format', 'mime', 'extension', 'orientation', 'alpha', 'byteDigest', 'byteLength', 'decodedDigest'])
             {
                 if (receipt[key] !== facts[key])
@@ -547,7 +609,8 @@ export function verifyPositiveMediaReceipts({ receipts, store, catalog = loadMed
             {
                 errors.push(`positive receipt ${shape.id} media content identity is invalid`);
             }
-            const record = store.receipt().records.find((item) => item.assetId === receipt.assetId);
+            records ??= new Map(store.receipt().records.map((item) => [item.assetId, item]));
+            const record = records.get(receipt.assetId);
             if (!record
         || record.shapeId !== shape.id
         || record.storageKey !== receipt.storageRef?.storageKey
@@ -569,10 +632,25 @@ export function verifyPositiveMediaReceipts({ receipts, store, catalog = loadMed
 
 export function scanPositiveMediaGeneratorGovernance({
     source = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'),
+    codecSource = fs.readFileSync(new URL('./media-codec-verifier.mjs', import.meta.url), 'utf8'),
+    codecPythonSource = fs.readFileSync(new URL('./media-codec-verifier.py', import.meta.url), 'utf8'),
     additionalSources = []
 } = {})
 {
     const errors = [];
+    if (!source.includes('verifyDecodedMediaBytes(bytes)'))
+    {
+        errors.push('canonical-generator: real independent decoded pixels are required');
+    }
+    if (!codecSource.includes("spawnSync('python3', [verifierFile]")
+        || !codecSource.includes('timeout: 5000') || !codecSource.includes('maxBuffer: 8192')
+        || !codecSource.includes("pillow: '12.3.0'")
+        || !codecPythonSource.includes('"pillow": "12.3.0"')
+        || !codecPythonSource.includes('image.load()')
+        || !codecPythonSource.includes('width * height > 2_000_000'))
+    {
+        errors.push('canonical-codec: fixed decoder identity and byte/time/pixel bounds are required');
+    }
     const sources = [
         ['canonical-generator', source.replace(/export function scanPositiveMediaGeneratorGovernance[\s\S]*$/u, '')],
         ...additionalSources
@@ -602,6 +680,10 @@ export function scanPositiveMediaGeneratorGovernance({
         if (/\bfunction\s+(?:generateMedia|createAssetGenerator)\b/u.test(inspected))
         {
             errors.push(`${name}: media generator cannot define a second asset generator`);
+        }
+        if (name !== 'canonical-generator' && /\bfunction\s+verifyDecodedMediaBytes\b/u.test(inspected))
+        {
+            errors.push(`${name}: media generator cannot define a second codec verifier`);
         }
     }
     return errors;

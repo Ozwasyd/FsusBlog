@@ -15,6 +15,59 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthoringRevisionComparePackageReaderTests
 {
     [Fact]
+    public async Task ReadAuthorizedAsync_RejectsSameArticleDraftKeySubstitutionBeforeContextAdmission()
+    {
+        ServerDraftResponse substituted = Draft(7, 3, "client-write-3") with
+        {
+            DraftKey = "different-draft"
+        };
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>()).Returns(substituted);
+        IAuthoringRevisionCompareDraftContextProvider contextProvider = DraftContextProvider();
+        var selector = new RevisionCompareSourceSelector(RevisionCompareSourceKind.CurrentDraft,
+            DraftKey: "draft-key", ExpectedServerRevision: 3, DocumentEpoch: "document-epoch-3");
+
+        RevisionComparePackageReadResult result = await Reader(authority, contextProvider)
+            .ReadAuthorizedAsync(Context(), 7, selector);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Unavailable, result.Status);
+        Assert.Null(result.Package);
+        await contextProvider.DidNotReceiveWithAnyArgs().ReadAsync(default!, default);
+
+        IAuthoringDraftLifecycle authoring = Substitute.For<IAuthoringDraftLifecycle>();
+        authoring.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>()).Returns(substituted);
+        string substitutedEpoch = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(Context(), 7, substituted);
+        AuthoringRevisionCompareDraftContextResult context = await new AuthoringRevisionCompareDraftContextProvider(authoring)
+            .ReadAsync(new AuthoringRevisionCompareDraftContextRequest(Context(), 7, "draft-key", 3,
+                substitutedEpoch, RightsPayloadDigest(substituted)), default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Unavailable, context.Status);
+        Assert.Null(context.Context);
+    }
+
+    [Theory]
+    [InlineData("12")]
+    [InlineData("011")]
+    [InlineData("not-a-revision")]
+    public async Task ReadAuthorizedAsync_RejectsSameArticleRevisionIdentitySubstitution(string returnedId)
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>())
+            .Returns(Revision(articleId: 7) with
+            {
+                Id = returnedId
+            });
+
+        RevisionComparePackageReadResult result = await Reader(authority)
+            .ReadAuthorizedAsync(Context(), 7, HistoricalSelector());
+
+        Assert.Equal(RevisionComparePackageReadStatus.Invalid, result.Status);
+        Assert.Null(result.Package);
+        Assert.Equal("revision_compare_source_invalid", result.ReasonCode);
+        await authority.DidNotReceiveWithAnyArgs().GetCurrentRevisionIdAsync(default, default);
+    }
+
+    [Fact]
     public void RuntimeDomainRegistrations_ResolveRevisionComparePlanningServices()
     {
         var services = new ServiceCollection();

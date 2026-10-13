@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const mediaShapeCatalogFile = path.join(root, 'config/testing/media-shape-catalog.json');
 export const mediaShapeCatalogSchemaFile = path.join(root, 'config/schemas/media-shape-catalog.schema.json');
@@ -45,6 +47,7 @@ const expectedFaults = Object.freeze([
     'path-safety',
     'payload-completeness'
 ]);
+let cachedValidation = null;
 
 export function stableMediaStringify(value)
 {
@@ -121,7 +124,7 @@ function validateFormat(shape, formats, errors)
     {
         errors.push(`shape ${shape.id} MIME does not match format authority`);
     }
-    if (!declarationMismatch && !format.extensions.includes(shape.extension))
+    if (!declarationMismatch && !format.extensions?.includes(shape.extension))
     {
         errors.push(`shape ${shape.id} extension does not match format authority`);
     }
@@ -136,10 +139,38 @@ export function validateMediaShapeCatalog(
     schema = JSON.parse(fs.readFileSync(mediaShapeCatalogSchemaFile, 'utf8'))
 )
 {
+    let validationKey;
+    try
+    {
+        validationKey = stableMediaStringify({ catalog, schema });
+    }
+    catch
+    {
+        return ['media shape catalog structure cannot be serialized'];
+    }
+    if (cachedValidation?.key === validationKey)
+    {
+        return [...cachedValidation.errors];
+    }
     const errors = [];
     if (schema.$id !== 'fsusblog.media-shape-catalog.v1' || schema.additionalProperties !== false)
     {
         errors.push('media shape schema must be closed and versioned');
+    }
+    try
+    {
+        errors.push(...validateJsonSchema(catalog, schema).map((error) => `media shape catalog schema: ${error}`));
+    }
+    catch (error)
+    {
+        return [...errors, `media shape catalog schema cannot be validated: ${error.message}`];
+    }
+    if (!catalog || typeof catalog !== 'object'
+        || !['formats', 'aspects', 'shapes'].every((key) => Array.isArray(catalog[key])
+            && catalog[key].every((item) => item && typeof item === 'object'))
+        || !catalog.shapes.every((shape) => Array.isArray(shape.consumerClasses)))
+    {
+        return errors.length ? errors : ['media shape catalog structure is invalid'];
     }
     if (catalog.schema !== 'fsusblog.media-shape-catalog.v1' || catalog.owner !== 'media-shape-catalog')
     {
@@ -175,6 +206,11 @@ export function validateMediaShapeCatalog(
         if (!Number.isInteger(aspect.width) || !Number.isInteger(aspect.height) || aspect.width < 1 || aspect.height < 1 || aspect.centerSafe !== true || typeof aspect.cropExpectation !== 'string')
         {
             errors.push(`aspect ${aspect.id} contract is invalid`);
+        }
+        if (aspect.id !== `${aspect.width}x${aspect.height}`
+            || aspect.cropExpectation !== (aspect.width < aspect.height ? 'portrait-center-safe' : 'center-safe'))
+        {
+            errors.push(`aspect ${aspect.id} geometry does not match its identity or crop expectation`);
         }
     }
     if (JSON.stringify(catalog.consumerClasses) !== JSON.stringify(MEDIA_CONSUMER_CLASSES))
@@ -243,15 +279,32 @@ export function validateMediaShapeCatalog(
             }
             else
             {
+                if (!['success', 'success-bounded', 'success-safe-vector'].includes(shape.expectedDecode)
+                    || shape.expectedFallback !== 'none' || Object.hasOwn(shape, 'sourceShapeId'))
+                {
+                    errors.push(`positive shape ${shape.id} decode/fallback authority is invalid`);
+                }
                 if (!Number.isInteger(shape.width) || !Number.isInteger(shape.height) || shape.width < 1 || shape.height < 1)
                 {
                     errors.push(`positive shape ${shape.id} dimensions are invalid`);
+                }
+                const orientedWidth = [6, 8].includes(shape.orientation) ? shape.height : shape.width;
+                const orientedHeight = [6, 8].includes(shape.orientation) ? shape.width : shape.height;
+                const aspect = aspects.get(shape.aspectClass);
+                if (!aspect || orientedWidth * aspect.height !== orientedHeight * aspect.width
+                    || shape.expectedCrop !== aspect.cropExpectation)
+                {
+                    errors.push(`positive shape ${shape.id} aspect or crop geometry is invalid`);
+                }
+                if (shape.width > 8192 || shape.height > 8192 || shape.width * shape.height > 2_000_000)
+                {
+                    errors.push(`positive shape ${shape.id} exceeds bounded dimensions`);
                 }
                 if (typeof shape.alpha !== 'boolean' || ![1, 3, 6, 8].includes(shape.orientation))
                 {
                     errors.push(`positive shape ${shape.id} alpha or orientation is invalid`);
                 }
-                if (shape.assetIdentityRequired !== true || !String(shape.byteDigestRef).startsWith(`generated:${shape.id}:`) || !String(shape.decodedDigestRef).startsWith(`generated:${shape.id}:`))
+                if (shape.assetIdentityRequired !== true || shape.byteDigestRef !== `generated:${shape.id}:bytes` || shape.decodedDigestRef !== `generated:${shape.id}:decoded`)
                 {
                     errors.push(`positive shape ${shape.id} lacks AssetId-compatible generator refs`);
                 }
@@ -267,6 +320,19 @@ export function validateMediaShapeCatalog(
             if (!MEDIA_POSITIVE_SHAPE_IDS.includes(shape.sourceShapeId))
             {
                 errors.push(`negative shape ${shape.id} source is not canonical positive`);
+            }
+            const source = byId.get(shape.sourceShapeId);
+            const allowedChanges = shape.faultCondition === 'declaration-consistency' ? ['mime', 'extension']
+                : shape.faultCondition === 'dimensions-admission' ? ['width', 'height', 'aspectClass']
+                    : shape.faultCondition === 'format-support' ? ['format', 'mime', 'extension'] : [];
+            const facts = ['format', 'mime', 'extension', 'width', 'height', 'aspectClass', 'alpha', 'orientation'];
+            const changed = source ? facts.filter((key) => shape[key] !== source[key]) : [];
+            if (!source || source.id === 'no-cover' || source.validityClass !== 'canonical-positive'
+                || changed.some((key) => !allowedChanges.includes(key))
+                || (shape.faultCondition === 'declaration-consistency' && changed.length !== 1)
+                || (shape.faultCondition === 'dimensions-admission' && shape.width <= 8192 && shape.height <= 8192))
+            {
+                errors.push(`negative shape ${shape.id} violates single-fault source facts`);
             }
             if (shape.assetIdentityRequired !== false || shape.decodedDigestRef !== null || shape.consumerClasses.length !== 1 || shape.consumerClasses[0] !== 'fallback')
             {
@@ -310,6 +376,7 @@ export function validateMediaShapeCatalog(
     {
         errors.push('positive matrix lacks WebP landscape and square');
     }
+    cachedValidation = { key: validationKey, errors: [...errors] };
     return errors;
 }
 

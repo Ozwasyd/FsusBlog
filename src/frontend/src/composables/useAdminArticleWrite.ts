@@ -739,43 +739,7 @@ export function useAdminArticleWrite()
             canonicalValid: baseUrl !== null
         };
     });
-    const revisionCompareText = computed(() =>
-    {
-        const revision = selectedRevision.value;
-        if (!revision)
-        {
-            return '选择一个历史版本后，可查看它与当前表单的差异摘要。';
-        }
-
-        const changes: string[] = [];
-        if (revision.title !== articleForm.title)
-        {
-            changes.push('标题不同');
-        }
-        if ((revision.summary ?? '') !== articleForm.summary)
-        {
-            changes.push('摘要不同');
-        }
-        if ((revision.coverImageUrl ?? '') !== articleForm.coverImageUrl)
-        {
-            changes.push('头图不同');
-        }
-        if (revision.categoryId !== (articleForm.categoryId ?? 0))
-        {
-            changes.push('分类不同');
-        }
-        if (revision.tagIds.join(',') !== articleForm.tagIds.join(','))
-        {
-            changes.push('标签不同');
-        }
-        if (revision.content !== articleForm.content)
-        {
-            const delta = revision.content.length - articleForm.content.length;
-            changes.push(`正文长度 ${delta >= 0 ? '+' : ''}${delta}`);
-        }
-
-        return changes.length > 0 ? changes.join('，') : '当前表单与该历史版本一致。';
-    });
+    const revisionCompareText = computed(() => '选择精确来源后查看服务端验证的修订差异。');
 
     const rules = {
         title: [{ required: true, message: '博文标题是必填项', trigger: 'blur' }],
@@ -3099,6 +3063,8 @@ export function useAdminArticleWrite()
         revisionRollbacking,
         revisionStatusText,
         revisionCompareText,
+        draftKey,
+        serverDraftRevision,
         privatePreview,
         privatePreviewLoading,
         privatePreviewStatusText,
