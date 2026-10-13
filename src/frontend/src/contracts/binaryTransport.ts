@@ -52,6 +52,50 @@ export interface BinaryTransportRequest {
     privateScope?: PrivateRequestScope;
 }
 
+/** Request-local custody only; shared dependencies are never cancellation authority. */
+export interface BinaryTransportResources {
+    execution: 'running' | 'ended';
+    lease: 'not-opened' | 'held' | 'released' | 'cleanup-failed';
+    callerAbortListener: boolean;
+    cancellationRequested: boolean;
+    queuedDecodes: number;
+    pendingDecodes: number;
+    decodeTimeouts: number;
+    decodeAbortListeners: number;
+    abortRaceTimers: number;
+    workerTerminal: 'not-used' | 'pending' | 'observed' | 'unknown';
+    sharedWorker: boolean;
+    sharedWorkerIdleTimer: boolean;
+    sharedWorkerCleanupPending: boolean;
+    /** The network producer exposes only its public waiter result, including deduped reads. */
+    networkTerminal: 'unavailable';
+    sharedWasmInitialization: 'unavailable';
+}
+
+/** Raw local causes stay on the owning handle; they are not telemetry or remote receipts. */
+export interface BinaryTransportLocalFailure {
+    stage: 'request' | 'decode' | 'worker' | 'cancel' | 'cleanup';
+    firstCause: unknown;
+    cause: unknown;
+    occurrences: number;
+}
+
+export interface BinaryTransportTerminal {
+    local: 'observed' | 'unknown';
+    resources: Readonly<BinaryTransportResources>;
+    failures: readonly Readonly<BinaryTransportLocalFailure>[];
+}
+
+/** Public result and producer-observed local terminal are deliberately distinct. */
+export interface BinaryTransportOperation<T> {
+    readonly result: Promise<T>;
+    readonly terminal: Promise<Readonly<BinaryTransportTerminal>>;
+    /** Requests cancellation of this request only. It does not acknowledge terminal cleanup. */
+    cancel(reason?: unknown): void;
+    inspectResources(): Readonly<BinaryTransportResources>;
+    inspectFailures(): readonly Readonly<BinaryTransportLocalFailure>[];
+}
+
 export type TransportFailureKind =
   | 'binary_disabled'
   | 'auth_failed'
@@ -133,3 +177,15 @@ export interface DecodeWorkerResponse {
     workerTransferMs?: number;
     diagnostics?: import('@wasm/aeds').AedsRuntimeDiagnostics;
 }
+
+/** Sent only after the original decode handler has removed its request-local custody. */
+export interface DecodeWorkerTerminal {
+    v: typeof binaryDecodeWorkerProtocolVersion;
+    type: 'terminal';
+    requestId: number;
+    outcome: 'completed' | 'canceled' | 'failed';
+    errorCode?: DecodeErrorCode;
+    error?: string;
+}
+
+export type BinaryWorkerResponse = DecodeWorkerResponse | DecodeWorkerTerminal;
