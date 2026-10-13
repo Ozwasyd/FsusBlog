@@ -11,6 +11,12 @@
             aria-live="polite"
             aria-atomic="true"
         >{{ statusText }}</p>
+        <p
+            v-if="canDropAtHead"
+            class="article-pin-list__head-drop"
+            @dragover.prevent
+            @drop.prevent="dropAfter(null)"
+        >{{ copy.headDropLabel }}</p>
         <ol
             v-if="page"
             :aria-label="copy.orderLabel"
@@ -125,6 +131,15 @@ const busy = computed(() => props.actionState === 'pending' || !page.value);
 const focusedPinId = shallowRef<string | null>(null);
 const buttons = new Map<string, HTMLButtonElement>();
 const drag = shallowRef<(ArticlePinDisplayBinding & { pinId: string; }) | null>(null);
+const canDropAtHead = computed(() =>
+{
+    const current = page.value;
+    const captured = drag.value;
+    return !busy.value && current !== null && current.startsAtHead && captured !== null
+        && captured.collectionRevision === current.collectionRevision && captured.pageDigest === current.pageDigest
+        && current.items[0]?.pinId !== captured.pinId
+        && createArticlePinMoveIntent(current, captured.pinId, null) !== null;
+});
 const statusText = computed(() =>
 {
     const copy = props.copy;
@@ -284,8 +299,8 @@ function startDrag(event: DragEvent, pinId: string): void
     event.dataTransfer?.setData('text/plain', pinId);
 }
 
-/** Drag supports visible after-anchors only; head/null remains a keyboard/menu operation. */
-function dropAfter(afterPinId: string): void
+/** Head and visible row drops use the same closed after-anchor intent as keyboard/menu. */
+function dropAfter(afterPinId: string | null): void
 {
     const captured = drag.value;
     drag.value = null;
@@ -294,7 +309,8 @@ function dropAfter(afterPinId: string): void
     {
         return;
     }
-    if (captured.collectionRevision !== current.collectionRevision || captured.pageDigest !== current.pageDigest)
+    if (captured.collectionRevision !== current.collectionRevision || captured.pageDigest !== current.pageDigest
+        || (afterPinId === null && current.startsAtHead && current.items[0]?.pinId === captured.pinId))
     {
         return;
     }
@@ -349,6 +365,13 @@ defineExpose({ restoreFocus, getFocusIdentity: () => focusedPinId.value });
 
 .article-pin-list__status
  {
+    color: var(--fsusblog-text-muted);
+}
+
+.article-pin-list__head-drop
+ {
+    margin: 0;
+    padding-block: 0.25rem;
     color: var(--fsusblog-text-muted);
 }
 

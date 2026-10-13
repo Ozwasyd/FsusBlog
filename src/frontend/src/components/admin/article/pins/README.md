@@ -80,11 +80,26 @@ no global drag observers or unbounded per-collection listeners.
 Touch uses the same menu. OpenEligible is a server display hint, not authority:
 the leaf only emits an intent and creates no route/tab/session.
 
-The drag operation set is deliberately limited to after-anchors visible on this
-page. It has no head/null drop target; keyboard/menu can request head only when
-the actual head-page predecessor is known. Sharing the intent builder does not
-establish full drag/head equivalence. Full gesture parity remains unimplemented
-integration/acceptance work and is not claimed by this source candidate.
+Drag has one head/null drop target outside the ordered article rows, before the
+list. It appears only during a local drag from the same revision/page digest,
+on an actual `startsAtHead` page, with an admitted moving row other than the
+existing head. It emits through the original `createArticlePinMoveIntent` just
+like keyboard/menu movement of the second row to head; that original builder
+still requires `startsAtHead` for every null anchor. A visible first row on a
+later page never becomes a global-head target. Existing row drops still use
+their visible non-null after-anchors. No authoritative list, cursor or focused
+pin identity is changed locally. The new required `headDropLabel` is already
+localized copy supplied by the original host, not a new locale key or fallback.
+
+The finite source follow-up on `6f9c72040c0908916671beac69ac7cdc720d060c`
+adds this previously missing drag/head operation; it does not activate transport
+or establish rendered gesture/a11y acceptance. Static counterexample walks:
+on a true head page, dragging row two to this target and keyboard/menu previous
+for row two both reach the original null-anchor builder; later-page input is
+refused by that builder and has no target; pending, stale/conflict, a replaced
+revision/digest or a missing moving row cannot emit; dropping the existing head
+on null is refused. The target is at most one extra paragraph, not an article
+row or a collection-sized observer. All cases remain runtime/test UNRUN.
 
 All Button, status and ARIA copy now comes from required `ArticlePinCopy` strings
 already localized by the original composition through its genuine typed i18n.
