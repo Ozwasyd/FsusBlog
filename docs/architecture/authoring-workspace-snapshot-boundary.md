@@ -2026,3 +2026,45 @@ increments remain conditionally bounded-source accepted on that dependency. No
 donor evidence/authority artifacts, validator, aliases or complete-resource/ready
 guards are changed. All execution HOLD/UNRUN and independent physical alias
 UNVERIFIED remain.
+
+
+## Main Exact Withdrawal Confirmation Consumer
+
+The separate Main consumer captures entry.nativeTransition and the same original
+entry.lease inside the existing attempt-all SDK cleanup duty. It first calls the
+unchanged original cancel. Only a false response consults the actual new SDK
+hasWithdrawnAttachmentRevisionTransition(originalToken, sameLease) proof, or its
+sameLease overload if a genuine reserve never returned the token. Positive exact
+proof and unchanged private binding permit clearing only nativeSdkCleanupPending
+and that old token. Unknown/foreign/copied/mismatched/rearmed or pre-association
+acquisition returns no permission; false or missing holder alone is insufficient.
+Original cancellation throws bypass the query and remain raw failures.
+
+This is a single original-owner cleanup branch. Cohort cleanup, required original
+lease cancellation, lifecycle validation/history, File/controller duties, native
+end and producer future/settlement still run or remain held exactly as before.
+The withdrawal marker never grants currentness, producer stopped, paused, full
+resources or ready. Dependency source acceptance is not consumer P2 closure; the
+composed fixed successor requires original Main review, all cases below UNRUN.
+
+Three original static counterexamples:
+
+1. Peer publication maps a real after-context anchor while started envelope stays
+   original. The inherited private continuation retains that anchor; this consumer
+   does not touch snapshot/history/validator. task/anchor history equality remains
+   lawful and ordinary currentness unchanged.
+2. Non-applying cohort peer cleanup fails. The inherited original finish path
+   retains the same pending entry and retry; transition proof clears no cohort,
+   File/controller, native end or producer duty. No new snapshot/job/lease exists.
+3. Complete roster enters genuine SDK cohort reserve, then throws; SDK successfully
+   withdraws the actual original transition and deletes its old token. Main's
+   unchanged cancel returns false, exact SDK pair proof true now discharges that
+   transition duty. If transition token never escaped, only an actually recorded
+   same-lease pair confirms. Pre-call roster failure still creates no cohort debt;
+   failed actual withdrawal or reserve before association capture remains false
+   and held. Same-handle retry continues real remaining duties independently.
+
+These are source walkthroughs, not execution or qualification evidence. Original
+full CLI/config preflight remains unchanged; runtime/tests/import/collection/list/
+discovery/native/browser/security/privacy/receipt/race/backuprestore/IME and all
+qualifications stay HOLD/UNRUN. Physical alias remains independently UNVERIFIED.

@@ -47,7 +47,7 @@
         "DocBlob": "adb0ca27c62fa20f971d581c61bc35b6730c09f1",
         "sourceReview": "Bounded source accepted per parent; exact Doc source consumed in separate dependency intake; Main cohort activation remains separate"
     },
-    "consumer": "Original4301 retained: history and cohort-peer cleanup source repairs accepted per parent; entered-reserve transition false-cancel P2 remains pending actual new SDK proof consumption",
+    "consumer": "Actual Main original cancel-false branch consumes exact SDK original token/same-lease withdrawal pair (original lease overload if token unescaped); all independent debt and original history/currentness preserved; composed Main P2 review pending",
     "runtime": "ALL HOLD/UNRUN; no product imports/evaluation/build/publication/authority refresh",
     "mainReviewDependencies": {
         "4298": "dcc88f7ad1defbc2ae77df5136eb8ae1c1a28913 has three original-review P2s; not accepted",
@@ -59,6 +59,6 @@
         "PR": 4302,
         "productionCommit": "0c98ff6b3b61d8726190e937d5aba46a6296be25",
         "DocBlob": "6c0fb4579b5577c6bb1d0c15221d9bd1004952ef",
-        "sourceReview": "Bounded source accepted per parent; exact owner source intake; Main consumer remains a separate checkpoint"
+        "sourceReview": "Bounded source accepted per parent; exact owner source intake followed by separate real Main consumer commit"
     }
 }
