@@ -75,12 +75,17 @@ export function authoringWorkspaceSnapshotStatusModel(sync: AuthoringWorkspaceSn
 }
 export class AuthoringWorkspaceSnapshotResetController
 {
+    private readonly api: AuthoringWorkspaceSnapshotApi;
+    private readonly sync: AuthoringWorkspaceSnapshotSync;
     private confirmation: {
         revision: number;
         digest: string;
     } | null = null;
-    public constructor(private readonly api: AuthoringWorkspaceSnapshotApi, private readonly sync: AuthoringWorkspaceSnapshotSync)
-    { }
+    public constructor(api: AuthoringWorkspaceSnapshotApi, sync: AuthoringWorkspaceSnapshotSync)
+    {
+        this.api = api;
+        this.sync = sync;
+    }
     public request(): {
         prompt: string;
         returnFocus: 'workspace';

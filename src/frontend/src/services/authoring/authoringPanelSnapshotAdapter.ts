@@ -83,16 +83,24 @@ function capture(value: unknown, now: number): Readonly<AuthoringPanelSnapshotBi
  */
 export class AuthoringPanelSnapshotBindingAdapter
 {
+    private readonly snapshots: Pick<AuthoringWorkspaceSnapshotSync, 'getServerObservation' | 'subscribe'>;
+    private readonly tabs: Pick<ArticleWorkspaceTabRouter, 'getRegistry' | 'getActiveTab' | 'subscribe'>;
+    private readonly admission: AuthoringPanelReadAdmission;
+    private readonly now: () => number;
     private held: HeldSession | null = null;
     private generation = 0;
     private visible = true;
     private disposed = false;
     private readonly unsubscribe: readonly (() => void)[];
 
-    public constructor(private readonly snapshots: Pick<AuthoringWorkspaceSnapshotSync, 'getServerObservation' | 'subscribe'>,
-        private readonly tabs: Pick<ArticleWorkspaceTabRouter, 'getRegistry' | 'getActiveTab' | 'subscribe'>,
-        private readonly admission: AuthoringPanelReadAdmission, private readonly now: () => number = Date.now)
+    public constructor(snapshots: Pick<AuthoringWorkspaceSnapshotSync, 'getServerObservation' | 'subscribe'>,
+        tabs: Pick<ArticleWorkspaceTabRouter, 'getRegistry' | 'getActiveTab' | 'subscribe'>,
+        admission: AuthoringPanelReadAdmission, now: () => number = Date.now)
     {
+        this.snapshots = snapshots;
+        this.tabs = tabs;
+        this.admission = admission;
+        this.now = now;
         if (!admission || typeof admission.isCurrent !== 'function')
         {
             throw new Error('authoring_panel_read_admission_required');

@@ -36,6 +36,10 @@ const emptyState = (): ArticleGraphSessionState => Object.freeze({ request: null
 /** The only graph state owner. Closing/invalidation erases facts and aborts outstanding query/navigation work. */
 export class ArticleGraphSession
 {
+    private readonly host: ArticleGraphQueryHost;
+    private readonly navigation: (ArticleGraphNavigationHost) | undefined;
+    private readonly changed: ((state: ArticleGraphSessionState) => void) | undefined;
+    private readonly layoutRunner: ArticleGraphLayoutRunner;
     private stateValue = emptyState();
     private generation = 0;
     private controller: AbortController | null = null;
@@ -44,12 +48,17 @@ export class ArticleGraphSession
     private layoutGeneration = 0;
 
     public constructor(
-        private readonly host: ArticleGraphQueryHost = unavailableArticleGraphHost,
-        private readonly navigation?: ArticleGraphNavigationHost,
-        private readonly changed?: (state: ArticleGraphSessionState) => void,
-        private readonly layoutRunner: ArticleGraphLayoutRunner = runArticleGraphLayoutTask
+        host: ArticleGraphQueryHost = unavailableArticleGraphHost,
+        navigation?: ArticleGraphNavigationHost,
+        changed?: (state: ArticleGraphSessionState) => void,
+        layoutRunner: ArticleGraphLayoutRunner = runArticleGraphLayoutTask
     )
-    {}
+    {
+        this.host = host;
+        this.navigation = navigation;
+        this.changed = changed;
+        this.layoutRunner = layoutRunner;
+    }
 
     public get state(): ArticleGraphSessionState
     {

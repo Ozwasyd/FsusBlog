@@ -1,0 +1,152 @@
+{
+    "base": "33d479e2abe66afc470c6f242a96bd63b4929e81",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "parameterProperties": 14,
+    "records": [
+        {
+            "path": "src/frontend/src/services/authoring/articleGraphSession.ts",
+            "preimage": "a23d272aa79023be3a1f4c8d1097a4ecba8eb31f",
+            "postimage": "712a11855b09fa2a9c0640b56aeec69bd6cb3044",
+            "classes": [
+                {
+                    "name": "ArticleGraphSession",
+                    "parameterProperties": [
+                        "host",
+                        "navigation",
+                        "changed",
+                        "layoutRunner"
+                    ],
+                    "originalAssignmentOrder": [
+                        "host",
+                        "navigation",
+                        "changed",
+                        "layoutRunner"
+                    ],
+                    "preservesOriginalDefaults": true
+                }
+            ],
+            "completeOriginalOptionsEmitByteIdentical": true,
+            "emitSHA256": "fdfda8540ba145a29b5149a1bd300a78e617608821e64c7f778e003fa83f1b2c"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringPanelSnapshotAdapter.ts",
+            "preimage": "9497100194f126b7bae8a70eb2a8252431b50537",
+            "postimage": "2f2b4e6689292b88de6623d046003225f935e89f",
+            "classes": [
+                {
+                    "name": "AuthoringPanelSnapshotBindingAdapter",
+                    "parameterProperties": [
+                        "snapshots",
+                        "tabs",
+                        "admission",
+                        "now"
+                    ],
+                    "originalAssignmentOrder": [
+                        "snapshots",
+                        "tabs",
+                        "admission",
+                        "now"
+                    ],
+                    "preservesOriginalDefaults": true
+                }
+            ],
+            "completeOriginalOptionsEmitByteIdentical": true,
+            "emitSHA256": "762b53eb07e72fe6ee1932b3da488d8d85ab30d20228ece99bbdfc569c0dd6a8"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotCache.ts",
+            "preimage": "99e1391a1c32bb751b5fdefac219fd482ebf6de0",
+            "postimage": "c0066c6be277d0571df62de67fe933fc556d7d58",
+            "classes": [
+                {
+                    "name": "AuthoringWorkspaceSnapshotCache",
+                    "parameterProperties": [
+                        "storage",
+                        "sourceDigest",
+                        "now"
+                    ],
+                    "originalAssignmentOrder": [
+                        "storage",
+                        "sourceDigest",
+                        "now"
+                    ],
+                    "preservesOriginalDefaults": true
+                },
+                {
+                    "name": "AuthoringWorkspaceSnapshotIndexedDbStorage",
+                    "parameterProperties": [
+                        "factory"
+                    ],
+                    "originalAssignmentOrder": [
+                        "factory"
+                    ],
+                    "preservesOriginalDefaults": true
+                }
+            ],
+            "completeOriginalOptionsEmitByteIdentical": true,
+            "emitSHA256": "e7585ff289ed9554c6320819acc5141d8a30a120c654fa266f3df1e4bf8a8c4f"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotStatus.ts",
+            "preimage": "da0ba0e9957b3f7cbd477f195d6a8d7cf1e772f1",
+            "postimage": "9de69a0d8dc1b791c30d619c042460250c066ed5",
+            "classes": [
+                {
+                    "name": "AuthoringWorkspaceSnapshotResetController",
+                    "parameterProperties": [
+                        "api",
+                        "sync"
+                    ],
+                    "originalAssignmentOrder": [
+                        "api",
+                        "sync"
+                    ],
+                    "preservesOriginalDefaults": true
+                }
+            ],
+            "completeOriginalOptionsEmitByteIdentical": true,
+            "emitSHA256": "4383b246a347303ef07b596465e965fe29a8a740e32092f1e36e1e2c7f192b51"
+        }
+    ],
+    "GraphDonor": "a281fb6e9802471c3a44569c3ccab84f88c8d816",
+    "GraphAdaptation": "Exact original donor constructor values/defaults/assignments. Original donor places fields after existing initialized fields, changing full ES2022 emit/property order. This source places original parameter-property fields first, matching original compiler emit exactly; no other Graph method change.",
+    "qualification": "Static source/emit only; no product evaluation",
+    "kind": "ordinary original constructor source/emit WIP; no authority/receipt/qualification",
+    "scope": "Only explicit original readonly fields and same constructor assignments/defaults for14 parameter properties across5 classes/4 files. Whole original program compiler options preserve complete source JS exactly. Original graph donor field ordering adapted to match actual original parameter-property emission; not whole old graph copy. All existing methods/owners/real object identities unchanged.",
+    "holds": "Other46 business source separate. Upload8 true/frozen producer gaps; UI18codegen/7enum/Analyticsref; all runtime/import/discovery/render/tests/security/privacy/receipt/native/race/backuprestore/IME qualifications HOLD/UNRUN. No config/schema/fixture/generated/authority/SDK/cohort/withdraw/end/settlement changes. Physical alias independent UNVERIFIED.",
+    "failedFormattingTrial": "Initial explicit assignment closing braces produced3 actual brace-style findings; original complete emit already identical, trial TS/style logs preserved. Corrected original constructor brace layout only; no config/test change.",
+    "staticChecks": {
+        "fullProgram": {
+            "before": 99,
+            "after": 85,
+            "beforeUI": 25,
+            "afterUI": 25,
+            "added": [],
+            "removed": [
+                "src/services/authoring/articleGraphSession.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/articleGraphSession.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/articleGraphSession.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/articleGraphSession.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringPanelSnapshotAdapter.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringPanelSnapshotAdapter.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringPanelSnapshotAdapter.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringPanelSnapshotAdapter.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringWorkspaceSnapshotCache.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringWorkspaceSnapshotCache.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringWorkspaceSnapshotCache.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringWorkspaceSnapshotCache.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringWorkspaceSnapshotStatus.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+                "src/services/authoring/authoringWorkspaceSnapshotStatus.ts(POSITION): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled."
+            ]
+        },
+        "sameOriginalStrictFull": {
+            "before": 0,
+            "after": 0,
+            "added": [],
+            "removed": []
+        },
+        "AST": "four source TS AST0",
+        "docs": "7/41FAIL byte identical to fixed4313; no refresh",
+        "runtime": "all HOLD/UNRUN"
+    }
+}

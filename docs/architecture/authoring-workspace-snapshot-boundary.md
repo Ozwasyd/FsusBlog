@@ -2341,3 +2341,21 @@ selection, timing, activation generation and terminal owners remain unchanged.
 The ordinary WIP records full current/donor source identities and exact selected
 hunks. These source corrections do not qualify runtime or release. All original
 execution holds and upload/frozen/shared UI gaps remain.
+
+
+## Original Snapshot Constructor Field Source Group
+
+A separate source group replaces fourteen constructor parameter properties with
+their original explicit readonly fields and original assignments across the
+existing Graph, panel binding, cache, IndexedDB and reset owners. All original
+parameter defaults, object identities, field initialization order and assignment
+order remain. The complete JavaScript emitted with original full application
+compiler options is byte identical for each of the four source files.
+
+The real Graph donor supplies the same constructor values and assignments, but
+its field declarations appear after existing initialized fields. The consumer
+keeps those fields at the original compiler-emitted position to preserve property
+order and exact emitted bytes. Panel/cache/status use their existing constructors
+and owners, not new snapshot or reset implementations. No method, subscription,
+CAS, digest, admission, cleanup or restore-completion semantics change. All
+original runtime and frozen-contract qualifications remain held.
