@@ -58,6 +58,7 @@ public sealed partial class AdminSessionValidationService
         if (!original.IsValid || !MatchesObservedPrincipal(principal, principal, adminId, sessionId))
             return null;
         AdminSessionProjectionValidationResult current = ReadCurrentObservedValidation(sessionId, adminId, tokenHash);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!current.IsValid)
             return null;
         var observation = new CurrentSessionObservation(adminId, current);
@@ -82,6 +83,7 @@ public sealed partial class AdminSessionValidationService
         // Keep the actual projection decision as the last validation callout; no metric/touch callback follows it.
         AdminSessionProjectionValidationResult current = _projection.Validate(state.SessionId,
             state.AdminPrincipalId, state.TokenHash);
+        cancellationToken.ThrowIfCancellationRequested();
         return current.IsValid && current == observation.Facts;
     }
 
