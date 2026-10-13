@@ -627,7 +627,7 @@ export function useNotification()
         {
             while (pendingInitMode)
             {
-                const nextMode = pendingInitMode;
+                const nextMode: 'auth' | 'guest' = pendingInitMode;
                 pendingInitMode = '';
 
                 if (nextMode === currentMode.value && notificationStreamRuntime.isConnected())
