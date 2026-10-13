@@ -310,8 +310,11 @@ internal sealed class ArticleBulkEditableLifecycleAdapter(
                 {
                     return;
                 }
-                _disposed = true;
+                // A failed resource release still forbids mutation, but must not make a later
+                // cleanup attempt look complete. Only the original owner can finish release.
+                _terminalStarted = true;
                 await group.DisposeAsync().ConfigureAwait(false);
+                _disposed = true;
             }
             finally
             {
