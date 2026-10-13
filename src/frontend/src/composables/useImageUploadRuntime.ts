@@ -19,7 +19,8 @@ import type { ArticlePositionMapBinding } from '@/services/authoring/articleAnch
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle } from '@/services/authoring/articleAttachmentContext';
 import { ArticleDocumentContextAdapter, type ArticleDocumentTaskLease } from '@/services/authoring/articleDocumentContext';
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError';
-import { compressImageFileWithRuntime, sha256Hex, type ImageCompressionPreview } from '@/utils/imageCompression';
+import { requestCompressImageFileWithRuntime, requestSha256Hex, type ImageCompressionPreview,
+    type ImageProducerOperation, type ImageProducerResourceCensus } from '@/utils/imageCompression';
 import { getWasmSupportedFormats } from '@/utils/wasmImageCodec';
 
 type UploadPhase = 'idle' | 'compressing' | 'uploading' | 'retrying' | 'paused' | 'error' | 'completed';
@@ -137,6 +138,7 @@ export interface ImageUploadLocalResource {
         local: 'pending' | BinaryTransportTerminal['local'];
         resources: Readonly<BinaryTransportResources>;
     }>;
+    readonly image?: ImageProducerResourceCensus;
 }
 
 export interface ImageUploadLocalResourceCensus {
@@ -171,6 +173,7 @@ interface LocalUploadResourceRecord {
     cleanupFailures?: unknown[];
     transportOperation?: BinaryTransportOperation<unknown>;
     transportTerminal?: Readonly<BinaryTransportTerminal>;
+    imageOperation?: ImageProducerOperation<unknown>;
 }
 
 /** Resource accounting on the original operation, separate from its existing business authority. */
@@ -205,7 +208,8 @@ class OwnedLocalUploadAttempt
             ...(value.transportOperation ? { transport: Object.freeze({
                 local: value.transportTerminal?.local ?? 'pending',
                 resources: value.transportOperation.inspectResources()
-            }) } : {})
+            }) } : {}),
+            ...(value.imageOperation ? { image: value.imageOperation.inspectLocalResources() } : {})
         })));
         const pending = resources.filter(value => value.result === 'pending').length;
         const unknown = resources.filter(value => value.terminal === 'unknown').length;
@@ -321,7 +325,7 @@ class OwnedLocalUploadAttempt
         {
             if (!this.controller.signal.aborted)
             {
-                this.controller.abort(reason ?? new DOMException('upload_local_cancel_requested', 'AbortError'));
+                this.controller.abort(reason === undefined ? new DOMException('upload_local_cancel_requested', 'AbortError') : reason);
             }
         }];
         for (const resource of this.resources)
@@ -528,7 +532,11 @@ class OwnedLocalUploadAttempt
                 resource.result = 'finished';
                 this.reconsider();
             };
-            void operation.result.then(resultFinished, resultFinished);
+            void operation.result.then(resultFinished, resultFinished).catch((error: unknown) =>
+            {
+                (resource.cleanupFailures ??= []).push(error);
+                resource.terminal = 'unknown';
+            });
             void operation.terminal.then((terminal) =>
             {
                 resource.transportTerminal = terminal;
@@ -542,6 +550,66 @@ class OwnedLocalUploadAttempt
                 resource.terminal = 'unknown';
                 this.reconsider();
             });
+            return operation.result;
+        }
+        catch (error)
+        {
+            resource.result = 'finished';
+            resource.terminal = 'unknown';
+            (resource.cleanupFailures ??= []).push(error);
+            this.reconsider();
+            throw error;
+        }
+    }
+
+    observeImage<T>(kind: string, start: () => ImageProducerOperation<T>): Promise<T>
+    {
+        this.controller.signal.throwIfAborted();
+        const resource: LocalUploadResourceRecord = { id: String(this.resources.length + 1), kind,
+            result: 'pending', terminal: 'active', cancellationSupported: true, cancellationRequested: false };
+        this.resources.push(resource);
+        try
+        {
+            const operation = start();
+            resource.imageOperation = operation;
+            resource.work = operation.result;
+            resource.cancel = () => operation.cancelLocal(this.controller.signal.reason);
+            const reinspect = (): void =>
+            {
+                const census = operation.inspectLocalResources();
+                resource.terminal = census.local === 'settled' ? 'settled'
+                    : census.local === 'unknown' ? 'unknown' : 'active';
+                if (census.local === 'settled')
+                {
+                    resource.retryCleanup = undefined;
+                    resource.cancel = undefined;
+                    resource.work = undefined;
+                }
+                this.reconsider();
+            };
+            resource.retryCleanup = () =>
+            {
+                operation.retryCleanup();
+                reinspect();
+            };
+            const resultFinished = (): void =>
+            {
+                resource.result = 'finished';
+                reinspect();
+            };
+            void operation.result.then(resultFinished, resultFinished).catch((error: unknown) =>
+            {
+                (resource.cleanupFailures ??= []).push(error);
+                resource.terminal = 'unknown';
+            });
+            void operation.settled.then(reinspect).catch((error: unknown) =>
+            {
+                (resource.cleanupFailures ??= []).push(error);
+                resource.terminal = 'unknown';
+                this.reconsider();
+            });
+            // Numeric IDs and local/third-party resources stay in the actual producer census.
+            // This finite local completion never claims shared-codec or full-upload completion.
             return operation.result;
         }
         catch (error)
@@ -1164,7 +1232,8 @@ export function useImageUploadRuntime()
 
         const uploadPayload = runtimeOptions.bypassCompression === true
             ? { file, preview: null }
-            : await local.observe('compression', () => compressImageFileWithRuntime(file, options, { wasmOnly }));
+            : await local.observeImage('compression', () => requestCompressImageFileWithRuntime(file, options,
+                { wasmOnly, signal: local.controller.signal }));
         ensureCurrentAttempt();
         preview.value = uploadPayload.preview;
 
@@ -1180,7 +1249,8 @@ export function useImageUploadRuntime()
         }
 
         const resumeKey = buildResumeKey(file, options, runtimeOptions);
-        const fullHash = await local.observe('file-hash', () => sha256Hex(uploadPayload.file));
+        const fullHash = await local.observeImage('file-hash', () => requestSha256Hex(uploadPayload.file,
+            { signal: local.controller.signal }));
         ensureCurrentAttempt();
         let snapshot: ResumeSessionSnapshot | null;
         let uploadId = '';
@@ -1383,7 +1453,8 @@ export function useImageUploadRuntime()
             const start = partNumber * chunkSize;
             const end = Math.min(start + chunkSize, uploadPayload.file.size);
             const chunk = uploadPayload.file.slice(start, end);
-            const payloadHash = await local.observe('part-hash', () => sha256Hex(chunk));
+            const payloadHash = await local.observeImage('part-hash', () => requestSha256Hex(chunk,
+                { signal: local.controller.signal }));
             ensureCurrentAttempt();
 
             try

@@ -266,9 +266,7 @@ These callbacks must return their own consumer work, never the result or settled
 of their containing upload/Flow operation, which already waits for the callback.
 Independent resources started by a consumer require that consumer's original
 producer capability; callback-scope completion grants no external termination or
-business receive/release acknowledgement. Compression and hash still
-expose results without consumed local terminal capabilities, so their terminal
-remains `unknown` after fulfillment or rejection. Aggregate `settled` stays
+business receive/release acknowledgement. Aggregate `settled` stays
 pending while any such unknown, active resource, failed owned cleanup or
 unfinished execution remains. No checkpoint is exposed. This attempt census
 does not claim termination of shared codec initialization, hidden compression
@@ -300,6 +298,25 @@ decoder registrations in this branch and the original private-request and binary
 client security postimages, rather than replacing them with another branch's
 older decoder table. This source integration does not qualify browser, native,
 network, business receipt, SDK host or migration acceptance.
+
+Compression and full-file/chunk hashes now use the original accepted
+`requestCompressImageFileWithRuntime` and `requestSha256Hex` producers. Each
+attempt retains the actual same-invocation operation, awaits its unchanged result
+and independently observes its finite local settled Promise and census.
+Cancellation preserves the actual reason (including null or NaN), requests that
+operation's supported cancellation, and waits for already-started native futures
+through the producer. Local cleanup retries call its original retryCleanup and
+reinspect the actual resource state; they do not manufacture a native/worker ACK.
+The original File/options are passed directly, not recreated from diagnostics.
+
+Image diagnostics remain nested in their original numeric-ID census with explicit
+local/third-party scope, rather than being cast into the upload's string-ID
+resources. Only the original producer's local settled state retires that local
+operation; shared codec unknown stays visible outside that finite local scope.
+The root's transport unavailable boundaries, unfinished local work, genuine
+cleanup failures and business recovery obligations retain their separate gates.
+Finite local image/hash completion alone cannot qualify full upload, shared
+codec disposal, SDK host acceptance or asset cleanup.
 
 `useAdminArticleWrite.authoringEditorRuntime.bindEditor` composes the existing
 anchor, attachment, render-cache and continuity owners on one actual public editor

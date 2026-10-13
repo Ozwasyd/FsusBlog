@@ -140,7 +140,7 @@ class OwnedLocalUploadFlow
     {
         if (!this.controller.signal.aborted)
         {
-            this.controller.abort(reason ?? new DOMException('upload_flow_cancel_requested', 'AbortError'));
+            this.controller.abort(reason === undefined ? new DOMException('upload_flow_cancel_requested', 'AbortError') : reason);
             this.cancelTask?.();
         }
         for (const child of this.children)
