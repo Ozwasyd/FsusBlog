@@ -4580,8 +4580,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler-run-owner.mjs",
-            "contentDigest": "sha256:c853286f7a18ed55f9abd79545389d7d338a7a48cff388b6d43e9a5def4f7d5b",
-            "indexDigest": "sha256:c853286f7a18ed55f9abd79545389d7d338a7a48cff388b6d43e9a5def4f7d5b"
+            "contentDigest": "sha256:3311c9d11d172cc44dba4efde542de71cada984629fe75be0cf7624ac9a3212f",
+            "indexDigest": "sha256:3311c9d11d172cc44dba4efde542de71cada984629fe75be0cf7624ac9a3212f"
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",

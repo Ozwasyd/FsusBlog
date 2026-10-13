@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/scheduler-run-owner.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "ae9d0bd4ce61905ae57cde90606edc0c567c30edd614b25f0215433bef2c0598"
+        }
+    ]
+}
