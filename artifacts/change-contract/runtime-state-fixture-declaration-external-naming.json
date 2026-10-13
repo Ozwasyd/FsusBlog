@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/runtime-state-domain-catalog.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the existing serialized runtime-state, lifecycle and canonical producer authority field names while consuming the owner-supplied exact source and generated metadata without changing caller contracts."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+        }
+    ]
+}
