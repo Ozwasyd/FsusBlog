@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/release-final-execution-authority-index.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing serialized owner/source/expression/kind/dependency and authority keys while declaring only the exact canonical parser load and refreshing its original producer sourceIndexDigest. No exception registry, schema spelling or caller interface is changed."
+        }
+    ]
+}
