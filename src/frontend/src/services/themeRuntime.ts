@@ -20,10 +20,10 @@ const resolvedThemeState = ref<ResolvedTheme>('light');
 let isThemeRuntimeReady = false;
 
 let themeRootObserver: MutationObserver | null = null;
-type ThemeConfigBinding = {
+interface ThemeConfigBinding {
     producer: GlobalConfigSnapshotProducer;
     failed: boolean;
-};
+}
 const themeConfigBindings = new Set<ThemeConfigBinding>();
 let themeWriteActive = false;
 
