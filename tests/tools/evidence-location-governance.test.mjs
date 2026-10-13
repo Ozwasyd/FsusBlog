@@ -307,7 +307,7 @@ test('every registry authority declares an executable producer and exact publica
     }
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
-    { cli: 63, 'library-caller': 19, workflow: 2 });
+    { cli: 74, 'library-caller': 23, workflow: 2 });
 });
 
 test('fixture postconditions remain an import-only helper and cannot masquerade as a receipt CLI', (context) =>
@@ -322,21 +322,21 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
         function: entry.function,
         excerpt: entry.excerpt
     })), [
-        { findingId: 'ca245baa2e0b8fbe', line: 107, column: 66, function: 'verifyArticlePaginationDeep',
+        { findingId: '4ad3e50e7a86fd77', line: 160, column: 66, function: 'verifyArticlePaginationDeep',
             excerpt: "if (fields.route !== 'article/list/home' || fields.sort !== 'latest' || fields.pageSize !== 10)" },
-        { findingId: 'ee66fd905eb77a13', line: 109, column: 91, function: 'verifyArticlePaginationDeep',
+        { findingId: 'd20d5764a604254c', line: 162, column: 91, function: 'verifyArticlePaginationDeep',
             excerpt: "return fail(id, 'pagination route/sort/page-size binding is not article/list/home latest size=10');" },
-        { findingId: 'b9fb82434e2ff8d0', line: 816, column: 32, function: 'verifyCommentMatrix',
+        { findingId: 'ab7806efdc13f126', line: 1100, column: 32, function: 'verifyCommentMatrix',
             excerpt: 'const fields = matches[0].fields ?? {};' },
-        { findingId: '37addad575b805a2', line: 878, column: 38, function: 'verifyCommentMatrix',
+        { findingId: '3832625c19cc6921', line: 1162, column: 38, function: 'verifyCommentMatrix',
             excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)" },
-        { findingId: '2f504d4c0fa1a5c8', line: 931, column: 19, function: 'verifyCommentMatrix',
+        { findingId: '6e2820ee117b50ea', line: 1215, column: 19, function: 'verifyCommentMatrix',
             excerpt: "const root = one('approved-root')[0];" },
-        { findingId: 'fb91078afca6d15f', line: 974, column: 30, function: 'verifyCommentMatrix',
+        { findingId: 'd0b3d067d8933150', line: 1258, column: 30, function: 'verifyCommentMatrix',
             excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)" },
-        { findingId: '1445d298b9ef9126', line: 978, column: 46, function: 'verifyCommentMatrix',
+        { findingId: '28ef7c5a1d96bc06', line: 1262, column: 46, function: 'verifyCommentMatrix',
             excerpt: "const deletedRoot = one('deleted-root')[0];" },
-        { findingId: '776887fd959a8427', line: 979, column: 47, function: 'verifyCommentMatrix',
+        { findingId: 'ed3fb82f674ea7ff', line: 1263, column: 47, function: 'verifyCommentMatrix',
             excerpt: "const deletedChild = one('deleted-root-child')[0];" }
     ]);
     assert(findings.every((entry) => [
@@ -358,22 +358,22 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
             'const fields = matches.at(0).fields ?? {}'));
     const replacedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
     assert.throws(() => validateEvidenceLocationClassificationOverrides(replacedSelector),
-        /non-evidence finding override b9fb82434e2ff8d0 changed (?:column|excerpt)/u);
+        /non-evidence finding override ab7806efdc13f126 changed (?:column|excerpt)/u);
     // A line-based finding ID can survive a source shift while denoting a
     // different selector. The former deleted-child ID now belongs to root;
     // matching that ID alone must never inherit its old semantic exemption.
     const staleIdentity = structuredClone(generated.scan);
-    const rootFinding = staleIdentity.findings.find((entry) => entry.findingId === '2f504d4c0fa1a5c8');
+    const rootFinding = staleIdentity.findings.find((entry) => entry.findingId === '6e2820ee117b50ea');
     rootFinding.column = 47;
     rootFinding.excerpt = "const deletedChild = one('deleted-root-child')[0];";
     assert.throws(() => validateEvidenceLocationClassificationOverrides(staleIdentity),
-        /non-evidence finding override 2f504d4c0fa1a5c8 changed (?:column|excerpt)/u);
+        /non-evidence finding override 6e2820ee117b50ea changed (?:column|excerpt)/u);
     fs.writeFileSync(path.join(mutationRoot, source),
         sourceText.replace("const root = one('approved-root')[0];",
             'const root = evidenceCandidates[0];'));
     const repurposedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
     assert.throws(() => validateEvidenceLocationClassificationOverrides(repurposedSelector),
-        /non-evidence finding override 2f504d4c0fa1a5c8 changed (?:column|excerpt)/u);
+        /non-evidence finding override 6e2820ee117b50ea changed (?:column|excerpt)/u);
     const findingIds = new Set(findings.map((entry) => entry.findingId));
     const ledgerEntries = generated.ledger.entries.filter((entry) => findingIds.has(entry.findingId));
     assert.equal(ledgerEntries.length, findings.length);

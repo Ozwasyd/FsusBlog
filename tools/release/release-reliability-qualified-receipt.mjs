@@ -258,7 +258,7 @@ function validateProjectedFileBinding(value, label, { requireContentDigest = fal
     return errors;
 }
 
-function projectQualifiedReceipt(repositoryRoot, selected)
+export function projectQualifiedReceipt(repositoryRoot, selected)
 {
     const qualifiedFile = readCanonicalJson(
         repositoryRoot,

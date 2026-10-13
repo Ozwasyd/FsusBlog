@@ -2309,7 +2309,7 @@ function createTerminalReceipt(repositoryRoot, candidatePath, attestationPath)
     });
 }
 
-function verifyTerminalReceipt(repositoryRoot, receiptPath)
+export function verifyTerminalReceipt(repositoryRoot, receiptPath)
 {
     const file = readJsonFile(repositoryRoot, receiptPath, 'qualified receipt');
     const receipt = file.document;
@@ -2586,8 +2586,38 @@ async function main()
     console.log(`[release-reliability-attestation] verified attestation=${attestationOutput.relative}`);
 }
 
-main().catch((error) =>
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    console.error(`[release-reliability-receipt] ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
+    main().catch((error) =>
+    {
+        console.error(`[release-reliability-receipt] ${error instanceof Error ? error.message : String(error)}`);
+        process.exitCode = 1;
+    });
+
+}
+
+const { projectQualifiedReceipt } = await import(new URL('../release/release-reliability-qualified-receipt.mjs', import.meta.url));
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['qualified']),
+    async describe(receipt, { repositoryRoot, receiptPath })
+    {
+        const { describeOwnerReceipt } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const relative = path.relative(repositoryRoot, receiptPath).replaceAll(path.sep, '/');
+        const projection = projectQualifiedReceipt(repositoryRoot, { relative });
+        return { ...describeOwnerReceipt(receipt, { identity: {}, status: 'status', contentDigest: 'contentDigest' }),
+            identity: { ...projection, runId: projection.sourceIdentity.runId,
+                sourceCommit: projection.sourceIdentity.commit,
+                worktreeFingerprint: projection.sourceIdentity.worktreeFingerprint } };
+    },
+    async verify({ receipt, receiptPath, repositoryRoot })
+    {
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const relative = path.relative(repositoryRoot, receiptPath).replaceAll(path.sep, '/');
+        const verified = verifyTerminalReceipt(repositoryRoot, relative);
+        if (verified.receipt.contentDigest !== receipt.contentDigest)
+        {
+            throw new Error('qualified receipt owner replay mismatch');
+        }
+        return verifiedOwnerResult({ schema: verified.receipt.schema, contentDigest: verified.receipt.contentDigest });
+    }
 });

@@ -181,6 +181,8 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/media-shape-catalog.test.mjs"
     "$ROOT_DIR/tests/tools/production-resource-enforcement.test.mjs"
     "$ROOT_DIR/tests/tools/release-deployment-doc-exactness.test.mjs"
+    "$ROOT_DIR/tests/tools/required-evidence-dependencies.test.mjs"
+    "$ROOT_DIR/tests/tools/required-evidence-verifier-import-closure.test.mjs"
     "$ROOT_DIR/tests/tools/resource-utilization.test.mjs"
     "$ROOT_DIR/tests/tools/run-once.test.mjs"
     "$ROOT_DIR/tests/tools/run-once-fixture-reuse.test.mjs"

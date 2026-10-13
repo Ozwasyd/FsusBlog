@@ -4,6 +4,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+const { loadCanonicalRequiredEvidenceCatalog } = await import(new URL('../test-matrix/required-evidence-catalog.mjs', import.meta.url));
+
 import {
     governanceContentDigest,
     verifyEvidenceLocationGovernance
@@ -43,80 +45,80 @@ const diagnosticPrograms = new Set([
 // source excerpt so a new or repurposed selector cannot inherit the exception.
 const nonEvidenceFindingOverrides = new Map([
     {
-        findingId: 'ca245baa2e0b8fbe',
+        findingId: '4ad3e50e7a86fd77',
         ruleId: 'evidence-selection.latest-newest',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 107,
+        line: 160,
         column: 66,
         function: 'verifyArticlePaginationDeep',
         excerpt: "if (fields.route !== 'article/list/home' || fields.sort !== 'latest' || fields.pageSize !== 10)",
         indirectVia: null
     },
     {
-        findingId: 'ee66fd905eb77a13',
+        findingId: 'd20d5764a604254c',
         ruleId: 'evidence-selection.latest-newest',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 109,
+        line: 162,
         column: 91,
         function: 'verifyArticlePaginationDeep',
         excerpt: "return fail(id, 'pagination route/sort/page-size binding is not article/list/home latest size=10');",
         indirectVia: null
     },
     {
-        findingId: 'b9fb82434e2ff8d0',
+        findingId: 'ab7806efdc13f126',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 816,
+        line: 1100,
         column: 32,
         function: 'verifyCommentMatrix',
         excerpt: 'const fields = matches[0].fields ?? {};',
         indirectVia: null
     },
     {
-        findingId: '37addad575b805a2',
+        findingId: '3832625c19cc6921',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 878,
+        line: 1162,
         column: 38,
         function: 'verifyCommentMatrix',
         excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)",
         indirectVia: null
     },
     {
-        findingId: '2f504d4c0fa1a5c8',
+        findingId: '6e2820ee117b50ea',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 931,
+        line: 1215,
         column: 19,
         function: 'verifyCommentMatrix',
         excerpt: "const root = one('approved-root')[0];",
         indirectVia: null
     },
     {
-        findingId: 'fb91078afca6d15f',
+        findingId: 'd0b3d067d8933150',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 974,
+        line: 1258,
         column: 30,
         function: 'verifyCommentMatrix',
         excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)",
         indirectVia: null
     },
     {
-        findingId: '1445d298b9ef9126',
+        findingId: '28ef7c5a1d96bc06',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 978,
+        line: 1262,
         column: 46,
         function: 'verifyCommentMatrix',
         excerpt: "const deletedRoot = one('deleted-root')[0];",
         indirectVia: null
     },
     {
-        findingId: '776887fd959a8427',
+        findingId: 'ed3fb82f674ea7ff',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 979,
+        line: 1263,
         column: 47,
         function: 'verifyCommentMatrix',
         excerpt: "const deletedChild = one('deleted-root-child')[0];",
@@ -271,6 +273,14 @@ function producerCommandFor(file)
 }
 
 const canonicalCallerOverrides = new Map(Object.entries({
+    'tools/test-fixtures/receipt/private-io.mjs': ['tools/test-fixtures/cli.mjs',
+        'node tools/test-fixtures/cli.mjs'],
+    'tools/test-fixtures/receipt/projection.mjs': ['tools/test-fixtures/cli.mjs',
+        'node tools/test-fixtures/cli.mjs'],
+    'tools/test-matrix/public-shell-locale-evidence.mjs': ['tools/test-matrix/aggregate-public-shell-locale.mjs',
+        'node tools/test-matrix/aggregate-public-shell-locale.mjs'],
+    'tools/test/native-test-receipt.mjs': ['tools/test/native-test-governance.mjs',
+        'node tools/test/run-native-tests.mjs --profile fuzz-sanitizer'],
     'tools/ci/production-build-artifacts.mjs': ['tools/test/lanes/production-build-artifacts.sh',
         'bash tools/test/lanes/production-build-artifacts.sh'],
     'tools/docs/behavior-doc-exactness.mjs': ['tools/docs/api-protocol-doc-exactness.mjs',
@@ -508,6 +518,46 @@ function buildGovernance(scan)
         handoffBindingKey: handoffBindingFor(parentConsumerId),
         checkpointCommand: checkpointCommandFor(parentConsumerId)
     });
+    // The catalog owns these authorities. Register their existing producer
+    // entrypoints in this sole locator registry rather than maintaining another
+    // release authority list. Job-result bytes are written by the canonical
+    // matrix runner; a lane exit status is not a job-result producer receipt.
+    for (const authority of loadCanonicalRequiredEvidenceCatalog().entries)
+    {
+        const consumerId = `evidence-consumer.required-evidence.${authority.authorityId}`;
+        const producerExecutable = authority.receiptSchema === 'fsusblog.ci.job-result.v1'
+            ? `node tools/run-test-matrix.mjs ci-tier ${authority.authorityId}`
+            : authority.localProducerCommand.replace(/^(tools\/[^\s]+\.sh)(?=\s|$)/u, 'bash $1');
+        const producerSource = producerExecutableFile(producerExecutable);
+        if (!fs.existsSync(path.join(repositoryRoot, producerSource)))
+        {
+            throw new Error(`required authority producer is missing: ${producerSource}`);
+        }
+        registryEntries.push({
+            consumerId,
+            authorityId: authority.locatorBindingKey,
+            producerId: authority.canonicalOwner,
+            receiptSchema: 'fsusblog.current-run-evidence-reference.v1',
+            locatorMode: 'explicit-run-path',
+            requiredIdentityFields: [
+                'attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId',
+                'sourceCommit', 'worktreeFingerprint'
+            ],
+            requiredDigestFields: ['contentDigest', 'producerReceiptDigest'],
+            expectedCardinality: 'exact-one',
+            allowedRoots: ['artifacts/current-run'],
+            publicationMode: 'hooked',
+            producerSource,
+            producerCallsite: producerSource,
+            producerExecutable,
+            producerBindingClass: 'cli',
+            producerCommand: hookedProducerCommandFor(consumerId, producerExecutable),
+            outputBindingKey: bindingFor(consumerId),
+            handoffBindingKey: handoffBindingFor(consumerId),
+            payloadBindingKey: payloadBindingFor(consumerId),
+            checkpointCommand: checkpointCommandFor(consumerId)
+        });
+    }
     const registryPayload = {
         schema: 'fsusblog.evidence-locator-registry.v1',
         version: 1,
