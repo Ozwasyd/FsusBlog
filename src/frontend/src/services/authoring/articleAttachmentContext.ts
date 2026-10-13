@@ -1190,6 +1190,30 @@ export class ArticleAttachmentContextAdapter
         }
     }
 
+    /** Original accepted lease after real Main cleanup and the original native end proof. */
+    public readCleanedNativeLease(handle: ArticleAttachmentPendingHandle): ArticleDocumentTaskLease | null
+    {
+        const entry = this.pendingHandles.get(handle);
+        const lease = entry?.lease;
+        const end = entry?.nativeApplicationEnd;
+        const clean = (): boolean => !!entry && !!lease && !!end?.handle
+            && entry.nativeCapture === true && entry.completedLease === lease
+            && entry.nativeFinalization?.sdkAccepted === true && lease.envelope.status === 'completed'
+            && entry.lease === lease && entry.nativeApplicationEnd === end
+            && entry.nativeHandle === handle && entry.nativeLocalCleanupComplete === true
+            && entry.nativeCleanupPending === false && !entry.nativeFinishing && !entry.reservingNativeRevision
+            && entry.nativeSdkCleanupPending === false && !entry.nativeTransition
+            && !entry.nativeCleanupReentry && !this.ownedOperations.has(entry.intent.task.taskRef)
+            && this.pending.get(entry.intent.task.taskRef) !== entry;
+        if (!entry || !lease || !clean())
+        {
+            return null;
+        }
+        const observation = this.readNativeApplicationEnd(entry);
+        // Only original private state checks follow the stored issuer's exact ended proof.
+        return observation && entry.nativeApplicationEndPending === false && clean() ? lease : null;
+    }
+
     /** Genuine returned SDK publication, from this adapter's SAME private entry/event. */
     public hasNativeSourcePublication(transaction: MarkdownEditorDispatchResult, context: ArticleDocumentContext): boolean
     {

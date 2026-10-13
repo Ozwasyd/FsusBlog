@@ -1908,3 +1908,47 @@ sources are articleAttachmentAcceptedCapture.test.ts, articleAttachmentContext.t
 and articleDocumentContext.test.ts under tests/frontend/unit/authoring, plus
 composables/useImageUploadRuntime.test.ts in that unit tree. Existing tests are
 unchanged and do not themselves establish this new composed capability.
+
+
+## Finite Original Native Producer Settlement Consumer
+
+A separate successor reuses the original nativeUploadRequests holder and the
+existing original request.settled fulfilled callback. It retains the same request
+and SDK lease plus the actual fulfilled future identity, not a new promise, timer,
+status/digest or Boolean settlement receipt. The original failure observation is
+read before final native/Main proof; a failed reader retains that same holder
+until actual retry succeeds. A rejected or unknown future supplies no permission.
+
+The attachment owner can return only the original accepted completed lease after
+its real SDK transition cleanup, File/listener/controller cleanup and pending-row
+retirement have succeeded, and the stored original end issuer proves the exact
+handle/custody/reservation/lease observation ended. This partial cleaned-lease
+observation alone is not upload settlement. Writer requires BOTH it and its
+private original fulfilled request future before calling that same lease.settle.
+Only successful acknowledgment releases the same request holder. Existing
+producer cancel and native-end cleanup retries attempt their original duties
+independently; failures retain raw causes including undefined and do not discard
+the holder. No generic envelope currentness, replacement lease, copied body/
+history, new host or port, resource completeness or ready guard is added.
+
+This increment intentionally handles only the real accepted/cleaned original
+native application path. Producer fulfillment before physical application end
+keeps custody until an existing explicit end-cleanup retry; no end timer/event/
+future is invented. An unstarted or cancelled path without that physical end
+proof, failed Main cleanup, unknown returned work or SDK retirement refusal stays
+pending. Complete network/timer/subscription measurements and PoW shutdown/
+recovery-channel acknowledgments still require their original owners. UI
+attachment resource source and Writer inspection retain complete:false and
+unknown network usage; settled task references do not grant full pause/zero/
+readiness/recovery/eviction authority.
+
+Original source-review cases, all UNRUN: real producer fulfilled before and after
+physical end; original end/Main retry followed by same-lease settle; foreign
+request/future/handle/lease; accepted content with still-pending/rejected settled
+future; failed failure-observation reader; raw undefined cleanup or SDK settle
+failure; original SDK retirement in progress; original completed historical
+envelope retained through failure; no physical end proof on unstarted/cancelled
+work. The existing original CLI/config preflight above remains unchanged; all
+runtime/tests/import/collection/list/discovery/native/browser and qualifications
+remain HOLD. Independent physical alias remains UNVERIFIED; author static
+compiler evidence and bounded Git source acceptance remain separate.
