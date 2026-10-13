@@ -1681,3 +1681,18 @@ producer settlement, numeric full network/memory census, references, recovery,
 eviction and host readiness remain separate unsupported or unqualified gates.
 Whole application diagnostics and every runtime/qualification execution hold
 remain; this source composition is pending independent review.
+
+
+## Accepted Root Cancellation Consumption
+
+Main takes the three original Root owning postimages exactly from independently
+accepted a4f28e43a8608914264a38fca596a7edb4ad2917: Frame, session composition and
+native recreation driver. Real operation cancellation reaches the same source
+principal and original physical operation. Synchronous issuer notification
+withdraws authority before deferred cleanup; queued/closing public lease retry
+retains the original pending holder and raw firstCause, including undefined,
+before delegate cleanup. Failed late acquisition and receiving cleanup remain
+unconfirmed. Same staging target adoption, explicit stage release and ordinary
+Root readmission ordering are preserved. SDK, Writer, registry, factory and
+continuity source are unchanged by this dependency consumption. The three exact
+source postimages do not qualify actual native work, resources or readiness.
