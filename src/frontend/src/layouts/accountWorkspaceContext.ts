@@ -3,7 +3,6 @@ import { useRoute } from 'vue-router';
 
 import {
     accountAreaMeta,
-    type AccountArea,
     type AccountAreaMeta
 } from '@/layouts/accountNav';
 import { useAdminStore, type AdminLogoutOutcome } from '@/store/admin';
