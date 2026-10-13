@@ -1,0 +1,52 @@
+{
+    "kind": "ordinary source WIP dependency record; no authority/receipt/qualification",
+    "mainBase": "54e354ebd4c4d4f2478562e10665b532fcd09ef0",
+    "UI": {
+        "head": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+        "parents": [
+            "f2cee189a19b7c9827b4ef46e0049f1bf4379f60",
+            "98e0628c99c35a4422c0ba1febd61559b392a0cc"
+        ],
+        "sourceReview": "Limited original composition accepted per parent",
+        "localAlias": "/workspace/session-2295-ui957-local-dependency",
+        "publicPackages": [
+            "@ozwasyd/element-plus",
+            "element-plus"
+        ],
+        "sameSourceIndex": "/workspace/session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts",
+        "coreModules": [
+            {
+                "path": "vue/packages/element-plus/index.ts",
+                "blob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687"
+            },
+            {
+                "path": "vue/packages/components/config-provider/src/hooks/use-global-config.ts",
+                "blob": "7fca42344e9a06390792e92d3bb2f47b61054f68"
+            },
+            {
+                "path": "vue/packages/hooks/use-render-pipeline/index.ts",
+                "blob": "028a141f4888676a160db3d17e79cbfe72596338"
+            },
+            {
+                "path": "vue/packages/components/markdown-editor/src/markdown-editor-attachment.ts",
+                "blob": "55bd8bbdf21b6c3df9295870ef98cb365fd4967b"
+            },
+            {
+                "path": "vue/packages/components/markdown-editor/src/markdown-editor.ts",
+                "blob": "cae6556599158256aa0e23cc029c633309c1916d"
+            },
+            {
+                "path": "vue/packages/components/markdown-editor/src/markdown-editor.vue",
+                "blob": "20d2abceb80e02b07140bb7e868280430a579374"
+            }
+        ]
+    },
+    "pendingSDK": {
+        "PR": 4288,
+        "productionCommit": "78a6b8627f56a238e55af3dba851cdbfe66c9d94",
+        "DocBlob": "adb0ca27c62fa20f971d581c61bc35b6730c09f1",
+        "sourceReview": "Bounded source accepted per parent; NOT consumed in this application-end checkpoint"
+    },
+    "consumer": "Actual UI957 application-end reserve/inspect/hasEnded/retry on the original pending entry, reservation, custody, and lease; SDK cohort consumption remains a separate stage",
+    "runtime": "ALL HOLD/UNRUN; no product imports/evaluation/build/publication/authority refresh"
+}

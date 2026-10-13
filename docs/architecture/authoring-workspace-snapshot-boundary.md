@@ -1788,3 +1788,34 @@ profile and is never substituted as this baseline. No producer settle is inferre
 from content, accepted or committed; native cohort/application-ended confirmation,
 full census/recovery/eviction/readiness and all execution/qualification holds
 remain separate unresolved original-owner capabilities.
+
+
+## UI957 Native Application-End Dependency
+
+The isolated successor of accepted Main428054e354 uses actual read-only local
+UI957903db034a14254fb162f51b9c25d3703ea20ccb5, exact original955f2cee/95698e
+parents, through the existing explicit source alias. Both public package names
+resolve the same original source index; ConfigProvider/native render feed share
+the original public hook/registry. Upstream source is not rebuilt or published.
+Its original application-end issuer reserve/inspect/hasEnded/retry binds the SAME
+single reservation and lease. Running/cleanup-blocked, unknown returned work or
+unconfirmed cleanup is not ended; ended is only original native stack/cleanup
+proof and never full upload/network/SDK/resource settlement or readiness.
+
+The separate Main consumer commit reserves the actual public end handle inside
+the original applying loan, retaining it on the same pending entry before fallible
+owner reads. Inspect validates original handle/custody/reservation/lease and the
+exact publication event; only the issuer's exact observation/hasEnded proof can
+release the native application duty. Main's synchronous committed admission
+acknowledges its own cleanup only and keeps the entry while native cleanup is
+running, blocked, unsupported or unknown. Explicit retry attempts the same native
+cleanup cursor and Main duties independently without replaying publication; raw
+first/latest failures, including undefined, and failed holders remain retained.
+This does not settle SDK tasks or upload/network work.
+
+SDK4288 exact78a6b8627f56a238e55af3dba851cdbfe66c9d94, Doc blob
+adb0ca27c62fa20f971d581c61bc35b6730c09f1, is bounded source accepted per parent
+but is not consumed here. Actual cohort/anchor/File/original-lease continuity is
+a separate stage; ordinary context/stale/rebase/replacement remain unchanged. c50 and accepted54e354 checkpoints stay fixed. Every runtime,
+import/test/collection/list/discovery/native/security/privacy/receipt/race/
+backuprestore/IME and qualification hold remains.

@@ -14,6 +14,10 @@ import {
     type MarkdownAttachmentTerminalObservation,
     type MarkdownAttachmentTerminalConsumer,
     type MarkdownAttachmentTerminalRevisionIssuer,
+    type MarkdownAttachmentTerminalRevisionReservation,
+    type MarkdownAttachmentTerminalApplicationEndIssuer,
+    type MarkdownAttachmentTerminalApplicationEndHandle,
+    type MarkdownAttachmentTerminalApplicationEndObservation,
     type MarkdownAttachmentItemIntent,
     type MarkdownAttachmentInputFile,
     type MarkdownAttachmentJob,
@@ -137,6 +141,7 @@ export type ArticleAttachmentCapture = {
 /** An authentic native terminal loan; absent port remains unavailable. */
 export interface ArticleAttachmentTerminalPort {
     getAttachmentTerminalRevisionIssuer?(): MarkdownAttachmentTerminalRevisionIssuer | null;
+    getAttachmentTerminalApplicationEndIssuer?(): MarkdownAttachmentTerminalApplicationEndIssuer | null;
     withAttachmentTerminalTransaction(observation: MarkdownAttachmentTerminalObservation,
         consume: MarkdownAttachmentTerminalConsumer): boolean;
 }
@@ -188,10 +193,22 @@ interface PendingInput {
         readonly proof: Readonly<{ transactionRef: string; providerResultDigest: string; }>; sdkAccepted: boolean; };
     nativeFinishing?: boolean;
     nativeCleanupPending?: boolean;
+    nativeLocalCleanupComplete?: boolean;
+    nativeApplicationEndPending?: boolean;
+    nativeApplicationEnd?: NativeApplicationEnd;
     nativeCleanupReentry?: { readonly cause: unknown; };
     file?: File;
     releaseFile?: () => void;
     nativeHandle?: ArticleAttachmentPendingHandle;
+}
+
+interface NativeApplicationEnd {
+    readonly issuer: MarkdownAttachmentTerminalApplicationEndIssuer;
+    readonly reservation: MarkdownAttachmentTerminalRevisionReservation;
+    readonly custody: MarkdownAttachmentTerminalCustody;
+    readonly lease: ArticleDocumentTaskLease;
+    handle: MarkdownAttachmentTerminalApplicationEndHandle | null;
+    observation: MarkdownAttachmentTerminalApplicationEndObservation | null;
 }
 
 interface NativeRevisionAssociation
@@ -298,7 +315,8 @@ export class ArticleAttachmentContextAdapter
     private readonly nativeRevisionProducer: ArticleAttachmentNativeRevisionProducer;
 
     public constructor(owner: ArticleDocumentContextAdapter, provider: string, providerVersion: string,
-        anchors?: ArticleAnchorContextAdapter, readNativeIssuer?: () => MarkdownAttachmentTerminalRevisionIssuer | null)
+        anchors?: ArticleAnchorContextAdapter, readNativeIssuer?: () => MarkdownAttachmentTerminalRevisionIssuer | null,
+        readNativeEndIssuer?: () => MarkdownAttachmentTerminalApplicationEndIssuer | null)
     {
         this.anchors = anchors;
         if (![provider, providerVersion].every(value => /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u.test(value)))
@@ -391,6 +409,21 @@ export class ArticleAttachmentContextAdapter
                     record = { association, entry, active: true, pendingCleanup: false, revoke };
                     entry.nativeRevisionAssociation = record;
                     this.nativeRevisionAssociations.set(association, record);
+                    entry.nativeApplicationEndPending = true;
+                    const endIssuer = readNativeEndIssuer?.();
+                    if (!endIssuer)
+                    {
+                        throw new Error('attachment-native-application-end-owner-unavailable');
+                    }
+                    // Retain original acquisition custody before any fallible public owner read.
+                    const end: NativeApplicationEnd = { issuer: endIssuer, reservation, custody, lease,
+                        handle: null, observation: null };
+                    entry.nativeApplicationEnd = end;
+                    end.handle = endIssuer.reserve(custody, reservation, lease);
+                    if (!end.handle)
+                    {
+                        throw new Error('attachment-native-application-end-reservation-unavailable');
+                    }
                     entry.controller.signal.addEventListener('abort', revoke, { once: true });
                     lease.signal.addEventListener('abort', revoke, { once: true });
                     if (originalEntry(lease, custody) !== entry || readNativeIssuer?.() !== issuer || !lease.isCurrent()
@@ -995,6 +1028,84 @@ export class ArticleAttachmentContextAdapter
         return failure ? Object.freeze({ ...failure }) : null;
     }
 
+    /** Observe only the SAME captured native application's source-produced evidence. */
+    public inspectNativeApplicationEnd(handle: ArticleAttachmentPendingHandle): MarkdownAttachmentTerminalApplicationEndObservation | null
+    {
+        const entry = this.pendingHandles.get(handle);
+        return entry?.nativeCapture ? this.readNativeApplicationEnd(entry) : null;
+    }
+
+    /** Retry original native cleanup and Main duties independently; never replay publication. */
+    public retryNativeApplicationEnd(handle: ArticleAttachmentPendingHandle): MarkdownAttachmentTerminalApplicationEndObservation | null
+    {
+        const entry = this.pendingHandles.get(handle);
+        if (!entry?.nativeCapture || this.pending.get(entry.intent.task.taskRef) !== entry)
+        {
+            return entry?.nativeApplicationEnd?.observation ?? null;
+        }
+        let failed = false;
+        let firstCause: unknown;
+        for (const work of [() => this.readNativeApplicationEnd(entry, true),
+            () => this.finishNativeEntry(entry, 'attachment-native-application-end-cleanup-retry')])
+        {
+            try
+            {
+                work();
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    firstCause = cause;
+                }
+                failed = true;
+                entry.nativeFailure ??= { firstCause: cause, latestCause: cause };
+                entry.nativeFailure.latestCause = cause;
+            }
+        }
+        if (failed)
+        {
+            throw firstCause;
+        }
+        return entry.nativeApplicationEnd?.observation ?? null;
+    }
+
+    private readNativeApplicationEnd(entry: PendingInput, retry = false): MarkdownAttachmentTerminalApplicationEndObservation | null
+    {
+        const end = entry.nativeApplicationEnd;
+        if (!end?.handle)
+        {
+            return null; // Unescaped acquisition is not a native ended/empty-resource receipt.
+        }
+        entry.nativeApplicationEndPending = true;
+        try
+        {
+            const observation = retry ? end.issuer.retry(end.handle, end.lease) : end.issuer.inspect(end.handle, end.lease);
+            if (!observation)
+            {
+                return null;
+            }
+            if (observation.applicationRef !== end.handle || observation.custody !== end.custody
+                || observation.reservation !== end.reservation || observation.leaseRef !== entry.lease
+                || end.lease !== entry.lease
+                || (entry.nativePublication && observation.transaction !== entry.nativePublication.transaction))
+            {
+                throw new Error('attachment-native-application-end-binding-invalid');
+            }
+            end.observation = observation;
+            // Physical native stack/cleanup only. Provider/network/SDK task work stays separate.
+            entry.nativeApplicationEndPending = observation.unsupportedWork
+                || !end.issuer.hasEnded(end.handle, end.lease, observation);
+            return observation;
+        }
+        catch (cause)
+        {
+            entry.nativeFailure ??= { firstCause: cause, latestCause: cause };
+            entry.nativeFailure.latestCause = cause;
+            throw cause;
+        }
+    }
+
     /** Genuine returned SDK publication, from this adapter's SAME private entry/event. */
     public hasNativeSourcePublication(transaction: MarkdownEditorDispatchResult, context: ArticleDocumentContext): boolean
     {
@@ -1015,6 +1126,7 @@ export class ArticleAttachmentContextAdapter
     public inspectNativeTransitionCleanup(): Readonly<{ pending: number; }>
     {
         return Object.freeze({ pending: [...this.pending.values()].filter(entry => entry.nativeCleanupPending === true
+            || entry.nativeApplicationEndPending === true
             || entry.nativeSdkCleanupPending === true
             || entry.nativeTerminal?.taskCompletion === 'completed').length });
     }
@@ -1145,7 +1257,8 @@ export class ArticleAttachmentContextAdapter
                     entry.nativeSdkCleanupPending = false;
                     entry.nativeTransition = undefined;
                     this.finishNativeEntry(entry, 'attachment-native-completion-committed');
-                    return this.pending.get(entry.intent.task.taskRef) !== entry && custody.hasCustody();
+                    // Main's admission response does not acknowledge native stack/provider settlement.
+                    return entry.nativeLocalCleanupComplete === true && custody.hasCustody();
                 }
                 // updateSource genuinely aborts old-revision leases. Preserve the SAME lease,
                 // accepted transaction and original handle; never mint a completed replacement.
@@ -1581,6 +1694,7 @@ export class ArticleAttachmentContextAdapter
         state: 'cancelled' | 'stale' | 'removed' | 'failed' = 'failed'): ArticleAttachmentLifecycleSnapshot
     {
         entry.nativeCleanupPending = true;
+        entry.nativeLocalCleanupComplete = false;
         if (entry.nativeFinishing)
         {
             const cause = new Error('attachment-native-cleanup-reentrant');
@@ -1669,6 +1783,23 @@ export class ArticleAttachmentContextAdapter
             if (failed)
             {
                 throw first;
+            }
+            entry.nativeLocalCleanupComplete = true;
+            run(() => this.readNativeApplicationEnd(entry));
+            run(() =>
+            {
+                if (entry.nativeCleanupReentry)
+                {
+                    throw entry.nativeCleanupReentry.cause;
+                }
+            });
+            if (failed)
+            {
+                throw first;
+            }
+            if (entry.nativeApplicationEndPending)
+            {
+                return entry.snapshot;
             }
             if (this.pending.get(entry.intent.task.taskRef) === entry)
             {

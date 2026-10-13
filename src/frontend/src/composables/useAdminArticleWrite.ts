@@ -1053,9 +1053,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort> | null = null;
     const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
         'article-assets', 'article-assets:v1', authoringAnchors,
-        () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null);
+        () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null,
+        () => active ? attachmentEditor?.getAttachmentTerminalApplicationEndIssuer?.() ?? null : null);
     const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort & ArticleAttachmentTerminalPort = {
         getAttachmentTerminalRevisionIssuer: () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null,
+        getAttachmentTerminalApplicationEndIssuer: () => active ? attachmentEditor?.getAttachmentTerminalApplicationEndIssuer?.() ?? null : null,
         withAttachmentTerminalTransaction: (observation, consume) => active && !!attachmentEditor
             && attachmentEditor.withAttachmentTerminalTransaction?.(observation, consume) === true,
         withAttachmentFile: (batch, item, consume) => active && !!attachmentEditor
@@ -1167,6 +1169,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             active && authoringAttachments.observeNativeTerminal(observation, attachmentPort),
         readNativeTerminalTransaction: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalTransaction(handle),
         readNativeTerminalFailure: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalFailure(handle),
+        inspectNativeApplicationEnd: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.inspectNativeApplicationEnd(handle),
+        retryNativeApplicationEnd: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.retryNativeApplicationEnd(handle),
         inspectNativeTransitionCleanup: () => authoringAttachments.inspectNativeTransitionCleanup(),
         retryNativeTransitionCleanup: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.retryNativeTransitionCleanup(handle),
         readUploadObservation: (handle: ArticleAttachmentPendingHandle) => consumedAttachmentUploads.get(handle) ?? null,
@@ -1284,6 +1288,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             revokeCurrentMountedAuthority?.();
             const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
                 getAttachmentTerminalRevisionIssuer: () => editor.getAttachmentTerminalRevisionIssuer?.() ?? null,
+                getAttachmentTerminalApplicationEndIssuer: () => editor.getAttachmentTerminalApplicationEndIssuer?.() ?? null,
                 withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true,
                 withAttachmentTerminalTransaction: (observation, consume) =>
                     editor.withAttachmentTerminalTransaction?.(observation, consume) === true });
