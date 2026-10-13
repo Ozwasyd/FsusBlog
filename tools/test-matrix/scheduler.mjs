@@ -1375,6 +1375,7 @@ export function effectiveCacheInputs(tier)
     const inputs = new Set((tier.cacheInputs ?? []).map(String));
     inputs.add('tests/matrix.yml');
     inputs.add('tests/coverage-registry.json');
+    inputs.add('config/testing/required-evidence-authority-ledger.json');
     const commandPath = commandInputPath(tier.command);
     if (commandPath)
     {

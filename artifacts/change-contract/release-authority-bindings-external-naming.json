@@ -1,0 +1,87 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "tools/release/publish-release-final-bindings.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test/generate-evidence-location-governance.mjs"
+            ],
+            "reason": "Preserve the registered external receipt, identity and current-run authority field spellings while exposing read-only owner verification APIs; existing producer contracts are unchanged."
+        },
+        {
+            "id": "pre-runtime-fact-build-identity-authority",
+            "paths": [
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs"
+            ],
+            "reason": "Preserve the registered external receipt, identity and current-run authority field spellings while exposing read-only owner verification APIs; existing producer contracts are unchanged."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/ci/check-flaky-registry.mjs",
+                "tools/ci/check-job-summaries.mjs",
+                "tools/ci/run-stage.mjs",
+                "tools/contracts/check-perception-character-v3-retirement.mjs",
+                "tools/coverage/check-release-final-coverage.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/operations/check-release-evidence-manifest.mjs",
+                "tools/release/browser-contract-receipt-contract.mjs",
+                "tools/release/check-release-final.mjs",
+                "tools/release/publish-release-final-bindings.mjs",
+                "tools/release/register-required-evidence-verifier-imports.mjs",
+                "tools/release/release-reliability-qualified-receipt.mjs",
+                "tools/release/required-evidence-binding.mjs",
+                "tools/release/required-evidence-owner-contract.mjs",
+                "tools/release/required-evidence-owner-input.mjs",
+                "tools/release/required-evidence-verifier-registry.mjs",
+                "tools/security/perception-character-v3-independent-review.mjs",
+                "tools/security/production-xss-evidence.mjs",
+                "tools/security/run-perception-character-v3-release-gate.mjs",
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test-matrix/release-domain-projection-receipt.mjs",
+                "tools/test-matrix/release-final-evidence-contract.mjs",
+                "tools/test-matrix/required-evidence-dependencies.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test-quality/artifact.mjs",
+                "tools/test-quality/conformance.mjs",
+                "tools/test-runtime/order-equivalence.mjs",
+                "tools/test/native-test-receipt.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs"
+            ],
+            "reason": "Keep existing process environment keys unchanged while internal read-only verifier options retain repository naming conventions."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/test-execution-envelope-applicability.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/release-final-execution-authority-index.json",
+                "config/testing/required-evidence-authority-ledger.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "tests/fixtures/test-matrix/execution-dependency-contract.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve existing canonical catalog and locator receipt schemas and wire keys while resealing the owner API references."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh",
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "Preserve existing shell environment keys in the supplied canonical dependency regression lane."
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve the registered GitHub Actions workflow keys while consuming the explicitly supplied canonical projection repair."
+        }
+    ]
+}

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { verifyConformanceArtifact } from './conformance.mjs';
 import { buildOracleFacts } from './oracle-facts.mjs';
 import { evaluateQuality, loadQualityPolicy } from './policy.mjs';
 import { contentDigest, QUALITY_ARTIFACT_SCHEMA } from './schema.mjs';
@@ -308,3 +309,23 @@ export function verifyQualityArtifact({
     }
     return artifact;
 }
+
+const { loadCanonicalInventory } = await import(new URL('../test-inventory/api.mjs', import.meta.url));
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['success']), describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeJobEvidence(receipt),
+    async verify({ domainInputs, repositoryRoot, context })
+    {
+        const { readOwnerEvidenceReference } = await import(new URL('../release/required-evidence-owner-input.mjs', import.meta.url));
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const refs = Object.fromEntries(['artifact', 'oracleFacts', 'conformance', 'inventory'].map((key) =>
+            [key, readOwnerEvidenceReference(domainInputs?.[key], { repositoryRoot, context })]));
+        const inventory = loadCanonicalInventory(repositoryRoot, {
+            artifactPath: refs.inventory.file, requireArtifact: true, runAdapters: false
+        });
+        const conformance = verifyConformanceArtifact(repositoryRoot, refs.conformance.receipt);
+        verifyQualityArtifact({ root: repositoryRoot, inventory, conformance,
+            artifact: refs.artifact.receipt, oracleFacts: refs.oracleFacts.receipt });
+        return verifiedOwnerResult({ artifactDigest: refs.artifact.digest,
+            inventoryDigest: refs.inventory.digest, conformanceDigest: refs.conformance.digest });
+    }
+});
