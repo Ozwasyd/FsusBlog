@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.csharp-style-baseline.v1",
     "generatedFrom": "56511df07ea301a23fcc055114c9369660954b4e",
-    "policySha256": "b341da309ee50cdc61626212053b8a5b2548309294051bf59e9e6927b4baf292",
+    "policySha256": "1c8ded64fa6a603370a946ff5f21608847c2bd495089b620e23eb2f41fd1db2f",
     "violationCount": 33,
     "fileCount": 16,
     "files": [
