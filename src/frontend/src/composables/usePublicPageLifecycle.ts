@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue';
 export function usePublicPageLifecycle(options?: { debounceMs?: number; onDispose?: () => void; })
 {
     const isMounted = ref(false);
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let debounceTimer: number | null = null;
 
     const isActive = (): boolean => isMounted.value;
 

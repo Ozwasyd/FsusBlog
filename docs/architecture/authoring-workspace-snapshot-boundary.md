@@ -2359,3 +2359,21 @@ order and exact emitted bytes. Panel/cache/status use their existing constructor
 and owners, not new snapshot or reset implementations. No method, subscription,
 CAS, digest, admission, cleanup or restore-completion semantics change. All
 original runtime and frozen-contract qualifications remain held.
+
+
+## Original Timer Handle Type Boundary
+
+A separate source group corrects only the existing timer holder types under the
+actual local full application's browser and Node ambient declarations. Writer
+draft/retry, page debounce and router progress keep their exact window timer
+producers and use the genuine browser number handle. Their null/undefined states
+and all existing delay, callback, clear and settlement paths remain unchanged.
+
+The browser task scheduler retains its original globalThis timer producer. Its
+existing set/clear ports and original local holder carry the actual global return
+handle together with original numeric browser/injected handles. The original
+zero initializer is unchanged. This explicit typing boundary creates no timer,
+resource acknowledgment, readiness or cancellation success. All four complete
+original-options JavaScript emissions are byte identical. Actual original source
+callers are checked by the full compiler; test/render/runtime qualifications
+remain held, and the optional environment handle typing is reviewed explicitly.

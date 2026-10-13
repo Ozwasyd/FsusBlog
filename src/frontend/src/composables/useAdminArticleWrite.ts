@@ -898,8 +898,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const taskFeedback = useAdminTaskFeedback();
     const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal });
 
-    let draftSaveTimer: ReturnType<typeof window.setTimeout> | null = null;
-    let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let draftSaveTimer: number | null = null;
+    let serverDraftRetryTimer: number | null = null;
     let suppressDraftSave = true;
     let serverDraftSaveToken = 0;
     let draftSaveInFlightIdentity: string | null = null;

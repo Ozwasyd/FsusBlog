@@ -56,7 +56,7 @@ import {
 import { useAdminStore } from '@/store/admin';
 
 const PROGRESS_DELAY_MS = 120;
-let progressTimer: ReturnType<typeof window.setTimeout> | undefined;
+let progressTimer: number | undefined;
 let progressVisible = false;
 let progressRequestId = 0;
 
