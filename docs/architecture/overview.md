@@ -84,6 +84,12 @@ FsusUI supplies the visual system and reusable UI foundation. FsusBlog owns appl
 
 The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, so any FsusUI boundary warning fails before merge.
 
+Writer submit validation captures the first invalid property through the public
+FsusUI Form validation callback and scrolls with its exposed `scrollToField`.
+Product-owned field markers locate the corresponding focusable control when it
+has no invalid-state attribute. No private Form field array or field element is
+read; each submission clears the previous invalid-property observation.
+
 ## Authoring navigation history boundary
 
 `AuthoringNavigationHistory` in

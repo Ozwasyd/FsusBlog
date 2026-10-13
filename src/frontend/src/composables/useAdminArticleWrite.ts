@@ -1,4 +1,4 @@
-import { type FormInstance } from '@ozwasyd/element-plus';
+import { type FormInstance, type FormValidateCallback } from '@ozwasyd/element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -2522,14 +2522,20 @@ export function useAdminArticleWrite()
         return true;
     };
 
+    const firstInvalidFormProperty = ref<string | null>(null);
     const validateBeforeSubmit = async (): Promise<boolean> =>
     {
+        firstInvalidFormProperty.value = null;
         if (!formRef.value || submitting.value)
         {
             return false;
         }
 
-        const validation = await formRef.value.validate();
+        const captureInvalidProperty: FormValidateCallback = (valid, fields): void =>
+        {
+            firstInvalidFormProperty.value = valid ? null : Object.keys(fields ?? {})[0] ?? null;
+        };
+        const validation = await formRef.value.validate(captureInvalidProperty);
         if (!isFsusUiOk(validation))
         {
             return false;
@@ -3131,6 +3137,7 @@ export function useAdminArticleWrite()
         articleRightsExcerptMax: ARTICLE_RIGHTS_EXCERPT_MAX,
         rules,
         validateBeforeSubmit,
+        firstInvalidFormProperty,
         saveDraftNow,
         compareSelectedArticleRecovery,
         handleUploadImg,
