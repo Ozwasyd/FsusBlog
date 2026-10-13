@@ -1031,6 +1031,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
         }
         if (cleanupFailure)
         {
+            // eslint-disable-next-line preserve-caught-error -- Preserve the original pre-notification first cause, including undefined; the current acquisition cause is recorded as latest.
             throw new AggregateError([primary, cleanupFailure.cause], 'article-native-staging-frame-and-cleanup-failed', { cause: primary });
         }
         throw primary;
