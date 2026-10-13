@@ -27,3 +27,9 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Memory inventory syntax observer fixture indentation for #3444.
+2f352742921c372281785c508aa0daf1d8a9a771
+
+# Imported SDK page adapter and fixture formatting for #3458; actual diff reviewed.
+c3bc9f73a9bf5eecc1286d3a6b7f2459d283905c
