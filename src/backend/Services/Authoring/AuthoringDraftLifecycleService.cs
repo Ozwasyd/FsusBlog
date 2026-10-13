@@ -28,7 +28,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
-public sealed class AuthoringDraftLifecycleService(
+public sealed partial class AuthoringDraftLifecycleService(
     ISqlSugarClient db,
     FsusBlog.Core.Services.Abstractions.IArticleCoreService articleService,
     IArticlePublicationValidator publicationValidator,

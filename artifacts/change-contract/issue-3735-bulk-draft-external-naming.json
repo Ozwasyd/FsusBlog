@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.BulkReservation.cs"
+            ],
+            "reason": "Preserve original authoring draft and Bulk actor/site/policy/request identity and native PostgreSQL identifiers in these two managed source paths. No environment setting, registry, DI activation, schema or qualification output is changed."
+        }
+    ]
+}
