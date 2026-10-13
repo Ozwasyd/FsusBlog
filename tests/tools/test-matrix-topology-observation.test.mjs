@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
-  chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
-  cpSync, existsSync
-} from 'node:fs'
+    chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
+    cpSync, existsSync, readdirSync, realpathSync
+} from 'node:fs';
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -21,7 +21,8 @@ import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
 import {
   buildIdentitiesFromMinimalReceipt,
   minimalContractSourceClosureDigests,
-  runMinimalContractBuild
+    runMinimalContractBuild,
+    validateMinimalContractBuildReceipt
 } from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
 import {
   extract as extractTestMatrix,
@@ -30,6 +31,7 @@ import {
   TEST_MATRIX_CONSUMER_INPUTS
 } from '../../tools/fact-extractors/test-matrix/extract.mjs'
 import { runtimeRoleProject } from '../../tools/contracts/lib/runtime-role-observation.mjs'
+const { resolveDockerComposeOracleIdentity } = await import(new URL('../../tools/governance/check-monolithic-distributed-architecture.mjs', import.meta.url));
 
 const extractorId = 'test-matrix-fact-extractor'
 const sourceIdentity = sealSourceIdentity(root)
@@ -209,6 +211,8 @@ function fixtureRepository(options = {})
   }
   copy(directory, minimalBuild.receipt.buildRoot)
   copy(directory, runtimeRoleOutputRoot)
+    // Mutation fixtures copy this run's genuine projection bytes; they are not runtime qualification receipts.
+    copy(directory, minimalBuild.receipt.artifacts['openapi-aeds-observation'].buildReceipt.openapiArtifactPath);
   return directory
 }
 
@@ -256,6 +260,8 @@ function bindFixtureBuild(repositoryRoot)
   {
     artifact.path = artifact.path.replace(oldBuildRoot, newBuildRoot)
   }
+    const projection = receipt.artifacts['openapi-aeds-observation'].buildReceipt;
+    projection.openapiPath = projection.openapiPath.replace(oldBuildRoot, newBuildRoot);
   const runtime = receipt.artifacts['runtime-role-observation']
   const oldRuntimeRoot = runtime.buildReceipt.reproducibleBuild.outputRoot
   const newRuntimeRoot = `.tmp/runtime-role-reproducible-builds/${buildKey}`
@@ -421,6 +427,162 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 18)
 })
 
+test('matrix mutation fixtures retain exact current OpenAPI projection paths and bytes', () =>
+{
+    const directory = fixtureRepository();
+    try
+    {
+        const matrixPath = path.join(directory, 'tests/matrix.yml');
+        writeFileSync(matrixPath, `${readFileSync(matrixPath, 'utf8')}\n# fixture projection relocation probe\n`);
+        const build = bindFixtureBuild(directory);
+        const { receipt } = loadRuntimeBuildBinding(directory, build.buildReceiptPath);
+        assert.notEqual(receipt.buildKey, minimalBuild.receipt.buildKey);
+        const projection = receipt.artifacts['openapi-aeds-observation'].buildReceipt;
+        const originalProjection = minimalBuild.receipt.artifacts['openapi-aeds-observation'].buildReceipt;
+        assert.equal(projection.openapiPath, originalProjection.openapiPath.replace(
+            minimalBuild.receipt.buildRoot, receipt.buildRoot));
+        assert.equal(projection.openapiArtifactPath, originalProjection.openapiArtifactPath);
+        const originalBytes = readFileSync(path.join(root, originalProjection.openapiPath));
+        for (const relative of [projection.openapiPath, projection.openapiArtifactPath])
+        {
+            assert.ok(readFileSync(path.join(directory, relative)).equals(originalBytes), relative);
+        }
+        validateMinimalContractBuildReceipt(receipt, { repositoryRoot: directory });
+        const stale = structuredClone(receipt);
+        stale.artifacts['openapi-aeds-observation'].buildReceipt.openapiPath = originalProjection.openapiPath;
+        stale.contentDigest = digestValue({ ...stale, contentDigest: null });
+        assert.throws(() => buildIdentitiesFromMinimalReceipt(stale), /OpenAPI projection receipt is invalid/u);
+        for (const relative of [projection.openapiPath, projection.openapiArtifactPath])
+        {
+            const absolute = path.join(directory, relative);
+            try
+            {
+                writeFileSync(absolute, Buffer.concat([originalBytes, Buffer.from('\n')]));
+                assert.throws(() => validateMinimalContractBuildReceipt(receipt,
+                    { repositoryRoot: directory }), /OpenAPI projection digest mismatch/u);
+            }
+            finally
+            {
+                writeFileSync(absolute, originalBytes);
+            }
+        }
+        validateMinimalContractBuildReceipt(receipt, { repositoryRoot: directory });
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('runtime-role replay ignores external TMPDIR and cleans repeated compiled observations', () =>
+{
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-replay-external-'));
+    const previous = process.env.TMPDIR;
+    const owner = path.join(root, '.tmp/contracts/runtime-role');
+    try
+    {
+        assert.ok(!external.startsWith(`${root}${path.sep}`));
+        process.env.TMPDIR = external;
+        for (let attempt = 0; attempt < 2; attempt += 1)
+        {
+            const result = extractTestMatrix({
+                repositoryRoot: root,
+                extractor: registryExtractor(),
+                sourceCommit: sourceIdentity.sourceCommit,
+                worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+                buildIdentity: runtimeRoleBuild.buildIdentity,
+                buildReceiptPath: runtimeRoleBuild.buildReceiptPath
+            });
+            assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
+            // SDK verification may create NuGet scratch here; replay output must stay in its canonical owner.
+            assert.ok(!readdirSync(external).some((name) =>
+                name.startsWith('runtime-role-replay-')
+                || name.startsWith('replay-')
+                || name === 'runtime-role-observation.json'));
+            assert.ok(!readdirSync(owner).some((name) => name.startsWith('replay-')));
+        }
+    }
+    finally
+    {
+        if (previous === undefined)
+        {
+            delete process.env.TMPDIR;
+        }
+        else
+        {
+            process.env.TMPDIR = previous;
+        }
+        rmSync(external, { recursive: true, force: true });
+    }
+});
+
+test('compiled runtime-role producer still refuses external and symlinked replay output', () =>
+{
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-output-external-'));
+    const refusalDirectory = mkdtempSync(path.join(root, '.tmp/contracts/runtime-role/refusal-'));
+    try
+    {
+        assert.ok(!external.startsWith(`${root}${path.sep}`));
+        const { binding } = loadRuntimeBuildBinding(root);
+        const output = path.join(external, 'rejected.json');
+        const result = spawnSync('dotnet', [
+            path.join(root, binding.assemblyPath),
+            '--deployment-observation', path.join(root, binding.deploymentArtifactPath),
+            '--output', output
+        ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
+        assert.notEqual(result.status, 0);
+        assert.match(`${result.stdout}\n${result.stderr}`, /runtime_role_output_path_not_canonical:output/u);
+        assert.equal(existsSync(output), false);
+        const alias = path.join(refusalDirectory, 'outside');
+        symlinkSync(external, alias, 'dir');
+        const symlinkedOutput = path.join(alias, 'rejected.json');
+        const symlinkedResult = spawnSync('dotnet', [
+            path.join(root, binding.assemblyPath),
+            '--deployment-observation', path.join(root, binding.deploymentArtifactPath),
+            '--output', symlinkedOutput
+        ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
+        assert.notEqual(symlinkedResult.status, 0);
+        assert.match(`${symlinkedResult.stdout}\n${symlinkedResult.stderr}`, /runtime_role_output_path_symlink:output/u);
+        assert.equal(existsSync(output), false);
+        assert.deepEqual(readdirSync(external), []);
+    }
+    finally
+    {
+        rmSync(refusalDirectory, { recursive: true, force: true });
+        rmSync(external, { recursive: true, force: true });
+    }
+});
+
+test('runtime-role replay refuses a symlinked canonical owner before writing outside', () =>
+{
+    const directory = fixtureRepository();
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-owner-external-'));
+    try
+    {
+        const build = bindFixtureBuild(directory);
+        const owner = path.join(directory, '.tmp/contracts/runtime-role');
+        mkdirSync(path.dirname(owner), { recursive: true });
+        assert.equal(existsSync(owner), false);
+        symlinkSync(external, owner, 'dir');
+        const result = extractTestMatrix({
+            repositoryRoot: directory,
+            extractor: registryExtractor(),
+            sourceCommit: sourceIdentity.sourceCommit,
+            worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+            buildIdentity: build.buildIdentity,
+            buildReceiptPath: build.buildReceiptPath
+        });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /symbolic link/u);
+        assert.deepEqual(readdirSync(external), []);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+        rmSync(external, { recursive: true, force: true });
+    }
+});
+
 test('live matrix projects typed topology / release-final / production-fresh facts', async () =>
 {
   const first = await runExtractor({
@@ -463,7 +625,14 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.equal(runtimeRole.ownership.separation, 'blue-green-release-slots-not-runtime-role-services')
   assert.match(runtimeRole.deploymentAuthority.observationDigest, /^sha256:[a-f0-9]{64}$/u)
   assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.oracle, 'docker-compose-config-json-no-interpolate')
-  assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.dockerExecutable.canonicalPath, '/usr/bin/docker')
+    const currentOracle = resolveDockerComposeOracleIdentity({ root });
+    for (const key of ['dockerExecutable', 'composeImplementation'])
+    {
+        const observed = runtimeRole.deploymentAuthority.effectiveCompose[key];
+        assert.deepEqual(observed, currentOracle[key]);
+        assert.equal(realpathSync(observed.canonicalPath), observed.canonicalPath);
+        assert.equal(createHash('sha256').update(readFileSync(observed.canonicalPath)).digest('hex'), observed.digest);
+    }
   assert.match(runtimeRole.deploymentAuthority.effectiveCompose.dockerExecutable.digest, /^[a-f0-9]{64}$/u)
   assert.match(runtimeRole.deploymentAuthority.effectiveCompose.composeImplementation.digest, /^[a-f0-9]{64}$/u)
   assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.defaultServices['fsusblog.server'].profileState, 'default-active')
@@ -655,27 +824,35 @@ test('5) adding a production bundle changes topologyDigest', () =>
 
 test('6) dependency cycle fails closed', () =>
 {
-  const directory = fixtureRepository()
-  try
-  {
-    const matrixPath = path.join(directory, 'tests/matrix.yml')
-    let text = readFileSync(matrixPath, 'utf8')
-    // Force a cycle between validate-matrix and static-governance by rewriting both edges.
-    text = text.replace(
-      /    - id: validate-matrix\n[\s\S]*?executionDependsOn: \[[^\]]*\]/u,
-      (block) => block.replace(/executionDependsOn: \[[^\]]*\]/u, 'executionDependsOn: [static-governance]')
-    )
-    // static-governance already depends on validate-matrix in the real matrix.
-    writeFileSync(matrixPath, text)
-    const result = extractFrom(directory)
-    assert.equal(result.status, 'failed')
-    assert.ok(result.failureReasons.some((reason) => /cycle/iu.test(reason)))
-  }
-  finally
-  {
-    rmSync(directory, { recursive: true, force: true })
-  }
-})
+    const directory = fixtureRepository();
+    try
+    {
+        const matrixPath = path.join(directory, 'tests/matrix.yml');
+        let text = readFileSync(matrixPath, 'utf8');
+        // Construct both edges instead of relying on a transitive dependency in the current matrix.
+        for (const [tierId, dependencyId] of [
+            ['validate-matrix', 'static-governance'],
+            ['static-governance', 'validate-matrix']
+        ])
+        {
+            const tierPattern = new RegExp(`    - id: ${tierId}\\n[\\s\\S]*?executionDependsOn: \\[[^\\]]*\\]`, 'u');
+            assert.equal([...text.matchAll(new RegExp(tierPattern.source, 'gu'))].length, 1);
+            const mutated = text.replace(tierPattern, (block) => block.replace(
+                /executionDependsOn: \[[^\]]*\]/u, `executionDependsOn: [${dependencyId}]`
+            ));
+            assert.notEqual(mutated, text, `${tierId} dependency mutation did not apply`);
+            text = mutated;
+        }
+        writeFileSync(matrixPath, text);
+        const result = extractFrom(directory);
+        assert.equal(result.status, 'failed');
+        assert.ok(result.failureReasons.some((reason) => /dependency graph cycle: (?:validate-matrix->static-governance->validate-matrix|static-governance->validate-matrix->static-governance)(?:$| \|)/u.test(reason)));
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
 
 test('7) command group membership drop changes observation digest', () =>
 {
@@ -978,6 +1155,8 @@ test('runtime-role deployment source roster, live digests, and policy authority 
       const result = extractMutatedRuntimeObservation(directory, mutate)
       assert.equal(result.status, 'failed', label)
       assert.match(result.failureReasons.join('\n'), /compiled producer replay mismatch/iu, label)
+            const replayOwner = path.join(directory, '.tmp/contracts/runtime-role');
+            assert.ok(!readdirSync(replayOwner).some((name) => name.startsWith('replay-')), label);
     }
     finally
     {

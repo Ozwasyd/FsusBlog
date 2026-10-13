@@ -1657,6 +1657,48 @@ test('zero-legacy parser authority rejects link mode byte and locked dependency 
     assert.throws(() => scanZeroLegacyGovernance(jsoncRoot), /path is not canonical/u)
 })
 
+test('zero-legacy lock admission preserves bytes while requiring strict duplicate-free JSON', async (t) =>
+{
+    const files = { 'config/testing/parser-authority-behavior-qualification.yaml': 'command: current-claim-cli\n' };
+    const lockDocument = JSON.parse(parserLock);
+    for (const [name, lockBytes] of [
+        ['four-space', `${JSON.stringify(lockDocument, null, 4)}\n`],
+        ['tabs', `${JSON.stringify(lockDocument, null, '\t')}\n`],
+        ['compact', JSON.stringify(lockDocument)],
+        ['whitespace', ` \n${JSON.stringify(lockDocument)}\n\t `]
+    ])
+    {
+        await t.test(name, (context) =>
+        {
+            const repositoryRoot = repositoryFixture(context, files);
+            const lockPath = path.join(repositoryRoot, 'src/frontend/package-lock.json');
+            fs.writeFileSync(lockPath, lockBytes);
+            const before = fs.readFileSync(lockPath);
+            assert.deepEqual(scanZeroLegacyGovernance(repositoryRoot).findings, []);
+            assert.ok(fs.readFileSync(lockPath).equals(before), 'scanner changed admitted lock bytes');
+        });
+    }
+    for (const [name, lockBytes] of [
+        ['duplicate-root', parserLock.replace('{', '{ "name": "duplicate",')],
+        ['escaped-duplicate', parserLock.replace('"typescript": "^6.0.3"',
+            '"typescript": "^6.0.3", "\\u0074ypescript": "^6.0.3"')],
+        ['comment', parserLock.replace('{', '{ // comment')],
+        ['syntax', parserLock.replace(/\}\n$/u, ',}\n')],
+        ['invalid-utf8', Buffer.concat([Buffer.from(parserLock), Buffer.from([0xff])])]
+    ])
+    {
+        await t.test(name, (context) =>
+        {
+            const repositoryRoot = repositoryFixture(context, files);
+            const lockPath = path.join(repositoryRoot, 'src/frontend/package-lock.json');
+            fs.writeFileSync(lockPath, lockBytes);
+            const before = fs.readFileSync(lockPath);
+            assert.throws(() => scanZeroLegacyGovernance(repositoryRoot), /strict duplicate-free JSON/u);
+            assert.ok(fs.readFileSync(lockPath).equals(before), 'refusal changed lock bytes');
+        });
+    }
+});
+
 test('zero-legacy Markdown machine fences recognize every JavaScript line terminator', (t) =>
 {
     const files = {}
