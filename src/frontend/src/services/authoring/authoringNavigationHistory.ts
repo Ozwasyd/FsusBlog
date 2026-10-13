@@ -2,7 +2,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 
 import type { ArticleAnchorContext } from './articleAnchorContext';
-import type { AuthoringTabGroup } from './authoringTabGroupRegistry';
+import type { AuthoringTabGroup, AuthoringTabGroupRegistryState } from './authoringTabGroupRegistry';
 import type {
     ArticleDocumentContextRef,
     ArticleDocumentIdentity,
@@ -59,6 +59,8 @@ export interface AuthoringNavigationValidity {
     status: AuthoringNavigationValidityStatus;
     statusRef: OpenArticleDocumentEntry['status']['statusRef'] | null;
     registryRevision: number;
+    /** Owner-lifetime order; a reused group ID can restart its local revision. */
+    groupRegistryRevision: AuthoringTabGroupRegistryState['revision'];
     groupRevision: AuthoringTabGroup['revision'] | null;
     observationRef: string;
 }
@@ -272,9 +274,9 @@ function isDocumentContext(value: unknown): value is ArticleDocumentContextRef
 
 function isValidity(value: unknown): value is AuthoringNavigationValidity
 {
-    return exactKeys(value, ['status', 'statusRef', 'registryRevision', 'groupRevision', 'observationRef'])
+    return exactKeys(value, ['status', 'statusRef', 'registryRevision', 'groupRegistryRevision', 'groupRevision', 'observationRef'])
         && validityStatuses.includes(value.status as AuthoringNavigationValidityStatus)
-        && isNullableRef(value.statusRef) && isSequence(value.registryRevision)
+        && isNullableRef(value.statusRef) && isSequence(value.registryRevision) && isSequence(value.groupRegistryRevision)
         && (value.groupRevision === null || isSequence(value.groupRevision)) && isRef(value.observationRef)
         && (value.status !== 'current' || value.statusRef !== null && value.groupRevision !== null);
 }
@@ -549,8 +551,11 @@ function canCoalesce(entry: AuthoringNavigationEntry | undefined, visit: Authori
 
 function validityIsFresh(previous: AuthoringNavigationValidity, next: AuthoringNavigationValidity): boolean
 {
+    // Group commands advance the owner revision atomically even across close/recreate.
+    // Local revisions are comparable only within the same owner publication.
     return next.registryRevision >= previous.registryRevision
-        && (previous.groupRevision === null || next.groupRevision === null || next.groupRevision >= previous.groupRevision);
+        && next.groupRegistryRevision >= previous.groupRegistryRevision
+        && (next.groupRegistryRevision > previous.groupRegistryRevision || next.groupRevision === previous.groupRevision);
 }
 
 function targetIntent(state: AuthoringNavigationHistoryState, entry: AuthoringNavigationEntry, intentRef: string): AuthoringNavigationTargetIntent
@@ -737,14 +742,18 @@ export function observeAuthoringNavigationTarget(entry: AuthoringNavigationEntry
     current: Pick<OpenArticleDocumentEntry, 'identity' | 'documentContext' | 'owningGroupId' | 'status'> | null;
     absence: 'missing' | 'unknown';
     group: Pick<AuthoringTabGroup, 'groupId' | 'revision'> | null;
+    groupRegistry: Pick<AuthoringTabGroupRegistryState, 'revision' | 'articleRegistryRevision'>;
     anchorStatus: 'current' | 'missing' | 'partial' | 'unknown';
     anchorDocument: AuthoringNavigationAnchor['document'] | null;
     registryRevision: number;
     observationRef: string;
 }): AuthoringNavigationValidity
 {
-    if (!exactKeys(facts, ['current', 'absence', 'group', 'anchorStatus', 'anchorDocument', 'registryRevision', 'observationRef'])
+    if (!exactKeys(facts, ['current', 'absence', 'group', 'groupRegistry', 'anchorStatus', 'anchorDocument', 'registryRevision', 'observationRef'])
         || !['missing', 'unknown'].includes(facts.absence)
+        || !exactKeys(facts.groupRegistry, ['revision', 'articleRegistryRevision'])
+        || !isSequence(facts.groupRegistry.revision) || !isSequence(facts.groupRegistry.articleRegistryRevision)
+        || facts.groupRegistry.articleRegistryRevision !== facts.registryRevision
         || !['current', 'missing', 'partial', 'unknown'].includes(facts.anchorStatus)
         || !(facts.anchorDocument === null || isAnchorDocument(facts.anchorDocument))
         || !(facts.group === null || exactKeys(facts.group, ['groupId', 'revision'])
@@ -798,7 +807,8 @@ export function observeAuthoringNavigationTarget(entry: AuthoringNavigationEntry
         }
     }
     const validity = { status, statusRef: current && same(current.identity, entry.identity) ? current.status.statusRef : null,
-        registryRevision: facts.registryRevision, groupRevision: facts.group?.revision ?? null,
+        registryRevision: facts.registryRevision, groupRegistryRevision: facts.groupRegistry.revision,
+        groupRevision: facts.group?.revision ?? null,
         observationRef: facts.observationRef };
     if (!isValidity(validity))
     {
@@ -862,6 +872,10 @@ export function verifyAuthoringNavigationTransition(before: AuthoringNavigationH
         {
             return false;
         }
+        // Replay independently orders the original producer coordinates, not a local group epoch.
+        const observationIsOrdered = (previous: AuthoringNavigationValidity, next: AuthoringNavigationValidity): boolean =>
+            next.registryRevision < previous.registryRevision || next.groupRegistryRevision < previous.groupRegistryRevision
+                ? false : next.groupRegistryRevision !== previous.groupRegistryRevision || next.groupRevision === previous.groupRevision;
         const commandDigest = calculateAuthoringNavigationDigest(command);
         const prior = before.processed.find(item => item.commandId === command.commandId || item.idempotencyKey === command.idempotencyKey);
         let status: AuthoringNavigationCommandStatus = 'applied';
@@ -905,7 +919,7 @@ export function verifyAuthoringNavigationTransition(before: AuthoringNavigationH
                     }
                     else if (visit.validity.status !== 'current'
                         || (command.kind === 'coalesce' || current?.userActionId === visit.userActionId) && !coalesces
-                        || current && coalesces && !validityIsFresh(current.validity, visit.validity)
+                        || current && coalesces && !observationIsOrdered(current.validity, visit.validity)
                         || before.entries.some(entry => entry.entryId === visit.entryId && (!coalesces || entry.entryId !== current.entryId)))
                     {
                         status = 'rejected-state';
@@ -932,7 +946,7 @@ export function verifyAuthoringNavigationTransition(before: AuthoringNavigationH
                         status = 'rejected-pending';
                     }
                     else if (entry?.entryId !== command.entryId || entry.contentDigest !== command.expectedEntryDigest
-                        || !validityIsFresh(entry.validity, command.validity))
+                        || !observationIsOrdered(entry.validity, command.validity))
                     {
                         status = 'rejected-state';
                     }
@@ -950,7 +964,7 @@ export function verifyAuthoringNavigationTransition(before: AuthoringNavigationH
                     const entry = before.entries.find(item => item.entryId === command.entryId);
                     if (entry?.contentDigest !== command.expectedEntryDigest
                         || entry.validity.status === 'current' && command.validity.status === 'current'
-                        || !validityIsFresh(entry.validity, command.validity))
+                        || !observationIsOrdered(entry.validity, command.validity))
                     {
                         status = 'rejected-state';
                     }

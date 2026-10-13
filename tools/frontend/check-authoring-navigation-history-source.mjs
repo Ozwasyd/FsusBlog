@@ -16,10 +16,159 @@ const forbiddenGlobals = new Set(['window', 'globalThis', 'localStorage', 'sessi
 const forbiddenCalls = new Set(['pushState', 'replaceState', 'addEventListener', 'openOrActivate',
     'createEditorSession', 'restore', 'reveal', 'manual', 'capture', 'synchronize']);
 const forbiddenFields = new Set(['url', 'title', 'slug', 'headingText', 'domPath', 'htmlOffset',
-    'offset', 'textareaRef', 'selection', 'body', 'markdown', 'html', 'undo', 'recentStack', 'editorSessionRef']);
+    'offset', 'textareaRef', 'selection', 'body', 'markdown', 'html', 'undo', 'recentStack', 'editorSessionRef',
+    'groupEpoch', 'groupGeneration']);
 const requiredExports = new Set(['AuthoringNavigationHistory', 'applyAuthoringNavigationCommand',
     'createAuthoringNavigationHistoryState', 'verifyAuthoringNavigationHistoryState',
     'observeAuthoringNavigationTarget', 'verifyAuthoringNavigationTransition', 'verifyAuthoringNavigationReplay']);
+
+/** Authored source control; symbolic producer coordinates do not mount or execute a target. */
+function checkGroupReuseOrdering(ast, ts)
+{
+    const errors = [];
+    const functions = new Map(ast.statements.filter(ts.isFunctionDeclaration)
+        .filter(node => node.name).map(node => [node.name.text, node]));
+    const mutation = functions.get('validityIsFresh');
+    const replay = functions.get('verifyAuthoringNavigationTransition');
+    const observation = functions.get('observeAuthoringNavigationTarget');
+    const validity = ast.statements.find(node => ts.isInterfaceDeclaration(node)
+        && node.name.text === 'AuthoringNavigationValidity');
+    const coordinate = validity?.members.find(node => node.name?.getText(ast) === 'groupRegistryRevision');
+    if (!coordinate?.type || coordinate.type.getText(ast) !== "AuthoringTabGroupRegistryState['revision']")
+    {
+        errors.push('group-reuse: validity must retain the original Group registry revision type');
+    }
+    let replayExpression = null;
+    let sharedFreshness = false;
+    let coherentProjection = false;
+    let projectedCoordinate = false;
+    const inspect = (node, mode) =>
+    {
+        if (mode === 'replay' && ts.isVariableDeclaration(node) && node.name.getText(ast) === 'observationIsOrdered'
+            && node.initializer && ts.isArrowFunction(node.initializer) && !ts.isBlock(node.initializer.body))
+        {
+            replayExpression = node.initializer.body;
+        }
+        if (mode === 'replay' && ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+            && node.expression.text === 'validityIsFresh')
+        {
+            sharedFreshness = true;
+        }
+        if (mode === 'observation' && ts.isBinaryExpression(node)
+            && node.operatorToken.kind === ts.SyntaxKind.ExclamationEqualsEqualsToken
+            && node.left.getText(ast) === 'facts.groupRegistry.articleRegistryRevision'
+            && node.right.getText(ast) === 'facts.registryRevision')
+        {
+            coherentProjection = true;
+        }
+        if (mode === 'observation' && ts.isPropertyAssignment(node) && node.name.getText(ast) === 'groupRegistryRevision'
+            && node.initializer.getText(ast) === 'facts.groupRegistry.revision')
+        {
+            projectedCoordinate = true;
+        }
+        ts.forEachChild(node, child => inspect(child, mode));
+    };
+    if (replay)
+    {
+        inspect(replay, 'replay');
+    }
+    if (observation)
+    {
+        inspect(observation, 'observation');
+    }
+    if (sharedFreshness || !replayExpression)
+    {
+        errors.push('group-reuse: replay must independently order producer coordinates');
+    }
+    if (!coherentProjection || !projectedCoordinate)
+    {
+        errors.push('group-reuse: observations must bind the actual Group publication to the Registry revision');
+    }
+    const returns = mutation?.body?.statements.filter(ts.isReturnStatement) ?? [];
+    if (returns.length !== 1 || !returns[0].expression)
+    {
+        errors.push('group-reuse: mutation ordering must have one closed coordinate expression');
+        return errors;
+    }
+    // Closed AST constant folding only: no calls, imports, module execution or arbitrary evaluator.
+    const evaluate = (node, bindings) =>
+    {
+        if (ts.isParenthesizedExpression(node))
+        {
+            return evaluate(node.expression, bindings);
+        }
+        if (node.kind === ts.SyntaxKind.FalseKeyword)
+        {
+            return false;
+        }
+        if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression)
+            && Object.hasOwn(bindings, node.expression.text)
+            && Object.hasOwn(bindings[node.expression.text], node.name.text))
+        {
+            return bindings[node.expression.text][node.name.text];
+        }
+        if (ts.isConditionalExpression(node))
+        {
+            const condition = evaluate(node.condition, bindings);
+            const positive = evaluate(node.whenTrue, bindings);
+            const negative = evaluate(node.whenFalse, bindings);
+            return condition ? positive : negative;
+        }
+        if (ts.isBinaryExpression(node))
+        {
+            const left = evaluate(node.left, bindings);
+            const right = evaluate(node.right, bindings);
+            switch (node.operatorToken.kind)
+            {
+                case ts.SyntaxKind.AmpersandAmpersandToken: return left && right;
+                case ts.SyntaxKind.BarBarToken: return left || right;
+                case ts.SyntaxKind.GreaterThanEqualsToken: return left >= right;
+                case ts.SyntaxKind.GreaterThanToken: return left > right;
+                case ts.SyntaxKind.LessThanToken: return left < right;
+                case ts.SyntaxKind.EqualsEqualsEqualsToken: return left === right;
+                case ts.SyntaxKind.ExclamationEqualsEqualsToken: return left !== right;
+            }
+        }
+        throw new Error('group-reuse: unsupported coordinate AST');
+    };
+    const previous = { registryRevision: 20, groupRegistryRevision: 5, groupRevision: 2 };
+    // Original producer: move-out (6/3), close (7/absent), same-ID-create (8/0), move-back (9/1).
+    // History sees only 5/2 and 9/1; document/group identity validation remains outside this ordering control.
+    const cases = [
+        { name: 'same-document-move-out-close-recreate-move-back-without-missing-observation',
+            next: { registryRevision: 24, groupRegistryRevision: 9, groupRevision: 1 }, expected: true },
+        { name: 'regressing-group-publication',
+            next: { registryRevision: 24, groupRegistryRevision: 4, groupRevision: 1 }, expected: false },
+        { name: 'regressing-article-publication',
+            next: { registryRevision: 19, groupRegistryRevision: 9, groupRevision: 1 }, expected: false },
+        { name: 'same-publication-local-revision-drop',
+            next: { registryRevision: 20, groupRegistryRevision: 5, groupRevision: 1 }, expected: false },
+        { name: 'same-publication-local-revision-increase',
+            next: { registryRevision: 20, groupRegistryRevision: 5, groupRevision: 3 }, expected: false },
+        { name: 'same-publication-identical-local-coordinate',
+            next: { registryRevision: 20, groupRegistryRevision: 5, groupRevision: 2 }, expected: true },
+        { name: 'missing-group-at-a-later-publication',
+            next: { registryRevision: 22, groupRegistryRevision: 7, groupRevision: null }, expected: true }
+    ];
+    for (const item of cases)
+    {
+        for (const [label, expression] of [['mutation', returns[0].expression], ['independent-replay', replayExpression]])
+        {
+            try
+            {
+                if (!expression || evaluate(expression, { previous, next: item.next }) !== item.expected)
+                {
+                    errors.push(`group-reuse: ${label} does not match producer coordinate case ${item.name}`);
+                }
+            }
+            catch (error)
+            {
+                errors.push(`group-reuse: ${label}: ${error.message}`);
+            }
+        }
+    }
+    return errors;
+}
 
 /** Static AST review only: consumes the canonical in-memory index and writes no evidence or receipts. */
 export function checkAuthoringNavigationHistorySource(index, repositoryRoot = root)
@@ -36,6 +185,7 @@ export function checkAuthoringNavigationHistorySource(index, repositoryRoot = ro
     {
         return ['canonical navigation history TypeScript owner is missing'];
     }
+    errors.push(...checkGroupReuseOrdering(owner.typescript.ast, ts));
     const declaredExports = new Set();
     const ownerDeclarations = [];
     const issue = (file, node, message) =>

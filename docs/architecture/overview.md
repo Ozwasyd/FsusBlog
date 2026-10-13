@@ -138,8 +138,26 @@ missing group and unknown targets produce an unavailable intent without moving
 or skipping the cursor. Unknown observations never become current implicitly.
 `replace-invalid` updates validity only, preserving document/group/anchor facts.
 
-The pure observation helper consumes actual Registry status/context and Group
-projections. Anchor currentness additionally requires the exact numeric source
+The pure observation helper consumes actual Registry status/context and coherent
+Group projections. The Group registry's actual `revision` is retained separately
+from the local group's `revision`, and its `articleRegistryRevision` must match
+the observed Registry revision. Group command publication order is monotonic
+for the same canonical owner; a local group revision is not a lifetime epoch.
+An empty group can close and its exact `groupId` can be created again at local
+revision 0. A newer Group registry publication therefore admits a lower local
+revision; at the same publication the local coordinate must agree exactly.
+Neither producer-wide counter may move backwards, and no coordinate is inferred
+or replaced with a fabricated group epoch. Missing owner coordinates or
+incoherent Registry/Group projections fail closed.
+
+For example, move the same document out of a group at local revision 2, close
+the empty group, recreate the same ID at revision 0, and move the document back.
+The original Group producer advances its registry revision on each of those
+four commands, while the returned group's local revision is 1. History can
+consume that later coherent observation without having seen the intermediate
+missing group. The exact document/epoch/source/anchor and group ID checks remain.
+Replay checks publication order independently of the mutation freshness
+predicate. Anchor currentness additionally requires the exact numeric source
 and context digest projection supplied by the Anchor owner. An absent mounted
 entry alone proves only unknown; a confirmed missing fact must come from its
 source owner. Existing ownership is never moved to satisfy the requested target
@@ -163,7 +181,14 @@ artifact. It checks the named history owner, required exported boundaries,
 canonical type-only imports, fixed digest imports, browser/event/activation
 calls, forbidden payload fields and named local navigation stacks. It does not
 replace independent runtime or mutation coverage, and is not attached to the
-held test matrix in this source slice.
+held test matrix in this source slice. Its authored group-reuse control covers
+move-out/close/same-ID-create/move-back using the original producer's global and
+local coordinates, plus regressing/equal-publication counter negatives. It
+checks the independent replay ordering and the coherent observation schema by
+AST only. The control added for this path is UNRUN under the execution HOLD;
+prior static observations do not qualify the corrected candidate. Full types
+remain blocked by the prerequisite closure; an own-module zero-diagnostic
+observation is not a passing full compilation.
 
 This source slice uses type-only imports from the actual Group and Anchor
 contracts. Their canonical sources must land before the master application can
