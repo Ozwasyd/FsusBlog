@@ -5,7 +5,6 @@ import type {
     BinaryPageResponse,
     ConversationDetailResponse,
     ConversationListItemResponse,
-    ConversationMessagePreviewResponse,
     ConversationMessageResponse,
     ConversationStatusMutationResultResponse
 } from '@/contracts/binaryApi';
