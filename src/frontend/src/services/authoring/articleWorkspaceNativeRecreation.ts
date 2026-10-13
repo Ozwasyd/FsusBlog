@@ -7,10 +7,11 @@ import type { MarkdownEditorNativeHandoverProof, MarkdownEditorSessionSnapshot }
 /** Supplied only by the original installed Frame; no mount discovery or alternative issuer. */
 export interface ArticleWorkspaceNativeRecreationRootPort
 {
-    reserveTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource): Promise<ArticleNativeRecreationStagingLease>;
+    reserveTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource,
+        cancellation: AbortSignal): Promise<ArticleNativeRecreationStagingLease>;
     readmitTarget(entry: Readonly<OpenArticleDocumentEntry>, target: ArticleNativeRecreationSource,
         cancellation: AbortSignal): Promise<ArticleWorkspaceMountedAuthority>;
-    retryCleanup(): void;
+    retryCleanup(cancellation: AbortSignal): void;
 }
 
 /** Native memory and actual same-target Root admission only, never full-host readiness. */
@@ -113,7 +114,7 @@ export function createArticleWorkspaceNativeRecreationDriver(
                     else
                     {
                         // Original Frame aborts its actual in-flight physical preparation.
-                        root.retryCleanup();
+                        root.retryCleanup(own.operation.signal);
                     }
                 }
                 finally
@@ -187,7 +188,7 @@ export function createArticleWorkspaceNativeRecreationDriver(
                     }
                     if (!own.stage)
                     {
-                        root.retryCleanup();
+                        root.retryCleanup(own.operation.signal);
                     }
                     own.stage = null;
                 }
@@ -264,7 +265,7 @@ export function createArticleWorkspaceNativeRecreationDriver(
                 const source = own.source;
                 verify();
                 own.stage = await root.reserveTarget(entry, { editor: source.sourceEditor,
-                    session: source.sourceSession, snapshotRef: source.nativeHandover.snapshotRef });
+                    session: source.sourceSession, snapshotRef: source.nativeHandover.snapshotRef }, own.operation.signal);
                 const stage = own.stage;
                 verify();
                 if (!stage.hasCustody() || stage.documentHandle !== source.handle

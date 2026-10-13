@@ -516,6 +516,9 @@ let layoutRevoked = false;
 let layoutEpoch = 0;
 interface FrameNativeStaging {
     readonly operation: AbortController;
+    readonly cancellation: AbortSignal | undefined;
+    acquiring: boolean;
+    cleanupCompleted: boolean;
     active: boolean;
     borrowed: ArticleNativeRecreationStagingLease | null;
     cleanup: (() => void) | null;
@@ -546,6 +549,7 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
     }
     own.active = false;
     own.pendingCleanup = true;
+    own.cleanupCompleted = false;
     const failures: unknown[] = [];
     const attempt = (run: () => void): void =>
     {
@@ -585,8 +589,9 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
             : new AggregateError(failures, 'article-native-staging-frame-cleanup-incomplete', { cause: failures[0] });
     }
     // Only confirmed cleanup clears debt; failure history and withdrawn authority remain.
-    own.pendingCleanup = false;
-    if (frameNativeStaging === own)
+    own.cleanupCompleted = true;
+    own.pendingCleanup = own.acquiring;
+    if (!own.acquiring && frameNativeStaging === own)
     {
         frameNativeStaging = null;
     }
@@ -890,13 +895,14 @@ function hasPublicStagingOwner(value: unknown): value is { getArticleWorkspacePr
 
 /** Main calls this actual pre-seal physical staging path, adopts its offer, then uses ordinary prepare for readmission. */
 async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource,
-                                                    signal: AbortSignal): Promise<ArticleNativeRecreationStagingLease>
+                                                    signal: AbortSignal, cancellation?: AbortSignal): Promise<ArticleNativeRecreationStagingLease>
 {
     if (frameNativeStaging)
     {
         throw new Error('article-native-staging-frame-custody-pending');
     }
-    const own: FrameNativeStaging = { operation: new AbortController(), active: true, borrowed: null, cleanup: null, abortStop: null, pendingCleanup: true, hasFailure: false, firstCause: undefined, latestCause: undefined };
+    const own: FrameNativeStaging = { operation: new AbortController(), cancellation, acquiring: true, cleanupCompleted: false,
+                                      active: true, borrowed: null, cleanup: null, abortStop: null, pendingCleanup: true, hasFailure: false, firstCause: undefined, latestCause: undefined };
     frameNativeStaging = own;
     const instance = routeOutletInstance.value;
     const epoch = layoutEpoch;
@@ -904,7 +910,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     const installation = workspaceInstallation;
     const hasView = (): boolean => own.active && frameNativeStaging === own && mounted && !layoutRevoked && !layoutRevoking
         && layoutEpoch === epoch && viewStartupPorts === ports && viewStartupSignal === signal
-        && workspaceInstallation === installation && installation !== undefined && !installation.failed;
+        && !cancellation?.aborted && workspaceInstallation === installation && installation !== undefined && !installation.failed;
     const verify = (): void =>
     {
         signal.throwIfAborted();
@@ -924,8 +930,9 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
         own.active = false;
         closeFrameNativeStaging(own);
     };
-    own.abortStop = () => signal.removeEventListener('abort', onAbort);
-    signal.addEventListener('abort', onAbort, { once: true });
+    const operationSignal = cancellation ? AbortSignal.any([signal, cancellation]) : signal;
+    own.abortStop = () => operationSignal.removeEventListener('abort', onAbort);
+    operationSignal.addEventListener('abort', onAbort, { once: true });
     try
     {
         verify();
@@ -1010,46 +1017,48 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     catch (cause: unknown)
     {
         own.active = false;
-        snapshotPreparationFailure = cause;
+        recordFrameNativeStagingFailure(own, cause);
+        const primary = own.firstCause;
+        snapshotPreparationFailure = primary;
         let cleanupFailure: { cause: unknown; } | null = null;
-        if (own.borrowed || own.cleanup)
+        try
         {
-            try
-            {
-                closeFrameNativeStaging(own);
-            }
-            catch (cleanupCause: unknown)
-            {
-                cleanupFailure = { cause: cleanupCause };
-            }
+            closeFrameNativeStaging(own);
         }
-        else
+        catch (cleanupCause: unknown)
         {
-            own.abortStop?.();
-            own.abortStop = null;
+            cleanupFailure = { cause: cleanupCause };
+        }
+        if (cleanupFailure)
+        {
+            throw new AggregateError([primary, cleanupFailure.cause], 'article-native-staging-frame-and-cleanup-failed', { cause: primary });
+        }
+        throw primary;
+    }
+    finally
+    {
+        own.acquiring = false;
+        if (!own.active && own.cleanupCompleted)
+        {
+            own.pendingCleanup = false;
             if (frameNativeStaging === own)
             {
                 frameNativeStaging = null;
             }
         }
-        if (cleanupFailure)
-        {
-            throw new AggregateError([cause, cleanupFailure.cause], 'article-native-staging-frame-and-cleanup-failed', { cause });
-        }
-        throw cause;
     }
 }
 
 /** Same Frame-private startup signal and original preparation/admission, never a discovered mount. */
 const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootPort>({
-    reserveTarget: (entry, source) =>
+    reserveTarget: (entry, source, cancellation) =>
     {
         const signal = viewStartupSignal;
         if (!signal)
         {
             throw new Error('article-native-recreation-original-startup-signal-required');
         }
-        return reserveCurrentNativeRecreationTarget(entry, source, signal);
+        return reserveCurrentNativeRecreationTarget(entry, source, signal, cancellation);
     },
     readmitTarget: async (entry, target, cancellation) =>
     {
@@ -1085,7 +1094,14 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
         verify();
         return mounted;
     },
-    retryCleanup: () => closeFrameNativeStaging()
+    retryCleanup: cancellation =>
+    {
+        const own = frameNativeStaging;
+        if (own?.cancellation === cancellation)
+        {
+            closeFrameNativeStaging(own);
+        }
+    }
 });
 
 defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
