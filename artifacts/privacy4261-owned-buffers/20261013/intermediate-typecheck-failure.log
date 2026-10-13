@@ -1,0 +1,69 @@
+[fsusui-typecheck] local root: /workspace/FsusUI-transport4261
+src/composables/useNotification.ts(630,23): error TS7022: 'nextMode' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+src/privacy/commentPrivacyAdapter.ts(98,66): error TS2345: Argument of type '{ articleId: number; rootId: string | null; circuitNumericId: number; publicInputLayoutVersion: number; actionContext: string; anonymousScope: string; circuitId: string; verifyingKeyHash: string; ... 8 more ...; publicInputs: Uint8Array<...>; }' is not assignable to parameter of type 'AnonymousCommentTicketRequestDto'.
+  Property 'credentialEpoch' is missing in type '{ articleId: number; rootId: string | null; circuitNumericId: number; publicInputLayoutVersion: number; actionContext: string; anonymousScope: string; circuitId: string; verifyingKeyHash: string; ... 8 more ...; publicInputs: Uint8Array<...>; }' but required in type 'AnonymousCommentTicketRequestDto'.
+src/privacy/commentPrivacyBlindRsaSuite.ts(83,56): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'Uint8Array<ArrayBuffer>'.
+  Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+    Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+      Types of property '[Symbol.toStringTag]' are incompatible.
+        Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/privacy/commentPrivacyCredentialProvider.ts(215,82): error TS2551: Property 'rootExpiresAtUnixMs' does not exist on type 'CommentPrivacyCredentialIssueResponse'. Did you mean 'expiresAtUnixMs'?
+src/privacy/commentPrivacyCredentialProvider.ts(302,95): error TS2551: Property 'rootExpiresAtUnixMs' does not exist on type 'CommentPrivacyCredentialIssueResponse'. Did you mean 'expiresAtUnixMs'?
+src/services/notificationStreamTypes.ts(8,1): error TS6133: 'PowParams' is declared but its value is never read.
+src/store/site.ts(65,9): error TS1117: An object literal cannot have multiple properties with the same name.
+src/utils/brandIconGenerator.ts(123,35): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/views/admin/Analytics.vue(99,33): error TS6133: 'regionChartRef' is declared but its value is never read.
+src/views/admin/ClusterRuntime.vue(230,87): error TS2345: Argument of type 'string' is not assignable to parameter of type '"alive" | "draining" | "suspect" | "dead" | "maintenance"'.
+src/views/admin/PluginAdmin.vue(253,50): error TS2322: Type 'unknown' is not assignable to type 'string | number | boolean | Record<string, any>'.
+src/views/admin/moderation/ModerationRegions.vue(22,18): error TS2322: Type 'ModerationRegionDefinition[]' is not assignable to type 'DataListRow[]'.
+  Type 'ModerationRegionDefinition' is not assignable to type 'DataListRow'.
+    Index signature for type 'string' is missing in type 'ModerationRegionDefinition'.
+src/views/admin/moderation/ModerationRegions.vue(40,33): error TS2352: Conversion of type 'DataListRow' to type 'ModerationRegionDefinition' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'DataListRow' is missing the following properties from type 'ModerationRegionDefinition': regionCode, displayName, parentRegion, primaryGroup, and 4 more.
+src/views/admin/moderation/ModerationRegions.vue(55,58): error TS2352: Conversion of type 'DataListRow' to type 'ModerationRegionDefinition' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'DataListRow' is missing the following properties from type 'ModerationRegionDefinition': regionCode, displayName, parentRegion, primaryGroup, and 4 more.
+src/views/admin/moderation/ModerationRegions.vue(57,53): error TS2352: Conversion of type 'DataListRow' to type 'ModerationRegionDefinition' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'DataListRow' is missing the following properties from type 'ModerationRegionDefinition': regionCode, displayName, parentRegion, primaryGroup, and 4 more.
+src/views/admin/security/SecuritySimulator.vue(24,29): error TS2322: Type 'string | null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+  Type 'null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+src/views/admin/security/SecuritySimulator.vue(41,29): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.
+src/views/admin/security/SecuritySimulator.vue(72,29): error TS2322: Type 'string | null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+  Type 'null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+src/views/admin/security/SecuritySimulator.vue(193,51): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/admin/security/SecuritySimulator.vue(245,64): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/admin/security/SecuritySimulator.vue(261,63): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+../../../FsusUI-transport4261/vue/packages/components/breadcrumb/src/breadcrumb.vue(25,7): error TS6133: 'breadcrumb' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/carousel/src/carousel-item.vue(41,3): error TS6133: 'carouselItemRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/carousel/src/carousel.vue(96,3): error TS6133: 'root' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/date-picker/src/date-picker-com/basic-date-table.vue(64,3): error TS6133: 'tbodyRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/input/src/input.vue(251,9): error TS6133: 'wrapperRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/perception-challenge/src/localization-challenge.vue(71,7): error TS6133: 'targetRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/radio/src/radio-button.vue(50,9): error TS6133: 'radioRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/radio/src/radio.vue(56,9): error TS6133: 'radioRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/responsive-collection/src/responsive-collection.vue(129,7): error TS6133: 'getItemKey' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/slider/src/button.vue(65,3): error TS6133: 'button' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/slider/src/button.vue(66,3): error TS6133: 'tooltip' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/slider/src/slider.vue(131,3): error TS6133: 'slider' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/slider/src/slider.vue(132,3): error TS6133: 'firstButton' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/slider/src/slider.vue(133,3): error TS6133: 'secondButton' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/slider/src/slider.vue(242,7): error TS6133: 'sliderWrapper' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/switch/src/switch.vue(147,7): error TS6133: 'core' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/table-v2/src/constants.ts(1,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-transport4261/vue/packages/components/table-v2/src/constants.ts(6,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-transport4261/vue/packages/components/table-v2/src/constants.ts(11,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-transport4261/vue/packages/components/tooltip-v2/src/arrow.vue(22,7): error TS6133: 'arrowRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/tooltip-v2/src/common.ts(14,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-transport4261/vue/packages/components/tooltip-v2/src/content.vue(42,23): error TS6133: 'contentRef' is declared but its value is never read.
+../../../FsusUI-transport4261/vue/packages/components/tree-v2/src/virtual-tree.ts(29,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-transport4261/vue/packages/components/tree-v2/src/virtual-tree.ts(36,19): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-transport4261/vue/packages/utils/vue/vnode.ts(22,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.

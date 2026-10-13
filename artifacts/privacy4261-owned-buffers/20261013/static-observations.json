@@ -1,0 +1,205 @@
+{
+    "kind": "source-static-observations",
+    "qualification": false,
+    "originalBase": "e52840e7d75c7e4b3f2b37a9e968d6b774c4443d",
+    "sourceCommit": "2179a049ddcf76277b8c5892707fef24b094dd80",
+    "branch": "codex/privacy4261-owned-buffers-20261013",
+    "worktree": "/workspace/FsusBlog-privacy4261",
+    "sourceBindings": {
+        "src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts": {
+            "base": {
+                "gitBlob": "d0f21a9a213733dbe6bf3c856b91acd62702b0d1",
+                "sha256": "892c899aa17894c245f32fd72cbcafe6708463e55777c6774850fb4c48a4505c"
+            },
+            "candidate": {
+                "gitBlob": "242584eb1a690c4e03eed0337f07f8f9dbf8efa1",
+                "sha256": "5db06b3e9c6b53189f361549f620ad6e8d2d87efafc7092ab7ec6158bd1a7f34"
+            }
+        },
+        "src/frontend/src/privacy/commentPrivacyRevocationLocal.ts": {
+            "base": {
+                "gitBlob": "8969474fea1d0dfc681b98e28352abbd5571c2e1",
+                "sha256": "c5379ab4f0bfa08437d5ecc460b06d9184ac59924998eec8fe701764f63150e1"
+            },
+            "candidate": {
+                "gitBlob": "ec2a2f225d333763a5c1567fa764e927588053eb",
+                "sha256": "837b2e70c6de9519694c7a66dec6dfbbab63eb84f3876624c02a38a20f4cc2c4"
+            }
+        },
+        "src/frontend/src/privacy/commentPrivacyWasmProver.ts": {
+            "base": {
+                "gitBlob": "bd7a55d504f4d129a0eb97e587643877331599b7",
+                "sha256": "d5d964c19f7550b5934e588cb2f8acfcea6ee414111dddd0ccd6167137af1ae1"
+            },
+            "candidate": {
+                "gitBlob": "9fea55b9035ad50e6d2fd0240fc20c0eb61b983f",
+                "sha256": "f45e91480a50599727ef1b2c9218e6602ab8b05f75c177d9468569cd481da091"
+            }
+        },
+        "security/zk/provenance/artifact-ownership.manifest.json": {
+            "base": {
+                "gitBlob": "3a09f2f7eace242a8578090466022a9a7aabb5c6",
+                "sha256": "83a0abf5eb0e2eb2e3298d10d9ecd28a170369fd8fea1590ef74e5f54cdce160"
+            },
+            "candidate": {
+                "gitBlob": "3a09f2f7eace242a8578090466022a9a7aabb5c6",
+                "sha256": "83a0abf5eb0e2eb2e3298d10d9ecd28a170369fd8fea1590ef74e5f54cdce160"
+            }
+        },
+        "security/zk/contracts/comment-v5-circuit.manifest.json": {
+            "base": {
+                "gitBlob": "fd2df36740b1806a410fa58baab6299e9c7c6998",
+                "sha256": "2582f949848a65dbb260a350d6beafdf675839116c8ef486c4e49f6c697d20ec"
+            },
+            "candidate": {
+                "gitBlob": "fd2df36740b1806a410fa58baab6299e9c7c6998",
+                "sha256": "2582f949848a65dbb260a350d6beafdf675839116c8ef486c4e49f6c697d20ec"
+            }
+        },
+        "security/zk/provenance/comment-v5-trusted-setup.manifest.json": {
+            "base": {
+                "gitBlob": "74d9c5a19b1c0ee9fe981cd2d6f6cfc042a686cd",
+                "sha256": "54d7eaa05f7797d6ec0affa01df8ebdd56893628fa938c78ebeadb232e5956fc"
+            },
+            "candidate": {
+                "gitBlob": "74d9c5a19b1c0ee9fe981cd2d6f6cfc042a686cd",
+                "sha256": "54d7eaa05f7797d6ec0affa01df8ebdd56893628fa938c78ebeadb232e5956fc"
+            }
+        },
+        "tools/security/check-zk-comment-v5-manifests.mjs": {
+            "base": {
+                "gitBlob": "c1f8e81812eab0932ebc63159ad34011e9e0b75a",
+                "sha256": "fbe5abf39913d8b66a128a96fc27991722806e5a301c99e8f1a0b6bea059d27a"
+            },
+            "candidate": {
+                "gitBlob": "c1f8e81812eab0932ebc63159ad34011e9e0b75a",
+                "sha256": "fbe5abf39913d8b66a128a96fc27991722806e5a301c99e8f1a0b6bea059d27a"
+            }
+        },
+        "src/frontend/wasm/build.sh": {
+            "base": {
+                "gitBlob": "dd865c220b392e6921372b5927188d48a2fcc08e",
+                "sha256": "ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24"
+            },
+            "candidate": {
+                "gitBlob": "dd865c220b392e6921372b5927188d48a2fcc08e",
+                "sha256": "ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24"
+            }
+        },
+        "src/frontend/wasm/comment_privacy/comment-privacy-prover.js": {
+            "base": {
+                "gitBlob": "a36a71b7549768333c5c4b2ed1dc9bd92327639f",
+                "sha256": "8e3507089b2c8a4f5626a1e3c8907ace7956a8f37e01a0122e298920f9c1de2c"
+            },
+            "candidate": {
+                "gitBlob": "a36a71b7549768333c5c4b2ed1dc9bd92327639f",
+                "sha256": "8e3507089b2c8a4f5626a1e3c8907ace7956a8f37e01a0122e298920f9c1de2c"
+            }
+        }
+    },
+    "independentCategoryCommits": {
+        "RSA": "217303ae7fa790825044aae34c8888a46e703419",
+        "revocation": "27657b6430c4c1e5985270f5aaed5456836e9e2e",
+        "deadProverHelper": "6e753f35fac2420326316cfc88089a261eb26635",
+        "preserveWipeOrder": "118da0da9ad42357ee0cb5cfdca34128acf8b29e",
+        "completeOwnedPreparedMessage": "2179a049ddcf76277b8c5892707fef24b094dd80"
+    },
+    "preimagesExactlyMatched": [
+        "d0f21a9a213733dbe6bf3c856b91acd62702b0d1",
+        "8969474fea1d0dfc681b98e28352abbd5571c2e1",
+        "bd7a55d504f4d129a0eb97e587643877331599b7"
+    ],
+    "allocationProof": {
+        "signature": "i2osp original numeric new Uint8Array(length) and original writes unchanged; private return/variable accurately Uint8Array<ArrayBuffer>",
+        "preparedMessage": "Prepared concat original numeric allocator and set loop unchanged, typed owned; decoded message uses numeric new Uint8Array(preparedLength) and only validated bytes[preparedStart+offset] range",
+        "SPKI": "new Uint8Array(metadata.subjectPublicKeyInfo) is an actual ArrayLike copy of selected view, not alias of whole backing .buffer; hash and import share same owned snapshot. Borrowed metadata unchanged.",
+        "revocation": "All four sha256 call paths use private TextEncoder.encode or concat numeric allocator; private source and consumer types narrow, all runtime source bytes otherwise identical.",
+        "sharedHelper": "Not needed or edited; no cross-owner helper change",
+        "nativeTypeEvidence": "Installed original TypeScript lib.es5.d.ts numeric and ArrayLike Uint8Array constructors return Uint8Array<ArrayBuffer>; original lib.dom.d.ts TextEncoder.encode returns owned Uint8Array"
+    },
+    "wipes": "Original message/randomizer/salt/encoded message/signature/witness/commitment/revocation wipes unchanged. Original loadValidatedPublicKey temporary wipe order remains inner try, new snapshot wipe in nested finally. Await all original import/export/verify consumers before original finalization; borrowed bytes never wiped.",
+    "cryptoParameters": "RSA-PSS/SHA-384, saltLength48, modulus3072/384bytes, exponent65537, extractabletrue/verify usage, SHA-256, domains, epoch/layout validation and opaque null refusal unchanged; no crypto call executed.",
+    "deadHelperProof": "writeInt64 has one source occurrence (unexported declaration), original compiler TS6133, no calls/exports/eval; active transcript encoder unchanged. Exact prover source reconstructs by restoring only original seven-line function.",
+    "frozenBindingInspection": "Original manifests bind circuit JSON/R1CS/keys/prover bundle and actual frontend WASM JS. Source checker reads transcript/domain, no private writeInt64 binding. Frozen manifests/checkers/build/prover artifacts byte-identical; none executed/regenerated.",
+    "donorInspection": {
+        "relatedPRBodies": [
+            4287,
+            4194,
+            4193,
+            4261
+        ],
+        "actualChangedFileMatch": [],
+        "realCopyProducer": "Original WasmProver.digestBytes already allocates ArrayBuffer(view.byteLength), sets only view, awaits digest; no new shared helper or donor claim"
+    },
+    "compiler": {
+        "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-transport4261 node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "baselineExit": 2,
+        "candidateExit": 2,
+        "comparison": {
+            "baselineDiagnostics": 49,
+            "finalDiagnostics": 45,
+            "added": [],
+            "removed": [
+                "src/privacy/commentPrivacyBlindRsaSuite.ts(POS): error TS2769: No overload matches this call.\n  Overload 1 of 2, '(algorithm: AlgorithmIdentifier | RsaPssParams | EcdsaParams, key: CryptoKey, signature: BufferSource, data: BufferSource): Promise<...>', gave the following error.\n    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.\n      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.\n        Types of property 'buffer' are incompatible.\n          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.\n            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.\n              Types of property '[Symbol.toStringTag]' are incompatible.\n                Type '\"SharedArrayBuffer\"' is not assignable to type '\"ArrayBuffer\"'.\n  Overload 2 of 2, '(algorithm: AlgorithmIdentifier | RsaPssParams | EcdsaParams, key: CryptoKey, signature: BufferSource, data: BufferSource): Promise<...>', gave the following error.\n    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.\n      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.\n        Types of property 'buffer' are incompatible.\n          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.\n            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.\n              Types of property '[Symbol.toStringTag]' are incompatible.\n                Type '\"SharedArrayBuffer\"' is not assignable to type '\"ArrayBuffer\"'.",
+                "src/privacy/commentPrivacyBlindRsaSuite.ts(POS): error TS2769: No overload matches this call.\n  The last overload gave the following error.\n    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.\n      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.\n        Types of property 'buffer' are incompatible.\n          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.\n            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.\n              Types of property '[Symbol.toStringTag]' are incompatible.\n                Type '\"SharedArrayBuffer\"' is not assignable to type '\"ArrayBuffer\"'.",
+                "src/privacy/commentPrivacyRevocationLocal.ts(POS): error TS2769: No overload matches this call.\n  Overload 1 of 2, '(algorithm: AlgorithmIdentifier, data: BufferSource): Promise<ArrayBuffer>', gave the following error.\n    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.\n      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.\n        Types of property 'buffer' are incompatible.\n          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.\n            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.\n              Types of property '[Symbol.toStringTag]' are incompatible.\n                Type '\"SharedArrayBuffer\"' is not assignable to type '\"ArrayBuffer\"'.\n  Overload 2 of 2, '(algorithm: AlgorithmIdentifier, data: BufferSource): Promise<ArrayBuffer>', gave the following error.\n    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.\n      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.\n        Types of property 'buffer' are incompatible.\n          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.\n            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.\n              Types of property '[Symbol.toStringTag]' are incompatible.\n                Type '\"SharedArrayBuffer\"' is not assignable to type '\"ArrayBuffer\"'.",
+                "src/privacy/commentPrivacyWasmProver.ts(POS): error TS6133: 'writeInt64' is declared but its value is never read."
+            ],
+            "intermediateDiagnostics": 46,
+            "intermediateAddedThenRepaired": [
+                "src/privacy/commentPrivacyBlindRsaSuite.ts(POS): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'Uint8Array<ArrayBuffer>'.\n  Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.\n    Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.\n      Types of property '[Symbol.toStringTag]' are incompatible.\n        Type '\"SharedArrayBuffer\"' is not assignable to type '\"ArrayBuffer\"'."
+            ],
+            "normalization": "Header source position only; complete diagnostic continuation text and multiplicity preserved"
+        },
+        "reducedConfig": false,
+        "intermediate": "46 diagnostics included one new missing prepared concat ownership annotation, then genuinely fixed. Saved separately; not baseline, pass or accepted source."
+    },
+    "localUI": {
+        "commit": "d6bb0836a15f40d7ccace41773d19259c72d37a6",
+        "worktree": "/workspace/FsusUI-transport4261",
+        "unchanged": true,
+        "UI32": "Parent-reported separate full UI result, not rerun/migrated"
+    },
+    "syntax": {
+        "commands": [
+            "node --check src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts",
+            "node --check src/frontend/src/privacy/commentPrivacyRevocationLocal.ts",
+            "node --check src/frontend/src/privacy/commentPrivacyWasmProver.ts"
+        ],
+        "exits": [
+            0,
+            0,
+            0
+        ],
+        "execution": "Syntax parsing only, no imports or product crypto execution"
+    },
+    "diff": {
+        "command": "git diff --check e52840e7d75c7e4b3f2b37a9e968d6b774c4443d 2179a049ddcf76277b8c5892707fef24b094dd80",
+        "exit": 0
+    },
+    "lint": {
+        "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-transport4261 node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts --file src/frontend/src/privacy/commentPrivacyRevocationLocal.ts --file src/frontend/src/privacy/commentPrivacyWasmProver.ts",
+        "exit": 1,
+        "status": "BLOCKED",
+        "reason": "Configured ESLint/Stylelint paths missing, no install or fallback"
+    },
+    "stackedDraft": {
+        "pr": 4294,
+        "baseBranch": "codex/issue2307-source-composition",
+        "baseHeadObserved": "f40f818dc14a804c02a0362767a505b68aa93e0e",
+        "mergeBase": "e52840e7d75c7e4b3f2b37a9e968d6b774c4443d",
+        "ownedPreimagesStillExactOnAdvancedBase": true,
+        "rebased": false
+    },
+    "scope": "Only three exclusive production leaves plus this fresh static record/log directory. No shared helper/contract/provider metadata/fixture/catalog/schema/authority change.",
+    "holds": "All runtime/tests/discovery/list/collection/product import/crypto/native/browser/security/privacy/qualification HOLD. No WASM/artifact execution, no real signature/credential/proof creation.",
+    "integrityHashScope": "Only ordinary repository/source-file artifact byte digests; no product crypto operation, user bytes, keys or credentials used.",
+    "review": "Independent source review/intake pending; ordinary WIP, full compiler red and lint blocked. No security/privacy/runtime acceptance claimed.",
+    "rawArtifacts": {
+        "artifacts/privacy4261-owned-buffers/20261013/intermediate-typecheck-failure.log": "b05b78b97196b68332102c6f5ec0c85fe920b3dd8771fbf0ac8a42d19fdd558c",
+        "artifacts/privacy4261-owned-buffers/20261013/typecheck-comparison.json": "cf74b958da244f2fdd0a0ee74449cdc3dac1ecdc914e5596e27a7f6dff8db7a1",
+        "artifacts/privacy4261-owned-buffers/20261013/baseline-typecheck.log": "3abe4a8fe97de70961cc0ad88cbdd284f090279625add71780a6f4d597f8ccf5",
+        "artifacts/privacy4261-owned-buffers/20261013/configured-style.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+        "artifacts/privacy4261-owned-buffers/20261013/candidate-typecheck.log": "9a26e2736b88dd801fa7fbc9102015957671fafa0e90cede49c710378513382f"
+    }
+}
