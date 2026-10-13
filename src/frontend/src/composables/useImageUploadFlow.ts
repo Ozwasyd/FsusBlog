@@ -1,11 +1,12 @@
-import { computed, shallowRef } from 'vue';
+import { computed, shallowRef, type ShallowRef } from 'vue';
 
 import type { ImageCompressionOptions } from '@/api/upload';
 import { useAbortableTask } from '@/composables/useAbortableTask';
-import type { ImageUploadAttemptBinding, ImageUploadRuntimeOptions, ImageUploadSessionBorrow, useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
+import { getImageUploadRuntimeAdmissionError, type ImageUploadAttemptBinding, type ImageUploadLocalRequest, type ImageUploadLocalResource, type ImageUploadLocalResourceCensus, type ImageUploadRuntimeOptions, type ImageUploadSessionBorrow, type useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import type { ArticleAnchorContext } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
 import { ArticleDocumentContextAdapter, type ArticleDocumentTaskLease, type ArticleDocumentTaskRegistry } from '@/services/authoring/articleDocumentContext';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 import { showErrorToast } from '@/utils/errorPresentation';
 import { getErrorMessage, isAbortError } from '@/utils/errors';
 
@@ -16,8 +17,10 @@ interface UploadContext {
 }
 
 interface UploadCallbacks {
+    /** Await this callback's work, never the result/settled of its containing Flow run. */
     onSuccess?: (urls: string[], context: UploadContext) => void | Promise<void>;
     onError?: (message: string, error: unknown, context: UploadContext) => void | Promise<void>;
+    /** Await this consumer's work, never the upstream upload/Flow result or settled. */
     onFileUploaded?: (completion: ImageUploadFileCompletion) => Promise<void>;
 }
 
@@ -70,7 +73,7 @@ export interface UseImageUploadFlowOptions {
     taskProducerRef?: string;
     getAttemptBinding?: (file: File) => Omit<ImageUploadAttemptBinding, 'lease'> | null;
     onSessionReady?: (file: File, borrow: ImageUploadSessionBorrow) => void | Promise<void>;
-    /** Awaited before the next file; observe inside withSession, then release. */
+    /** Await consumer work before the next file; use withSession, never upstream result/settled. */
     onFileUploaded?: (completion: ImageUploadFileCompletion) => Promise<void>;
 }
 
@@ -83,8 +86,147 @@ interface PendingUploadContext {
     attempts?: readonly Readonly<{ file: File; binding: Omit<ImageUploadAttemptBinding, 'lease'>; }>[];
 }
 
+/** Retains the actual run and child producers independently of public pending/reset state. */
+class OwnedLocalUploadFlow
+{
+    readonly input: StartUploadParams | UploadCallbacks | undefined;
+    readonly settled: Promise<void>;
+    context: PendingUploadContext | null = null;
+    private readonly children: ImageUploadLocalRequest<string>[] = [];
+    private readonly resources: ImageUploadLocalResource[] = [];
+    private readonly callbackWork = new Map<string, void | Promise<void>>();
+    private readonly controller = new AbortController();
+    private executionFinished = false;
+    private cancelTask: (() => void) | null = null;
+    private detachTask: (() => void) | null = null;
+    private resolveSettled!: () => void;
+
+    constructor(input: StartUploadParams | UploadCallbacks | undefined)
+    {
+        this.input = input;
+        this.settled = new Promise<void>((resolve) =>
+        {
+            this.resolveSettled = resolve;
+        });
+    }
+
+    inspect(): ImageUploadLocalResourceCensus
+    {
+        const children = this.children.map(child => child.inspectLocalResources());
+        const resources = Object.freeze([
+            ...this.resources.map(resource => Object.freeze({ ...resource })),
+            ...children.flatMap((child, index) => child.resources.map(resource => Object.freeze({
+                ...resource, id: `file-${index + 1}/${resource.id}`
+            })))
+        ]);
+        const pending = resources.filter(resource => resource.result === 'pending').length;
+        const unknown = resources.filter(resource => resource.terminal === 'unknown').length;
+        const fullLocalSettled = this.executionFinished && pending === 0
+            && resources.every(resource => resource.terminal === 'settled')
+            && children.every(child => child.fullLocalSettled);
+        return Object.freeze({ executionFinished: this.executionFinished,
+            cancellationRequested: this.controller.signal.aborted, resources, pending, unknown, fullLocalSettled });
+    }
+
+    private reconsider(): void
+    {
+        if (this.inspect().fullLocalSettled)
+        {
+            this.resolveSettled();
+        }
+    }
+
+    cancelLocal(reason?: unknown): void
+    {
+        if (!this.controller.signal.aborted)
+        {
+            this.controller.abort(reason === undefined ? new DOMException('upload_flow_cancel_requested', 'AbortError') : reason);
+            this.cancelTask?.();
+        }
+        for (const child of this.children)
+        {
+            child.cancelLocal(this.controller.signal.reason);
+        }
+    }
+
+    bindTask(signal: AbortSignal, cancelTask: () => void): void
+    {
+        this.cancelTask = () =>
+        {
+            if (!signal.aborted)
+            {
+                cancelTask();
+            }
+        };
+        const index = this.resources.length;
+        this.resources.push({ id: `flow-${index + 1}`, kind: 'flow-task-abort-listener',
+            result: 'pending', terminal: 'active', cancellationSupported: false, cancellationRequested: false });
+        const detach = (): void =>
+        {
+            signal.removeEventListener('abort', onAbort);
+            this.resources[index] = { ...this.resources[index], result: 'finished', terminal: 'settled' };
+            this.reconsider();
+        };
+        const onAbort = (): void =>
+        {
+            detach();
+            this.cancelLocal(signal.reason);
+        };
+        this.detachTask = detach;
+        signal.addEventListener('abort', onAbort, { once: true });
+        if (signal.aborted)
+        {
+            onAbort();
+        }
+        if (this.controller.signal.aborted && !signal.aborted)
+        {
+            this.cancelTask();
+        }
+    }
+
+    addChild(child: ImageUploadLocalRequest<string>): void
+    {
+        this.children.push(child);
+        void child.settled.then(() => this.reconsider());
+        if (this.controller.signal.aborted)
+        {
+            child.cancelLocal(this.controller.signal.reason);
+        }
+    }
+
+    async observeCallback(task: () => void | Promise<void>): Promise<void>
+    {
+        const index = this.resources.length;
+        const id = `flow-${index + 1}`;
+        this.resources.push({ id, kind: 'flow-callback-scope',
+            result: 'pending', terminal: 'active', cancellationSupported: false, cancellationRequested: false });
+        try
+        {
+            const work = task();
+            this.callbackWork.set(id, work);
+            await work;
+        }
+        finally
+        {
+            // This invocation owns its await only. Child requests and the task listener stay separate.
+            this.resources[index] = { ...this.resources[index], result: 'finished', terminal: 'settled' };
+            this.callbackWork.delete(id);
+            this.reconsider();
+        }
+    }
+
+    finishExecution(): void
+    {
+        this.detachTask?.();
+        this.cancelTask = null;
+        this.executionFinished = true;
+        this.reconsider();
+    }
+}
+
 export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 {
+    const originalRuntime = options.runtime;
     let currentLease: ArticleDocumentTaskLease | null = null;
     const uploadTask = useAbortableTask({
         registry: options.taskRegistry ? {
@@ -100,8 +242,15 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         producerRef: options.taskProducerRef ?? 'image-upload'
     });
     const pendingContext = shallowRef<PendingUploadContext | null>(null);
+    // This identifies a still-awaited local execution, never a business receipt or release ACK.
+    const activeRun: ShallowRef<object | null> = shallowRef<object | null>(null);
+    const localRuns = new Set<OwnedLocalUploadFlow>();
+    let activeLocalRun: OwnedLocalUploadFlow | null = null;
 
-    const canResume = computed(() => pendingContext.value !== null);
+    const admissionError = (): ReturnType<typeof createAppError> | null => activeRun.value !== null
+        ? createAppError(AppErrorCode.Conflict, 'upload_flow_operation_pending')
+        : getImageUploadRuntimeAdmissionError(originalRuntime);
+    const canResume = computed(() => pendingContext.value !== null && admissionError() === null);
 
     const notifyWarning = (message: string): void =>
     {
@@ -113,7 +262,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         options.notify?.success?.(message);
     };
 
-    const executeUpload = async (context: PendingUploadContext, signal: AbortSignal): Promise<void> =>
+    const executeUpload = async (context: PendingUploadContext, signal: AbortSignal, local: OwnedLocalUploadFlow): Promise<void> =>
     {
         const urls: string[] = [];
         const onFileUploaded = context.callbacks?.onFileUploaded ?? options.onFileUploaded;
@@ -124,6 +273,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 return;
             }
             const runtimeOptions: ImageUploadRuntimeOptions = {
+                signal,
                 wasmOnly: options.getWasmOnly()
             };
             let borrow: ImageUploadSessionBorrow | null = null;
@@ -145,25 +295,32 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 intent = binding.intent;
                 if (options.onSessionReady || onFileUploaded)
                 {
-                    runtimeOptions.onSessionReady = async value =>
+                    runtimeOptions.onSessionReady = async (value, completionUrl) =>
                     {
                         borrow = value;
                         await options.onSessionReady?.(file, value);
+                        if (onFileUploaded)
+                        {
+                            const completedIntent = intent;
+                            if (!value.isCurrent() || !completedIntent || signal.aborted)
+                            {
+                                throw new Error('upload_session_borrow_unavailable');
+                            }
+                            // Stay inside the original ACK owner's catch and original finite access scope.
+                            await value.withSession(async () =>
+                            {
+                                await onFileUploaded(Object.freeze({ file, intent: completedIntent,
+                                    borrow: value, url: completionUrl }));
+                            });
+                        }
                     };
                 }
             }
             try
             {
-                const url = await options.runtime.uploadFile(file, options.getOptions(), runtimeOptions);
-                if (onFileUploaded)
-                {
-                    const completedBorrow = borrow as ImageUploadSessionBorrow | null;
-                    if (!completedBorrow?.isCurrent() || !intent || signal.aborted)
-                    {
-                        throw new Error('upload_session_borrow_unavailable');
-                    }
-                    await onFileUploaded(Object.freeze({ file, intent, borrow: completedBorrow, url }));
-                }
+                const child = originalRuntime.requestUploadFile(file, options.getOptions(), runtimeOptions);
+                local.addChild(child);
+                const url = await child.result;
                 urls.push(url);
             }
             finally
@@ -179,7 +336,11 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         {
             return;
         }
-        await context.callbacks?.onSuccess?.(urls, { files: context.files });
+        const onSuccess = context.callbacks?.onSuccess;
+        if (onSuccess)
+        {
+            await local.observeCallback(() => onSuccess(urls, { files: context.files }));
+        }
         if (context.notifyOnSuccess)
         {
             const message = context.messages?.uploadSucceeded ?? `成功上传 ${urls.length} 个文件`;
@@ -188,13 +349,17 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         pendingContext.value = null;
     };
 
-    const startUpload = async (params: StartUploadParams): Promise<void> =>
+    const executeStartUpload = async (params: StartUploadParams, local: OwnedLocalUploadFlow): Promise<void> =>
     {
+        const blocked = admissionError();
         if (params.files.length === 0)
         {
             const message = params.messages?.emptyFiles ?? '没有可上传的文件';
             notifyWarning(message);
-            await params.onError?.(message, new Error(message), { files: params.files });
+            if (params.onError)
+            {
+                await local.observeCallback(() => params.onError!(message, new Error(message), { files: params.files }));
+            }
             return;
         }
 
@@ -202,10 +367,24 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         {
             const message = params.messages?.tooManyFiles ?? `单次上传文件不得超过 ${params.maxFiles} 个`;
             notifyWarning(message);
-            await params.onError?.(message, new Error(message), { files: params.files });
+            if (params.onError)
+            {
+                await local.observeCallback(() => params.onError!(message, new Error(message), { files: params.files }));
+            }
             return;
         }
 
+        if (blocked)
+        {
+            if (params.onError)
+            {
+                await local.observeCallback(() => params.onError!(blocked.message, blocked, { files: params.files }));
+            }
+            return;
+        }
+        const run = Object.freeze({});
+        activeRun.value = run;
+        activeLocalRun = local;
         pendingContext.value = {
             files: [...params.files],
             callbacks: {
@@ -217,6 +396,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             notifyOnSuccess: params.notifyOnSuccess ?? true,
             notifyOnError: params.notifyOnError ?? true
         };
+        local.context = pendingContext.value;
 
         let runSignal: AbortSignal | null = null;
         try
@@ -263,9 +443,16 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             await uploadTask.run(async (signal) =>
             {
                 runSignal = signal;
+                local.bindTask(signal, () =>
+                {
+                    if (activeRun.value === run)
+                    {
+                        uploadTask.cancel();
+                    }
+                });
                 if (pendingContext.value)
                 {
-                    await executeUpload(pendingContext.value, signal);
+                    await executeUpload(pendingContext.value, signal, local);
                 }
             });
         }
@@ -278,16 +465,37 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 {
                     showErrorToast(error, params.messages?.uploadFailed ?? '文件上传失败');
                 }
-                await params.onError?.(message, error, { files: params.files });
+                if (params.onError)
+                {
+                    await local.observeCallback(() => params.onError!(message, error, { files: params.files }));
+                }
+            }
+        }
+        finally
+        {
+            if (activeRun.value === run)
+            {
+                activeRun.value = null;
+                activeLocalRun = null;
             }
         }
     };
 
-    const resumeUpload = async (overrides?: UploadCallbacks & { messages?: UploadMessages; }): Promise<void> =>
+    const executeResumeUpload = async (overrides: (UploadCallbacks & { messages?: UploadMessages; }) | undefined,
+        local: OwnedLocalUploadFlow): Promise<void> =>
     {
+        const blocked = admissionError();
         const context = pendingContext.value;
         if (!context)
         {
+            if (blocked)
+            {
+                if (overrides?.onError)
+                {
+                    await local.observeCallback(() => overrides.onError!(blocked.message, blocked, { files: [] }));
+                }
+                return;
+            }
             notifyWarning(overrides?.messages?.resumeMissing ?? '没有可恢复的上传任务');
             return;
         }
@@ -298,20 +506,33 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             onFileUploaded: overrides?.onFileUploaded ?? context.callbacks?.onFileUploaded
         };
 
+        if (blocked)
+        {
+            if (callbacks.onError)
+            {
+                await local.observeCallback(() => callbacks.onError!(blocked.message, blocked, { files: context.files }));
+            }
+            return;
+        }
+        const run = Object.freeze({});
+        activeRun.value = run;
+        activeLocalRun = local;
+        const resumedContext = { ...context, callbacks, messages: { ...context.messages, ...overrides?.messages } };
+        local.context = resumedContext;
         let runSignal: AbortSignal | null = null;
         try
         {
             await uploadTask.run(async (signal) =>
             {
                 runSignal = signal;
-                await executeUpload({
-                    ...context,
-                    callbacks,
-                    messages: {
-                        ...context.messages,
-                        ...overrides?.messages
+                local.bindTask(signal, () =>
+                {
+                    if (activeRun.value === run)
+                    {
+                        uploadTask.cancel();
                     }
-                }, signal);
+                });
+                await executeUpload(resumedContext, signal, local);
             });
         }
         catch (error: unknown)
@@ -323,18 +544,67 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 {
                     showErrorToast(error, overrides?.messages?.resumeFailed ?? context.messages?.resumeFailed ?? '继续上传失败');
                 }
-                await callbacks.onError?.(message, error, { files: context.files });
+                if (callbacks.onError)
+                {
+                    await local.observeCallback(() => callbacks.onError!(message, error, { files: context.files }));
+                }
+            }
+        }
+        finally
+        {
+            if (activeRun.value === run)
+            {
+                activeRun.value = null;
+                activeLocalRun = null;
             }
         }
     };
 
+    const requestRun = (local: OwnedLocalUploadFlow, execute: () => Promise<void>): ImageUploadLocalRequest<void> =>
+    {
+        localRuns.add(local);
+        void local.settled.then(() => localRuns.delete(local));
+        const result = (async (): Promise<void> =>
+        {
+            try
+            {
+                await execute();
+            }
+            finally
+            {
+                local.finishExecution();
+            }
+        })();
+        return Object.freeze({ result, settled: local.settled,
+            cancelLocal: (reason?: unknown) => local.cancelLocal(reason),
+            inspectLocalResources: () => local.inspect() });
+    };
+
+    const requestStartUpload = (params: StartUploadParams): ImageUploadLocalRequest<void> =>
+    {
+        const local = new OwnedLocalUploadFlow(params);
+        return requestRun(local, () => executeStartUpload(params, local));
+    };
+    const requestResumeUpload = (overrides?: UploadCallbacks & { messages?: UploadMessages; }): ImageUploadLocalRequest<void> =>
+    {
+        const local = new OwnedLocalUploadFlow(overrides);
+        return requestRun(local, () => executeResumeUpload(overrides, local));
+    };
+    const startUpload = (params: StartUploadParams): Promise<void> => requestStartUpload(params).result;
+    const resumeUpload = (overrides?: UploadCallbacks & { messages?: UploadMessages; }): Promise<void> => requestResumeUpload(overrides).result;
+
     const clearPending = (): void =>
     {
+        if (admissionError())
+        {
+            return;
+        }
         pendingContext.value = null;
     };
 
     const cancel = (): void =>
     {
+        activeLocalRun?.cancelLocal();
         uploadTask.cancel();
     };
 
@@ -343,6 +613,8 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         pendingContext,
         startUpload,
         resumeUpload,
+        requestStartUpload,
+        requestResumeUpload,
         clearPending,
         cancel
     };

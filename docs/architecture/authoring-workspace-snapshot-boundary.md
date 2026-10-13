@@ -1409,3 +1409,44 @@ position-shifted existing Writer timer diagnostics are not a new regression.
 Unqualified labels and runtime/list/native holds are not automatically source
 gaps, and old diagnostic dependency strings are not interface inventories.
 All complete/recoverable/eviction guards remain; unknown resources remain unknown.
+### Upload producer request prerequisite and native completion boundary
+
+The application consumes the original upload producer source through
+`b58021be2aed3d073f0bb5a1bfd7d8e89532274e`. The bounded intake includes the
+upload API, Flow/runtime, binary composition/transport contract and implementation,
+decode worker, and image compression/operation owner. Seven production files retain
+the exact donor postimages. The upload API additionally preserves the existing
+`readCommittedUploadPreview` implementation and dependencies. Binary transport
+preserves the original `binaryRoutePolicy` implementation, its single policy call,
+and both return branches' private scope and generation policy. These two reconciled
+postimages remain subject to the original upload owner's source review.
+
+`requestStartUpload` and `requestResumeUpload` return the actual original
+`result`, `settled`, `cancelLocal`, and local resource inspection. Existing
+`startUpload`/`resumeUpload` callers still receive that request's `result`.
+The Flow's void result is not an article content or business acknowledgement;
+handled errors may finish that result without a committed business outcome.
+Settlement independently follows the original child producers and local callback
+work. Callback code awaits its own work only: enclosing upload, Flow, or SDK
+result/settled promises depend on that callback and must not be awaited inside it.
+
+The structured upload census is not the SDK consumer's six-category census.
+Unavailable network or shared Wasm terminal observations stay unavailable;
+unknown resources and retained cleanup obligations cannot become zero counts or
+successful release by projection. No checkpoint, remote cancellation, business
+asset cleanup, or full editor resource readiness follows from local settlement.
+
+The actual Writer currently admits an original native capture and observes its
+owned upload through `onFileUploaded`, the original session borrow, and
+`createArticleAttachmentUploadProvider`. The committed asset observation is a
+transport fact, not an article-operation or reference grant.
+`ArticleAttachmentContextAdapter.complete` explicitly refuses a native capture
+with `attachment-native-completion-unavailable` before content mutation. Its
+nonnative path dispatches and commits content itself, so it cannot precede the
+SDK's terminal apply without a duplicate mutation. The original article attachment
+owner must supply actual native completion composition for the same capture,
+pending handle, and original SDK job/attempt before the application can bind
+`attachmentRequestDispatch` to an authoritative business terminal result.
+No substitute success result, second content owner, or business acceptance is
+introduced by this producer prerequisite. Runtime/native/receipt/IME qualification
+and full host capture/restore/readiness guards remain unchanged and unrun.

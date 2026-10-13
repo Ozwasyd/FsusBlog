@@ -3,4 +3,4 @@ import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTr
 
 export { BinaryTransportError };
 
-export const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload);
+export const { requestBinaryOnly, startBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload);
