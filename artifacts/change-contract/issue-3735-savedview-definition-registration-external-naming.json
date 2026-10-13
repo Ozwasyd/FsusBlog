@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/ArticlePropertySavedViewDependencyProvider.cs"
+            ],
+            "reason": "Preserve original caller-visible configuration, request claim and stable property identity spellings when consuming the exact supplier provider and original scoped composition. These managed paths are conservatively governed by the trusted external naming registry; this evidence does not grant new provider, query, runtime or qualification authority."
+        }
+    ]
+}
