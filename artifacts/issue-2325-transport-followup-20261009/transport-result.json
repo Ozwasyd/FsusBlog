@@ -1,0 +1,12 @@
+{
+  "source": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+  "exitCode": 0,
+  "tests": 34,
+  "pass": 34,
+  "fail": 0,
+  "skip": 0,
+  "testFiles": [
+    "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts",
+    "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  ]
+}

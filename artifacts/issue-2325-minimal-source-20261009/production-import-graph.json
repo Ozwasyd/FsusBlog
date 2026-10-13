@@ -1,0 +1,16 @@
+{
+  "source": "479b868ec2de068e143136a7a25434f12e8b032d",
+  "method": "Actual runtime import/export/dynamic-string literal graph from metadata production roots; excludes import type, excludes external package internals, includes worker URL modules. Conditional branches retained.",
+  "seeds": [
+    "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+    "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+    "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+    "src/frontend/src/api/articlePropertyValues.ts"
+  ],
+  "localRuntimeFiles": 72,
+  "unresolvedLocalImports": [],
+  "targetChains": {
+    "src/frontend/src/fsusui/motion.ts": null,
+    "src/frontend/src/components/security/FsusPoSpaceChallenge.vue": null
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema": "fsusblog.format-idempotence-evidence.v1",
+  "formatter": {
+    "identity": "eslint",
+    "version": "10.8.0",
+    "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs --fix"
+  },
+  "revision": "9f4af3a81e7f8acd8635345bf027ed780c78a898",
+  "paths": [
+    "tests/tools/aeds-protocol-generation.test.mjs"
+  ],
+  "firstPassTreeSha256": "1ccb0fb12f5e0d67a6ac4bf469fff32d0c76aa260d5b23fb6de4360e64a23016",
+  "secondPassTreeSha256": "1ccb0fb12f5e0d67a6ac4bf469fff32d0c76aa260d5b23fb6de4360e64a23016",
+  "idempotent": true,
+  "executionSourceHead": "1c11082133df53e2694d9480429824bf48a2d421",
+  "executionSourceCodeCommit": "373bcaa74f37aed9b07504040ec7ddca8bf293d9",
+  "firstPassExitCode": 0,
+  "secondPassExitCode": 0,
+  "scope": "Actual unchanged original formatter command, two successful sequential runs. Original trusted checker independently verifies these path/content digests; not a hand-hash equivalence substitute."
+}

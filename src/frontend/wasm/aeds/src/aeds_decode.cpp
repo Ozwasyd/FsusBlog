@@ -2,6 +2,10 @@
 
 #include "aeds_crc32.hpp"
 #include "aeds_frame.hpp"
+#include "authoring_canvas_wire.generated.hpp"
+#include "article_canvas_link_wire.generated.hpp"
+#include "property_value_read.generated.hpp"
+#include "authoring_workspace_snapshot_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -54,6 +58,14 @@ const char* ToErrorString(ErrorCode errorCode)
             return "header_length_mismatch";
         case ErrorCode::PayloadCrcMismatch:
             return "payload_crc_mismatch";
+        case ErrorCode::ArticleCanvasLinkPayloadInvalid:
+            return "article_canvas_link_payload_invalid";
+        case ErrorCode::ArticlePropertyValueReadPayloadInvalid:
+            return "article_property_value_read_payload_invalid";
+        case ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid:
+            return "authoring_workspace_snapshot_payload_invalid";
+        case ErrorCode::AuthoringCanvasPayloadInvalid:
+            return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
             return "article_payload_invalid";
         case ErrorCode::FrameTypeUnsupported:
@@ -131,6 +143,29 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !FsusBlog::Pod::FontTheme::ParsePayload(FrameType, payload, PayloadLength, nullptr))
     {
         return MakeError(ErrorCode::FontThemePayloadInvalid);
+    }
+
+    if (FrameType >= 253 && FrameType <= 265
+        && !ValidateAuthoringCanvasPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::AuthoringCanvasPayloadInvalid);
+    }
+
+    if (FrameType >= 266 && FrameType <= 268
+        && !ValidateArticleCanvasLinkPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::ArticleCanvasLinkPayloadInvalid);
+    }
+
+    if (FrameType == 269 && !ValidateArticlePropertyValueReadPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::ArticlePropertyValueReadPayloadInvalid);
+    }
+
+    if (FrameType >= 270 && FrameType <= 271
+        && !ValidateAuthoringWorkspaceSnapshotPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid);
     }
 
     DecodeResult ok{};

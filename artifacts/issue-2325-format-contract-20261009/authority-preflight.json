@@ -1,0 +1,47 @@
+{
+  "trustedRoot": "/workspace/FsusBlog-2325-master-baseline",
+  "trustedSource": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "candidateRoot": "/workspace/FsusBlog-2325-transport-followup",
+  "candidateHead": "1c11082133df53e2694d9480429824bf48a2d421",
+  "formatIncrement": "9f4af3a81e7f8acd8635345bf027ed780c78a898",
+  "identity": [
+    {
+      "path": "tools/governance/javascript-format-equivalence.mjs",
+      "trustedBlob": "86c55ceb9d1e336838ece004dbdd27744f73f1d0",
+      "candidateBlob": "86c55ceb9d1e336838ece004dbdd27744f73f1d0",
+      "unchanged": true
+    },
+    {
+      "path": "tools/governance/javascript-format-parser/package.json",
+      "trustedBlob": "2c167064f456204c9dff5f85e2939404f0e598a8",
+      "candidateBlob": "2c167064f456204c9dff5f85e2939404f0e598a8",
+      "unchanged": true
+    },
+    {
+      "path": "tools/governance/javascript-format-parser/package-lock.json",
+      "trustedBlob": "ff99582d27b6a034261cc9ad12e3b781c8156f80",
+      "candidateBlob": "ff99582d27b6a034261cc9ad12e3b781c8156f80",
+      "unchanged": true
+    },
+    {
+      "path": "tools/governance/change-contract.mjs",
+      "trustedBlob": "bc01aab0c28f178808b994c38d81b1af43ac53fe",
+      "candidateBlob": "bc01aab0c28f178808b994c38d81b1af43ac53fe",
+      "unchanged": true
+    },
+    {
+      "path": "tools/governance/change-contract-registry.mjs",
+      "trustedBlob": "01f4638626218b6c324f94db534c731fa1a5c471",
+      "candidateBlob": "01f4638626218b6c324f94db534c731fa1a5c471",
+      "unchanged": true
+    },
+    {
+      "path": "tools/governance/check-change-contract.mjs",
+      "trustedBlob": "fffee5722e115df65f86462c1e209cbd516e475d",
+      "candidateBlob": "fffee5722e115df65f86462c1e209cbd516e475d",
+      "unchanged": true
+    }
+  ],
+  "heldAuditStarted": false,
+  "officialInstall": "npm ci --ignore-scripts --no-audit --no-fund --prefix tools/governance/javascript-format-parser --cache /tmp/issue-2325/parser-setup-20261009/npm-cache"
+}

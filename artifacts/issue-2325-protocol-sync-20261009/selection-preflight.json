@@ -1,0 +1,96 @@
+{
+  "sourceOffer": "60c03fa44b7fa090bc1a6b227596943e19c3c3b8",
+  "offerParent": "7b374e71f89433cf04e5e315fdd1d43816728f85",
+  "consumerPredecessor": "a81bdb67e27bd26ba456f8ad8a19951922b0850c",
+  "claimedPath": "tests/tools/aeds-protocol-generation.test.mjs",
+  "preimageBlob": "82ea8d153d470cc7dac8300a3c2497f751a3f957",
+  "offeredPostimageBlob": "396ebcdab7c902de4765a9874e95d2ec71ea9e3a",
+  "sourceSHA256": "78d17258f12cd74ec284f309264c00b5f7d3b12179684ad4d8f9766464f13c38",
+  "original2246Pr3818Head": "987e7956967c3a1b1c53120b58b887fbe960ed33",
+  "claimedIntersection": [],
+  "exactPositiveFQNs": [
+    "the original producer owns five products with manifest-derived identities and explicit metadata",
+    "the Canvas and article-link additions retain independently named roots and wire identities",
+    "property value and workspace snapshot roots retain exact registered identities",
+    "the original 236 golden records, evidence and retirement remain unchanged",
+    "the original four renderer outputs and complete golden bytes are preserved for the retained source",
+    "every frame, including future registrations, must explicitly provide complete golden metadata",
+    "source values and explicit metadata, not old output values, determine the complete catalog",
+    "the FontRegistryList golden identity comes from the same protocol frame used by every language",
+    "the FontRegistryDetail golden identity comes from the same protocol frame used by every language",
+    "the FontActivationList golden identity comes from the same protocol frame used by every language",
+    "the ThemeRegistryList golden identity comes from the same protocol frame used by every language",
+    "the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language",
+    "the ThemeActivationList golden identity comes from the same protocol frame used by every language",
+    "the ThemeActivation golden identity comes from the same protocol frame used by every language",
+    "the ThemeActivationHistory golden identity comes from the same protocol frame used by every language",
+    "the original renderer refuses missing golden metadata before any output",
+    "the original renderer refuses unknown golden metadata field before any output",
+    "the original renderer refuses unknown catalog version before any output",
+    "the original renderer refuses empty evidence before any output",
+    "the original renderer refuses duplicate evidence before any output",
+    "the original renderer refuses outside evidence before any output",
+    "the original renderer refuses traversing evidence before any output",
+    "the original renderer refuses evidence with terminal LF before any output",
+    "the original renderer refuses missing family before any output",
+    "the original renderer refuses empty family before any output",
+    "the original renderer refuses family with terminal LF before any output",
+    "the original renderer refuses missing order before any output",
+    "the original renderer refuses duplicate order before any output",
+    "the original renderer refuses negative order before any output",
+    "the original renderer refuses out of range order before any output",
+    "the original renderer refuses fractional order before any output",
+    "the original renderer refuses unannotated registered frame before any output",
+    "the original renderer refuses removed registered frame leaving a metadata gap before any output",
+    "the original renderer refuses duplicate frame identity before any output",
+    "the original renderer refuses retired frame reused as active before any output",
+    "the original renderer refuses empty frame collection before any output"
+  ],
+  "expectedTests": 36,
+  "hooks": [],
+  "negativeControls": 21,
+  "fiveHistoricalDigestLiteralsUnchanged": true,
+  "noHeldAuditSecurityRuntimeDeviceOrNativeTask": true,
+  "producerCommand": [
+    "node",
+    "tools/frontend/generate-aeds-protocol.mjs",
+    "--check"
+  ],
+  "producerProducts": [
+    "src/core/Algorithms/AedsFrameType.cs",
+    "src/shared/AedsFrameHeader.cs",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+    "tests/backend/Fixtures/aeds-golden-catalog.json"
+  ],
+  "unchangedProducerInputsAndOutputs": [
+    {
+      "path": "tools/frontend/generate-aeds-protocol.mjs",
+      "blob": "f3338c3d363c61d9c89be216b693cc3f1a2802e8"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "blob": "ba1433e93ab3d854c9ae4ae8c3801854cf54225f"
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "blob": "24da8cfd2a556b4337c0fd52df881855bde2f822"
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "blob": "5a62d4adc3e7f88693fa9aa4bf09620fc96f32b5"
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "blob": "d6c6f29b40b264cb1f80c67a3f98a723b6e7da44"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "blob": "d24cd5ff31b03055852d0ba81bfb5d0b970fa219"
+    },
+    {
+      "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+      "blob": "a71414e3e56b0e9dff2cb247a51597d40f65724b"
+    }
+  ]
+}

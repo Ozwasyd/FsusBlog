@@ -1,0 +1,1790 @@
+{
+  "purpose": "Source dependency/provenance manifest, not an acceptance receipt",
+  "issue": 2325,
+  "status": "OPEN / source WIP",
+  "sourceSha": "1503714bf918ce964f658760bb51c150c296028b",
+  "sourceTree": "f19a51df16df2a4e23bae4cb4aea28a024c3f7f6",
+  "singleActualMasterBase": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "sourceParent": "a81bdb67e27bd26ba456f8ad8a19951922b0850c",
+  "ownedPathsCount": 9,
+  "changedSourcePathsCount": 117,
+  "allOfferedAndBaselineTestOwnerPaths": [
+    {
+      "path": "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
+      "reason": "unchanged canonical producer enum/closed-state owner input, not a new authority implementation",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "d3c9b20c9c2e0e87067c352d6ecd7f013c11ffd7",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "d3c9b20c9c2e0e87067c352d6ecd7f013c11ffd7",
+      "mode": "100644",
+      "sha256": "da6541b734ded6b23b06bd567a729e8073c664dac5f808024e4055f30fb12405"
+    },
+    {
+      "path": "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+      "reason": "unchanged canonical producer enum/closed-state owner input, not a new authority implementation",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e3a2da0fde13fed17cb000e2dc160c7d8252480d",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e3a2da0fde13fed17cb000e2dc160c7d8252480d",
+      "mode": "100644",
+      "sha256": "495e6b845a6495cd7c6054f4b50b305e507fde3918ac24de50b2c5389932d5d4"
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "24da8cfd2a556b4337c0fd52df881855bde2f822",
+      "baseBlob": "80230509d38979c2e03a8a3d36c92bc10a016359",
+      "changesBase": true,
+      "candidateBlob": "24da8cfd2a556b4337c0fd52df881855bde2f822",
+      "mode": "100644",
+      "sha256": "5fb16d756cf355f8d05bea151db1d93b54439dfe0beda3213463270a20e74ca2"
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "051295f76404048dc9a2d6a66e0e73e3b88b15c3",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "051295f76404048dc9a2d6a66e0e73e3b88b15c3",
+      "mode": "100644",
+      "sha256": "54dba98163e75f81ce591d04aae0d0243771a7e6076de3841243a56cd0783a24"
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "76c61560ed2b1e76303240af1ca5e16362af3852",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "76c61560ed2b1e76303240af1ca5e16362af3852",
+      "mode": "100644",
+      "sha256": "e3411b72b1b1a64825f49eda1cff16a686f027508d45e5b42b27816b77dec62a"
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "070f61d0d04e6d741efc291cff26bac82bee4a21",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "070f61d0d04e6d741efc291cff26bac82bee4a21",
+      "mode": "100644",
+      "sha256": "5f1afb86463dc6c09de1e87b9d3fa87adc4c29e65a3e25bb1d168fa4beb7b982"
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.AuthoringWorkspaceSnapshot.Generated.cs",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "a7b52d0afdc154943304d945281d417ee2e7950d",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "a7b52d0afdc154943304d945281d417ee2e7950d",
+      "mode": "100644",
+      "sha256": "04e4be7e83e82381390ec9c162c935b9684fb1983deae24a4323f7ff2a40a96c"
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/fontThemeAdminAdapter.ts",
+      "reason": "exact canonical3177/3659 neutral-contract and erasable decoder offer; no local adapter rewrite",
+      "sourceSha": "4f981f4b50f0c1e4f1e6e6ca5b24517a86ad9e83",
+      "sourceBlob": "fee89bd850dceb34f23e2991c2438225fb9f42a7",
+      "baseBlob": "f625508ba348de59f88a964214b1341f9137fb51",
+      "changesBase": true,
+      "candidateBlob": "fee89bd850dceb34f23e2991c2438225fb9f42a7",
+      "mode": "100644",
+      "sha256": "ea3f4980d7dec6afb2900623dd252583ee52919dfcb63a373db832f8cebbbd1e"
+    },
+    {
+      "path": "src/frontend/src/api/articlePropertyValues.ts",
+      "reason": "canonical persisted-read API and complete decoder registration prerequisite",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "8bfb602deecc97f5a062fcfc527c27d255003dd2",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "8bfb602deecc97f5a062fcfc527c27d255003dd2",
+      "mode": "100644",
+      "sha256": "64fe4a0439c624acb0e654e0746142cd8f5cdc1d1dc739150e6e00b51a5e5142"
+    },
+    {
+      "path": "src/frontend/src/api/binaryApiClient.ts",
+      "reason": "Exact canonical unknown rejection completion preserving settled/cleanup/raw identity",
+      "sourceSha": "d61f0977e1f8a45873ac33122c028461d22e5a80",
+      "sourceBlob": "df0caa94404634c19fa75cf7d989253005847a5b",
+      "baseBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+      "changesBase": true,
+      "candidateBlob": "df0caa94404634c19fa75cf7d989253005847a5b",
+      "mode": "100644",
+      "sha256": "0bfaf938eae012ec57adf623d2a68947c1e90b977c76e28e067f498a05b355df",
+      "consumption": "exact postimage"
+    },
+    {
+      "path": "src/frontend/src/api/fontAdmin.ts",
+      "reason": "exact canonical3177/3659 neutral-contract and erasable decoder offer; no local adapter rewrite",
+      "sourceSha": "4f981f4b50f0c1e4f1e6e6ca5b24517a86ad9e83",
+      "sourceBlob": "dcd7393d9a67c652ac7d8a6e568f20049c45eea2",
+      "baseBlob": "b2c1173f7d7494915ba3789bafd8a55b35350f7f",
+      "changesBase": true,
+      "candidateBlob": "dcd7393d9a67c652ac7d8a6e568f20049c45eea2",
+      "mode": "100644",
+      "sha256": "89a9b53a0e4f984cc33981a85b68a993b18dfa1f7df12e8ed4636789f6196af7"
+    },
+    {
+      "path": "src/frontend/src/api/themeAdmin.ts",
+      "reason": "exact canonical3177/3659 neutral-contract and erasable decoder offer; no local adapter rewrite",
+      "sourceSha": "4f981f4b50f0c1e4f1e6e6ca5b24517a86ad9e83",
+      "sourceBlob": "96426332b42f94efaa0a9500057e8747475b5f4d",
+      "baseBlob": "31a8a46453628fd91d8287d655fd81cde701a508",
+      "changesBase": true,
+      "candidateBlob": "96426332b42f94efaa0a9500057e8747475b5f4d",
+      "mode": "100644",
+      "sha256": "ca17ed8478414141f13d22b5399ba35ed91297e72f84e12fc745e5a134be24da"
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "382250d5ac0705965a04a23369eb9f6f970de4e2",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "382250d5ac0705965a04a23369eb9f6f970de4e2",
+      "mode": "100644",
+      "sha256": "ee1db2981e0e0578b192c2c41486201e88c5bfc1f3921e7880ee71ce946c9c4e"
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/articlePropertyValueReadCodecs.ts",
+      "reason": "canonical persisted-read API and complete decoder registration prerequisite",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "1f03cc8a7858365e15bc24a25910a4827e1bb46d",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "1f03cc8a7858365e15bc24a25910a4827e1bb46d",
+      "mode": "100644",
+      "sha256": "a78daa56a2486700031c76acf64939438ebaed87ffe4b394c5d015ecc0ff3aaa"
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "45b4d70d7e325e00fd7eb99fa1aabf781e016dff",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "45b4d70d7e325e00fd7eb99fa1aabf781e016dff",
+      "mode": "100644",
+      "sha256": "64299b80fbdad2399aea6301f288c11e58f54e61d7c89ed6e96bf1104e142cbf"
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "4db4268d843bdfcf579cbd4ca8d08c64ab132aab",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "4db4268d843bdfcf579cbd4ca8d08c64ab132aab",
+      "mode": "100644",
+      "sha256": "7cba689c84337cce02f3d0cadb90ea57ea3dc7f396877dde022185e53826a8e8"
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts",
+      "reason": "unmodified complete wire product required by canonical decoder registry/ABI",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "663d39ffd640baf7e1bb4ecf787e7cf09e396086",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "663d39ffd640baf7e1bb4ecf787e7cf09e396086",
+      "mode": "100644",
+      "sha256": "c4096d199dcebcbe12c03fcc4fe78c8e32dd20ac0de056d3156229ae9bf18579"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "235737cf0e9602ca844076a6a60309ddede0a3dd",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "235737cf0e9602ca844076a6a60309ddede0a3dd",
+      "mode": "100644",
+      "sha256": "7f974055dcdc914db56a3c803529db03b563408aca6a7a4e524ae743e1d7fe84"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "c730c3487fe7430a1b8f5c6cb294a4bab1432307",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "c730c3487fe7430a1b8f5c6cb294a4bab1432307",
+      "mode": "100644",
+      "sha256": "e8500d28ed7753d7ff16000eb29754aa2a003c775c56a4c2c45d2fc44f46b3b5"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e88b8bfb751977acccd4685796fa2a945a9f2ad6",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e88b8bfb751977acccd4685796fa2a945a9f2ad6",
+      "mode": "100644",
+      "sha256": "29567a7114da8cb39ec59b9d43afa7ed8ae2244bbccedac8e47e95a2a6dd8040"
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "reason": "canonical persisted-read API and complete decoder registration prerequisite",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "95c60f8ba69b6da3ae00a97beff9e9399f80f670",
+      "baseBlob": "e780acfb55a79b41e9321b73bacef8425044dfde",
+      "changesBase": true,
+      "candidateBlob": "95c60f8ba69b6da3ae00a97beff9e9399f80f670",
+      "mode": "100644",
+      "sha256": "6a3b80b634a136e408a5f7346c2e882063eea75a39ac6e0a99b3b64c199fb79a"
+    },
+    {
+      "path": "src/frontend/src/contracts/authoringCanvas.ts",
+      "reason": "exact four-path Canvas contract-layer offer",
+      "sourceSha": "af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c",
+      "sourceBlob": "557f4fcd437ef8421f3bc3ba5d6d659b7ff07d97",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "557f4fcd437ef8421f3bc3ba5d6d659b7ff07d97",
+      "mode": "100644",
+      "sha256": "adda14b22b2ce51aec0aa40a9edfe8e04553d9a85e1ef232f6f19fe7c2a21f6e"
+    },
+    {
+      "path": "src/frontend/src/contracts/fontThemeAdmin.ts",
+      "reason": "exact canonical3177/3659 neutral-contract and erasable decoder offer; no local adapter rewrite",
+      "sourceSha": "4f981f4b50f0c1e4f1e6e6ca5b24517a86ad9e83",
+      "sourceBlob": "e6dc9d1163f83ca12a3867930dec3c27d72cafe7",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e6dc9d1163f83ca12a3867930dec3c27d72cafe7",
+      "mode": "100644",
+      "sha256": "993acb7978c33a1bc9e59fd38d42e85575236b9913abee195a1e53d94256a7bb"
+    },
+    {
+      "path": "src/frontend/src/fsusui/input.ts",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "ed384b384359bf4ed4f33f9af49ea6fbf99f41d8",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "ed384b384359bf4ed4f33f9af49ea6fbf99f41d8",
+      "mode": "100644",
+      "sha256": "7f8bda19de4dc4acb550bcdd7ea99fde51e9ab452680947a4a8c64e768a18582"
+    },
+    {
+      "path": "src/frontend/src/fsusui/select.ts",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "969ca38d256f00531cb2b48f4c219118c281403c",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "969ca38d256f00531cb2b48f4c219118c281403c",
+      "mode": "100644",
+      "sha256": "69e0dbc0b5c01a5fba240c89739a5933f88dbb5cbe8c5c8afd25cb76bf7aae91"
+    },
+    {
+      "path": "src/frontend/src/fsusui/switch.ts",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "7d228c3d677e023012ca036e200d5bfd1870929d",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "7d228c3d677e023012ca036e200d5bfd1870929d",
+      "mode": "100644",
+      "sha256": "429c91f1f007f1cf5341938e49fa118ac5e1f36e5ed12447d74e8138ed5d814b"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "reason": "explicitly approved original owner typing/currentness/transport hunk",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "983d13f281e5427da50be04547771b138c5d1637",
+      "baseBlob": "c710d66c2a757039175de95854a24f54cf5e1d10",
+      "changesBase": true,
+      "candidateBlob": "983d13f281e5427da50be04547771b138c5d1637",
+      "mode": "100644",
+      "sha256": "0040fddd4288d787dabdc3c93e2d4a6cc8a6109b6fb09e96dd2b9827a6636c29"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "reason": "explicitly approved original owner typing/currentness/transport hunk",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "f7ca5f60bb517e6c3252deaa88d97db8c5e53134",
+      "baseBlob": "6b7f320397022cca28adc43110ec33cc93547dc9",
+      "changesBase": true,
+      "candidateBlob": "f7ca5f60bb517e6c3252deaa88d97db8c5e53134",
+      "mode": "100644",
+      "sha256": "0ce75d8ec3933f2933255a7e6d8bac7b7acc61bb33ed181b5518b936db26e96a"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "2c13658adf98ee6e2c44d9c2177b7b4f59e9d837",
+      "baseBlob": "cb08cf6bc20b742afb90ad6d4f4d3a454b8fc834",
+      "changesBase": true,
+      "candidateBlob": "2c13658adf98ee6e2c44d9c2177b7b4f59e9d837",
+      "mode": "100644",
+      "sha256": "67122fb68c11e06dfbdde9a2635dff59c0fac3ae11546b103cabd305affff418"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "d24cd5ff31b03055852d0ba81bfb5d0b970fa219",
+      "baseBlob": "881e1852f846a65bb0ba7e6c6306ec94367c972f",
+      "changesBase": true,
+      "candidateBlob": "d24cd5ff31b03055852d0ba81bfb5d0b970fa219",
+      "mode": "100644",
+      "sha256": "285b6e502934ece491144a45180a296fa34893b858cb849cde3f1ab974890709"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp",
+      "reason": "unmodified native ABI wire product",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "8c92c56e4b2b1412fcbf66a6dc5e9ea25dc88e6b",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "8c92c56e4b2b1412fcbf66a6dc5e9ea25dc88e6b",
+      "mode": "100644",
+      "sha256": "be7368e0e6a5936701c2ee3baf5f04f7d7ccfb5f40dac7b2878d3fe288d019fe"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
+      "reason": "unmodified native ABI wire product",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "c6ee52d2a44db02ee411c89bc7fa21e0d249c5a8",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "c6ee52d2a44db02ee411c89bc7fa21e0d249c5a8",
+      "mode": "100644",
+      "sha256": "8106396d6f06df3d138c295935640d9baa8c5109dfd1a8beb3f042c694cc30a6"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp",
+      "reason": "unmodified native ABI wire product",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "34db4453a6cd6a9676fb699920a132b2720670b5",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "34db4453a6cd6a9676fb699920a132b2720670b5",
+      "mode": "100644",
+      "sha256": "cf6b441d615a02592161787130fa55b357893d2b4b8df1709c702753be26b706"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+      "reason": "unmodified native ABI wire product",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "a38b159868fec1b47a9dc0ef8d73af184bc91611",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "a38b159868fec1b47a9dc0ef8d73af184bc91611",
+      "mode": "100644",
+      "sha256": "78382f66ae4ed4aceaa9825204622eccdc55ba7d2afcdbe8cf51b0d98a590a54"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "d1ebc82d2d536ad0795c28390857eac39f7399e0",
+      "baseBlob": "2fcbee4cf5dd83fdf8c9b9e16127756cb942e1ae",
+      "changesBase": true,
+      "candidateBlob": "d1ebc82d2d536ad0795c28390857eac39f7399e0",
+      "mode": "100644",
+      "sha256": "de5fd01d9d877ddc59cb4b12bb4dc2099f3d472961eb82d7a4c799667b6b991b"
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "d6c6f29b40b264cb1f80c67a3f98a723b6e7da44",
+      "baseBlob": "f4d3d037304b66acc0a9f4aaaf431646125d15b5",
+      "changesBase": true,
+      "candidateBlob": "d6c6f29b40b264cb1f80c67a3f98a723b6e7da44",
+      "mode": "100644",
+      "sha256": "9126a69fda8a9b86492fcbd8651f83081d2a8d046a0e158bfd18c2b9a84ceb1e"
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "reason": "original fifth protocol product or original canonical TestOwner required by complete approved roster; exact source, no local assertion change",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5a62d4adc3e7f88693fa9aa4bf09620fc96f32b5",
+      "baseBlob": "c6fc479e0c3ccef1949266c7f6a5dbe28fc6eadf",
+      "changesBase": true,
+      "candidateBlob": "5a62d4adc3e7f88693fa9aa4bf09620fc96f32b5",
+      "mode": "100644",
+      "sha256": "b2c8250aba7a45c9e2a43a32110d92fa35047acee6aaa7aae61c79903ca1f85c"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "ccc417763c04e36b8414325e944e48035018ae15",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "ccc417763c04e36b8414325e944e48035018ae15",
+      "mode": "100644",
+      "sha256": "c67134167da864a7d7830e0ae4be558cc518d2f539c2e5ef87903e3c2554316b"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "6298d10439f5bde83fd4cceed344bb88f1495690",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "6298d10439f5bde83fd4cceed344bb88f1495690",
+      "mode": "100644",
+      "sha256": "0c06ed92f7ac4d11084c0709e9696dbad05652d12f0558378fb8280a0b6b6784"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "bee3b880190ead838cd0bbdda8eecf2d50cab5e7",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "bee3b880190ead838cd0bbdda8eecf2d50cab5e7",
+      "mode": "100644",
+      "sha256": "3a5f0721c84b28ece2262095dfea5b9fdfb20b80eb2106f67190f720d4f23ab9"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "b1237f3b56edcaabf2313203b29a9ba6885b97bf",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "b1237f3b56edcaabf2313203b29a9ba6885b97bf",
+      "mode": "100644",
+      "sha256": "46ee7f2eb0af18a6ac2c0f2019f5feb4660c925b44ef23722ea22afcf3475ad9"
+    },
+    {
+      "path": "src/shared/Contracts/Articles/ArticleCanvasLinkContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "cdfa21fe3f2aa556332c1698837f4a6b84336ce2",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "cdfa21fe3f2aa556332c1698837f4a6b84336ce2",
+      "mode": "100644",
+      "sha256": "ecb14aa4d679b12d4eb1cb211dbbc0e85a4208b8159ebaacdea7704353537d4f"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "864e483af37774ff0c7e0c6b93dbb5fc68bea4b4",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "864e483af37774ff0c7e0c6b93dbb5fc68bea4b4",
+      "mode": "100644",
+      "sha256": "012828cd01bdeb395361864aee8292c35f28b47da5b585f93599c8245f37ae44"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "761babf8385d5f75e7087c6008b1febcd71f8579",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "761babf8385d5f75e7087c6008b1febcd71f8579",
+      "mode": "100644",
+      "sha256": "6c539fe0443bb0cbdbdcb332d86f769d51697e1a67ccb7a22719068eba82ba79"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "780e813dd36af3c6984234d11c0ea67027c978d8",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "780e813dd36af3c6984234d11c0ea67027c978d8",
+      "mode": "100644",
+      "sha256": "c67419ed2962ea0d7060016c952b38f7158872b6139ad3b4d227cacdd7c1292e"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "b77b15f7c11f2fe6d802f202e623cf72bfed871b",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "b77b15f7c11f2fe6d802f202e623cf72bfed871b",
+      "mode": "100644",
+      "sha256": "0b0ee23fc3344bfe70a02a122cc699d51dc5e2043062958273d2cca79328e7be"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "4f2c7856fc43b2485cdb14d8a112d6d99aa19836",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "4f2c7856fc43b2485cdb14d8a112d6d99aa19836",
+      "mode": "100644",
+      "sha256": "cbd1ec184edf1b462b8b24566e6ef4a48be4dc65439ea65356aa0dea5dca56a8"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs",
+      "reason": "canonical Shared DTO/budget/digest owners required by producer and managed wire outputs",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "f88a1dcc67cb2f76f301458cd2f3b773943261d0",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "f88a1dcc67cb2f76f301458cd2f3b773943261d0",
+      "mode": "100644",
+      "sha256": "a5712cdf92ea22fa007719365d14083e61cbf1e21ccea1132bd3fe46bc7f58bd"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "ba1433e93ab3d854c9ae4ae8c3801854cf54225f",
+      "baseBlob": "983a35bd57ff8da6a0718bc2282ea9b764432402",
+      "changesBase": true,
+      "candidateBlob": "ba1433e93ab3d854c9ae4ae8c3801854cf54225f",
+      "mode": "100644",
+      "sha256": "91767861176d83d0404759540a93d28cbc961a6012c27f8c5fc0e4e56236d122"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/article-canvas-link-wire.json",
+      "reason": "canonical ABI family schema",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "c26756bafe199493478a8d8bbab7129c9d5bed0d",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "c26756bafe199493478a8d8bbab7129c9d5bed0d",
+      "mode": "100644",
+      "sha256": "4439ccfca59e409641f204235bd59074a87de1ce84578e38519da38a1c2037e5"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/article-property-value-read-wire.json",
+      "reason": "canonical ABI family schema",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "efda50aa9d333bd3f3be3d9778bf981328c5d45c",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "efda50aa9d333bd3f3be3d9778bf981328c5d45c",
+      "mode": "100644",
+      "sha256": "ab03909e551fb9379e16ab40e6bb363500835a824f1c7f1cee37eef7bf9b1085"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/authoring-canvas-wire.json",
+      "reason": "canonical ABI family schema",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "abfe03357cefaed122831ad6f461b242cb85c9c4",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "abfe03357cefaed122831ad6f461b242cb85c9c4",
+      "mode": "100644",
+      "sha256": "93aa40ace610ee7fa8507677319e7eb36cc0e6379f0fac33e76f192f03a1858b"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json",
+      "reason": "canonical ABI family schema",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5dda47bc3590c917f999355552bb0abb27300508",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5dda47bc3590c917f999355552bb0abb27300508",
+      "mode": "100644",
+      "sha256": "e03a681eb6a3b2783458c20749debaa6106825ae26785185b27692447e60137c"
+    },
+    {
+      "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "a71414e3e56b0e9dff2cb247a51597d40f65724b",
+      "baseBlob": "c0150a779dcf7a362eea125e2bc78ed67dbb16aa",
+      "changesBase": true,
+      "candidateBlob": "a71414e3e56b0e9dff2cb247a51597d40f65724b",
+      "mode": "100644",
+      "sha256": "76f9cf1d4ea2de7a52c3ca19bfcb7f9342e61ca7c313faef9d6fb7cbae8a447c"
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
+      "reason": "original TestOwner declared by complete protocol golden catalog; no test weakening",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "ed9e7e0a033fdbf54385ce3b961280e4269b6026",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "ed9e7e0a033fdbf54385ce3b961280e4269b6026",
+      "mode": "100644",
+      "sha256": "53dd7ed55fede3c25fdb5956ee53110f8894c65d63600ff97314aadf74c05790"
+    },
+    {
+      "path": "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+      "reason": "original TestOwner declared by complete protocol golden catalog; no test weakening",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5fe0050160cc01dcb520b40f1ec847fc2c71ca67",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5fe0050160cc01dcb520b40f1ec847fc2c71ca67",
+      "mode": "100644",
+      "sha256": "3aea4a50f54d95d2ecef0917e9b54fbdc6f8da3a52752ba843e1cb41b8f80fe6"
+    },
+    {
+      "path": "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+      "reason": "original TestOwner declared by complete protocol golden catalog; no test weakening",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "d821d9006c4624ee1822c4a1f785c1d50e42337d",
+      "baseBlob": "d821d9006c4624ee1822c4a1f785c1d50e42337d",
+      "changesBase": false,
+      "candidateBlob": "d821d9006c4624ee1822c4a1f785c1d50e42337d",
+      "mode": "100644",
+      "sha256": "29d5bc0a3c64b78aa9ea84695c682b299a394ae731effc22fee1929d026e880d"
+    },
+    {
+      "path": "tests/backend/Unit/PodBinaryCodecTests.cs",
+      "reason": "original TestOwner declared by complete protocol golden catalog; no test weakening",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "8721debf26b6bab4f4ac0874b4b0063c48385236",
+      "baseBlob": "8721debf26b6bab4f4ac0874b4b0063c48385236",
+      "changesBase": false,
+      "candidateBlob": "8721debf26b6bab4f4ac0874b4b0063c48385236",
+      "mode": "100644",
+      "sha256": "a502349544aaee5b4f3ab7d18e993d34c4045a8ec0a60bdf5ecde78406774673"
+    },
+    {
+      "path": "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
+      "reason": "original TestOwner declared by complete protocol golden catalog; no test weakening",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "db1878a9852332c1174d7f723af7b90248113167",
+      "baseBlob": "db1878a9852332c1174d7f723af7b90248113167",
+      "changesBase": false,
+      "candidateBlob": "db1878a9852332c1174d7f723af7b90248113167",
+      "mode": "100644",
+      "sha256": "1d7fa9ebb5fe0a983e1d83399f16be0e8595378bd411cf01348e282a56f31bab"
+    },
+    {
+      "path": "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
+      "reason": "actual cross-stack typed golden witnesses",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "85638b177f79bce089fc6e7ea10d4e129acf5a89",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "85638b177f79bce089fc6e7ea10d4e129acf5a89",
+      "mode": "100644",
+      "sha256": "77bc9d2d7b446c2ecec9e0587322def2d2896492d66a09e0e1a28d1c643a5e74"
+    },
+    {
+      "path": "tests/fixtures/protocol/article-property-value-read-wire-golden.json",
+      "reason": "actual cross-stack typed golden witnesses",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "2903186e867aae78b2752b3cac57b36e0ab2eabc",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "2903186e867aae78b2752b3cac57b36e0ab2eabc",
+      "mode": "100644",
+      "sha256": "09b118fa82045961448b5744bc22fffdb85cd61adad87c17a01ec4ebcb74ba28"
+    },
+    {
+      "path": "tests/fixtures/protocol/article-property-value-read-wire-native.cpp",
+      "reason": "required original native witness runner fixture",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "086c2bbb64e34d1f3a9b862a176fabdc746997b8",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "086c2bbb64e34d1f3a9b862a176fabdc746997b8",
+      "mode": "100644",
+      "sha256": "c489612d238484c2654d31c808df15b4abfad3082a8731b8644f15311691d26d"
+    },
+    {
+      "path": "tests/fixtures/protocol/authoring-canvas-wire-golden.json",
+      "reason": "actual cross-stack typed golden witnesses",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "a338f1a0570ec8cbe0ac19d682dbcf16828563bb",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "a338f1a0570ec8cbe0ac19d682dbcf16828563bb",
+      "mode": "100644",
+      "sha256": "5b5165aaf5da89792fcbd7166cb2f0b443849e420848a98888553e05a6ecf96a"
+    },
+    {
+      "path": "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json",
+      "reason": "actual cross-stack typed golden witnesses",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "c7f1b7558a2a4afa2c5d684490f575497a8af5ba",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "c7f1b7558a2a4afa2c5d684490f575497a8af5ba",
+      "mode": "100644",
+      "sha256": "13b5ef6f6751002bf71e5ac958dbd0d7415d297dd62b6fad2c22bc6f0e88f586"
+    },
+    {
+      "path": "tests/fixtures/protocol/authoring-workspace-snapshot-wire-native.cpp",
+      "reason": "required original native witness runner fixture",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "15578b2364c076c8c47cf2a6cf65a30772e7922e",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "15578b2364c076c8c47cf2a6cf65a30772e7922e",
+      "mode": "100644",
+      "sha256": "f086e9872b618bd8054ba02f3847fff162ac8a30c55bd973b0fa6e7e87173df4"
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articlePropertyValuesApi.test.ts",
+      "reason": "canonical persisted-read API and complete decoder registration prerequisite",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "44c70da3530d9bb4440d0b1fbedfa9e81bb5e31e",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "44c70da3530d9bb4440d0b1fbedfa9e81bb5e31e",
+      "mode": "100644",
+      "sha256": "f289aae0d3d313c30b5bed07d8d7cdb21aa8cf71aaa27ecd7209cffcf5d361b1"
+    },
+    {
+      "path": "tests/frontend/unit/components/admin/ArticleMetadataField.test.ts",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "72a043911e28b7eb45e01dc8b0d1fb7c2c15041c",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "72a043911e28b7eb45e01dc8b0d1fb7c2c15041c",
+      "mode": "100644",
+      "sha256": "445c90335e5655c18ea39a3a4f78cfa48aa8a77ac2790853a3588dff764684e5"
+    },
+    {
+      "path": "tests/frontend/unit/components/admin/ArticleMetadataRead.test.ts",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "6cbf1cea6e8bc2c1dec18431443c4ba683f7720b",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "6cbf1cea6e8bc2c1dec18431443c4ba683f7720b",
+      "mode": "100644",
+      "sha256": "827e231c224594646dbfd383bd17339243ee3e4c1d326e651856690650b43d13"
+    },
+    {
+      "path": "tests/frontend/unit/components/admin/articleMetadataExactEdit.test.ts",
+      "reason": "metadata-owned immutable source from published a0d58",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "ba0c3aea2c50f19ba6e24611214ae8e49e860df1",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "ba0c3aea2c50f19ba6e24611214ae8e49e860df1",
+      "mode": "100644",
+      "sha256": "7df54460721f873a6e32929ccf70704a739bd71dd75afad73c846019864f6bd0"
+    },
+    {
+      "path": "tests/frontend/unit/contracts/authoringCanvasContract.test.ts",
+      "reason": "exact four-path Canvas contract-layer offer",
+      "sourceSha": "af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c",
+      "sourceBlob": "9d8234e4391848d19c1eb421158773c1d147e5d8",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "9d8234e4391848d19c1eb421158773c1d147e5d8",
+      "mode": "100644",
+      "sha256": "38b18fc96201c5e9d0345daaff83ff1b832760caaf54128ea173c0fe25b17381"
+    },
+    {
+      "path": "tests/tools/aeds-protocol-generation.test.mjs",
+      "reason": "Exact canonical original TestOwner sync for existing263-frame roster; all five historical digest literals and21 negative controls unchanged",
+      "sourceSha": "60c03fa44b7fa090bc1a6b227596943e19c3c3b8",
+      "sourceBlob": "396ebcdab7c902de4765a9874e95d2ec71ea9e3a",
+      "baseBlob": "cd0177ea8f828bfad445e831fc55b86f735bef01",
+      "changesBase": true,
+      "candidateBlob": "396ebcdab7c902de4765a9874e95d2ec71ea9e3a",
+      "mode": "100644",
+      "sha256": "78d17258f12cd74ec284f309264c00b5f7d3b12179684ad4d8f9766464f13c38",
+      "consumption": "exact postimage"
+    },
+    {
+      "path": "tests/tools/article-canvas-link-wire.test.mjs",
+      "reason": "original family wire TestOwner",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "035e244ae7fedcaf2316b4eacfdf790f5d9214fe",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "035e244ae7fedcaf2316b4eacfdf790f5d9214fe",
+      "mode": "100644",
+      "sha256": "058f4ca97709fbb863dd980725e78f05c3c8188f6c6a72cc0c142236d3283c90"
+    },
+    {
+      "path": "tests/tools/article-property-value-read-native.test.mjs",
+      "reason": "actual native production-dispatcher TestOwner",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "1d1a472e3ca711d93a1f4cf723b3e6d586fbe732",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "1d1a472e3ca711d93a1f4cf723b3e6d586fbe732",
+      "mode": "100644",
+      "sha256": "c7e37f488c08577054d91dcf65f8abe5192001f1d7429022e36ed4164c93190b"
+    },
+    {
+      "path": "tests/tools/article-property-value-read-wire.test.mjs",
+      "reason": "original family wire TestOwner",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "701ee44e44cabc206499ac4af07e9ed8b8b6bab9",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "701ee44e44cabc206499ac4af07e9ed8b8b6bab9",
+      "mode": "100644",
+      "sha256": "1f5550564394c1d381647b29e9d3f4b8b77696aef48aab66d82e5c866205042d"
+    },
+    {
+      "path": "tests/tools/authoring-canvas-contract-layer.test.mjs",
+      "reason": "exact four-path Canvas contract-layer offer",
+      "sourceSha": "af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c",
+      "sourceBlob": "260fcb4724f35c2b82744ecaec7f8d2878891430",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "260fcb4724f35c2b82744ecaec7f8d2878891430",
+      "mode": "100644",
+      "sha256": "659eeb0d4e47919965f7d4aa32c996c814b3ab17121e7d1c947a9c7abf77d3cf"
+    },
+    {
+      "path": "tests/tools/authoring-canvas-wire.test.mjs",
+      "reason": "original family wire TestOwner",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "9893fd9948340a1cf16609d64424684a4e699adf",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "9893fd9948340a1cf16609d64424684a4e699adf",
+      "mode": "100644",
+      "sha256": "5193f7128e4699f0266cb64609c5c000fa499bc5cedb45aa9031ee2bd81619cc"
+    },
+    {
+      "path": "tests/tools/authoring-workspace-snapshot-native.test.mjs",
+      "reason": "actual native production-dispatcher TestOwner",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "862a94fad00a989223a147090c6b4ec16c743b4d",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "862a94fad00a989223a147090c6b4ec16c743b4d",
+      "mode": "100644",
+      "sha256": "2be7e6c5d5fc93425a9f10c08523f881fcdae18302b26017ca68819f711751dd"
+    },
+    {
+      "path": "tests/tools/authoring-workspace-snapshot-wire.test.mjs",
+      "reason": "original family wire TestOwner",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "c390f16f47cf1afeca966a81d3f68915fed2e4bf",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "c390f16f47cf1afeca966a81d3f68915fed2e4bf",
+      "mode": "100644",
+      "sha256": "818602998386132a74e69fc4db0c77a16862152598a8d277c92541f02cbf6ead"
+    },
+    {
+      "path": "tools/contracts/format-generated-property-value-read-typescript.mjs",
+      "reason": "complete canonical protocol/dispatcher/formatter prerequisite; no roster pruning",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "810002d2382b7e22374d344b93e10c495882e1e2",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "810002d2382b7e22374d344b93e10c495882e1e2",
+      "mode": "100644",
+      "sha256": "390bc09aac25da3f2bc293f50e87a8aef89ebb599a767b9b1e006654bc0fb7fa"
+    },
+    {
+      "path": "tools/contracts/generate-article-canvas-link-golden.mjs",
+      "reason": "original typed golden producer",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "632e1e4ef3738f6b687b1b79148c058d63a49312",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "632e1e4ef3738f6b687b1b79148c058d63a49312",
+      "mode": "100644",
+      "sha256": "d38a71dc04756a56d74b71078a61cab308744da0001526e42c1b5d130b9d679e"
+    },
+    {
+      "path": "tools/contracts/generate-article-canvas-link-wire.mjs",
+      "reason": "canonical complete wire producer",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "07d589242a1c2e56189563af0ce277e0545fab3a",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "07d589242a1c2e56189563af0ce277e0545fab3a",
+      "mode": "100644",
+      "sha256": "f05b405bf65016d39f76bfed872a51bd9669f39f3f770cdbc421a1fadb70d7e1"
+    },
+    {
+      "path": "tools/contracts/generate-article-property-value-read-golden.mjs",
+      "reason": "original typed golden producer",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "6980b84a5701e27a7ee31bc173bf11bcdb0b25b5",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "6980b84a5701e27a7ee31bc173bf11bcdb0b25b5",
+      "mode": "100644",
+      "sha256": "563c3b8e6f279e349ad02f32a18002e60f22f42c07f330291595183017a3871a"
+    },
+    {
+      "path": "tools/contracts/generate-article-property-value-read-wire.mjs",
+      "reason": "canonical complete wire producer",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "836fcd891dc6853f28dc42f149a4a0cc5a18bac9",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "836fcd891dc6853f28dc42f149a4a0cc5a18bac9",
+      "mode": "100644",
+      "sha256": "dc22c2d7ed6e67fee276df7df16eb153c3baac5a9e6ddb180527ceb85cc2db35"
+    },
+    {
+      "path": "tools/contracts/generate-authoring-canvas-wire.mjs",
+      "reason": "exact four-path Canvas contract-layer offer",
+      "sourceSha": "af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c",
+      "sourceBlob": "52c9e604354cf915a1a02f5b3427ea5b8bba1c6f",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "52c9e604354cf915a1a02f5b3427ea5b8bba1c6f",
+      "mode": "100644",
+      "sha256": "3b16c2e85951fd177172cc32f91779899437b4d45be74ba3100b0112cf6995ef"
+    },
+    {
+      "path": "tools/contracts/generate-authoring-workspace-snapshot-golden.mjs",
+      "reason": "original typed golden producer",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "1ba6ecfb2424175cbf496b89d1fc2c9d661d0a0f",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "1ba6ecfb2424175cbf496b89d1fc2c9d661d0a0f",
+      "mode": "100644",
+      "sha256": "b1740ca9f4f1c425571f72eb2815f9408f9e70118a096d6775f0000be0b7c8eb"
+    },
+    {
+      "path": "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs",
+      "reason": "canonical complete wire producer",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e41f14dda4688174fa4baaa886a7afe52503ccdb",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e41f14dda4688174fa4baaa886a7afe52503ccdb",
+      "mode": "100644",
+      "sha256": "aab4d928960849f42dbb993b6432153fa4f03941ac6aa16c6dee8c8faf658a19"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "mode": "100644",
+      "sha256": "10e0fa08a73f0cd151617165a96e7df8c8d14ecfc63d6f1f343559f16198939f"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "mode": "100644",
+      "sha256": "10e0fa08a73f0cd151617165a96e7df8c8d14ecfc63d6f1f343559f16198939f"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "mode": "100644",
+      "sha256": "10e0fa08a73f0cd151617165a96e7df8c8d14ecfc63d6f1f343559f16198939f"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "4dd366cc21e0832502120994bdf3cf584c5be238",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "4dd366cc21e0832502120994bdf3cf584c5be238",
+      "mode": "100644",
+      "sha256": "1ad8a0457144eb4c3da14b6c1038a0b2d43ec8f5f5966d2e4bb9c06a78cd5083"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "9da4ccc88abd15b06ff45ba16d2b60c24ae76aca",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "9da4ccc88abd15b06ff45ba16d2b60c24ae76aca",
+      "mode": "100644",
+      "sha256": "268c3d34088e72cfc76623204c04c68e583c8c7d95c9e3dee6316b7c05aade2f"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "51f987623a48ed040a968eda65c257b1ce385534",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "51f987623a48ed040a968eda65c257b1ce385534",
+      "mode": "100644",
+      "sha256": "396ce2943acb0ce3ea4021e54f98865078ea6392acedaee98e84d0552b8cce34"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "235551e7df00385c05ef0cd742cafce492744366",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "235551e7df00385c05ef0cd742cafce492744366",
+      "mode": "100644",
+      "sha256": "f1cc54a4bef52adef9fa12f954819e7087e5aaabc9006c41c5ee4c0489398bb1"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "3463f8c99820e9df1972335988c871b54d49ba28",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "3463f8c99820e9df1972335988c871b54d49ba28",
+      "mode": "100644",
+      "sha256": "d18970e552a7dc71665f114cd264b45ab12642a315cb26216c5d0e39b3c91c3c"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "53a8cb3ab4ee126ddd6a76c1028f46b2a079e9d4",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "53a8cb3ab4ee126ddd6a76c1028f46b2a079e9d4",
+      "mode": "100644",
+      "sha256": "a7d6a02cd1cfd6e02f781dbab8385e4fe1dd62bb2dbbc156e5ba748387c97aa4"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "6c5bd116b4b3ffcbf5ca9ba867d92f5a49471a0b",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "6c5bd116b4b3ffcbf5ca9ba867d92f5a49471a0b",
+      "mode": "100644",
+      "sha256": "254b03e7b9c1b3d4b40313b56b27eddf6dd74c8ef4498b2f24357656901ddc5c"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "120419b59f99ed8eee38f3cada019573acc75ea6",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "120419b59f99ed8eee38f3cada019573acc75ea6",
+      "mode": "100644",
+      "sha256": "2693eac2006385aa56eb5134120a7c29d2fc6a8775b857a4a3870340f1d51811"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "9c35e530ae48d14465aa77da31b9f883fed55c20",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "9c35e530ae48d14465aa77da31b9f883fed55c20",
+      "mode": "100644",
+      "sha256": "cc60c4aa7948ec455bdd084065a81dd35cf01ed66688186d7a9c5f7da4e714ca"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "486081bd0733d08b6b084670ab01b99630b42c5f",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "486081bd0733d08b6b084670ab01b99630b42c5f",
+      "mode": "100644",
+      "sha256": "29c53f80cc58785020962d3062c8944203a4fc2d78fe905c167d22204422e08a"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "c1c6922d1dfea3f2e582e55796f6fdf98eaeaad3",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "c1c6922d1dfea3f2e582e55796f6fdf98eaeaad3",
+      "mode": "100644",
+      "sha256": "df1da5dc25ec573557928898833af0fca122939e4a048b4b262dd5b5ec187cbb"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "8b137891791fe96927ad78e64b0aad7bded08bdc",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "8b137891791fe96927ad78e64b0aad7bded08bdc",
+      "mode": "100644",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "mode": "100644",
+      "sha256": "10e0fa08a73f0cd151617165a96e7df8c8d14ecfc63d6f1f343559f16198939f"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "mode": "100644",
+      "sha256": "10e0fa08a73f0cd151617165a96e7df8c8d14ecfc63d6f1f343559f16198939f"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+      "mode": "100644",
+      "sha256": "10e0fa08a73f0cd151617165a96e7df8c8d14ecfc63d6f1f343559f16198939f"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/primitives.cs.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "6cd540bc2c2ea47718fdf2afbf1acbd6078a65d5",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "6cd540bc2c2ea47718fdf2afbf1acbd6078a65d5",
+      "mode": "100644",
+      "sha256": "b3f2ef01438a238abadd31660a6b9be7888948900535cd797a4c8cbfdd36b5ff"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/primitives.hpp.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "60c621e70ae7b1b23e90274839b88b89cf9479b2",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "60c621e70ae7b1b23e90274839b88b89cf9479b2",
+      "mode": "100644",
+      "sha256": "5d3f4511cc79d41ddf2324d3735e817f1af296c9dfcaa82ca0b5aafec80cdf84"
+    },
+    {
+      "path": "tools/contracts/workspace-snapshot-wire-templates/primitives.ts.inc",
+      "reason": "immutable original workspace wire producer template required by complete registry dependency",
+      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "sourceBlob": "20e3f11b7a6cf2a52aac5b167518c8d497a43f70",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "20e3f11b7a6cf2a52aac5b167518c8d497a43f70",
+      "mode": "100644",
+      "sha256": "4a2394dfca2dc27b80689478a875f5732e124ccc28dc7b6b171b0dee109a728d"
+    },
+    {
+      "path": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "reason": "Exact original expanded canonical rejection/cleanup/option controls",
+      "sourceSha": "d61f0977e1f8a45873ac33122c028461d22e5a80",
+      "sourceBlob": "fe5a3776bddca45e51d249d19c58c19bf1dac947",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "fe5a3776bddca45e51d249d19c58c19bf1dac947",
+      "mode": "100644",
+      "sha256": "0e763545f16d754ecd1cc3b7d498e1aabffa3189bcda1fb0b49c0fc11e297637",
+      "consumption": "exact postimage"
+    }
+  ],
+  "unchangedRequiredBaseInputs": [
+    {
+      "path": "tools/frontend/generate-aeds-protocol.mjs",
+      "baseBlob": "f3338c3d363c61d9c89be216b693cc3f1a2802e8",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs",
+      "baseBlob": "c295f17c4e1d69c4232532b658a13c36ac5ad21b",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs",
+      "baseBlob": "b795e794eec85fee18a7da6fce8f3eadff4ba605",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "src/frontend/src/composition/binaryTransport.ts",
+      "baseBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "src/frontend/src/services/binaryTransport.ts",
+      "baseBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+      "baseBlob": "d583f9aa26b1a696f52e9ce5a9e3451391447b19",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "tests/frontend/checks/static/check-binary-import-boundaries-fixture.mjs",
+      "baseBlob": "0970b56409d3135a3c4a4c9f8bdf3335ab8351d0",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleMetadataPropertyList.vue",
+      "baseBlob": "d0f447c75dc7e77c526476fe68ef991d937f6ec1",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "tests/frontend/unit/components/admin/ArticleMetadataPropertyList.test.ts",
+      "baseBlob": "3ca40727ed514df1fcfc7440bf119954394c9497",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/src/aeds_crc32.cpp",
+      "baseBlob": "ea74b546ef7fd4e29d8410ce330d591202bd466c",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/src/pod_parse_article.cpp",
+      "baseBlob": "b1c263bd064c95e52ad9baba5a2bf29515226f34",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": "AGENTS.md",
+      "baseBlob": "1445755f3eceb7c05fec62ae9feea4badd7b30fc",
+      "reason": "actual unchanged pinned master prerequisite"
+    },
+    {
+      "path": ".agents/skills/fsusblog-design-conformance/SKILL.md",
+      "baseBlob": "9afff0c7bc3464b4e33f4275a463d8dc18351f45",
+      "reason": "actual unchanged pinned master prerequisite"
+    }
+  ],
+  "sourceOffers": {
+    "metadataAndCanonicalRead": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+    "canvasFourPaths": "af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c",
+    "fontThemeFourPaths": "4f981f4b50f0c1e4f1e6e6ca5b24517a86ad9e83",
+    "transportPartialConsumption": "dea86a509b185cdb75bdc2146f1fc1b8ee71e075",
+    "canonicalUnknownRejectionCompletion": "d61f0977e1f8a45873ac33122c028461d22e5a80",
+    "canonicalProtocolTestOwnerSync": "60c03fa44b7fa090bc1a6b227596943e19c3c3b8"
+  },
+  "ui": {
+    "source": "83036006069be5cfcd09724273d5705d8f848ad0",
+    "actualAlias": "/workspace/FsusUI-2325-review-83036006",
+    "librarySourceEdited": false
+  },
+  "invariants": {
+    "save": "disabled",
+    "registryBothGuards": true,
+    "registryBlob": "f7ca5f60bb517e6c3252deaa88d97db8c5e53134",
+    "readAssertionsUnchanged": true,
+    "fullCanonicalProtocolRoster": "263 active frames, terminal value271, no pruning",
+    "canvasThreeWireProductsUnchanged": [
+      "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+      "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+      "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp"
+    ],
+    "masterBootstrapAndBackendRegistrationsRetained": true,
+    "newAuthorityCodecAdapterOrWriterImplementationAuthored": false,
+    "acceptanceClaimed": false
+  },
+  "checks": {
+    "frontendUnit": {
+      "exitCode": 0,
+      "suites": 12,
+      "pass": 413,
+      "fail": 0,
+      "skipped": 0,
+      "readOriginalAssertions": 24,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "nodeIncludingOriginalProtocolOwner": {
+      "exitCode": 1,
+      "tests": 91,
+      "pass": 86,
+      "fail": 5,
+      "skipped": 0,
+      "failedOwner": "tests/tools/aeds-protocol-generation.test.mjs; exact a0d58 source remains stale at260 against263 roster; no local edits",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "binaryImportFullGraph": {
+      "exitCode": 0,
+      "files": 488,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "binaryImportOriginalNegativeFixture": {
+      "exitCode": 0,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "completeProtocolGenerator": {
+      "exitCode": 0,
+      "products": 5,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "allFourWireGenerators": {
+      "exitCode": 0,
+      "families": [
+        "authoring-canvas",
+        "article-canvas-link",
+        "article-property-value-read",
+        "authoring-workspace-snapshot"
+      ],
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "privateGenerationTelemetryRiskTransport": {
+      "exitCode": 0,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "canonicalFullAppTypecheck": {
+      "exitCode": 2,
+      "diagnostics": 202,
+      "actualBaseDiagnostics": 208,
+      "newDiagnosticLines": 0,
+      "removedDiagnosticLines": 6,
+      "ownedMetadataDiagnosticLines": 0,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "canonicalSourceStage": {
+      "exitCode": 1,
+      "base": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "unsupportedPaths": 42,
+      "ownedMetadataStyleFindings": 0,
+      "runtimeReleaseQualification": "UNRUN",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "managedBuildAndBackendTests": {
+      "status": "UNRUN",
+      "reason": "dotnet executable unavailable; external persisted read endpoint/registration/store/migration source integration remains sole3735",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "publicationAndDeviceUX": {
+      "status": "UNRUN",
+      "note": "source Git publication is not package/product acceptance",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "currentOrdinaryTransportAndRead": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "suites": 3,
+      "pass": 54,
+      "fail": 0,
+      "skipped": 0,
+      "originalTransport": 24,
+      "ownerNewOrdinaryControls": 6,
+      "originalRead": 24,
+      "runtimeSecurityChallengeExecuted": false
+    },
+    "currentBinaryImportFullGraph": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "files": 488
+    },
+    "currentRiskProofStaticBoundary": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "endpointCallers": 4,
+      "runtimeExecution": false
+    },
+    "currentScopedTransportStyle": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 1,
+      "base": "479b868ec2de068e143136a7a25434f12e8b032d",
+      "findings": 1,
+      "rule": "@typescript-eslint/prefer-promise-reject-errors",
+      "path": "src/frontend/src/api/binaryApiClient.ts",
+      "line": 281,
+      "note": "Actual fetch/arrayBuffer rejection contract admits unknown values; owner test preserves string rejection. Error annotation cannot truthfully narrow that contract. No lint suppression or Error-only rewrite."
+    },
+    "currentCompleteFrontendUnit": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "suites": 13,
+      "pass": 419,
+      "fail": 0,
+      "skipped": 0,
+      "uiSource": "83036006069be5cfcd09724273d5705d8f848ad0",
+      "log": "minimal-unit-b8a.log"
+    },
+    "currentCanonicalFullAppTypecheck": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 2,
+      "diagnostics": 202,
+      "actualBaseDiagnostics": 208,
+      "newDiagnosticLines": 0,
+      "removedDiagnosticLines": 6,
+      "ownedMetadataDiagnosticLines": 0,
+      "log": "minimal-full-application-typecheck-b8a.log",
+      "comparison": "typecheck-baseline-comparison-b8a.json"
+    },
+    "followupOrdinaryTransport": {
+      "source": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+      "exitCode": 0,
+      "tests": 34,
+      "pass": 34,
+      "fail": 0,
+      "skip": 0,
+      "testFiles": [
+        "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts",
+        "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+      ]
+    },
+    "followupOriginalProtocolOwner": {
+      "source": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+      "exitCode": 1,
+      "tests": 35,
+      "pass": 30,
+      "fail": 5,
+      "skip": 0,
+      "failedNames": [
+        "the original producer owns five products with manifest-derived identities and explicit metadata",
+        "the Canvas and article-link additions retain independently named roots and wire identities",
+        "the original 236 golden records, evidence and retirement remain unchanged",
+        "the original four renderer outputs and complete golden bytes are preserved for the retained source",
+        "every frame, including future registrations, must explicitly provide complete golden metadata"
+      ],
+      "scope": "Original protocol TestOwner only; no whole91-case aggregate rerun or actual native/runtime/device/audit task",
+      "expectedHistoricalFiveRemain": true
+    },
+    "followupScopedStyle": {
+      "sourceSha": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+      "exitCode": 0,
+      "base": "7b374e71f89433cf04e5e315fdd1d43816728f85",
+      "productFiles": 1,
+      "eslintFiles": 1,
+      "stylelintFiles": 0,
+      "violations": 0,
+      "new": 0,
+      "testSourceExcludedByConfiguredProductStyleRoots": true,
+      "log": "transport-style.txt"
+    },
+    "followupFullApplicationAndSourceGate": {
+      "sourceSha": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+      "status": "UNRUN",
+      "reason": "Bounded ordinary transport followup; previous202 type diagnostics and failed SOURCE remain bound to b8/e02, not relabeled as current-source results"
+    },
+    "handoffWhitespaceFailedAttempt": {
+      "head": "31df047c70397d497207b0e258a696fd82f93506",
+      "exitCode": 2,
+      "rawTAPTrailingWhitespaceLines": [
+        11,
+        13,
+        37,
+        61,
+        226,
+        229,
+        254,
+        257
+      ],
+      "originalOutputSHA256": "8c4d630ed8a8a9e3f97c701a0dd190fd99b22c379b869f3215b1ea3bc3ec5454",
+      "preservation": "Exact raw bytes stored in protocol-tests.raw.json; original plain output remains in failedHead history and task-local protocol-tests.txt. No test assertions, statuses, output bytes or source changed."
+    },
+    "protocolSyncOriginalTestOwner": {
+      "source": "1503714bf918ce964f658760bb51c150c296028b",
+      "node": "v24.16.0",
+      "exitCode": 0,
+      "tests": 36,
+      "pass": 36,
+      "fail": 0,
+      "skip": 0,
+      "actualNames": [
+        "the original producer owns five products with manifest-derived identities and explicit metadata",
+        "the Canvas and article-link additions retain independently named roots and wire identities",
+        "property value and workspace snapshot roots retain exact registered identities",
+        "the original 236 golden records, evidence and retirement remain unchanged",
+        "the original four renderer outputs and complete golden bytes are preserved for the retained source",
+        "the FontRegistryList golden identity comes from the same protocol frame used by every language",
+        "the FontRegistryDetail golden identity comes from the same protocol frame used by every language",
+        "the FontActivationList golden identity comes from the same protocol frame used by every language",
+        "the ThemeRegistryList golden identity comes from the same protocol frame used by every language",
+        "the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language",
+        "the ThemeActivationList golden identity comes from the same protocol frame used by every language",
+        "the ThemeActivation golden identity comes from the same protocol frame used by every language",
+        "the ThemeActivationHistory golden identity comes from the same protocol frame used by every language",
+        "the original renderer refuses missing golden metadata before any output",
+        "the original renderer refuses unknown golden metadata field before any output",
+        "the original renderer refuses unknown catalog version before any output",
+        "the original renderer refuses empty evidence before any output",
+        "the original renderer refuses duplicate evidence before any output",
+        "the original renderer refuses outside evidence before any output",
+        "the original renderer refuses traversing evidence before any output",
+        "the original renderer refuses evidence with terminal LF before any output",
+        "the original renderer refuses missing family before any output",
+        "the original renderer refuses empty family before any output",
+        "the original renderer refuses family with terminal LF before any output",
+        "the original renderer refuses missing order before any output",
+        "the original renderer refuses duplicate order before any output",
+        "the original renderer refuses negative order before any output",
+        "the original renderer refuses out of range order before any output",
+        "the original renderer refuses fractional order before any output",
+        "the original renderer refuses unannotated registered frame before any output",
+        "the original renderer refuses removed registered frame leaving a metadata gap before any output",
+        "the original renderer refuses duplicate frame identity before any output",
+        "the original renderer refuses retired frame reused as active before any output",
+        "the original renderer refuses empty frame collection before any output",
+        "every frame, including future registrations, must explicitly provide complete golden metadata",
+        "source values and explicit metadata, not old output values, determine the complete catalog"
+      ],
+      "failedNames": [],
+      "historicalFiveFailures": "Preserved in prior source/receipts; current original tests independently pass after exact canonical sync"
+    },
+    "protocolSyncOriginalFiveProductCheck": {
+      "source": "1503714bf918ce964f658760bb51c150c296028b",
+      "argv": [
+        "/tmp/issue-2325/canonical-prerequisites-20261009/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "--check"
+      ],
+      "node": "v24.16.0",
+      "exitCode": 0,
+      "products": [
+        "src/core/Algorithms/AedsFrameType.cs",
+        "src/shared/AedsFrameHeader.cs",
+        "src/frontend/wasm/web/protocol/frame.ts",
+        "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+        "tests/backend/Fixtures/aeds-golden-catalog.json"
+      ],
+      "productCount": 5,
+      "sourceAndProductFilesWritten": false
+    },
+    "protocolSyncWiderGates": {
+      "sourceSha": "1503714bf918ce964f658760bb51c150c296028b",
+      "status": "UNRUN",
+      "scope": [
+        "full91-case/native aggregate",
+        "frontend419-suite selection",
+        "full application typecheck",
+        "SOURCE stage",
+        "managed/backend",
+        "runtime/device/product/independent acceptance"
+      ],
+      "note": "Historical exact-SHA results retained. Current36-case original protocol tests and original five-product check do not requalify these gates."
+    }
+  },
+  "externalRequiredDependenciesAndBlockers": {
+    "serverPersistedRead": {
+      "owner": "sole3735",
+      "actualSource": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "presentInBase": false,
+      "sourceOfferRequested": true,
+      "seedPaths": [
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyValueRoutes.cs",
+        "src/backend/Services/ArticleService.ArticlePropertyValues.cs",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs",
+        "src/backend/Infrastructure/SchemaMigration/ArticlePropertyValueRuntimeTables.Generated.cs"
+      ],
+      "scope": "Required real backend authority/route/runtime registration/migration closure remains a separately owned integration prerequisite. These seed paths are NOT claimed to be a complete transitive backend manifest. Do not infer runtime completion from the client/producer closure."
+    },
+    "protocolTestOwner": {
+      "owner": "sole3735 / original protocol TestOwner",
+      "currentSource": "60c03fa44b7fa090bc1a6b227596943e19c3c3b8",
+      "failures": 0,
+      "requestedCompatibleOffer": false,
+      "latestB304Compatibility": "Requires273-frame Export/reservations; not copied to reduce/skip assertions or enlarge unrelated feature scope",
+      "historicalFailedSource": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+      "historicalFailures": 5,
+      "compatibleOfferConsumed": true,
+      "ownCheckedSource": "1503714bf918ce964f658760bb51c150c296028b",
+      "ownTests": {
+        "total": 36,
+        "pass": 36,
+        "fail": 0,
+        "skip": 0
+      },
+      "scope": "Original TestOwner synchronization resolved on exact consumer. Historical five failed assertions/receipts remain preserved; complete expanded Shared/product acceptance still incomplete."
+    },
+    "writerMounting": {
+      "owner": "original2246",
+      "implementedHere": false,
+      "upstreamExists": true,
+      "note": "Parent confirms original2246 4b Write.vue already mounts ArticleMetadataRead. This candidate does not carry that host; final production admission remains incomplete."
+    },
+    "canonicalTransportStyle": {
+      "owner": "sole3735",
+      "failedGatePreserved": "Historical old-source failure remains preserved; current scoped product style independently passes. Full SOURCE gate not rerun.",
+      "actualOffer": "d61f0977e1f8a45873ac33122c028461d22e5a80",
+      "completeHandoff": "9659ab8f0ed1baf5d48791bb01ceb7242d05b10a",
+      "consumed": "Exact canonical two-file postimages, including completeWaiter<unknown>(reject) and original expanded tests",
+      "sourceSha": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+      "historicalHeldReason": "(reason: Error) annotation conflicts with unknown rejection and string counterexample; compatible exact owner source requested",
+      "currentScopedStyleExitCode": 0,
+      "historicalFailurePreserved": true
+    }
+  },
+  "manifestLimit": "Physically closed metadata consumer, complete canonical decoder and producer/wire input closure. Full product/backend runtime closure remains explicitly unresolved; external requirements are not omitted or claimed satisfied.",
+  "initialSourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9",
+  "initialSourceParent": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "sourceAncestry": "Bounded e02 assembly on pinned537 master; frozen7b delivery retained. Successor consumes exact d61 two-file transport source and exact60c single-file original protocol TestOwner synchronization, with isolated evidence commits. No broad upstream branch ancestry consumed.",
+  "conditionalPrerequisites": {
+    "graphSource": "479b868ec2de068e143136a7a25434f12e8b032d",
+    "graphFile": "production-import-graph.json",
+    "localRuntimeFiles": 72,
+    "unresolvedLocalImports": 0,
+    "motion": {
+      "source": "90b7f0195de9d7a1adea2465a174e00eeff454d3",
+      "consumed": false,
+      "reason": "Not reachable from actual metadata production runtime graph"
+    },
+    "poSpace": {
+      "source": "7f4be69497b12892e3248537a70b9b0238901bdd",
+      "consumed": false,
+      "reason": "Not reachable from actual metadata production runtime graph; no challenge/runtime/security execution"
+    },
+    "propertyListPublicImportOffer": {
+      "source": "0e246ef7f3ecd50563b5b4a70b12752d26711a00",
+      "consumed": false,
+      "offerPaths": [
+        "src/frontend/src/components/admin/article/ArticleMetadataPropertyList.vue",
+        "tests/frontend/unit/components/admin/ArticleMetadataPropertyList.test.ts",
+        "tests/frontend/unit/components/admin/ArticleMetadataPropertyListPublicImportBoundary.test.ts"
+      ],
+      "preimagesMatchPinnedBase": true,
+      "reason": "Current four metadata production roots and frozen host contain no runtime reference. Original manifest lists this component/test as base coverage inputs. Exact upstream composition source requested; no full-repo-error-driven scope expansion."
+    }
+  },
+  "frozenPreviousDelivery": "7b374e71f89433cf04e5e315fdd1d43816728f85",
+  "previousTestedSource": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+  "previousSourceSha": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+  "previousPublishedHead": "a81bdb67e27bd26ba456f8ad8a19951922b0850c"
+}

@@ -1,0 +1,5 @@
+{
+  "errors": [
+    "cannot inspect Format-only diff: ENOENT: no such file or directory, lstat '/workspace/FsusBlog-2325-master-baseline/tools/governance/javascript-format-parser/node_modules'"
+  ]
+}

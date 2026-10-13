@@ -1,0 +1,5 @@
+[change-contract] 373bcaa74f37aed9b07504040ec7ddca8bf293d9: commit message must contain a Refs: #1234 footer
+[change-contract] 1c11082133df53e2694d9480429824bf48a2d421: header must use type(scope): imperative summary
+[change-contract] missing blame-ignore entry: 9f4af3a81e7f8acd8635345bf027ed780c78a898
+[change-contract] Formatter idempotence evidence must be changed in this PR: artifacts/shared-protocol-format/idempotence.json
+[change-contract] Formatter idempotence evidence cannot be read from candidate head: repository path does not resolve to one exact Git object at 1c11082133df53e2694d9480429824bf48a2d421: artifacts/shared-protocol-format/idempotence.json

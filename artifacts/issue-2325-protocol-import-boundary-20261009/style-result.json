@@ -1,0 +1,23 @@
+{
+  "source": "373bcaa74f37aed9b07504040ec7ddca8bf293d9",
+  "exitCode": 0,
+  "base": "410e2ded34600c0bf307c2769d84d3c042c75e70",
+  "files": 1,
+  "eslint": 1,
+  "stylelint": 0,
+  "violations": 0,
+  "new": 0,
+  "argv": [
+    "/tmp/issue-2325/canonical-prerequisites-20261009/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "410e2ded34600c0bf307c2769d84d3c042c75e70",
+    "--file",
+    "tests/tools/aeds-protocol-generation.test.mjs",
+    "--file",
+    "tools/package.json"
+  ],
+  "scope": "configured original TestOwner style; package JSON is not in product style source set"
+}

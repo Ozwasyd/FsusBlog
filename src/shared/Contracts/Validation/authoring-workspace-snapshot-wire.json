@@ -1,0 +1,402 @@
+{
+  "schemaVersion": 1,
+  "byteOrder": "little-endian",
+  "maxPayloadBytes": 65536,
+  "int64Presentation": "safe-integer-number",
+  "roots": {
+    "AuthoringWorkspaceSnapshotRequest": 270,
+    "AuthoringWorkspaceSnapshotResponse": 271
+  },
+  "owners": [
+    "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs",
+    "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs",
+    "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs"
+  ],
+  "records": {
+    "AuthoringWorkspaceSnapshotScope": {
+      "fields": [
+        {
+          "name": "UserId",
+          "type": "int64",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        {
+          "name": "SiteId",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotIdentity": {
+      "fields": [
+        {
+          "name": "ArticleId",
+          "type": "int32",
+          "nullable": true,
+          "min": 1,
+          "max": 2147483647
+        },
+        {
+          "name": "DraftId",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128
+        },
+        {
+          "name": "DocumentId",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotTab": {
+      "fields": [
+        {
+          "name": "TabId",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128
+        },
+        {
+          "name": "Identity",
+          "type": "AuthoringWorkspaceSnapshotIdentity"
+        },
+        {
+          "name": "IsPreview",
+          "type": "bool"
+        },
+        {
+          "name": "IsPinned",
+          "type": "bool"
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotGroup": {
+      "fields": [
+        {
+          "name": "GroupId",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128
+        },
+        {
+          "name": "TabIds",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128,
+          "array": true,
+          "maxCount": 100
+        },
+        {
+          "name": "ActiveTabId",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128,
+          "nullable": true
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotShell": {
+      "fields": [
+        {
+          "name": "LibraryOpen",
+          "type": "bool"
+        },
+        {
+          "name": "LibraryView",
+          "type": "string",
+          "values": [
+            "all",
+            "recent",
+            "pinned"
+          ],
+          "maxChars": 6
+        },
+        {
+          "name": "OutlineOpen",
+          "type": "bool"
+        },
+        {
+          "name": "InspectorOpen",
+          "type": "bool"
+        },
+        {
+          "name": "InspectorView",
+          "type": "string",
+          "values": [
+            "publish",
+            "rights",
+            "check",
+            "preview",
+            "versions",
+            "resources"
+          ],
+          "maxChars": 9
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotLayout": {
+      "fields": [
+        {
+          "name": "Tabs",
+          "type": "AuthoringWorkspaceSnapshotTab",
+          "array": true,
+          "maxCount": 100
+        },
+        {
+          "name": "Groups",
+          "type": "AuthoringWorkspaceSnapshotGroup",
+          "array": true,
+          "minCount": 1,
+          "maxCount": 2
+        },
+        {
+          "name": "ActiveGroupId",
+          "type": "string",
+          "kind": "id",
+          "maxChars": 128
+        },
+        {
+          "name": "SplitRatioPermille",
+          "type": "int32",
+          "min": 200,
+          "max": 800
+        },
+        {
+          "name": "Shell",
+          "type": "AuthoringWorkspaceSnapshotShell"
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshot": {
+      "fields": [
+        {
+          "name": "SchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "name": "WorkspaceId",
+          "type": "string",
+          "values": [
+            "default"
+          ],
+          "maxChars": 7
+        },
+        {
+          "name": "Scope",
+          "type": "AuthoringWorkspaceSnapshotScope"
+        },
+        {
+          "name": "SourceContract",
+          "type": "string",
+          "values": [
+            "fsusblog.authoring-workspace-snapshot.v1"
+          ],
+          "maxChars": 40
+        },
+        {
+          "name": "SourceDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64
+        },
+        {
+          "name": "Revision",
+          "type": "int64",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        {
+          "name": "UpdatedAt",
+          "type": "int64",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        {
+          "name": "Layout",
+          "type": "AuthoringWorkspaceSnapshotLayout"
+        },
+        {
+          "name": "ContentDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotRequest": {
+      "fields": [
+        {
+          "name": "Action",
+          "type": "string",
+          "values": [
+            "write",
+            "reset"
+          ],
+          "maxChars": 5
+        },
+        {
+          "name": "ExpectedRevision",
+          "type": "int64",
+          "min": 0,
+          "max": 9007199254740990
+        },
+        {
+          "name": "SourceDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64
+        },
+        {
+          "name": "Layout",
+          "type": "AuthoringWorkspaceSnapshotLayout",
+          "nullable": true
+        },
+        {
+          "name": "ResetConfirmationDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64,
+          "nullable": true
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotTransportReceipt": {
+      "fields": [
+        {
+          "name": "Schema",
+          "type": "string",
+          "values": [
+            "fsusblog.authoring-workspace-snapshot-receipt.v1"
+          ],
+          "maxChars": 48
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "values": [
+            "read",
+            "write",
+            "reset"
+          ],
+          "maxChars": 5
+        },
+        {
+          "name": "Status",
+          "type": "string",
+          "values": [
+            "current",
+            "missing",
+            "blocked",
+            "applied",
+            "conflict"
+          ],
+          "maxChars": 8
+        },
+        {
+          "name": "Reason",
+          "type": "string",
+          "maxChars": 128,
+          "nullable": true
+        },
+        {
+          "name": "Scope",
+          "type": "AuthoringWorkspaceSnapshotScope"
+        },
+        {
+          "name": "WorkspaceId",
+          "type": "string",
+          "values": [
+            "default"
+          ],
+          "maxChars": 7
+        },
+        {
+          "name": "SourceDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64
+        },
+        {
+          "name": "RevisionBefore",
+          "type": "int64",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        {
+          "name": "RevisionAfter",
+          "type": "int64",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        {
+          "name": "TabCount",
+          "type": "int32",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "ByteCount",
+          "type": "int32",
+          "min": 0,
+          "max": 65536
+        },
+        {
+          "name": "InputDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64
+        },
+        {
+          "name": "SnapshotDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64,
+          "nullable": true
+        },
+        {
+          "name": "ContentDigest",
+          "type": "string",
+          "kind": "digest",
+          "maxChars": 64
+        }
+      ]
+    },
+    "AuthoringWorkspaceSnapshotResponse": {
+      "fields": [
+        {
+          "name": "Status",
+          "type": "string",
+          "values": [
+            "current",
+            "missing",
+            "blocked",
+            "applied",
+            "conflict"
+          ],
+          "maxChars": 8
+        },
+        {
+          "name": "Revision",
+          "type": "int64",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        {
+          "name": "Snapshot",
+          "type": "AuthoringWorkspaceSnapshot",
+          "nullable": true
+        },
+        {
+          "name": "Receipt",
+          "type": "AuthoringWorkspaceSnapshotTransportReceipt"
+        }
+      ]
+    }
+  }
+}

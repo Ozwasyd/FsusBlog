@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Verified protocol negative-control formatting for #2325.
+9f4af3a81e7f8acd8635345bf027ed780c78a898

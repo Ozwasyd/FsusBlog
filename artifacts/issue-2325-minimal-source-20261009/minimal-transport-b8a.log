@@ -1,0 +1,14 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog-2325-minimal-master/src/frontend
+
+ ✓ ../../tests/frontend/unit/components/admin/ArticleMetadataRead.test.ts (24 tests) 362ms
+ ✓ ../../tests/frontend/unit/api/binaryApiClient.test.ts (24 tests) 1269ms
+ ✓ ../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts (6 tests) 1372ms
+
+ Test Files  3 passed (3)
+      Tests  54 passed (54)
+   Start at  06:53:32
+   Duration  1.99s (transform 2.84s, setup 837ms, import 850ms, tests 3.00s, environment 267ms)
+
+JSON report written to /workspace/FsusBlog-2325-minimal-master/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog-2325-minimal-master/.tmp/test-results/vitest/unit/unsharded.xml

@@ -1,0 +1,22 @@
+#2325 protocol TestOwner successor — WIP / issue OPEN
+
+Branch: codex/issue-2325-transport-followup-20261009
+Exact newly tested source: 1503714bf918ce964f658760bb51c150c296028b
+Predecessor: a81bdb67e27bd26ba456f8ad8a19951922b0850c
+Frozen original audit head: 7b374e71f89433cf04e5e315fdd1d43816728f85
+Pinned original master base: 537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea
+Consumed source: 60c03fa44b7fa090bc1a6b227596943e19c3c3b8, sole3735, exact single path tests/tools/aeds-protocol-generation.test.mjs
+
+Canonical correction matches this consumer's existing263-frame roster. Existing Canvas/link assertion is bounded to its253..268 roots; a new positive test asserts existing property/workspace269..271 names, IDs and families. Historical236 projection excludes only two newly introduced evidence entries, preserving five fixed historical digest literals. FutureFrame append uses actual source frame count. All21 original malformed/unknown/duplicate/retired negative controls remain byte-identical. No protocol authority/schema/goldens/producer/Shared/SOURCE gate or UI/host edit. No broad153-path offer or owner evidence branch consumed.
+
+Before execution: exact preimage equals frozen7b/current successor. Live PR3818 head987 changed files do not overlap claimed test. Positive36 distinct nonempty names, expected count36, hooksnone, original producer import CLI guard verified; no native/network/security/runtime/device or held audit task. Producer input/schema/all five output blobs are unchanged from frozen7b. Preflight and exact argv are public artifacts.
+
+Own Node24.16.0 exact-source results: original protocol TestOwner36PASS/0FAIL/0SKIP, exit0. Both original historical-golden hash tests and all21 negative controls pass. Original tools/frontend/generate-aeds-protocol.mjs --check exits0; five outputs in sync. Full actual case names/counts/output and product roster are archived. No supplier pass inherited.
+
+Prior own0cf protocol35-case30PASS/5FAIL output remains losslessly archived in predecessor artifacts/history. Prior e02 Node/native91-case86PASS/5FAIL and SOURCEfailure records remain bound to e02; current36 tests do not qualify that wider aggregate or erase its attempt. Prior own0cf transport34PASS and zero scoped style are unchanged-source historical results; not relabeled as current150 checks. Prior b8 frontend419PASS and202 application diagnostics remain their original binding.
+
+Complete changed source/test roster versus pinned537 remains117 paths; all120 offered/baseline TestOwner postimage blobs and SHA256 values reverified against current source. From frozen7b only three source paths differ: binaryApiClient.ts, original transport regression, original protocol TestOwner. This artifact-only successor does not alter code tested at150.
+
+Remaining gates: current full frontend/typecheck/SOURCE/managed/backend/native aggregate/runtime/device/product/independent acceptance UNRUN. Backend persisted read/registration/migration and formal typed mutations/definition management/validation/reference/URL/conflict/reconciliation remain separate authorities. dotnet unavailable; Save disabled; issue2325 OPEN. PropertyList0e246 offer still pending actual host-dependency evidence. Parent confirms original2246's4b Write.vue already mounts ArticleMetadataRead; this candidate does not carry that host and final production admission remains incomplete.
+
+No GitHub content API, merge, deployment, package publication, default-branch push, credential or Library action. Content mutations belong sole monitor; root owns readiness/merging. Frozen7b branch/head and historical artifacts remain intact.
