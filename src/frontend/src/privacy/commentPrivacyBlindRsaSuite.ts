@@ -18,7 +18,7 @@ const RANDOMIZER_BYTES = 32;
 const DEFAULT_REPUTATION_BUCKET = 'unrated';
 
 interface BlindOpening {
-    preparedMessage: Uint8Array;
+    preparedMessage: Uint8Array<ArrayBuffer>;
     inverse: bigint;
 }
 
@@ -51,7 +51,7 @@ export function createBlindRsaCredentialSuite(
 
             let message: Uint8Array | null = null;
             let randomizer: Uint8Array | null = null;
-            let preparedMessage: Uint8Array | null = null;
+            let preparedMessage: Uint8Array<ArrayBuffer> | null = null;
             let salt: Uint8Array | null = null;
             let encodedMessage: Uint8Array | null = null;
             try
@@ -108,7 +108,7 @@ export function createBlindRsaCredentialSuite(
                 return null;
             }
             let opening: BlindOpening | null = null;
-            let signature: Uint8Array | null = null;
+            let signature: Uint8Array<ArrayBuffer> | null = null;
             let witness: Uint8Array | null = null;
             let credentialCommitment: Uint8Array | null = null;
             let revocationInput: Uint8Array | null = null;
@@ -199,17 +199,22 @@ async function loadValidatedPublicKey(
     metadata: CommentPrivacyCredentialIssuerMetadata
 ): Promise<ValidatedPublicKey | null>
 {
-    const actualHash = sha256(metadata.subjectPublicKeyInfo);
-    const expectedHash = hexToBytes(metadata.issuerPublicKeyHash);
+    let spki: Uint8Array<ArrayBuffer> | null = null;
+    let actualHash: Uint8Array | null = null;
+    let expectedHash: Uint8Array | null = null;
     let modulusBytes: Uint8Array | null = null;
     let exponentBytes: Uint8Array | null = null;
     try
     {
+        // Snapshot only the borrowed view range; hash and import consume the same owned bytes.
+        spki = new Uint8Array(metadata.subjectPublicKeyInfo);
+        actualHash = sha256(spki);
+        expectedHash = hexToBytes(metadata.issuerPublicKeyHash);
         if (!bytesEqual(actualHash, expectedHash))
         {
             return null;
         }
-        const key = await importPublicKey(subtle, metadata.subjectPublicKeyInfo);
+        const key = await importPublicKey(subtle, spki);
         if (!key)
         {
             return null;
@@ -231,14 +236,22 @@ async function loadValidatedPublicKey(
     }
     finally
     {
-        clearBytes(actualHash);
-        clearBytes(expectedHash);
-        clearBytes(modulusBytes);
-        clearBytes(exponentBytes);
+        try
+        {
+            clearBytes(actualHash);
+            clearBytes(expectedHash);
+            clearBytes(modulusBytes);
+            clearBytes(exponentBytes);
+        }
+        finally
+        {
+            // The new snapshot cleanup cannot skip the original temporary-byte wipes.
+            clearBytes(spki);
+        }
     }
 }
 
-async function importPublicKey(subtle: SubtleCrypto, spki: Uint8Array): Promise<CryptoKey | null>
+async function importPublicKey(subtle: SubtleCrypto, spki: Uint8Array<ArrayBuffer>): Promise<CryptoKey | null>
 {
     try
     {
@@ -352,9 +365,16 @@ function decodeOpening(bytes: Uint8Array): BlindOpening | null
         return null;
     }
     const inverse = os2ip(bytes.subarray(inverseStart));
-    return inverse > 0n
-        ? { preparedMessage: bytes.slice(preparedStart, inverseStart), inverse }
-        : null;
+    if (inverse <= 0n)
+    {
+        return null;
+    }
+    const preparedMessage = new Uint8Array(preparedLength);
+    for (let offset = 0; offset < preparedLength; offset += 1)
+    {
+        preparedMessage[offset] = bytes[preparedStart + offset];
+    }
+    return { preparedMessage, inverse };
 }
 
 function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint
@@ -420,7 +440,7 @@ function os2ip(bytes: Uint8Array): bigint
     return value;
 }
 
-function i2osp(value: bigint, length: number): Uint8Array
+function i2osp(value: bigint, length: number): Uint8Array<ArrayBuffer>
 {
     if (value < 0n)
     {
@@ -483,7 +503,7 @@ function int64(value: number): Uint8Array
     return output;
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array
+function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer>
 {
     const output = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
     let offset = 0;
