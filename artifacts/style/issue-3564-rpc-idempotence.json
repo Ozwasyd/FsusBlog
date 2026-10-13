@@ -1,0 +1,48 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "79a9d0735a54f30bbd266a753615e5ca0620cee0",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace . --folder --include tests/backend/Unit/AuthoringExtensionRpcTests.cs --verbosity quiet"
+    },
+    "paths": [
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs"
+    ],
+    "firstPassTreeSha256": "9d451cc5204558b362f9ada18f7d3f7897b6b5721d91ab5960f3353720c38ee8",
+    "secondPassTreeSha256": "9d451cc5204558b362f9ada18f7d3f7897b6b5721d91ab5960f3353720c38ee8",
+    "idempotent": true,
+    "assertionPreservation": {
+        "sourceOnly": true,
+        "testMethodCount": 50,
+        "assertInvocationCount": 239,
+        "tokenCount": 13317,
+        "tokenSha256": "1a836c12b2b2709322d98cfa2b739112f2ae3d8bf29a36cf26ea87cce03ef6ef",
+        "completeSyntaxNodeShapesIdentical": true,
+        "allRawTokensAndLiteralValuesIdentical": true,
+        "nonWhitespaceTriviaAnchoredToTokensIdentical": true,
+        "beforeSourceSha256": "62aad61890936ff9c2c0af8e47090c964ded078a04077d8e0aeec670da4f26d4",
+        "afterSourceSha256": "62aad61890936ff9c2c0af8e47090c964ded078a04077d8e0aeec670da4f26d4",
+        "runtimeAcceptance": false
+    },
+    "currentSourceCommit": "c9bec00891a58870d6ce29e5cb73aaeed366c12d",
+    "currentRunId": "chain-3564-surrogate-20261008",
+    "historicalFormatEvidence": {
+        "sourceCommit": "79a9d0735a54f30bbd266a753615e5ca0620cee0",
+        "firstPassTreeSha256": "2342b31a7e7525158e5b82e3629fc2ad8607cd874e4ab40eebce467f0ddbbfab",
+        "secondPassTreeSha256": "2342b31a7e7525158e5b82e3629fc2ad8607cd874e4ab40eebce467f0ddbbfab",
+        "assertionPreservation": {
+            "sourceOnly": true,
+            "testMethodCount": 50,
+            "assertInvocationCount": 238,
+            "tokenCount": 13282,
+            "tokenSha256": "8a9cd60da975ffc78d8ee94ec5551749d614a7bb0ab648bfdcc364038d18d976",
+            "completeSyntaxNodeShapesIdentical": true,
+            "allRawTokensAndLiteralValuesIdentical": true,
+            "nonWhitespaceTriviaAnchoredToTokensIdentical": true,
+            "beforeSourceSha256": "e9310846f6f2386e53996c8a9ef2e329c66bb1bcd3bde45488252741b7879778",
+            "afterSourceSha256": "e5c8a04de04c248efe6862c50386c8b807dc2d5dd2be7663b64498c8e4a8e096",
+            "runtimeAcceptance": false
+        }
+    }
+}

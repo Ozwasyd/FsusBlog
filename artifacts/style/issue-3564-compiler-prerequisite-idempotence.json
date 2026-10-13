@@ -1,0 +1,79 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "16f92272cc8b0530e86c6db74c90fc21058f3bd7",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace . --folder --include tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs --verbosity quiet"
+    },
+    "paths": [
+        "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+        "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs"
+    ],
+    "firstPassTreeSha256": "7c1f320d52f54386e4f982af053f0e2e1c8f7d4f1ad2c22413bcbdf39963616b",
+    "secondPassTreeSha256": "7c1f320d52f54386e4f982af053f0e2e1c8f7d4f1ad2c22413bcbdf39963616b",
+    "idempotent": true,
+    "suppliedSourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+    "brokerAndSecurityExactSuppliedBytes": true,
+    "lifecycleOnlySuppliedWhitespaceConsumed": true,
+    "assertionPreservation": {
+        "sourceOnly": true,
+        "runtimeAcceptance": false,
+        "testMethodCount": 74,
+        "assertInvocationCount": 403,
+        "completeSyntaxNodeShapesIdentical": true,
+        "allRawTokensAndLiteralValuesIdentical": true,
+        "nonWhitespaceTriviaAnchoredToTokensIdentical": true,
+        "files": [
+            {
+                "kind": "Roslyn C# 14 source preservation diagnostic; not xUnit or RPC runtime acceptance",
+                "canonicalRoslynSyntaxEquivalent": true,
+                "completeSyntaxNodeShapesIdentical": true,
+                "rawRoslynAreEquivalent": true,
+                "allRawTokensAndLiteralValuesIdentical": true,
+                "nonWhitespaceTriviaAnchoredToTokensIdentical": true,
+                "testMethodIdsIdentical": true,
+                "assertionSyntaxIdentical": true,
+                "tokenCount": 5906,
+                "testMethodCount": 21,
+                "assertInvocationCount": 90,
+                "tokenSha256": "e6318c46e6531aa70729aa4daf5844a29fa3a6e925afc6a6ff2058498aa96499",
+                "beforeSourceSha256": "06e074fcea388ee9e75473f6272f506f96cbeaa7285b0c945c5ea86564d895fd",
+                "afterSourceSha256": "371ec6292f008a68a95359f86ea5f69aef6ca7b251fdfcd179ec8eab2ca64035"
+            },
+            {
+                "kind": "Roslyn C# 14 source preservation diagnostic; not xUnit or RPC runtime acceptance",
+                "canonicalRoslynSyntaxEquivalent": true,
+                "completeSyntaxNodeShapesIdentical": true,
+                "rawRoslynAreEquivalent": true,
+                "allRawTokensAndLiteralValuesIdentical": true,
+                "nonWhitespaceTriviaAnchoredToTokensIdentical": true,
+                "testMethodIdsIdentical": true,
+                "assertionSyntaxIdentical": true,
+                "tokenCount": 7758,
+                "testMethodCount": 43,
+                "assertInvocationCount": 230,
+                "tokenSha256": "eb2ab155ab38e0589626a3092ed699cb17fc0444e50f9751e6150dc02f5d1656",
+                "beforeSourceSha256": "54332aae5236031e6803d7229e885079e236740a41ec2ff1cd498ca394898f61",
+                "afterSourceSha256": "add9159a79bd1757eb8afbfc6e0205e34a1014ee07cb20ee4f59a07a5e7769ed"
+            },
+            {
+                "kind": "Roslyn C# 14 source preservation diagnostic; not xUnit or RPC runtime acceptance",
+                "canonicalRoslynSyntaxEquivalent": true,
+                "completeSyntaxNodeShapesIdentical": true,
+                "rawRoslynAreEquivalent": true,
+                "allRawTokensAndLiteralValuesIdentical": true,
+                "nonWhitespaceTriviaAnchoredToTokensIdentical": true,
+                "testMethodIdsIdentical": true,
+                "assertionSyntaxIdentical": true,
+                "tokenCount": 4640,
+                "testMethodCount": 10,
+                "assertInvocationCount": 83,
+                "tokenSha256": "032ff457b66a76152c217e95b70c7af9209b80391fc8fa63e69a87eb68093227",
+                "beforeSourceSha256": "e749fe6a4141b71824fc127f01e8f0f35768f8789d97bf4fa81b894a4b073a46",
+                "afterSourceSha256": "18213955ee953c3f22569369eb0ac4b3e8583c1ed5a5b6989cf7dbf73beab23b"
+            }
+        ]
+    }
+}
