@@ -28,6 +28,7 @@
             :document-identity="documentIdentity"
             :native-attachment-input="nativeAttachmentInput"
             :attachment-terminal-observer="attachmentTerminalObserver"
+            :attachment-request-dispatch="attachmentRequestDispatch"
             @upload-image="handleAttachmentCapture"
             @on-save="emit('save')"
             @on-draft-save="emit('draft-save')"
@@ -59,6 +60,7 @@ import type {
 } from '@/ui-contracts/markdownEditor';
 
 import type {
+    MarkdownAttachmentRequestDispatch,
     MarkdownEditorOutlineRange,
     MarkdownEditorRevealOptions,
     MarkdownEditorRevealResult,
@@ -91,6 +93,7 @@ const props = withDefaults(defineProps<{
     showModeSwitcher?: boolean;
     nativeAttachmentInput?: boolean;
     attachmentTerminalObserver?: MarkdownAttachmentTerminalObserver;
+    attachmentRequestDispatch?: MarkdownAttachmentRequestDispatch;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     authoringCommands?: readonly FsusUiAuthoringCommand[];
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;
