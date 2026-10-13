@@ -1,0 +1,5 @@
+Read-only original host probe via approved sandbox escalation, exit 0, 2026-10-08.
+/proc/self/cgroup: 0::/
+/proc/self/mountinfo cgroup2 line:
+59 58 0:24 /.. /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime shared:8 - cgroup2 cgroup2 rw,nsdelegate
+No capacity override or mount change was attempted.

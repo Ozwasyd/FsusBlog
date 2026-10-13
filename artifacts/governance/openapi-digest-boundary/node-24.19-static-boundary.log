@@ -1,0 +1,14 @@
+file:///workspace/FsusBlog/tools/test-matrix/release-final-static-boundary.mjs:2752
+        throw new Error(errors.join('\n'));
+              ^
+
+Error: execution target authority: independent release-final Node parser identity drifted
+execution target authority owner, content, or dependency closure drifted: expected sha256:705b03004c8453b0f427684666831d8d61e60d78f9e89bfa5b870c25f9d7d609; got sha256:84002c2d8c6f06efd412d3f60e9dac33895e9a5b2a8c3e2e9195f54760a53227
+    at main (file:///workspace/FsusBlog/tools/test-matrix/release-final-static-boundary.mjs:2752:15)
+    at file:///workspace/FsusBlog/tools/test-matrix/release-final-static-boundary.mjs:2759:5
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.19.0

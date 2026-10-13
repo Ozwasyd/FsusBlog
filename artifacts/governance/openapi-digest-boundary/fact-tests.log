@@ -1,0 +1,26 @@
+✔ source identity excludes owned current-run outputs but detects source drift (470.130249ms)
+✔ source identity supports tracked diffs larger than the spawnSync default buffer (198.509716ms)
+✔ schemas are fail-closed and forbid shell/warning/partial surfaces (3.494336ms)
+✔ repository registry owns each active behavior exactly once (8824.02084ms)
+✔ seed extractors produce source-bound receipts with stable semantic digests (150.766659ms)
+✔ 1) rejects extractor that reads docs Markdown as observed values (180.826265ms)
+✔ 2) rejects extractor that reads test fixture expected sets (132.038022ms)
+✔ 3) rejects reusing a HEAD receipt after worktree source changes (230.356533ms)
+✔ 4) compiled extractor rejects ambient bin directory and requires exact build receipt (232.809433ms)
+✔ canonical build identity rejects source-set, receipt, and artifact tampering (4.130368ms)
+✔ 5) rejects two extractors claiming the same behavior (0.422894ms)
+✔ 6) rejects warning/partial/null-or-empty observations with status=ok (1.319566ms)
+✔ 7) rejects non-deterministic timestamps inside observations and semantic digest (0.444007ms)
+✔ 8) input digest change rejects old cache hit (328.17175ms)
+✔ 9) rejects extractor A calling extractor B domain coupling (196.478294ms)
+✔ consumer reader is the public surface and blocks seed imports (1.627751ms)
+✔ no-owner active behavior fails ownership validation (6.127327ms)
+✔ unknown observation field markers and second schema surfaces fail (0.423696ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11295.411376

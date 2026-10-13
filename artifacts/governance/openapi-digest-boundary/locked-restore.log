@@ -1,0 +1,7 @@
+  Determining projects to restore...
+/workspace/FsusBlog/tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Failed to restore /workspace/FsusBlog/tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj (in 550 ms).
+  Restored /workspace/FsusBlog/src/shared/FsusBlog.Shared.csproj (in 16 ms).
+  Restored /workspace/FsusBlog/src/core/FsusBlog.Core.csproj (in 1.14 sec).
+  Restored /workspace/FsusBlog/src/backend/FsusBlog.Server.csproj (in 1.18 sec).
+  Restored /workspace/FsusBlog/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 1.32 sec).

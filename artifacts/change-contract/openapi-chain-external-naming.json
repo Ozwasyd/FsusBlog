@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "preserve the supplied producer, lifecycle, retention, execution closure and canonical NuGet lock serialized field names across this prerequisite integration"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+        }
+    ]
+}

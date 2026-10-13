@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { javascriptFormatFingerprint } from '/workspace/FsusBlog/tools/governance/javascript-format-equivalence.mjs';
+const root = '/workspace/FsusBlog';
+const files = ['tools/fact-extractors/openapi-aeds/extract.mjs', 'tests/tools/openapi-aeds-observation.test.mjs'];
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const snapshot = () => files.map((file) => {
+    const source = readFileSync(`${root}/${file}`, 'utf8');
+    return { path: file, source, sourceSha256: sha256(source), fingerprint: javascriptFormatFingerprint(source, file) };
+});
+const before = snapshot();
+const args = ['tools/frontend/check-frontend-style.mjs', '--mode', 'changed', '--fix', ...files.flatMap((file) => ['--file', file])];
+const snapshots = [before];
+for (let pass = 1; pass <= 2; pass++) {
+    const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env: process.env });
+    writeFileSync(`/workspace/scratch/chain-3540/resume/fixer-pass-${pass}.log`, `${result.stdout}${result.stderr}`);
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+    snapshots.push(snapshot());
+}
+for (const after of snapshots.slice(1)) {
+    for (let index = 0; index < files.length; index++) {
+        assert.equal(after[index].fingerprint, before[index].fingerprint, `${files[index]} AST/token/comment preservation`);
+        assert.equal(after[index].sourceSha256, before[index].sourceSha256, `${files[index]} no-op formatter`);
+    }
+}
+const treeDigest = (rows) => {
+    const hash = createHash('sha256');
+    for (const file of files.toSorted()) {
+        hash.update(file).update('\0').update(rows.find((row) => row.path === file).source).update('\0');
+    }
+    return hash.digest('hex');
+};
+const evidence = {
+    runId: 'chain-3537-resume-' + new Date().toISOString(),
+    candidate: spawnSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).stdout.trim(),
+    formatter: JSON.parse(readFileSync(`${root}/tools/frontend/style-toolchain/node_modules/eslint/package.json`)).version,
+    node: process.version,
+    command: ['node', ...args].join(' '),
+    migration: 'none-needed-no-source-change',
+    treeAlgorithm: 'sha256(sorted repository path + NUL + exact UTF-8 bytes + NUL), matching change-contract treeDigest',
+    completeAstRawTokenCommentEquivalent: true,
+    byteIdentical: true,
+    passTreeSha256: snapshots.map(treeDigest),
+    files: before.map(({path,sourceSha256})=>({path,sourceSha256}))
+};
+assert.equal(new Set(evidence.passTreeSha256).size,1);
+writeFileSync('/workspace/scratch/chain-3540/resume/owner-format-evidence.txt',JSON.stringify(evidence,null,2)+'\n');
+console.log(JSON.stringify(evidence,null,2));

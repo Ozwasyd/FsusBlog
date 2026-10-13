@@ -1,0 +1,189 @@
+Current OpenAPI parent-import and style review, chain #3540 -> #3537
+Run: chain-3540-3537-current-20261008T0357Z
+Base: 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 (origin/master fetched again)
+Tested source candidate: 38bfe5d1904da2db8cd79069bff9b00b6bd5f95a
+Branch: task/chain-3540-openapi-boundary
+Draft PR: https://github.com/Ozwasyd/FsusBlog/pull/3817
+This is historical execution/review evidence, not trusted authority or acceptance.
+This later run supersedes review.txt's downstream NOT STARTED and stale census,
+observer-lock and producer-inventory limitations. Original evidence is preserved.
+Neither issue is closed. No merge, deployment or cross-chain conflict resolution.
+
+Criterion-by-criterion accounting
+#3540: stage1_ready_for_review, actual source work and executable checks delivered.
+1. Boundary independently inspected: real runner-owned digest capability is the
+   appropriate source/module refactor. Extractor imports only Node builtins; runner
+   uses the sole canonicalizer. No aliases, dynamic-import evasion or duplicate
+   digest implementation. Producer and consumer retain the exact 19-source closure.
+2. Residual alternative: not selected. No residual, baseline, rule or authority change.
+   Existing generic style negative controls remain active and passed 37/37.
+3. Refactor controls: incompatible/nonfunction digest capability, changed real runner
+   import resolution, missing runner/canonicalizer, extra provider and repeated
+   refusals are exercised. Existing source/canonicalizer/artifact/projection tamper
+   cases remain. Real compiled self-test and current producer are exercised in the
+   full 57/57 suite; synthetic reader probes are not compiled-host receipts.
+4. Old #3539 is closed superseded/unmerged. Source refactor arrived through #3676
+   as WIP; its recorded reviews list is empty. This draft replaces obsolete source
+   consumer work. Exact-head style/focused tests pass; formal independent review,
+   standard acceptance and future merge/master recheck remain outstanding.
+No source-level boundary repair remains. Full canonical admission and matrix are
+additional qualification, not invented prerequisites for this source-ready stage.
+
+#3537: stage1_ready_for_review for current-source style/boundary work; OPEN.
+1. Current-master policy/baseline/source/empty diagnostic identities sealed in
+   current-source-seal.txt. Historical baseline drift is re-proven from Git blobs:
+   98e490f6d03bafa254b66a9ccb03ee453a012b1a changed extractor d2760cd... to
+   ac938572... without updating the zero-count old baseline. Baseline unchanged.
+2. Current owner files on master and candidate both produce zero RAW diagnostics.
+   Two actual ESLint fixer passes preserve exact bytes and complete parser AST,
+   raw tokens/literals and comment placement. No current mechanical gap exists;
+   therefore no invented no-op format-only commit or blame-ignore registration.
+   Historical proposed format-only revisions 8fbdea89cfb61bff65e0445facba1877eddbf3c2
+   and 4c5c8741b2c114a3669920bca9ddd369728ebd05 were initially absent locally, then retrieved from GitHub by exact SHA. Current
+   trusted validateFormatOnlyDiff passes for both original parent diffs (exit 0;
+   complete AST/raw-token/comment equivalence). Their footer-declared artifact
+   artifacts/style/openapi-aeds-idempotence.json is absent at both revisions;
+   neither revision is an ancestor of current master or registered in its
+   .git-blame-ignore-revs. Original formatter config/lock differ from current
+   ones, so the new current no-op does not certify historical idempotence.
+   Original idempotence/independent review and reachable blame-ignore provenance
+   remain unverified acceptance criteria; no old receipt is re-signed.
+3. Semantic boundary accounted separately under #3540; no candidate rule waiver.
+4. Runtime digest/receipt/producer implementation unchanged by this chain. Supplied
+   census owner commit explicitly asserts all eight already-migrated request-free
+   Font/Theme typed GET frames and rejects the retired exclusion diagnostic; no
+   refusal, status or producer control was discarded. Focused suite 57/57 passes.
+   Canonical inventory --check and static execution closure pass. Generated-output
+   history/atomic-source admission still has its owner-controlled evidence gate.
+5. Independent PR review and later merge/current-master recheck remain mandatory.
+   #3536 must not treat this WIP source stage as final style admission.
+No tracking-only assignments. These stages satisfy the readiness-based execution
+order; an OPEN prerequisite was not mistaken for a blanket ban on independent work.
+
+Precisely supplied capabilities consumed
+Lock ancestry retained unchanged through merge 99a784b480d63735682ee8c8bd5dba9694315bb8:
+ bd3dbde7939dc95c81cef4ab6b50f883459ee85d
+ b104b99d84b91af577336efd6430d492c25683c9
+ 08bdae12e59d9d2b4c5b897a9de7f559c7ce14c2
+ 2c380fee5cff5fa0e368b3da0a4052a4fe124263 (PR #3848 original source ancestry)
+Shared source capabilities retained unchanged through merge
+36b881c2eab025f56317abe06c24db8bba440779, PR #3859 original linear source lineage:
+ f7b29774ae4aebad286539cc033aa736b9dbe613
+ 86841bac2fb0cdbeb8baa02b218869529abbf093
+ eeb4e84096571ecb3a989629825f2508e2de7b71
+ e38a0badac3867560b5d0fdc1b8d1c648d15ee37
+Bounded compiler fix a95de1defd39a46f34992bed9eee3c150d990456 (PR #3828) retained
+via provenance-bearing cherry-pick b415c74c19691d49bc11cf8e35fcda7d36b21cd1.
+Bounded census fix 3af56b1ab06ccbd776c85fcdd9b0a8a2b133f7bf (PR #3819) retained
+via provenance-bearing cherry-pick 38bfe5d1904da2db8cd79069bff9b00b6bd5f95a.
+Their two unpublished local commit messages were repaired to place Refs after the
+cherry-pick annotation; source tree equals prior tested d3bb5c9... byte-for-byte.
+No moving sibling PR bases, guessed commits or unprovided follow-up consumed.
+SQLite e3553bfb1ade96bb6ac6609bf92efc42de3913be/bf518133d472bf31f67a564f68423e3a4a8a4a1b
+were supplied but not required by the actual OpenAPI/source-style capability; not consumed.
+
+Toolchain
+Official checksum-verified Node 24.16.0; ESLint 10.8.0; canonical Espree 10.4;
+.NET SDK 10.0.401/runtime 10.0.12. Docker 28.4.0/Compose 2.40.3 respond.
+Regular locked npm installations; no candidate parser alias or NODE_PATH bypass.
+No production resources, migrations, credential use or fabricated receipts.
+
+Executed earlier at 99a784b480d63735682ee8c8bd5dba9694315bb8
+PASS exit 0: OpenAPI observer dotnet restore --locked-mode --disable-build-servers;
+fresh Release build --no-restore --disable-build-servers -p:RestoreLockedMode=true,
+323 existing warnings, zero errors; actual check-openapi-sync --no-rebuild: 274 ops.
+FAIL exit 1: original behavior-doc-static-admission command, run-id
+chain-3540-3537-20261008T0322Z. Actual compiled RuntimeRole replay rejects
+runtime_role_output_path_not_canonical:output (Program.cs ResolveContainedWritableFile,
+line 343; replay caller tools/fact-extractors/test-matrix/extract.mjs around 1459).
+Canonical admission did execute real compiled producers/minimal build; it did not
+complete qualification. This is exact-99 evidence, not a final-candidate receipt.
+Later supplied source commits do not change that caller or producer. The RuntimeRole
+owner must supply its exact safe contained-output repair and current runtime evidence.
+
+Executed at d3bb5c9dab954d69f0628edb69cb73d60896fb63 (same source tree as final source candidate)
+PASS exit 0: full OpenAPI/fact suite 57/57, zero skips, locked restore environment.
+PASS exit 0: producer inventory --check; inventory rejection controls 6/6.
+FAIL exit 1: ./tools/test.sh fast --fresh --max-parallel 2 with sealed Node.
+Pre-lane rejection is Linux cgroup memory invalid path: /.., after inventory passes.
+Actual /proc/self/cgroup = 0::/; cgroup2 mount root /..; cpu.max=400000 100000,
+memory.max=17179869184. A read-only outside-sandbox probe also reports root /..
+(exit 0), so removing the sandbox would not fix capacity discovery. Task namespace
+setup via unshare --mount --cgroup --fork true fails Operation not permitted.
+Environment owner must provide a canonical cgroup mount namespace; do not change
+capacity guards or fabricate limits. No fast lane or full matrix acceptance.
+PASS exit 0: targeted backend restore with --locked-mode and isolated artifacts.
+FAIL exit 1: backend LifecycleHostedBootstrapServiceTests could not reach execution:
+compilation has CS0246, CS0103, CS0619, CS1061, CS0117 and xUnit2014 in other
+owner files (all actual diagnostics preserved in backend-bootstrap-tests.log.gz).
+The supplied InlineData constants clear CS0182 only. Smallest next step is exact
+owner source fixes; no tests were disabled and no missing symbols fabricated.
+FAIL exit 1: shared metadata combined probe 48/50, initially missing local tools
+package and Debug backend discovery context. npm ci --ignore-scripts --prefix
+ tests/tools fixes package installation. Subsequent independent article/convergence
+controls PASS 35/35, zero skips. Retention CLI still requires actual Debug backend
+output; fixtures/source checks are not promoted to full Roslyn/backend acceptance.
+
+Run exclusions
+A final combined focused/style run lost its tool session during environment restart
+before completion. Its truncated stream is not a pass. Independent final commands
+are instrumented with candidate/start/end/exitCode, and rerun in original environment.
+The prior unsupported negative lookahead selection is not counted as a smaller suite.
+No original raw failure output was edited. Logs with whitespace-only reporter lines
+are preserved as lossless gzip streams to keep Git whitespace checks meaningful.
+
+Final instrumented commands at tested source candidate 38bfe5d...
+PASS exit 0: node --test tests/tools/openapi-aeds-observation.test.mjs tests/tools/behavior-fact-extractors.test.mjs : 57/57, zero skips.
+PASS exit 0: node --test tests/tools/frontend-style.test.mjs : 37/37, zero skips.
+PASS exit 0: two original changed-mode --fix runs plus current complete AST/raw-token/comment/byte comparison; tree digest is f1037f7f5adfa5a3e86749d4607cb171215e4d30b7e8d95c82344268403b5162 on all three snapshots.
+PASS exit 0: generate-correctness-attempt-producers.mjs --check.
+PASS exit 0: release-final-static-boundary.mjs --check.
+PASS: explicit current owner strict-style (0 diagnostics) and eight-extractor governance; raw outputs preserved.
+FAIL exit 1: commit-range change-contract, exclusively original eeb4e84096571ecb3a989629825f2508e2de7b71 and e38a0badac3867560b5d0fdc1b8d1c648d15ee37 missing required Refs footer. Own cherry-pick footer metadata was repaired before publication. Supplied published commits were not rewritten.
+The original normal generated-output manifest declares eight unchanged closure sources; the current atomic-source gate cannot accept that as a normal source/output change. Request a supported history/integration evidence repair from its canonical owner; do not narrow the declared closure or waive the gate to manufacture green acceptance.
+All logs and sidecars are under current-run/. Compressed outputs are lossless; command sidecars bind original argv, timestamps, tested commit and exit code. Earlier evidence remains tied to its earlier commit, not promoted to this final candidate. Final documentation-only publication may add this report, raw logs and the complete external-naming manifest; it does not change tested implementation or policy.
+NOT RUN / NOT ACCEPTED: complete matrix lanes, browser/UI, production database or migration, FsusUI boundaries (not touched here), current full canonical Docker admission, required independent GitHub PR review, history authority promotion and later merge/master recheck. No missing remote checks are counted as a pass.
+
+Evidence SHA-256 (original bytes and lossless compressed file):
+final-focused.log: f7467dc24a0a9d462fbbb48fd4ddb01b3e37a6f823190db05de6a9c85c12ac5a; gzip: f90305fde6f7629c8492813f26b64124ae146fe835abc918e808fed60220e75b
+final-style-controls.log: b51197e10f3a1566ce0f8279200ebece99ac03617e1972495e31e84592ad06a5; gzip: 8abcc3c377fbf800e95d34fd1e3257e56888ec46164e70e4d40a6f45ad390a4e
+final-owner-format.log: 41026a61dc91375453a406adbb9433ac714473ce4102f9a8f89d40937614e25a; gzip: b6a6dcf900e53acbd923533a812cfc519a7dd6fd91bda94c21d59ad29293fa89
+final-inventory.log: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; gzip: f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec
+final-static.log: 1bf753880d9629229e21ea7cc8474bad07eb6864f9d7c27c64d3354f36af2612; gzip: 10399db83c84f390b424fe30d00dfb0082f407d68349fc5acca41e9f9cbdc092
+final-contract.log: 4fb18f317daa6a31212c962d8071814833d14429882aa442eb7110d7f7c0591a; gzip: e18751df7ab60c0e61afb2019ebfb12cffa05a560a817da5126f882dace928d4
+master-owner-strict.log: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7; gzip: 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+final-owner-strict.log: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7; gzip: 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+final-governance.log: ffbacfc73493ce5f0d7cd452e79b57bfebd6d97ed3c034f11aa9eb8ba41564d3; gzip: d4db0d3a8702457f1782b2d97593a50faddf07fb46c313bcf92fae83b5520392
+ready-inventory-controls.log: 665c535620cb4cbc9eb36fb76ce2db29ebc36974bfe568463d116af21a2c2839; gzip: abc47441471e25e763e8dcbdd4a966d0f4ad516a79f1919726875720914924bf
+shared-independent-controls.log: 3fa3c6a715e3bbb8eae68219cc53a2632bea4eea5242cfc75337dfd7002ffee7; gzip: e6c47e8e7e594a94d5f112da896fbcac8068c2298a2ec3f0e08c99d4e786f5fe
+ready-fast.log: 970d5f53ed4c1b7a60e67192a60e70cbb30b044f811321a57bf10f2e85094330; gzip: 25e5862383c14f3f4486a49ab5d39789ad12a5ed7e9254e2323d641d44d34918
+cgroup-namespace-probe.log: 8f8f94f07ecd0e6152663b425f33f1fe8ce609762b9d02fa570dcb92c42a3150; gzip: ebcc94ed95f32914c54cc9dafc3eb3f45ed501f37ffad09026aca57ebf489fcb
+locked-restore-consumed.log: 655866efceaf786b013e41be669683daa90eaf541fead9eb0a69a2917bb7c8fa; gzip: 1e8b09a34fce2983322adc8210f1e91ce53737c04b1a0d73df10ef6f0441803f
+locked-build-consumed.log: ae42f80863bdedc158459e8922567e79075d998bc73a307378793460463ab95e; gzip: bb0712b6d4ccf9e49118c640a283a7673197abeb51e4bfcee9891800f114fa37
+locked-openapi-sync.log: 5f5d21504357a66c0d29964bc605aa7a742e76791d6e3549dcb34ed972292d99; gzip: c983a1bba2398e8d5aabfc53d645115482d241b94e92616d5b038c4ebc03a1ac
+canonical-admission.log: fbb2b4e2f29fbd4aa09011bfab335b49c1419302428d9139d669abdec797877b; gzip: ac7504d959897c51fc3c6efc21b293cfd41da9a8bda8818cc4147a982c40057a
+backend-locked-restore.log: df44ea59fdcf9b641fa4e30ce64680b8af703f1c0145279f76abc90318445905; gzip: 45bd320f801094de8edfab64f67e6eef2f5858df88496d9b16c432f569685cc2
+backend-bootstrap-tests.log: c208cb4653645da727bb9d0c9bdd8e234bc77beeb17654ca47e256c08c6f5a0a; gzip: 262e9ecac0b1d0d25dbdc8df5a885f1b2c0d9497bbec58ff4626d1101be57680
+shared-metadata-controls.log: 4a09d9bb6c691f0bcea7a1210018bdb3a5000d94f304fa7d9355d58fda1d1783; gzip: 804a479a84b8cca012fc266bf064c4ee305751aebbb86a5eb89cf50272ab06c2
+historical-format-8fb.log: 5e56cd699cfdd47f3db39c1fd68d53f840be3b878b64f0468664c47ae2529813; gzip: 94346b328be02870e01e4986b31b7c8de9b6dc0817b59ef10da6a39a983ae541
+historical-format-4c5.log: 3a6842c4bcd736a3345bb8c94a79a353a86bca158929b5ae2e131727ed1ca97b; gzip: a837192c6fc3f38bdaaf27f9d09ee2fb085a28751078004cdc24d5eb4719271a
+historical-format-controls.log: 77e467e10f1840d26e0ab4b7e1151bcbf166913dcc97dbbf33c7f7b6a9196dc1; gzip: f0eb0a83d418a6c8d2371d50e3ba8af235a07608c5a66bc53975ea8c7dc87225
+fixer-pass-1.log: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7; gzip: 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+fixer-pass-2.log: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7; gzip: 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+
+Published integration PR contract recheck
+Exact tested metadata candidate: 9d304765811e9f7f8785e69432a7f1d31f8ba280.
+Fetched PR #3817 title/body/head were used, sealed Node 24.16.0, exit 1.
+Own field parsing and complete trusted naming-surface union now pass. Only the
+normal generated binding rejects its eight unchanged original closure paths:
+[change-contract] generated binding path is not changed in this PR: config/testing/release-reliability-scenario-catalog.json
+[change-contract] generated binding path is not changed in this PR: tests/matrix.yml
+[change-contract] generated binding path is not changed in this PR: tools/test-matrix/production-fresh-run-bound-outputs.mjs
+[change-contract] generated binding path is not changed in this PR: config/testing/replay-qualification-producers.json
+[change-contract] generated binding path is not changed in this PR: config/testing/test-execution-envelope-applicability.json
+[change-contract] generated binding path is not changed in this PR: tools/test/attempt-runner.mjs
+[change-contract] generated binding path is not changed in this PR: tools/test/temporal-context.mjs
+[change-contract] generated binding path is not changed in this PR: tools/test/temporal-context-contract.mjs
+[change-contract] Generated source and output paths must all be changed in this PR
+current-pr-contract.log original SHA-256: 9a1d71a62b28c70ec011281e8d28d33621d2e3d6b60935fe70377241f97b5e91; gzip: e4fe95467183ecf07682d19e8542666e47516228cf1fede30ed7992c45423766
+Source inputs and policy equal tested source candidate 38bfe5d...; subsequent commits contain only artifacts/review metadata. RuntimeRole replay caller/producer are also byte-identical to the exact-99 failed admission. PR remains draft targeting master, with empty reviews and status checks at the fetched candidate; neither is acceptance. This final evidence-only publication does not satisfy the missing source/output history gate or rewrite supplied published footers.

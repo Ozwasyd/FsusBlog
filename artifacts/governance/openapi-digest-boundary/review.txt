@@ -1,0 +1,210 @@
+OpenAPI canonical digest provider boundary review
+Run identity: chain-3540-20261008T0235Z
+Repository: https://github.com/Ozwasyd/FsusBlog
+Base verified by git fetch origin master: 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8
+Implementation/test candidate: e865e3338adaab9b66784f6c93a1fc886b4b0769
+Branch: task/chain-3540-openapi-boundary
+Draft PR: https://github.com/Ozwasyd/FsusBlog/pull/3817
+This file is historical run evidence and a review recommendation, not trusted
+residual authority, deployment qualification, a PR approval or issue acceptance.
+
+Owned issue accounting
+#3540: source review and added negative controls delivered; acceptance BLOCKED.
+#3537: downstream execution NOT STARTED because #3540 acceptance remains unmet.
+Read-only current-master style/source accounting is included; no format migration,
+baseline refresh, residual promotion, blame-ignore registration or rule waiver.
+There are no assigned tracking-only issues or recorded external prerequisites.
+
+Source boundary review
+The current extractor has only Node builtin imports. The runner imports the sole
+fact canonicalizer and passes digestValue explicitly as canonicalDigest. The
+extractor uses that capability for receipt, aggregate source and behavior-catalog
+digests instead of importing parent-owned modules or duplicating their behavior.
+The standalone producer and extractor bind the exact runner and canonicalizer in
+the same closed 19-path source set. The canonical path consumes the explicit
+run-relative minimal-build receipt and the admission-owned validator; canonical
+failure cannot select the standalone fixed receipt. Neither cache reuse nor
+resealing observation/projection bytes bypasses the source/current-authority checks.
+Recommendation: retain this real module boundary; an import alias, dynamic import,
+policy exception or residual is unnecessary for the extractor.
+This task is separate from the original source integration, but it is not a formal
+GitHub independent PR review. PR #3676 merged as WIP at
+c11cb11f23ea3452ecb2f87a90f46ba3297dbb8c with an empty reviews list; PR #3539 is
+closed superseded and unmerged. Neither supplies the remaining acceptance receipt.
+
+Implemented coverage
+The test commit adds nonfunction and incompatible digest-return capabilities,
+changed REAL runner import bytes pointing at an equivalent alternate module,
+resealed omission of either runner or canonicalizer, an extra provider, empty
+observations on each refusal and stable repeated consumption. Existing canonical
+artifact, projection, source/receipt tamper controls and the compiled observer
+expectations remain intact. Test fixtures are synthetic reader probes and do not
+claim compiled-host or Docker qualification.
+
+Current-source style accounting (#3537 read-only)
+Master extractor SHA-256: 30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c
+Master test SHA-256: 9135ac1f4857a8e52dc1f8b7dae498d39d5cbcb6aa6488166f8cad3993e6a0a5
+Current authority and candidate source hashes are in source-seal.txt.
+The extractor baseline still binds d2760cd210e1f03ea136a411da84a6c53f44904049142b9b5d243b9064439707,
+count 0 and SHA-256(empty) diagnostics; the test has no baseline entry.
+Historical drift was re-proven from Git blobs: 98e490f6d03bafa254b66a9ccb03ee453a012b1a
+changed extractor d2760cd... to ac938572681ff931d1346eef790e7bdfd4794424982f16d9f469ad2b60a79662.
+Current raw lint findings are zero, not suppressed historical baseline debt.
+No new mechanical gap warrants an invented formatter migration. Original format-only
+history/idempotence/blame evidence and independent acceptance are not re-certified.
+
+Toolchain and environment
+Node v24.19.0, npm 11.13.0, .NET SDK 10.0.401/runtime 10.0.12.
+Docker CLI/server 28.4.0 and Compose v2.40.3 respond to docker info; no production
+resource or database was touched. Schema-validator, style-toolchain and format parser
+were installed from repository locks using npm ci --ignore-scripts at regular paths.
+The execution authority binds Node v24.16.0; official linux-x64 archive SHA-256
+is d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9,
+verified against https://nodejs.org/dist/v24.16.0/SHASUMS256.txt and installed only in
+/workspace/scratch/chain-3540/node-toolchain. No authority was regenerated.
+
+Passed source checks (exit 0)
+node --test --test-name-pattern='runner canonical digest|changed runner import' tests/tools/openapi-aeds-observation.test.mjs
+  2/2 on e865e3338adaab9b66784f6c93a1fc886b4b0769; provider-controls.log.
+node --test tests/tools/frontend-style.test.mjs
+  37/37, zero skips; style-controls.log. Covers wrong rule/path/line/source,
+  extra/missing diagnostics, candidate authority, partial and repeated consumption.
+node --test tests/tools/behavior-fact-extractors.test.mjs
+  18/18, zero skips; original log /workspace/scratch/chain-3540/fact-tests.log.
+node tools/fact-extractors/check-behavior-fact-extractors.mjs
+  Registry/ownership/receipt/hermetic checks pass, extractors=8,
+  digest=dd2566d3d9c34900fb7b13220adc8b1243fae897b7839eeeccd0cbdcd1632bc2.
+node tools/frontend/check-frontend-style.mjs --mode changed --file tools/fact-extractors/openapi-aeds/extract.mjs --file tools/fact-extractors/runner.mjs --file tools/fact-extractors/lib/canonicalize.mjs --file tests/tools/openapi-aeds-observation.test.mjs
+  4 files, 0 violations, 0 new; changed-style.log.
+node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/fact-extractors/openapi-aeds/extract.mjs --file tools/fact-extractors/lib/canonicalize.mjs --file tests/tools/openapi-aeds-observation.test.mjs
+  3 files, 0 violations, 0 new; strict-style.log.
+node tools/contracts/check-openapi-sync.mjs --no-rebuild
+  REAL compiled producer, 274 operations; openapi-sync.log. The standalone fact
+  receipt binds e865e3338adaab9b66784f6c93a1fc886b4b0769 and worktree fingerprint
+  a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48,
+  receipt digest 220834ab1cf02c2d747f31980f0346748982cc1a8b45285decbb2f4041248059.
+  This does not qualify the canonical admission/Docker path or locked restore.
+
+Known blockers and smallest owner actions
+1. Current compiled production census differs from the retained pre-3177 test.
+   First activated original suite: 37/38, exit 1, compiled C# self-test PASSED;
+   normal producer outputs 274 operations and no retired count=8 exclusion log.
+   Migration 5ba42dbe66f41753b2d1cee50c0eb0c333f2a6af explicitly removed the exception
+   for #3177 and updated generated OpenAPI to include all eight operations.
+   The assigned scope prohibits changing test semantics merely for style admission.
+   Parent must route a reviewed current-contract test repair to the #3177 owner,
+   supplying its exact commit and real 274-operation producer/census evidence.
+2. dotnet restore tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj --locked-mode
+   exit 1, NU1004: the fsusblog.server project reference dependency closure differs
+   from the checked-in OpenAPI observer lock. locked-restore.log.
+   Parent must route canonical lock generation and locked restore/build acceptance
+   to the observer/dependency owner; no lock change is included in this PR.
+3. Matrix/canonical execution authority qualification remains blocked; final pinned
+   run results are recorded below. A missing/skipped admission is not a pass.
+4. Independent PR review, required gates, and eventual merge/master recheck remain.
+   The coordinated global barrier forbids this task from performing merge/closure.
+
+Diagnostic run exclusions
+An initial shell lacked activated dotnet. It was corrected using the saved setup.
+An overlapping locked restore invalidated one candidate build's dependencies;
+its missing-assembly errors are not counted as a repository regression. A subsequent
+sequential restore/rebuild/test is recorded below. Normal restores produce task-only
+lockfile deltas; they are retained outside Git as evidence and restored before final
+publication. Unlocked runtime probes do not replace locked candidate qualification.
+Unsupported authority checker command trials were corrected to the documented
+release-final-static-boundary.mjs --check; no generator --write was executed.
+
+Rollback and handoff
+Revert only the isolated negative-test commit on an introduced regression; preserve
+current fail-closed source/receipt validation and all negative controls. Request exact
+owner commits/evidence via the coordinating parent; do not cherry-pick guessed sibling
+work, restore old source, alter the graph, promote a baseline or merge this draft.
+
+Final sequential current-source probe (exit 1)
+node --test tests/tools/openapi-aeds-observation.test.mjs tests/tools/behavior-fact-extractors.test.mjs
+  57 total, 56 PASS, 1 FAIL, zero skips. Compiled C# self-test passes;
+  only the unchanged pre-3177 normal-producer census assertion fails because
+  the real current producer outputs 274 operations. focused-tests.log.gz (lossless gzip archive).
+  NuGet source locks were temporarily regenerated by official restore for this
+  diagnostic build; this proves current source behavior with unlocked dependencies,
+  not locked-candidate qualification. Generated lock deltas are preserved at
+  /workspace/scratch/chain-3540/sequential-restore-lock-drift.diff and restored
+  from Git after all focused runtime tests finished.
+
+Pinned Node matrix probe (exit 1, no matrix lanes executed)
+source /workspace/.setup/activate.sh
+export PATH=/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin:$PATH
+export FSUSBLOG_NODE=/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node
+./tools/test.sh fast --fresh --max-parallel 2
+  Rejection: correctness attempt producer inventory differs from canonical authorities.
+  pinned-fast.log. Switching to the sealed Node version resolves the earlier parser
+  identity refusal but exposes this independent generated-authority gate. The pinned
+  run happened before final restore of task-only NuGet lock formatting/dependency
+  deltas; no source or policy changes were made to admit it. A direct clean-tree
+  authority check is recorded separately. Parent must obtain the canonical
+  correctness-attempt inventory owner's reviewed source/output repair and acceptance
+  evidence; this task does not modify their source, fixture or trusted repair policy.
+
+NOT RUN / BLOCKED
+- Canonical Docker/minimal-build admission and complete matrix lanes: not reached
+  because pre-execution authority rejects. Docker availability is not admission.
+- Full strict repository style: not run; explicit owner strict/changed scans passed.
+- Browser, database, migration, native Wasm and FsusUI API/UI lanes: no implementation
+  here affects these boundaries; no runtime acceptance is claimed for them.
+- New format-only equivalence/idempotence migration: not applicable to these new
+  behavioral rejection assertions. Prior format history is not newly certified.
+- Independent PR approval and merge/master recheck: pending global phase barrier.
+
+PR Change Contract validation (exit 0)
+node tools/governance/check-change-contract.mjs --range origin/master..HEAD
+node tools/governance/check-change-contract.mjs --github-event /workspace/scratch/chain-3540/pr-event.json
+  Commit-range and fetched PR-body validation passed at the single test commit.
+  release-note:none; test-only primary classifications unchecked as required.
+  The evidence-only follow-up must be revalidated at its final remote SHA.
+
+Clean source inventory confirmation after reverting all task-generated NuGet locks
+PATH=/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin:$PATH node tools/test/generate-correctness-attempt-producers.mjs --check
+  Exit 1: config/testing/correctness-attempt-producers.json is stale.
+  clean-producer-inventory.log. This confirms that the pinned fast refusal is
+  pre-existing canonical inventory drift rather than task restore modifications.
+  The generator and its eight named current source bindings were not changed here.
+  Only --check was used; no candidate-side generated authority or policy was promoted.
+
+Remote checks
+PR #3817 statusCheckRollup is empty at the test commit. No remote CI pass or
+independent review is claimed. A missing check does not satisfy acceptance.
+
+Clean source static-boundary confirmation (exit 0)
+PATH=/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin:$PATH node tools/test-matrix/release-final-static-boundary.mjs --check
+  PASS: finalizer-only graph and sealed command allowlist; pinned-static-boundary.log.
+  Current execution target authority is valid under its actually sealed Node parser.
+  The remaining fast blocker is the independently stale correctness-attempt producer
+  inventory. This pass does not replace Docker admission, matrix lanes or qualification.
+
+Final origin/master fetch remained 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8.
+No runtime, generated contract, source lock, authority, checker, baseline or policy
+changes remain in the working tree. This follow-up commit contains only historical
+review/evidence text and raw logs for the implementation/test candidate named above.
+
+Focused output preservation
+The focused failure stream includes whitespace-only lines emitted by Node's native
+assertion reporter. It is archived losslessly as focused-tests.log.gz so Git whitespace
+checks remain meaningful for text changes without altering the original probe output.
+Decompress with gzip -dc artifacts/governance/openapi-digest-boundary/focused-tests.log.gz.
+Uncompressed focused stream SHA-256: 22d1a4788be624d3d63388797cc477a974b3efff9defa02dec0c6e7d9c67ccd5
+
+Raw evidence SHA-256 (computed locally from the files in this directory)
+changed-style.log: 243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11
+clean-producer-inventory.log: 8cbd38056f0544bf94651af2285c265a14de0eb8f10c37e34505c285deba4e09
+fact-tests.log: d17ad248fbe97c2f97961b16641d8d0b9e4dde39a4c1370309de1a09f4b4672e
+focused-tests.log.gz: 0b911460ee9f185f93d77ebd864961eb6594204ffc33fb601f45c6e8e9abf3dc
+locked-restore.log: 428fa228b293ba3b7a06555e97ac4658a7c87404de9ad51403dad1fa9593ed7f
+node-24.19-static-boundary.log: 9d522e4cf40b1b9303cf5c9aed0e949f32b953365f5d5776d3f17f1136c5bbf2
+openapi-sync.log: 5f5d21504357a66c0d29964bc605aa7a742e76791d6e3549dcb34ed972292d99
+pinned-fast.log: d9a5a2955ebc3ff8d75abb3ca31d483f67392abe8e7dcb364beded4099b3c047
+pinned-static-boundary.log: b1174b9f63104a76ba4081c762e0d017c783aababf437a9eeb86108fd7730ad2
+pr-contract.log: 493475e0caecd2c478be85ce8e7ed98d0b6e3e93d9e8b8c924b79576f6561f3b
+provider-controls.log: 4617a4f7b23ed8c4b1cc9dd876950011eae3eb2909918149bdf32982f121eeb6
+source-seal.txt: 3a9d7b9593d8d8bd8d36cef4343fff5c3d43ab5ccac7a11d4ec3eec780fb3c4c
+strict-style.log: e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7
+style-controls.log: ffd4c949e851da81c8998044d5325b48bc0870ff5c7c66a2741191db32f65f8a
