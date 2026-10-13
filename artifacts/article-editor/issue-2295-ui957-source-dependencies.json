@@ -1,6 +1,6 @@
 {
     "kind": "ordinary source WIP dependency record; no authority/receipt/qualification",
-    "mainBase": "54e354ebd4c4d4f2478562e10665b532fcd09ef0",
+    "mainBase": "7bb7bb7698a3640b8e2a7acd8af5a7115e220cda",
     "UI": {
         "head": "903db034a14254fb162f51b9c25d3703ea20ccb5",
         "parents": [
@@ -45,8 +45,8 @@
         "PR": 4288,
         "productionCommit": "78a6b8627f56a238e55af3dba851cdbfe66c9d94",
         "DocBlob": "adb0ca27c62fa20f971d581c61bc35b6730c09f1",
-        "sourceReview": "Bounded source accepted per parent; NOT consumed in this application-end checkpoint"
+        "sourceReview": "Bounded source accepted per parent; exact Doc source consumed in separate dependency intake; Main cohort activation remains separate"
     },
-    "consumer": "Actual UI957 application-end reserve/inspect/hasEnded/retry on the original pending entry, reservation, custody, and lease; SDK cohort consumption remains a separate stage",
+    "consumer": "UI957 actual application-end consumer inherited unchanged; SDK cohort owner source intake only, actual Main cohort/anchor/File/original-lease consumption follows separately",
     "runtime": "ALL HOLD/UNRUN; no product imports/evaluation/build/publication/authority refresh"
 }

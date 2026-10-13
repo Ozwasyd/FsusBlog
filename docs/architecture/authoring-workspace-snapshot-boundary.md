@@ -1819,3 +1819,24 @@ but is not consumed here. Actual cohort/anchor/File/original-lease continuity is
 a separate stage; ordinary context/stale/rebase/replacement remain unchanged. c50 and accepted54e354 checkpoints stay fixed. Every runtime,
 import/test/collection/list/discovery/native/security/privacy/receipt/race/
 backuprestore/IME and qualification hold remains.
+
+
+## Original SDK Cohort Source Intake
+
+A separate successor preserves Main application-end checkpoint7bb7bb769 unchanged
+and imports only the original SDK4288 ArticleDocumentContextAdapter source from
+78a6b8627f56a238e55af3dba851cdbfe66c9d94, exact Doc blob
+adb0ca27c62fa20f971d581c61bc35b6730c09f1. Its native-backed cohort membership,
+continuation, exact published-event and SDK producer-frame bindings do not change
+ordinary context/current/stale predicates or issue replacement leases. The
+notification/retirement exclusion and final native proof follow the reviewed
+original source. No donor authority, fixture, schema, generated output or claimed
+runtime evidence is imported.
+
+This owner intake does not yet activate Main cohort consumption. That separate
+consumer must use the original ordered capture entries, File, anchor, pending
+handle and same original lease; preserve original started envelopes; suppress
+only exact private source publication re-notification; and retain genuine
+cleanup debt. Physical application-ended and SDK cohort source acceptance do not
+settle upload/network tasks or grant complete resource/readiness qualifications.
+All existing execution HOLD/UNRUN remains.
