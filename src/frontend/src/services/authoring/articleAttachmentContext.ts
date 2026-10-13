@@ -1975,9 +1975,23 @@ export class ArticleAttachmentContextAdapter
             {
                 if (entry.nativeSdkCleanupPending)
                 {
-                    if (this.owner.cancelAttachmentRevisionTransition(entry.nativeTransition ?? entry.lease, reason) !== true)
+                    const transition = entry.nativeTransition;
+                    const lease = entry.lease;
+                    if (this.owner.cancelAttachmentRevisionTransition(transition ?? lease, reason) !== true)
                     {
-                        throw new Error('attachment-native-sdk-cleanup-unconfirmed');
+                        // Only the original SDK's actual withdrawal pair confirms a false cancel.
+                        // The lease overload covers a token that never escaped genuine reserve.
+                        const withdrawn = transition
+                            ? this.owner.hasWithdrawnAttachmentRevisionTransition(transition, lease)
+                            : this.owner.hasWithdrawnAttachmentRevisionTransition(lease);
+                        if (!withdrawn)
+                        {
+                            throw new Error('attachment-native-sdk-cleanup-unconfirmed');
+                        }
+                    }
+                    if (entry.nativeTransition !== transition || entry.lease !== lease)
+                    {
+                        throw new Error('attachment-native-sdk-cleanup-binding-changed');
                     }
                     entry.nativeSdkCleanupPending = false;
                     entry.nativeTransition = undefined;
