@@ -1,6 +1,5 @@
 import type { PublicPageSeed } from '@/public-renderers/pageSeed';
 import { PUBLIC_RENDERER_VERSION } from '@/public-renderers/publicEntryCore';
-import type { PublicAotBootstrapKind } from '@/public-renderers/publicPayloadTypes';
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase';
 
 export type PublicRouteSeedKind = PublicPageKind;
