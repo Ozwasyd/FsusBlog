@@ -292,9 +292,10 @@ async function compressImageFileOwned(
     canvas.height = height;
 
     const contextOptions = { alpha: options.preserveAlpha };
-    const getContext = canvas.getContext.bind(canvas);
+    const getContext: (contextId: '2d', options: CanvasRenderingContext2DSettings) => CanvasRenderingContext2D | null = canvas.getContext;
+    const readContext = getContext.bind(canvas);
     owner.ensureActive();
-    const context = getContext('2d', contextOptions);
+    const context = readContext('2d', contextOptions);
     if (!context)
     {
         throw createAppError(AppErrorCode.InfraFailure, 'canvas_context_unavailable');
