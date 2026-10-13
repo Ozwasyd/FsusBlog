@@ -1504,3 +1504,32 @@ resource/ready/recovery/eviction and runtime/native/receipt/IME holds remain ope
 This source depends explicitly on the isolated UI terminal draft based on accepted
 UI914, while UI943 atomic retry remains separate. Static checks use the exact local
 UI terminal root; no package is published or default source authority refreshed.
+
+### Original physical native staging producer intake
+
+The separate physical staging prerequisite consumes accepted original Root source
+`1612fb9aee0b9e4a3e2e50698c0e544c6b8f02ee`.
+`articleNativeRecreationStaging.ts` and its layout-context API retain exact donor
+postimages. The original Write staging implementation retains the newer Main
+terminal observer attribute. Frame takes the exact original staging holder,
+first/latest failure handling, real cleanup and borrowed-lease methods additively;
+its newer mounted-authority/startup admission and original resolver join remain.
+The entire current Writer and original native terminal adapter source are unchanged.
+No Registry/Group, Auth, SDK Doc, typography, frozen authority or generated
+closure is replaced by the donor's older branch tree.
+
+The original production slot mounts a genuinely new native leaf, obtains its
+original physical birth/lifetime, and borrows actual Auth/membership/Writer/native
+subscriptions into one staging lease. Withdrawal occurs before callbacks; actual
+failed handles, raw first/latest causes including undefined, and pending cleanup
+remain on the original holder. Successful cleanup clears real debt without
+restoring withdrawn authority or erasing failure history. The staging lease owns
+only these real subscriptions/tokens and never disposes the target editor.
+
+This intake is a physical prerequisite, not the Main handover composition. The
+subsequent path must use the original source offer/principal, this real staging
+lease, original native adoption/receiving cleanup, staging release, and ordinary
+Root preparation/readmission of that SAME target. It cannot clone native history
+or issue a new document/principal authority. Full references/resources/readiness,
+restoration and runtime/native/IME/receipt qualification remain incomplete and
+unrun. Main Frame/Write reconciliation remains independently reviewable.
