@@ -37,10 +37,8 @@ export function validateCorrectnessAttemptMigration(root = defaultRoot)
     const replay = validateReplayAuthority(readJson(root, replayInventoryFile));
     const envelope = readJson(root, envelopeCatalogFile);
     const envelopeIds = new Set((envelope.producers ?? []).map((producer) => producer.producerId));
-    if (inventory.entries.length !== 225)
-    {
-        throw new Error(`correctness attempt migration must cover exactly 225 producers, got ${inventory.entries.length}`);
-    }
+    // The inventory verifier above binds the complete current canonical roster,
+    // including every entry and source digest; a historical count is not authority.
     for (const entry of inventory.entries)
     {
         if (!entry.producerId.startsWith('physical:'))
