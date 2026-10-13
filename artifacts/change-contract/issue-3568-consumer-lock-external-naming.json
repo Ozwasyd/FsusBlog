@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "Preserve NuGet serialized version, dependencies, requested, resolved and contentHash keys plus third-party package identities in these exact package-manager locks; internal business spellings cannot replace the external locked-restore schema."
+        }
+    ]
+}

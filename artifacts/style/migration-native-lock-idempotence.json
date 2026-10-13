@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "6888d5f4ee266fef3aeb4e81214c8010d65cc24d",
+    "formatter": {
+        "identity": "native-tooling-style",
+        "version": "v1",
+        "command": "node tools/style/check-native-tooling-style.mjs --operation format --mode changed --domain all --write --file src/migration/packages.lock.json"
+    },
+    "paths": [
+        "src/migration/packages.lock.json"
+    ],
+    "firstPassTreeSha256": "191689c7ec837c1fb7b395d0d8e98cb7405ad3c25eca236df88a2c4491b012de",
+    "secondPassTreeSha256": "191689c7ec837c1fb7b395d0d8e98cb7405ad3c25eca236df88a2c4491b012de",
+    "idempotent": true
+}
