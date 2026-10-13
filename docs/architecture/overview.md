@@ -109,15 +109,18 @@ a public node ID is inadmissible as an anchor identity.
 The closed cause registry admits internal link, relation inspector, Rail, Quick
 Switcher, future global search, explicit anchor reveal and recent-closed restore
 visits. Automatic activation/restore/refresh and caret/scroll/input events have
-no visit cause. Same-action route-to-anchor settling shares one sequence and
-coalesces only the same document, revisions, groups and cause within 500 ms;
+no visit cause. Same-action route-to-anchor settling preserves its user action
+timestamp and sequence and coalesces only the same document, revisions, groups
+and cause within 500 ms of the action, using a separate recording timestamp;
 an existing anchor cannot be replaced by another anchor in the same action.
 A rapid identical semantic target/cause coalesces within that window. Distinct
 anchors form distinct visits. Every new visit truncates the forward branch and
 evicts oldest entries above capacity; entry IDs survive coalescing.
 
-Commands carry exact scope, expected history revision, increasing command
-sequence and idempotency coordinates. An identical retry within the bounded
+Append/coalesce admits current visits only; an unavailable attempt cannot move
+the cursor by masquerading as a completed user visit. Commands carry exact
+scope, expected history revision, increasing command sequence and idempotency
+coordinates. An identical retry within the bounded
 fingerprint window returns a replay receipt with no executable target. Conflicts
 fail closed; older commands outside that window fail CAS or sequence checks.
 User sequence/time watermarks also reject delayed visit settling after branch
@@ -152,6 +155,15 @@ recent-restore provenance remain upstream obligations; replay cannot certify
 them. Closed validators reject added URL/title/heading/DOM/offset or recent
 payload fields. The module exposes no event subscriptions, component stacks,
 browser-history replacement or persistence hooks.
+
+The ordinary static source control
+`node tools/frontend/check-authoring-navigation-history-source.mjs` consumes the
+canonical in-memory frontend source index and writes no receipt or qualification
+artifact. It checks the named history owner, required exported boundaries,
+canonical type-only imports, fixed digest imports, browser/event/activation
+calls, forbidden payload fields and named local navigation stacks. It does not
+replace independent runtime or mutation coverage, and is not attached to the
+held test matrix in this source slice.
 
 This source slice uses type-only imports from the actual Group and Anchor
 contracts. Their canonical sources must land before the master application can

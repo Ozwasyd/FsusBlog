@@ -28,7 +28,7 @@ export const authoringNavigationPolicy = Object.freeze({
     retention: 'current-session',
     reload: 'discard',
     persistence: 'none',
-    sameAction: 'same-sequence-and-target-route-to-anchor',
+    sameAction: 'same-action-time-sequence-and-target-route-to-anchor-within-window',
     rapidRepeat: 'same-document-anchor-groups-cause-and-revision',
     branch: 'truncate-forward-on-user-visit',
     cancellation: 'keep-cursor-and-invalidate-pending-intent',
@@ -81,6 +81,7 @@ export interface AuthoringNavigationVisit {
     userActionId: string;
     userSequence: number;
     userInitiatedAt: number;
+    recordedAt: number;
     validity: AuthoringNavigationValidity;
     recentRestore: AuthoringNavigationRecentRestoreRef | null;
 }
@@ -199,7 +200,7 @@ const validityStatuses: readonly AuthoringNavigationValidityStatus[] = [
     'anchor-missing', 'anchor-partial', 'group-missing', 'unknown'
 ];
 const visitKeys = ['entryId', 'identity', 'documentContext', 'anchor', 'owningGroupId', 'targetGroupId',
-    'cause', 'userActionId', 'userSequence', 'userInitiatedAt', 'validity', 'recentRestore'];
+    'cause', 'userActionId', 'userSequence', 'userInitiatedAt', 'recordedAt', 'validity', 'recentRestore'];
 const stateKeys = ['schema', 'scope', 'capacity', 'revision', 'entries', 'cursor', 'lastCommandSequence',
     'lastUserSequence', 'lastUserInitiatedAt', 'pending', 'processed', 'contentDigest'];
 const commonCommandKeys = ['schema', 'scope', 'commandId', 'idempotencyKey', 'commandSequence', 'expectedRevision', 'kind'];
@@ -217,7 +218,9 @@ function exactKeys(value: unknown, keys: readonly string[]): value is Record<str
 {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
         && Object.getPrototypeOf(value) === Object.prototype
-        && Reflect.ownKeys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+        && Reflect.ownKeys(value).length === keys.length
+        && keys.every(key => Object.hasOwn(value, key)
+            && Object.hasOwn(Object.getOwnPropertyDescriptor(value, key) ?? {}, 'value'));
 }
 
 function isRef(value: unknown): value is string
@@ -233,6 +236,13 @@ function isDigest(value: unknown): value is string
 function isSequence(value: unknown): value is number
 {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isBoundedDenseArray(value: unknown, capacity: number): boolean
+{
+    return Array.isArray(value) && value.length <= capacity
+        && Reflect.ownKeys(value).length === value.length + 1
+        && Array.from({ length: value.length }, (_, index) => Object.hasOwn(value, index)).every(Boolean);
 }
 
 function isNullableRef(value: unknown): boolean
@@ -301,7 +311,8 @@ function isVisit(value: unknown, scope: AuthoringNavigationScope, sealed = false
         || !isRef(value.owningGroupId) || !isRef(value.targetGroupId)
         || !authoringNavigationVisitCauses.includes(value.cause as AuthoringNavigationVisitCause)
         || !isRef(value.userActionId) || !isSequence(value.userSequence) || value.userSequence === 0
-        || !isSequence(value.userInitiatedAt) || !isValidity(value.validity)
+        || !isSequence(value.userInitiatedAt) || !isSequence(value.recordedAt)
+        || value.recordedAt < value.userInitiatedAt || !isValidity(value.validity)
         || !(value.anchor === null || isAnchor(value.anchor)))
     {
         return false;
@@ -350,6 +361,11 @@ export function calculateAuthoringNavigationDigest(value: unknown): string
         if (item !== null && typeof item === 'object' && Object.getPrototypeOf(item) === Object.prototype)
         {
             const record = item as Record<string, unknown>;
+            if (Reflect.ownKeys(record).length !== Object.keys(record).length
+                || Object.keys(record).some(key => !Object.hasOwn(Object.getOwnPropertyDescriptor(record, key) ?? {}, 'value')))
+            {
+                throw new Error('authoring-navigation-hidden-or-accessor-field');
+            }
             return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${canonical(record[key])}`).join(',')}}`;
         }
         throw new Error('authoring-navigation-non-semantic-data');
@@ -417,12 +433,15 @@ export function verifyAuthoringNavigationHistoryState(value: unknown): value is 
         if (!exactKeys(value, stateKeys) || value.schema !== authoringNavigationHistorySchema || !isScope(value.scope)
             || !isSequence(value.capacity) || value.capacity < 1 || value.capacity > authoringNavigationPolicy.maxEntries
             || !isSequence(value.revision) || !isSequence(value.lastCommandSequence)
+            || value.lastCommandSequence < value.revision
             || !isSequence(value.lastUserSequence) || !isSequence(value.lastUserInitiatedAt)
             || !Array.isArray(value.entries) || value.entries.length > value.capacity
             || !Number.isSafeInteger(value.cursor) || Number(value.cursor) < -1 || Number(value.cursor) >= value.entries.length
             || (value.entries.length === 0) !== (value.cursor === -1)
-            || !Array.isArray(value.processed) || value.processed.length > authoringNavigationPolicy.commandWindow
-            || !validSeal(value))
+            || !Array.isArray(value.processed)
+            || value.processed.length !== Math.min(value.revision, authoringNavigationPolicy.commandWindow)
+            || value.revision === 0 && (value.lastCommandSequence !== 0 || value.lastUserSequence !== 0
+                || value.lastUserInitiatedAt !== 0 || value.entries.length !== 0))
         {
             return false;
         }
@@ -445,12 +464,13 @@ export function verifyAuthoringNavigationHistoryState(value: unknown): value is 
         }
         const commandIds = new Set<string>();
         const keys = new Set<string>();
-        let previousRevision = 0;
+        let previousRevision = value.revision - value.processed.length;
+        let lastCommandId: string | null = null;
         for (const processed of value.processed)
         {
             if (!exactKeys(processed, ['commandId', 'idempotencyKey', 'commandDigest', 'revisionAfter'])
                 || !isRef(processed.commandId) || !isRef(processed.idempotencyKey) || !isDigest(processed.commandDigest)
-                || !isSequence(processed.revisionAfter) || processed.revisionAfter <= previousRevision
+                || !isSequence(processed.revisionAfter) || processed.revisionAfter !== previousRevision + 1
                 || processed.revisionAfter > Number(value.revision)
                 || commandIds.has(processed.commandId) || keys.has(processed.idempotencyKey))
             {
@@ -459,6 +479,7 @@ export function verifyAuthoringNavigationHistoryState(value: unknown): value is 
             commandIds.add(processed.commandId);
             keys.add(processed.idempotencyKey);
             previousRevision = processed.revisionAfter;
+            lastCommandId = processed.commandId;
         }
         if (value.revision === 0 ? value.processed.length !== 0 : previousRevision !== value.revision)
         {
@@ -469,6 +490,7 @@ export function verifyAuthoringNavigationHistoryState(value: unknown): value is 
             const pending = value.pending;
             if (!exactKeys(pending, ['intentRef', 'entryId', 'entryDigest', 'fromCursor', 'toCursor'])
                 || !isRef(pending.intentRef) || !isRef(pending.entryId) || !isDigest(pending.entryDigest)
+                || lastCommandId !== pending.intentRef
                 || pending.fromCursor !== value.cursor || !isSequence(pending.toCursor)
                 || Math.abs(pending.toCursor - Number(value.cursor)) !== 1)
             {
@@ -481,7 +503,7 @@ export function verifyAuthoringNavigationHistoryState(value: unknown): value is 
                 return false;
             }
         }
-        return true;
+        return validSeal(value);
     }
     catch
     {
@@ -515,9 +537,14 @@ function canCoalesce(entry: AuthoringNavigationEntry | undefined, visit: Authori
     {
         return false;
     }
-    const sameAction = entry.userActionId === visit.userActionId && entry.userSequence === visit.userSequence;
-    return sameAction ? entry.anchor === null || same(entry.anchor, visit.anchor)
-        : visit.userSequence > entry.userSequence && same(entry.anchor, visit.anchor);
+    if (entry.userActionId === visit.userActionId)
+    {
+        return entry.userSequence === visit.userSequence && entry.userInitiatedAt === visit.userInitiatedAt
+            && visit.recordedAt >= entry.recordedAt
+            && visit.recordedAt - entry.userInitiatedAt <= authoringNavigationPolicy.coalesceWindowMs
+            && (entry.anchor === null || same(entry.anchor, visit.anchor));
+    }
+    return visit.userSequence > entry.userSequence && same(entry.anchor, visit.anchor);
 }
 
 function validityIsFresh(previous: AuthoringNavigationValidity, next: AuthoringNavigationValidity): boolean
@@ -608,7 +635,8 @@ export function applyAuthoringNavigationCommand(input: AuthoringNavigationHistor
             {
                 return reject('rejected-sequence');
             }
-            if (command.kind === 'coalesce' && !coalesce
+            if (visit.validity.status !== 'current'
+                || (command.kind === 'coalesce' || current?.userActionId === visit.userActionId) && !coalesce
                 || current && coalesce && !validityIsFresh(current.validity, visit.validity)
                 || entries.some(entry => entry.entryId === visit.entryId && (!coalesce || entry.entryId !== current.entryId)))
             {
@@ -875,7 +903,8 @@ export function verifyAuthoringNavigationTransition(before: AuthoringNavigationH
                     {
                         status = 'rejected-sequence';
                     }
-                    else if (command.kind === 'coalesce' && !coalesces
+                    else if (visit.validity.status !== 'current'
+                        || (command.kind === 'coalesce' || current?.userActionId === visit.userActionId) && !coalesces
                         || current && coalesces && !validityIsFresh(current.validity, visit.validity)
                         || before.entries.some(entry => entry.entryId === visit.entryId && (!coalesces || entry.entryId !== current.entryId)))
                     {
@@ -975,7 +1004,8 @@ export function verifyAuthoringNavigationReplay(scope: AuthoringNavigationScope,
     commands: readonly AuthoringNavigationCommand[], transitions: readonly AuthoringNavigationTransition[],
     expectedFinalDigest: string): boolean
 {
-    if (commands.length !== transitions.length || commands.length > 1024 || !isDigest(expectedFinalDigest))
+    if (!isBoundedDenseArray(commands, 1024) || !isBoundedDenseArray(transitions, 1024)
+        || commands.length !== transitions.length || !isDigest(expectedFinalDigest))
     {
         return false;
     }
@@ -984,7 +1014,8 @@ export function verifyAuthoringNavigationReplay(scope: AuthoringNavigationScope,
         let state = createAuthoringNavigationHistoryState(scope, capacity);
         for (let index = 0; index < commands.length; index += 1)
         {
-            if (!verifyAuthoringNavigationTransition(state, commands[index], transitions[index]))
+            if (!Object.hasOwn(commands, index) || !Object.hasOwn(transitions, index)
+                || !verifyAuthoringNavigationTransition(state, commands[index], transitions[index]))
             {
                 return false;
             }
