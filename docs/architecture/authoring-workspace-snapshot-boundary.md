@@ -1866,3 +1866,45 @@ owner, but the existing upload runtime's ordinary envelope guards still require
 separate consumer wiring. This reservation/anchor source stage is not complete
 upload, full settlement, resource or qualification acceptance. All HOLD/UNRUN
 remains, and application-end checkpoint7bb7bb769 is inherited pending review.
+
+
+## Original Upload Continuation Consumer
+
+The next isolated successor consumes fresh native-backed continuation in the
+existing upload runtime and ACK-time request adapter. The original File pointer,
+private pending handle, same document owner, original lease/envelope, current
+peer anchor and real source map must agree before the final SDK/native proof.
+The generic owned-intent observation keeps its ordinary stale result; its actual
+source-reference observation is used before that final proof, not as permission.
+A native cohort holder always takes this restricted route: null, revoked,
+in-flight or failed continuation cannot fall back to ordinary lease currentness.
+Generic/legacy admission retains its original strict envelope/context checks.
+
+Each runtime boundary and the ACK loan rechecks original custody through the
+same adapter. No caller-supplied Boolean callback, rewritten envelope, replacement
+lease, new job/File/history/body or hidden application-ended wait is introduced.
+The real upload/provider/queue settled futures remain independent of native and
+SDK completion. This consumer adds no settle call, full census, pause/zero/ready
+or recovery acknowledgment.
+
+Zero-execution preflight reads the original src/frontend/vitest.config.ts,
+vitest.shared.mjs, package scripts and tests/matrix.yml only. The existing full
+package entry is npm run test:unit:fast from src/frontend with the explicit local
+UI957 alias; it runs manifest synchronization, original HTML sink checks and the
+original complete Vitest unit config. The canonical matrix entry remains
+./tools/test.sh fast. Neither command, help/list/discovery, product import nor
+collection has run here. Parent confirmation of original entrances and ordinary
+cases is required before any execution; no alternate runner/config/filter exists.
+
+Ordinary source review cases, all UNRUN: original two/three-file capture with
+peer anchor shifts and unchanged started envelopes; same-original File/handle/
+lease after the first real publication; null/in-flight native continuation;
+wrong File pointer with identical metadata; copied/foreign handle or lease;
+ordinary equal-source update and unrelated edit; lost exact publication prefix;
+revocation inside map/anchor/admission readers; failed cohort acquisition and
+withdrawal; original ACK loan invalidation; raw undefined and caught cleanup
+reentry; genuine producer settled before native application ends. Original unit
+sources are articleAttachmentAcceptedCapture.test.ts, articleAttachmentContext.test.ts
+and articleDocumentContext.test.ts under tests/frontend/unit/authoring, plus
+composables/useImageUploadRuntime.test.ts in that unit tree. Existing tests are
+unchanged and do not themselves establish this new composed capability.

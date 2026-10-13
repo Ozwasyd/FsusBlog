@@ -79,6 +79,9 @@ export function requestArticleAttachmentUpload(input: ArticleAttachmentUploadReq
     {
         throw new Error('attachment_upload_original_file_unavailable');
     }
+    const originalBindingCurrent = (): boolean => attachmentOwner.hasNativeUploadCohort(intent)
+        ? attachmentOwner.readNativeUploadContinuation(intent, file, lease,
+            attemptBinding.documentOwner, attemptBinding.getBinding()) !== null : lease.isCurrent();
     const envelope = lease.envelope;
     if (batch.items[item.order] !== item || file.name !== item.name || file.type !== item.mimeType
         || file.size !== item.byteLength || intent.snapshot.task !== envelope
@@ -86,7 +89,7 @@ export function requestArticleAttachmentUpload(input: ArticleAttachmentUploadReq
         || intent.request.batchId !== batch.batchId || intent.request.itemId !== item.itemId
         || intent.request.documentIdentity.id !== batch.documentIdentity.id
         || intent.request.documentIdentity.epoch !== batch.documentIdentity.epoch
-        || !lease.isCurrent())
+        || !originalBindingCurrent())
     {
         throw new Error('attachment_upload_original_binding_unavailable');
     }
@@ -207,7 +210,7 @@ export function requestArticleAttachmentUpload(input: ArticleAttachmentUploadReq
                     // The ACK URL never substitutes for a genuine AssetId or provider acceptance.
                     throw new Error('attachment_upload_asset_result_unavailable');
                 }
-                if (!borrow.isCurrent() || !lease.isCurrent())
+                if (!borrow.isCurrent() || !originalBindingCurrent())
                 {
                     throw new Error('attachment_upload_provider_scope_revoked');
                 }

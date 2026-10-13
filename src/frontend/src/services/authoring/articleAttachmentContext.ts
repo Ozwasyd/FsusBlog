@@ -973,6 +973,13 @@ export class ArticleAttachmentContextAdapter
             && this.acceptedNativeCapture(entry)?.cohort?.token === token ? context : null;
     }
 
+    /** Restrictive routing only: an original cohort holder must never use generic admission. */
+    public hasNativeUploadCohort(handle: ArticleAttachmentPendingHandle): boolean
+    {
+        const entry = this.pendingHandles.get(handle);
+        return !!entry?.nativeCapture && !!this.acceptedNativeCapture(entry)?.cohort;
+    }
+
     /** Exact original File/handle/lease plus actual public map and fresh native-backed proof. */
     public readNativeUploadContinuation(handle: ArticleAttachmentPendingHandle, file: File,
         lease: ArticleDocumentTaskLease, documentOwner: ArticleDocumentContextAdapter,
@@ -990,6 +997,11 @@ export class ArticleAttachmentContextAdapter
         }
         // Map/retained readers run before the final original SDK/native proof.
         this.assertNativeSourceBinding(binding);
+        const observation = this.readOwnedIntent(handle, binding);
+        if (observation?.snapshot !== entry.snapshot || observation.sourceReferenced !== true)
+        {
+            return null;
+        }
         return this.nativeContinuation(entry);
     }
 
@@ -1019,7 +1031,7 @@ export class ArticleAttachmentContextAdapter
         {
             if (entry.nativeInput?.capture.batch === batch && entry.nativeInput.item === item
                 && entry.file === file && entry.nativeHandle && !entry.controller.signal.aborted
-                && !batch.signal.aborted && !item.signal.aborted && (entry.lease.isCurrent() || this.nativeContinuation(entry))
+                && !batch.signal.aborted && !item.signal.aborted && (this.acceptedNativeCapture(entry)?.cohort ? this.nativeContinuation(entry) : entry.lease.isCurrent())
                 && entry.nativeHandle.snapshot.task === entry.lease.envelope)
             {
                 return Object.freeze({ intent: entry.nativeHandle, lease: entry.lease });
@@ -1256,7 +1268,7 @@ export class ArticleAttachmentContextAdapter
                         ? this.nativeContinuation(entry) : null;
                     if (entry.nativeCompletion || entry.awaitingMap || entry.controller.signal.aborted
                         || this.pending.get(entry.intent.task.taskRef) !== entry
-                        || (!continuation && (!entry.lease.isCurrent()
+                        || (record.cohort ? !continuation : (!entry.lease.isCurrent()
                             || !this.owner.isCurrentContext(entry.snapshot.anchor.document)))
                         || this.owner.context.sourceRevision !== custody.beforeRevision || !custody.hasCustody())
                     {
