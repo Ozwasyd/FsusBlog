@@ -20,6 +20,14 @@ AtomicCommand wrapper. The full execution/plan/frozen items/request/registry/act
 site/authority/policy/source coordinates are bound by original `ArticleBulkDigest`.
 No Vault identity, bundle, table, result or receipt is cloned.
 
+All persisted opaque strings, including frozen member identities, nullable revision/
+lifecycle fields and item/side-effect/command/recovery strings, must contain lossless
+Unicode scalars before capture hashing, validation hashing and SQL staging. Unpaired
+UTF-16 surrogates are rejected, never normalized or replaced with U+FFFD. Valid
+surrogate pairs and nullable fields are preserved. Ordinary negative-control source
+is in ArticleBulkGroupResultUnicodeTests.cs; those tests remain UNRUN under the
+current runtime/test execution hold.
+
 The result row is insert-only through this store. Identical replay preserves the
 original row; another payload for the same identity fails. Recovery observations
 append under an original-row lock with ordinal/previous-digest CAS and immutable

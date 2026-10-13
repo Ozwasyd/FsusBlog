@@ -55,6 +55,9 @@ internal static class ArticleBulkGroupResultStorageContract
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(plan);
+        ImmutableArray<ArticleBulkPlanItem> frozenItems = [.. plan.Items];
+        RequireLosslessRequest(request);
+        RequireLosslessFrozenItems(frozenItems);
         plans.ValidateIntegrity(plan);
         string expectedExecution = ArticleBulkDigest.Of(new
         {
@@ -82,7 +85,7 @@ internal static class ArticleBulkGroupResultStorageContract
             })
             || !IsDigest(request.AdmissionAuthorityReceiptDigest))
             throw new ArticleBulkContractException("article-bulk.result-binding-invalid");
-        var binding = new ArticleBulkGroupResultBinding(groupIdempotencyKey, request, [.. plan.Items], string.Empty);
+        var binding = new ArticleBulkGroupResultBinding(groupIdempotencyKey, request, frozenItems, string.Empty);
         return binding with
         {
             ContentDigest = ArticleBulkDigest.Of(binding)
@@ -92,6 +95,9 @@ internal static class ArticleBulkGroupResultStorageContract
     internal static ArticleBulkStoredCommandReference CaptureCommand(
         ArticleBulkItemReceipt item, ArticleLifecycleTransitionWriter.Result actual)
     {
+        RequireLosslessItems([item]);
+        RequireLossless(actual.TransitionId, actual.ContentDigest, actual.Outbox.EventId,
+            actual.AuditChainId, actual.AuditRecordHash);
         if (actual.ArticleId.ToString(CultureInfo.InvariantCulture) != item.ArticleId
             || actual.Outbox.AggregateId != actual.ArticleId
             || item.ContentDigest != ArticleBulkExecutionFramework.SealItemReceipt(item).ContentDigest
@@ -105,6 +111,9 @@ internal static class ArticleBulkGroupResultStorageContract
     internal static void ValidateBinding(ArticleBulkGroupResultBinding binding)
     {
         ArticleBulkExecutionRequest request = binding.Request;
+        RequireLossless(binding.GroupIdempotencyKey, binding.ContentDigest);
+        RequireLosslessRequest(request);
+        RequireLosslessFrozenItems(binding.FrozenItems);
         if (!IsDigest(binding.GroupIdempotencyKey) || !IsDigest(binding.ContentDigest)
             || binding.ContentDigest != ArticleBulkDigest.Of(binding with
             {
@@ -133,6 +142,14 @@ internal static class ArticleBulkGroupResultStorageContract
     internal static void ValidateResult(ArticleBulkOriginalGroupResult value)
     {
         ValidateBinding(value.Binding);
+        RequireLossless(value.Schema, value.GroupReceiptDigest, value.ZeroWriteProofDigest, value.ContentDigest);
+        RequireLosslessItems(value.ItemReceipts);
+        if (value.Commands.IsDefault)
+            throw new ArticleBulkContractException("article-bulk.original-result-invalid");
+        foreach (ArticleBulkStoredCommandReference command in value.Commands)
+            RequireLossless(command.ArticleId, command.ItemReceiptDigest, command.CanonicalCommandReceiptDigest,
+                command.TransitionId, command.RevisionContentDigest, command.OutboxEventId,
+                command.AuditChainId, command.AuditRecordHash);
         if (value.Schema != ResultSchema || value.RecordedAtUtc.Offset != TimeSpan.Zero || !Enum.IsDefined(value.OriginalOutcome)
             || value.ContentDigest != ArticleBulkDigest.Of(value with
             {
@@ -164,6 +181,11 @@ internal static class ArticleBulkGroupResultStorageContract
 
     internal static void ValidateObservation(ArticleBulkOriginalGroupResult original, ArticleBulkStoredRecoveryObservation value)
     {
+        ValidateBinding(original.Binding);
+        RequireLossless(value.Schema, value.OriginalResultDigest, value.PreviousObservationDigest, value.ContentDigest,
+            value.Facts.ExecutionIdentityDigest, value.Facts.PlanDigest, value.Facts.FrozenSetDigest,
+            value.Facts.GroupReceiptDigest, value.Facts.ZeroWriteProofDigest, value.Facts.AuthorityObservationDigest);
+        RequireLosslessItems(value.Facts.ItemReceipts);
         if (value.Schema != ObservationSchema || value.ObservationId == Guid.Empty
             || value.Ordinal is < 1 or > MaxObservationOrdinal || value.ObservedAtUtc.Offset != TimeSpan.Zero
             || value.OriginalResultDigest != original.ContentDigest || !IsDigest(value.PreviousObservationDigest)
@@ -210,6 +232,65 @@ internal static class ArticleBulkGroupResultStorageContract
             throw new ArticleBulkContractException("article-bulk.result-reported-outcome-invalid");
     }
 
+    // Check original UTF-16 before hashing or JSON encoding: replacement would alias opaque identities.
+    private static void RequireLosslessRequest(ArticleBulkExecutionRequest request)
+        => RequireLossless(request.AttemptId, request.IdempotencyKey, request.PlanReference, request.PlanDigest,
+            request.RegistryDigest, request.OperationId, request.ParametersDigest, request.FrozenSetDigest,
+            request.ConfirmationDigest, request.AdmissionAuthorityReceiptDigest, request.Actor.UserId,
+            request.Actor.SiteId, request.Actor.AuthorityDigest, request.Source.Commit, request.Source.BuildDigest,
+            request.PolicyDigest, request.PermissionPolicyDigest, request.ExecutionIdentityDigest, request.ContentDigest);
+
+    private static void RequireLosslessFrozenItems(ImmutableArray<ArticleBulkPlanItem> items)
+    {
+        if (items.IsDefault)
+            throw new ArticleBulkContractException("article-bulk.result-items-invalid");
+        foreach (ArticleBulkPlanItem item in items)
+        {
+            RequireLossless(item.ArticleId, item.ReasonCode, item.ExpectedRevision, item.Lifecycle,
+                item.PermissionDigest, item.StateDigest, item.ProposedChangeDigest, item.ContentDigest);
+            if (item.DependencyDigests.IsDefault)
+                throw new ArticleBulkContractException("article-bulk.result-items-invalid");
+            foreach (string digest in item.DependencyDigests)
+                RequireLossless(digest);
+        }
+    }
+
+    private static void RequireLosslessItems(ImmutableArray<ArticleBulkItemReceipt> items)
+    {
+        if (items.IsDefault)
+            throw new ArticleBulkContractException("article-bulk.result-items-invalid");
+        foreach (ArticleBulkItemReceipt item in items)
+        {
+            RequireLossless(item.AttemptId, item.PlanDigest, item.RegistryDigest, item.OperationId, item.ArticleId,
+                item.ExpectedRevision, item.ObservedRevision, item.NewRevision, item.ReasonCode, item.CanonicalCommandOwner,
+                item.CanonicalCommandReceiptDigest, item.RetryIdentityDigest, item.ContentDigest);
+            if (item.SideEffects.IsDefault)
+                throw new ArticleBulkContractException("article-bulk.result-items-invalid");
+            foreach (ArticleBulkSideEffectReceipt effect in item.SideEffects)
+                RequireLossless(effect.Owner, effect.ReceiptDigest);
+        }
+    }
+
+    private static void RequireLossless(params string?[] values)
+    {
+        if (values.Any(static value => !IsLosslessUnicode(value)))
+            throw new ArticleBulkContractException("article-bulk.result-text-lossy");
+    }
+
+    private static bool IsLosslessUnicode(string? value)
+    {
+        if (value is null)
+            return true;
+        for (int index = 0; index < value.Length; index++)
+        {
+            if (!char.IsSurrogate(value[index]))
+                continue;
+            if (!char.IsHighSurrogate(value[index]) || ++index == value.Length || !char.IsLowSurrogate(value[index]))
+                return false;
+        }
+        return true;
+    }
+
     private static bool IsDigest(string? value)
         => value is { Length: 71 } && value.StartsWith("sha256:", StringComparison.Ordinal) && IsHex(value[7..], 64);
 
@@ -220,13 +301,6 @@ internal static class ArticleBulkGroupResultStorageContract
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length > max || value != value.Trim() || value.Any(char.IsControl))
             return false;
-        for (int index = 0; index < value.Length; index++)
-        {
-            if (!char.IsSurrogate(value[index]))
-                continue;
-            if (!char.IsHighSurrogate(value[index]) || ++index == value.Length || !char.IsLowSurrogate(value[index]))
-                return false;
-        }
-        return true;
+        return IsLosslessUnicode(value);
     }
 }

@@ -6,9 +6,10 @@
             "paths": [
                 "src/backend/Services/Articles/Bulk/ArticleBulkGroupResultStorageContracts.cs",
                 "src/backend/Services/Articles/Bulk/PostgresArticleBulkGroupResultStore.cs",
-                "src/migration/Definitions/ArticleBulkLifecycleResultMigrationDefinitions.cs"
+                "src/migration/Definitions/ArticleBulkLifecycleResultMigrationDefinitions.cs",
+                "tests/backend/Unit/ArticleBulkGroupResultUnicodeTests.cs"
             ],
-            "reason": "Preserve original Bulk request/configuration/actor-policy/digest and original PostgreSQL identifiers in the three managed source paths, conservatively governed by the trusted naming registry. This ordinary evidence introduces no production registration, physical schema application, permission, commit or qualification grant."
+            "reason": "Preserve original Bulk request/configuration/actor-policy/digest and original PostgreSQL identifiers in the managed storage, migration and unrun Unicode control source paths, conservatively governed by the trusted naming registry. This ordinary evidence introduces no production registration, physical schema application, permission, commit or qualification grant."
         }
     ]
 }
