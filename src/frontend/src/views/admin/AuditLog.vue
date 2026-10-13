@@ -474,6 +474,7 @@
 </template>
 
 <script setup lang="ts">
+import dayjs from 'dayjs';
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -533,7 +534,20 @@ const filters = reactive({
     severity: ''
 });
 const dateRange = ref<AuditDateRange>(null);
-// This picker has no value-format: keep its genuine Date pair and explicit clear boundary.
+// Without value-format, calendar selection emits Dates and valid manual edits emit Dayjs values.
+const normalizeAuditDate = (value: unknown): Date | null =>
+{
+    if (value instanceof Date)
+    {
+        return Number.isFinite(value.getTime()) ? value : null;
+    }
+    if (dayjs.isDayjs(value) && value.isValid())
+    {
+        const date = value.toDate();
+        return date instanceof Date && Number.isFinite(date.getTime()) ? date : null;
+    }
+    return null;
+};
 const updateAuditDateRange = (value: unknown): void =>
 {
     if (value === null || value === undefined || value === '')
@@ -543,9 +557,9 @@ const updateAuditDateRange = (value: unknown): void =>
     }
     if (Array.isArray(value) && value.length === 2)
     {
-        const from: unknown = value[0];
-        const to: unknown = value[1];
-        if (from instanceof Date && to instanceof Date && Number.isFinite(from.getTime()) && Number.isFinite(to.getTime()))
+        const from = normalizeAuditDate(value[0]);
+        const to = normalizeAuditDate(value[1]);
+        if (from !== null && to !== null)
         {
             dateRange.value = [from, to];
             return;
