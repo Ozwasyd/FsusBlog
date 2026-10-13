@@ -110,7 +110,7 @@ internal static class ArticleBulkGroupResultStorageContract
             {
                 ContentDigest = string.Empty
             })
-            || binding.FrozenItems.IsDefault || binding.FrozenItems.Length is < 1 or > MaxItems
+            || binding.FrozenItems.IsDefault || binding.FrozenItems.Length > MaxItems
             || binding.FrozenItems.Select(static item => item.ArticleId).Distinct(StringComparer.Ordinal).Count() != binding.FrozenItems.Length
             || request.ContentDigest != ArticleBulkDigest.Of(request with
             {
