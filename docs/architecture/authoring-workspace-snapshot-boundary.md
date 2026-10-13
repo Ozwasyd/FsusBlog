@@ -1598,3 +1598,52 @@ After SDK accepted publication returns, Main stores that original event and exac
 Actual successful SDK acceptance stores the historical SAME task envelope and transaction. Original lifecycle proof fields use actual event/result digests and preserve the original started context. SDK failure after lease finalization retains that real completed historical envelope with historical acceptance status, never fabricating an aborted completed lease or replacement completion. Original entry cleanup attempts SDK association cancellation, original lease cancellation where still running, actual File release and controller revocation independently. False/throw, including raw undefined, retains the SAME original pending entry as cleanup custody; only confirmed duties remove it. Completed cleanup-only rows cannot enter ordinary rebase/retry/new-lease paths. Public original-handle cleanup retry and inspection expose real pending duties. An SDK cancel false after failure is kept unconfirmed, not inferred as zero cleanup.
 
 Writer resource observation includes these real cleanup holders and the original Doc adapter's pending tasks; completed task publication never calls settle or confers full settlement. Existing full-resource/host/recovery/eviction/readiness and business-grant guards remain. The dedicated rich upload request adapter, real AssetId and complete original File/batch/item/intent/lease binding, own-work-only result/settled/cancel futures and absence of direct/indirect self-await are separate original-owner integration requirements. URL/void fulfillment is not business identity or completed cleanup. All runtime/security/privacy/receipt/race/backuprestore/IME qualifications remain held.
+
+
+## Original Rich Upload Request Boundary
+
+`requestArticleAttachmentUpload` in the dedicated
+`articleAttachmentUploadRequest` module is an unactivated request adapter for the
+original FsusUI rich attachment contract. Main must supply the actual admitted
+native File, batch/item, same pending intent and lease, configured upload runtime,
+and its own `requestProviderResult(completion)` producer. The adapter probes the
+accepted Main owner's actual `matchesCapturedFile` method; an older owner without
+that capability fails closed. It does not capture another job, issue a task lease,
+dispatch a native transaction, publish a Doc revision, or activate caller wiring.
+
+The adapter starts one original `requestUploadFile` with that File/options/binding.
+Inside the actual ACK-time bounded session loan it binds Main's returned original
+`MarkdownAttachmentConsumerRequest` and awaits only that provider's result. The
+returned rich result is the provider's original value, correlated with the native
+batch/item/document/revision; resolved content must carry its actual AssetId and
+the correlated ACK URL. Upload URL or Flow `Promise<void>` fulfillment cannot
+substitute for provider acceptance, native committed application, original Doc
+task completion, business reference receipt or asset release. Provider result,
+full-settled and cancellation-cleanup work must not await this request's or the
+upstream upload's futures, or native committed application that depends on its own
+rich result, directly or through async/then chains. Direct upstream-future identity
+cycles are refused; those checks do not establish indirect independence. Main's
+actual provider implementation must satisfy that separate consumer contract.
+
+The original upload and provider requests remain inspectable by their invocation
+owner. Full settlement is a separate Promise that waits for actual upload and
+provider full-settlement observations, closed provider acquisition, finished
+adapter execution and fulfilled original consumer cancellation cleanup. Failed or
+unobservable settlement/acquisition stays unresolved. Cancellation permanently
+records the first request before independently attempting both original owners;
+failed cleanup can be retried without repeating upload or provider creation, and
+raw failures including undefined remain separate from content result. Asynchronous
+cancel rejection is appended to the adapter's historical failure record before
+reconsidering settlement, with an explicit cause property even for undefined. A
+successful retry may replace the original UI binding's current cleanup slot, but
+cannot erase that history; historical failure alone does not prevent settlement
+after actual successful cleanup.
+
+The upload census has no authoritative complete numeric network/memory totals.
+The UI's six-number `inspectLocalResources` contract therefore explicitly throws
+`ArticleAttachmentUploadResourcesUnavailable`, carrying the actual upload census;
+the canonical FsusUI binding reports inspection unsupported. It never converts
+unknown network/shared-Wasm work or retained File state to zero. No checkpoint is
+offered. Main's private binding/provider hookup, full numeric resource capability
+and genuine receiver/native/SDK integration remain separate unresolved gates;
+this source adapter does not establish runtime or migration qualification.
