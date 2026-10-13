@@ -1,0 +1,23 @@
+{
+  "kind": "source-static-observations",
+  "qualification": false,
+  "sourceBase": "78a6b8627f56a238e55af3dba851cdbfe66c9d94",
+  "actualMainFailureSource": "67b63670d966cc6a337b44c6246508f9e19aea99",
+  "sourceBlob": "6c0fb4579b5577c6bb1d0c15221d9bd1004952ef",
+  "ui": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+  "proof": "same owner token+lease pair or exact original lease, registered only by successful real withdrawal after association acknowledgement and required task primitive confirmation",
+  "negative": "unknown/copied/foreign/mismatched/unconfirmed/newly rearmed pair stays false; no absence/terminal/global census inference",
+  "scope": "transition duty only; cohort/nativeend/producer/File/controller/settlement debts and raw history independent",
+  "compiler": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 231,
+    "afterDiagnostics": 231,
+    "added": [],
+    "removed": [],
+    "normalization": "header positions only; complete blocks/multiplicity"
+  },
+  "style": "original strict-full one source exit0/0 violations",
+  "ast": "parse0; ordinary currentness/completion-history/cohort cleanup/failure bodies unchanged",
+  "execution": "all counterexamples/tests/runtime/import/discovery/qualification HOLD/UNRUN"
+}
