@@ -838,6 +838,8 @@ interface ArticleDocumentAttachmentRevisionRecord {
     stage: 'reserving' | 'reserved' | 'publishing' | 'published' | 'accepting' | 'completed' | 'cancelled' | 'failed';
     invalidated: boolean;
     cancellationRequested: boolean;
+    taskCancellationConfirmed: boolean;
+    taskCompletionConfirmed: boolean;
     nativeWithdrawn: boolean;
     failure: { readonly firstCause: unknown; latestCause: unknown; } | null;
 }
@@ -1049,6 +1051,8 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     #attachmentRevisionTransition: ArticleDocumentAttachmentRevisionRecord | null = null;
     #attachmentRevisionCompletion: ArticleDocumentAttachmentRevisionRecord | null = null;
     #attachmentRevisionTokens = new WeakMap<ArticleDocumentAttachmentRevisionTransition, ArticleDocumentAttachmentRevisionRecord>();
+    #withdrawnAttachmentRevisionTokens = new WeakMap<object, ArticleDocumentTaskLeaseImpl>();
+    #withdrawnAttachmentRevisionLeases = new WeakMap<object, ArticleDocumentAttachmentRevisionTransition>();
     #attachmentCohort: ArticleDocumentAttachmentCohortRecord | null = null;
     #attachmentCohortTokens = new WeakMap<ArticleDocumentAttachmentRevisionCohort, ArticleDocumentAttachmentCohortRecord>();
     #attachmentCohortFailures = new WeakMap<ArticleDocumentAttachmentRevisionCohort,
@@ -1399,7 +1403,9 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         const taskPort = attachmentRevisionTaskPorts.get(lease)!;
         const record: ArticleDocumentAttachmentRevisionRecord = { token: opaqueToken, lease, custody, producer, taskPort,
             before: this.#current, originalEnvelope: taskPort.envelope(), association: null,
-            transaction: null, after: null, stage: 'reserving', invalidated: false, cancellationRequested: false, nativeWithdrawn: false, failure: null };
+            transaction: null, after: null, stage: 'reserving', invalidated: false, cancellationRequested: false,
+            taskCancellationConfirmed: false, taskCompletionConfirmed: false, nativeWithdrawn: false, failure: null };
+        this.#withdrawnAttachmentRevisionLeases.delete(lease);
         this.#attachmentRevisionTransition = record;
         this.#attachmentRevisionTokens.set(opaqueToken, record);
         attachmentRevisionTaskCancellations.set(lease, () =>
@@ -1886,6 +1892,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             {
                 throw new Error('article-document-attachment-revision-completion-refused');
             }
+            record.taskCompletionConfirmed = true;
             this.#assertRetainedAdmission();
             if (record.invalidated || record.failure || this.#current !== record.after
                 || record.taskPort.signal().aborted || !this.#hasAttachmentRevisionProvenance(record, 'committed', transaction))
@@ -1916,6 +1923,26 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
     }
 
+    /** Historical exact-token withdrawal only; absence, invalidation and other owners cannot attest it. */
+    public hasWithdrawnAttachmentRevisionTransition(originalLease: ArticleDocumentTaskLease): boolean;
+    public hasWithdrawnAttachmentRevisionTransition(token: ArticleDocumentAttachmentRevisionTransition,
+        originalLease: ArticleDocumentTaskLease): boolean;
+    public hasWithdrawnAttachmentRevisionTransition(tokenOrLease: ArticleDocumentAttachmentRevisionTransition | ArticleDocumentTaskLease,
+        originalLease?: ArticleDocumentTaskLease): boolean
+    {
+        const token = this.#withdrawnAttachmentRevisionLeases.get(tokenOrLease);
+        if (token)
+        {
+            return this.#withdrawnAttachmentRevisionTokens.get(token) === tokenOrLease
+                && (originalLease === undefined || originalLease === tokenOrLease)
+                && this.#attachmentRevisionTransition?.lease !== tokenOrLease;
+        }
+        const lease = this.#withdrawnAttachmentRevisionTokens.get(tokenOrLease);
+        return !!lease && this.#withdrawnAttachmentRevisionLeases.get(lease) === tokenOrLease
+            && originalLease === lease
+            && this.#attachmentRevisionTransition?.lease !== lease;
+    }
+
     /** Native association withdrawal and real original lease cancellation; never settlement. */
     public cancelAttachmentRevisionTransition(token: ArticleDocumentAttachmentRevisionTransition | ArticleDocumentTaskLease,
         reason = 'attachment-revision-transition-canceled'): boolean
@@ -1938,6 +1965,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             try
             {
                 record.taskPort.cancel(reason);
+                record.taskCancellationConfirmed = true;
             }
             catch (cause)
             {
@@ -2036,6 +2064,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         try
         {
             record.taskPort.cancel('attachment-revision-transition-failed');
+            record.taskCancellationConfirmed = true;
         }
         catch (cleanupCause)
         {
@@ -2161,7 +2190,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             }
             record.nativeWithdrawn = true;
         }
-        if (record.cancellationRequested && record.taskPort.envelope().status === 'running')
+        if (record.cancellationRequested && (!record.taskCancellationConfirmed || record.taskPort.envelope().status === 'running'))
         {
             throw new Error('article-document-attachment-revision-task-cancellation-pending');
         }
@@ -2170,6 +2199,14 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         if (this.#attachmentRevisionTransition === record)
         {
             this.#attachmentRevisionTransition = null;
+        }
+        // Reached only after real association withdrawal and any requested task cancellation.
+        // This does not confirm separate cohort, native-end, producer settlement or resource duties.
+        if (association && record.nativeWithdrawn
+            && (record.taskCancellationConfirmed || record.taskCompletionConfirmed))
+        {
+            this.#withdrawnAttachmentRevisionTokens.set(record.token, record.lease);
+            this.#withdrawnAttachmentRevisionLeases.set(record.lease, record.token);
         }
     }
 

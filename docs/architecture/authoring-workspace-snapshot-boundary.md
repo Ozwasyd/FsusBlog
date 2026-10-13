@@ -2005,3 +2005,24 @@ cancelled peer during roster construction before SDK reserve; entered reserve
 failure before token escape; actual already-withdrawn metadata versus a retained
 SDK holder; raw undefined and caught cleanup reentry; downstream ACK/settlement
 consumers preserve original File/handle/lease and do not treat content as settled.
+
+
+## Exact Original SDK Withdrawal Source Intake
+
+A successor of fixed Main4301 67b63670d966cc6a337b44c6246508f9e19aea99
+imports only accepted original SDK4302 0c98ff6b3b61d8726190e937d5aba46a6296be25
+Doc source, exact blob6c0fb4579b5577c6bb1d0c15221d9bd1004952ef. Its owner-local
+weak token/lease pairs record actual association withdrawal and confirmed required
+cancellation/completion; foreign/copied/unknown/mismatched or rearmed pairs and
+reserve failure before association capture receive no positive confirmation.
+Cancel semantics remain unchanged. This historical proof does not grant current
+permission, cohort cleanup, native end, producer settlement or full resources.
+
+Intake is a separate source commit; Main's false-cancel consumer follows in its
+own checkpoint. Original4301 history/cohort-peer cleanup and pre-call roster
+repairs are bounded-source accepted per parent; the entered-reserve token-removal
+P2 still requires actual Main consumption and composed review. Original4299/4300
+increments remain conditionally bounded-source accepted on that dependency. No
+donor evidence/authority artifacts, validator, aliases or complete-resource/ready
+guards are changed. All execution HOLD/UNRUN and independent physical alias
+UNVERIFIED remain.
