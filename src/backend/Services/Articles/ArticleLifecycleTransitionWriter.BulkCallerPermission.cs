@@ -118,9 +118,8 @@ public static partial class ArticleLifecycleTransitionWriter
             timeProvider, principal, ticket, sessions, session, sessionId, tokenHash, notBefore, expires, facts);
         RequireBulkCallerSources(state, observation, context);
         RequireBulkPersistedCallerCurrent(facts, tokenHash, timeProvider.GetUtcNow(), notBefore, expires);
-        // The original projection is the final validation callout. No new issuer or future lease follows it.
-        if (!sessions.IsCurrentSessionObservation(session, principal, cancellationToken))
-            throw BulkCallerPermissionFailure("original_session_changed");
+        RequireBulkCallerSessionAndJwtCurrent(sessions, session, principal, timeProvider,
+            notBefore, expires, cancellationToken);
         s_bulkCallerPermissions.Add(observation, state);
         cancellationToken.ThrowIfCancellationRequested();
         return observation;
@@ -163,8 +162,8 @@ public static partial class ArticleLifecycleTransitionWriter
             if (current != state._facts
                 || DecideBulkCallerPermission(current.IsRoot, current.Permissions, observation.OperationId) != observation.Decision)
                 throw BulkCallerPermissionFailure("persisted_permission_changed");
-            if (!state._sessions.IsCurrentSessionObservation(state._session, state._principal, cancellationToken))
-                throw BulkCallerPermissionFailure("original_session_changed");
+            RequireBulkCallerSessionAndJwtCurrent(state._sessions, state._session, state._principal,
+                state._timeProvider, state._tokenNotBeforeUtc, state._tokenExpiresAtUtc, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             Volatile.Write(ref state._validationState, 0);
         }
@@ -186,6 +185,25 @@ public static partial class ArticleLifecycleTransitionWriter
         return actual.Contains(operation.PermissionPolicy, StringComparer.Ordinal)
             ? BulkCallerPermissionDecision.OriginalWriteAndExplicitOperationPresent
             : BulkCallerPermissionDecision.ExplicitOperationPermissionAbsent;
+    }
+
+    /// <summary>
+    /// Final original session/JWT data check, shared by capture and locked revalidation.
+    /// Rechecks JWT time after the blocking projection read, before publishing/reusing custody.
+    /// Cannot enroll an observation or grant native/whole-set permission on its own.
+    /// </summary>
+    internal static void RequireBulkCallerSessionAndJwtCurrent(AdminSessionValidationService sessions,
+        AdminSessionValidationService.CurrentSessionObservation session, ClaimsPrincipal principal,
+        TimeProvider originalTimeProvider, DateTimeOffset tokenNotBeforeUtc, DateTimeOffset tokenExpiresAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (!sessions.IsCurrentSessionObservation(session, principal, cancellationToken))
+            throw BulkCallerPermissionFailure("original_session_changed");
+        // Waiting on the original projection gate may cross the independently retained JWT deadline.
+        DateTimeOffset now = originalTimeProvider.GetUtcNow();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (now < tokenNotBeforeUtc || now >= tokenExpiresAtUtc)
+            throw BulkCallerPermissionFailure("jwt_lifetime_not_current");
     }
 
     private static ArticleBulkOperation RequireBulkCallerOperation(string operationId)

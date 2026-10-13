@@ -75,8 +75,12 @@ opaque object with the same database, transaction, request and configuration.
 Private weak-key custody rejects fabricated/copied/foreign objects. It rereads
 actual native rows using `FOR SHARE OF ap,s` in that same transaction, requires
 exact original facts and decision, rechecks original ticket/principal/token/site/
-services/business-time identity, and finishes with actual original projection
-revalidation. Cancellation is checked after original/async reads and on the real
+services/business-time identity. Both capture and locked revalidation perform the
+actual original projection read, then reread that same original business clock
+and recheck the retained independent JWT not-before/expiry before enrolling the
+observation or restoring reusable state. Waiting on the projection gate cannot
+carry an expired JWT into a successful result merely because session deadlines
+remain valid. Cancellation is checked after original/async reads and on the real
 request abort token. Failure poisons the observation; it cannot refresh into a
 successful replacement. Concurrent revalidation is refused. The transaction owner
 retains the acquired share locks and owns their release; cleanup is no receipt.
@@ -86,7 +90,7 @@ creates a new ticket envelope per successful authenticate call using the origina
 handler's properties and principal. Envelope object identity is therefore not
 required. Exact original properties/principal identity, saved-token hash, scheme
 and lifetime fields are checked instead; copied/replaced facts still refuse.
-The internal ticket-fact comparison helper neither enrolls an observation nor
+The internal ticket-fact and final session/JWT comparison helpers neither enroll an observation nor
 authenticates a caller. Constructed test tickets cannot enter native observation
 custody through it.
 
@@ -109,7 +113,9 @@ side-effect feasibility or durable conclusion producers. Without the full origin
 facts the group remains unavailable/refused. No false bool wrapper, new issuer,
 admission digest, commit/abort/zero-write receipt or DI activation is added.
 
-Ordinary unit controls are source only, UNRUN and uncompiled. Actual JWT/request,
+Ordinary unit controls include the real original projection gate waiting across
+the independent JWT deadline with session deadlines still valid, at exact expiry
+and beyond. Those controls are source only, UNRUN and uncompiled. Actual JWT/request,
 native locks/permission drift, cancellation, repeated/interrupted flows, database,
 HTTP, security/privacy and frozen qualification remain HOLD. Static compilation
 or source checks do not accept these runtime boundaries. #3735/#3736/#3738 remain

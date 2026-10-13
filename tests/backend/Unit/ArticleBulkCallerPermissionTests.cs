@@ -1,12 +1,18 @@
+using System.Reflection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Contracts.Articles;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -129,5 +135,70 @@ public sealed class ArticleBulkCallerPermissionTests
         };
         properties.StoreTokens([new AuthenticationToken { Name = "access_token", Value = "ordinary-source-token" }]);
         return properties;
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public async Task OriginalProjectionWaitCannotCarryJwtAcrossItsOwnDeadline(int secondsAfterDeadline)
+    {
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var clock = new DeadlineClock(now);
+        const string token = "ordinary-deadline-source-token";
+        var projection = new AdminSessionProjection(new(128, 128, 1024 * 1024), clock);
+        projection.Apply(new("deadline-sid", 1, SHA256.HashData(Encoding.UTF8.GetBytes(token)), null,
+            now.AddMinutes(10), now.AddHours(1), 2, 4,
+            new(1, AdminSessionProjectionPrincipalStatus.Active, 3, 3)));
+        projection.MarkReady(4);
+        var sessions = new AdminSessionValidationService(projection, Substitute.For<IAdminSessionTouchScheduler>());
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+            new("admin_id", "1"), new("admin_sid", "deadline-sid")], "ordinary-source-control"));
+        var observation = await sessions.CaptureCurrentSessionObservationAsync(principal, token, CancellationToken.None);
+        Assert.NotNull(observation);
+        DateTimeOffset jwtExpiry = now.AddSeconds(1);
+        ArticleLifecycleTransitionWriter.RequireBulkCallerSessionAndJwtCurrent(sessions, observation,
+            principal, clock, now, jwtExpiry, CancellationToken.None);
+        object gate = typeof(AdminSessionProjection).GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(projection)!;
+        Exception? failure = null;
+        var worker = new Thread(() =>
+        {
+            try
+            {
+                ArticleLifecycleTransitionWriter.RequireBulkCallerSessionAndJwtCurrent(sessions, observation,
+                    principal, clock, now, jwtExpiry, CancellationToken.None);
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+        })
+        {
+            IsBackground = true
+        };
+        Monitor.Enter(gate);
+        try
+        {
+            worker.Start();
+            Assert.True(SpinWait.SpinUntil(() => (worker.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(2)));
+            // Real original projection lock blocks the production final check; no synthetic validator returns true.
+            clock.Advance(TimeSpan.FromSeconds(1 + secondsAfterDeadline));
+        }
+        finally
+        {
+            Monitor.Exit(gate);
+        }
+        Assert.True(worker.Join(TimeSpan.FromSeconds(2)));
+        Assert.True(sessions.IsCurrentSessionObservation(observation, principal, CancellationToken.None));
+        Assert.Equal("article_bulk_caller_permission_jwt_lifetime_not_current",
+            Assert.IsType<ArticleWriteValidationException>(failure).Code);
+    }
+
+    private sealed class DeadlineClock(DateTimeOffset now) : TimeProvider
+    {
+        private long _utcTicks = now.UtcTicks;
+        public override DateTimeOffset GetUtcNow() => new(Interlocked.Read(ref _utcTicks), TimeSpan.Zero);
+        internal void Advance(TimeSpan duration) => Interlocked.Add(ref _utcTicks, duration.Ticks);
     }
 }
