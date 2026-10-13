@@ -1,0 +1,27 @@
+# #2384 Quick Capture leaf source checkpoint
+
+This is an implementation handoff, not a current design authority, mounted product, valid UX acceptance receipt or claim that #2384 is complete. All runtime/mount/tests/discovery/import/security/privacy/receipt/UI qualification remains HOLD/UNRUN.
+
+## Exact source dependencies
+
+* This isolated branch starts at the actual #2382 recovery source `80e4991f04db352e71ce7d7eed6196c2a52c187f` (#4260). The leaf consumes its original ArticleCaptureInboxInput, ArticleCaptureRecoveryScope/RequestIdentity/StageResult/DiscoveryResult and describeArticleCaptureRequest. No recovery/journal file is copied or edited.
+* Original #2380 request/transport source `63b988c832249a32c65269c48e81e903e0db1c25` (#4256) is independently accepted for its bounded source. It is not merged into this recovery-based checkout; this leaf adds no duplicate wire or backend contract. Generated transport/context/route binding remains absent/unactivated and therefore actual Save/Open are unconditionally disabled.
+* #2382 discover is metadata-only and cannot provide restorable body. Its stage pins the original UUID/client revision/raw-input/digest before asynchronous protection; discardOwned is explicit local-only and retains unknown server outcome. This leaf invokes none of those side-effect methods. It freezes editing after a real stage result and never invents a new UUID, cancel/zero-write proof, saved result or success callback.
+* #2363 has the original backend planner/verifier, but no callable frontend verified Inbox-template plan interface was found; #2369 picker/management UI remains absent. Template starts unselected and its option is disabled. URL is disabled because the actual supported request has no URL receiver; no fetch or Markdown link fabrication is performed.
+* #1853 Rail and current authoring command projection/workspace router exist as separate navigation/command owners. No actual global Quick Capture command/mobile entry contribution interface or capture-specific verified open handoff is supplied in the checked source. Main/command registry/host/router are not edited and no abstract save/open wrapper is invented.
+
+## Consumer classification and authority
+
+Owner: FsusBlog product composition. Source classification: bounded-composition / ux-local, task leaf intended for a later public FsusUI overlay host. Input/control geometry, focus trap/return, touch targets and overlay behavior stay with FsusUI. No card, badge, decorative/AI surface, private selector, new FsusUI token or compatibility layer is added.
+
+Both fsusblog-design-conformance and the selected FsusUI fsusui-design-conformance Skills were read. Active environment requests local source (FSUSBLOG_USE_LOCAL_FSUSUI=1, FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI); original fsusui-root resolver/config source confirms this override. The linked FsusUI HEAD was `8db0ac8f49749e3e5f28be5051bb3d3ed71ada71` with clean worktree. Source authorities inspected: Blog governance/surface-profiles; FsusUI index/design/governance/change-classification/visual-change/consumer integration, public Input/Form/Button and token contracts. Exact file digests and baseline identity are recorded separately as source context, not as a forged formal acceptance receipt.
+
+The component uses public ElForm/ElFormItem/ElInput/ElButton APIs and public spacing/text tokens. Product CSS controls only leaf flow/wrapping. No geometry overrides or forced mounting occur. Actual mobile 44px targets, safe area, soft keyboard, 375/768/1440, zoom/themes/reduced-motion/focus/a11y must still be independently checked against the real baseline and future host; source markup alone is not that evidence.
+
+## Present behavior and remaining work
+
+The leaf accepts controlled exact raw title/body, genuine caller scope/capture/request identities and optional actual recovery observations. It does not instantiate a journal, stage inputs, send a request, restore metadata as body, create a local draft or open a document. Scope changes hide private input rather than retarget an old identity. Initial missing scope keeps inputs disabled; identity/input validation uses the original description function. Enter is prevented from implicitly submitting the form, and duplicate clicks cannot create requests because server actions have no enabled route or callback.
+
+Save/Save-and-open/recovery/retry/discard remain disabled until the original context, registered transport, real receipt custody and proper recovery/open interfaces exist. Close requests are only UI dismissal requests. Host must preserve unknown inputs, do exact local cleanup/cancel reconciliation where authorized and return focus; the leaf does not claim those missing host operations succeeded. Low-protection text is shown only for a real unprotected stage observation. URL/template fields are visibly unavailable and no default template is selected.
+
+Missing full #2384 work: global/mobile registration, actual authenticated owner source and host lifecycle, real request dispatch/idempotency reconciliation and receipt-confirm cleanup, body recovery interface, exact cancel/discard semantics, verified open-or-activate handoff, explicit plan/picker receiver, URL policy, success/continue-capture actions, UI receipts/independent verifier and full rendered UX matrix. No new success or publish qualification is claimed. New source-policy unit cases are authored but not imported/discovered/executed; all historical failures and unverified gates remain.
