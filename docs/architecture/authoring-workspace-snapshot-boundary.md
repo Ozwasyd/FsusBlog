@@ -2225,3 +2225,28 @@ authority, protected authoring/SDK/Writer/upload/cohort/end/settlement and actua
 UI957 alias remain original. Every runtime/tests/import/discovery/qualification
 HOLD/UNRUN and physical alias independent UNVERIFIED remains. Author static
 checks and source-local compatibility do not certify whole-tree or runtime state.
+
+
+## Reviewed Non-Authoring Business Template Batch A
+
+Parent explicitly permits the original independently accepted non-authoring
+business template fixes from History4261; the temporary prior grouping exclusion
+is not a validation hold. Five exact full-preimage original patches are consumed:
+moderation queue copies only readonly array containers and uses canonical id keys
+while retaining original row objects/events/authorization; public comment island
+uses actual node/childrenPreview/string IDs/server pagination with genuine preview
+array memo; audit uses original Date-pair clear/invalid payload boundary, real
+string IDs and actual public TableV2 types/constants; settings maps nullable
+copyright clear without a fabricated year; cluster uses actual task-status labels
+rather than node-status labels. Postimages exactly equal original reviewed source.
+
+This changes only those actual business bindings, not compiler/template codegen.
+No used ref is removed, no void fake reference/type assertion or fake row/thread
+is added. Actual source prerequisites were checked against Main canonical API
+contracts/bridge and actual UI957 source. Original18 held UI template/codegen
+diagnostics,7 enum diagnostics and Blog Analytics regionChartRef remain unchanged;
+protected authoring/Writer/SDK/upload/FIFO/cohort/end/settlement and alias/config/
+frozenDTO/schema/authority remain original. All runtime/tests/render/import/
+discovery/browser/security/privacy/receipt/race/backuprestore/IME/qualification
+HOLD/UNRUN and physical alias independent UNVERIFIED remain. Author compiler and
+source compatibility evidence are not rendered/business/runtime qualification.
