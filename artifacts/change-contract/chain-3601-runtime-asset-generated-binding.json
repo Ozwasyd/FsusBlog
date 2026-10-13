@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/test-matrix-scheduler.test.mjs",
+        "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+        "tests/tools/support/locked-schema-validator-fixture.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "080805d5871b845e8b62ad416dceaabcf2ce4ea8c2e0712f2f69f3d1c88181a5"
+        }
+    ]
+}

@@ -1111,6 +1111,14 @@ retry policy. Registration and source-order checks are not actual compiler/SQL
 qualification; successful native scheduler MySQL allocation and canonical locked dependencies
 remain prerequisites.
 
+Correctness attempt migration validates the complete current producer inventory
+against its canonical matrix, physical and reliability authorities before checking
+execution-envelope ownership. Producer counts are derived from that exact
+canonical roster; migration does not impose a separate fixed count. Missing,
+extra, duplicate or crossed-authority entries remain failures even when their
+enclosing digest is recomputed. A freshly generated inventory refresh is source
+evidence, not a qualification receipt.
+
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or
 missing logical identities, foreign service declarations and MySQL on a resident
@@ -1475,6 +1483,8 @@ The existing static-governance producer owns the required attempt-governance Nod
 `static-governance` no longer creates an outer command-manifest process for each Node contract. `tools/test/run-governance-suites.mjs` first allocates the input exact-once to six semantic owners: lifecycle/retention, matrix/producer, artifact/receipt/evidence, privacy/security, release/fresh/projection and source/layout/naming, and then executes it with a small number of canonical suite commands. The ordinary policy suite uses single-process serial test isolation, sharing the ESM parser and the read-only fixture module cache; the security/privacy and release/process-control suite retain per-file process isolation to avoid destroying the environment and process group boundaries to reduce the number of startups.
 
 The shared test-only `tests/tools/support/esm-fixture-materializer.mjs` parses dependency frontiers in batches of at most 16 independent modules using Node VM module grammar and builtin Acorn extraction. It never links or evaluates fixture code. Each module retains the 1 MiB parser-output ceiling; only transport framing scales with the batch. Replies must contain the exact indexed module roster and string-only requests, and the complete reply is validated before any new cache entry is published. The cache follows current UTF-8 source content, not paths or mutable buffer identities. Complete dependency closure, allowed roots and copied bytes remain required. The existing `materializeTestMatrixRunner` contract owner also copies its explicitly named runtime-read containment, nested socket, temporal producer and locale-catalog inputs through the same literal-file guard; the locale permission covers the catalog file alone. The runtime-assets test compares all copied bytes with the current source and rejects missing, linked, aliased or unrelated runtime assets. The batching and literal-import controls run in the existing scheduler test owner; worker counts and fixture comparisons do not qualify canonical execution or waive its timeouts and independent acceptance.
+
+The canonical runner fixture also provisions the schema validator's locked runtime dependencies. Before running these fixture controls, warm the source npm cache with `npm ci --ignore-scripts --prefix tools/test-matrix/schema-validator`; an explicit `npm_config_cache` selects that cache. The fixture copies the literal manifest and lock, verifies lock-selected tarball integrity, and runs `npm ci --offline --ignore-scripts` in a fresh private cache. It never adopts an existing dependency tree as evidence. Cold or corrupt caches and linked destination bytes refuse without replacing existing dependencies; temporary install files are cleaned after success or failure. Full-checkout fixtures force-track the installed runtime files before their caller commits and creates admission, so validator-byte drift invalidates the original source seal. The focused controls live in `tests/tools/test-matrix-scheduler.test.mjs` and retain real schema rejection cases; provisioning does not qualify native scheduler execution.
 
 The same classifier is also written to the test asset audit's `governancePolicyOwners`: each Node test/script ID carries policy owner, assertion/negative invariants, coverage IDs and tier/release consumers. `.tmp/test-governance/suite-plan.json` saves the current round of physical file union; duplicate entries, missing owners, or non-exact-once allocations fail before starting the test. `check-job-summaries` continues to belong to the source/layout owner, and the privacy/security matrix remains independent of the security owner; no test ID is deleted, so there is no need to forge replacement mapping this time.
 
