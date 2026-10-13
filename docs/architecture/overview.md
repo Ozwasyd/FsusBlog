@@ -334,9 +334,12 @@ returned rich result is the provider's original value, correlated with the nativ
 batch/item/document/revision; resolved content must carry its actual AssetId and
 the correlated ACK URL. Upload URL or Flow `Promise<void>` fulfillment cannot
 substitute for provider acceptance, native committed application, original Doc
-task completion, business reference receipt or asset release. A provider must not
-await this request, the upstream upload, or native application that depends on its
-own rich result; direct upstream-future identity cycles are refused.
+task completion, business reference receipt or asset release. Provider result,
+full-settled and cancellation-cleanup work must not await this request's or the
+upstream upload's futures, or native committed application that depends on its own
+rich result, directly or through async/then chains. Direct upstream-future identity
+cycles are refused; those checks do not establish indirect independence. Main's
+actual provider implementation must satisfy that separate consumer contract.
 
 The original upload and provider requests remain inspectable by their invocation
 owner. Full settlement is a separate Promise that waits for actual upload and
@@ -345,7 +348,12 @@ adapter execution and fulfilled original consumer cancellation cleanup. Failed o
 unobservable settlement/acquisition stays unresolved. Cancellation permanently
 records the first request before independently attempting both original owners;
 failed cleanup can be retried without repeating upload or provider creation, and
-raw failures including undefined remain separate from content result.
+raw failures including undefined remain separate from content result. Asynchronous
+cancel rejection is appended to the adapter's historical failure record before
+reconsidering settlement, with an explicit cause property even for undefined. A
+successful retry may replace the original UI binding's current cleanup slot, but
+cannot erase that history; historical failure alone does not prevent settlement
+after actual successful cleanup.
 
 The upload census has no authoritative complete numeric network/memory totals.
 The UI's six-number `inspectLocalResources` contract therefore explicitly throws

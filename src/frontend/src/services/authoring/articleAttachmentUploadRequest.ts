@@ -28,7 +28,11 @@ export interface ArticleAttachmentUploadRequestInput {
     readonly attemptBinding: ImageUploadAttemptBinding;
     readonly options: ImageCompressionOptions;
     readonly runtimeOptions?: Pick<ImageUploadRuntimeOptions, 'wasmOnly' | 'bypassCompression' | 'targetFormat'>;
-    /** Start this provider's own work inside the ACK loan; never await native application or this request. */
+    /**
+     * Start this provider's own work inside the ACK loan. Its result, settled and cancel cleanup
+     * must not await enclosing upload/adapter futures or dependent native committed application,
+     * directly or through async/then chains. Direct identity checks do not establish indirect safety.
+     */
     requestProviderResult(completion: ImageUploadFileCompletion): MarkdownAttachmentConsumerRequest;
 }
 
@@ -151,8 +155,13 @@ export function requestArticleAttachmentUpload(input: ArticleAttachmentUploadReq
             return;
         }
         const work = binding.cancelLocal(cancellationReason);
-        // The original UI binding retains this exact cleanup work and any raw rejection.
-        void Promise.resolve(work).then(reconsider, () => reconsider());
+        // Keep historical raw rejection even when a successful retry replaces the UI cleanup slot.
+        void Promise.resolve(work).then(reconsider, (cause: unknown) =>
+        {
+            failures.push({ cause });
+            // History is not live cleanup debt; actual successful retry can still settle.
+            reconsider();
+        });
     };
 
     const upload = runtime.requestUploadFile(file, options, {
