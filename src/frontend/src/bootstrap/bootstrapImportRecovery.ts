@@ -67,7 +67,9 @@ export function createBootstrapImportRecovery(
             }
 
             const parsed = JSON.parse(raw) as Partial<BootstrapImportRetryState>;
-            if (typeof parsed.buildId !== 'string' || !Number.isFinite(parsed.attemptedAtMs))
+            if (typeof parsed.buildId !== 'string'
+            || typeof parsed.attemptedAtMs !== 'number'
+            || !Number.isFinite(parsed.attemptedAtMs))
             {
                 clear();
                 return null;

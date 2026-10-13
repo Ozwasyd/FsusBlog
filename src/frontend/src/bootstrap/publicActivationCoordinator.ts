@@ -241,7 +241,8 @@ export class PublicActivationCoordinator<PreparedApp = unknown>
    * Idle FullApp core warming only.
    * Must not accept a route URL, request navigation snapshots, or create route seeds.
    */
-    async warmCore(source = 'idle'): Promise<PublicCoreWarmResult>
+    warmCore(source?: string): Promise<PublicCoreWarmResult>;
+    async warmCore(): Promise<PublicCoreWarmResult>
     {
         if (this.activationPromise)
         {
@@ -438,7 +439,6 @@ export class PublicActivationCoordinator<PreparedApp = unknown>
         await new Promise<void>((resolve) => this.ports.clock.queueMicrotask(resolve));
         const prepareWallStartedAt = this.ports.clock.now();
         let corePrepareMs = 0;
-        let routeResult: PublicRoutePreparationResult | null = null;
         try
         {
             // FullApp core prepare and target route preparation start in the same generation
@@ -488,23 +488,20 @@ export class PublicActivationCoordinator<PreparedApp = unknown>
                 }
             })();
 
-            let prepared: PreparedApp;
             const settled = await Promise.allSettled([routeTask, coreTask]);
             const routeSettled = settled[0];
             const coreSettled = settled[1];
-            if (routeSettled.status === 'fulfilled')
-            {
-                routeResult = routeSettled.value;
-            }
             if (routeSettled.status === 'rejected' || coreSettled.status === 'rejected')
             {
-                this.emitPrepareTiming(generation, intent, prepareWallStartedAt, corePrepareMs, routeResult);
+                this.emitPrepareTiming(generation, intent, prepareWallStartedAt, corePrepareMs,
+                    routeSettled.status === 'fulfilled' ? routeSettled.value : null);
                 throw preferProducerFailure([
           coreSettled.status === 'rejected' ? coreSettled.reason : undefined,
           routeSettled.status === 'rejected' ? routeSettled.reason : undefined
                 ]);
             }
-            prepared = coreSettled.value;
+            const prepared = coreSettled.value;
+            const routeResult = routeSettled.value;
 
             const wallMs = Math.max(0, this.ports.clock.now() - prepareWallStartedAt);
             this.emitPrepareTiming(generation, intent, prepareWallStartedAt, corePrepareMs, routeResult, wallMs);

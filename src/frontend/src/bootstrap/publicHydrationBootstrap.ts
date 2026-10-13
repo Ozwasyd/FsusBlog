@@ -173,6 +173,11 @@ export function replacePublicHydrationPayloadBinary(rawPayload: string | null): 
         return cacheHydrationPayload(null);
     }
 
+    if (script !== null && !(script instanceof HTMLScriptElement))
+    {
+        throw new Error('public_hydration_script_invalid');
+    }
+
     const target = script ?? (() =>
     {
         const created = document.createElement('script');

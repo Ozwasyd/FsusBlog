@@ -306,7 +306,7 @@ watch(
     { flush: 'pre' }
 );
 
-const stopStaticRouteTitleSync = syncStaticDocumentTitleOnLocaleChange(route, syncDocumentTitle);
+const stopStaticRouteTitleSync = syncStaticDocumentTitleOnLocaleChange(router.currentRoute, syncDocumentTitle);
 
 onMounted(() =>
 {
