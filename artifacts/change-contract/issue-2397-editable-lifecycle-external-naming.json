@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Articles/Bulk/ArticleBulkEditableLifecycleAdapter.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkEditableLifecycleGroupAuthority.cs"
+            ],
+            "reason": "Declare the original registry's broad C# environment-variable surface coverage for these two adapters. Pass the original IConfiguration unchanged to the canonical writer, preserving deployment environment names at that authority. Neither file introduces or renames an environment variable; internal types and members retain the C# naming convention."
+        }
+    ]
+}
