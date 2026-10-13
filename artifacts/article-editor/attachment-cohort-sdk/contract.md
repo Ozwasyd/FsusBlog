@@ -14,9 +14,14 @@ capability and is not consumed. The task-owned detached local alias references
 f2 without editing the original UI branch or publishing a package.
 
 Actual UI957 composite903db034a14254fb162f51b9c25d3703ea20ccb5 is separately
-published and PENDING composite source review. Its four cohort public interfaces
+published; its original cohort reviewer confirms bounded composition SOURCE
+acceptance per parent, while separate end review remains pending. Its four cohort public interfaces
 are byte-identical to f2; its new application-ended interfaces are separate and
-unused here. Current compiler evidence is against f2, not a UI957 composite pass.
+unused here. Original f2 compiler evidence stays separately bound to f2. The
+actual task-owned composite alias was also statically compared: original complete
+application baseline/current both exit2/231 diagnostics, added0/removed0, and
+original strict-full source style exit0/0 violations. Those are source checks,
+not UI957 runtime/physical or application-ended qualification.
 Final Main intake must bind that actual reviewed composite or its reviewed
 successor; independently accepted UI955/956 sources are not a composed alias.
 
