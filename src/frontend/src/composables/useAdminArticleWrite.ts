@@ -1385,7 +1385,10 @@ export function useAdminArticleWrite()
             return;
         }
         const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         parentSignal?.addEventListener('abort', abortParent, { once: true });
         const token = ++articleRecoveryRefreshToken;
         try
@@ -1820,7 +1823,10 @@ export function useAdminArticleWrite()
     const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
     {
         const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         signal?.addEventListener('abort', abortParent, { once: true });
         assetLibraryLoading.value = true;
         try
