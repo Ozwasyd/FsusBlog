@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Resolver read-scope getter whitespace for #3566.
+e015dbf1c51daa23760996abb0fbc0aa66a657a0

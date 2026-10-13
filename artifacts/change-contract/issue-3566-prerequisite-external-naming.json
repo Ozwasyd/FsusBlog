@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve NuGet lock keys, lifecycle identities and canonical producer and closure JSON fields while consuming only exact dependency corrections supplied by their existing owners"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "preserve original environment authority spellings in the supplied migration capability; the registered src/**/*.cs family also requires the resolver path, whose scalar validation correction adds no environment access or renamed external name"
+        }
+    ]
+}
