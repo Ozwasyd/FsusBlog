@@ -532,7 +532,7 @@
         },
         {
             "owner": "tools/style/check-native-tooling-style.mjs",
-            "sourceDigest": "sha256:603947a4065f7fb617a157dc3ffac7f5b7a9ff59819c8c9fb625a786e7a7fb68",
+            "sourceDigest": "sha256:6d94d3b12f634f8d496607e7d8191e96345b34420b7f21d9a3d0732fbdac6feb",
             "expressionDigest": "sha256:5cc87864b98ca34840541a357ee2c6a385acac3f2cbb8765cff64e04c4dc241a",
             "kind": "runtime-module-path",
             "dependencies": [
@@ -541,6 +541,16 @@
                 "../../config/development/native-tooling-style-exceptions.json",
                 "../../config/development/native-tooling-style-baseline.json",
                 "../../.markdownlint-cli2.jsonc"
+            ]
+        },
+        {
+            "owner": "tools/governance/javascript-format-equivalence.mjs",
+            "sourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+            "expressionDigest": "sha256:1194f26d255953521c4695d2e2c8f846dbd455bb916275c81e8cdf5a4951d015",
+            "kind": "runtime-require-path",
+            "dependencies": [
+                "tools/governance/javascript-format-parser/package.json",
+                "tools/governance/javascript-format-parser/package-lock.json"
             ]
         }
     ],

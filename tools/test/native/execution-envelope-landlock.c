@@ -10,8 +10,8 @@
 
 #include <linux/landlock.h>
 #include <sys/prctl.h>
-#include <sys/syscall.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 
 /* Linux UAPI added this right in Landlock ABI 5; older headers may omit it. */
 #ifndef LANDLOCK_ACCESS_FS_IOCTL_DEV
@@ -21,6 +21,7 @@ _Static_assert(LANDLOCK_ACCESS_FS_IOCTL_DEV == (1ULL << 15), "Landlock ioctl rig
 
 typedef struct landlock_path_beneath_attr LandlockPathBeneathAttr;
 typedef struct landlock_ruleset_attr LandlockRulesetAttr;
+typedef struct stat FileStatus;
 
 static int CreateRuleset(const LandlockRulesetAttr* attr, size_t size, uint32_t flags)
 {
@@ -89,6 +90,11 @@ static uint64_t HandledAccessForAbi(int abi)
 
 static void AllowPath(int rulesetFd, const char* path, uint64_t access)
 {
+    if (path == NULL)
+    {
+        errno = EINVAL;
+        Fail("cannot open declared filesystem path");
+    }
     int pathFd = open(path, O_PATH | O_CLOEXEC);
     if (pathFd < 0)
     {
@@ -121,36 +127,51 @@ static unsigned long long ParseIdentity(const char* value)
     return parsed;
 }
 
-static void AllowOwnedTemporaryAlias(int rulesetFd, const char* source, const char* device,
-                                    const char* inode, const char* uid, uint64_t access)
+static void AllowOwnedTemporaryAlias(
+    int rulesetFd, const char* source, const char* device, const char* inode, const char* uid, uint64_t access)
 {
     int sourceFd = open(source, O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (sourceFd < 0)
+    {
         Fail("cannot open owned temporary directory");
+    }
     int aliasFd = open("/tmp", O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (aliasFd < 0)
+    {
         Fail("cannot open private temporary alias");
-    struct stat sourceStat;
-    struct stat aliasStat;
+    }
+    FileStatus sourceStat;
+    FileStatus aliasStat;
     if (fstat(sourceFd, &sourceStat) < 0 || fstat(aliasFd, &aliasStat) < 0)
+    {
         Fail("cannot inspect owned temporary alias descriptors");
+    }
     if ((unsigned long long)sourceStat.st_dev != ParseIdentity(device)
         || (unsigned long long)sourceStat.st_ino != ParseIdentity(inode)
-        || (unsigned long long)sourceStat.st_uid != ParseIdentity(uid)
-        || sourceStat.st_dev != aliasStat.st_dev || sourceStat.st_ino != aliasStat.st_ino
-        || sourceStat.st_uid != aliasStat.st_uid || (sourceStat.st_mode & 0777) != 0700
-        || (aliasStat.st_mode & 0777) != 0700)
+        || (unsigned long long)sourceStat.st_uid != ParseIdentity(uid) || sourceStat.st_dev != aliasStat.st_dev
+        || sourceStat.st_ino != aliasStat.st_ino || sourceStat.st_uid != aliasStat.st_uid
+        || (sourceStat.st_mode & 0777) != 0700 || (aliasStat.st_mode & 0777) != 0700)
     {
         errno = EACCES;
         Fail("owned temporary alias object identity mismatch");
     }
     // Grant through the same descriptor that was verified, never reopen the alias.
-    LandlockPathBeneathAttr rule = { .allowed_access = access, .parent_fd = aliasFd };
+    LandlockPathBeneathAttr rule = {.allowed_access = access, .parent_fd = aliasFd};
     if (AddRule(rulesetFd, &rule) < 0)
+    {
         Fail("cannot add verified owned temporary alias rule");
+    }
     if (close(aliasFd) < 0 || close(sourceFd) < 0)
+    {
         Fail("cannot close owned temporary alias descriptors");
-    fprintf(stderr, "execution-envelope-landlock: owned-private-tmp-verified device=%s inode=%s uid=%s\n", device, inode, uid);
+    }
+    fputs("execution-envelope-landlock: owned-private-tmp-verified device=", stderr);
+    fputs(device, stderr);
+    fputs(" inode=", stderr);
+    fputs(inode, stderr);
+    fputs(" uid=", stderr);
+    fputs(uid, stderr);
+    fputc('\n', stderr);
 }
 
 int main(int argc, char** argv)
@@ -173,8 +194,7 @@ int main(int argc, char** argv)
             break;
         }
         if (strcmp(argv[index], "--owned-tmp-source") == 0 && index + 7 < argc
-            && strcmp(argv[index + 2], "--owned-tmp-device") == 0
-            && strcmp(argv[index + 4], "--owned-tmp-inode") == 0
+            && strcmp(argv[index + 2], "--owned-tmp-device") == 0 && strcmp(argv[index + 4], "--owned-tmp-inode") == 0
             && strcmp(argv[index + 6], "--owned-tmp-uid") == 0 && !tempSource)
         {
             tempSource = argv[index + 1];

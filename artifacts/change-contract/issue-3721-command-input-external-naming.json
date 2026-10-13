@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/command-wrapper-input-registry.json",
+                "config/testing/release-final-execution-authority-index.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the reviewed policy schema and external compiler, header, model and environment key identities; internal names remain governed by repository conventions."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/native-tooling-style-enforcement.md"
+            ],
+            "reason": "Preserve documented public CLI options and native compiler, analyzer and configuration names that refer to the existing external tooling contract."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/style/check-native-tooling-style.mjs",
+                "tools/style/command-wrapper-caller-binding.mjs",
+                "tools/style/command-wrapper-compile-binding.mjs",
+                "tools/style/command-wrapper-input-ast.mjs",
+                "tools/style/command-wrapper-input-model.mjs",
+                "tools/style/command-wrapper-input-ast-v2.mjs",
+                "tools/style/command-wrapper-caller-probe-v2.mjs",
+                "tools/style/command-wrapper-compile-probe-v2.mjs"
+            ],
+            "reason": "Preserve process environment keys, compiler and analyzer CLI arguments and external tooling or JSON spellings while retaining all internal naming requirements."
+        }
+    ]
+}
