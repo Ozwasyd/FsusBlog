@@ -1018,6 +1018,14 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
             {
                 own.active = false;
                 own.pendingCleanup = true;
+                if (own.cleanupQueued || own.closing)
+                {
+                    if (own.hasFailure)
+                    {
+                        throw own.firstCause;
+                    }
+                    throw new Error('article-native-staging-frame-cleanup-deferred');
+                }
                 try
                 {
                     borrowed.retryCleanup();
