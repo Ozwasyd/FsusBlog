@@ -1,0 +1,481 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/contracts/article-vault-conflict-evidence.schema.json",
+    "title": "FsusBlog coordinate-bound Article Vault conflict classifications",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "schemaVersion",
+        "registrySha256",
+        "binding",
+        "items",
+        "contentSha256"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.article-vault.conflict-evidence.v1"
+        },
+        "schemaVersion": {
+            "const": 1
+        },
+        "registrySha256": {
+            "$ref": "#/$defs/sha256"
+        },
+        "binding": {
+            "$ref": "#/$defs/binding"
+        },
+        "items": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/item"
+            },
+            "minItems": 1,
+            "maxItems": 12
+        },
+        "contentSha256": {
+            "$ref": "#/$defs/sha256"
+        }
+    },
+    "$defs": {
+        "identity": {
+            "$ref": "article-vault-article-manifest.schema.json#/$defs/identity"
+        },
+        "sha256": {
+            "$ref": "article-vault-article-manifest.schema.json#/$defs/sha256"
+        },
+        "coordinate": {
+            "$ref": "article-vault-article-manifest.schema.json#/$defs/coordinate"
+        },
+        "pathProjection": {
+            "$ref": "article-vault-article-manifest.schema.json#/properties/pathProjection"
+        },
+        "type": {
+            "enum": [
+                "source-disjoint",
+                "source-overlap",
+                "metadata-disjoint",
+                "metadata-overlap",
+                "rename-vs-edit",
+                "delete-vs-edit",
+                "create-create",
+                "lifecycle-conflict",
+                "permission-conflict",
+                "schema-conflict",
+                "dependency-conflict",
+                "git-marker-present"
+            ]
+        },
+        "disposition": {
+            "enum": [
+                "automatic",
+                "manual",
+                "rejected"
+            ]
+        },
+        "action": {
+            "enum": [
+                "prepare-source-candidate",
+                "prepare-metadata-candidate",
+                "propose-source-replacement",
+                "propose-metadata-replacement",
+                "request-refactor-plan",
+                "request-deletion-plan",
+                "refresh-evidence",
+                "cancel-operation"
+            ]
+        },
+        "factKind": {
+            "enum": [
+                "source-changes",
+                "metadata-changes",
+                "identity-projection",
+                "deletion",
+                "creation",
+                "lifecycle",
+                "permission",
+                "schema",
+                "dependency",
+                "git-markers"
+            ]
+        },
+        "field": {
+            "enum": [
+                "title",
+                "summary",
+                "slug",
+                "taxonomy",
+                "properties"
+            ]
+        },
+        "coordinates": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "base",
+                "local",
+                "server"
+            ],
+            "properties": {
+                "base": {
+                    "$ref": "#/$defs/coordinate"
+                },
+                "local": {
+                    "$ref": "#/$defs/coordinate"
+                },
+                "server": {
+                    "$ref": "#/$defs/coordinate"
+                }
+            }
+        },
+        "sourceChange": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "start",
+                "end",
+                "semanticNodeIdentity"
+            ],
+            "properties": {
+                "start": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "end": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "semanticNodeIdentity": {
+                    "$ref": "#/$defs/identity"
+                }
+            }
+        },
+        "sourceFacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "parserIdentity",
+                "parserVersion",
+                "parserSha256",
+                "algorithmSha256",
+                "localChanges",
+                "serverChanges"
+            ],
+            "properties": {
+                "parserIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "parserVersion": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "parserSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "algorithmSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "localChanges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/sourceChange"
+                    },
+                    "minItems": 1
+                },
+                "serverChanges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/sourceChange"
+                    },
+                    "minItems": 1
+                }
+            }
+        },
+        "metadataChange": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "field",
+                "entityIdentity",
+                "baseValueSha256",
+                "localValueSha256",
+                "serverValueSha256"
+            ],
+            "properties": {
+                "field": {
+                    "$ref": "#/$defs/field"
+                },
+                "entityIdentity": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/identity"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "baseValueSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "localValueSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "serverValueSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "metadataFacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "fieldRegistrySha256",
+                "changes"
+            ],
+            "properties": {
+                "fieldRegistrySha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/metadataChange"
+                    },
+                    "minItems": 1
+                }
+            }
+        },
+        "renameFacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "base",
+                "local",
+                "server"
+            ],
+            "properties": {
+                "base": {
+                    "$ref": "#/$defs/pathProjection"
+                },
+                "local": {
+                    "$ref": "#/$defs/pathProjection"
+                },
+                "server": {
+                    "$ref": "#/$defs/pathProjection"
+                }
+            }
+        },
+        "gitFacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "worktreeIdentity",
+                "headFactsSha256",
+                "indexFactsSha256",
+                "markerRanges"
+            ],
+            "properties": {
+                "worktreeIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "headFactsSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "indexFactsSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "markerRanges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/sourceChange"
+                    },
+                    "minItems": 1
+                }
+            }
+        },
+        "authorityFact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "baseCoordinateSha256",
+                "localCoordinateSha256",
+                "serverCoordinateSha256",
+                "rename",
+                "git"
+            ],
+            "properties": {
+                "kind": {
+                    "$ref": "#/$defs/factKind"
+                },
+                "baseCoordinateSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "localCoordinateSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "serverCoordinateSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "rename": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/renameFacts"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "git": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/gitFacts"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "observation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "source",
+                "metadata",
+                "authority"
+            ],
+            "properties": {
+                "type": {
+                    "$ref": "#/$defs/type"
+                },
+                "source": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/sourceFacts"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/metadataFacts"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "authority": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/authorityFact"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "item": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "disposition",
+                "allowedActions",
+                "observation"
+            ],
+            "properties": {
+                "type": {
+                    "$ref": "#/$defs/type"
+                },
+                "disposition": {
+                    "$ref": "#/$defs/disposition"
+                },
+                "allowedActions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/action"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "observation": {
+                    "$ref": "#/$defs/observation"
+                }
+            }
+        },
+        "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "siteIdentity",
+                "vaultIdentity",
+                "deviceIdentity",
+                "portableArticleIdentity",
+                "serverArticleIdentity",
+                "planCandidateIdentity",
+                "planSha256",
+                "groupIdentity",
+                "operationIdentity",
+                "articleManifestSha256",
+                "serverObservationSha256",
+                "coordinates"
+            ],
+            "properties": {
+                "siteIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "vaultIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "deviceIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "portableArticleIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "serverArticleIdentity": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/identity"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "planCandidateIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "planSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "groupIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "operationIdentity": {
+                    "$ref": "#/$defs/identity"
+                },
+                "articleManifestSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "serverObservationSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "coordinates": {
+                    "$ref": "#/$defs/coordinates"
+                }
+            }
+        }
+    }
+}

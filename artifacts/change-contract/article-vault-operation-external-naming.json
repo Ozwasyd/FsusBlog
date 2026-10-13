@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/ArticleVault/ArticleVaultAcceptedSourceAdapter.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
+                "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+                "src/migration/Definitions/ArticleVaultOperationMigrationDefinitions.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultMaterializationInstruction.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultOperationContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultOperationVerifier.cs"
+            ],
+            "reason": "The registered src/**/*.cs process-environment surface requires this exact declaration. These modules consume injected authorities and introduce no environment keys; existing process configuration spelling remains unchanged while all new internal identifiers follow the C# naming mapping."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve the canonical NuGet serialized dependencies schema and third-party AngleSharp identity while consuming only its existing Server project edge from owner lineage 93e9b8c25056abb50f264db6dbad69082e85b551; no internal naming rule or other package identity changes."
+        }
+    ]
+}

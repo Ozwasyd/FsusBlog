@@ -1,0 +1,153 @@
+{
+    "kind": "authored proposed handoff; not generated authority or acceptance receipt",
+    "sourceHead": "523bb36ead10f281419d1829aef9c0f3d040f0f6",
+    "sourceCommits": [
+        "9500b68678fd661af0d43ea53ad2b92224feee94",
+        "523bb36ead10f281419d1829aef9c0f3d040f0f6"
+    ],
+    "base": "39459f8162c775b79747a35228cd38b3c5b5faf6",
+    "supplier": "b8277a23a6a721c5b0ea3f8c918fa32251d325cd",
+    "branch": "codex/vault-recovery-protection-2107-20261009",
+    "frozenHead": "3b526ec1f75b3a9aca53f5b1bf6437fef54e7397",
+    "frozenPR": 3973,
+    "defaultChecked": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "sourceFiles": [
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryBackupProtectionAuthority.cs",
+            "fullPath": "/workspace/FsusBlog/src/backend/Services/ArticleVault/ArticleVaultRecoveryBackupProtectionAuthority.cs",
+            "sha256": "3e58269a273c0f271ef6bbe6ce026f60bfc8c140ecac1d86947c7cc805d10aef"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryBackupEnvelope.cs",
+            "fullPath": "/workspace/FsusBlog/src/shared/Contracts/ArticleVault/ArticleVaultRecoveryBackupEnvelope.cs",
+            "sha256": "39504cac9c02aa3f0e745a6915b3ea7737390577c9d1ac33d7767af8cdb92cd9"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryStageComposition.cs",
+            "fullPath": "/workspace/FsusBlog/src/backend/Services/ArticleVault/ArticleVaultRecoveryStageComposition.cs",
+            "sha256": "ef801efed0acc4454d22f53513092c1c588d137289998b815b5c235a2211625c"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+            "fullPath": "/workspace/FsusBlog/src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+            "sha256": "9f4d4d44354d8048e0852355dccb79641a4637906efcb66948a934cb59e991a2"
+        }
+    ],
+    "executionReview": {
+        "requestedBy": "2026-10-09 delegated task",
+        "exactOriginalAllowlistProvided": false,
+        "questionPending": "Provide original ordinary test/hook allowlist path/immutable link and commands; requested asynchronously. No runtime check authorized by guessed naming alone.",
+        "testsExecuted": [],
+        "newEquivalentHarnessCreated": false,
+        "inspectedHooks": [
+            {
+                "path": "/workspace/FsusBlog/.git/hooks",
+                "finding": "Sample files only; core.hooksPath unset; no active commit/push hook."
+            },
+            {
+                "path": "/workspace/FsusBlog/src/backend/FsusBlog.Server.csproj",
+                "finding": "OpenApiGenerateDocumentsOnBuild=false; custom publication hooks are BeforeTargets=Publish, not invoked. Debug compile references existing DI lifetime analyzer."
+            },
+            {
+                "path": "/workspace/FsusBlog/tools/architecture/FsusBlog.DiLifetimeAnalyzer/DiLifetimeAnalyzer.cs",
+                "finding": "CompilationEndAction calls AnalyzeGraph. Whether this original hook is ordinary-allowlisted is not supplied; build remains UNRUN rather than disabling analyzer."
+            },
+            {
+                "path": "/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj",
+                "finding": "Existing canonical project and references preserved; no new runner/project/exclusion flags."
+            },
+            {
+                "path": "/workspace/FsusBlog/tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs",
+                "finding": "ModuleInitializer conditional on FSUSBLOG_TEST_REDIS_DIAGNOSTICS; no testhost executed."
+            },
+            {
+                "path": "/workspace/FsusBlog/tests/backend/Unit/BackgroundWorkerLeaseTests.cs",
+                "finding": "Discovery MemberData LeasedWorkerTypes; held lease audit must not execute. No broad test filter run."
+            },
+            {
+                "path": "/workspace/FsusBlog/tests/backend/Unit/CompositionRegistrationContractTests.cs",
+                "finding": "MemberData CatalogEntryIds reads RegistrationCatalog.Entries; no discovery/native/graph audit run."
+            },
+            {
+                "path": "/workspace/FsusBlog/tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs",
+                "finding": "Original collection starts disposable PostgreSQL; no fixture run in this turn."
+            }
+        ],
+        "inspectedSupplierTests": [
+            {
+                "immutableSource": "b8277a23a6a721c5b0ea3f8c918fa32251d325cd:tests/backend/Unit/ArticleVaultRecoveryBackupProtectionAuthorityTests.cs",
+                "pathIfOriginalImported": "/workspace/FsusBlog/tests/backend/Unit/ArticleVaultRecoveryBackupProtectionAuthorityTests.cs",
+                "localFilePresent": false,
+                "decision": "Read original source only; no import or execution of new/held audit suite. Receipt/native reseal theory held; original ordinary algorithm tests need exact allowlist."
+            },
+            {
+                "immutableSource": "b8277a23a6a721c5b0ea3f8c918fa32251d325cd:tests/backend/Integration/ArticleVaultRecoveryStoragePostgresTests.cs",
+                "path": "/workspace/FsusBlog/tests/backend/Integration/ArticleVaultRecoveryStoragePostgresTests.cs",
+                "supplierOriginalMethod": "ActualProtectionProviderAndPostgres_PreserveAuthenticatedBytesAndRefuseMissingKey",
+                "localMethodPresent": false,
+                "decision": "Actual supplied ordinary provider+storage hook read; supplier added hook not imported or substituted by a new equivalent harness."
+            },
+            {
+                "path": "/workspace/FsusBlog/tests/backend/Integration/ArticleVaultRecoveryCheckpointTransactionPostgresTests.cs",
+                "decision": "Existing owned transaction controls unchanged and UNRUN for current source pending exact ordinary allowlist; no broad ArticleVault filter or old PASS inherited."
+            }
+        ],
+        "heldUnrun": [
+            "graph audits and coupled producer/validator hooks",
+            "lease audits and coupled discovery",
+            "key-custody audit executions",
+            "receipt-substitution and native-reference mutation tests",
+            "native audit/scanner suites",
+            "terminal/runtime/current-source qualification"
+        ],
+        "ordinarySourceChecks": {
+            "git diff --check 39459f8162c775b79747a35228cd38b3c5b5faf6..523bb36ead10f281419d1829aef9c0f3d040f0f6": "PASS exit0",
+            "supplier byte identity for both copied source files": "PASS exact bytes",
+            "git remote branch/frozen head inspection": "PASS exact published523bb36e / frozen3b526ec1",
+            "compile": "UNRUN",
+            "runtime/unit/postgres tests": "UNRUN",
+            "formatter/style/change-contract/source/code-intent hooks": "UNRUN pending original allowed hook boundary"
+        }
+    },
+    "results": {
+        "git diff --check 39459f8162c775b79747a35228cd38b3c5b5faf6..523bb36ead10f281419d1829aef9c0f3d040f0f6": "PASS exit0",
+        "supplier byte identity for both copied source files": "PASS exact bytes",
+        "git remote branch/frozen head inspection": "PASS exact published523bb36e / frozen3b526ec1",
+        "compile": "UNRUN",
+        "runtime/unit/postgres tests": "UNRUN",
+        "formatter/style/change-contract/source/code-intent hooks": "UNRUN pending original allowed hook boundary"
+    },
+    "issueStatus": {
+        "2106": "implemented WIP, unchanged; package/slug/native conditional/base remain blocked",
+        "2107": "implemented WIP; actual protection composition source implemented and published, original validation UNRUN pending exact ordinary allowlist; decision/transport/DI root-owned",
+        "2108": "implemented WIP, unchanged; held scanner/audit/mutation/terminal checks UNRUN"
+    },
+    "integration": {
+        "owner": "Original #3582",
+        "entry": "existingCheckpointStore.ComposeRecoveryStage(existingProposalStore, existingDomainKeyStore)",
+        "route": "composition.Storage.SealBackupAsync(receipt, actualCiphertext); composition.AppendAsync(operationPlan, proposal, current, journal, checkpoint, association, cancellationToken)",
+        "behavior": "Existing writer retains datasource/clock; Stage and precommit Stage exact replay use canonical authenticated storage. No external journalStore/protection/clock/database replacements in this public composition API.",
+        "requiredInputs": [
+            "Already registered sole PostgresArticleVaultOperationCheckpointStore",
+            "Existing trusted IArticleVaultResolutionProposalStore",
+            "Existing independent-domain IAuditRetentionEpochKeyStore with exact already provisioned key; no creation/fallback",
+            "Actual decision/current scope/auth/transport admission from original3582"
+        ],
+        "editedSharedRegistrationFiles": []
+    },
+    "draftTitle": "feat(backend): compose protected recovery stages with the sole checkpoint writer",
+    "proposedLabel": "release-note:internal",
+    "draftBody": "## Linked Issue\n\nRefs #2107\n\nRelated sole supplier: [#2121](https://github.com/Ozwasyd/FsusBlog/issues/2121). Original [#3582](https://github.com/Ozwasyd/FsusBlog/issues/3582) retains integration and all GitHub metadata writes. #2106 and #2108 remain implemented WIP.\n\n## Scope Summary\n\n- Consume the actual AES-256-GCM protection authority and closed envelope from immutable b8277a23a6a721c5b0ea3f8c918fa32251d325cd, byte-identically. The provider uses only existing IAuditRetentionEpochKeyStore.TryReadAsync, validates scope/key/plaintext digests and TTL/cancellation, and clears sensitive returned memory. No key store or key is created.\n- Add ArticleVaultRecoveryStageComposition and the existing sole PostgresArticleVaultOperationCheckpointStore.ComposeRecoveryStage(proposalStore, keyStore) factory. The factory retains this exact writer, datasource and clock. AppendAsync supplies its canonical authenticated storage for initial and precommit StageAsync in the already existing checkpoint transaction; callers cannot replace those dependencies through request data. No second writer or storage implementation is introduced.\n- Source head is 523bb36ead10f281419d1829aef9c0f3d040f0f6, composed from checkpoint head39459f8162c775b79747a35228cd38b3c5b5faf6. Ordinary source publication succeeded. PR3973/frozen3b526ec1f75b3a9aca53f5b1bf6437fef54e7397 is preserved. No tests, project, lock, registry, runtime DI/auth/transport or native implementation changed.\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [ ] Generated output\n- [x] Public contract change\n- [x] External naming exception\n- Contract impact: compatible\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests: UNRUN at source523bb36e. The original ordinary test/hook allowlist is not supplied in this environment; an asynchronous exact-path/command request is pending. No broad filter, test-discovery execution, held audit or new equivalent harness was run. Original test/project bytes are unchanged.\n- [ ] Targeted frontend checks: not applicable; no UI or FsUsUI change.\n- [x] Other: PASS exit0 `git diff --check 39459f8162c775b79747a35228cd38b3c5b5faf6..523bb36ead10f281419d1829aef9c0f3d040f0f6`. Exact Python byte comparison against git-show b8277a23 source passed for both supplier files. Remote source/frozen refs independently checked.\n- [ ] Other: compile, formatter/style, Change Contract execution, SOURCE, code-intent, runtime, original PostgreSQL and protection controls are UNRUN pending exact original hook boundary. Existing compiler DI analyzer calls AnalyzeGraph; canonical test discovery includes lease MemberData and an opt-in module initializer. None was bypassed or replaced. The prior39459f81 132-pass result and supplier results are historical, not a current PASS. No fresh FAIL observed because no runtime gate was executed.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNo product UI is changed; visual evidence is not applicable.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/article-vault-recovery-protection-external-naming.json\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: proposed handoff only; current docs/registries remain original3582-owned\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, key custody, native, execution, base or terminal qualification.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: compose protected recovery stages with the sole checkpoint writer\n\n## Generated Output\n\n- Generator source: none\n- Generated outputs: none\n- Digest/evidence: none\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: source review only. Original3582 composes this factory from its already registered sole checkpoint writer and existing trusted proposal/domain key stores; decision/auth/transport and registrations remain root-owned.\n- Rollback: withdraw the new composition before activation; retain all immutable stored checkpoint/journal/backup audit facts. Do not relax refusal guards or delete history.\n- Deferred work: exact ordinary test/hook execution boundary, actual decision/transport/DI integration, full package/slug mapper, native conditional writes/final readback and control/base/terminal facts.\n- Known limitations: provider implementation availability is resolved by actual source, but production key custody, authorization, provisioned-domain key availability and runtime integration are not established. No compile/current test PASS is claimed. Synced/native resume/executable resolution remain refused by original contracts.\n\n## Notes For Reviewers\n\nComplete current-template draft only; original3582 alone may write GitHub metadata. This draft remains WIP with honest UNRUN fields. Public API intent is documented in new source XML; maintained documentation and global registration edits are requested from original3582, not written here. No UI/wire/ABI/schema transport changes, native files, protected graph/lease/custody/receipt-substitution/native audit executions, publishing, key/credential creation, deployment or merge occurred. Formatter evidence and blame-ignore are not applicable to a behavior change; formatter execution is still unchecked. Generated qualification, warning-free and terminal receipts are not applicable and are not authored.\n\nFresh independently fetched default is537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea. Relevant key-store/API/template source is checked without overwriting the saved isolated branch. Backend lock blob47ecd9ad5fc0f6b2210db3302be15014f44ed5f5 is unchanged; no restore or package regeneration. All source imports, raw execution review, exact paths and PASS/FAIL/UNRUN statuses are in this public authored draft artifact. Existing SOURCE parser identity/code-intent failures remain historical unresolved evidence, and current gates are UNRUN. No issue acceptance or closure declaration.\n\nNext capability is the exact original ordinary allowlist and hook boundary for validation; then original3582's actual verified-decision/transport binding. The original RequireExecutionAdmission still refuses canonical planner decision admission. Missing full package/slug/native conditional/base/terminal APIs remain genuine functional blockers, not waits on issue closure.\n",
+    "accepted": false,
+    "canExecuteResolution": false,
+    "canResume": false,
+    "canCommitBase": false,
+    "nativeQualified": false,
+    "custodyQualified": false,
+    "githubMetadataWrites": false,
+    "packagePublication": false,
+    "newEquivalentHarness": false,
+    "testSourceChanges": false,
+    "projectOrLockChanges": false,
+    "nextInput": "Exact original ordinary allowlist/commands and hook-coupling boundary; requested, pending. No guessed execution or equivalent test harness."
+}

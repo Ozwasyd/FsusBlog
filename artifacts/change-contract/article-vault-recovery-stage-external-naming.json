@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryStorageContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultResolutionOperationPlan.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryStorage.cs",
+                "src/backend/Services/ArticleVault/PostgresArticleVaultRecoveryStorage.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultResolutionProposalStore.cs",
+                "src/backend/Services/ArticleVault/PostgresArticleVaultResolutionProposalStore.cs",
+                "src/migration/Definitions/ArticleVaultRecoveryStorageMigrationDefinitions.cs",
+                "src/migration/Definitions/ArticleVaultResolutionProposalMigrationDefinitions.cs",
+                "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryOperationCheckpointWriter.cs"
+            ],
+            "reason": "Preserve the registered src/**/*.cs external process/protocol naming surface for the complete bounded recovery dependency and sole checkpoint-writer integration. Exact paths cover this frozen-base review range; no new environment keys or naming authority."
+        }
+    ]
+}
