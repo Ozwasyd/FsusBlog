@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "Preserve the original serialized producer, execution-authority, lifecycle and NuGet schema identifiers while consuming only exact coordinator-verified prerequisites, including the native SQLite consumer lock edge. Do not redefine naming policy or infer runtime, migration or generated-history admission."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the canonical attempt migration environment and execution-owner identifiers while importing the exact reviewed roster-verification source; no environment authority or runtime qualification is bypassed."
+        }
+    ]
+}

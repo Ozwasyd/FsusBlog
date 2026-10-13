@@ -1,0 +1,15 @@
+{
+    "firstPassTreeSha256": "11f4023cd5301c184bf95f222bbb714eab8c195fef1f9f2e9f00c82dbaadaa6a",
+    "secondPassTreeSha256": "11f4023cd5301c184bf95f222bbb714eab8c195fef1f9f2e9f00c82dbaadaa6a",
+    "idempotent": true,
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "0a2029aaccb3eb4d5acacbe1e1df9a797715e0b8",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.302",
+        "command": "dotnet format whitespace /workspace/FsusBlog --folder --include tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs --verbosity quiet"
+    },
+    "paths": [
+        "tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs"
+    ]
+}
