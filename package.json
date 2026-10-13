@@ -1,0 +1,22 @@
+{
+    "name": "@fsusblog/layout-governance",
+    "version": "0.0.0",
+    "private": true,
+    "exports": {
+        "./fsusui-source-resolver": "./src/frontend/scripts/fsusui-root.mjs",
+        "./schema-validator": "./tools/test-matrix/schema-validator/validate.mjs",
+        "./composition-contracts": "./tests/frontend/support/layout/compositionContracts.mjs",
+        "./visual-adjudication": "./tests/frontend/support/layout/visualAdjudication.mjs",
+        "./layout-aggregation": "./tests/frontend/support/layout/layoutAggregation.mjs",
+        "./evidence-locator": "./tools/test/current-run-evidence-locator.mjs",
+        "./evidence-transport": "./tools/test/current-run-evidence-transport.mjs",
+        "./evidence-publication": "./tools/test/current-run-evidence-publication.mjs",
+        "./evidence-location-contract": "./tools/test/evidence-location-contract.mjs",
+        "./playwright-browser-identity": "./tools/test/playwright-browser-identity.mjs",
+        "./visual-producer-admission": "./tests/frontend/support/layout/visualProducerAdmission.mjs",
+        "./composition-analyzer": "./tests/frontend/support/layout/compositionAnalyzer.mjs",
+        "./composition-source": "./tests/frontend/support/layout/compositionSource.mjs",
+        "./composition-dom": "./tests/frontend/support/layout/compositionDom.mjs",
+        "./composition-routes": "./tests/frontend/support/layout/compositionRoutes.mjs"
+    }
+}

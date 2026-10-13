@@ -29,6 +29,19 @@
       "boundaryFull": true
     },
     {
+      "name": "mobile-375",
+      "width": 375,
+      "height": 812,
+      "category": "mobile",
+      "useInAcceptance": false,
+      "useInPublicVisual": false,
+      "useInConsoleVisual": false,
+      "screenshotBaseline": false,
+      "prSmoke": false,
+      "visualBoundary": false,
+      "boundaryFull": true
+    },
+    {
       "name": "mobile",
       "width": 390,
       "height": 844,
@@ -65,6 +78,19 @@
       "screenshotBaseline": false,
       "prSmoke": true,
       "visualBoundary": true,
+      "boundaryFull": true
+    },
+    {
+      "name": "tablet-768",
+      "width": 768,
+      "height": 1024,
+      "category": "tablet",
+      "useInAcceptance": false,
+      "useInPublicVisual": false,
+      "useInConsoleVisual": false,
+      "screenshotBaseline": false,
+      "prSmoke": false,
+      "visualBoundary": false,
       "boundaryFull": true
     },
     {
@@ -358,9 +384,11 @@
       "viewports": [
         "xs-mobile",
         "narrow-mobile",
+        "mobile-375",
         "mobile",
         "short-mobile",
         "mobile-landscape",
+        "tablet-768",
         "tablet",
         "tablet-landscape",
         "laptop-short",
