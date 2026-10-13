@@ -1,0 +1,8 @@
+{
+  "files": [
+    "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+  ],
+  "status": "failure",
+  "qualificationEligible": false,
+  "error": "C++ compile context missing for actual changed inputs: src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+}

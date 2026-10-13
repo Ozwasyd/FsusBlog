@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+                "src/backend/Infrastructure/Memory/Host/ReferenceArtifactIndex.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs"
+            ],
+            "reason": "Preserve existing caller-visible process environment spelling under the original path-based naming surface. The reviewed index and exact owner-authored common contracts introduce no new environment keys; this declaration neither changes nor broadens the registry."
+        }
+    ]
+}
