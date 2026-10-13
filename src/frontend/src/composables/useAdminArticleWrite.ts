@@ -2109,8 +2109,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         consumedAttachmentUploads.set(original.intent, reservation);
         const binding = original;
         const signal = AbortSignal.any([batch.signal, item.signal, binding.intent.signal, binding.lease.signal]);
-        const options = imageUploadOptions.value;
-        const runtimeOptions = { wasmOnly: wasmOnlyMode.value };
+        const selected = imageUploadOptions.value;
+        const options = Object.freeze({ format: selected.format, quality: selected.quality,
+            scaleRatio: selected.scaleRatio, maxEdge: selected.maxEdge, preserveAlpha: selected.preserveAlpha });
+        const runtimeOptions = Object.freeze({ wasmOnly: wasmOnlyMode.value });
         const request = nativeUploadQueue.enqueue(signal, () => requestArticleAttachmentUpload({ runtime: imageUploadRuntime, file, batch, item,
             attemptBinding: { owner: authoringAttachments, documentOwner: articleDocumentContextAdapter,
                 intent: binding.intent, lease: binding.lease, getBinding: () => attachmentPort.binding() },

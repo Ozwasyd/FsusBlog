@@ -1754,3 +1754,15 @@ operations; the Settings uploader belongs to its separate owner and is unchanged
 FIFO still releases only on original full settlement, relay and listener cleanup.
 These admission facts do not acknowledge full resources, SDK/native cleanup or
 any qualification hold.
+
+
+## Queued Upload Scalar Options
+
+At native enqueue, Main reads format, quality, scaleRatio, maxEdge, preserveAlpha
+and wasmOnly into frozen ordinary scalar values. The selected reactive options
+object is not retained by the start closure; later preference mutation/reset
+cannot change the already selected plan. The five compression values match the
+existing ImageCompressionOptions contract. Original File, batch/item, intent,
+lease, runtime and getBinding provenance remain the same objects; no document
+or authority snapshot is manufactured. Admission, real FIFO settlement/relay/
+listener cleanup and cancellation/raw-failure debt are unchanged.
