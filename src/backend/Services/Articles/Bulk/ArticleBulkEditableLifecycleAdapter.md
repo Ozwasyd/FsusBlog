@@ -8,9 +8,10 @@ receipt, or an independent acceptance record.
 `ArticleLifecycleTransitionWriter.ResolveBulkRevisionReferenceAfterLockAsync`,
 `PrepareEditableTransitionFromBulkRevisionAsync`, and `CommitEditableTransitionAsync`
 APIs at candidate source `d3803f2f63dab20d0dd31bc7c7809d191320cb79`, itself based on
-Inbox `c1900f2d64b7dcb4d71f9aa78fa93770161a6cf7`. The revision producer remains under
-independent source review; its presence does not mean acceptance or runtime
-qualification. This isolated consumer does not advance the original #4248
+Inbox `c1900f2d64b7dcb4d71f9aa78fa93770161a6cf7`. The coordinating parent has accepted
+the upstream's limited revision/provenance source after independent review. That
+acceptance does not grant whole-set operation admission or runtime qualification.
+This isolated consumer does not advance the original #4248
 `2b6e0276536c1700b12c3db4e8264f74977ef564` review candidate. It plugs into the existing
 `IArticleBulkAtomicCommandAuthority`; it does not add an executor, selection query,
 writer, permission provider, journal, result store, or DI registration.
