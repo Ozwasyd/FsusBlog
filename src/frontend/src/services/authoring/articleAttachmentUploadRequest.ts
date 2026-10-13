@@ -73,7 +73,7 @@ export function requestArticleAttachmentUpload(input: ArticleAttachmentUploadReq
     {
         throw new Error('attachment_upload_native_file_owner_unavailable');
     }
-    const matchesCapturedFile = attachmentOwner.matchesCapturedFile;
+    const matchesCapturedFile: unknown = Reflect.get(attachmentOwner, 'matchesCapturedFile', attachmentOwner);
     if (typeof matchesCapturedFile !== 'function'
         || Reflect.apply(matchesCapturedFile, attachmentOwner, [intent, file]) !== true)
     {
