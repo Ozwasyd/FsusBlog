@@ -916,7 +916,7 @@ function decodeInWorker<T>(
                 const abortHandler = (event?: Event): void =>
                 {
                     task.owner.cancellationRequested = true;
-                    if (event && event.currentTarget === signal && event.type === 'abort')
+                    if (event?.currentTarget === signal && event.type === 'abort')
                     {
                         if (!task.abortCleanupInProgress)
                         {
@@ -1219,7 +1219,9 @@ function startBinaryOnlyWithDecoder<T>(
             owner.cancellationRequested = true;
             controller.abort(callerSignal?.reason);
         };
-        let failed = false;
+        let outcome: { ok: true; value: T; } | { ok: false; cause: unknown; };
+        let cleanupError: unknown;
+        let cleanupFailed = false;
         try
         {
             const resolved = resolveBinaryRequest(options);
@@ -1243,18 +1245,15 @@ function startBinaryOnlyWithDecoder<T>(
             owner.lease = 'held';
             const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal, owner);
             lease.assertCurrent();
-            return value;
+            outcome = { ok: true, value };
         }
         catch (error)
         {
-            failed = true;
             owner.record('request', error);
-            throw error;
+            outcome = { ok: false, cause: error };
         }
         finally
         {
-            let cleanupError: unknown;
-            let cleanupFailed = false;
             try
             {
                 lease?.release();
@@ -1278,12 +1277,17 @@ function startBinaryOnlyWithDecoder<T>(
                 cleanupFailed = true;
             }
             owner.execution = 'ended';
-            // Cleanup never replaces the original request failure.
-            if (cleanupFailed && !failed)
-            {
-                throw cleanupError;
-            }
         }
+        // Select the original primary outcome only after all original cleanup attempts.
+        if (!outcome.ok)
+        {
+            throw outcome.cause;
+        }
+        if (cleanupFailed)
+        {
+            throw cleanupError;
+        }
+        return outcome.value;
     })();
     const terminal = result.then(() => owner.observeTerminal(), () => owner.observeTerminal());
     return Object.freeze({

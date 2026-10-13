@@ -269,6 +269,31 @@ describe('binaryTransport ApiError mapping', () => {
     expect(terminal.failures.find(failure => failure.stage === 'request')?.cause).toBeInstanceOf(StalePrivateResponseError)
   })
 
+  it('preserves a raw cleanup rejection after a successful original request', async () => {
+    const caller = new AbortController()
+    const rawCause = Object.freeze({ kind: 'original-native-removal-value' })
+    const removeSpy = vi.spyOn(caller.signal, 'removeEventListener').mockImplementation(() => {
+      throw rawCause
+    })
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array()))
+    try {
+      const operation = createBinaryTransport(() => 'original-value').startBinaryOnly({
+        binaryUrl: '/api/binary/admin/raw-cleanup-outcome', privateScope: 'admin',
+        frameType: FrameType.EmptySuccess, signal: caller.signal
+      })
+      await expect(operation.result).rejects.toBe(rawCause)
+      const terminal = await operation.terminal
+      expect(terminal.local).toBe('unknown')
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(rawCause)
+      removeSpy.mockRestore()
+      operation.cancel()
+      expect(operation.inspectResources().callerAbortListener).toBe(false)
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(rawCause)
+    } finally {
+      removeSpy.mockRestore()
+    }
+  })
+
   it('rejects a decoded legacy admin response from an older generation', async () => {
     let resolveResponse!: (value: ArrayBuffer) => void
     const response = new Promise<ArrayBuffer>(resolve => { resolveResponse = resolve })
