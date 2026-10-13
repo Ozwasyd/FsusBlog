@@ -52,7 +52,16 @@ test('the original Markdown adapter has an exact source-only declaration and fiv
         writeFileSync(path.join(root, entry), bytes);
     };
     const inputs = row.dependencies.map(dependency => path.posix.normalize(path.posix.join(path.posix.dirname(owner), dependency)));
-    for (const entry of [owner, ...inputs])
+    // The current native checker imports its owned C input-model source. Keep
+    // the five Markdown data inputs separate from this actual static closure.
+    const commandInputSources = [
+        'tools/package.json',
+        'tools/style/command-wrapper-input-model.mjs',
+        'tools/style/command-wrapper-input-ast.mjs',
+        'tools/style/command-wrapper-compile-binding.mjs',
+        'tools/style/command-wrapper-caller-binding.mjs'
+    ];
+    for (const entry of [owner, ...inputs, ...commandInputSources])
     {
         put(entry, readFileSync(path.join(repositoryRoot, entry)));
     }
@@ -62,18 +71,21 @@ test('the original Markdown adapter has an exact source-only declaration and fiv
     git('config', 'user.email', 'source-control@example.invalid');
     git('add', '.');
     git('commit', '--quiet', '-m', 'test fixture');
-    const inspect = value =>
+    const inspect = (value, mutate = null) =>
     {
         put(indexPath, `${JSON.stringify(value)}\n`);
         git('add', indexPath);
         const isolated = mkdtempSync(path.join(os.tmpdir(), 'markdown-declaration-case-'));
         t.after(() => rmSync(isolated, { recursive: true, force: true }));
         cpSync(root, isolated, { recursive: true });
+        mutate?.(isolated);
         return inspectReleaseFinalCommandTarget({ repositoryRoot: isolated, target: owner });
     };
     const positive = inspect(index);
     assert.deepEqual(positive.errors, []);
-    assert.deepEqual(positive.dependencyClosure.map(record => record.path).sort(), inputs.sort());
+    assert.deepEqual(positive.dependencyClosure.map(record => record.path).sort(), [...inputs, ...commandInputSources].sort());
+    const missingModel = inspect(index, isolated => rmSync(path.join(isolated, 'tools/style/command-wrapper-input-model.mjs')));
+    assert.ok(missingModel.errors.some(error => error.includes('./command-wrapper-input-model.mjs is unresolved')));
     for (const field of ['owner', 'sourceDigest', 'expressionDigest', 'kind'])
     {
         const changed = structuredClone(index);

@@ -75,6 +75,64 @@ Classification requires a unique real MD033 opening-token span with the exact re
 
 Portable mode can report source-closure defects but refuses admission of registered aliases without the actual parser spans, even when other external tools are optional. The required-tool path and its actual positive/refusal controls are separate from original mock-transport and portable fixtures. Run `node --test tests/tools/native-tooling-style.test.mjs` with the original Markdownlint CLI available on `PATH`, then the relevant `./tools/lint.sh docs --require-tools` selection. Fixture results do not prove whole-repository zero debt, product/API behavior, generated facts, independent acceptance, merge or promotion. The original test remains a manual diagnostic unless its existing lifecycle owner separately changes registration.
 
+## Command-wrapper analysis inputs
+
+The owner-controlled [command input registry](../../config/development/command-wrapper-input-registry.json) declares only the correctness Landlock wrapper's caller-owned `main.argc` and `main.argv` inputs. This is not a command allowlist or an exemption for matching source bytes. Required-tools lint validates the authority-owned native selection policy before the registered TU can be excluded or skipped by a full-mode hash baseline; unrelated explicitly selected files retain their original behavior. Before selecting the TU-local analyzer model, the checker independently validates the existing correctness runner's complete reviewed command admission chain, actual environment and executable identity refusals, the original compiler's complete strict command, the approved compiler/subprogram/spec/header/macro closure, and the wrapper's closed semantic AST. Missing, duplicate, foreign, redirected, stale or widened declarations fail closed. All other translation units retain the default taint model.
+
+The independent Clang semantic query retains the original language and optimization inputs and proves its own preprocessed source tokens and critical macro values match the production compiler view. It does not claim to be a GCC AST, and it does not replace the original `cc -std=c11 -O2 -Wall -Wextra -Werror` compile or strict analyzer diagnostics. Unreviewed preprocessing directives, environment inputs, toolchain/header drift and indirect or undeclared environment, stream, file, socket, IPC and pointer inputs are refused before controlled CLI assumptions can be applied.
+
+Only the admitted TU receives the controlled-environment analyzer option. The additive [taint source configuration](../../config/development/command-wrapper-taint-sources.yml) restores explicit environment-return sources without adding filters or disabling any default sink or propagation. Analysis uses the exact approved entry in a private read-only compile database and an explicit authority-owned `.clang-tidy`; source, original/private database, toolchain, headers, macros and owner closure are revalidated after execution. These checks do not claim atomic isolation from hostile concurrent filesystem modification.
+
+Registry and checker sources are loaded from the independently selected checker checkout, never from a candidate-selected proof or baseline. A bootstrap candidate's local model result and component self-tests remain nonqualifying until the separately authorized owner process freezes and independently reviews the authority, promotes it, completes equivalent local CI, merges the PR and rechecks master. The old/base checker's expected taint rejection must remain visible. Roll back the exact model authority increment if input ownership, preprocessing parity or original confinement/opaque-argument forwarding no longer holds; do not suppress diagnostics, narrow the existing CLI, or grant an unknown input class to recover a green result.
+
+The separate [metadata v2 semantic probe](../../tools/style/command-wrapper-input-ast-v2.mjs) models the current helper's decimal metadata conversion, two descriptor observations, exact device/inode/uid/mode comparisons and rule creation through the same verified alias descriptor. Its finite statement productions and actual AST call, field, flag and conversion checks retain `main.argc` and `main.argv` as the only controlled classes; descriptor identities, the decimal end cursor and errno remain untrusted observations. It refuses metadata-to-command flow, mutable borrowed aliases, substituted descriptors, unapproved call/declaration families and macro drift. Private metadata parameter/local renaming does not grant new effects. The observed glibc C23 conversion alias still requires independent compiler/header qualification.
+
+`AllowPath` refuses a null path with `EINVAL` and exit 125 before calling `open`.
+Its finite probe production retains the original declared path operand, access
+rights, descriptor rule and close operation. The original network owner tests
+this boundary and executes a removed-guard negative control; valid paths retain
+their existing open/error behavior. This component evidence does not qualify the
+caller profile or actual confinement.
+
+Run `node --test tests/tools/command-wrapper-metadata-input.test.mjs` with real Clang for this additional component probe. It returns no analyzer options and always reports `qualificationEligible: false` and `policyPromotion: false`. The required-tools checker, original v1 modules, caller roster and compiler/analyzer/header seals do not select v2 and remain unchanged. Neither these source probes nor the execution-envelope's link-time fault adapters establish real Landlock/systemd confinement, complete caller admission or trusted policy promotion. Integrating v2 into authority requires independent review, a separately versioned complete current compile/caller profile and the original positive/refusal/native/runtime gates.
+
+The [current compiler probe](../../tools/style/command-wrapper-compile-probe-v2.mjs)
+adds the current `sys/stat.h` include to a separately versioned finite directive
+sequence and applies the metadata AST productions after real strict compilation.
+It binds complete GCC and Clang header/macro observations, own-token parity,
+compiler/subprogram/spec identities, and before/after revalidation. A relocated
+Clang installation requires its exact observed resource directory plus every
+individual resource header identity; arbitrary include flags remain refused.
+The [current caller probe](../../tools/style/command-wrapper-caller-probe-v2.mjs)
+uses the existing finite source inspector to retain all original caller anchors
+and follow their complete current imports. It records the actual indexed files,
+candidate commit and parser executable, refuses missing/redirected/drifted files,
+and rechecks the closure. Its joined source profile requires the caller and
+compiler observations to describe the same C bytes. Caller-supplied digests or
+approval records cannot replace those observations.
+
+Run `node --test tests/tools/command-wrapper-current-profile.test.mjs` with real
+`cc`, Clang and strace. The tests observe the unchanged production compile through
+strace and exercise the current method's positive, drift and cleanup controls.
+The resulting profile is an **unpromoted proposal** requiring independent
+semantic review of every source owner and toolchain input. It always reports
+`callerInputAdmission: false`, `qualificationEligible: false`,
+`policyPromotion: false` and empty analyzer options. These methods do not update
+the v1 registry, select an analyzer model, grant a trusted native pass or qualify
+Landlock/systemd runtime confinement. A task's GCC/Clang observations cannot
+silently replace the independently approved native profile.
+
+The current source-integration candidate preserves the master caller's exact
+millisecond and actual-observation temporal contract, pinned matrix host input,
+and private .NET scratch namespace/cleanup ownership. Its finite caller roster
+extends the original 41-file closure with the one actual master scratch owner
+imported by the network and systemd paths. Each changed owner is reviewed against
+its complete current source and original behavioral controls; merely refreshing
+hashes does not authorize a semantic or capability change. The C input admission
+still covers only this registered translation unit, never a Bash or Node command
+closure. Current command-input authority protection is separate from the
+unchanged historical Change Contract policy roster and replay tuples.
+
 ## Native build presets
 
 The root native CMake project is intentionally separate from Emscripten artifact production. It compiles and tests a host-native CRC contract through the same repository source and `FsusWarnings` interface target.

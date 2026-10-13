@@ -390,6 +390,28 @@ export const generatedOutputHistoryRepairPolicyFiles = Object.freeze([
     'tools/governance/generated-output-history-repair-v3.mjs'
 ]);
 
+// Protect current command-input authority without changing sealed historical rosters.
+export const commandWrapperAuthorityPolicyFiles = Object.freeze([
+    '.clang-tidy',
+    '.clang-format',
+    'config/development/authoritative-development-docs.json',
+    'config/development/native-tooling-style-policy.json',
+    'config/development/native-tooling-style-exceptions.json',
+    'config/development/command-wrapper-input-registry.json',
+    'config/development/command-wrapper-taint-sources.yml',
+    'tools/style/check-native-tooling-style.mjs',
+    'tools/style/command-wrapper-input-ast.mjs',
+    'tools/style/command-wrapper-compile-binding.mjs',
+    'tools/style/command-wrapper-caller-binding.mjs',
+    'tools/style/command-wrapper-input-model.mjs'
+]);
+
+export const effectiveTrustedPolicyFiles = Object.freeze([
+    ...trustedPolicyFiles,
+    ...generatedOutputHistoryRepairPolicyFiles,
+    ...commandWrapperAuthorityPolicyFiles
+]);
+
 // This tuple becomes repair authority only after independent bootstrap review
 // and promotion. Reachability on master is not a fabricated merged-PR identity.
 export const generatedOutputHistoryRepairProducers = Object.freeze([
@@ -459,6 +481,8 @@ export const changeContract = Object.freeze({
     generatedOutputDigestRepairProducers,
     generatedOutputHistoryRepairProducers,
     generatedOutputHistoryRepairPolicyFiles,
+    commandWrapperAuthorityPolicyFiles,
+    effectiveTrustedPolicyFiles,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
