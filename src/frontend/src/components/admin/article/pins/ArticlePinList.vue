@@ -1,7 +1,8 @@
 <template>
     <section
+        v-if="copy"
         class="article-pin-list"
-        :aria-label="surface === 'switcher' ? '切换器固定文章' : '固定文章'"
+        :aria-label="surface === 'switcher' ? copy.switcherLabel : copy.railLabel"
         :aria-busy="presentation?.state === 'loading' || actionState === 'pending'"
     >
         <p
@@ -12,7 +13,7 @@
         >{{ statusText }}</p>
         <ol
             v-if="page"
-            aria-label="固定文章顺序"
+            :aria-label="copy.orderLabel"
         >
             <li
                 v-for="row in page.items"
@@ -33,10 +34,11 @@
                     @focus="focusedPinId = row.pinId"
                     @click="open(row.pinId)"
                 >{{ row.title }}</FsusUiButton>
-                <span v-if="row.status === 3">已归档</span>
-                <span v-if="row.dirty">未保存</span>
-                <span v-if="row.open">已打开</span>
+                <span v-if="row.status === 3">{{ copy.archivedLabel }}</span>
+                <span v-if="row.dirty">{{ copy.dirtyLabel }}</span>
+                <span v-if="row.open">{{ copy.openLabel }}</span>
                 <ArticlePinToggle
+                    :copy="copy"
                     :binding="page"
                     :article-id="row.articleId"
                     membership="pinned"
@@ -52,18 +54,18 @@
                     <FsusUiButton
                         text
                         :disabled="busy"
-                        aria-label="调整固定顺序"
-                    >调整顺序</FsusUiButton>
+                        :aria-label="copy.reorderLabel"
+                    >{{ copy.reorderLabel }}</FsusUiButton>
                     <template #dropdown>
                         <FsusUiDropdownMenu>
                             <FsusUiDropdownItem
                                 command="previous"
                                 :disabled="!canMove(row.pinId, 'previous')"
-                            >上移</FsusUiDropdownItem>
+                            >{{ copy.previousLabel }}</FsusUiDropdownItem>
                             <FsusUiDropdownItem
                                 command="next"
                                 :disabled="!canMove(row.pinId, 'next')"
-                            >下移</FsusUiDropdownItem>
+                            >{{ copy.nextLabel }}</FsusUiDropdownItem>
                         </FsusUiDropdownMenu>
                     </template>
                 </FsusUiDropdown>
@@ -74,12 +76,13 @@
             text
             :disabled="busy"
             @click="nextPage"
-        >下一页</FsusUiButton>
+        >{{ copy.nextPageLabel }}</FsusUiButton>
         <FsusUiButton
             v-if="!page && presentation && presentation.state !== 'unconnected' && presentation.state !== 'loading'"
             text
-            @click="emit('refresh')"
-        >刷新固定文章</FsusUiButton>
+            :disabled="actionState === 'pending'"
+            @click="refresh"
+        >{{ copy.refreshLabel }}</FsusUiButton>
     </section>
 </template>
 
@@ -95,6 +98,7 @@ import {
     createArticlePinMoveIntent,
     readArticlePinDisplayPage,
     type ArticlePinActionState,
+    type ArticlePinCopy,
     type ArticlePinDisplayBinding,
     type ArticlePinMoveIntent,
     type ArticlePinOpenIntent,
@@ -104,6 +108,7 @@ import {
 import ArticlePinToggle from './ArticlePinToggle.vue';
 
 const props = defineProps<{
+    copy: ArticlePinCopy;
     surface: 'rail' | 'switcher';
     presentation?: ArticlePinPresentation;
     actionState?: ArticlePinActionState;
@@ -122,27 +127,32 @@ const buttons = new Map<string, HTMLButtonElement>();
 const drag = shallowRef<(ArticlePinDisplayBinding & { pinId: string; }) | null>(null);
 const statusText = computed(() =>
 {
+    const copy = props.copy;
+    if (!copy)
+    {
+        return '';
+    }
     if (props.actionState === 'conflict' || props.presentation?.state === 'conflict')
     {
-        return '固定列表已变化，请刷新后重试。';
+        return copy.statusConflict;
     }
     if (props.actionState === 'stale' || props.presentation?.state === 'stale')
     {
-        return '固定列表已过期，请刷新。';
+        return copy.statusStale;
     }
     if (props.actionState === 'pending')
     {
-        return '正在更新固定文章…';
+        return copy.statusPending;
     }
     if (props.actionState === 'failed')
     {
-        return '固定操作失败，请重试。';
+        return copy.statusFailed;
     }
     if (props.presentation?.state === 'loading')
     {
-        return '正在读取固定文章…';
+        return copy.statusLoading;
     }
-    return page.value ? page.value.items.length === 0 ? '暂无固定文章。' : '固定文章' : '固定文章暂不可用。';
+    return page.value ? page.value.items.length === 0 ? copy.statusEmpty : copy.statusCurrent : copy.statusUnavailable;
 });
 
 function rememberButton(pinId: string, instance: unknown): void
@@ -232,10 +242,19 @@ function menuMove(pinId: string, command: unknown): void
 
 function onKey(event: KeyboardEvent, pinId: string): void
 {
+    // Only this row's public title Button owns these keys; nested controls keep their own semantics.
+    if (event.defaultPrevented || event.target !== buttons.get(pinId) || event.ctrlKey || event.metaKey || event.shiftKey)
+    {
+        return;
+    }
     if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown'))
     {
         event.preventDefault();
         menuMove(pinId, event.key === 'ArrowUp' ? 'previous' : 'next');
+        return;
+    }
+    if (event.altKey)
+    {
         return;
     }
     const current = page.value;
@@ -265,6 +284,7 @@ function startDrag(event: DragEvent, pinId: string): void
     event.dataTransfer?.setData('text/plain', pinId);
 }
 
+/** Drag supports visible after-anchors only; head/null remains a keyboard/menu operation. */
 function dropAfter(afterPinId: string): void
 {
     const captured = drag.value;
@@ -289,6 +309,16 @@ function nextPage(): void
         emit('page', Object.freeze({ collectionRevision: current.collectionRevision, pageDigest: current.pageDigest,
                                      cursor: current.nextCursor }));
     }
+}
+
+function refresh(): void
+{
+    if (props.actionState === 'pending' || !props.presentation || props.presentation.state === 'loading'
+        || props.presentation.state === 'unconnected' || page.value)
+    {
+        return;
+    }
+    emit('refresh');
 }
 
 defineExpose({ restoreFocus, getFocusIdentity: () => focusedPinId.value });

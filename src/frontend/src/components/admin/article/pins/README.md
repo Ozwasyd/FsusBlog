@@ -69,12 +69,36 @@ optional display facts from the original document/session owner.
 Keyboard Alt+Up/Down, explicit FsusUI menu commands and native drag/drop use the
 same after-anchor intent builder and never mutate the authoritative list. Arrow,
 Home and End navigate through the documented public Button.ref focus API.
+Row keyboard handling ignores already-consumed events and accepts only events
+from that row's title Button. Dropdown, toggle and other nested controls keep
+their own Arrow/Alt semantics. Pending refresh is disabled in both its public
+Button and its emit handler, including an unavailable presentation.
 An unknown predecessor outside the current page is refused rather than treated
 as the collection head. Drag holds only a pin identity and original revision/digest
 binding; it retains no page/title object and refuses a changed binding. There are
 no global drag observers or unbounded per-collection listeners.
 Touch uses the same menu. OpenEligible is a server display hint, not authority:
 the leaf only emits an intent and creates no route/tab/session.
+
+The drag operation set is deliberately limited to after-anchors visible on this
+page. It has no head/null drop target; keyboard/menu can request head only when
+the actual head-page predecessor is known. Sharing the intent builder does not
+establish full drag/head equivalence. Full gesture parity remains unimplemented
+integration/acceptance work and is not claimed by this source candidate.
+
+All Button, status and ARIA copy now comes from required `ArticlePinCopy` strings
+already localized by the original composition through its genuine typed i18n.
+These fields are UI copy slots, not invented locale IDs, catalogs or schema
+receipts. Both leaves use the same supplied pin/unpin copy. Missing copy renders
+no leaf; there is no hardcoded-language fallback, locale mutation or new i18n
+authority in this module.
+
+Malformed display input is checked as unknown data before field access: non-string
+revision/digest, non-array items, non-boolean startsAtHead/hasMore and non-null
+non-string cursor are refused. Whole-page row validation precedes rendering and
+the original page is returned by identity only when all shape/budget checks pass.
+Missing fields or throwing input return null with no partial title/count. These
+checks still verify no receipt, permission or currentness.
 
 Pending/failed/conflict/stale are explicit display states. There is no optimistic
 mutation or success acknowledgement. The host must withdraw an old projection,
@@ -104,6 +128,11 @@ reorder paths including off-page boundaries; 0/1/1000 pins through bounded pages
 archived/deleted/revoked/stale/actor-site change; raw transport error/receipt
 mapping; current/closed/other-group open-or-activate; retained focus after refresh;
 mobile/zoom/themes/keyboard/screen reader; tampered projection/action/receipt.
+The original held preflight also covers consumed Dropdown ArrowDown/Alt+Down
+events versus title-only navigation/reorder, unavailable+pending refresh button
+and handler, missing revision/items and cursor0/startsAtHead shape refusals, and
+composition-supplied localized copy across locale changes. No case is executed
+or promoted to runtime/UX/receipt evidence by the static source repair.
 
 All runtime, product imports, mount/browser, ordinary tests/list/discovery,
 security/privacy, network API execution, native, receipt and frozen qualification

@@ -1,5 +1,6 @@
 <template>
     <FsusUiButton
+        v-if="copy"
         text
         :disabled="disabled || pending || !intent"
         :loading="pending"
@@ -7,7 +8,7 @@
         data-pin-action="article-pin-toggle"
         @click="toggle"
     >
-        {{ membership === 'pinned' ? '取消固定' : '固定' }}
+        {{ membership === 'pinned' ? copy.unpinLabel : copy.pinLabel }}
     </FsusUiButton>
 </template>
 
@@ -16,9 +17,10 @@ import { computed } from 'vue';
 
 import { FsusUiButton } from '@/fsusui/button';
 
-import { createArticlePinToggleIntent, type ArticlePinDisplayBinding, type ArticlePinToggleIntent } from './articlePinPresentation';
+import { createArticlePinToggleIntent, type ArticlePinCopy, type ArticlePinDisplayBinding, type ArticlePinToggleIntent } from './articlePinPresentation';
 
 const props = defineProps<{
+    copy: Pick<ArticlePinCopy, 'pinLabel' | 'unpinLabel'>;
     binding?: ArticlePinDisplayBinding;
     articleId: number;
     membership: 'pinned' | 'unpinned' | 'unknown';
