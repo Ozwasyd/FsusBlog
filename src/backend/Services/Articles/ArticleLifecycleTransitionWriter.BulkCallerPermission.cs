@@ -65,7 +65,7 @@ public static partial class ArticleLifecycleTransitionWriter
         internal readonly IConfiguration _configuration = configuration;
         internal readonly TimeProvider _timeProvider = timeProvider;
         internal readonly ClaimsPrincipal _principal = principal;
-        internal readonly WeakReference<AuthenticationTicket> _ticket = new(ticket);
+        internal readonly WeakReference<AuthenticationProperties> _ticketProperties = new(ticket.Properties);
         internal readonly AdminSessionValidationService _sessions = sessions;
         internal readonly AdminSessionValidationService.CurrentSessionObservation _session = session;
         internal readonly string _sessionId = sessionId;
@@ -105,7 +105,7 @@ public static partial class ArticleLifecycleTransitionWriter
             || principal.GetAdminSessionId() is not { Length: > 0 and <= 64 } sessionId)
             throw BulkCallerPermissionFailure("original_admin_required");
         string accessToken = RequireBulkCallerSavedToken(ticket);
-        (DateTimeOffset notBefore, DateTimeOffset expires) = ReadBulkCallerTokenTimes(ticket);
+        (DateTimeOffset notBefore, DateTimeOffset expires) = ReadBulkCallerTokenTimes(ticket.Properties);
         byte[] tokenHash = SHA256.HashData(Encoding.UTF8.GetBytes(accessToken));
         AdminSessionValidationService.CurrentSessionObservation session = await sessions
             .CaptureCurrentSessionObservationAsync(principal, accessToken, cancellationToken).ConfigureAwait(false)
@@ -151,11 +151,10 @@ public static partial class ArticleLifecycleTransitionWriter
             AuthenticateResult authenticated = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             AuthenticationTicket ticket = RequireBulkCallerTicket(context, authenticated);
-            if (!state._ticket.TryGetTarget(out AuthenticationTicket? originalTicket) || !ReferenceEquals(ticket, originalTicket)
-                || ReadBulkCallerTokenTimes(ticket) != (state._tokenNotBeforeUtc, state._tokenExpiresAtUtc)
-                || !CryptographicOperations.FixedTimeEquals(state._tokenHash,
-                    SHA256.HashData(Encoding.UTF8.GetBytes(RequireBulkCallerSavedToken(ticket)))))
+            if (!state._ticketProperties.TryGetTarget(out AuthenticationProperties? properties))
                 throw BulkCallerPermissionFailure("original_authentication_changed");
+            RequireBulkCallerTicketFacts(ticket, properties, state._principal, state._tokenHash,
+                state._tokenNotBeforeUtc, state._tokenExpiresAtUtc);
             BulkPersistedCallerFacts current = await ReadBulkPersistedCallerFactsAsync(database, originalTransaction,
                 observation.AdminPrincipalId, state._sessionId, lockRows: true, cancellationToken).ConfigureAwait(false);
             RequireBulkCallerSources(state, observation, context);
@@ -205,11 +204,10 @@ public static partial class ArticleLifecycleTransitionWriter
             || !ReferenceEquals(state._configuration, services.GetRequiredService<IConfiguration>())
             || !ReferenceEquals(state._sessions, services.GetRequiredService<IAdminSessionValidationService>())
             || !ReferenceEquals(state._timeProvider, services.GetRequiredService<TimeProvider>())
-            || !state._ticket.TryGetTarget(out AuthenticationTicket? ticket)
-            || ticket.AuthenticationScheme != JwtBearerDefaults.AuthenticationScheme || !ReferenceEquals(ticket.Principal, state._principal)
-            || ReadBulkCallerTokenTimes(ticket) != (state._tokenNotBeforeUtc, state._tokenExpiresAtUtc)
+            || !state._ticketProperties.TryGetTarget(out AuthenticationProperties? properties)
+            || ReadBulkCallerTokenTimes(properties) != (state._tokenNotBeforeUtc, state._tokenExpiresAtUtc)
             || !CryptographicOperations.FixedTimeEquals(state._tokenHash,
-                SHA256.HashData(Encoding.UTF8.GetBytes(RequireBulkCallerSavedToken(ticket))))
+                SHA256.HashData(Encoding.UTF8.GetBytes(RequireBulkCallerSavedToken(properties))))
             || !ReferenceEquals(context.User, state._principal)
             || state._principal.Identity?.IsAuthenticated != true || !state._principal.IsAdminPrincipal()
             || !state._principal.TryGetAdminPrincipalId(out long adminId) || adminId != observation.AdminPrincipalId
@@ -237,14 +235,30 @@ public static partial class ArticleLifecycleTransitionWriter
     }
 
     private static string RequireBulkCallerSavedToken(AuthenticationTicket ticket)
-        => ticket.Properties.GetTokenValue("access_token") is { Length: > 0 and <= 16 * 1024 } token
+        => RequireBulkCallerSavedToken(ticket.Properties);
+
+    private static string RequireBulkCallerSavedToken(AuthenticationProperties properties)
+        => properties.GetTokenValue("access_token") is { Length: > 0 and <= 16 * 1024 } token
             ? token : throw BulkCallerPermissionFailure("original_saved_token_required");
 
-    private static (DateTimeOffset NotBefore, DateTimeOffset Expires) ReadBulkCallerTokenTimes(AuthenticationTicket ticket)
+    /// <summary>Exact ticket data comparison only; cannot enroll an observation or grant admission.</summary>
+    internal static void RequireBulkCallerTicketFacts(AuthenticationTicket ticket, AuthenticationProperties originalProperties,
+        ClaimsPrincipal originalPrincipal, byte[] tokenHash, DateTimeOffset notBeforeUtc, DateTimeOffset expiresAtUtc)
+    {
+        // AuthenticationService recreates ticket envelopes; original handler properties/principal remain the inputs.
+        if (ticket.AuthenticationScheme != JwtBearerDefaults.AuthenticationScheme || !ReferenceEquals(ticket.Properties, originalProperties)
+            || !ReferenceEquals(ticket.Principal, originalPrincipal) || originalPrincipal.Identity?.IsAuthenticated != true
+            || ReadBulkCallerTokenTimes(ticket.Properties) != (notBeforeUtc, expiresAtUtc)
+            || !CryptographicOperations.FixedTimeEquals(tokenHash,
+                SHA256.HashData(Encoding.UTF8.GetBytes(RequireBulkCallerSavedToken(ticket)))))
+            throw BulkCallerPermissionFailure("original_authentication_changed");
+    }
+
+    private static (DateTimeOffset NotBefore, DateTimeOffset Expires) ReadBulkCallerTokenTimes(AuthenticationProperties properties)
     {
         // Original JwtBearer10.0.7 retains validated SecurityToken.ValidFrom/ValidTo here.
         // Missing data refuses; arbitrary JWT parsing is not an alternative admission path.
-        if (ticket.Properties.IssuedUtc is not { } notBefore || ticket.Properties.ExpiresUtc is not { } expires
+        if (properties.IssuedUtc is not { } notBefore || properties.ExpiresUtc is not { } expires
             || expires <= notBefore)
             throw BulkCallerPermissionFailure("original_token_lifetime_required");
         return (notBefore, expires);

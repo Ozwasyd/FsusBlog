@@ -23,7 +23,7 @@ constructed session observation alone is insufficient. The actual registered
 `IAdminSessionValidationService` must be the original validator instance. Capture
 consumes its accepted current-session observation and retains private original
 principal/session/token-hash custody. There is no separate raw-token field, serialization
-or logging. Original request/ticket/service-provider identity references are weak;
+or logging. Original request/ticket-properties/service-provider identity references are weak;
 they do not add strong custody of the original request's headers/cookies/saved token.
 Runtime retention/privacy behavior is unqualified. JWT lifetime fields come from the actual original handler's
 ticket `IssuedUtc`/`ExpiresUtc`, then are checked with the same registered business
@@ -80,6 +80,15 @@ revalidation. Cancellation is checked after original/async reads and on the real
 request abort token. Failure poisons the observation; it cannot refresh into a
 successful replacement. Concurrent revalidation is refused. The transaction owner
 retains the acquired share locks and owns their release; cleanup is no receipt.
+
+The original [AuthenticationService10.0.7 source](https://github.com/dotnet/aspnetcore/blob/v10.0.7/src/Http/Authentication.Core/src/AuthenticationService.cs)
+creates a new ticket envelope per successful authenticate call using the original
+handler's properties and principal. Envelope object identity is therefore not
+required. Exact original properties/principal identity, saved-token hash, scheme
+and lifetime fields are checked instead; copied/replaced facts still refuse.
+The internal ticket-fact comparison helper neither enrolls an observation nor
+authenticates a caller. Constructed test tickets cannot enter native observation
+custody through it.
 
 Checks describe their actual validation points. They do not freeze configuration,
 JWT keys, request identity or projected session state after return and cannot

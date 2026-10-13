@@ -1,5 +1,12 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Services.Articles;
+
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -75,5 +82,52 @@ public sealed class ArticleBulkCallerPermissionTests
         await Assert.ThrowsAsync<ArticleWriteValidationException>(() =>
             ArticleLifecycleTransitionWriter.RevalidateBulkCallerPermissionAfterLockAsync(
                 null!, null!, null!, null!, fabricated, CancellationToken.None));
+    }
+
+    [Fact]
+    public void RecreatedTicketEnvelopeRetainsOriginalFacts()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([], "ordinary-source-control"));
+        AuthenticationProperties properties = TicketProperties();
+        var original = new AuthenticationTicket(principal, properties, JwtBearerDefaults.AuthenticationScheme);
+        var recreated = new AuthenticationTicket(principal, properties, JwtBearerDefaults.AuthenticationScheme);
+        Assert.NotSame(original, recreated);
+        ArticleLifecycleTransitionWriter.RequireBulkCallerTicketFacts(recreated, properties, principal,
+            SHA256.HashData(Encoding.UTF8.GetBytes("ordinary-source-token")),
+            properties.IssuedUtc!.Value, properties.ExpiresUtc!.Value);
+    }
+
+    [Fact]
+    public void CopiedPropertiesAreNotOriginalCustodyEvenWithSameData()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([], "ordinary-source-control"));
+        AuthenticationProperties original = TicketProperties();
+        var copied = new AuthenticationTicket(principal, TicketProperties(), JwtBearerDefaults.AuthenticationScheme);
+        Assert.Throws<ArticleWriteValidationException>(() => ArticleLifecycleTransitionWriter.RequireBulkCallerTicketFacts(
+            copied, original, principal, SHA256.HashData(Encoding.UTF8.GetBytes("ordinary-source-token")),
+            original.IssuedUtc!.Value, original.ExpiresUtc!.Value));
+    }
+
+    [Fact]
+    public void SavedTokenDriftCannotReuseOriginalProperties()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([], "ordinary-source-control"));
+        AuthenticationProperties properties = TicketProperties();
+        var ticket = new AuthenticationTicket(principal, properties, JwtBearerDefaults.AuthenticationScheme);
+        byte[] originalHash = SHA256.HashData(Encoding.UTF8.GetBytes("ordinary-source-token"));
+        properties.UpdateTokenValue("access_token", "changed-ordinary-source-token");
+        Assert.Throws<ArticleWriteValidationException>(() => ArticleLifecycleTransitionWriter.RequireBulkCallerTicketFacts(
+            ticket, properties, principal, originalHash, properties.IssuedUtc!.Value, properties.ExpiresUtc!.Value));
+    }
+
+    private static AuthenticationProperties TicketProperties()
+    {
+        var properties = new AuthenticationProperties
+        {
+            IssuedUtc = new DateTimeOffset(2026, 10, 13, 0, 0, 0, TimeSpan.Zero),
+            ExpiresUtc = new DateTimeOffset(2026, 10, 13, 0, 15, 0, TimeSpan.Zero)
+        };
+        properties.StoreTokens([new AuthenticationToken { Name = "access_token", Value = "ordinary-source-token" }]);
+        return properties;
     }
 }
