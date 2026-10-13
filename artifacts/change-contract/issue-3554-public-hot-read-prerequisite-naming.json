@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the NuGet-owned package lock fields and the existing serialized correctness-producer and execution-authority field names while consuming the exact canonical source and closure metadata."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the registered lifecycle JSON fields, distinct test and governance identifiers, categories and existing execution ownership while removing only the duplicate suite registration."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the original execution owner and caller-visible environment authority names while consuming the canonical complete-roster verification."
+        }
+    ]
+}
