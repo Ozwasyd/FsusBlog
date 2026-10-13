@@ -2392,8 +2392,10 @@ At intake, the user-table successor had limited source acceptance and later
 business source review remained pending. That intake observation is preserved in
 the ordinary WIP. The parent subsequently independently accepted the complete
 fixed business source head with no new P1/P2. A read-only bounded combination
-review found no new P1/P2; this unchanged production combination still awaits the
-parent's final source review and grants no runtime or ready qualification. The
+review found no new P1/P2; the parent later independently accepted the exact
+fixed combination as limited SOURCE. This unchanged production grants no runtime
+or ready qualification; the ordinary user handoff preserves all remaining
+compiler, producer and verification blockers. The
 ordinary WIP preserves both source heads and original commit/path identities.
 No donor roots, tests, documents, configuration or skip-ci directives are imported.
 All existing public editor/host/router, document, ConfigProducer, snapshot/reset,
