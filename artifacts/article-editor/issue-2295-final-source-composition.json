@@ -1,0 +1,179 @@
+{
+    "base": "6e68a339b14fb422d0f86f04132ca386a9d5a80e",
+    "businessBase": "e379198d484474dea2d5645a9b077cb5ae71636b",
+    "businessHead": "6fed3888f93ae08655752eb811204fca60d05542",
+    "originalCommitCount": 7,
+    "originalPathCount": 6,
+    "actualChangedProductionPaths": 5,
+    "rows": [
+        {
+            "originalConsumerCommit": "507be813288663e6710746f3963fd30354a52a42",
+            "path": "src/frontend/src/components/admin/users/UserManageTable.vue",
+            "completePreimage": "645e4d956d196ce83b3d683e887b647343f1bd85",
+            "completePostimage": "fa4e06457677c4ea32f35543be38dcec95e6ecab",
+            "currentBeforeThisPatch": "645e4d956d196ce83b3d683e887b647343f1bd85",
+            "action": "exact-original-owning-source-patch"
+        },
+        {
+            "originalConsumerCommit": "4073763ad383ce4655f701e5ef571ac1feb23347",
+            "path": "src/frontend/src/components/admin/users/UserManageTable.vue",
+            "completePreimage": "fa4e06457677c4ea32f35543be38dcec95e6ecab",
+            "completePostimage": "971beaecdef1e9c0b7a846a32d48b443d687bc55",
+            "currentBeforeThisPatch": "fa4e06457677c4ea32f35543be38dcec95e6ecab",
+            "action": "exact-original-owning-source-patch"
+        },
+        {
+            "originalConsumerCommit": "e005f343efdff9650ccfe2d8401bc219aa263ab6",
+            "path": "src/frontend/src/fsusui/motion.ts",
+            "completePreimage": "40e8bd69463c1eaf8ec1a32a25953b69e4bded30",
+            "completePostimage": "bae1c204a4730840238b1509fff4b3eb99f0e256",
+            "currentBeforeThisPatch": "40e8bd69463c1eaf8ec1a32a25953b69e4bded30",
+            "action": "exact-original-owning-source-patch"
+        },
+        {
+            "originalConsumerCommit": "b747ed8e09afb2bf2f28c12aaf4f7dc5abb2bbb7",
+            "path": "src/frontend/src/components/security/FsusPoSpaceChallenge.vue",
+            "completePreimage": "6bfdaf2b7322a0c31887ade032c2d6e702e6bd24",
+            "completePostimage": "cfbb13f4f7e8c5aa6d9f17f181254b5a7ac830de",
+            "currentBeforeThisPatch": "6bfdaf2b7322a0c31887ade032c2d6e702e6bd24",
+            "action": "exact-original-owning-source-patch"
+        },
+        {
+            "originalConsumerCommit": "cfe618e222f70e09b455164f004ce0cc56b770a9",
+            "path": "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
+            "completePreimage": "e82f4d6910e6e0cda0534ac45693583054c58efb",
+            "completePostimage": "ee1dff0daaa5af36fe9289ea78efb24a8dea7b54",
+            "currentBeforeThisPatch": "e82f4d6910e6e0cda0534ac45693583054c58efb",
+            "action": "exact-original-owning-source-patch"
+        },
+        {
+            "originalConsumerCommit": "0051fa87687fdb09e44a129bd139416a66a6a1fa",
+            "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+            "completePreimage": "e273df61f715630167b4636026605fd8058d7906",
+            "completePostimage": "6bb4ecb0d192b22ffd575fe3a794998211cc374a",
+            "currentBeforeThisPatch": "e273df61f715630167b4636026605fd8058d7906",
+            "action": "exact-original-owning-source-patch"
+        },
+        {
+            "originalConsumerCommit": "6fed3888f93ae08655752eb811204fca60d05542",
+            "path": "src/frontend/src/views/admin/AuditLog.vue",
+            "completePreimage": "9f089f71d8777f70bc714204813d8d5901b938c1",
+            "completePostimage": "e52448e202548e33202a249eb81ac85884df0ec2",
+            "currentBeforeThisPatch": "e52448e202548e33202a249eb81ac85884df0ec2",
+            "action": "already-identical-original-Audit; no patch or rewrite"
+        }
+    ],
+    "sourceReviewCondition": "Users4073763ad limited SOURCE accepted per parent; later motion/PoSpace/comment/filter source review pending. Audit already same accepted4312 ancestor. Composition remains conditional pending, no default acceptance.",
+    "mutationBoundary": "Only original source patches; no donor ancestry, skip-ci flags/messages, tests, docs, artifacts, old Main roots, compiler configs or authority imported.",
+    "kind": "ordinary exact final source composition WIP; no authority/receipt/qualification",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "acceptedMainPredecessors": {
+        "Audit4312": "e6f3f35092ef989a39750d0c492dce168b8b2526",
+        "AppBootstrap4313": "33d479e2abe66afc470c6f242a96bd63b4929e81",
+        "GraphSnapshot4314": "e28e4a32ba7061d377fc773b48907962c33ec439",
+        "Timer4316": "6e68a339b14fb422d0f86f04132ca386a9d5a80e"
+    },
+    "acceptanceBoundary": "Parent reports predecessor group limited SOURCE accepted, no new P1/P2. Users4073 limited SOURCE accepted; later business successor review still pending at intake. Exact composition source itself awaits independent source review. Never assume source or runtime acceptance from inclusion.",
+    "holds": "All actual public editor/host/router/Document identities, ConfigProducer, snapshot/reset/timer/SDK/cohort/withdraw/end/settlement sources preserved to accepted Main base. Upload8 real producer/frozen projection gaps and UI18templatecodegen+7enum+Analyticsref retained. All runtime/import/discovery/render/tests/security/privacy/receipt/native/race/backuprestore/IME qualification HOLD/UNRUN. Physical alias independent UNVERIFIED.",
+    "staticChecks": {
+        "fullProgram": {
+            "before": 80,
+            "after": 34,
+            "beforeUI": 25,
+            "afterUI": 25,
+            "added": [],
+            "removed": [
+                "src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue(POSITION): error TS2322: Type '[string, string] | null' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.\n  Type 'null' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS4104: The type 'readonly UserListViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'unknown[]'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS2345: Argument of type '(_: { item: UserListViewItem; }) => any' is not assignable to parameter of type '(props: { item: unknown; index: number; compact: boolean; }) => any'.\n  Types of parameters '_' and 'props' are incompatible.\n    Type '{ item: unknown; index: number; compact: boolean; }' is not assignable to type '{ item: UserListViewItem; }'.\n      Types of property 'item' are incompatible.\n        Type 'unknown' is not assignable to type 'UserListViewItem'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS18046: 'row' is of type 'unknown'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS2769: No overload matches this call.\n  Overload 1 of 5, '(evt: \"update:current-page\", value: number): void', gave the following error.\n    Argument of type '\"toggle-status\"' is not assignable to parameter of type '\"update:current-page\"'.\n  Overload 2 of 5, '(evt: \"update:page-size\", value: number): void', gave the following error.\n    Argument of type '\"toggle-status\"' is not assignable to parameter of type '\"update:page-size\"'.\n  Overload 3 of 5, '(evt: \"toggle-status\", row: UserListViewItem): void', gave the following error.\n    Argument of type 'unknown' is not assignable to parameter of type 'UserListViewItem'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS2322: Type 'TableV2Column<UserListViewItem>[]' is not assignable to type 'AnyColumn[]'.\n  Type 'TableV2Column<UserListViewItem>' is not assignable to type 'AnyColumn'.\n    Types of property 'fixed' are incompatible.\n      Type 'true | \"left\" | \"right\" | undefined' is not assignable to type 'true | FixedDir | undefined'.\n        Type '\"left\"' is not assignable to type 'true | FixedDir | undefined'.",
+                "src/components/admin/users/UserManageTable.vue(POSITION): error TS4104: The type 'readonly UserListViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'any[]'.",
+                "src/components/article/ArticleCommentTreeNode.vue(POSITION): error TS2769: No overload matches this call.\n  The last overload gave the following error.\n    Argument of type '\"load-more\"' is not assignable to parameter of type '\"reply\"'.",
+                "src/components/article/ArticleCommentTreeNode.vue(POSITION): error TS2769: No overload matches this call.\n  The last overload gave the following error.\n    Argument of type '\"load-more\"' is not assignable to parameter of type '\"reply\"'.",
+                "src/components/security/FsusPoSpaceChallenge.vue(POSITION): error TS2304: Cannot find name 'SecurityChallengeAssignment'.",
+                "src/components/security/FsusPoSpaceChallenge.vue(POSITION): error TS2304: Cannot find name 'SecurityChallengeProviderPayload'.",
+                "src/components/security/FsusPoSpaceChallenge.vue(POSITION): error TS2304: Cannot find name 'SecurityChallengeContext'.",
+                "src/components/security/FsusPoSpaceChallenge.vue(POSITION): error TS2304: Cannot find name 'SecurityChallengeProof'.",
+                "src/components/security/FsusPoSpaceChallenge.vue(POSITION): error TS2304: Cannot find name 'SecurityChallengeVerifyResponse'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"fade-in\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"fade-in\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"fade-in\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"fade-in\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"scale-fade\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"scale-fade\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"scale-fade\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"slide-right\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"slide-up\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"slide-up\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'.",
+                "src/fsusui/motion.ts(POSITION): error TS2322: Type '\"fade-down\"' is not assignable to type '\"surface-settle\" | \"paper-settle\" | \"route-settle\" | \"ownership-transfer-snapshot\" | \"overlay-settle\" | \"dialog-settle\" | \"sheet-settle\" | \"lightbox-focus\" | \"dock-settle\" | ... 13 more ... | \"copy-confirm\"'."
+            ]
+        },
+        "sameOriginalStrictFull": {
+            "before": 14,
+            "after": 0,
+            "added": [],
+            "removed": [
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/import-x/order: `vue` import should occur before type import of `@/api/security`",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-redundant-type-constituents: 'SecurityChallengeAssignment' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-redundant-type-constituents: 'SecurityChallengeProviderPayload' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-redundant-type-constituents: 'SecurityChallengeProof' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-redundant-type-constituents: 'SecurityChallengeVerifyResponse' is an 'error' type that acts as 'any' and overrides all other types in this union type.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/consistent-type-imports: `import()` type annotations are forbidden.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an `any` value.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-return: Unsafe return of a value of type `any`.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/components/security/FsusPoSpaceChallenge.vue:POSITION eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .expiresAtUnixMs on a type that cannot be resolved."
+            ]
+        },
+        "AST": "six canonical source TS/SFC AST0; Audit included but unchanged",
+        "docs": "7/41FAIL byte identical to fixed4316; no frozen refresh",
+        "runtime": "All HOLD/UNRUN",
+        "physicalAlias": "author physical directory source evidence only; independent UNVERIFIED"
+    },
+    "sourcePreservation": {
+        "exactOnlyFiveProductionPaths": [
+            "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+            "src/frontend/src/components/admin/users/UserManageTable.vue",
+            "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
+            "src/frontend/src/components/security/FsusPoSpaceChallenge.vue",
+            "src/frontend/src/fsusui/motion.ts"
+        ],
+        "allOtherOriginalSourceLeavesByteIdenticalToAcceptedBase": true,
+        "AuditIdentical": "e52448e202548e33202a249eb81ac85884df0ec2",
+        "sourceReview": "Conditional pending late business predecessor and own composition, no default acceptance"
+    },
+    "actualRemainingBlogDiagnostics": {
+        "src/adapters/binary/uploadAdapter.ts": 2,
+        "src/api/upload.ts": 3,
+        "src/api/uploadFacts.ts": 3,
+        "src/views/admin/Analytics.vue": 1
+    },
+    "remainingDisposition": "Actual34FAIL: uploadAdapter2/upload3/uploadFacts3 =8 actual real-producer/frozen projection gaps; Analytics1 real template ref HOLD; UI25 unchanged =18template/codegen+7enums HOLD. No arithmetic forecast, actual full log classification."
+}

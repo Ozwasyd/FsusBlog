@@ -29,6 +29,8 @@
 </template>
 
 <script lang="ts">
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
+
 import type {
     SecurityChallengeAssignment as ExecutorAssignment,
     SecurityChallengeProviderPayload as ExecutorProviderPayload,
@@ -79,12 +81,10 @@ export type PoSpaceChallengeExecutorFactory = () => PoSpaceChallengeExecutorLike
 </script>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
-
 const props = withDefaults(defineProps<{
-    assignment: SecurityChallengeAssignment | null;
-    providerPayload: SecurityChallengeProviderPayload | null;
-    context: SecurityChallengeContext;
+    assignment: ExecutorAssignment | null;
+    providerPayload: ExecutorProviderPayload | null;
+    context: ExecutorContext;
     policyVersion: string;
     refresh: () => Promise<void>;
     disabled?: boolean;
@@ -94,8 +94,8 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-    verified: [value: SecurityChallengeProof | SecurityChallengeVerifyResponse];
-    continued: [value: import('@/security/challenge-client').SecurityChallengeIssueResult];
+    verified: [value: ExecutorProof | ExecutorVerifyResponse];
+    continued: [value: ExecutorIssueResult];
     unsupported: [value: PoSpaceUnsupportedResult];
     error: [value: string];
     refresh: [];
@@ -169,7 +169,7 @@ function invalidate(cancel = false): void
 
 function normalizeState(value: unknown): PoSpaceUiState | null
 {
-    const candidate = typeof value === 'string'
+    const candidate: unknown = typeof value === 'string'
         ? value
         : value && typeof value === 'object'
             ? Reflect.get(value, 'status') ?? Reflect.get(value, 'state')

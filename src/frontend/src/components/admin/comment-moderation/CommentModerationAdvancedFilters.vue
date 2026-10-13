@@ -116,7 +116,7 @@
                         />
                     </ElSelect>
                     <ElDatePicker
-                        :model-value="filters.dateRange"
+                        :model-value="filters.dateRange ?? undefined"
                         type="daterange"
                         value-format="YYYY-MM-DD"
                         start-placeholder="开始日期"

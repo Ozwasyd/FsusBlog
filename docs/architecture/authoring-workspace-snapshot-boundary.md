@@ -2377,3 +2377,23 @@ resource acknowledgment, readiness or cancellation success. All four complete
 original-options JavaScript emissions are byte identical. Actual original source
 callers are checked by the full compiler; test/render/runtime qualifications
 remain held, and the optional environment handle typing is reviewed explicitly.
+
+
+## Exact Final Business Source Composition Candidate
+
+The composition candidate starts from the accepted App/bootstrap, original
+constructor-field and timer-type source chain. It consumes only the exact
+original business source patches for the user table, canonical motion names,
+PoSpace imported annotations, declared comment event and absent moderation date
+presentation. Each sequential complete preimage and postimage is verified.
+The original Audit Dayjs repair is already identical and is not rewritten.
+
+At intake, the user-table successor has limited source acceptance; later business
+source review remains pending. This combination is therefore a conditional
+source candidate awaiting independent review, not accepted by inclusion. The
+ordinary WIP preserves both source heads and original commit/path identities.
+No donor roots, tests, documents, configuration or skip-ci directives are imported.
+All existing public editor/host/router, document, ConfigProducer, snapshot/reset,
+timer and actual native producer lifecycle owners remain the accepted Main
+source. Upload/frozen projection gaps and all runtime, rendering, tests and
+qualification holds remain; physical alias independent verification is unchanged.
