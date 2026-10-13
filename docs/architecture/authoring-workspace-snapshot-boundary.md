@@ -1874,8 +1874,9 @@ The next isolated successor consumes fresh native-backed continuation in the
 existing upload runtime and ACK-time request adapter. The original File pointer,
 private pending handle, same document owner, original lease/envelope, current
 peer anchor and real source map must agree before the final SDK/native proof.
-The generic owned-intent observation keeps its ordinary stale result; its actual
-source-reference observation is used before that final proof, not as permission.
+The generic owned-intent observation keeps its ordinary stale result and valid
+started lifecycle history. The private mapped continuation anchor is checked
+against the actual public source map before final proof, never as permission.
 A native cohort holder always takes this restricted route: null, revoked,
 in-flight or failed continuation cannot fall back to ordinary lease currentness.
 Generic/legacy admission retains its original strict envelope/context checks.
@@ -1952,3 +1953,55 @@ work. The existing original CLI/config preflight above remains unchanged; all
 runtime/tests/import/collection/list/discovery/native/browser and qualifications
 remain HOLD. Independent physical alias remains UNVERIFIED; author static
 compiler evidence and bounded Git source acceptance remain separate.
+
+
+## Original Cohort Dependency Three-P2 Repair
+
+The original Main4298 dcc88f7ad has three static counterexamples and is not source
+accepted. Upload4299 20eb128e is only conditionally bounded-source accepted on a
+correct cohort dependency; settlement4300 220784b1 is separately pending review.
+This isolated successor inherits their actual production source without changing
+the fixed checkpoints, original accepted SDK Doc, UI source, public validators or
+authority. Later stage acceptance does not accept the defective earlier dependency.
+
+Peer publication now retains the real mapped anchor, original lease and exact
+publication event on the same private pending entry. It maps from the previous
+private anchor for each real event and updates the original job range. It never
+writes a mapped after-context anchor into a lifecycle containing the original
+started task context. Original lifecycle/envelope/history stays valid under the
+unchanged task/anchor contextDigest equality validator. The applying producer,
+native continuation and source-map checks read that private anchor; generic
+owned-intent/currentness and preview history validation remain unchanged.
+
+A non-applying cohort peer now enters the same attempt-all native cleanup path.
+Failed SDK/native/lease/File/controller duties retain the original pending entry,
+raw first/latest causes including undefined, and the same-handle retry entrance.
+SDK permission revocation alone does not remove Main cleanup custody. False
+cancellation is not success: only the original SDK single-holder inspection can
+confirm that its metadata holder is already absent after actual withdrawal or
+pre-holder refusal. Pending/failed inspection keeps custody. This partial metadata
+observation never supplies producer, native application or full-resource settlement.
+
+The complete ordered original roster and reserve method are obtained before
+creating cohort acquisition custody. A cancelled peer causing roster failure
+therefore has no invented cohort debt: SDK cohort reserve was never called. The
+existing genuine single-application transition cleanup still runs. Immediately
+before the actual cohort call, a holder is retained using only held local
+arguments; entered/unescaped failures preserve it and use original SDK cleanup.
+There is no ready/zero ACK, alternative SDK token, replacement lease or history.
+
+The successor directly carries the original4299 runtime/request source and4300
+Writer settlement source unchanged; only their shared attachment owner is repaired
+to consume the lawful private anchor and cleanup holder. The composed successor
+requires fresh original review of these dependencies; all execution, imports,
+collection/list/discovery/native/browser/receipt/security/privacy/backuprestore/
+IME and qualification HOLD/UNRUN remain. Physical alias is independently
+UNVERIFIED and author compiler evidence is not independent execution acceptance.
+
+Static review cases, all UNRUN: two/three real peer publications with valid
+started lifecycle history and mapped private anchors; cohort-only peer cancel
+with SDK withdrawal false/throw or File cleanup failure and same-handle retry;
+cancelled peer during roster construction before SDK reserve; entered reserve
+failure before token escape; actual already-withdrawn metadata versus a retained
+SDK holder; raw undefined and caught cleanup reentry; downstream ACK/settlement
+consumers preserve original File/handle/lease and do not treat content as settled.

@@ -184,6 +184,8 @@ interface PendingInput {
     sourceUrl?: string;
     removedContext?: ArticleDocumentContext;
     nativeCapture?: boolean;
+    nativePeerContinuation?: { readonly anchor: ArticleAnchorContext; readonly lease: ArticleDocumentTaskLease;
+        readonly transaction: MarkdownEditorTransactionEvent; };
     nativeInput?: { readonly capture: MarkdownAttachmentCaptureObservation; readonly item: MarkdownAttachmentItemIntent; };
     nativeCompletion?: MarkdownAttachmentTerminalCustody;
     nativeInputReleaseObserved?: boolean;
@@ -381,7 +383,7 @@ export class ArticleAttachmentContextAdapter
                 const entry = originalEntry(lease, custody);
                 const current = (): boolean => !!entry && (continuation
                     ? this.acceptedNativeCapture(entry)?.cohort?.token === continuation.cohort
-                        && entry.snapshot.anchor.document === continuation.context
+                        && this.nativeContinuationAnchor(entry).document === continuation.context
                         && this.owner.hasAttachmentRevisionCohortBinding(continuation.cohort, lease, custody, continuation.context)
                     : lease.isCurrent() && this.owner.isCurrentContext(entry.snapshot.anchor.document));
                 if (!entry || entry.nativeRevisionAssociation || entry.reservingNativeRevision || !current())
@@ -955,11 +957,17 @@ export class ArticleAttachmentContextAdapter
         return record && 'stage' in record && record.stage === 'accepted' && record.entries.includes(entry) ? record : null;
     }
 
+    private nativeContinuationAnchor(entry: PendingInput): ArticleAnchorContext
+    {
+        return entry.nativePeerContinuation?.anchor ?? entry.snapshot.anchor;
+    }
+
     /** Fresh genuine SDK/native continuation for this original entry; never ordinary current. */
     private nativeContinuation(entry: PendingInput): ArticleDocumentContext | null
     {
         const token = this.acceptedNativeCapture(entry)?.cohort?.token;
         if (!token || this.disposed || entry.awaitingMap || entry.nativeCleanupPending
+            || (entry.nativePeerContinuation && entry.nativePeerContinuation.lease !== entry.lease)
             || this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted
             || entry.lease.signal.aborted || entry.lease.envelope.status !== 'running')
         {
@@ -967,7 +975,7 @@ export class ArticleAttachmentContextAdapter
         }
         const context = this.owner.readAttachmentRevisionContinuation(token, entry.lease);
         // Only private original holder/context checks follow the final native proof.
-        return context && this.owner.context === context && entry.snapshot.anchor.document === context
+        return context && this.owner.context === context && this.nativeContinuationAnchor(entry).document === context
             && this.pending.get(entry.intent.task.taskRef) === entry && !entry.awaitingMap
             && !entry.nativeCleanupPending && !entry.controller.signal.aborted && !entry.lease.signal.aborted
             && this.acceptedNativeCapture(entry)?.cohort?.token === token ? context : null;
@@ -986,19 +994,30 @@ export class ArticleAttachmentContextAdapter
         binding: ArticlePositionMapBinding): ArticleDocumentContext | null
     {
         const entry = this.pendingHandles.get(handle);
-        if (!entry?.nativeCapture || this.owner !== documentOwner || entry.lease !== lease || entry.file !== file
+        const anchor = entry ? this.nativeContinuationAnchor(entry) : null;
+        const snapshot = entry?.snapshot;
+        if (!entry?.nativeCapture || !anchor || this.owner !== documentOwner || entry.lease !== lease || entry.file !== file
             || entry.nativeHandle !== handle || handle.snapshot !== entry.snapshot || entry.snapshot.task !== lease.envelope
             || handle.request !== entry.request || handle.signal !== entry.controller.signal
             || !entry.nativeInput || entry.nativeInput.capture.batch.items[entry.nativeInput.item.order] !== entry.nativeInput.item
             || entry.nativeInput.capture.batch.signal.aborted || entry.nativeInput.item.signal.aborted
-            || binding.document !== entry.snapshot.anchor.document)
+            || binding.document !== anchor.document)
         {
             return null;
         }
         // Map/retained readers run before the final original SDK/native proof.
         this.assertNativeSourceBinding(binding);
-        const observation = this.readOwnedIntent(handle, binding);
-        if (observation?.snapshot !== entry.snapshot || observation.sourceReferenced !== true)
+        const range = anchor.range;
+        if (range.start >= range.end || range.end > binding.map.source.length)
+        {
+            return null;
+        }
+        const visual = binding.map.sourceSelectionToVisual({ anchor: range.start, focus: range.end });
+        const mapped = binding.map.visualAnchorToSourceSelection(visual);
+        const point = binding.map.sourcePositionToVisual({ offset: range.end, affinity: anchor.affinity });
+        if (Math.min(mapped.anchor, mapped.focus) !== range.start || Math.max(mapped.anchor, mapped.focus) !== range.end
+            || point.anchorId !== anchor.nodeId || !binding.map.syntax.some(node => node.id === anchor.nodeId)
+            || this.nativeContinuationAnchor(entry) !== anchor || entry.snapshot !== snapshot || entry.lease !== lease)
         {
             return null;
         }
@@ -1315,8 +1334,6 @@ export class ArticleAttachmentContextAdapter
                         {
                             throw new Error('attachment-native-cohort-owner-unavailable');
                         }
-                        // Retain the same capture holder before fallible native/SDK acquisition.
-                        record.cohort = { issuer, acquisitionLease: entry.lease, token: null, cleanupPending: true, withdrawn: false };
                         const members = capture.batch.items.map((item, index) =>
                         {
                             const member = record.entries[index];
@@ -1327,7 +1344,14 @@ export class ArticleAttachmentContextAdapter
                             }
                             return Object.freeze({ item, jobRef: capture.plan.jobs[index], leaseRef: member.lease });
                         });
-                        record.cohort.token = this.owner.reserveAttachmentRevisionCohort(entry.nativeTransition, issuer, members);
+                        // Roster failure has not entered SDK cohort acquisition and owns no such debt.
+                        const reserve = this.owner.reserveAttachmentRevisionCohort.bind(this.owner);
+                        const transition = entry.nativeTransition;
+                        const lease = entry.lease;
+                        // Only the actual call begins this original capture's cohort acquisition.
+                        // All arguments are held locals; entered/unescaped failure retains this holder.
+                        record.cohort = { issuer, acquisitionLease: lease, token: null, cleanupPending: true, withdrawn: false };
+                        record.cohort.token = reserve(transition, issuer, members);
                         if (!record.cohort.token)
                         {
                             throw new Error('attachment-native-cohort-reservation-unavailable');
@@ -1448,38 +1472,38 @@ export class ArticleAttachmentContextAdapter
                 continue;
             }
             const snapshot = entry.snapshot;
+            const previous = entry.nativePeerContinuation;
+            const before = this.nativeContinuationAnchor(entry);
             const lease = entry.lease;
             const binding = port.binding();
             this.assertCurrentResult(transaction, binding);
-            if (binding.document !== context || snapshot.anchor.document.sourceRevision !== transaction.beforeRevision
+            if (binding.document !== context || before.document.sourceRevision !== transaction.beforeRevision
                 || !this.owner.hasAttachmentRevisionCohortPublication(token, lease, transaction, context))
             {
                 throw new Error('attachment-native-cohort-peer-publication-invalid');
             }
-            const mapped = transaction.positionMap.mapRange(snapshot.anchor.range);
-            const range = { start: transaction.positionMap.map(snapshot.anchor.range.start, 1),
-                end: transaction.positionMap.map(snapshot.anchor.range.end, -1) };
+            const mapped = transaction.positionMap.mapRange(before.range);
+            const range = { start: transaction.positionMap.map(before.range.start, 1),
+                end: transaction.positionMap.map(before.range.end, -1) };
             if (mapped.deleted !== false || mapped.partiallyDeleted !== false || !mapped.range
                 || !Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end)
                 || range.start < 0 || range.end <= range.start || range.end > transaction.value.length)
             {
                 throw new Error('attachment-native-cohort-peer-map-invalid');
             }
-            const anchor = this.anchors.capture(binding, { ...range, direction: snapshot.anchor.direction },
-                { affinity: snapshot.anchor.affinity, viewportOffset: snapshot.anchor.viewportOffset,
-                    percentage: snapshot.anchor.percentage, surface: snapshot.anchor.surface, tool: snapshot.anchor.tool });
-            const next = this.sealLifecycle({ ...snapshot, anchor, task: lease.envelope,
-                transactionRef: this.transactionRef(transaction) });
-            if (entry.snapshot !== snapshot || entry.lease !== lease || this.pending.get(entry.intent.task.taskRef) !== entry
+            const anchor = this.anchors.capture(binding, { ...range, direction: before.direction },
+                { affinity: before.affinity, viewportOffset: before.viewportOffset,
+                    percentage: before.percentage, surface: before.surface, tool: before.tool });
+            if (entry.snapshot !== snapshot || entry.nativePeerContinuation !== previous || entry.lease !== lease || this.pending.get(entry.intent.task.taskRef) !== entry
                 || entry.controller.signal.aborted || lease.signal.aborted
                 || !this.owner.hasAttachmentRevisionCohortPublication(token, lease, transaction, context))
             {
                 throw new Error('attachment-native-cohort-peer-publication-revoked');
             }
             entry.job.range = anchor.range;
-            entry.snapshot = next;
+            entry.nativePeerContinuation = Object.freeze({ anchor, lease, transaction });
             entry.awaitingMap = false;
-            this.record(next);
+            // Started lifecycle/envelope and its valid history remain byte-identical.
         }
     }
 
@@ -1564,11 +1588,13 @@ export class ArticleAttachmentContextAdapter
             {
                 continue;
             }
-            if (entry.nativeCapture && this.acceptedNativeCapture(entry)?.cohort
-                && entry.snapshot.anchor.document.contextDigest !== binding.document.contextDigest)
+            if (entry.nativeCapture && this.acceptedNativeCapture(entry)?.cohort)
             {
-                this.finish(entry, 'stale', 'attachment-native-cohort-map-unavailable');
-                continue;
+                if (this.nativeContinuationAnchor(entry).document.contextDigest !== binding.document.contextDigest)
+                {
+                    this.finish(entry, 'stale', 'attachment-native-cohort-map-unavailable');
+                }
+                continue; // This original peer uses its private continuation, never generic lease rebase.
             }
             if (entry.snapshot.anchor.document.contextDigest === binding.document.contextDigest)
             {
@@ -1865,7 +1891,8 @@ export class ArticleAttachmentContextAdapter
 
     private finish(entry: PendingInput, state: 'cancelled' | 'stale' | 'removed' | 'failed', reason: string): ArticleAttachmentLifecycleSnapshot
     {
-        if (entry.nativeCapture && (entry.nativeCleanupPending || entry.nativeSdkCleanupPending || entry.nativeFinalization))
+        if (entry.nativeCapture && (entry.nativeCleanupPending || entry.nativeSdkCleanupPending || entry.nativeFinalization
+            || this.acceptedNativeCapture(entry)?.cohort))
         {
             return this.finishNativeEntry(entry, reason, state);
         }
@@ -1930,7 +1957,15 @@ export class ArticleAttachmentContextAdapter
                     cohort.cleanupPending = true;
                     if (this.owner.cancelAttachmentRevisionCohort(cohort.token ?? cohort.acquisitionLease, reason) !== true)
                     {
-                        throw new Error('attachment-native-cohort-cleanup-unconfirmed');
+                        // False alone grants nothing. The actual SDK may already have finished
+                        // this metadata withdrawal (or refused before creating its holder).
+                        // Its original single-holder inspection must independently confirm absence.
+                        // This is cohort metadata only, never producer/native/full-resource settlement.
+                        const cleanup = this.owner.inspectAttachmentRevisionCohortCleanup();
+                        if (cleanup.pending !== 0)
+                        {
+                            throw new Error('attachment-native-cohort-cleanup-unconfirmed');
+                        }
                     }
                     cohort.cleanupPending = false;
                     cohort.withdrawn = true;
@@ -2015,6 +2050,7 @@ export class ArticleAttachmentContextAdapter
                 this.pending.delete(entry.intent.task.taskRef);
             }
             entry.nativeCleanupPending = false;
+            entry.nativePeerContinuation = undefined;
             return entry.snapshot;
         }
         finally
