@@ -1065,7 +1065,9 @@ export class ArticleAttachmentContextAdapter
             }
             finally
             {
-                if (original.phase !== 'applying')
+                // accepted is intermediate: the original native owner still emits refused
+                // after our unavailable publication response, with this SAME custody.
+                if (original.phase === 'committed' || original.phase === 'refused')
                 {
                     this.ownedOperations.delete(entry.intent.task.taskRef);
                     entry.nativeCompletion = undefined;
