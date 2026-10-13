@@ -12,6 +12,7 @@ export interface ArticleWorkspaceNativeRecreationRootPort
     readmitTarget(entry: Readonly<OpenArticleDocumentEntry>, target: ArticleNativeRecreationSource,
         cancellation: AbortSignal): Promise<ArticleWorkspaceMountedAuthority>;
     retryCleanup(cancellation: AbortSignal): void;
+    deferCleanup(cancellation: AbortSignal): void;
 }
 
 /** Native memory and actual same-target Root admission only, never full-host readiness. */
@@ -85,6 +86,11 @@ export function createArticleWorkspaceNativeRecreationDriver(
         };
         try
         {
+            if (!cancelStaging)
+            {
+                // Fence Root authority now; issuer cleanup must wait for this notification.
+                run(() => root.deferCleanup(own.operation.signal));
+            }
             // This same signal is in the original principal guard and actual Write operation.
             run(() => own.operation.abort());
             run(() =>

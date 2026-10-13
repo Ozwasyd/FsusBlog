@@ -519,6 +519,7 @@ interface FrameNativeStaging {
     readonly cancellation: AbortSignal | undefined;
     acquiring: boolean;
     cleanupCompleted: boolean;
+    cleanupQueued: boolean;
     active: boolean;
     borrowed: ArticleNativeRecreationStagingLease | null;
     cleanup: (() => void) | null;
@@ -550,6 +551,10 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
     own.active = false;
     own.pendingCleanup = true;
     own.cleanupCompleted = false;
+    if (own.cleanupQueued)
+    {
+        return; // Authority is withdrawn; issuer notification has not finished yet.
+    }
     const failures: unknown[] = [];
     const attempt = (run: () => void): void =>
     {
@@ -595,6 +600,31 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
     {
         frameNativeStaging = null;
     }
+}
+function deferFrameNativeStagingCleanup(own: FrameNativeStaging): void
+{
+    own.active = false;
+    own.pendingCleanup = true;
+    own.cleanupCompleted = false;
+    if (own.cleanupQueued)
+    {
+        return;
+    }
+    own.cleanupQueued = true;
+    queueMicrotask(() =>
+    {
+        own.cleanupQueued = false;
+        try
+        {
+            closeFrameNativeStaging(own);
+        }
+        catch (cause: unknown)
+        {
+            // Keep this SAME failed holder/raw cause for exact-operation retry.
+            recordFrameNativeStagingFailure(own, cause);
+            snapshotPreparationFailure = own.firstCause;
+        }
+    });
 }
 function notifyWorkspaceLayoutInvalidation(): void
 {
@@ -901,7 +931,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     {
         throw new Error('article-native-staging-frame-custody-pending');
     }
-    const own: FrameNativeStaging = { operation: new AbortController(), cancellation, acquiring: true, cleanupCompleted: false,
+    const own: FrameNativeStaging = { operation: new AbortController(), cancellation, acquiring: true, cleanupCompleted: false, cleanupQueued: false,
                                       active: true, borrowed: null, cleanup: null, abortStop: null, pendingCleanup: true, hasFailure: false, firstCause: undefined, latestCause: undefined };
     frameNativeStaging = own;
     const instance = routeOutletInstance.value;
@@ -928,6 +958,11 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     const onAbort = (): void =>
     {
         own.active = false;
+        if (own.cleanupQueued)
+        {
+            own.pendingCleanup = true;
+            return;
+        }
         closeFrameNativeStaging(own);
     };
     const operationSignal = cancellation ? AbortSignal.any([signal, cancellation]) : signal;
@@ -965,7 +1000,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
         const cancel = (): boolean =>
         {
             closeFrameNativeStaging(own);
-            return true;
+            return !own.cleanupQueued && !own.acquiring && !own.pendingCleanup;
         };
         const result = Object.freeze<ArticleNativeRecreationStagingLease>({
             scope: 'native-recreation-staging', editor: borrowed.editor, session: borrowed.session,
@@ -1039,7 +1074,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     finally
     {
         own.acquiring = false;
-        if (!own.active && own.cleanupCompleted)
+        if (!own.active && own.cleanupCompleted && !own.cleanupQueued)
         {
             own.pendingCleanup = false;
             if (frameNativeStaging === own)
@@ -1100,7 +1135,19 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
         const own = frameNativeStaging;
         if (own?.cancellation === cancellation)
         {
+            if (own.cleanupQueued)
+            {
+                throw new Error('article-native-staging-frame-cleanup-deferred');
+            }
             closeFrameNativeStaging(own);
+        }
+    },
+    deferCleanup: cancellation =>
+    {
+        const own = frameNativeStaging;
+        if (own?.cancellation === cancellation)
+        {
+            deferFrameNativeStagingCleanup(own);
         }
     }
 });
