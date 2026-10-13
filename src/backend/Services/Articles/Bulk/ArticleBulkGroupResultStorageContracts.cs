@@ -217,5 +217,16 @@ internal static class ArticleBulkGroupResultStorageContract
         => value is not null && value.Length == length && value.All(static c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     private static bool IsText(string? value, int max)
-        => !string.IsNullOrWhiteSpace(value) && value.Length <= max && value == value.Trim() && !value.Any(char.IsControl);
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > max || value != value.Trim() || value.Any(char.IsControl))
+            return false;
+        for (int index = 0; index < value.Length; index++)
+        {
+            if (!char.IsSurrogate(value[index]))
+                continue;
+            if (!char.IsHighSurrogate(value[index]) || ++index == value.Length || !char.IsLowSurrogate(value[index]))
+                return false;
+        }
+        return true;
+    }
 }
