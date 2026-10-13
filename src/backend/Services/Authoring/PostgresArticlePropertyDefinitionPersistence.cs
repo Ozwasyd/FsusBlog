@@ -29,6 +29,9 @@ public sealed class PostgresArticlePropertyDefinitionPersistence(
         + "url_allow_absolute, url_max_length, url_normalization, search_eligible, filterable, sortable, "
         + "display_placement, visibility_scope, status, schema_revision, created_at_utc, updated_at_utc, content_digest";
 
+    internal void RequireOriginalNativeSnapshot(Npgsql.NpgsqlTransaction transaction)
+        => ArticlePropertyNativeSnapshotRead.Require(db, transaction);
+
     public async Task<ArticlePropertyDefinition?> GetAsync(
         ArticlePropertyDefinitionOwner owner,
         Guid definitionId,

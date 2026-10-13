@@ -22,6 +22,13 @@ public sealed class ArticlePropertyDefinitionStore(
     private const string DeprecateCommand = "deprecate";
     private const string DeleteCommand = "delete";
 
+    internal void RequireOriginalNativeSnapshot(Npgsql.NpgsqlTransaction transaction)
+    {
+        if (persistence is not PostgresArticlePropertyDefinitionPersistence original)
+            throw new ArticlePropertyDefinitionIntegrityException("article_property_definition_native_snapshot_unavailable");
+        original.RequireOriginalNativeSnapshot(transaction);
+    }
+
     public async Task<ArticlePropertyDefinitionWriteReceipt> CreateAsync(
         CreateArticlePropertyDefinitionCommand command,
         CancellationToken cancellationToken = default)

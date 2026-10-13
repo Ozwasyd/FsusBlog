@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/ArticleService.PropertyValueBatchRead.cs",
+                "src/backend/Services/Authoring/ArticlePropertyDefinitionStore.cs",
+                "src/backend/Services/Authoring/ArticlePropertyNativeSnapshotRead.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValuePersistence.NativeRead.cs",
+                "src/backend/Services/Authoring/PostgresArticlePropertyDefinitionPersistence.cs"
+            ],
+            "reason": "Preserve original native PostgreSQL, typed property value/definition owner, actor/site and verification identifiers in this five-source-path increment over the exact original a27 source. It registers no DI, Query generation, permission, schema or qualification grant; inherited predecessor naming evidence is unchanged."
+        }
+    ]
+}
