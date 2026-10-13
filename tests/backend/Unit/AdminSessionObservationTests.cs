@@ -1,3 +1,5 @@
+using System.Diagnostics.Metrics;
+using System.Reflection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -87,6 +89,84 @@ public sealed class AdminSessionObservationTests
         service = new(Projection(clock), Substitute.For<IAdminSessionTouchScheduler>());
         Assert.Null(await service.CaptureCurrentSessionObservationAsync(Principal(), "wrong-token", CancellationToken.None));
         Assert.Null(await service.CaptureCurrentSessionObservationAsync(new ClaimsPrincipal(), Token, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CancellationDuringBlockedCurrentValidationCannotReturnTrue()
+    {
+        AdminSessionProjection projection = Projection(new Clock(s_now));
+        var service = new AdminSessionValidationService(projection, Substitute.For<IAdminSessionTouchScheduler>());
+        ClaimsPrincipal principal = Principal();
+        var observation = await service.CaptureCurrentSessionObservationAsync(principal, Token, CancellationToken.None);
+        Assert.NotNull(observation);
+        using var cancellation = new CancellationTokenSource();
+        object gate = typeof(AdminSessionProjection).GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(projection)!;
+        Exception? failure = null;
+        var worker = new Thread(() =>
+        {
+            try
+            {
+                service.IsCurrentSessionObservation(observation, principal, cancellation.Token);
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+        })
+        {
+            IsBackground = true
+        };
+        Monitor.Enter(gate);
+        try
+        {
+            worker.Start();
+            Assert.True(SpinWait.SpinUntil(() => (worker.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(2)));
+            // The original projection gate, not a synthetic validator, blocks the actual read.
+            cancellation.Cancel();
+        }
+        finally
+        {
+            Monitor.Exit(gate);
+        }
+        Assert.True(worker.Join(TimeSpan.FromSeconds(2)));
+        Assert.IsType<OperationCanceledException>(failure);
+    }
+
+    [Fact]
+    public async Task CancellationAfterSecondInvalidProjectionReadCannotBecomeNullRefusal()
+    {
+        AdminSessionProjection projection = Projection(new Clock(s_now));
+        var scheduler = Substitute.For<IAdminSessionTouchScheduler>();
+        scheduler.When(value => value.TrySchedule(Arg.Any<AdminSessionTouchRequest>())).Do(_ =>
+        {
+            projection.Apply(Session() with
+            {
+                Version = 3,
+                Generation = 5,
+                RevokedAtUtc = s_now
+            });
+            projection.MarkReady(5);
+        });
+        var service = new AdminSessionValidationService(projection, scheduler);
+        using var cancellation = new CancellationTokenSource();
+        using var listener = new MeterListener();
+        int callingThread = Environment.CurrentManagedThreadId;
+        int reads = 0;
+        listener.InstrumentPublished = (instrument, owner) =>
+        {
+            if (instrument.Name == "fsus.admin.session.validation.count")
+                owner.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, measurement, tags, state) =>
+        {
+            if (Environment.CurrentManagedThreadId == callingThread && Interlocked.Increment(ref reads) == 2)
+                cancellation.Cancel();
+        });
+        listener.Start();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.CaptureCurrentSessionObservationAsync(
+            Principal(), Token, cancellation.Token));
+        Assert.Equal(2, reads);
     }
 
     private static ClaimsPrincipal Principal()
