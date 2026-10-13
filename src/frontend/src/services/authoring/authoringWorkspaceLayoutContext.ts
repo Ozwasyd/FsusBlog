@@ -1,3 +1,4 @@
+import type { ArticleNativeRecreationSource, ArticleNativeRecreationStagingLease } from './articleNativeRecreationStaging';
 import type { AuthoringTabGroupRegistry } from './authoringTabGroupRegistry';
 import type { AuthoringWorkspaceRect } from './authoringWorkspaceGeometryPolicy';
 import type { AuthoringWorkspaceLayoutProjection, AuthoringWorkspaceLayoutSource } from './authoringWorkspaceLayoutController';
@@ -15,6 +16,11 @@ export interface AuthoringWorkspaceLayoutPort {
 /** Physical completion for the existing primary Write mount; no host/resource admission. */
 export interface AuthoringWorkspacePrimaryMountPort {
     prepareMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal): Promise<void>;
+    /** Actual physical staging before Main native adoption; never an ordinary mounted seal. */
+    reserveNativeRecreationTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource,
+        signal: AbortSignal): Promise<ArticleNativeRecreationStagingLease>;
+    /** Retry the same Root-owned staging debt even if no lease was transferred. */
+    retryNativeRecreationCleanup(): void;
     sealMountedAuthority(editorSessionRef: string): AuthoringWorkspaceRootMountedSeal | null;
     hasMountedAuthorityCustody(seal: AuthoringWorkspaceRootMountedSeal): boolean;
     cancelMountedAuthority(seal: AuthoringWorkspaceRootMountedSeal): boolean;

@@ -61,6 +61,7 @@ import {
     type AccountContentMode,
     type AccountPageKind
 } from '@/router/accountRouteMeta';
+import type { ArticleNativeRecreationSource, ArticleNativeRecreationStagingLease } from '@/services/authoring/articleNativeRecreationStaging';
 import { installArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
 import { createArticleWorkspaceMountedEditorResolver } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
@@ -71,7 +72,7 @@ import {
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { AuthoringTabGroupRegistry, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
-import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, type AuthoringWorkspacePrimaryMountPort, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
@@ -481,6 +482,72 @@ let snapshotPreparationFailure: unknown;
 let layoutRevoking = false;
 let layoutRevoked = false;
 let layoutEpoch = 0;
+interface FrameNativeStaging {
+    readonly operation: AbortController;
+    active: boolean;
+    borrowed: ArticleNativeRecreationStagingLease | null;
+    cleanup: (() => void) | null;
+    abortStop: (() => void) | null;
+    hasFailure: boolean;
+    firstCause: unknown;
+    latestCause: unknown;
+}
+let frameNativeStaging: FrameNativeStaging | null = null;
+function closeFrameNativeStaging(own = frameNativeStaging): void
+{
+    if (!own)
+    {
+        return;
+    }
+    own.active = false;
+    const failures: unknown[] = [];
+    const attempt = (run: () => void): void =>
+    {
+        try
+        {
+            run();
+        }
+        catch (cause: unknown)
+        {
+            if (!own.hasFailure)
+            {
+                own.hasFailure = true;
+                own.firstCause = cause;
+            }
+            own.latestCause = cause;
+            failures.push(cause);
+        }
+    };
+    attempt(() => own.operation.abort());
+    attempt(() =>
+    {
+        if (own.borrowed)
+        {
+            if (own.borrowed.cancel() !== true)
+            {
+                throw new Error('article-native-staging-frame-cancellation-not-confirmed');
+            }
+        }
+        else
+        {
+            own.cleanup?.();
+        }
+    });
+    attempt(() =>
+    {
+        own.abortStop?.();
+        own.abortStop = null;
+    });
+    if (failures.length)
+    {
+        throw failures.length === 1 ? failures[0]
+            : new AggregateError(failures, 'article-native-staging-frame-cleanup-incomplete', { cause: failures[0] });
+    }
+    if (frameNativeStaging === own)
+    {
+        frameNativeStaging = null;
+    }
+}
 function notifyWorkspaceLayoutInvalidation(): void
 {
     revokeViewMountedAuthority();
@@ -503,6 +570,16 @@ function notifyWorkspaceLayoutInvalidation(): void
 }
 function revokeViewMountedAuthority(): void
 {
+    try
+    {
+        closeFrameNativeStaging();
+    }
+    catch (cause: unknown)
+    {
+        snapshotPreparationFailure = cause;
+        layoutRevoked = true;
+        layoutEpoch++;
+    }
     writerReservation.withdraw();
     try
     {
@@ -522,6 +599,16 @@ function revokeViewMountedAuthority(): void
 
 function retireViewMountedAuthority(): void
 {
+    try
+    {
+        closeFrameNativeStaging();
+    }
+    catch (cause: unknown)
+    {
+        snapshotPreparationFailure = cause;
+        layoutRevoked = true;
+        layoutEpoch++;
+    }
     writerReservation.withdraw();
     try
     {
@@ -598,6 +685,8 @@ async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDoc
 {
     try
     {
+        // Stage closes only its own holds; the SAME mounted target enters original admission below.
+        closeFrameNativeStaging();
         const instance = routeOutletInstance.value;
         const epoch = layoutEpoch;
         const verify = (): void =>
@@ -702,7 +791,158 @@ async function prepareCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDoc
     }
 }
 
+function hasPublicStagingOwner(value: unknown): value is { getArticleWorkspacePrimaryMountPort(): AuthoringWorkspacePrimaryMountPort | null; }
+{
+    return !!value && typeof value === 'object' && 'getArticleWorkspacePrimaryMountPort' in value
+        && typeof value.getArticleWorkspacePrimaryMountPort === 'function';
+}
+
+/** Main calls this actual pre-seal physical staging path, adopts its offer, then uses ordinary prepare for readmission. */
+async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource,
+                                                    signal: AbortSignal): Promise<ArticleNativeRecreationStagingLease>
+{
+    if (frameNativeStaging)
+    {
+        throw new Error('article-native-staging-frame-custody-pending');
+    }
+    const own: FrameNativeStaging = { operation: new AbortController(), active: true, borrowed: null, cleanup: null, abortStop: null, hasFailure: false, firstCause: undefined, latestCause: undefined };
+    frameNativeStaging = own;
+    const instance = routeOutletInstance.value;
+    const epoch = layoutEpoch;
+    const ports = viewStartupPorts;
+    const installation = workspaceInstallation;
+    const hasView = (): boolean => own.active && frameNativeStaging === own && mounted && !layoutRevoked && !layoutRevoking
+        && layoutEpoch === epoch && viewStartupPorts === ports && viewStartupSignal === signal
+        && workspaceInstallation === installation && installation !== undefined && !installation.failed;
+    const verify = (): void =>
+    {
+        signal.throwIfAborted();
+        if (!hasView() || !ports || routeOutletInstance.value !== instance || readCurrentStartupPorts() !== ports
+            || installation?.ports !== ports || !installation.resources.sessions)
+        {
+            throw new Error('article-native-staging-frame-installation-unavailable');
+        }
+        requireStartupAdmission(ports);
+        if (!hasView())
+        {
+            throw new Error('article-native-staging-frame-view-revoked');
+        }
+    };
+    const onAbort = (): void =>
+    {
+        own.active = false;
+        closeFrameNativeStaging(own);
+    };
+    own.abortStop = () => signal.removeEventListener('abort', onAbort);
+    signal.addEventListener('abort', onAbort, { once: true });
+    try
+    {
+        verify();
+        if (!hasPublicStagingOwner(instance))
+        {
+            throw new Error('article-native-staging-frame-original-write-required');
+        }
+        verify();
+        const getter = instance.getArticleWorkspacePrimaryMountPort.bind(instance);
+        verify();
+        const port = getter();
+        verify();
+        if (!port || typeof port.reserveNativeRecreationTarget !== 'function')
+        {
+            throw new Error('article-native-staging-original-physical-producer-required');
+        }
+        const reserve = port.reserveNativeRecreationTarget.bind(port);
+        verify();
+        own.cleanup = port.retryNativeRecreationCleanup.bind(port);
+        verify();
+        own.borrowed = await reserve(entry, source, own.operation.signal);
+        verify();
+        if (getter() !== port)
+        {
+            throw new Error('article-native-staging-physical-port-replaced');
+        }
+        verify();
+        const borrowed = own.borrowed;
+        const hasCustody = (): boolean => hasView() && borrowed.hasCustody() && hasView();
+        const cancel = (): boolean =>
+        {
+            closeFrameNativeStaging(own);
+            return true;
+        };
+        const result = Object.freeze<ArticleNativeRecreationStagingLease>({
+            scope: 'native-recreation-staging', editor: borrowed.editor, session: borrowed.session,
+            documentHandle: borrowed.documentHandle, sourceSnapshotRef: borrowed.sourceSnapshotRef, hasCustody, cancel,
+            retryCleanup: (): void =>
+            {
+                own.active = false;
+                borrowed.retryCleanup();
+                cancel();
+            },
+            inspectFailure: () => own.hasFailure
+                ? Object.freeze({ failed: true, firstCause: own.firstCause, latestCause: own.latestCause, pendingCleanup: true })
+                : borrowed.inspectFailure(),
+            subscribeBeforeInvalidation: receiver =>
+            {
+                if (!hasCustody())
+                {
+                    throw new Error('article-native-staging-frame-receiver-unavailable');
+                }
+                const stop = borrowed.subscribeBeforeInvalidation(() =>
+                {
+                    own.active = false;
+                    receiver();
+                });
+                if (!hasCustody())
+                {
+                    stop();
+                    throw new Error('article-native-staging-frame-receiver-revoked');
+                }
+                return stop;
+            }
+        });
+        verify();
+        if (!hasCustody())
+        {
+            throw new Error('article-native-staging-frame-final-custody-revoked');
+        }
+        return result;
+    }
+    catch (cause: unknown)
+    {
+        own.active = false;
+        snapshotPreparationFailure = cause;
+        let cleanupFailure: { cause: unknown; } | null = null;
+        if (own.borrowed || own.cleanup)
+        {
+            try
+            {
+                closeFrameNativeStaging(own);
+            }
+            catch (cleanupCause: unknown)
+            {
+                cleanupFailure = { cause: cleanupCause };
+            }
+        }
+        else
+        {
+            own.abortStop?.();
+            own.abortStop = null;
+            if (frameNativeStaging === own)
+            {
+                frameNativeStaging = null;
+            }
+        }
+        if (cleanupFailure)
+        {
+            throw new AggregateError([cause, cleanupFailure.cause], 'article-native-staging-frame-and-cleanup-failed', { cause });
+        }
+        throw cause;
+    }
+}
+
 defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,
+               reserveNativeRecreationTarget: reserveCurrentNativeRecreationTarget,
+               retryNativeStagingCleanup: closeFrameNativeStaging,
                readSnapshotPreparationFailure: () => snapshotPreparationFailure,
                attachOriginalDocumentBinding: writerReservation.attachDocumentBinding,
                readWriterReservationFailure: writerReservation.readFailure,
