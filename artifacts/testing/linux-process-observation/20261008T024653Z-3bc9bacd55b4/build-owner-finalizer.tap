@@ -1,0 +1,26 @@
+✔ owner starts preparing with exact non-null run, source and namespace (16.390919ms)
+✔ PID reuse does not retain an active build owner (40.775279ms)
+✔ a reused owner PID cannot inherit unrelated live descendants (186.336158ms)
+✔ scheduler exit keeps a reparented child writer active through persisted group monitoring (443.190141ms)
+✔ unknown identities, incomplete markers, and active writers fail closed (41.454456ms)
+✔ a complete root rejects a later write instead of treating its marker as authority (15.069945ms)
+✔ owner receipt is canonical and excludes raw command arguments from the sealed manifest (9.853771ms)
+✔ scheduler lock source mismatch and process-group leader reuse fail closed (29.836912ms)
+✔ exited compiler with expired scheduler owner becomes stale (643.947442ms)
+✔ GC owner CAS preserves a replacement active root that appears after the stale decision (36.557366ms)
+✔ finalizer unit model retains successful result and cleans each port once in reverse order (7.462723ms)
+✔ finalizer unit model rejects cleanup-only failure instead of returning a successful result (1.96142ms)
+✔ finalizer unit model preserves ordinary original rejection before secondary cleanup (1.076671ms)
+✔ finalizer unit model preserves frozen original rejection before secondary cleanup (0.919037ms)
+✔ finalizer unit model preserves primitive original rejection before secondary cleanup (1.226681ms)
+✔ finalizer unit model preserves zero original rejection before secondary cleanup (0.914209ms)
+✔ finalizer unit model preserves undefined original rejection before secondary cleanup (1.349142ms)
+✔ finalizer unit model retains cancelled rejection while recording failed cleanup terminal state (1.899414ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4529.683179

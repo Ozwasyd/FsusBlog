@@ -1,0 +1,281 @@
+{
+  "recordKind": "informational historical execution observations",
+  "qualificationEligible": false,
+  "issue": 3620,
+  "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+  "resumedStartMasterSha": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+  "runId": "chain3620-20261008T050813Z-aa7a24a17c2b",
+  "trxRunId": "d1c29949-b165-4b00-bcf4-5383de58c005",
+  "publicationAtCapture": {
+    "remoteBranch": "codex/chain-3620-linux-observation",
+    "remoteHead": "c5778fbfac5a2c5ed02cfb369998b5298a20c60b",
+    "localNewCommitsPublished": false
+  },
+  "artifacts": [
+    {
+      "path": "writer-readiness-owner.log.gz",
+      "testedSourceSha": null,
+      "exitCode": 0,
+      "outcome": "original owner and new gated regression: 11/11",
+      "rawSha256": "fc715d79e41e46b01efcd893d80e9edb0aa23ca470e8366ca2e2e64d1bd1ed79",
+      "compressedSha256": "0b7309a7692475980fe7edd6c4af7effc21eab44653170411bd225a529a8475b",
+      "rawBytes": 1139,
+      "atExecutionGitHead": "c5778fbfac5a2c5ed02cfb369998b5298a20c60b",
+      "worktreePostImageMatchesCommit": "72693960c01af6978f6d3d7743003930257455f1",
+      "note": "Initial pre-commit diagnostic on the owned writer edit; not claimed as execution on the later commit."
+    },
+    {
+      "path": "writer-readiness-mutant.log.gz",
+      "testedSourceSha": null,
+      "exitCode": 1,
+      "outcome": "expected negative: removing readiness wait reproduces ENOENT; filtered probe only",
+      "rawSha256": "d95b4900d29d80f7f0bd47714d839b676abd21e933b26b7080ed5a34febd9489",
+      "compressedSha256": "38d907163e231d2892d237628c96a4cd7d7933e7a886da4db7a5e6731db4d582",
+      "rawBytes": 1256,
+      "atExecutionGitHead": "c5778fbfac5a2c5ed02cfb369998b5298a20c60b",
+      "worktreePostImageMatchesCommit": "72693960c01af6978f6d3d7743003930257455f1",
+      "note": "Initial pre-commit diagnostic on the owned writer edit; not claimed as execution on the later commit."
+    },
+    {
+      "path": "readiness-owner-repeat.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 0,
+      "outcome": "independent owner repeat: 11/11",
+      "rawSha256": "ff6a295a2577a09f4f3f0d56229d60a59b9df69735f685ea7e682c113ccb71d8",
+      "compressedSha256": "045c52edec527e2bfa3bb12e8dc037b5a4e091dcfb66efcba215e097fc1cf60d",
+      "rawBytes": 1141
+    },
+    {
+      "path": "readiness-owner-during-fresh.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 0,
+      "outcome": "owner during original fresh scan: 11/11",
+      "rawSha256": "cf7fba669d6d46542d30244836004178a6978ad21e77184084d9e5224c879af5",
+      "compressedSha256": "3dfd3d04155df98d3277b54a7b3cd734622eb2269e7c5a6d2b7a1cd3638910cc",
+      "rawBytes": 1142
+    },
+    {
+      "path": "readiness-separator-controls.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 0,
+      "outcome": "eight selected original owners: 82/82",
+      "rawSha256": "82c77b615f471a30f6f3bcf24f2d9250d3a089a2bf703ce1990bf04e64514066",
+      "compressedSha256": "75d8b90806a7c9a313781d817948402153bd5109e9c84dc39a5ec3ac28bed880",
+      "rawBytes": 9591
+    },
+    {
+      "path": "readiness-separator-retention.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 1,
+      "outcome": "45/46; external SDK Program.cs Compile boundary refusal",
+      "rawSha256": "43d5e9a42c5a18a59b03579b0a0c1cc3fa84d453b1714b0ff59052d98d8d5c78",
+      "compressedSha256": "9709e321306bf6c4ac6a30ad03e1da6720294f6af62f355072db3b801b7e8fb5",
+      "rawBytes": 6539
+    },
+    {
+      "path": "readiness-separator-fresh.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 1,
+      "outcome": "first source retry: execution authority dependency drift",
+      "rawSha256": "58818d068ad278624425efb2b1dff0d14672c3cca308eae51046c81345014f3f",
+      "compressedSha256": "277271913ac11a018da2b71494b148ed7724fddd35fe22d82e34c7f94c343294",
+      "rawBytes": 477
+    },
+    {
+      "path": "readiness-authority-generation.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 0,
+      "outcome": "original full producer; only discovery content/index digests changed",
+      "rawSha256": "492a63a0b039bdb8bfcae146b0682a70b7a54522b0da1f946acaf1ab45a1d7ba",
+      "compressedSha256": "cc431e79b8c2e0285c9c1483167e178a8ca7fbc031bbd923a0c02bf1edaeb1aa",
+      "rawBytes": 257
+    },
+    {
+      "path": "readiness-separator-source-bytes.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 0,
+      "outcome": "three full fixed source files and exact paragraph; prior inventory paragraph preserved",
+      "rawSha256": "abf72cbe16a813b98b322b2e29e1c60a369610bb97671cfb34437731b44c7364",
+      "compressedSha256": "cf5f57cb5400242e7868189b2f129f0efaafcc237be844bc5e3d17dbc57a23ea",
+      "rawBytes": 333
+    },
+    {
+      "path": "followup-node-controls.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "82/82; zero failures/skips",
+      "rawSha256": "cab17a782486955dd52456a239f2e13925d6e664a5e099b3e34e400ca23aa617",
+      "compressedSha256": "dcf02cb93a3d49a94078e13d2af504c46f112ea057ffe333688ed81b5f3bee75",
+      "rawBytes": 9570
+    },
+    {
+      "path": "followup-backend-build.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "actual complete Backend Debug build: 1430 warnings; zero errors",
+      "rawSha256": "9f2492a80041bf21105d9d0dc852228e640011f082f167b75fc64891b92c8125",
+      "compressedSha256": "aa3bb5036aed11c0cf9b0f3c3953fa2af9c38a30c1d847d0c102cf8bee5c783a",
+      "rawBytes": 752618
+    },
+    {
+      "path": "followup-backend-fresh.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 1,
+      "outcome": "actual current canonical lane: Linux cgroup /.. rejection",
+      "rawSha256": "29f10eed68bd2cef544a777dd481a37a282110088c7c4b46af819901c75c5ff8",
+      "compressedSha256": "5b9ce97499d9be140102c5a3dd584c70ffd077e4cb5f05b0d54facc69c201a41",
+      "rawBytes": 230
+    },
+    {
+      "path": "followup-csharp-style.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "original seven-file full mode: zero violations",
+      "rawSha256": "0a80fae55379dee59ade51d0769beef0eeccbef0b901837f893a4cbb3b607f68",
+      "compressedSha256": "b53eac6814601ca195e6d9a7d1c7e5161954d6838a3dfcd3b053cd94f25a9ea6",
+      "rawBytes": 45
+    },
+    {
+      "path": "followup-dotnet.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "actual seven original classes: 248/248; zero skipped",
+      "rawSha256": "f1068a77a96cdd1044c1f25b0bc995d0f176945460ff41aa11df85bc310de704",
+      "compressedSha256": "85db3436f38109535e79fada7c3c1cba0e10c10763d76c2d74ad362b6bc52928",
+      "rawBytes": 375
+    },
+    {
+      "path": "followup-retention.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 1,
+      "outcome": "45/46; external SDK Program.cs Compile boundary refusal",
+      "rawSha256": "3cfde5feda4b6bdc3a6c2b3a243d9db907a652933cc26fd0b8cbb468b0c0b0bf",
+      "compressedSha256": "35b83d88514aeec2e103f9647557d67e801f2960d89721084063af94834831f3",
+      "rawBytes": 6533
+    },
+    {
+      "path": "followup-migration-build.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 1,
+      "outcome": "actual current Migration Debug build: two CS0246; 1554 warnings",
+      "rawSha256": "f2accdf41aeed1726760223f95026920bed03c5e7f85fd585ebec32cc10eeeb8",
+      "compressedSha256": "6b73f5478396d18a28257d112924cf63ff1eec77c7d3d04ebd5e99ccc6d9d0af",
+      "rawBytes": 852098
+    },
+    {
+      "path": "followup-source-bytes.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "exact f53 post-images and unchanged target/index proof",
+      "rawSha256": "781eb625ba3e8447830b2fba89baa8f96ed968e9be3511db2e6d06ec0ed94967",
+      "compressedSha256": "781c45f793b5eb2229f7c8003b58b0a3a1c3bd267f071a4fc6e37e86bfdd1efe",
+      "rawBytes": 598
+    },
+    {
+      "path": "followup-own-commit-contract.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "four new own commits pass",
+      "rawSha256": "a1895d30ce9549217db30706f1e00f122abd840e1039a4c79ba24e7731fbad04",
+      "compressedSha256": "97356e9f56fbe40668955208da1ab52d4dbc14149ab3400a48cbfb6eee9e3d05",
+      "rawBytes": 81
+    },
+    {
+      "path": "followup-composite-commit-contract.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 1,
+      "outcome": "seven previous footer refusals remain",
+      "rawSha256": "efd51207cba21c86fa219801057b98cdff18427c7cf16abc76318daeab8d517b",
+      "compressedSha256": "d85117d0c7ba997a4e3b963a621470f00275658a49231a488a4cc2e11bba34e5",
+      "rawBytes": 763
+    },
+    {
+      "path": "followup-master-merge-tree.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "virtual conflict check against exact supplied master: clean",
+      "rawSha256": "82ad07a5ae2555dd91c66510722802d23813c3edc91f3dfa8702a56c98ac6093",
+      "compressedSha256": "4c265fbc4e8584b3795d41c8e954e7038a0beeb0674efdd72f84f84396d4930a",
+      "rawBytes": 41
+    },
+    {
+      "path": "followup-binding-observation.json.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 0,
+      "outcome": "informational output SHA comparison; execution-authority old binding stale",
+      "rawSha256": "0b73a52d6210430e1e8cae4089637f09579d9feb783f6f7f7969db3a97bf1852",
+      "compressedSha256": "be00ca7ec2bf2485603b088a459eb2c024956327f3d8a19472552da32ad58b42",
+      "rawBytes": 656
+    },
+    {
+      "path": "readiness-docs-lint.log.gz",
+      "testedSourceSha": "b733a01c980ee5390df561f1a6ce6cfd7f05750b",
+      "exitCode": 1,
+      "outcome": "actual CLI lint: 742 issues in 40 unrelated files; zero diagnostics in docs/testing.md",
+      "rawSha256": "34082fb30cd11fa2a9994b7feddca7b57258ba72994ed523ac2df522dd8b5584",
+      "compressedSha256": "afa428d05b6e303645d21fa45387b1470f89f4f984a2c6126085fa9aab26b7b0",
+      "rawBytes": 83818
+    },
+    {
+      "path": "followup-controls.trx.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "rawSha256": "9bf3b2634460917aeba29227bd7cd1a8b0ef62010158a0972446e851f75d15bd",
+      "compressedSha256": "323559d5181f9f48d79470845f7fcd59809150f42b3226fccb88fbc700ea1f71",
+      "rawBytes": 364477
+    },
+    {
+      "path": "followup-mutant.log.gz",
+      "testedSourceSha": "aa7a24a17c2b2efa52f4f7678fc53dadd769cce0",
+      "exitCode": 1,
+      "outcome": "expected filtered mutation failure, deleting the only readiness await deterministically gives ENOENT",
+      "rawSha256": "25f7504bb9a36345dc007bf953fd541127f893dbe1b8c8b385f2e5aa1e0515d1",
+      "compressedSha256": "4530eb36daa08df30b1705c94a9d2067c1fe52c4ad85e2653935a613cc0d0e05",
+      "rawBytes": 1256
+    },
+    {
+      "path": "followup-artifact-lint-initial.log.gz",
+      "exitCode": 1,
+      "outcome": "initial artifact lint: two MD018 errors, then corrected",
+      "rawSha256": "530d45b6e60b2194ba4273710babdd00bef27e3e67cb96b1d50962dad20443a1",
+      "compressedSha256": "2fe1bb203554269919e40b0fb5bf0b54593ef2f8696dbe3c57e534fb5cf08f16",
+      "rawBytes": 396
+    },
+    {
+      "path": "followup-artifact-lint.log.gz",
+      "exitCode": 0,
+      "outcome": "real CLI, same repo style rules and explicit artifact selector: one file, zero diagnostics",
+      "rawSha256": "595c5b3d9f9fcf96f91b767f7256db868dc47283bf0caf7cb277a8c93525114e",
+      "compressedSha256": "3aa9821521e91374f24acc799d857d963a847c1643cf13c5e67fc25a16562f38",
+      "rawBytes": 123
+    },
+    {
+      "path": "followup-final-head-controls.log.gz",
+      "testedSourceSha": "d06aad7910272201d7663fc2d327b24e455e0cab",
+      "exitCode": 0,
+      "outcome": "final evidence head original eight-owner controls: 82/82",
+      "rawSha256": "4c7f7b7649c3b0493896de3e2de7810adfcdebf1f425b3b31778c31367396571",
+      "compressedSha256": "f82552e3f6366dd73c2e4a997eaa8b2e6b57151ac66a3526e3cc1fac2ba75329",
+      "rawBytes": 9574
+    },
+    {
+      "path": "followup-final-master-check.log.gz",
+      "testedSourceSha": "d06aad7910272201d7663fc2d327b24e455e0cab",
+      "exitCode": 0,
+      "outcome": "virtual merge-tree against newly fetched 0e9dd575: no content conflict",
+      "rawSha256": "eecc1639d0f2f8228b048a214c486bd0f507c3fe0e5ef5ba0ca59071007fabc9",
+      "compressedSha256": "f6a654a74ebf76fff21ecceb56427c334c61df3bb339e46a94d0d737514da0c1",
+      "rawBytes": 41
+    },
+    {
+      "path": "followup-final-own-contract.log.gz",
+      "testedSourceSha": "d06aad7910272201d7663fc2d327b24e455e0cab",
+      "exitCode": 0,
+      "outcome": "five new local commits including evidence record pass",
+      "rawSha256": "a1895d30ce9549217db30706f1e00f122abd840e1039a4c79ba24e7731fbad04",
+      "compressedSha256": "97356e9f56fbe40668955208da1ab52d4dbc14149ab3400a48cbfb6eee9e3d05",
+      "rawBytes": 81
+    }
+  ],
+  "finalFetchedMasterSha": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+  "finalChecksGitHead": "d06aad7910272201d7663fc2d327b24e455e0cab"
+}

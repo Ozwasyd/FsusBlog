@@ -1,0 +1,153 @@
+{
+    "recordKind": "historical observations; not a canonical runtime or qualification receipt",
+    "issue": 3620,
+    "runId": "chain3620-20261008T033144Z-1625f11cc457",
+    "testedSourceCommit": "1625f11cc4570ffa02516ff6a93cf1ef085412b2",
+    "baselineCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "qualificationEligible": false,
+    "status": "blocked",
+    "sourcePrerequisiteMapping": [
+        {
+            "supplied": "f7b29774ae4aebad286539cc033aa736b9dbe613",
+            "ported": "db09bc7eceebfd5cae2126d0a926c8281526dd2b"
+        },
+        {
+            "supplied": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+            "ported": "7273eb2f1ba66578057f1a58204a9a5e8cb9d5d1"
+        },
+        {
+            "supplied": "eeb4e84096571ecb3a989629825f2508e2de7b71",
+            "ported": "8527aca7b75acd06a159dfd7633b34273acbeb2e"
+        },
+        {
+            "supplied": "e38a0badac3867560b5d0fdc1b8d1c648d15ee37",
+            "ported": "1625f11cc4570ffa02516ff6a93cf1ef085412b2"
+        }
+    ],
+    "checks": [
+        {
+            "id": "focused",
+            "exitCode": 0,
+            "status": "passed-component",
+            "counts": 46,
+            "evidence": "focused.log"
+        },
+        {
+            "id": "roster-controls",
+            "exitCode": 0,
+            "status": "passed-source-controls",
+            "counts": 11,
+            "evidence": "roster-controls.log"
+        },
+        {
+            "id": "inventory-check",
+            "exitCode": 0,
+            "status": "passed-source-only",
+            "counts": null,
+            "evidence": "inventory-check.log"
+        },
+        {
+            "id": "repeat-generation",
+            "exitCode": 0,
+            "status": "passed-source-only",
+            "counts": null,
+            "evidence": "repeat-generation.log"
+        },
+        {
+            "id": "canonical-backend-unit",
+            "exitCode": 1,
+            "status": "blocked-runtime-admission",
+            "counts": null,
+            "evidence": "backend-unit.log"
+        },
+        {
+            "id": "registry-retention-default",
+            "exitCode": 1,
+            "status": "failed-setup",
+            "counts": {
+                "pass": 45,
+                "fail": 1
+            },
+            "evidence": "registry-retention.log.gz"
+        },
+        {
+            "id": "registry-retention-sdk",
+            "exitCode": 1,
+            "status": "blocked-compile-context",
+            "counts": {
+                "pass": 45,
+                "fail": 1
+            },
+            "evidence": "registry-retention-sdk.log.gz"
+        },
+        {
+            "id": "backend-initial-setup",
+            "exitCode": 1,
+            "status": "failed-setup",
+            "counts": null,
+            "evidence": "backend-debug-context.log"
+        },
+        {
+            "id": "backend-locked-restore",
+            "exitCode": 1,
+            "status": "blocked-dependency-lock",
+            "counts": null,
+            "evidence": "backend-locked-restore.log"
+        },
+        {
+            "id": "convergence-initial",
+            "exitCode": 1,
+            "status": "failed-setup",
+            "counts": null,
+            "evidence": "convergence-controls.log"
+        },
+        {
+            "id": "convergence-retry",
+            "exitCode": 0,
+            "status": "passed-controlled-fixtures",
+            "counts": 17,
+            "evidence": "convergence-controls-retry.log"
+        },
+        {
+            "id": "commit-contract",
+            "exitCode": 1,
+            "status": "failed-inherited-metadata",
+            "counts": null,
+            "evidence": "commit-range.log"
+        },
+        {
+            "id": "pr-contract",
+            "exitCode": 1,
+            "status": "blocked-unadmitted-metadata",
+            "counts": null,
+            "evidence": "pr-contract-retry.log"
+        }
+    ],
+    "uncompressedEvidenceSha256": {
+        "registry-retention.log.gz": "6f31e037beacbfa41f887cff5a534e9bd17ab66726091816fd7788c0bb2525d5",
+        "registry-retention-sdk.log.gz": "d47b6ba1d51bc78cf44aabbeaaa17b353adaae738430becaaec68785cdebda93",
+        "capabilities-unsandboxed.log.gz": "3f2b3f0279ff0a8685b845625b3fe9da42a83ebd7cdc8474f7c0981c8bd8bc06",
+        "consumed-commits.log.gz": "e52e063db7ea7c54274f66d99eaecc215df26899977bc61bd47987167329303e"
+    },
+    "evidenceSha256": {
+        "README.md": "057ec1ab6250ef15bfa32b0a30bd5f0c0601f54cf9959f8e62cfb437159875e6",
+        "backend-debug-context.log": "822ac4bd32b7d4cdbf5e387da135f4b33cab9cad0a9d4f2dd30dc3e6210451e9",
+        "backend-locked-restore.log": "5e0f6bcc8598c003a68f89bb62f00f673bf4cacbf7c9e0c4bad075ac37bec83b",
+        "backend-unit.log": "12d1e1224c7ce5e93665355603df5699df2f887e03b88989632f3628c21f68c4",
+        "capabilities-unsandboxed.log.gz": "a2a0ba90013fa72956e00fae0dcf73fcabb4d1647f3b8d5a8915b44a4327c003",
+        "capabilities.log": "90a5bdc3663416f2c9556f75d15875d9a34d92c0d5733a6d0ff73824187e5c46",
+        "commit-range.log": "6910290ac421ba0c8f49d4b0225e2151868c7c3f69684dd28ac053720bec8f65",
+        "consumed-commits.log.gz": "9aaca28f7db4f39d2312a229673d76d588da3946ffd446eaf4ba3f0c6cf0fd33",
+        "convergence-controls-retry.log": "386d9bca281db22883234ba149baa771bdde775502e5509e3232bb4d6f33e32e",
+        "convergence-controls.log": "23912f56185b23efcb4c39e1fd42707475faa1449b28bd53ab25fa310cc40a7c",
+        "focused.log": "1682420c2c5017ea0e8ff05cc0dbc23254204b31186a17e06f57e8eec9cc03c7",
+        "governance-tools-install.log": "9b83cc1600f568f65d5d41732591ef46b90d86ca0ad87675c7a572fc81521dae",
+        "inventory-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "pr-contract-retry.log": "37dfd1607de6d191d909f922fa687be797a08cb89bcb60d17d5466062730e262",
+        "pr-contract.log": "06cc3c02a3c7537bc0c459058ed5812afadb1446f8d6b13b4340d3d8c8e25afe",
+        "registry-retention-sdk.log.gz": "bc75a5d46351bb7d33871a4fa252014d7e1b61e8eebbf89f320ee0cfe1a3c2e7",
+        "registry-retention.log.gz": "1cfa55f7aa77cf1a715104b3433f4d03eced995423558ca0f053422339d66bae",
+        "repeat-generation.log": "6e941f6446d25f71c1d8f0f317763f481c7d33b6ca7b7c8b422bab1591c56db7",
+        "roster-controls.log": "180a375729e81921bf2f30291cbe08e5feb64e0dc264ea477b6b57f5c8b60ac5"
+    }
+}

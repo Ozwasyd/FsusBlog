@@ -1,0 +1,165 @@
+{
+    "recordKind": "historical execution observations; not a canonical authority receipt",
+    "issue": 3620,
+    "runId": "chain3620-20261008T024653Z-3bc9bacd55b4",
+    "sourceCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "branch": "codex/chain-3620-linux-observation",
+    "qualificationEligible": false,
+    "issueStatus": "blocked",
+    "sourceSha256": {
+        "tools/test/process-identity.mjs": "6f180ba73399eb759588a9be5615082a77d95417a14305f6a1408e8edf5e6d23",
+        "tests/tools/run-once-process-identity.test.mjs": "aef28a2b705ac1f11e8fd9b9b21d8691587325f443e8f7325433885274266f61",
+        "tools/test-matrix/production-build-layout.mjs": "cfa95bd58fb85f708d6652462bef23e9a67a584dd16a348a879ce6b0aa895a8b",
+        "tests/tools/production-build-owner-identity.test.mjs": "3fa1f608795617f3db6b5eb3015a8f967217da1be3885d216352f41472e3ca57",
+        "tests/tools/scheduler-finalizer-boundary.test.mjs": "74329e578f6dc5c316f6e9b1f736cba0b0f6dca739c00e342bef420db7fd63a7",
+        "tests/tools/physical-execution-process-tree.test.mjs": "9392129e14226bb18a7184b0663988c8dfd9cc3c3779fb5a09d644f071257986",
+        "tests/tools/production-resource-enforcement.test.mjs": "fdfd392cb4af4713d256c3a4eb55c6c9325120db480acec482ddc3a1632dd8ef",
+        "docs/testing.md": "d708eeb2631d01c479b59adbfdc6836e16d9c584567944d3f424f1fc2c46ebf6",
+        "config/testing/release-final-execution-authority-index.json": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5"
+    },
+    "checks": [
+        {
+            "id": "identity",
+            "command": "node --test tests/tools/run-once-process-identity.test.mjs",
+            "exitCode": 0,
+            "status": "passed",
+            "log": "process-identity.tap",
+            "counts": {
+                "passed": 22,
+                "failed": 0,
+                "skipped": 0
+            }
+        },
+        {
+            "id": "containment",
+            "command": "node --test tests/tools/physical-execution-process-tree.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs",
+            "exitCode": 1,
+            "status": "failed",
+            "log": "containment-cleanup.tap.gz",
+            "counts": {
+                "passed": 53,
+                "failed": 13,
+                "skipped": 11
+            }
+        },
+        {
+            "id": "resources",
+            "command": "node --test tests/tools/production-resource-enforcement.test.mjs",
+            "exitCode": 1,
+            "status": "failed",
+            "log": "resource-enforcement.tap.gz",
+            "counts": {
+                "passed": 97,
+                "failed": 42,
+                "skipped": 1
+            }
+        },
+        {
+            "id": "owner-finalizer",
+            "command": "node --test tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs",
+            "exitCode": 0,
+            "status": "passed-component",
+            "log": "build-owner-finalizer.tap",
+            "counts": {
+                "passed": 18,
+                "failed": 0,
+                "skipped": 0
+            }
+        },
+        {
+            "id": "pinned-focused",
+            "command": "/workspace/chain3620-node/bin/node --test tests/tools/run-once-process-identity.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs",
+            "exitCode": 0,
+            "status": "passed-component",
+            "log": "pinned-node-focused.tap",
+            "counts": {
+                "passed": 40,
+                "failed": 0,
+                "skipped": 0
+            }
+        },
+        {
+            "id": "matrix-default",
+            "command": "node tools/run-test-matrix.mjs validate",
+            "exitCode": 1,
+            "status": "blocked-admission",
+            "log": "matrix-validate.log"
+        },
+        {
+            "id": "canonical-default",
+            "command": "./tools/test.sh backend-unit --fresh",
+            "exitCode": 1,
+            "status": "blocked-admission",
+            "log": "backend-unit.log"
+        },
+        {
+            "id": "canonical-pinned",
+            "command": "env PATH=/workspace/chain3620-node/bin:/workspace/chain3620-dotnet:$PATH DOTNET_ROOT=/workspace/chain3620-dotnet DOTNET_CLI_HOME=/workspace/chain3620-dotnet-home NUGET_PACKAGES=/workspace/chain3620-nuget npm_config_cache=/workspace/chain3620-npm-cache ./tools/test.sh backend-unit --fresh",
+            "exitCode": 1,
+            "status": "blocked-admission",
+            "log": "backend-unit-pinned-node.log"
+        },
+        {
+            "id": "locked-restore",
+            "command": "env DOTNET_ROOT=/workspace/chain3620-dotnet DOTNET_CLI_HOME=/workspace/chain3620-dotnet-home NUGET_PACKAGES=/workspace/chain3620-nuget DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 /workspace/chain3620-dotnet/dotnet restore tests/migration/FsusBlog.Migration.Tests.csproj --locked-mode",
+            "exitCode": 0,
+            "status": "passed-restore-only",
+            "log": "migration-locked-restore.log"
+        },
+        {
+            "id": "metadata",
+            "command": "/workspace/chain3620-node/bin/node tools/governance/check-change-contract.mjs --repository",
+            "exitCode": 0,
+            "status": "passed-metadata-only",
+            "log": "change-contract-repository.log"
+        },
+        {
+            "id": "mysql-image",
+            "command": "docker image inspect mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d --format {{.Id}}",
+            "exitCode": 1,
+            "status": "blocked-capability",
+            "log": "mysql-image-preflight.log"
+        },
+        {
+            "id": "markdown",
+            "command": "/workspace/chain3620-node/bin/node /workspace/chain3620-markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2.mjs artifacts/testing/linux-process-observation/20261008T024653Z-3bc9bacd55b4/README.md",
+            "exitCode": 0,
+            "status": "passed-document-lint",
+            "log": "markdownlint.log"
+        }
+    ],
+    "notRun": [
+        "canonical Migration/MySQL execution after admission",
+        "canonical finalized scheduler/native cleanup",
+        "independent domain acceptance",
+        "native Darwin/Windows acceptance",
+        "full production matrix and protected remote qualification checks"
+    ],
+    "evidenceSha256": {
+        "README.md": "66b13b5e5976eb9248aedeec282d5afda88b3bbe6edc36b6d0421d42cf0dcfb7",
+        "backend-unit-pinned-node.log": "af51a4bd4caedd3b658d56964c80af242e2c9761ddd07007888517097ffff94b",
+        "backend-unit.log": "bdfddbff1cda5d43d25ed0579ecd6558da8997af70854be9a5a4ba573422bad4",
+        "build-owner-finalizer.tap": "ddd03d8455712cca911d6debf33b31a61e974a707bbdbf49b8084e6b86a6c33e",
+        "capabilities.log": "57d8bee3ea2d0f4d24cca191dcf37dafab29039134eb4c153e3dd9d746d28cbf",
+        "change-contract-repository.log": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885",
+        "containment-cleanup.tap.gz": "08d7d0582ee65e3a53ef0c5db062d75466cc194323e1fedcaab0e9397bb46295",
+        "dotnet-install.log": "075e6500835d85127ab158b01259f88662caa870c8913357890548e41ecf6556",
+        "javascript-parser-install-retry.log": "5451cd83e2e3ce65282022eea5d8c6ad381f874fc1ec4b6eaf2c47e222d7f3b4",
+        "javascript-parser-install.log": "1b3d6ef281447bc4249b4c24a7f0ad415ed446d4dcc8ebf4d2c54ac2f2e25c36",
+        "markdownlint-install.log": "319fcb301a8987a3e910978345ac4681565256520c134de0fabe1579efa1649a",
+        "markdownlint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "matrix-validate.log": "20eabcab07119b7f06db08b777964569b2b26a8b60c63dc977824d87904ddc6e",
+        "migration-locked-restore.log": "14b94a884d36d044830ff319436e6e643b83cf9c1d1e9639ef0d52b804e5733c",
+        "mysql-image-preflight.log": "7c05622977eab7c1515f30151c0fff9f14380be6a7e5c2f774177aef3d6160aa",
+        "node-selected-shasum.txt": "822c405858f3e6d3e1b4659954f06b4ea5f6ed62c0c6ba4e669facd433ee4ddf",
+        "pinned-node-focused.tap": "ebc70f36c97969edc2d35ff1a7ee8d6288ae4dcfa464fd3c7c877a8c225c5d5a",
+        "process-identity.tap": "44b70a24e3db0a9de4a49730328c82ca9cab1e948688b0a6f4547dc72c6c4368",
+        "resource-enforcement.tap.gz": "d7c700b841683157614b41d7bd4f7d10121723a7feac7276c6fea7e561a8f78b",
+        "ts-parser-install-retry.log": "84b3615a2b55669c4069410770606e7290261ae70a9db72789bff656c372ce48",
+        "ts-parser-install.log": "e13e95d5e39e789b2ef406e6ed2a700114c99e323fbe4d823d3dfc7818373d6a"
+    },
+    "uncompressedEvidenceSha256": {
+        "containment-cleanup.tap.gz": "1af4aaaabd0b77efd55c932db2a4e6709f4228b622779b3948df35a382179e5b",
+        "resource-enforcement.tap.gz": "c9224eab5adeb810fc6b571f2259ef1674fc7b7ba9ca6c248d82f4ad56c7897c"
+    }
+}

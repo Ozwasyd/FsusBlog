@@ -1,0 +1,6 @@
+MSBUILD : error MSB1001: Unknown switch.
+    Full command line: '/workspace/chain3620-dotnet/sdk/10.0.401/MSBuild -maxcpucount --verbosity:m -tlp:default=auto --property:Configuration=Debug --property:NuGetInteractive=false --property:UseRazorBuildServer=false --property:UseSharedCompilation=false --restoreProperty:Configuration=Debug --restoreProperty:NuGetInteractive=false --restoreProperty:UseRazorBuildServer=false --restoreProperty:UseSharedCompilation=false --restoreProperty:EnableDefaultCompileItems=false --restoreProperty:EnableDefaultEmbeddedResourceItems=false --restoreProperty:EnableDefaultNoneItems=false --verbosity:minimal --nologo /nodeReuse:false tests/backend/FsusBlog.Server.Tests.csproj --locked-mode -m:1 -consoleloggerparameters:Summary -restore'
+  Switches appended by response files:
+Switch: --locked-mode
+
+For switch syntax, type "MSBuild -help"

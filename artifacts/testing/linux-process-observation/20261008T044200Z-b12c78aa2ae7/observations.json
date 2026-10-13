@@ -1,0 +1,146 @@
+{
+  "recordKind": "informational historical execution observation",
+  "qualificationEligible": false,
+  "issue": 3620,
+  "testedSourceSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+  "runId": "chain3620-20261008T044200Z-b12c78aa2ae7",
+  "trxRunId": "5cec8b94-6bb5-4612-9802-6baae7ead4ba",
+  "startMasterSha": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "finalFetchedMasterSha": "8b1c739cacef47995f441f096835863d377dc347",
+  "debugContextProbe": {
+    "msbuildProperties": {
+      "Configuration": "Debug",
+      "TargetPath": "/workspace/FsusBlog/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+      "IntermediateOutputPath": "obj\\Debug/net10.0/"
+    },
+    "targetExists": true,
+    "projectedIntermediateExists": false,
+    "actualBuiltIntermediateExists": true
+  },
+  "artifacts": [
+    {
+      "path": "canonical-compiler-build.log.gz",
+      "testedSha": "9b6902f2c069de5a9c1c306f345ad2bd423a5690",
+      "exitCode": 1,
+      "outcome": "historical Backend build: 13 diagnostics",
+      "rawSha256": "739e21705f429d48141cba148ebfdb06e40d71830e03fe0a59966135b380a141",
+      "compressedSha256": "7219d29c501af42093da6e88487be4b988cd464e2ac3177aa08dbec898366db2",
+      "rawBytes": 801039
+    },
+    {
+      "path": "current-compiler-build.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 0,
+      "outcome": "full Backend Debug build: 1508 warnings; zero errors",
+      "rawSha256": "eacfe8b8cf8b90d1a254ac87d0fbb873fe52ff223ae891ba85e5e6827d1e952d",
+      "compressedSha256": "9ef74d015eb2df8a04d728c9471a31d35d226b09ffcaa7a938432259d706b741",
+      "rawBytes": 793976
+    },
+    {
+      "path": "current-backend-unit.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "original canonical lane: cgroup /.. rejected",
+      "rawSha256": "42f6bf96918d92ea09a6b1eb27c3a16793f0234a51afa4ba3b52a7040f75afcb",
+      "compressedSha256": "3d060460f72f88adab3811128f787a9ff01596f37a1d6c2a9b92fe0270231bc5",
+      "rawBytes": 230
+    },
+    {
+      "path": "current-compiler-controls.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "67 passed; one writer-output ENOENT failure; zero skipped",
+      "rawSha256": "134316631cfc9249e9114469728cf2642b29ab6064ee1f36b5f0c6036e79edc9",
+      "compressedSha256": "ee047a137099156dd7164f8e9615256906813e67684780c17666381001ea6a43",
+      "rawBytes": 8834
+    },
+    {
+      "path": "current-compiler-controls-retry.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 0,
+      "outcome": "68 passed; zero failed/skipped",
+      "rawSha256": "8298857810786776eed0e319220e0fa7cc02771abaf3fdfb076dbda0fdf3c8aa",
+      "compressedSha256": "212f0463deac303ac9a0c540e76d65b7a8d44b849e3f76343648da552f880357",
+      "rawBytes": 7939
+    },
+    {
+      "path": "current-registry-retention.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "45 passed; one original CLI context failure; zero skipped",
+      "rawSha256": "b63e7cdcd87a1baa4f657d6f2df9a12311023267f08b554d6d4ca3ad70dd2bcd",
+      "compressedSha256": "ed3b8bfef04e359bab065d20023e8a7b7ee4c4796ac136975c842febfb66e9a5",
+      "rawBytes": 6341
+    },
+    {
+      "path": "current-dotnet-controls.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "18 passed; two original bootstrap assertion failures; zero skipped",
+      "rawSha256": "bf74cc7daa53a25a8d36033ea3368bb8313baadd7ce6fbad5abdb3c720335b58",
+      "compressedSha256": "adb84076f510b357ccf8494d3153d8243f71adda3df2ab5913684e2755089c85",
+      "rawBytes": 1829
+    },
+    {
+      "path": "current-csharp-style.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "changed-mode checker exception: undefined trim",
+      "rawSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2",
+      "compressedSha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+      "rawBytes": 68
+    },
+    {
+      "path": "current-csharp-style-explicit.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "explicit full-mode: four using-order diagnostics",
+      "rawSha256": "7062f8576b3493e73fbb71b634f46e6192b7338ba63636e35382be2cc5a5a083",
+      "compressedSha256": "407047c9798a33aaa8a2a849555e1e511b39413bc43c8de5826715228fabea6c",
+      "rawBytes": 797
+    },
+    {
+      "path": "current-debug-context.json.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 0,
+      "outcome": "real MSBuild observation",
+      "rawSha256": "d03974b60a76bcf34fc7255e41b02550bff6ab4155b25ddf60eba85d806f5ac7",
+      "compressedSha256": "b64b81d461b17a56694c1584d284606a9e81be90f6d8e93cbe2f3fd42b08c37d",
+      "rawBytes": 603395
+    },
+    {
+      "path": "current-compiler-source-bytes.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 0,
+      "outcome": "seven C# paths match exact supplied trees",
+      "rawSha256": "3a2460090658c9795c71e9543739725d02c5c89a8c5e0f04210e160fab986f99",
+      "compressedSha256": "3c8158533b08ca9efe5387298df57cc1a83ecc25cf5719d13dd80331050d3048",
+      "rawBytes": 984
+    },
+    {
+      "path": "current-pr-contract.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "generated and external naming admission rejected",
+      "rawSha256": "37dfd1607de6d191d909f922fa687be797a08cb89bcb60d17d5466062730e262",
+      "compressedSha256": "d69dad7b6badbd2722a15c5920a2a659a4fe1d1c1d0403780168fe81042fa2e7",
+      "rawBytes": 1202
+    },
+    {
+      "path": "current-commit-range.log.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "exitCode": 1,
+      "outcome": "seven commit footer rejections",
+      "rawSha256": "efd51207cba21c86fa219801057b98cdff18427c7cf16abc76318daeab8d517b",
+      "compressedSha256": "d85117d0c7ba997a4e3b963a621470f00275658a49231a488a4cc2e11bba34e5",
+      "rawBytes": 763
+    },
+    {
+      "path": "compiler-controls.trx.gz",
+      "testedSha": "b12c78aa2ae771801919dc6990b6c00292f08bb7",
+      "rawSha256": "238eafc328597b1aedd1528c449ac0f8b15fe88dab74cfbb9613ee4474865502",
+      "compressedSha256": "96956a51fe469985ba9828b3a2718130cf4a8db4c280d7ca277e1509ab00907a",
+      "rawBytes": 33562
+    }
+  ]
+}

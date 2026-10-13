@@ -1,0 +1,113 @@
+{
+  "recordKind": "informational accepted-master SDK follow-up",
+  "qualificationEligible": false,
+  "issue": 3620,
+  "runId": "chain3620-20261008T065739Z-fc65446fcfc1",
+  "testedSourceSha": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+  "acceptedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+  "issueState": "open",
+  "issueUpdatedAt": "2026-10-08T05:13:09Z",
+  "issueBodyAndRelevantCommentsReread": true,
+  "sourcePrerequisite": "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa",
+  "sourceAlreadyConsumed": true,
+  "duplicateCherryPickPerformed": false,
+  "actualMergePerformed": false,
+  "toolchain": {
+    "node": "24.16.0",
+    "dotnetSdk": "10.0.401",
+    "dotnetRuntime": "10.0.12",
+    "nugetPackages": "/workspace/chain3620-nuget",
+    "cacheAuthority": "external task-owned diagnostic only"
+  },
+  "artifacts": [
+    {
+      "path": "controls.log.gz",
+      "testedSourceSha": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+      "command": "/workspace/chain3620-node/bin/node --test tests/tools/run-once-process-identity.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/xunit-configuration-context.test.mjs",
+      "exitCode": 0,
+      "outcome": "52 passed; zero skipped",
+      "rawBytes": 5526,
+      "rawSha256": "0494f49d2bd260f185ad9705ee0e68fc6108fee1425b8bbb993720942d872204",
+      "compressedSha256": "796031a65a33059edd6b4c7f73f49fcfc7af8ac6a61acfb7fec85688a3358127"
+    },
+    {
+      "path": "retention.log.gz",
+      "testedSourceSha": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+      "command": "/workspace/chain3620-node/bin/node --test tests/tools/test-lifecycle-governance.test.mjs tests/tools/test-retention-audit.test.mjs",
+      "exitCode": 1,
+      "outcome": "45 passed; one external SDK boundary refusal; zero skipped",
+      "rawBytes": 6541,
+      "rawSha256": "89231c82946cd54a3cff4129b02d410d8368ace1ce092459e3fc5fa2be0ade8f",
+      "compressedSha256": "cdb3bd9fb61de3eb26ef4c25dc84cb74ca3194c38950e435cc063d08a6d394d7"
+    },
+    {
+      "path": "conflict-check.log.gz",
+      "testedSourceSha": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+      "command": "git merge-tree --write-tree origin/master HEAD",
+      "exitCode": 0,
+      "outcome": "Clean virtual tree; no actual merge",
+      "rawBytes": 41,
+      "rawSha256": "cd2d22db82968813ebdbb16cdd12f8bd84cfbcca498be0fcb3a374a2ba220104",
+      "compressedSha256": "5b260b24c5f17be450b31ed03733dec2b943c01008dfb7278d371d78b149e59d"
+    },
+    {
+      "path": "source-identity.log.gz",
+      "testedSourceSha": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+      "command": "Exact git blob/paragraph comparison of HEAD with origin/master",
+      "exitCode": 0,
+      "outcome": "Three complete files and SDK paragraph match accepted master",
+      "rawBytes": 371,
+      "rawSha256": "b4a4844f1731030e94ffcf0a9dca6c8fe43492682c93ad809c6779b7734dd653",
+      "compressedSha256": "4b5b85c7753a452342fd75cebf40490b9aaf774bf68643345cb15004b2ab4bfa"
+    },
+    {
+      "path": "inventory.log.gz",
+      "testedSourceSha": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+      "command": "node tools/test-inventory/produce.mjs --configuration Debug --out .tmp/chain3620-accepted-master/test-inventory.json",
+      "exitCode": 1,
+      "outcome": "Original producer completed Backend stage, then actual Migration CS0246 for CreateTableStep/AddColumnStep; no artifact written",
+      "rawBytes": 5924,
+      "rawSha256": "f122510cd08cc026f9768db862949e6fe9ada8d05a60e660c9e52196634f5395",
+      "compressedSha256": "f933618917223e8e18434cdace6c95eb12dbefa16af0ca1057e415bc78c714fa"
+    },
+    {
+      "path": "build-server-cleanup.log.gz",
+      "testedSourceSha": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+      "command": "dotnet build-server shutdown",
+      "exitCode": 0,
+      "outcome": "Official task-scoped SDK shutdown; exited compiler remains defunct under PID 1; not canonical finalizer acceptance",
+      "rawBytes": 156,
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf",
+      "compressedSha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c"
+    },
+    {
+      "path": "artifact-lint-final.log.gz",
+      "testedSourceSha": null,
+      "command": "node /workspace/chain3620-markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --config .markdownlint-cli2.jsonc",
+      "exitCode": 0,
+      "outcome": "Actual CLI: one pending informational README, zero issues; same repository style rules, artifact-only selector",
+      "rawBytes": 113,
+      "rawSha256": "ea9f2f03ffe8be5a49f91b19bf9e39714968abd0a1da69e60578b5b0a2ae7489",
+      "compressedSha256": "ae96ad84c6c436a02c4c2b48225df082e6087c758a3666bcb1e18f3fe85ec1bd",
+      "atExecutionGitHead": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+      "worktreeREADMEsha256": "0723dff9686249ea3f12dbfcad9be3a99864162021f43367974a11be83db4588"
+    }
+  ],
+  "inventoryArtifactCreated": false,
+  "inventoryProducerStartedWithCleanWorktree": true,
+  "informationalEvidenceWrittenWhileProducerRunning": true,
+  "affectedSourceEditedDuringProducerExecution": false,
+  "producerOutputLimit": "Complete original producer output archived; original producer reports only last twenty failed-build lines and discards successful Backend stdout.",
+  "compilerHelperCleanup": {
+    "originalTaskDescendantPid": 149352,
+    "officialShutdownExitCode": 0,
+    "postShutdownState": "Z (defunct), parent PID 1; reaping not claimed",
+    "nativeFinalizerQualified": false
+  },
+  "publicationAtCapture": {
+    "remoteBranch": "codex/chain-3620-linux-observation",
+    "remoteSourceHead": "fc65446fcfc156eaafc36ca5a0fdc8ac26b889e4",
+    "newEvidencePublished": false,
+    "githubContentWritesPaused": true
+  }
+}

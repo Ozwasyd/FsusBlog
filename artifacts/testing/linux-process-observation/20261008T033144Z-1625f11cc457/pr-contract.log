@@ -1,0 +1,5 @@
+[change-contract] Generator source must list repository-relative paths
+[change-contract] Generated manifest sources must match Generator source
+[change-contract] Generated source and output paths must all be changed in this PR
+[change-contract] External naming path is outside registered exception json-wire-key: tests/test-retention-replacements.json
+[change-contract] External naming manifest paths must exactly match all changed registered naming surfaces

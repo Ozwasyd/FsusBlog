@@ -1,0 +1,11 @@
+{
+    "originalProducer": "node tools/test/generate-correctness-attempt-producers.mjs",
+    "firstSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+    "secondSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+    "checkedInSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+    "repeatByteEqual": true,
+    "checkedInByteEqual": true,
+    "producerCount": 226,
+    "sourceBindingCount": 8,
+    "qualificationClaim": false
+}
