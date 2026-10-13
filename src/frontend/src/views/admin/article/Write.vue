@@ -1415,8 +1415,9 @@ function revokeMountedAuthorityBeforeRead(): void
 }
 function revokeMountedAuthorityBeforeChange(): void
 {
-    if (!nativeRecreationCreating)
+    if (!nativeRecreationCreating || nativeRecreationStage?.targetWriter)
     {
+        // Only unpublished intentional ref attachment is exempt; an attached target always withdraws.
         nativeRecreationStage?.control.invalidate();
     }
     completedPrimaryMount = null;
@@ -1847,6 +1848,10 @@ async function reserveNativeRecreationTarget(entry: Readonly<OpenArticleDocument
         {
             throw new Error('article-native-staging-actual-new-component-required');
         }
+        own.targetWriter = bound;
+        state.targetWriter = bound;
+        control.attachWriter(bound.subscribeMountedAuthorityRetirement.bind(bound));
+        assertTarget();
         const targetEditor = component.getAuthoringSessionPort?.();
         assertTarget();
         if (!targetEditor || targetEditor === sourceEditor || targetEditor !== boundEditorPort)
@@ -1867,11 +1872,7 @@ async function reserveNativeRecreationTarget(entry: Readonly<OpenArticleDocument
         {
             throw new Error('article-native-staging-original-pristine-birth-required');
         }
-        own.targetWriter = bound;
-        state.targetWriter = bound;
         control.attachTarget(targetEditor, targetSession, lifetime, birth);
-        assertTarget();
-        control.attachWriter(bound.subscribeMountedAuthorityRetirement.bind(bound));
         assertTarget();
         if (articleEditorRef.value !== component || mountedWriterBinding !== bound || workspaceWriteElement.value !== root
             || workspaceNativeMountElement.value !== element || !root.isConnected || !element.isConnected || !root.contains(element)
