@@ -98,6 +98,7 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
                 const ticket = await issueAnonymousCommentTicket({
                     articleId: parsedScope.articleId,
                     rootId: parsedScope.rootId,
+                    credentialEpoch: metadata.credentialEpoch,
                     circuitNumericId: metadata.circuitNumericId,
                     publicInputLayoutVersion: metadata.publicInputLayoutVersion,
                     actionContext: 'comment.create',
