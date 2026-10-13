@@ -43,9 +43,13 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator
         // owner or digest cannot survive the original asynchronous index inspection.
         ValidatePropertyIntake(query, definitions, held, cancellationToken);
         await RevalidateIndexAsync(query, evidence, cancellationToken).ConfigureAwait(false);
+        ValidatePropertyIntake(query, definitions, held, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var intake = new AuthorSearchPropertyOperandIntake(evidence, held, string.Empty);
-        return intake with { ContentDigest = PropertyIntakeDigest(intake) };
+        return intake with
+        {
+            ContentDigest = PropertyIntakeDigest(intake)
+        };
     }
 
     /// <summary>Rejects changed typed inputs/definitions/index facts; it admits no property execution.</summary>

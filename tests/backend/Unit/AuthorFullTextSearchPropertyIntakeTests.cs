@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleProperties;
@@ -36,7 +37,10 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
         AuthorSearchQuery query = Query();
         AuthorSearchPropertyOperandIntake intake = await evaluator.InspectPropertyOperandsAsync(query, definitions, borrowed);
-        borrowed[0] = operand with { ContentDigest = "tampered" };
+        borrowed[0] = operand with
+        {
+            ContentDigest = "tampered"
+        };
         Assert.Same(operand, Assert.Single(intake.Operands));
         Assert.Same(value, intake.Operands[0].Values[0]);
         Assert.Empty(intake.IndexEvidence.Candidates);
@@ -106,8 +110,14 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         var intake = await evaluator.InspectPropertyOperandsAsync(query, definitions, [operand]);
         var changed = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(1)]);
         Assert.Equal("author_search_property_intake_tampered", (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
-            evaluator.RevalidatePropertyOperandsAsync(query, intake with { Operands = [changed] }, definitions))).Message);
-        definitions[definition.DefinitionId] = Seal(definition with { SchemaRevision = 2 });
+            evaluator.RevalidatePropertyOperandsAsync(query, intake with
+            {
+                Operands = [changed]
+            }, definitions))).Message);
+        definitions[definition.DefinitionId] = Seal(definition with
+        {
+            SchemaRevision = 2
+        });
         Assert.Equal("author_search_property_operand_definition_stale", (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
             evaluator.RevalidatePropertyOperandsAsync(query, intake, definitions))).Message);
         definitions[definition.DefinitionId] = definition;
@@ -135,6 +145,82 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
             Query(), definitions, [operand], new CancellationToken(true)));
     }
 
+    [Theory]
+    [InlineData("schema")]
+    [InlineData("owner")]
+    [InlineData("site")]
+    [InlineData("search")]
+    [InlineData("unchanged")]
+    public async Task IntakeRechecksDefinitionsAfterFinalActualIndexSemaphoreWait(string change)
+    {
+        ArticlePropertyDefinition definition = Definition(ArticlePropertyValueType.Number);
+        var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(0)]);
+        using AuthorFullTextSearchIndex index = await Index();
+        AuthorSearchQuery query = Query();
+        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(42, "primary", 1);
+        string beforeDigest = index.SemanticDigest();
+        SemaphoreSlim gate = Assert.IsType<SemaphoreSlim>(typeof(AuthorFullTextSearchIndex)
+            .GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(index));
+        bool held = false;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var definitions = new WaitingDefinitions(definition, () =>
+        {
+            // The second lookup follows the inspector's final snapshot read. Hold
+            // the real gate for the remaining RevalidateIndexAsync; change no index fact.
+            Assert.True(gate.Wait(0));
+            held = true;
+            entered.SetResult();
+        });
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        Task<AuthorSearchPropertyOperandIntake> pending = evaluator.InspectPropertyOperandsAsync(query, definitions, [operand]);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(pending.IsCompleted);
+            definitions.Current = change switch
+            {
+                "schema" => Seal(definition with { SchemaRevision = 2 }),
+                "owner" => Seal(definition with { Owner = ArticlePropertyDefinitionOwner.User(43, "primary") }),
+                "site" => Seal(definition with { Owner = ArticlePropertyDefinitionOwner.User(42, "other") }),
+                "search" => Seal(definition with { SearchEligible = false }),
+                _ => definition
+            };
+            gate.Release();
+            held = false;
+            if (change == "unchanged")
+            {
+                Assert.Same(operand, Assert.Single((await pending).Operands));
+            }
+            else
+            {
+                Assert.Equal("author_search_property_operand_definition_stale",
+                    (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+            }
+            AuthorSearchIndexReadSnapshot after = await index.ReadSnapshotAsync(42, "primary", 1);
+            Assert.Equal(before.IndexGeneration, after.IndexGeneration);
+            Assert.Equal(before.SourceGeneration, after.SourceGeneration);
+            Assert.Equal(before.RegistryDigest, after.RegistryDigest);
+            Assert.Same(before.Articles, after.Articles);
+            Assert.Equal(beforeDigest, index.SemanticDigest());
+            Assert.True(definitions.Lookups >= 3);
+        }
+        finally
+        {
+            if (held)
+            {
+                gate.Release();
+            }
+            try
+            {
+                _ = await pending;
+            }
+            catch (AuthorSearchContractException)
+            {
+                // Preserve the checked refusal while draining this test-owned operation.
+            }
+        }
+    }
+
     private static DateTime Instant() => new(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc);
 
     private static ArticlePropertyDefinition Definition(ArticlePropertyValueType type)
@@ -146,7 +232,10 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
             ArticlePropertyVisibilityScope.AuthorOnly, ArticlePropertyDefinitionStatus.Active, 1, Instant(), Instant(), string.Empty));
 
     private static ArticlePropertyDefinition Seal(ArticlePropertyDefinition definition)
-        => definition with { ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition) };
+        => definition with
+        {
+            ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition)
+        };
 
     private static AuthorSearchQuery Query()
         => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.SchemaVersion,
@@ -173,5 +262,33 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(new AuthorSearchIndexSourcePage(1, [], false));
         }
+    }
+
+    private sealed class WaitingDefinitions(ArticlePropertyDefinition definition, Action wait)
+        : IReadOnlyDictionary<Guid, ArticlePropertyDefinition>
+    {
+        public ArticlePropertyDefinition Current { get; set; } = definition;
+        public int Lookups
+        {
+            get; private set;
+        }
+        public int Count => 1;
+        public IEnumerable<Guid> Keys => [definition.DefinitionId];
+        public IEnumerable<ArticlePropertyDefinition> Values => [Current];
+        public ArticlePropertyDefinition this[Guid key] => key == definition.DefinitionId ? Current : throw new KeyNotFoundException();
+        public bool ContainsKey(Guid key) => key == definition.DefinitionId;
+        public bool TryGetValue(Guid key, out ArticlePropertyDefinition value)
+        {
+            Lookups++;
+            value = Current;
+            if (Lookups == 2)
+            {
+                wait();
+            }
+            return ContainsKey(key);
+        }
+        public IEnumerator<KeyValuePair<Guid, ArticlePropertyDefinition>> GetEnumerator()
+            => new[] { new KeyValuePair<Guid, ArticlePropertyDefinition>(definition.DefinitionId, Current) }.AsEnumerable().GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }
