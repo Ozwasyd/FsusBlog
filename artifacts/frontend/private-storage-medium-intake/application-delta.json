@@ -1,0 +1,16 @@
+{
+  "base": "fd792280cffe18f5fb0335c930243f5c25b2bc83",
+  "ui": "d6bb0836a15f40d7ccace41773d19259c72d37a6",
+  "beforeExit": 2,
+  "afterExit": 2,
+  "beforeDiagnostics": 110,
+  "afterDiagnostics": 109,
+  "beforeBlog": 85,
+  "afterBlog": 84,
+  "beforeUi": 25,
+  "afterUi": 25,
+  "removed": [
+    "src/services/privateStorageRegistry.ts(425,48): error TS2345: Argument of type 'Readonly<{ id: string; medium: \"local-storage\" | \"session-storage\"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }> | Readonly<...>' is not assignable to parameter of type 'Readonly<{ id: string; medium: \"runtime\"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.\n  Type 'Readonly<{ id: string; medium: \"local-storage\" | \"session-storage\"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }>' is not assignable to type 'Readonly<{ id: string; medium: \"runtime\"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.\n    Types of property 'medium' are incompatible.\n      Type '\"local-storage\" | \"session-storage\"' is not assignable to type '\"runtime\"'.\n        Type '\"local-storage\"' is not assignable to type '\"runtime\"'."
+  ],
+  "added": []
+}

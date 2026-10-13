@@ -1,0 +1,19 @@
+{
+  "base": "fd792280cffe18f5fb0335c930243f5c25b2bc83",
+  "ui": "d6bb0836a15f40d7ccace41773d19259c72d37a6",
+  "beforeBlob": "25f67cfbeb5203678f2142fd36d50824ef4d8dca",
+  "afterBlob": "5a9ecd514eccebc570c9b8e3acecba83ac2570e4",
+  "donor": "e788d215448c417c214d2c3399352ea173004159",
+  "donorBlob": "7fea2fd8c7a978d3d6bdfa182cf761cba5b16df6",
+  "scope": "source provenance/static evidence only; no qualification",
+  "compilerOptions": {
+    "strict": true,
+    "erasableSyntaxOnly": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedSideEffectImports": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  }
+}
