@@ -129,7 +129,7 @@
 
 <script setup lang="ts">
 import { ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import { useI18nText } from '@/composables/useI18nText';
@@ -172,6 +172,11 @@ watch(() => [props.visible, props.mode], () =>
     invalidateImportPlan();
     importInput.value = '';
 }, { flush: 'sync' });
+onBeforeUnmount(() =>
+{
+    invalidateImportPlan();
+    importInput.value = '';
+});
 async function handleValidateAndPlan()
 {
     invalidateImportPlan();
