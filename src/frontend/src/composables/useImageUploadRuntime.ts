@@ -911,14 +911,30 @@ export function useImageUploadRuntime()
             if (ownedState.disposed || !(binding.owner instanceof ArticleAttachmentContextAdapter)
                 || !(binding.documentOwner instanceof ArticleDocumentContextAdapter)
                 || binding.lease.signal.aborted || binding.intent.signal.aborted
-                || !binding.documentOwner.isCurrentContext(binding.lease.envelope.context)
+                || !binding.owner.matchesCapturedFile(binding.intent, file))
+            {
+                return false;
+            }
+            const candidate = binding.intent.snapshot.intent.candidate;
+            if (candidate.name !== file.name || candidate.mimeType !== file.type || candidate.byteLength !== file.size)
+            {
+                return false;
+            }
+            const sourceBinding = binding.getBinding();
+            // Original native cohort admission has a separate fresh proof. Old envelopes
+            // remain ordinarily stale and generic/legacy admission still uses strict checks.
+            if (binding.owner.hasNativeUploadCohort(binding.intent))
+            {
+                return binding.owner.readNativeUploadContinuation(binding.intent, file, binding.lease,
+                    binding.documentOwner, sourceBinding) !== null;
+            }
+            if (!binding.documentOwner.isCurrentContext(binding.lease.envelope.context)
                 || (!binding.documentOwner.isTaskCurrent(binding.lease as Parameters<ArticleDocumentContextAdapter['isTaskCurrent']>[0])
                     && !(completed && binding.lease.envelope.status === 'completed')))
             {
                 return false;
             }
-            const observation = binding.owner.readOwnedIntent(binding.intent, binding.getBinding());
-            const candidate = binding.intent.snapshot.intent.candidate;
+            const observation = binding.owner.readOwnedIntent(binding.intent, sourceBinding);
             return observation?.current === true
                 && observation.snapshot.intent === binding.intent.snapshot.intent
                 && observation.contextDigest === binding.lease.envelope.context.contextDigest

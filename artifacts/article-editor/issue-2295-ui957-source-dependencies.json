@@ -1,6 +1,6 @@
 {
     "kind": "ordinary source WIP dependency record; no authority/receipt/qualification",
-    "mainBase": "7bb7bb7698a3640b8e2a7acd8af5a7115e220cda",
+    "mainBase": "dcc88f7ad1defbc2ae77df5136eb8ae1c1a28913",
     "UI": {
         "head": "903db034a14254fb162f51b9c25d3703ea20ccb5",
         "parents": [
@@ -47,6 +47,6 @@
         "DocBlob": "adb0ca27c62fa20f971d581c61bc35b6730c09f1",
         "sourceReview": "Bounded source accepted per parent; exact Doc source consumed in separate dependency intake; Main cohort activation remains separate"
     },
-    "consumer": "Actual Main original cohort roster/reservation/producer-frame and peer-anchor consumer; fresh native-backed original File/handle/lease continuation reader added; upload runtime guard consumption remains separate",
+    "consumer": "Actual original cohort roster/producer-frame/peer-anchor consumer inherited; original upload runtime and ACK-time adapter consume fresh native-backed same File/handle/lease continuation with no ordinary fallback for cohort holders; source review pending and all execution HOLD",
     "runtime": "ALL HOLD/UNRUN; no product imports/evaluation/build/publication/authority refresh"
 }
