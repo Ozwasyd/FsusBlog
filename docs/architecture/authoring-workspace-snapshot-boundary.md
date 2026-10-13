@@ -213,6 +213,21 @@ settlement removes pending work. Original Group cell/startup guard/ratio publica
 CAS/idempotency/history, public issuer and server/persistence contracts remain.
 These repairs still require independent exact-head review and held qualification.
 
+The original Doc SDK's optional attachment revision transition consumes the actual
+original attachment producer's lazy association and the mounted native issuer's
+opaque reservation. It reserves the same private attachment lease during the
+applying loan, publishes the exact accepted native transaction before its public
+source callbacks, and admits completion only in that same transaction's committed
+loan. Original task/request/producer/started-context identity remains; the envelope
+records the actual completed revision. Other old-revision tasks still cancel.
+Ordinary source mutation and ordinary lease acceptance do not acquire this
+exception. Explicit cancellation, owner/context revocation, failed readers and
+synchronous reentry close its acceptance; actual cancellation/withdrawal failures
+remain held for cleanup through the same token or original lease. No settlement,
+second completed lease, copied native body/history, mapping logic or full-ready
+resource authority is supplied. This source increment and its owning integration
+still require independent review and every original held qualification.
+
 Document mutation also blocks new task issuance until its actual revision is
 published, including a new producer key requested by the final external guard.
 Nested retirement closes the actual target owner/preparation admission before

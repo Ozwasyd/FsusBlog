@@ -1,7 +1,11 @@
 # Proposed original same-lease attachment revision transition
 
-Status: BLOCKED at original producer authority binding; no runtime/source API added.
-This is a source-stage handoff, not a grant or a change to the current contract.
+Status: historical gap proposal recorded at fd68a7f135867a2134e75aa1ca1a921ffb009673.
+Original UI9458130 and Main4242b336 subsequently supply the genuine upstream seam.
+The current isolated SDK implementation is described in [sdk-contract.md](sdk-contract.md);
+it requires independent source review and does not claim an accepted composite.
+The unchanged discussion below records the earlier UI944/Main4238 boundary, not a
+current blocker or permission grant.
 All tests/runtime/list/discovery/product-import/qualification and frozen-evidence
 writes remain HOLD/UNRUN. No package publication, Main/adapter/composition edit,
 replacement lease, copied body/history or generic success acknowledgment.
