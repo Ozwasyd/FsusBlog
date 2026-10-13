@@ -1,4 +1,4 @@
-import { requestBinaryOnly } from '@/composition/binaryTransport';
+import { startBinaryOnly } from '@/composition/binaryTransport';
 import type {
     UploadCompleteViewModel,
     UploadInitViewModel,
@@ -6,6 +6,7 @@ import type {
     UploadPartAckViewModel,
     UploadStatusViewModel
 } from '@/contracts/binaryApi';
+import type { BinaryTransportOperation } from '@/contracts/binaryTransport';
 
 import { FrameType } from '@wasm/protocol/frame';
 
@@ -39,8 +40,13 @@ export interface ImageCompressionOptions {
 
 export function initUploadSession(payload: UploadSessionInitRequest, signal?: AbortSignal): Promise<UploadInitViewModel>
 {
+    return requestInitUploadSession(payload, signal).result;
+}
+
+export function requestInitUploadSession(payload: UploadSessionInitRequest, signal?: AbortSignal): BinaryTransportOperation<UploadInitViewModel>
+{
     const body = encodeAedsFrame(FrameType.UploadInitRequest, encodeUploadInitRequest(payload));
-    return requestBinaryOnly<UploadInitViewModel>({
+    return startBinaryOnly<UploadInitViewModel>({
         binaryUrl: '/api/binary/upload/init',
         privateScope: 'admin',
         frameType: FrameType.UploadInit,
@@ -58,7 +64,12 @@ export function initUploadSession(payload: UploadSessionInitRequest, signal?: Ab
 
 export function getUploadStatus(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
 {
-    return requestBinaryOnly<UploadStatusViewModel>({
+    return requestUploadStatus(uploadId, signal, uploadToken).result;
+}
+
+export function requestUploadStatus(uploadId: string, signal?: AbortSignal, uploadToken?: string): BinaryTransportOperation<UploadStatusViewModel>
+{
+    return startBinaryOnly<UploadStatusViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/status`,
         privateScope: 'admin',
         frameType: FrameType.UploadStatus,
@@ -73,7 +84,12 @@ export function getUploadStatus(uploadId: string, signal?: AbortSignal, uploadTo
 
 export function getUploadPartMap(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadPartMapViewModel>
 {
-    return requestBinaryOnly<UploadPartMapViewModel>({
+    return requestUploadPartMap(uploadId, signal, uploadToken).result;
+}
+
+export function requestUploadPartMap(uploadId: string, signal?: AbortSignal, uploadToken?: string): BinaryTransportOperation<UploadPartMapViewModel>
+{
+    return startBinaryOnly<UploadPartMapViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/status/parts`,
         privateScope: 'admin',
         frameType: FrameType.UploadPartMap,
@@ -96,7 +112,20 @@ export function uploadPart(
     signal?: AbortSignal
 ): Promise<UploadPartAckViewModel>
 {
-    return requestBinaryOnly<UploadPartAckViewModel>({
+    return requestUploadPart(uploadId, uploadToken, partNumber, offset, chunk, payloadHash, signal).result;
+}
+
+export function requestUploadPart(
+    uploadId: string,
+    uploadToken: string,
+    partNumber: number,
+    offset: number,
+    chunk: Blob,
+    payloadHash?: string,
+    signal?: AbortSignal
+): BinaryTransportOperation<UploadPartAckViewModel>
+{
+    return startBinaryOnly<UploadPartAckViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/part`,
         privateScope: 'admin',
         frameType: FrameType.UploadPartAck,
@@ -118,8 +147,13 @@ export function uploadPart(
 
 export function completeUpload(uploadId: string, uploadToken: string, sha256?: string, signal?: AbortSignal): Promise<UploadCompleteViewModel>
 {
+    return requestCompleteUpload(uploadId, uploadToken, sha256, signal).result;
+}
+
+export function requestCompleteUpload(uploadId: string, uploadToken: string, sha256?: string, signal?: AbortSignal): BinaryTransportOperation<UploadCompleteViewModel>
+{
     const body = encodeAedsFrame(FrameType.UploadCompleteRequest, encodeUploadCompleteRequest(sha256));
-    return requestBinaryOnly<UploadCompleteViewModel>({
+    return startBinaryOnly<UploadCompleteViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/complete`,
         privateScope: 'admin',
         frameType: FrameType.UploadComplete,
@@ -138,7 +172,12 @@ export function completeUpload(uploadId: string, uploadToken: string, sha256?: s
 
 export function abortUpload(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
 {
-    return requestBinaryOnly<UploadStatusViewModel>({
+    return requestAbortUpload(uploadId, signal, uploadToken).result;
+}
+
+export function requestAbortUpload(uploadId: string, signal?: AbortSignal, uploadToken?: string): BinaryTransportOperation<UploadStatusViewModel>
+{
+    return startBinaryOnly<UploadStatusViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}`,
         privateScope: 'admin',
         frameType: FrameType.UploadStatus,

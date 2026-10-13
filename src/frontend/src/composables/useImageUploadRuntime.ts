@@ -1,17 +1,20 @@
 import { computed, getCurrentScope, onScopeDispose, reactive, ref, shallowReactive, shallowRef } from 'vue';
 
 import {
-    abortUpload,
-    completeUpload,
-    getUploadPartMap,
-    getUploadStatus,
-    initUploadSession,
+    type completeUpload,
+    type initUploadSession,
     type ImageCompressionOptions,
     type UploadSessionInitRequest,
     type UploadInitViewModel,
-    uploadPart
+    requestAbortUpload,
+    requestCompleteUpload,
+    requestInitUploadSession,
+    requestUploadPart,
+    requestUploadPartMap,
+    requestUploadStatus
 } from '@/api/upload';
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload';
+import type { BinaryTransportOperation, BinaryTransportResources, BinaryTransportTerminal } from '@/contracts/binaryTransport';
 import type { ArticlePositionMapBinding } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle } from '@/services/authoring/articleAttachmentContext';
 import { ArticleDocumentContextAdapter, type ArticleDocumentTaskLease } from '@/services/authoring/articleDocumentContext';
@@ -130,6 +133,10 @@ export interface ImageUploadLocalResource {
     readonly terminal: 'active' | 'settled' | 'unknown';
     readonly cancellationSupported: boolean;
     readonly cancellationRequested: boolean;
+    readonly transport?: Readonly<{
+        local: 'pending' | BinaryTransportTerminal['local'];
+        resources: Readonly<BinaryTransportResources>;
+    }>;
 }
 
 export interface ImageUploadLocalResourceCensus {
@@ -162,6 +169,8 @@ interface LocalUploadResourceRecord {
     scopeCleanup?: { action: () => void; completed: boolean; }[];
     retryCleanup?: () => void;
     cleanupFailures?: unknown[];
+    transportOperation?: BinaryTransportOperation<unknown>;
+    transportTerminal?: Readonly<BinaryTransportTerminal>;
 }
 
 /** Resource accounting on the original operation, separate from its existing business authority. */
@@ -192,7 +201,11 @@ class OwnedLocalUploadAttempt
         const resources = Object.freeze(this.resources.map(value => Object.freeze({
             id: value.id, kind: value.kind, result: value.result, terminal: value.terminal,
             cancellationSupported: value.cancellationSupported,
-            cancellationRequested: value.cancellationRequested
+            cancellationRequested: value.cancellationRequested,
+            ...(value.transportOperation ? { transport: Object.freeze({
+                local: value.transportTerminal?.local ?? 'pending',
+                resources: value.transportOperation.inspectResources()
+            }) } : {})
         })));
         const pending = resources.filter(value => value.result === 'pending').length;
         const unknown = resources.filter(value => value.terminal === 'unknown').length;
@@ -487,6 +500,56 @@ class OwnedLocalUploadAttempt
         catch (error)
         {
             finished();
+            throw error;
+        }
+    }
+
+    observeTransport<T>(kind: string, start: () => BinaryTransportOperation<T>,
+        cancellationSupported = true, cleanup = false): Promise<T>
+    {
+        if (!cleanup)
+        {
+            this.controller.signal.throwIfAborted();
+        }
+        const resource: LocalUploadResourceRecord = { id: String(this.resources.length + 1), kind,
+            result: 'pending', terminal: 'active', cancellationSupported, cancellationRequested: false };
+        this.resources.push(resource);
+        try
+        {
+            const operation = start();
+            resource.transportOperation = operation;
+            resource.work = operation.result;
+            if (cancellationSupported)
+            {
+                resource.cancel = () => operation.cancel(this.controller.signal.reason);
+            }
+            const resultFinished = (): void =>
+            {
+                resource.result = 'finished';
+                this.reconsider();
+            };
+            void operation.result.then(resultFinished, resultFinished);
+            void operation.terminal.then((terminal) =>
+            {
+                resource.transportTerminal = terminal;
+                // This actual local observation includes unavailable network/shared-Wasm boundaries.
+                // It is not a full upload terminal, even when terminal.local is observed.
+                resource.terminal = 'unknown';
+                this.reconsider();
+            }).catch((error: unknown) =>
+            {
+                (resource.cleanupFailures ??= []).push(error);
+                resource.terminal = 'unknown';
+                this.reconsider();
+            });
+            return operation.result;
+        }
+        catch (error)
+        {
+            resource.result = 'finished';
+            resource.terminal = 'unknown';
+            (resource.cleanupFailures ??= []).push(error);
+            this.reconsider();
             throw error;
         }
     }
@@ -1145,8 +1208,8 @@ export function useImageUploadRuntime()
                 activeSession.resumeKey = resumeKey;
                 activeSession.fileName = uploadPayload.file.name;
                 const resumeSnapshot = snapshot;
-                const status = await local.observe('upload-status', () =>
-                    getUploadStatus(resumeSnapshot.uploadId, local.controller.signal, resumeSnapshot.uploadToken), true);
+                const status = await local.observeTransport('upload-status', () =>
+                    requestUploadStatus(resumeSnapshot.uploadId, local.controller.signal, resumeSnapshot.uploadToken));
                 ensureCurrentAttempt();
                 if (status.uploadId !== snapshot.uploadId)
                 {
@@ -1171,8 +1234,8 @@ export function useImageUploadRuntime()
                 }
                 if (status.uploadedPartCount > 0)
                 {
-                    const map = await local.observe('upload-part-map', () =>
-                        getUploadPartMap(resumeSnapshot.uploadId, local.controller.signal, resumeSnapshot.uploadToken), true);
+                    const map = await local.observeTransport('upload-part-map', () =>
+                        requestUploadPartMap(resumeSnapshot.uploadId, local.controller.signal, resumeSnapshot.uploadToken));
                     ensureCurrentAttempt();
                     if (map.uploadId !== snapshot.uploadId)
                     {
@@ -1225,7 +1288,7 @@ export function useImageUploadRuntime()
                 chunkSize: UPLOAD_CHUNK_SIZE,
                 sha256: fullHash
             };
-            const initialization = local.observe('upload-init', () => initUploadSession(initializationRequest, local.controller.signal), true);
+            const initialization = local.observeTransport('upload-init', () => requestInitUploadSession(initializationRequest, local.controller.signal));
             const cancellationContext: UploadCancellationContext = {
                 generation, local, work: initialization, resumeKey, fileName: uploadPayload.file.name,
                 sha256: fullHash, request: initializationRequest, bound: Boolean(runtimeOptions.attemptBinding), acknowledgement: null
@@ -1329,8 +1392,8 @@ export function useImageUploadRuntime()
                     () =>
                     {
                         ensureCurrentAttempt();
-                        return local.observe('upload-part', () =>
-                            uploadPart(uploadId, uploadToken, partNumber, start, chunk, payloadHash, local.controller.signal), true);
+                        return local.observeTransport('upload-part', () =>
+                            requestUploadPart(uploadId, uploadToken, partNumber, start, chunk, payloadHash, local.controller.signal));
                     },
                     () =>
                     {
@@ -1373,8 +1436,8 @@ export function useImageUploadRuntime()
         let complete: Awaited<ReturnType<typeof completeUpload>>;
         try
         {
-            complete = await local.observe('upload-complete', () =>
-                completeUpload(uploadId, uploadToken, fullHash, local.controller.signal), true);
+            complete = await local.observeTransport('upload-complete', () =>
+                requestCompleteUpload(uploadId, uploadToken, fullHash, local.controller.signal));
             ensureCurrentAttempt();
             if (complete.uploadId !== uploadId || complete.totalBytes !== uploadPayload.file.size
                 || complete.mimeType !== uploadPayload.file.type.trim()
@@ -1629,8 +1692,8 @@ export function useImageUploadRuntime()
                     activeSession.fileName = cancellation.fileName;
                     // Canonical remote cleanup keeps its own acknowledgement authority and is not
                     // canceled by the already-aborted local upload signal.
-                    const response = await cancellation.local.observe('upload-abort', () =>
-                        abortUpload(uploadId, undefined, initialized.uploadToken), false, true);
+                    const response = await cancellation.local.observeTransport('upload-abort', () =>
+                        requestAbortUpload(uploadId, undefined, initialized.uploadToken), false, true);
                     if (response.uploadId !== uploadId || response.status !== 'aborted')
                     {
                         throw createAppError(AppErrorCode.Conflict, 'upload_abort_not_acknowledged');

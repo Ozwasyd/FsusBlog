@@ -266,7 +266,7 @@ These callbacks must return their own consumer work, never the result or settled
 of their containing upload/Flow operation, which already waits for the callback.
 Independent resources started by a consumer require that consumer's original
 producer capability; callback-scope completion grants no external termination or
-business receive/release acknowledgement. Compression, hash and transport still
+business receive/release acknowledgement. Compression and hash still
 expose results without consumed local terminal capabilities, so their terminal
 remains `unknown` after fulfillment or rejection. Aggregate `settled` stays
 pending while any such unknown, active resource, failed owned cleanup or
@@ -276,6 +276,30 @@ resources, fetch/body/decode work or worker requests. Their original owners must
 provide terminal capabilities before this boundary can qualify full local
 settlement; generation invalidation, remote abort and result completion do not
 substitute for those capabilities.
+
+The upload API now exposes `requestInitUploadSession`, `requestUploadStatus`,
+`requestUploadPartMap`, `requestUploadPart`, `requestCompleteUpload` and
+`requestAbortUpload`, each returning the actual original `BinaryTransportOperation`
+from the same configured `startBinaryOnly` factory. Their existing Promise APIs
+return that operation's unchanged result. Original AEDS request encoding,
+private admin scope, PoW, token headers and caller signal options remain intact.
+The runtime retains each actual operation and its separate local terminal
+observation; init cancellation authority captures that same actual result Promise.
+Supported local cancellation calls the original operation's cancel method.
+Canonical remote abort stays on its separate acknowledgement path and is not
+cancelled by the abandoned upload signal.
+
+Transport census exposes only the original owner's local pending/observed/unknown
+observation and current frozen resource counts, without raw failure causes or
+request credentials. Actual `terminal.local: observed` is not full upload
+settlement: network and shared-Wasm terminal capabilities remain unavailable,
+so this aggregate resource stays unknown. Worker loss or failed owned cleanup
+also stays as reported by that original producer; public result completion does
+not substitute for its terminal. The intake preserves the newer article wire
+decoder registrations in this branch and the original private-request and binary
+client security postimages, rather than replacing them with another branch's
+older decoder table. This source integration does not qualify browser, native,
+network, business receipt, SDK host or migration acceptance.
 
 `useAdminArticleWrite.authoringEditorRuntime.bindEditor` composes the existing
 anchor, attachment, render-cache and continuity owners on one actual public editor
