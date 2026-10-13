@@ -569,7 +569,7 @@ function selectedEnumOption(field: ConfigField): PluginConfigEnumOption | null
     {
         return null;
     }
-    const value = toRaw(configDraft.value[field.name]);
+    const value: unknown = toRaw(configDraft.value[field.name]);
     return field.enumOptions.find((option) => option.value === value)
         ?? field.enumOptions.find((option) => pluginConfigJsonValuesEqual(option.value, value))
         ?? null;
