@@ -1,0 +1,48 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+                "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+                "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+                "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs",
+                "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProducer.cs",
+                "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetCollection.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestVersionRegistry.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs"
+            ],
+            "reason": "Caller-visible environment/configuration spelling must not be replaced with internal C# naming. The trusted registry conservatively governs these original managed package paths; preserve all source bytes and existing external names in this metadata successor, without registering a new scope or claiming provider/runtime acceptance."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Documented DOM selector and token spellings are caller-visible contracts. Preserve their original spelling and the original architecture text through this source-preserving successor; no internal naming rewrite or new documentation/qualification authority is introduced."
+        }
+    ]
+}

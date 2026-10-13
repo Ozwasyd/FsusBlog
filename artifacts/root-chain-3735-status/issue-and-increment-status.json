@@ -1,0 +1,895 @@
+{
+  "latestVerifiedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "ownedExecutionIssues": [
+    3735,
+    3736,
+    3738
+  ],
+  "ownedTrackingOnlyIssues": [],
+  "acceptedIssueCount": 0,
+  "wholeChainComplete": false,
+  "statuses": [
+    {
+      "issue": 3735,
+      "status": "OPEN / source WIP",
+      "source": "frozen b304, draftPR3839",
+      "unaccepted": [
+        "independent domain/wire final acceptance",
+        "actual HTTP/Postgres/storage/CAS/session/PoW/no-store/provider lifecycle receipt",
+        "exact-candidate full CI"
+      ]
+    },
+    {
+      "issue": 3736,
+      "status": "OPEN / source WIP",
+      "prerequisites": [
+        3735
+      ],
+      "source": "frozen b304 composition plus separate shared integration increments",
+      "unaccepted": [
+        "real complete remote Canvas authority lifecycle",
+        "full frontend types against actual FsUI",
+        "pre-edit baseline/current rendered keyboard/focus/viewport/theme/reduced-motion/overflow receipts",
+        "independent same-candidate UX acceptance",
+        "exact current-context/reveal/retain/suspend APIs"
+      ]
+    },
+    {
+      "issue": 3738,
+      "status": "OPEN / source WIP",
+      "prerequisites": [
+        3735,
+        3736
+      ],
+      "source": "frozen b304 canonical ArticleService transaction slice",
+      "unaccepted": [
+        "formal current-schema and actual HTTP/session/PoW transaction/CAS/undo/journal/outbox receipt",
+        "actual rendered edge conversion and independent UX",
+        "exact-candidate CI"
+      ]
+    }
+  ],
+  "historicalTests": "Original raw PG/domain positive records stay tied to their original exact source and run; no current source rebind or product acceptance. Current owned bodies/comments re-read and preserved in sibling current-owned-issues.json.",
+  "newIncrements": [
+    {
+      "coverage": "facts-only upload transport",
+      "source": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+      "evidenceHead": "61a11c53cc471a0852bcd3c1df75655aab4331aa",
+      "branch": "codex/shared-upload-facts-transport-20261009",
+      "sourceStatus": "implemented; original1975 provider consumption and true eight-field receipt producer remain elsewhere",
+      "actualControls": "protocol52, frontend27, productionnative31 + wrongcount4, products5, sourceStyle7files/0, OpenAPI292 source-observation at4cf; exact immutable bindings retained",
+      "failed": "current6ed strictSDK1529 errors/0changed diagnostics; 9new cases/discoveryUNRUN. Fulltypes4cf290 errors/0changedAPIadapterregistry",
+      "artifacts": "artifacts/shared-upload-facts-transport",
+      "neutralImportRepair": "Exact existing alias moved to neutral binaryApi contract, three files only; current-source frontend27 PASS. Original boundary exit1: exact five baseline violations unchanged; target removed. Original negative extra edge refused/cleanup passed. Prior SDK6ed/fulltypes4cf bindings unchanged.",
+      "repairArtifacts": "artifacts/shared-upload-facts-transport/import-boundary-repair"
+    },
+    {
+      "coverage": "canonical Graph node source/DI",
+      "source": "08da3894d4b1332933f5fff23c780f3c3821bc0a",
+      "evidenceHead": "f7fefb409d8f891a99ce9865c18f84fd304895f2",
+      "branch": "codex/shared-graph-reader-registration-20261009",
+      "actualControls": "normalproductionServer0errors323warnings0changed diagnostics; originalPGmembership127/1075A527B548; no new PGmanifestneeded",
+      "blocker": "exact canonical adjacency commit/path/API/retained lease and authoritative usage/truncation/runtime coordinates. Source budget1000 fully admitted candidates>=5012 vs4096. Supplier44 and15 separate source/run, not root59PASS",
+      "artifacts": "artifacts/shared-graph-node-registration"
+    },
+    {
+      "coverage": "WritingAid exact startup fixture and JSON refusal source correction",
+      "source": "437ac7280acd37dd0aa61f09e1c5f1e0e94b602f",
+      "evidenceHead": "b1853c7c0ccb80607f222492bb822dc808321881",
+      "branch": "codex/shared-writing-aid-composition-20261009",
+      "actualControls": "normalproductionServer0errors330warnings; soleproductionMap and three existing scoped aliases retained",
+      "blocker": "qualified device mutation authority; current root managed/HTTP/PG bodies unrun. Supplier33 is its own d12c source/run only",
+      "artifacts": "artifacts/shared-writing-aid-final-consumption"
+    },
+    {
+      "coverage": "DocumentExport golden path ordinary source repair",
+      "source": "acf4215a8c61f7bbccb2c98974accf691ec28118",
+      "evidenceHead": "d77fe49153b986f36ab3eb286fbdf80f800136bd",
+      "branch": "codex/shared-document-export-test-paths-20261009",
+      "actualControls": "38originalAssertionlines equal; goldenfixturebyteexact; diffcheck0; no managed bodies, build or held audit",
+      "propertyCompanion": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2 onlypropertytestfile a5ad96032d2fab772d44c720ea0725d4cbefebec->d808a6ab38df9b48f6d4e0749cadddd6a3dd1f15; originalSiteIdentity owner regenerates its inventory",
+      "artifacts": "artifacts/shared-document-export-test-paths"
+    },
+    {
+      "coverage": "Package bounded independent wire module release",
+      "source": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
+      "branch": "codex/shared-package-wire-release-20261009",
+      "implementationStatus": "Inactive bounded release; exclusive seven NEW module files now assigned by parent to task01a120e7-71f6-74d2-861c-92c8abaea004. Root retains central registries/routes/DI; no parallel file edits or activation.",
+      "allocation": "request288/response289 owner allocation only, not active ABI/frame",
+      "blocker": "full exact canonical SiteIdentity SystemService implementation plus qualified lifecycle/scopes; closed nested wire validator missing; frontend revised exact dependencies needed",
+      "artifacts": "artifacts/shared-package-wire-release",
+      "exclusiveNewModulePaths": [
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+        "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+        "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+        "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
+        "tests/tools/article-package-candidate-review-wire.test.mjs",
+        "tests/native/ArticlePackageCandidateReviewWireTests.cpp"
+      ]
+    },
+    {
+      "coverage": "Vault REQUEST-only typed bounded module",
+      "source": "1fc2a2153b0f3a96f3a7628b3847b86c0e75072d",
+      "branch": "codex/chain-3735-vault-current-review-wire",
+      "status": "published10NEWpaths; requestpayload3176/whole3192; no global286/287/frame/nativeerror/HTTPregistration",
+      "blocker": "original3582/2120 Shared approved readonly six-field response projection/closed nested validators and actual trusted input acquisition; no opaque JSON/substitute6blobresponse",
+      "managedEvidence": "worker unauthorized alternate project executed31; explicitly excluded, qualifiedManaged0. Project/initialfailure/rawTRX/provenance preserved; execution stopped. This does not substitute original strictSDK",
+      "allowedPayloadEvidence": "Current1fc source-bound Node29PASS; prior native35 and normal originalCore0errors188warnings remain at2de unchanged blobs; no rebind. No global286/287/error21 admission or managed TestSDK pass.",
+      "evidenceHead": "1b6a1ed3902a15b6a922e88766e5e836f69372f2",
+      "artifacts": "artifacts/article-vault/chain-3735-current-review-wire-request",
+      "styleGate": "PASS actual official toolchain: two source files/zero diagnostics; proper fsusblog-client package codec export/file dependency replaces forbidden relative-parent import. Original 29 cases/16 assertions preserved.",
+      "repairArtifacts": "artifacts/article-vault/chain-3735-current-review-wire-request/root-style-repair"
+    }
+  ],
+  "earlierDeliveredSource": {
+    "exportSourceOptions": "source10b33204607627d167e34f7ad69bcfccaee03b2c/evidence61db8354f4047e9aaf36d137658227203b9f6333 implemented frame282-284/error19, originalnativeport not missing; formal generated binding and runtime/UX gates remain",
+    "siteIdentityReadonlyReview": "2db304e19fcd461a483dbac4348394912ef51130 remains frozen clean; reader contract source467857b3cc88aaa2916159552c24088f6f9910b8 known, lifecyclecorrection full supplied SHA/qualification pending; noidentity init/store/defaultscope/DIalias activated"
+  },
+  "frozenWorktreesChecked": [
+    {
+      "worktree": "/workspace/FsusBlog",
+      "head": "b304c494de2d805f9b5b70ce8d738b1f1cb6df94",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-registration-current",
+      "head": "39589ec1c4b662db1049c7f223e182ed5f87e00c",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-transport-style",
+      "head": "5677d11620648587a411263894dd2ca9042113cc",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-protocol-test-sync",
+      "head": "0015897304873f75858e0e5546313b43007834d8",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-coordinate-registration",
+      "head": "bdf1c5d793afc09f9f1ed907dcc9f571a5870d39",
+      "clean": true
+    }
+  ],
+  "phaseBarrier": "No cross-chain conflict resolution/merge/masterpush/issueclosure/deploy. No content API writes; parent solewriter HOLD prevents new draft PR creation, existingDraft3839/4052/4094 unchanged.",
+  "createdAtUtc": "2026-10-09T13:33:12.748682+00:00",
+  "newGenerationSourceOffer": {
+    "source": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+    "parent": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
+    "head": "0e9dffa95be042e0dd05da4529aedd2380427ede",
+    "branch": "task/3654-vault-enrollment-compatibility",
+    "scope": "Consumed exact eleven production preimages/postimages; seven support paths already byte-identical; four original managed test/fixture paths not consumed. All22 checked.",
+    "supplierBuild": "0errors1507warnings; tests0 atthiscandidate; priorb98sixunqualified",
+    "sourceAdmission": "generation events remain unqualified; no documentepochderivation or secondauthority",
+    "rootSource": "7f6de58cc5df33ecae0e0c8a66022055dc7afb44",
+    "rootEvidenceHead": "6cacdefc07dacb90b6d52786a88b917f42eb9e41",
+    "rootBranch": "codex/shared-graph-generation-enrollment-20261009",
+    "productionControls": "original locked restore0 and normal Server build0errors323warnings/0changed-file diagnostics at7f; manageddiscovery/bodiesUNRUN",
+    "reservedArticleRevisionPersistence": "968d8179278cd5b5ce760cdbc8c5c3f613428bda preserved whole; no older supplier substitution",
+    "artifacts": "artifacts/shared-graph-generation-enrollment"
+  },
+  "newValidatedGraphReader": {
+    "supplierExactSource": "66021723dff4949a54985e63545b746eee9e9d9a",
+    "parentReportedIndependentVerification": "112/112 original cases:29unit83realPG, plus11collection controls; exact source/run supplier evidence, not root re-execution",
+    "rootSource": "0a6160a3d0dc2e2b26595d521cd4754d8bc21896",
+    "branch": "codex/shared-graph-validated-reader-20261009",
+    "scope": "Only existing SqlArticleGraphAdmissionReader.cs byte-exact supplierblob ce03fb04aa02b1e1a673b770876275498fc07e5a; existing solehost/nodeconsumer/resolver/generation remain unchanged",
+    "limits": [
+      "READ COMMITTED statement observations",
+      "caller lifecycle ownership/serialization",
+      "references do not seal server transaction incarnation",
+      "no atomic latest fence",
+      "range/trusted using, two inherited method names, generated history and held SOURCE still block whole supplier branch qualification"
+    ],
+    "actualRootControls": "Original normal production lockedrestore0, Server0errors323warnings/0changed-file diagnostics. Root manageddiscovery/bodiesUNRUN; no duplicate112 rerun.",
+    "newRawMetadataReaderOwner": {
+      "task": "01a120f0-6a70-725e-ba07-7af45e1ad024",
+      "exclusivePaths": [
+        "src/backend/Services/Authoring/SqlArticleGraphPersistedMetadataReader.cs",
+        "tests/backend/Unit/SqlArticleGraphPersistedMetadataReaderTests.cs"
+      ],
+      "scope": "Two NEW reader/test paths remain exclusive to original metadata owner. Root repaired only existing permission authority and original integration controls on separate branch; no new reader/test edits.",
+      "parentSuppliedSource": "823a99e7f2e791356429b7e44b600c8e78df704e"
+    },
+    "artifacts": "artifacts/shared-graph-validated-reader",
+    "evidenceHead": "f3fee7dd59e576fa148de57fffdd3bcdd3d742b3"
+  },
+  "updatedAtUtc": "2026-10-09T15:32:48.393001+00:00",
+  "newFontThemeBorrowComment": {
+    "source": "e1f2a4a7b94d1274744284b944cff591aefee413",
+    "branch": "codex/shared-font-theme-borrow-comment-20261009",
+    "path": "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp",
+    "scope": "Exactly one PayloadView borrow/lifetime comment replacement; all other bytes including ABI/structures/assertions identical. No allocation/performance guarantee or evidence fabrication.",
+    "controls": "Original source code-intent checker before1error/exit1 atmaster9d, afterexit0/5487files19registered atsourcee1f; checker/exceptions untouched. No native runtime, held audit or content API.",
+    "artifacts": "artifacts/shared-font-theme-borrow-comment",
+    "evidenceHead": "c230c5009406b75edece37aef93cf3c72c429433"
+  },
+  "remotePublicationVerified": {
+    "facts": "61a11c53cc471a0852bcd3c1df75655aab4331aa",
+    "generation": "6cacdefc07dacb90b6d52786a88b917f42eb9e41",
+    "boundedReader": "f3fee7dd59e576fa148de57fffdd3bcdd3d742b3",
+    "vaultRequest": "1b6a1ed3902a15b6a922e88766e5e836f69372f2",
+    "fontThemeComment": "c230c5009406b75edece37aef93cf3c72c429433",
+    "savedViewProvider": "f900f6014036ebaa2b2d2bd170472ba6dd195fd5",
+    "permissionCancellation": "65a667f84c404f2840d07e0fbabdffe7e1985406",
+    "uploadExactBody": "4b75d593eae373e969287aeb4b2d296bcccf2740",
+    "permissionGateIntegrationSource": "165005a00305daa9d8117494a1d33bc09b4a122f",
+    "permissionGateIntegration": "c7fcda5b058522567d07a375f64d65e992530638"
+  },
+  "newSavedViewDefinitionProvider": {
+    "source": "25114ce36d2e58736b0b8fef72a4b8dafe4b0b1c",
+    "branch": "codex/shared-savedview-provider-registration-20261009",
+    "supplierExactSource": "d64f8298155bc6d9d451c9edda54d8bfe1253f25",
+    "scope": "Master-based minimum: exact supplier productionprovider00d2d9177a8493de7d6a5427851c55520659b890 + one scoped central registration. Existing taxonomy/store/catalog/query validator unchanged; no tests or supplierhistory imported. Already-registered root composition must not add it twice.",
+    "supplierControls": "Supplier11unit4PG/15preflight etc remain its own exact source evidence, not independent or whole2324 acceptance. Original failed14/1 retained by supplier; legitimate Deleted read fixture correction, unavailable Delete impact authority kept closed.",
+    "rootControls": "Originalproduction lockedrestore0, Server0errors323warnings/0changed diagnostics at251; original DI lifetime analyzer built. No runtime DI resolution/manageddiscovery/bodies or PG qualification.",
+    "limits": "Definition-only current projection facts; condition/sort index execution unavailable; no fabricated operator/index facts. Future managed execution needs original complete preflight/3657 membership and independent review.",
+    "artifacts": "artifacts/shared-savedview-provider-registration",
+    "evidenceHead": "f900f6014036ebaa2b2d2bd170472ba6dd195fd5"
+  },
+  "originalPlanningSnapshot": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "newPackagePrototypeConflict": {
+    "schema": "fsusblog.package-prototype-reconciliation-prerequisites.v1",
+    "checkedAtUtc": "2026-10-09T14:27:26.991544+00:00",
+    "checkedRootHead": "61b728e1529444330ad9de72d7abdf4bb22c1861",
+    "parentExactWireOffer": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
+    "newHandler": {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+      "blob": "a72974bff6cd41fc81649b1611822dfba9a5a9a5",
+      "sha256": "f51b57926643f65bccda318f5ffc600dd905b44aeb62f083202e5928bf3fd596",
+      "observations": {
+        "mapDefinitions": 1,
+        "handlerDefinitions": 1,
+        "missingAuthImport": true,
+        "frameReadOccursBeforeServiceRead": true,
+        "originalIdentityStatusMappingNotExplicitAtHandler": true
+      }
+    },
+    "exactKnownTrees": [
+      {
+        "source": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "61b728e1529444330ad9de72d7abdf4bb22c1861",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "76f900f3266560af64e05f6936d4096f76577361",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "3335910dee5e67e446167ec3b3d875912a908709",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
+        "oldPrototypePresent": false,
+        "newModulePresent": true
+      }
+    ],
+    "parentEstablishedConflict": "Original3663 dormant prototype and new wire module define the same partial mapping/handler signatures; merely leaving unmounted does not prevent duplicate definition compilation failure. Originalprototype full source and specific test paths not yet supplied to this worktree.",
+    "oldPrototypePath": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+    "readiness": "BLOCKED prerequisite verification; no source removal or replacement activation performed",
+    "neededSourceHandoffs": [
+      "Parent-supplied full exact original prototype commit and prototype-specific test paths/negative controls",
+      "Same wire owner corrected exact source preserving identity-before-body and401/403/409/cancellation/private failure semantics",
+      "Applicable original source/admission evidence before dependent central compilation/activation"
+    ],
+    "authorizedNextStep": "On a separate integration branch based on supplied dependency closure, select corrected new module, omit/remove old prototype and only its specific tests, preserve original read service/frontendhost/frozen old source, verify one mapping/handler pair and reversible source delta.",
+    "frozenBranchWrites": 0,
+    "newWireWriterEdits": 0,
+    "sourceDeletionHunksApplied": 0,
+    "active288289": false,
+    "siteIdentityAliasActivated": false,
+    "routeActivated": false,
+    "runtimeQualification": false,
+    "testsRerun": 0,
+    "rawLogsPublished": false
+  },
+  "latestOwnedIssueRefresh": {
+    "artifact": "artifacts/root-chain-3735-status/current-owned-issues-20261009-refresh.json",
+    "readAtUtc": "2026-10-09T15:05:53.640Z",
+    "comparison": [
+      {
+        "number": 3735,
+        "state": "open",
+        "bodyUnchanged": true,
+        "commentCount": 18
+      },
+      {
+        "number": 3736,
+        "state": "open",
+        "bodyUnchanged": true,
+        "commentCount": 3
+      },
+      {
+        "number": 3738,
+        "state": "open",
+        "bodyUnchanged": true,
+        "commentCount": 4
+      }
+    ],
+    "materialScopeGraphChange": false
+  },
+  "newPermissionCancellation": {
+    "schema": "fsusblog.permission-cancellation-source-handoff.v1",
+    "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+    "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "branch": "codex/shared-pin-permission-cancellation-20261009",
+    "checkedSupplierPreimage": "823a99e7f2e791356429b7e44b600c8e78df704e",
+    "changedPaths": [
+      {
+        "path": "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs",
+        "preimageBlob": "f08576f0b7c0e3f5651ee4ded2917281dafa9f17",
+        "sourceBlob": "cab264aa027d79409a329f7e1794b76eca5f4d54"
+      },
+      {
+        "path": "tests/backend/Integration/AuthorArticlePinProjectionIntegrationTests.cs",
+        "preimageBlob": "bbbda62502ca8d61b9b5503b3dc858336cceec43",
+        "sourceBlob": "e3d475dd0b0c2f2fcdc1d004f462d428f155b043"
+      }
+    ],
+    "guarantee": "Capture existing caller IAdo, link request and any prior cancellable ADO token, set actual ADO command cancellation before both original reader acquisitions, await command and asynchronous reader disposal, normalize requested cancellation only after completion, restore exact prior ADO state in finally. No client replacement, command abandonment, transaction commit/rollback or second permission authority.",
+    "callerContract": "Caller serializes its borrowed client and owns connection/transaction lifecycle. Native cancellation can leave its transaction aborted or connection unusable. Awaited completion follows native cancellation response policy; no execution deadline or250ms proof. Metadata production guard remains required.",
+    "protectedSourceChecks": {
+      "originalPermissionSessionSiteSqlLiteralsIdentical": true,
+      "allOriginalIntegrationMethodsAssertionsAndHelpersUnchanged": true,
+      "productionReaderDisposalAwaitedSites": 2,
+      "productionWaitAsyncCalls": 0,
+      "sourceDiffWhitespace": "PASS"
+    },
+    "originalRegressionControls": {
+      "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "class": "FsusBlog.Server.Tests.Integration.AuthorArticlePinProjectionIntegrationTests",
+      "collection": "SchemaMigrationPostgresCollectionB",
+      "newCases": 14,
+      "newMethods": [
+        "PermissionAuthority_RestoresAdoCancellationAndCallerTransactionAfterSuccess",
+        "PermissionAuthority_CancelsActualBlockedCommandAndAwaitsCompletion",
+        "PermissionAuthority_RestoresAdoCancellationAfterCommandFailure"
+      ],
+      "coverage": "4 success/restoration combinations,8 actual PostgreSQL held-lock command cancellation cases across both SQL phases/request-prior token/caller transaction,2 command-failure restoration cases. Test-only lock released and task drained on failure. Existing cases untouched.",
+      "discovery": "UNRUN",
+      "bodies": "UNRUN",
+      "requiredCanonical3657RosterUpdate": true
+    },
+    "originalPreflightAttempts": [
+      {
+        "sourceCommit": "f4989a7353622093f1f5ff7861cf13f34f84ee30",
+        "argv": [
+          "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/run-test-matrix.mjs",
+          "preflight"
+        ],
+        "cwd": "/workspace/FsusBlog-pin-permission-cancellation",
+        "startedAtUtc": "2026-10-09T14:42:53.097865+00:00",
+        "endedAtUtc": "2026-10-09T14:46:19.766777+00:00",
+        "exitCode": 1,
+        "seconds": 206.669,
+        "runtimeQualification": false,
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/mandatory-preflight.log",
+        "failureReason": "correctness attempt producer inventory differs from canonical authorities"
+      },
+      {
+        "sourceCommit": "a44e977f1eb430bc515686d3317c4006b68fc4ae",
+        "argv": [
+          "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/run-test-matrix.mjs",
+          "preflight"
+        ],
+        "cwd": "/workspace/FsusBlog-pin-permission-cancellation",
+        "startedAtUtc": "2026-10-09T14:59:17.274870+00:00",
+        "endedAtUtc": "2026-10-09T15:02:22.491794+00:00",
+        "exitCode": 1,
+        "seconds": 185.217,
+        "runtimeQualification": false,
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/current-candidate-preflight.log",
+        "failureReason": "correctness attempt producer inventory differs from canonical authorities",
+        "stdoutSha256": "99ac01318fb71e0e525aae3b1fd2cd0f34d391f9a1638cd23c433d6298bceaab",
+        "metadataArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/current-candidate-preflight.json"
+      }
+    ],
+    "currentCandidateAdmission": "New source5ea preflight UNRUN because unchanged canonical inventory already refused originala44 candidate. Separate exact-fae source integration proceeds on another branch; no managed dependent execution until full mandatory gate passes.",
+    "coordinateSupplier": {
+      "source": "348c6853d6bcec900734274440fe8f34c1dd7b55",
+      "head": "4177d8ad91f6cbc29a29857f8ead8137e526c7a8",
+      "branch": "codex/article-coordinate-batch-read-20261009",
+      "rootEdits": 0,
+      "sourceConsumptionHere": false,
+      "parentReportedTests": "10unit19integrationUNRUN; supplier production/test project builds only",
+      "consumer": "Original metadata owner consumes exact source separately"
+    },
+    "sdkBuildDiscoveryTestsAfterPreflightFailure": "NOT RUN",
+    "independentReviewRequired": true,
+    "qualification": false,
+    "rawLogsPublished": false,
+    "createdAtUtc": "2026-10-09T14:53:22.446014+00:00",
+    "updatedAtUtc": "2026-10-09T15:27:57.026160+00:00",
+    "remainingNextAction": "Canonical correctness/3657 owner repairs original inventory, enrolls new original cases and supplies exact portable preflight authority; then SAME reviewer and original SDK gates. No root authority rewrite.",
+    "productionSourceCommit": "92afaf02417caf15c9b0b2c23669576ce2e6aa3b",
+    "sameReviewer": "01a12134-c63b",
+    "reviewedTestSourceRepairs": {
+      "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+      "p1": "Both extra test-owned connections use unchanged original client complete TEST configuration; no opened-native password-stripped string, PersistSecurityInfo or ambient extra credentials.",
+      "p2": "Separate cleanup captures each failure, still cancels both tokens, bounds test-owned lock rollback10s, closes only owned blocker as release fallback, awaits actual pending SQL completion, clears ADO token, attempts caller rollback and disposes test-owned observer/blocker independently. Primary exception preserved with ExceptionDispatchInfo; cleanup exception types retained without credential-bearing messages.",
+      "all58AssertionsUnchanged": true,
+      "allOriginalAndOtherNewMethodsUnchanged": true,
+      "productionAuthorityUnchanged": true,
+      "testWatchdogSeconds": 10,
+      "cleanupHardDeadlineGuarantee": false,
+      "noWaitAsyncOrTaskAbandonment": true,
+      "testCases": 14,
+      "discovery": "UNRUN",
+      "bodies": "UNRUN"
+    },
+    "packageIntegrity": "See package-integrity.json: officialNuGet signature verify exit0 + exact lock contentHash + fresh official archive/DLL bytes match. Original mismatched raw ZIP SHA512 evidence preserved; no all-graph/SDK/runtime proof.",
+    "inheritedProviderLimits": [
+      "Connection preparation may synchronously open a connection.",
+      "An inherited callback after reader acquisition may throw before returning reader ownership.",
+      "A disposal failure with a cancelled token may be reported as cancellation.",
+      "Cancellation never proves a healthy connection, successful cleanup or250ms cleanup."
+    ],
+    "publishedEvidenceHead": "65a667f84c404f2840d07e0fbabdffe7e1985406",
+    "artifact": "artifacts/shared-pin-permission-cancellation"
+  },
+  "newUploadExactBodyRepair": {
+    "schema": "fsusblog.upload-facts-exact-body-repair.v1",
+    "sourceCommit": "036ffff6fec688d630df2c3c8b4434fad9c08874",
+    "branch": "codex/shared-upload-facts-exact-body-20261009",
+    "base": "61a11c53cc471a0852bcd3c1df75655aab4331aa",
+    "originalFactsSource": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+    "independentReviewer": "01a12105",
+    "completeFactsSourceBaseline": "8ff02b213a60551a31e687463f6084028bac563b",
+    "completePathCount": 33,
+    "sourceRosterExcludesArtifactRecords": true,
+    "completeSourcePaths": [
+      {
+        "path": "docs/api/contracts.md",
+        "original1975BaseBlob": "06f4bce2ecc0b0e5761181bc135ac2507735ba84",
+        "originalFactsBlob": "5285d2346ad1cab8a049d33f158361413027987e",
+        "currentSourceBlob": "a191b713a6382f36b46e935755d2b083306d14d2",
+        "eofRepairPath": true
+      },
+      {
+        "path": "src/backend/Infrastructure/Binary/BinaryEndpointRequestContext.cs",
+        "original1975BaseBlob": "b105664e79d6e8d0deab590ed5bc41e834d1f00b",
+        "originalFactsBlob": "b105664e79d6e8d0deab590ed5bc41e834d1f00b",
+        "currentSourceBlob": "dcf9ab042a46a5351b477045b83759acf1def815",
+        "eofRepairPath": true
+      },
+      {
+        "path": "src/backend/Infrastructure/Binary/BinaryRequestBinder.cs",
+        "original1975BaseBlob": "3dc1b645b73959c227c67695786ef83f19ef809c",
+        "originalFactsBlob": "3dc1b645b73959c227c67695786ef83f19ef809c",
+        "currentSourceBlob": "e07fc2766d5978b9c911a42e7b0e7510eabdef8a",
+        "eofRepairPath": true
+      },
+      {
+        "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": "5fc20128d595d3374d8c3c2d9623009a1fe2ab3c",
+        "currentSourceBlob": "48e1336e38b585f093bbcb3b51498c8605a68879",
+        "eofRepairPath": true
+      },
+      {
+        "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+        "original1975BaseBlob": "353164a50e6a84359859f68d0b4a005072a4f637",
+        "originalFactsBlob": "78030e466fde3fcafbdf51f9d17c58b6eaa93192",
+        "currentSourceBlob": "78030e466fde3fcafbdf51f9d17c58b6eaa93192",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/core/Algorithms/AedsFrameType.cs",
+        "original1975BaseBlob": "26d208d8fd5683f13d8c39f1b9af4ee8a68c4567",
+        "originalFactsBlob": "ca9fc1904531f435b285b9f675cdfc2c3a247e52",
+        "currentSourceBlob": "ca9fc1904531f435b285b9f675cdfc2c3a247e52",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+        "original1975BaseBlob": "8c0c0e5b3b9f89afff706d9bb4c11c1aa5557c26",
+        "originalFactsBlob": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+        "currentSourceBlob": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+        "original1975BaseBlob": "463741f5f376c73738cf5f06a7b39163a7358de1",
+        "originalFactsBlob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+        "currentSourceBlob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/src/api/uploadFacts.ts",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+        "currentSourceBlob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+        "original1975BaseBlob": "a67186a08eee7a9a8295a80138cc7f2de2b08b8c",
+        "originalFactsBlob": "fe5cd0da30829f6c892203bbfe594b2580cf5fbd",
+        "currentSourceBlob": "fe5cd0da30829f6c892203bbfe594b2580cf5fbd",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/src/contracts/binaryApi.ts",
+        "original1975BaseBlob": "7d314a7730688e7562383feefcaacf75e53b9a4b",
+        "originalFactsBlob": "2c3f7ae2e39fe620496aefa21648e06652895a83",
+        "currentSourceBlob": "2c3f7ae2e39fe620496aefa21648e06652895a83",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+        "original1975BaseBlob": "651d727ae385189d7e2b74d75bc6af1d43db4d96",
+        "originalFactsBlob": "1abcba10cef55637091f244b5b2887845abb338c",
+        "currentSourceBlob": "1abcba10cef55637091f244b5b2887845abb338c",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+        "original1975BaseBlob": "24fcd9b31a714e6a5f8b088dbd7b14d4cc78b992",
+        "originalFactsBlob": "6bac8af2e708351c756ab6808ce9b113cff7a31d",
+        "currentSourceBlob": "6bac8af2e708351c756ab6808ce9b113cff7a31d",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+        "original1975BaseBlob": "40c5e948fe1423fcaefcd5aaa9d5a4496d3999ab",
+        "originalFactsBlob": "498785b71b900dfb1a5e1af94391c015ccb87be6",
+        "currentSourceBlob": "498785b71b900dfb1a5e1af94391c015ccb87be6",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+        "original1975BaseBlob": "6c68f7759cd8efabff25b5d2d685db3dc9507d55",
+        "originalFactsBlob": "ede77a09a2ddda855026ffcf38e720a7e20dda33",
+        "currentSourceBlob": "ede77a09a2ddda855026ffcf38e720a7e20dda33",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+        "original1975BaseBlob": "1a26f1b4fe3b7359c7d2c880c34f08fc60481965",
+        "originalFactsBlob": "8775938b817ced585623219ea8fb51dc6651bbc1",
+        "currentSourceBlob": "8775938b817ced585623219ea8fb51dc6651bbc1",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/frontend/wasm/web/protocol/frame.ts",
+        "original1975BaseBlob": "323a6a2af1b964a1abe82ea5624f2d191150583e",
+        "originalFactsBlob": "77708856b5051c94c1cca66e862e64e248a7b283",
+        "currentSourceBlob": "77708856b5051c94c1cca66e862e64e248a7b283",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/shared/AedsFrameHeader.cs",
+        "original1975BaseBlob": "48d8b6ae68af918272f1195006a96858b61a01ab",
+        "originalFactsBlob": "9c504d9ae24ec0febacd2ea308fda196fe780816",
+        "currentSourceBlob": "9c504d9ae24ec0febacd2ea308fda196fe780816",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": "03344a7af4536ee2c783cc396cab4cb751e13dcb",
+        "currentSourceBlob": "03344a7af4536ee2c783cc396cab4cb751e13dcb",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "original1975BaseBlob": "6b65864cf809b2f911ca6faf30f6f4642d7044cc",
+        "originalFactsBlob": "bb5edc77d811404654cf62d73d61727dac231b1d",
+        "currentSourceBlob": "bb5edc77d811404654cf62d73d61727dac231b1d",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+        "original1975BaseBlob": "e878b73d14ffce96bcd56b829ba6a591c964eb24",
+        "originalFactsBlob": "a9431afd5817d99f85081eb43d0716129532e807",
+        "currentSourceBlob": "a9431afd5817d99f85081eb43d0716129532e807",
+        "eofRepairPath": false
+      },
+      {
+        "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+        "original1975BaseBlob": "55b7ca1e7aca1cc00a3b607f1bc30e651952e387",
+        "originalFactsBlob": "5205ff9aac9506ceb8897881b2d7f84f48ec5300",
+        "currentSourceBlob": "5205ff9aac9506ceb8897881b2d7f84f48ec5300",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "original1975BaseBlob": "98ee4321499c9e1214e34d6117ed46540f1fce6a",
+        "originalFactsBlob": "38da6b69892c5ddb7caf0ecac37ef43875890775",
+        "currentSourceBlob": "38da6b69892c5ddb7caf0ecac37ef43875890775",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/backend/Unit/UploadAssetFactsCodecTests.cs",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": "26eaedd5dd5b7d1eb21d21e4f0019b8706e06fa5",
+        "currentSourceBlob": "26eaedd5dd5b7d1eb21d21e4f0019b8706e06fa5",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/backend/Unit/UploadAssetFactsEndpointBodyTests.cs",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": null,
+        "currentSourceBlob": "3cae6879c98a72a58f36b3093e9ae4f682b2f60e",
+        "eofRepairPath": true
+      },
+      {
+        "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+        "original1975BaseBlob": "1d108fc21a05e5321ef06a41ff5a61dac0f6eef1",
+        "originalFactsBlob": "a694ac8f63a36f102cfb596e9decddd943a409c4",
+        "currentSourceBlob": "a694ac8f63a36f102cfb596e9decddd943a409c4",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+        "original1975BaseBlob": "19abb1540e241f531a831bcd86a524e76046354b",
+        "originalFactsBlob": "34ab42a3b1ce18308c60aab7c6c48b817c4ca3bc",
+        "currentSourceBlob": "34ab42a3b1ce18308c60aab7c6c48b817c4ca3bc",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/frontend/unit/adapters/binary/uploadAssetFacts.test.ts",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": "741d4d9f356bac2b8cd5663fb313a716b778ba40",
+        "currentSourceBlob": "741d4d9f356bac2b8cd5663fb313a716b778ba40",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/native/UploadAssetFactsProtocolTests.cpp",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": "8955293a4e6fc0c33603fb12ca6878e72a1747e1",
+        "currentSourceBlob": "8955293a4e6fc0c33603fb12ca6878e72a1747e1",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/tools/aeds-protocol-generation.test.mjs",
+        "original1975BaseBlob": "2157a5cb12ce384a5dff4d43b7801a79e1ce46ed",
+        "originalFactsBlob": "8a279ccc555340e3fc16cc0bdf43b1f3cc6f8ee5",
+        "currentSourceBlob": "8a279ccc555340e3fc16cc0bdf43b1f3cc6f8ee5",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tests/tools/upload-asset-facts-native.test.mjs",
+        "original1975BaseBlob": null,
+        "originalFactsBlob": "c76e5e1d1e5a21a78a0cffdbcc5f42e0b45698e5",
+        "currentSourceBlob": "c76e5e1d1e5a21a78a0cffdbcc5f42e0b45698e5",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tools/frontend/generate-aeds-protocol.mjs",
+        "original1975BaseBlob": "bc17ea2e95a8699c3c32ffd9f9ea4496b8bb052b",
+        "originalFactsBlob": "6e7a0969c0f4a34d23a9301f04074a62934f3f19",
+        "currentSourceBlob": "6e7a0969c0f4a34d23a9301f04074a62934f3f19",
+        "eofRepairPath": false
+      },
+      {
+        "path": "tools/package.json",
+        "original1975BaseBlob": "723791a9b54fec7e5dcf4d304a74e010f8ca66fd",
+        "originalFactsBlob": "5b476bcbf809f63b0e8b3b42a0a589ffe6a91e8c",
+        "currentSourceBlob": "5b476bcbf809f63b0e8b3b42a0a589ffe6a91e8c",
+        "eofRepairPath": false
+      }
+    ],
+    "incrementalChangedPaths": [
+      "docs/api/contracts.md",
+      "src/backend/Infrastructure/Binary/BinaryEndpointRequestContext.cs",
+      "src/backend/Infrastructure/Binary/BinaryRequestBinder.cs",
+      "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "tests/backend/Unit/UploadAssetFactsEndpointBodyTests.cs"
+    ],
+    "contract": "Opt-in IBinaryEndpointRequestContext.ReadExactFrameAsync reuses the original bounded frame parser and requires EOF. Reject the first unexpected byte without draining an unbounded body; dispose the payload on EOF refusal/cancellation/fault before returning. Facts handler links argument and RequestAborted cancellation before reading, retains complete-frame limit80, and calls the existing observer only after EOF and original SHA validation.",
+    "protectedOriginalSource": {
+      "authNoStorePrefixByteIdentical": true,
+      "originalBinaryFrameParserAllBytesUnchangedExceptNewEofHelper": true,
+      "allOriginalFactsProductionPathsExceptHandlerAndDocsByteIdentical": true,
+      "existingReadFrameSignaturesUnchanged": true,
+      "noFrameAbiRegistryOrPoWChanges": true,
+      "sourceDiffWhitespace": "PASS"
+    },
+    "originalProjectRegressions": {
+      "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "class": "FsusBlog.Server.Tests.Unit.UploadAssetFactsEndpointBodyTests",
+      "newCases": 10,
+      "methods": [
+        "UnknownLengthNonSeekableBody_OnlyExactFrameReachesObserver",
+        "CancellationWhileAwaitingEof_DisposesPayloadWithoutObserving",
+        "IdentityRefusal_DoesNotReadBodyOrObserve",
+        "ExistingFrameRead_RemainsOptInAndDoesNotConsumeTrailingBody"
+      ],
+      "coverage": "Five nonseekable unknown-length exact/tail1/tail4096/truncatedpayload/truncatedheader cases; two EOF cancellation origins with drained operation and returned leases; two401/403 zero body/observer controls; unchanged legacy frame read opt-in control. Calls actual original handler/context/binder/encoder with controlled IFileService observer, no alternate HTTP test host.",
+      "discovery": "UNRUN",
+      "bodies": "UNRUN",
+      "runtimeHttpReproduction": "UNRUN"
+    },
+    "originalPreflightAttempts": [
+      {
+        "sourceCommit": "64a130e0f2997b42edcd0036d2f9b043a5e2998c",
+        "argv": [
+          "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/run-test-matrix.mjs",
+          "preflight"
+        ],
+        "cwd": "/workspace/FsusBlog-upload-facts-exact-body",
+        "startedAtUtc": "2026-10-09T14:42:56.324672+00:00",
+        "endedAtUtc": "2026-10-09T14:46:14.191019+00:00",
+        "exitCode": 1,
+        "seconds": 197.866,
+        "runtimeQualification": false,
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-upload-facts-exact-body/.tmp/upload-facts-exact-body/evidence/mandatory-preflight.log",
+        "failureReason": "release-final static boundary rejected execution target authority owner/content/dependency closure drift",
+        "expectedAuthoritySha256": "204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a",
+        "actualAuthoritySha256": "0c8e170fc50a3eb4f578e2f41ed3c692ff836f140b9c51be0135b3c3df9267f8"
+      },
+      {
+        "sourceCommit": "0d899f060f703f46db47e44e1b77916fb74edb11",
+        "argv": [
+          "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/run-test-matrix.mjs",
+          "preflight"
+        ],
+        "cwd": "/workspace/FsusBlog-upload-facts-exact-body",
+        "startedAtUtc": "2026-10-09T14:59:19.769470+00:00",
+        "endedAtUtc": "2026-10-09T15:02:15.757892+00:00",
+        "exitCode": 1,
+        "seconds": 175.989,
+        "runtimeQualification": false,
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-upload-facts-exact-body/.tmp/upload-facts-exact-body/evidence/current-candidate-preflight.log",
+        "failureReason": "release-final static boundary rejected execution target authority owner/content/dependency closure drift",
+        "stdoutSha256": "d295ddcaa3351301d4c970ad28cedb9262ace1c1a6b31f73a09ca3d1358ab603",
+        "metadataArtifactLocalOnly": "/workspace/FsusBlog-upload-facts-exact-body/.tmp/upload-facts-exact-body/evidence/current-candidate-preflight.json",
+        "expectedAuthoritySha256": "204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a",
+        "actualAuthoritySha256": "0c8e170fc50a3eb4f578e2f41ed3c692ff836f140b9c51be0135b3c3df9267f8"
+      }
+    ],
+    "currentCandidateAdmission": "REFUSED at exact current candidate; dependent SDK compilation/discovery/bodies remain UNRUN. Do not rerun unchanged failed gate; canonical owner must repair original authority/inventory first.",
+    "parentReportedPreviousIndependentControls": "52Node,31native+22supplemental,5generators passed against original df6 complete30 paths; no HTTP boundary reproduction and no current-source rebind or whole acceptance.",
+    "requiredFollowup": "Return this complete33-path exact source to the SAME independent reviewer after original admission; no new wire writer or review owner.",
+    "initialSourceRosterDriverFailure": "First assertion counted all116 changed paths including artifact records. Corrected only explicit source roster projection:33 actual source/document/control paths,83 artifact paths; all original source and gate checks remain unchanged.",
+    "qualification": false,
+    "rawLogsPublished": false,
+    "createdAtUtc": "2026-10-09T14:56:34.534314+00:00",
+    "updatedAtUtc": "2026-10-09T15:05:54.207384+00:00",
+    "remainingNextAction": "Original execution-target authority owner supplies corrected dependency closure/authority digest and preflight admission; SAME reviewer01a12105 reviews complete33-source-path roster. No root authority rewrite.",
+    "publishedEvidenceHead": "4b75d593eae373e969287aeb4b2d296bcccf2740",
+    "artifact": "artifacts/shared-upload-facts-exact-body/source-handoff.json"
+  },
+  "timingInterpretation": {
+    "acceptanceDeadline": "Graph query fact acceptance time budget250ms remains original orchestration owner responsibility",
+    "cancellationRequestDeadline": "Cancellation must propagate to actual command; source fix provides propagation",
+    "quiescenceBeforeRelease": "Await command and reader disposal before borrowed client release; not a250ms cleanup guarantee",
+    "productionMetadataGuard": "Retained pending original Graph owner/reviewer coherent orchestration semantics"
+  },
+  "noNewRawLogsPublished": true,
+  "currentNewRepairManagedCompilationDiscoveryBodies": "UNRUN; original165 preflight refused remaining execution-target authority/dependency closure after exact canonical fae consumption. Source-gate controls2/2 PASS; no unchanged failure retries or alternate managed harness.",
+  "frozenWorktreesRecheckedAtUtc": "2026-10-09T15:07:09.833002+00:00",
+  "permissionPackageIntegrityFollowup": {
+    "artifact": "/workspace/FsusBlog-pin-permission-cancellation/artifacts/shared-pin-permission-cancellation/package-integrity.json",
+    "source": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+    "officialSignatureVerifyExit": 0,
+    "officialNugetContentHashMatchesLocks": true,
+    "freshOfficialArchiveAndDllMatchObserved": true,
+    "rawArchiveHashInequalityPreserved": true,
+    "sdkCompilationDiscoveryBodies": "UNRUN",
+    "runtimeQualification": false
+  },
+  "newPermissionGateIntegration": {
+    "schema": "fsusblog.exact-canonical-correctness-roster-integration.v1",
+    "preparedAtUtc": "2026-10-09T15:30:18.140754+00:00",
+    "sourceCommit": "165005a00305daa9d8117494a1d33bc09b4a122f",
+    "branch": "codex/shared-pin-permission-gate-integration-20261009",
+    "baseMinimalPermissionSource": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+    "parentSuppliedCanonicalFix": "fae117436a4c829748c04c6381d86db6be764e76",
+    "exactPaths": [
+      {
+        "path": "config/testing/correctness-attempt-producers.json",
+        "basePermissionBlob": "e79a780cf59f3815ca7197926d61a83bb2336602",
+        "supplierPreimage": "e79a780cf59f3815ca7197926d61a83bb2336602",
+        "supplierPostimage": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+        "integrationBlob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac"
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "basePermissionBlob": "470d1c518eb69e2e370570d6393b66ad00969afd",
+        "supplierPreimage": "470d1c518eb69e2e370570d6393b66ad00969afd",
+        "supplierPostimage": "18a47e207c8a340b346e6ea421d94de38a9d6050",
+        "integrationBlob": "18a47e207c8a340b346e6ea421d94de38a9d6050"
+      },
+      {
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "basePermissionBlob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+        "supplierPreimage": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+        "supplierPostimage": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+        "integrationBlob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212"
+      }
+    ],
+    "currentMatrixDigest": "sha256:db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+    "originalProducerGeneratedProduct": true,
+    "productHandEdited": false,
+    "all226OriginalEntriesUnchanged": true,
+    "canonicalInventoryEqualityValidatorUnchanged": true,
+    "historicalControlNamePreserved": true,
+    "commands": [
+      {
+        "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+        "argv": [
+          "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test/generate-correctness-attempt-producers.mjs",
+          "--write"
+        ],
+        "cwd": "/workspace/FsusBlog-pin-permission-gate-integration",
+        "startedAtUtc": "2026-10-09T15:28:24.466968+00:00",
+        "endedAtUtc": "2026-10-09T15:28:24.742205+00:00",
+        "exitCode": 0,
+        "seconds": 0.275,
+        "runtimeQualification": false,
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-gate-integration/.tmp/pin-permission-gate-integration/evidence/original-correctness-producer.log",
+        "stdoutSha256": "d47550f01597eebc23c46efd64de516e88aa44edd7b52e95a673f104025f2074",
+        "bindingNote": "Executed at5ea HEAD with two exact handwritten fae source hunks in worktree; generated product then verified byte-exact supplier postimage before immutable165 commit. Not an immutable5ea verification."
+      },
+      {
+        "sourceCommit": "165005a00305daa9d8117494a1d33bc09b4a122f",
+        "argv": [
+          "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/correctness-attempt-migration.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-pin-permission-gate-integration",
+        "startedAtUtc": "2026-10-09T15:28:56.933593+00:00",
+        "endedAtUtc": "2026-10-09T15:28:57.421902+00:00",
+        "exitCode": 0,
+        "seconds": 0.488,
+        "runtimeQualification": false,
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-gate-integration/.tmp/pin-permission-gate-integration/evidence/original-roster-migration-controls.log",
+        "stdoutSha256": "0e18fd0bc3684624e58327fbcd786a0e3ad2b588335834710af942d55571c171",
+        "tests": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "scope": "Original gate-source migration tests only; no managed permission test execution."
+      },
+      {
+        "sourceCommit": "165005a00305daa9d8117494a1d33bc09b4a122f",
+        "argv": [
+          "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/run-test-matrix.mjs",
+          "preflight"
+        ],
+        "cwd": "/workspace/FsusBlog-pin-permission-gate-integration",
+        "startedAtUtc": "2026-10-09T15:28:53.658410+00:00",
+        "endedAtUtc": "2026-10-09T15:31:37.136870+00:00",
+        "exitCode": 1,
+        "seconds": 163.479,
+        "runtimeQualification": false,
+        "failureReason": "release-final static boundary rejected matrix parse: execution target authority owner/content/dependency closure drift",
+        "expectedAuthoritySha256": "142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea",
+        "actualAuthoritySha256": "39642f38ee0a5328fe4729756b02567c4238af5370a19c7b4c81b1a2855f9720",
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-gate-integration/.tmp/pin-permission-gate-integration/evidence/consumed-roster-preflight.log",
+        "stdoutSha256": "21e7c7d78dff087828cc25a1e932a1a3ba8a602c9ec7f4113a46d20ae0592c7e"
+      }
+    ],
+    "runtimeQualification": false,
+    "managedCompilationDiscoveryBodies": "UNRUN",
+    "canonical3657RosterAdmissionStillRequired": true,
+    "rawLogsPublished": false,
+    "mandatoryPreflight": "REFUSED; original migration source controls2/2 PASS do not substitute full gate",
+    "minimalPermissionEvidenceHead": "65a667f84c404f2840d07e0fbabdffe7e1985406",
+    "canonicalAuthorityNextAction": "Original execution-target authority owner supplies current complete owner/content/dependency closure and canonical producer-backed authority; canonical3657 owner enrolls14new original cases. No root hand-filled output or authority relaxation. SAME reviewer01a12134-c63b reviews fixed minimal permission source5ea.",
+    "changedMandatoryGateWasRunOnce": true,
+    "unchangedFailedGateReruns": 0,
+    "updatedAtUtc": "2026-10-09T15:32:48.393001+00:00",
+    "publishedEvidenceHead": "c7fcda5b058522567d07a375f64d65e992530638",
+    "artifact": "artifacts/shared-pin-permission-gate-integration"
+  }
+}

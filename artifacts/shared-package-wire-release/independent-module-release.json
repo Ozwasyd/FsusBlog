@@ -1,0 +1,116 @@
+{
+  "baseCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "supplierSource": "d49a430828354760ec42463d98739babdbec9312",
+  "supplierFinal": "76f900f3266560af64e05f6936d4096f76577361",
+  "sourceBindings": [
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs",
+      "suppliedBlob": "15c2c39cbc4cb7e3124a2b3f1e828b4148d93434",
+      "sha256": "c4d13a13d572fcd061cdbee6409c4767ab9c470d0f418beaceea124e2b80ddad",
+      "finalByteExact": true,
+      "consumed": false
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs",
+      "suppliedBlob": "1e6b978f4eecc227f6194036107e295a1fb64f86",
+      "sha256": "cd13a3ff651968e26199055ce21212fe35a16f329834b4f1c090484ee1ad1163",
+      "finalByteExact": true,
+      "consumed": false
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs",
+      "suppliedBlob": "8b9e51cc92e454b7de3a542194c8afb34743bf92",
+      "sha256": "753a378530602ba9281dcb1a55f4153bb996161d8346105fe14e7f180a5d26cd",
+      "finalByteExact": true,
+      "consumed": false
+    },
+    {
+      "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+      "suppliedBlob": "63e994b7d0ffaae47f7cfc4ed6b364bf8a3a863a",
+      "sha256": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6",
+      "finalByteExact": true,
+      "consumed": false
+    },
+    {
+      "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+      "suppliedBlob": "9d7eec38f591428b45637994785b61bf227ce13a",
+      "sha256": "dfee059d43725064e6fc345e6a57cd73520005b4dc60ed0234244181bc2b1ba8",
+      "finalByteExact": true,
+      "consumed": false
+    }
+  ],
+  "releaseType": "precise independent new-module transport preparation; no implementation or activation",
+  "soleOwner": "root #3735 Shared/DI/transport",
+  "allocation": {
+    "status": "owner allocation only; not active frame, ABI or qualification; canonical central registration retained by root",
+    "request": {
+      "name": "ArticlePackageCandidateReviewReadRequest",
+      "value": 288
+    },
+    "response": {
+      "name": "ArticlePackageCandidateReviewReadResponse",
+      "value": 289
+    },
+    "earlierOwnedAllocatedIds": {
+      "ExportSourceOptions": [
+        282,
+        283,
+        284
+      ],
+      "UploadAssetFacts": 285,
+      "ArticleVaultCurrentReviewRequest": 286,
+      "ArticleVaultCurrentReviewResponse": 287
+    }
+  },
+  "newModuleScope": [
+    "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+    "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+    "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+    "focused original test-project and ordinary protocol controls only"
+  ],
+  "centralFilesRootOnly": [
+    "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/shared/Contracts/Validation/aeds-protocol.json",
+    "existing AEDS enum/ABI/native global decoder/TS decoder registry and generated route owners"
+  ],
+  "actualLimits": {
+    "completeRequestFrameBytes": 1048576,
+    "decodedZipBytes": 524288,
+    "requestIdUtf16Units": 128,
+    "maxPageSize": 50,
+    "maxRequestedTargets": 1000,
+    "originalZipMaxArticles": 1000,
+    "originalZipMaxFiles": 1002,
+    "originalZipMaxUncompressedBytes": 67108864,
+    "originalZipMaxCompressionRatio": 100
+  },
+  "requiredWireGates": [
+    "Dedicated closed AEDS pair; original frame helper caps complete frame including unknown-length bodies",
+    "Closed exact DTO property shapes at every nested level, reject unknown/duplicate/null-required/wrong primitive/unsafe numeric/noncanonical Int64 revisions",
+    "Validate request mode/digests/UTC and original bounded targets; no browser ZIP parsing or replacement planner",
+    "Readonly context exact Current identity lifecycle/generation/mapping/scope revisions; no scope or actor/session caller authority",
+    "Response exact correlated RequestId and original PlanDigest/context; reject late or cancelled response, all outputs retain ExecuteDisabled=true and original reason",
+    "No ZIP/source/title/private scope list/credentials/permission grant/upload receipts in response",
+    "Literal independent positive and negative controls plus original production native/TS/managed-source parity; strict original SDK required before managed discovery/bodies"
+  ],
+  "existingHelperLimits": "AedsJsonResults uses JsonSerializerDefaults.Web; typed deserialization alone does not enforce unknown/duplicate/required nested shape closure. New transport needs a confined closed wire validator; do not claim existing helper already supplies that gate.",
+  "registrationGate": "Exact canonical SystemService implementation with ISystemSiteIdentityReader, matching declaration blobs and qualified lifecycle/scope handoff required before alias or ReadService activation. Current d49/final tree contains declarations only; no valid alias can be activated there. adc2 short prefix is not a consumable source identity.",
+  "originalServiceSignature": "Task<ArticlePackageCandidateReviewReadOutcome> ReadAsync(ArticlePackageCandidateReviewReadRequest? request, CancellationToken cancellationToken = default)",
+  "originalOutcome": "ArticlePackageManifestCandidateResult Result; ArticlePackageCandidateReviewReadResponse? Response",
+  "DIProposal": [
+    "services.AddScoped<ISystemSiteIdentityReader>(sp => sp.GetRequiredService<SystemService>());",
+    "services.AddScoped<ArticlePackageCandidateReviewReadService>();"
+  ],
+  "supplierControlledTests": {
+    "reportedPassed": 21,
+    "qualifiedCanonicalStorage": false,
+    "qualifiedHttp": false,
+    "qualifiedUx": false
+  },
+  "frontendSupplier": "3335910dee5e67e446167ec3b3d875912a908709 is not consumable at frozen baseline due three changed dependency blobs; wait exact revised supplied source",
+  "noContentApiWrites": true,
+  "noDbRuntimeIdentityAllocation": true,
+  "createdAtUtc": "2026-10-09T13:25:43.768427+00:00"
+}
