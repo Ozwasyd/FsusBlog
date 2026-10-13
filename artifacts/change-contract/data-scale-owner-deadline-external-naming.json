@@ -4,9 +4,18 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/testing/release-reliability-lifecycle-action-registry.json"
+                "config/testing/release-reliability-lifecycle-action-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the lifecycle registry's machine-consumed JSON keys and action identifiers while binding the data-scale measurement deadline to the existing canonical catalog minimum."
+            "reason": "Preserve machine-consumed JSON keys while binding the data-scale deadline to the canonical catalog and consuming the coordinator-supplied canonical producer inventory and dependent closure metadata."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the canonical execution-owner and environment-authority spellings while consuming the shared owner's complete-roster migration validator."
         }
     ]
 }
