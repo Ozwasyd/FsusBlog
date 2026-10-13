@@ -1,3 +1,5 @@
+
+/* eslint-disable import-x/no-relative-parent-imports -- Integrate the existing canonical lifecycle and resource observer owners. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -119,9 +121,16 @@ test('evidence-file preparation cannot claim database or runtime reset', () =>
             const preparation = candidate.actions.find(
                 (action) => action.actionId === 'soak-prepare-evidence-files'
             );
-            preparation.stateDomains.push('postgres.schema');
-            preparation.stateDomains.sort();
+            preparation.operation = 'prepare-evidence-files';
         }),
         /artifact targets only/u
     );
+});
+
+test('ordinary runtime resets cannot omit database or cache state verification', () =>
+{
+    assert.match(errorsFor(({ registry: candidate }) =>
+    {
+        candidate.actions[1].stateDomains = ['artifact.release-derived'];
+    }), /runtime reset must verify database state and reset public cache/u);
 });
