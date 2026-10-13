@@ -1,6 +1,6 @@
 {
     "kind": "ordinary source WIP dependency record; no authority/receipt/qualification",
-    "mainBase": "20eb128e184b00cfc2f4e316d867791c4bc79dcd",
+    "mainBase": "220784b1b78cb15d9edc32feb1da2e3516a3af0f",
     "UI": {
         "head": "903db034a14254fb162f51b9c25d3703ea20ccb5",
         "parents": [
@@ -47,6 +47,11 @@
         "DocBlob": "adb0ca27c62fa20f971d581c61bc35b6730c09f1",
         "sourceReview": "Bounded source accepted per parent; exact Doc source consumed in separate dependency intake; Main cohort activation remains separate"
     },
-    "consumer": "Finite original request fulfilled-future plus original native/Main cleanup consumer acknowledges the same accepted SDK lease; complete resources and proof-less cancelled/unstarted paths remain held; source review pending",
-    "runtime": "ALL HOLD/UNRUN; no product imports/evaluation/build/publication/authority refresh"
+    "consumer": "Three-P2 shared cohort dependency repair: lawful private mapped anchor, same cohort-peer cleanup/retry custody, roster-before-real SDK acquisition; inherited original4299/4300 consumers unchanged, composed source review pending",
+    "runtime": "ALL HOLD/UNRUN; no product imports/evaluation/build/publication/authority refresh",
+    "mainReviewDependencies": {
+        "4298": "dcc88f7ad1defbc2ae77df5136eb8ae1c1a28913 has three original-review P2s; not accepted",
+        "4299": "20eb128e184b00cfc2f4e316d867791c4bc79dcd bounded source accepted only conditional on correct cohort dependency",
+        "4300": "220784b1b78cb15d9edc32feb1da2e3516a3af0f finite settlement source pending original review"
+    }
 }
