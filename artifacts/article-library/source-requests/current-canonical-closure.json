@@ -559,7 +559,7 @@
       },
       {
         "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
-        "sha256": "a3f8d99d552199f1633ddddb888302d6aed8a9a963fad147d45eb32a94344dfe"
+        "sha256": "153945fdaa8bd7a5d8e293b92d3e983051bb2032738b832345f1ef0a630e8a38"
       },
       {
         "path": "src/frontend/src/services/authoring/authoringWorkspaceLayoutContext.ts",
@@ -583,6 +583,7 @@
       }
     ],
     "readmission": "Actual existing Frame.prepareMountedEditor first closes its own staging holds, then unchanged guarded physical prepare/real Doc adoption/ordinary seal for SAME current target. Explicit Main sequence: prepare native offer/principal in original Main -> Frame reserve -> native adoption/receiving cleanup via original SDK -> Frame prepare for real admission. No Root full snapshot/ref/resource acceptance.",
-    "late_callback_fence_repair": "Target Writer single pre-retirement subscriber is pinned BEFORE every native port/session/lifetime/birth reader. Once actual target Writer is attached, explicit revoke withdraws staging even while creation flag remains set. Only unpublished intentional initial ref attachment is exempt; native/subscription/pure checks still refuse invalidation during allocation/publication."
+    "late_callback_fence_repair": "Target Writer single pre-retirement subscriber is pinned BEFORE every native port/session/lifetime/birth reader. Once actual target Writer is attached, explicit revoke withdraws staging even while creation flag remains set. Only unpublished intentional initial ref attachment is exempt; native/subscription/pure checks still refuse invalidation during allocation/publication.",
+    "frame_retry_failure_projection_repair": "Independent238b7491 P2 source repair: original same borrowed cleanup holder retained; each actual borrowed.retryCleanup throw is recorded as Frame latestCause and rethrown unchanged, firstCause preserved (including raw undefined). Explicit pendingCleanup is distinct from historical hasFailure; only confirmed original borrowed cancellation/cleanup plus abort/listener cleanup clears debt and same Frame slot. Historical failure remains observable; active stays false and authority never reopens. Cancel E -> retry throws F -> successful retry is a source-preflight case, UNRUN_HELD."
   }
 }

@@ -488,11 +488,22 @@ interface FrameNativeStaging {
     borrowed: ArticleNativeRecreationStagingLease | null;
     cleanup: (() => void) | null;
     abortStop: (() => void) | null;
+    pendingCleanup: boolean;
     hasFailure: boolean;
     firstCause: unknown;
     latestCause: unknown;
 }
 let frameNativeStaging: FrameNativeStaging | null = null;
+function recordFrameNativeStagingFailure(own: FrameNativeStaging, cause: unknown): void
+{
+    if (!own.hasFailure)
+    {
+        own.hasFailure = true;
+        own.firstCause = cause;
+    }
+    own.latestCause = cause;
+    own.pendingCleanup = true;
+}
 function closeFrameNativeStaging(own = frameNativeStaging): void
 {
     if (!own)
@@ -500,6 +511,7 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
         return;
     }
     own.active = false;
+    own.pendingCleanup = true;
     const failures: unknown[] = [];
     const attempt = (run: () => void): void =>
     {
@@ -509,12 +521,7 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
         }
         catch (cause: unknown)
         {
-            if (!own.hasFailure)
-            {
-                own.hasFailure = true;
-                own.firstCause = cause;
-            }
-            own.latestCause = cause;
+            recordFrameNativeStagingFailure(own, cause);
             failures.push(cause);
         }
     };
@@ -543,6 +550,8 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
         throw failures.length === 1 ? failures[0]
             : new AggregateError(failures, 'article-native-staging-frame-cleanup-incomplete', { cause: failures[0] });
     }
+    // Only confirmed cleanup clears debt; failure history and withdrawn authority remain.
+    own.pendingCleanup = false;
     if (frameNativeStaging === own)
     {
         frameNativeStaging = null;
@@ -805,7 +814,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     {
         throw new Error('article-native-staging-frame-custody-pending');
     }
-    const own: FrameNativeStaging = { operation: new AbortController(), active: true, borrowed: null, cleanup: null, abortStop: null, hasFailure: false, firstCause: undefined, latestCause: undefined };
+    const own: FrameNativeStaging = { operation: new AbortController(), active: true, borrowed: null, cleanup: null, abortStop: null, pendingCleanup: true, hasFailure: false, firstCause: undefined, latestCause: undefined };
     frameNativeStaging = own;
     const instance = routeOutletInstance.value;
     const epoch = layoutEpoch;
@@ -875,11 +884,20 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
             retryCleanup: (): void =>
             {
                 own.active = false;
-                borrowed.retryCleanup();
+                own.pendingCleanup = true;
+                try
+                {
+                    borrowed.retryCleanup();
+                }
+                catch (cause: unknown)
+                {
+                    recordFrameNativeStagingFailure(own, cause);
+                    throw cause;
+                }
                 cancel();
             },
             inspectFailure: () => own.hasFailure
-                ? Object.freeze({ failed: true, firstCause: own.firstCause, latestCause: own.latestCause, pendingCleanup: true })
+                ? Object.freeze({ failed: true, firstCause: own.firstCause, latestCause: own.latestCause, pendingCleanup: own.pendingCleanup })
                 : borrowed.inspectFailure(),
             subscribeBeforeInvalidation: receiver =>
             {
