@@ -1,0 +1,196 @@
+{
+    "kind": "source-static-observations",
+    "qualification": false,
+    "sourceBase": "fd792280cffe18f5fb0335c930243f5c25b2bc83",
+    "sourceCommit": "a1647cac36f00bba1cae5a93c6f9f59221cfb74a",
+    "branch": "codex/transport4261-static-boundaries-20261013",
+    "worktree": "/workspace/FsusBlog-transport4261",
+    "sourceBindings": {
+        "src/frontend/src/services/binaryTransport.ts": {
+            "base": {
+                "gitBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+                "sha256": "80ad026cc8f5d741fe449b60b8a2539617c8989f42e4d59f481cf055c5620305"
+            },
+            "candidate": {
+                "gitBlob": "e681d21eb9b1a0ddeff0acb8541ac741d13d332c",
+                "sha256": "ccd50fd80e3a6096b6f1775755e71a6adc3d890a788307f525062793d097d636"
+            }
+        },
+        "src/frontend/src/api/binaryApiClient.ts": {
+            "base": {
+                "gitBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+                "sha256": "7a4ac36857a5a535aaf13b92a99f3bec0399442040271ee3fb6990f3e597e29f"
+            },
+            "candidate": {
+                "gitBlob": "f40d2e6cd1e240217269d7628edf88bbf1451ff2",
+                "sha256": "41b6d4a762666a8851f4404a9d2c7945c91774e3aff3c2152658e64d0a81777f"
+            }
+        },
+        "src/frontend/src/generated/fsusBinaryRoutes.ts": {
+            "base": {
+                "gitBlob": "511f8d1e0c16859ac7bccd01033d8ce9e6760943",
+                "sha256": "c49608b7bfc74466e157017e1d22bb9ef202e006964174fe1d4f9fd957171cd4"
+            },
+            "candidate": {
+                "gitBlob": "511f8d1e0c16859ac7bccd01033d8ce9e6760943",
+                "sha256": "c49608b7bfc74466e157017e1d22bb9ef202e006964174fe1d4f9fd957171cd4"
+            }
+        },
+        "tools/contracts/FsusBlog.OpenApiObservation/Program.cs": {
+            "base": {
+                "gitBlob": "6b7c22ad5ca545ee5eefd83bbd83ae87c27f7d67",
+                "sha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1"
+            },
+            "candidate": {
+                "gitBlob": "6b7c22ad5ca545ee5eefd83bbd83ae87c27f7d67",
+                "sha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1"
+            }
+        },
+        "tools/contracts/lib/openapi-observation.mjs": {
+            "base": {
+                "gitBlob": "b8bab1bac48e95098ef591f25e26cc4e954ec5a5",
+                "sha256": "58814bc6e84d0a7a1530ad40c89e44935959c952b36abf083d0f7cbdb3b1b2d5"
+            },
+            "candidate": {
+                "gitBlob": "b8bab1bac48e95098ef591f25e26cc4e954ec5a5",
+                "sha256": "58814bc6e84d0a7a1530ad40c89e44935959c952b36abf083d0f7cbdb3b1b2d5"
+            }
+        },
+        "tools/contracts/lib/openapi-contracts.mjs": {
+            "base": {
+                "gitBlob": "409aaabcd58bab8df0476fd694d1a53445630843",
+                "sha256": "b68f65b8fe4e2eb846826a1d482d19a4c889d74cabb083f27d9240f4c83b7dc0"
+            },
+            "candidate": {
+                "gitBlob": "409aaabcd58bab8df0476fd694d1a53445630843",
+                "sha256": "b68f65b8fe4e2eb846826a1d482d19a4c889d74cabb083f27d9240f4c83b7dc0"
+            }
+        }
+    },
+    "preimagesExactlyMatched": {
+        "service": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+        "api": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579"
+    },
+    "sourceScope": "Exactly two exclusive original production files. No control/type/doc/fixture/catalog/generator/DI/business source changed.",
+    "canonicalAuth": {
+        "sourceClassifier": "tools/contracts/FsusBlog.OpenApiObservation/Program.cs:ClassifyAuth",
+        "sourceValidator": "tools/contracts/lib/openapi-observation.mjs",
+        "legalObservedWireStates": [
+            "anonymous",
+            "optional",
+            "user",
+            "admin"
+        ],
+        "generatedFrozenSnapshotAuthCounts": {
+            "admin": 172,
+            "user": 37,
+            "anonymous": 65
+        },
+        "policy": {
+            "admin": {
+                "scope": "admin",
+                "class": "admin",
+                "abortOnGenerationChange": true
+            },
+            "user": {
+                "scope": "account",
+                "class": "account",
+                "abortOnGenerationChange": true
+            },
+            "optional": {
+                "scope": "account",
+                "class": "account",
+                "abortOnGenerationChange": false,
+                "stillAssertCurrent": true
+            },
+            "anonymous": {
+                "scope": "public",
+                "class": "public",
+                "abortOnGenerationChange": true
+            },
+            "unknown": "ProtocolFailure/binary_route_descriptor_invalid, never public fallback"
+        },
+        "noInventedEnumOrCast": true,
+        "generatedOutputsUpdated": false,
+        "generatorObserverExecuted": false
+    },
+    "donors": {
+        "4237": {
+            "head": "c90ae87c94fb3b0c5bb99f8141634dfd178ea5cb",
+            "serviceBlob": "8f63667c47c4fbe208a408d9c0e357728d629f99",
+            "inspection": "Actual local terminal/cleanup producer exists and remains distinct from shared network/Wasm settlement. Not imported wholesale into the old-preimage task."
+        },
+        "3849": {
+            "head": "af4a8e32b9d2aeae9bd25ca8c3803f0de1e8d2d8",
+            "serviceBlob": "afc1a91577ef7d097b42854108e5a952a67e11c6",
+            "inspection": "Actual four-state route policy plus broader breaking route-only and metadata override contract; donor exists but broader changes not consumed."
+        }
+    },
+    "staticSourceProof": "Exact original private lease/assertCurrent/finally, execute retry/PoW and worker runtime function bodies unchanged after erasing unused generic. Whole binaryApiClient bytes reconstruct exactly after reverting only .href base.",
+    "compiler": {
+        "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-transport4261 node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "baselineExit": 2,
+        "candidateExit": 2,
+        "comparison": {
+            "baselineDiagnostics": 110,
+            "candidateDiagnostics": 106,
+            "added": [],
+            "removed": [
+                "src/api/binaryApiClient.ts(POS): error TS2345: Argument of type 'Location' is not assignable to parameter of type 'string | URL | undefined'.\n  Type 'Location' is missing the following properties from type 'URL': password, searchParams, username, toJSON",
+                "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read.",
+                "src/services/binaryTransport.ts(POS): error TS2367: This comparison appears to be unintentional because the types '\"anonymous\"' and '\"optional\"' have no overlap.",
+                "src/services/binaryTransport.ts(POS): error TS2367: This comparison appears to be unintentional because the types '\"anonymous\" | \"admin\" | \"user\"' and '\"optional\"' have no overlap."
+            ],
+            "normalization": "Only diagnostic header positions; full multiline continuation text and multiplicity retained",
+            "UIErrorsInAppBaseline": 25,
+            "UIErrorsInAppCandidate": 25,
+            "separateUI57": "Parent-reported original UI full-project baseline, not rerun or reclassified as this application result"
+        },
+        "newReducedConfig": false,
+        "generation": "Only original existing complete application alias producer; no product startup/import, observation or frozen generation"
+    },
+    "localUI": {
+        "sourceCommit": "d6bb0836a15f40d7ccace41773d19259c72d37a6",
+        "worktree": "/workspace/FsusUI-transport4261",
+        "sourceModified": false,
+        "fullUI57Result": "Parent-reported; not rerun or reclassified as this complete application result"
+    },
+    "dependencies": "Only new isolated worktrees reference existing installed node_modules directories; no package installation/download or package publication. Original shared Blog/UI source trees untouched.",
+    "syntax": {
+        "commands": [
+            "node --check src/frontend/src/services/binaryTransport.ts",
+            "node --check src/frontend/src/api/binaryApiClient.ts"
+        ],
+        "exits": [
+            0,
+            0
+        ],
+        "execution": "Parse only; no import/discovery/runtime"
+    },
+    "diff": {
+        "command": "git diff --check fd792280cffe18f5fb0335c930243f5c25b2bc83 a1647cac36f00bba1cae5a93c6f9f59221cfb74a",
+        "exit": 0
+    },
+    "lint": {
+        "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-transport4261 node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/binaryTransport.ts --file src/frontend/src/api/binaryApiClient.ts",
+        "exit": 1,
+        "status": "BLOCKED",
+        "reason": "Canonical configured ESLint/Stylelint executable paths missing; no install/fallback/override"
+    },
+    "stackedDraft": {
+        "pr": 4279,
+        "baseBranch": "codex/issue2307-source-composition",
+        "baseHeadObservedBeforeOpen": "7f741d8df71bdd7269260aa76bf30f7d38ab68fa",
+        "exactMergeBase": "fd792280cffe18f5fb0335c930243f5c25b2bc83",
+        "ownedPreimagesStillExactAtAdvancedBase": true,
+        "rebased": false
+    },
+    "holds": "All tests/runtime/import/discovery/list/collection/native/security/privacy/qualification HOLD. No test or product worker started.",
+    "acceptance": "Ordinary WIP; independent source review/intake pending, full compiler red and lint blocked; no full session/resource/recovery/settlement claim",
+    "rawArtifacts": {
+        "artifacts/transport4261-static-boundaries/20261013/typecheck-comparison.json": "96289efb01e6275b7ae7e40499987415a54acb71c3c2122e7c3fcc7c5d67991b",
+        "artifacts/transport4261-static-boundaries/20261013/baseline-typecheck.log": "ad48745de0ac7929a931db5ded7ba0cc4a610589f2d9aefd4de6a6364315c50a",
+        "artifacts/transport4261-static-boundaries/20261013/configured-style.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+        "artifacts/transport4261-static-boundaries/20261013/candidate-typecheck.log": "0b76c7e4fb50d66cb390e2918d99bbef31c51a2ad15dd1aa3122bf04361d9bf4"
+    }
+}
