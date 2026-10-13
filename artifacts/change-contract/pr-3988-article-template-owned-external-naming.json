@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleTemplateCoreModels.cs",
+                "src/backend/Services/Authoring/ArticleTemplateExpansionContracts.cs",
+                "src/backend/Services/Authoring/ArticleTemplateExpansionVerifier.cs"
+            ],
+            "reason": "These three owned C# paths fall under the existing environment-variable registration's src/**/*.cs surface in config/development/native-tooling-style-exceptions.json. They introduce, read and rename no process environment keys; the registration and its external uppercase-key/internal-option mapping remain unchanged. Relative to source 2145bc5e042fd50ba805327f8fde2c08ad77bdc9, the immutable-snapshot changes retain ArticleTemplateActor.Permissions, ArticleTemplateExpansionDependencies.TagIds/AssetPins/PropertyDefaults and ArticleTemplateExpansionPlan.ExpandedSource member spelling and retain the existing expansion_plan_digest_tamper, expansion_plan_expiry_tamper and expansion_plan_expired reason identifiers. This declaration covers only these three changed registered paths, permits no general internal naming exception and does not assert wire, ABI, plan-integrity QA or runtime acceptance."
+        }
+    ]
+}

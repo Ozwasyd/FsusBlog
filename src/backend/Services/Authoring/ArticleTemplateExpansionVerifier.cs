@@ -28,9 +28,18 @@ public sealed class ArticleTemplateExpansionVerifier(
             violations.Add(new("expansion_plan_expiry_tamper", "plan expiry does not match issuance ttl"));
         }
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        if (plan.IssuedAtUtc > now)
+        {
+            violations.Add(new("expansion_plan_issuance_future", "plan issuance is after the verifier clock"));
+        }
         if (plan.ExpiresAtUtc <= now)
         {
             violations.Add(new("expansion_plan_expired", "plan expired"));
+        }
+
+        if (violations.Count != 0)
+        {
+            return new ArticleTemplateVerificationResult(false, Array.AsReadOnly(violations.ToArray()));
         }
 
         try
