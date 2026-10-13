@@ -8,7 +8,10 @@ namespace FsusBlog.Server.Services.Articles.Bulk;
 
 /// <summary>
 /// Integration-owned admission and transaction boundary, not an adapter permission provider.
-/// There is deliberately no default implementation or registration. The original owner must
+/// There is deliberately no registration or available whole-set reservation implementation.
+/// The original group owner's unregistered locked-facts stage reads actual prerequisites,
+/// but ReserveAsync refuses until the actual document/editor admission producer exists.
+/// The original owner must
 /// admit the entire frozen explicit set, including site/session/policy, document and draft
 /// lifecycle revisions, rights, locks, and every required transactional side-effect obligation.
 /// A request already concluded by the canonical owner must be resolved by the existing read-only

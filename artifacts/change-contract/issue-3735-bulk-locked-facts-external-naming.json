@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.BulkCallerPermission.cs",
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.BulkLockedSet.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkEditableLifecycleGroupAuthority.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkEditableLifecycleGroupAuthority.LockedFacts.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.BulkReservation.cs"
+            ],
+            "reason": "Preserve original managed native/JWT/SQL/draft/group owner identifiers in the explicit source increment, including the carried accepted draft owner paths. This is readonly persisted precondition data, not document/editor or whole-set admission. No environment setting, auth/permission catalog, DI, schema, generated/frozen output or qualification grant is changed."
+        }
+    ]
+}

@@ -33,6 +33,14 @@ public sealed partial class AuthoringDraftLifecycleService
     /// <summary>Opaque persistence reservation only; not live editor, permission, commit or zero-write admission.</summary>
     internal sealed class BulkDraftReservation;
 
+    /// <summary>Actual persisted coordinates/content identities; never editor/unsaved-state admission.</summary>
+    internal sealed record BulkDraftLockedRow(long Id, int ArticleId, long OwnerAdminPrincipalId,
+        string DraftKey, long? BaseRevisionId, long ServerRevision, string? ClientRevision,
+        DateTime UpdatedAt, string PersistedRowDigest);
+
+    internal sealed record BulkDraftLockedFacts(ImmutableArray<int> OrderedArticleIds,
+        ImmutableArray<BulkDraftLockedRow> Drafts);
+
     private sealed record LockedArticle(int Id, long RevisionId, int RevisionNo, ArticleStatus Status,
         bool IsDeleted, DateTime? ScheduledPublishAt);
 
@@ -77,6 +85,82 @@ public sealed partial class AuthoringDraftLifecycleService
         var reservation = new BulkDraftReservation();
         _bulkDraftReservations.Add(reservation, new(originalTransaction, request, frozen, articles, drafts));
         return reservation;
+    }
+
+    /// <summary>
+    /// Reacquires actual original article/draft locks, rereads the full persisted snapshot and
+    /// checks every persisted draft against real current revision/source/rights before mutation.
+    /// Metadata is returned in the original frozen order. It does not observe live editor state.
+    /// Failure/cancellation poisons the original reservation; native release belongs to its caller.
+    /// </summary>
+    internal async Task<BulkDraftLockedFacts> ReadLockedBulkDraftFactsAsync(BulkDraftReservation reservation,
+        NpgsqlTransaction originalTransaction, ArticleBulkExecutionRequest request, ArticleBulkPlan plan,
+        ArticleBulkPlanAuthority plans, CancellationToken cancellationToken)
+    {
+        if (!_bulkDraftReservations.TryGetValue(reservation, out BulkDraftState? state)
+            || !ReferenceEquals(state._transaction, originalTransaction) || !ReferenceEquals(state._request, request)
+            || Interlocked.CompareExchange(ref state._useState, 4, 0) != 0)
+            throw BulkDraftFailure("reservation_unavailable");
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ImmutableArray<ArticleBulkPlanItem> frozen = [.. plan.Items];
+            ValidateBulkDraftBinding(request, plan, plans, frozen);
+            if (!frozen.SequenceEqual(state._frozenItems))
+                throw BulkDraftFailure("frozen_set_changed");
+            int[] ordered = [.. frozen.Select(static item => int.Parse(item.ArticleId, CultureInfo.InvariantCulture))];
+            int[] ids = [.. ordered.Order()];
+            Dictionary<int, LockedArticle> articles = await ReadBulkArticlesAsync(originalTransaction, ids, true, cancellationToken)
+                .ConfigureAwait(false);
+            if (articles.Count != state._articles.Count || state._articles.Any(pair =>
+                !articles.TryGetValue(pair.Key, out LockedArticle? actual) || actual != pair.Value))
+                throw BulkDraftFailure("article_changed");
+            // Reacquire the original write fence rather than assuming an earlier lock survives a caller savepoint.
+            using (var fence = new NpgsqlCommand("LOCK TABLE article_draft IN SHARE ROW EXCLUSIVE MODE;",
+                RequireBulkDraftTransaction(originalTransaction), originalTransaction))
+                await fence.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            List<ArticleDraft> current = await ReadBulkDraftsAsync(originalTransaction, ids,
+                long.Parse(request.Actor.UserId, CultureInfo.InvariantCulture), cancellationToken).ConfigureAwait(false);
+            if (JsonSerializer.Serialize(current) != JsonSerializer.Serialize(state._drafts))
+                throw BulkDraftFailure("draft_changed");
+            var rows = ImmutableArray.CreateBuilder<BulkDraftLockedRow>(current.Count);
+            ILookup<int?, ArticleDraft> byArticle = current.ToLookup(static draft => draft.ArticleId);
+            // This invocation has its own bounded, transient package read set. The later original CAS
+            // keeps its separate full before/after budget, not a cumulative repeated-observation counter.
+            state._packageBytes = 0;
+            try
+            {
+                foreach (int id in ordered)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ArticleRevision revision = await ReadBulkRevisionAsync(state, articles[id], cancellationToken).ConfigureAwait(false);
+                    ArticleRightsSnapshot rights = await ReadBulkRightsAsync(originalTransaction, articles[id], cancellationToken).ConfigureAwait(false);
+                    foreach (ArticleDraft draft in byArticle[id])
+                    {
+                        if (!BulkDraftMatchesRevision(draft, revision, articles[id].Status, articles[id].ScheduledPublishAt)
+                            || !BulkDraftRightsMatch(draft.RightsJson, rights))
+                            throw BulkDraftFailure("draft_not_safe_before_mutation");
+                        rows.Add(new(draft.Id, id, draft.OwnerAdminPrincipalId, draft.DraftKey, draft.BaseRevisionId,
+                            draft.ServerRevision, draft.ClientRevision, draft.UpdatedAt, ArticleBulkDigest.Of(draft)));
+                    }
+                }
+            }
+            finally
+            {
+                // Complete the read budget cleanup before allowing the reservation to be reused.
+                state._packageBytes = 0;
+            }
+            RequireBulkDraftTransaction(originalTransaction);
+            cancellationToken.ThrowIfCancellationRequested();
+            var facts = new BulkDraftLockedFacts([.. ordered], rows.ToImmutable());
+            Volatile.Write(ref state._useState, 0);
+            return facts;
+        }
+        catch
+        {
+            Volatile.Write(ref state._useState, 3);
+            throw;
+        }
     }
 
     /// <summary>
@@ -368,7 +452,7 @@ public sealed partial class AuthoringDraftLifecycleService
         }
     }
 
-    private static void ValidateBulkDraftBinding(ArticleBulkExecutionRequest request, ArticleBulkPlan plan,
+    internal static void ValidateBulkDraftBinding(ArticleBulkExecutionRequest request, ArticleBulkPlan plan,
         ArticleBulkPlanAuthority plans, ImmutableArray<ArticleBulkPlanItem> items)
     {
         if (items.Length > BulkDraftLimit || items.Any(static item => item.Status != ArticleBulkPlanItemStatus.Eligible)

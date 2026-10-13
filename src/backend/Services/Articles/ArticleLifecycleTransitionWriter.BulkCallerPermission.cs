@@ -39,13 +39,15 @@ public static partial class ArticleLifecycleTransitionWriter
     /// </summary>
     internal sealed class BulkCallerPermissionObservation(
         long adminPrincipalId, string siteScope, string operationId, string permissionPolicy,
-        BulkCallerPermissionDecision decision)
+        BulkCallerPermissionDecision decision, DateTimeOffset jwtNotBeforeUtc, DateTimeOffset jwtExpiresAtUtc)
     {
         internal long AdminPrincipalId { get; } = adminPrincipalId;
         internal string SiteScope { get; } = siteScope;
         internal string OperationId { get; } = operationId;
         internal string PermissionPolicy { get; } = permissionPolicy;
         internal BulkCallerPermissionDecision Decision { get; } = decision;
+        internal DateTimeOffset JwtNotBeforeUtc { get; } = jwtNotBeforeUtc;
+        internal DateTimeOffset JwtExpiresAtUtc { get; } = jwtExpiresAtUtc;
     }
 
     private sealed record BulkPersistedCallerFacts(string Status, bool IsRoot, string Permissions,
@@ -113,7 +115,8 @@ public static partial class ArticleLifecycleTransitionWriter
         BulkPersistedCallerFacts facts = await ReadBulkPersistedCallerFactsAsync(database, originalTransaction,
             adminId, sessionId, lockRows: false, cancellationToken).ConfigureAwait(false);
         BulkCallerPermissionDecision decision = DecideBulkCallerPermission(facts.IsRoot, facts.Permissions, operation.Id);
-        var observation = new BulkCallerPermissionObservation(adminId, expectedSiteScope, operation.Id, operation.PermissionPolicy, decision);
+        var observation = new BulkCallerPermissionObservation(adminId, expectedSiteScope, operation.Id, operation.PermissionPolicy,
+            decision, notBefore, expires);
         var state = new BulkCallerPermissionState(database, originalTransaction, context, services, configuration,
             timeProvider, principal, ticket, sessions, session, sessionId, tokenHash, notBefore, expires, facts);
         RequireBulkCallerSources(state, observation, context);
@@ -227,6 +230,7 @@ public static partial class ArticleLifecycleTransitionWriter
             || !CryptographicOperations.FixedTimeEquals(state._tokenHash,
                 SHA256.HashData(Encoding.UTF8.GetBytes(RequireBulkCallerSavedToken(properties))))
             || !ReferenceEquals(context.User, state._principal)
+            || observation.JwtNotBeforeUtc != state._tokenNotBeforeUtc || observation.JwtExpiresAtUtc != state._tokenExpiresAtUtc
             || state._principal.Identity?.IsAuthenticated != true || !state._principal.IsAdminPrincipal()
             || !state._principal.TryGetAdminPrincipalId(out long adminId) || adminId != observation.AdminPrincipalId
             || state._principal.GetAdminSessionId() != state._sessionId

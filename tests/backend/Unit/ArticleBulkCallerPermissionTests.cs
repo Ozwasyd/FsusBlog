@@ -84,7 +84,8 @@ public sealed class ArticleBulkCallerPermissionTests
     {
         var fabricated = new ArticleLifecycleTransitionWriter.BulkCallerPermissionObservation(1, "https://site.invalid",
             "lifecycle.restore", "article.lifecycle.write",
-            ArticleLifecycleTransitionWriter.BulkCallerPermissionDecision.OriginalWriteAndExplicitOperationPresent);
+            ArticleLifecycleTransitionWriter.BulkCallerPermissionDecision.OriginalWriteAndExplicitOperationPresent,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddMinutes(1));
         await Assert.ThrowsAsync<ArticleWriteValidationException>(() =>
             ArticleLifecycleTransitionWriter.RevalidateBulkCallerPermissionAfterLockAsync(
                 null!, null!, null!, null!, fabricated, CancellationToken.None));
