@@ -1,0 +1,9 @@
+result-boundary violations:
+ - src/services/articleRecoveryJournal.ts
+ - src/services/authoring/articleDocumentContext.ts
+ - src/services/authoring/articleEditorSurface.ts
+ - src/services/authoring/articleGraphLayout.ts
+ - src/services/authoring/articleGraphQuery.ts
+ - src/services/authoring/articleGraphSession.ts
+ - src/services/authoring/articleWorkspaceTabRouter.ts
+ - src/services/authoring/authoringSessionHost.ts
