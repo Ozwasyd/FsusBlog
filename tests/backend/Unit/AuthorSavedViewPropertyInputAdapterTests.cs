@@ -115,7 +115,10 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
             {
                 definition = Seal(definition with
                 {
-                    Presence = definition.Presence with { Missing = ArticlePropertyMissingBehavior.ApplyDefault },
+                    Presence = definition.Presence with
+                    {
+                        Missing = ArticlePropertyMissingBehavior.ApplyDefault
+                    },
                     DefaultValue = new(ArticlePropertyDefaultKind.Scalar, Scalar: "0")
                 });
             }
@@ -175,9 +178,15 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
             }))).Code);
         // A supplied definition's user ID is not a proved join to the Saved View admin principal.
         Assert.Equal(AuthorSavedViewPropertyInputAdapter.DefinitionBindingUnavailable,
-            Bind(fixture, Seal(definition with { Owner = ArticlePropertyDefinitionOwner.User(43, s_owner.SiteScope) })).UnavailableReason);
+            Bind(fixture, Seal(definition with
+            {
+                Owner = ArticlePropertyDefinitionOwner.User(43, s_owner.SiteScope)
+            })).UnavailableReason);
         Assert.Equal(AuthorSavedViewPropertyInputAdapter.DefinitionBindingUnavailable,
-            Bind(fixture, Seal(definition with { Owner = ArticlePropertyDefinitionOwner.Site(s_owner.SiteScope) })).UnavailableReason);
+            Bind(fixture, Seal(definition with
+            {
+                Owner = ArticlePropertyDefinitionOwner.Site(s_owner.SiteScope)
+            })).UnavailableReason);
         Assert.Throws<AuthorSearchContractException>(() => Bind(fixture, Seal(definition with { Filterable = false })));
         Assert.Throws<AuthorSearchContractException>(() => Bind(fixture, Seal(definition with
         {
@@ -192,7 +201,10 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
         ArticlePropertyDefinition definition = Definition(ArticlePropertyValueType.Number);
         Assert.Throws<AuthorSavedViewValidationException>(() => Bind(fixture with
         {
-            Plan = fixture.Plan with { ContentDigest = new string('a', 64) }
+            Plan = fixture.Plan with
+            {
+                ContentDigest = new string('a', 64)
+            }
         }, definition));
         Assert.Throws<AuthorSavedViewValidationException>(() => AuthorSavedViewPropertyInputAdapter.PrepareCanonicalOperand(
             fixture.Plan, fixture.Source, fixture.Validation, 26, 0, definition));
@@ -225,7 +237,10 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
         Assert.Equal("saved_view_property_dependency_budget_exceeded",
             Assert.Throws<AuthorSavedViewValidationException>(() => Bind(fixture with
             {
-                Plan = fixture.Plan with { Dependencies = Enumerable.Repeat(fixture.Plan.Dependencies[0], dependencyLimit + 1).ToArray() }
+                Plan = fixture.Plan with
+                {
+                    Dependencies = Enumerable.Repeat(fixture.Plan.Dependencies[0], dependencyLimit + 1).ToArray()
+                }
             }, definition)).Code);
     }
 
@@ -238,7 +253,13 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
         {
             Plan = fixture.Plan with
             {
-                Query = fixture.Plan.Query with { Conditions = [fixture.Plan.Query.Conditions[0] with { Values = values }] }
+                Query = fixture.Plan.Query with
+                {
+                    Conditions = [fixture.Plan.Query.Conditions[0] with
+                    {
+                        Values = values
+                    }]
+                }
             }
         };
         AuthorSavedViewCanonicalPropertyOperandCandidate candidate = Bind(fixture, Definition(ArticlePropertyValueType.Number));
@@ -261,14 +282,28 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
             Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ParseClauses("property:false")).Message);
     }
 
+    [Fact]
+    public async Task ClosedArityAndPropertyKindAreCheckedBeforeTypedBinding()
+    {
+        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("property.equals", []));
+        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("property.equals", ["0", "1"]));
+        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("property.any-of", []));
+        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("value.is-missing", ["0"]));
+        BindingFixture category = await CreateAsync("identity.equals", ["category:7"],
+            new(AuthorSavedViewFieldKind.Category, "category:7"));
+        Assert.Equal("saved_view_property_condition_kind_invalid",
+            Assert.Throws<AuthorSavedViewValidationException>(() => Bind(category, Definition(ArticlePropertyValueType.Number))).Code);
+    }
+
     private static AuthorSavedViewCanonicalPropertyOperandCandidate Bind(BindingFixture fixture, ArticlePropertyDefinition definition)
         => AuthorSavedViewPropertyInputAdapter.PrepareCanonicalOperand(fixture.Plan, fixture.Source, fixture.Validation, 25, 0, definition);
 
-    private static async Task<BindingFixture> CreateAsync(string operation, string[] values)
+    private static async Task<BindingFixture> CreateAsync(
+        string operation, string[] values, AuthorSavedViewFieldReference? field = null)
     {
         var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([new PropertyProvider()]));
         var query = new AuthorSavedViewQuery(AuthorSavedViewContract.SchemaVersion,
-            [new(new(AuthorSavedViewFieldKind.Property, "property:opaque-field"), operation, values)],
+            [new(field ?? new(AuthorSavedViewFieldKind.Property, "property:opaque-field"), operation, values)],
             new(new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.UpdatedAtField),
                 AuthorSavedViewSortDirection.Descending, AuthorSavedViewNullPlacement.Last, "temporal", TimeZoneId: "UTC"), [], 25);
         AuthorSavedViewQueryValidationResult validation = await validator.ValidateAsync(s_owner, query);
@@ -282,7 +317,10 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
         };
         var plan = new AuthorSavedViewResolvedPlan(s_owner, source.Id, source.Revision, source.ContentDigest,
             validation.Query, validation.QueryDigest, validation.DependencyDigest, validation.Resolutions, 25, string.Empty);
-        plan = plan with { ContentDigest = AuthorSavedViewExecutionPreparationVerifier.ComputePlanDigest(plan) };
+        plan = plan with
+        {
+            ContentDigest = AuthorSavedViewExecutionPreparationVerifier.ComputePlanDigest(plan)
+        };
         return new(plan, source, validation);
     }
 
@@ -304,7 +342,10 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
     }
 
     private static ArticlePropertyDefinition Seal(ArticlePropertyDefinition definition)
-        => definition with { ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition) };
+        => definition with
+        {
+            ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition)
+        };
 
     private sealed record BindingFixture(
         AuthorSavedViewResolvedPlan Plan, AuthorSavedView Source, AuthorSavedViewQueryValidationResult Validation);
