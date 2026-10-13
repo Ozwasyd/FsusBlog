@@ -22,6 +22,11 @@
         "eslint": "tools/frontend/style-toolchain/node_modules/.bin/eslint",
         "stylelint": "tools/frontend/style-toolchain/node_modules/.bin/stylelint"
     },
+    "typedLintInputs": {
+        "localFsusUiRoot": "vue",
+        "extensions": [".ts", ".tsx", ".mts", ".cts", ".vue", ".js", ".jsx", ".mjs", ".cjs", ".json"],
+        "excludedDirectories": [".git", ".tmp", "artifacts", "coverage", "dist", "node_modules"]
+    },
     "modes": {
         "changedDefaultBase": "HEAD^",
         "full": "baseline-aware",

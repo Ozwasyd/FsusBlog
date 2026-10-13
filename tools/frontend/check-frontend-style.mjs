@@ -18,6 +18,9 @@ import { compareSourceUnitFindings } from './source-unit-style-diff.mjs';
 const { resolveLocalFsusUiApplicationProject } = await import(
     new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
 );
+const { resolveLocalFsusUiRepositoryRoot } = await import(
+    new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url)
+);
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
@@ -32,6 +35,8 @@ const validModes = new Set(['changed', 'full', 'strict-full', 'source-diff']);
 let root = defaultRoot;
 let policy = null;
 let policyFile = null;
+let typedLintContext = null;
+let typedLintSourceSha256 = null;
 const failures = [];
 
 function fail(message)
@@ -389,7 +394,9 @@ function runEslint(files, fix)
     const executable = path.join(root, policy.toolchain.eslint);
     // External source types can change without a Blog source edit. Recheck the local program;
     // registry-installed mode retains its existing content cache.
-    const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot: root });
+    const localApplicationProject = typedLintContext
+        ? typedLintContext.project
+        : resolveLocalFsusUiApplicationProject({ repositoryRoot: root });
     const cache = path.join(root, '.tmp/frontend-style/eslint.cache');
     const cacheKeyFile = path.join(root, '.tmp/frontend-style/eslint.cache-key');
     const cacheKey = sha256(`${configurationDigest()}\n${sourceStateDigest()}`);
@@ -420,7 +427,14 @@ function runEslint(files, fix)
     args.push(...files);
     const result = command(args, {
         allowFailure: true,
-        environment: { FSUSBLOG_STYLE_ROOT: root }
+        environment: {
+            FSUSBLOG_STYLE_ROOT: root,
+            ...(typedLintContext ? {
+                FSUSBLOG_USE_LOCAL_FSUSUI: localApplicationProject ? '1' : '0',
+                FSUSBLOG_LOCAL_FSUSUI_ROOT: typedLintContext.localRoot ?? '',
+                FSUSBLOG_STYLE_APPLICATION_PROJECT: localApplicationProject ?? ''
+            } : {})
+        }
     });
     if (![0, 1].includes(result.status))
     {
@@ -493,6 +507,73 @@ function runStylelint(files, fix)
     return violations;
 }
 
+function resolveTypedLintContext()
+{
+    const project = resolveLocalFsusUiApplicationProject({ repositoryRoot: root });
+    if (!project)
+    {
+        return { project: null, localRoot: null, selection: 'registry' };
+    }
+    const localRoot = fs.realpathSync(resolveLocalFsusUiRepositoryRoot({
+        repositoryRoot: root, override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT
+    }));
+    // Anchor selection to the primary checkout, so worktree and machine prefixes
+    // are not baseline identities. Only the selected source root participates.
+    const common = command(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], { allowFailure: true });
+    const anchor = common.status === 0 ? path.dirname(common.stdout.trim()) : root;
+    return { project, localRoot, selection: `local:${toPosix(path.relative(fs.realpathSync(anchor), localRoot))}` };
+}
+
+function typedLintSourceDigest(context = typedLintContext)
+{
+    if (!context?.localRoot)
+    {
+        return sha256('registry');
+    }
+    const inputs = [];
+    const scope = policy.typedLintInputs;
+    function visit(directory, ancestors = new Set())
+    {
+        const realDirectory = fs.realpathSync(directory);
+        if (ancestors.has(realDirectory))
+        {
+            throw new Error('local typed lint source contains a directory cycle');
+        }
+        const nextAncestors = new Set([...ancestors, realDirectory]);
+        for (const name of fs.readdirSync(directory).sort(compareOrdinal))
+        {
+            if (scope.excludedDirectories.includes(name))
+            {
+                continue;
+            }
+            const file = path.join(directory, name);
+            const stat = fs.statSync(file);
+            if (stat.isDirectory())
+            {
+                visit(file, nextAncestors);
+            }
+            else if (stat.isFile() && scope.extensions.includes(path.extname(file)))
+            {
+                inputs.push(`${toPosix(path.relative(context.localRoot, file))}\n${sha256(fs.readFileSync(file))}`);
+            }
+        }
+    }
+    visit(path.join(context.localRoot, scope.localFsusUiRoot));
+    const packageFile = path.join(context.localRoot, 'package.json');
+    inputs.push(`package.json\n${fs.existsSync(packageFile) ? sha256(fs.readFileSync(packageFile)) : 'absent'}`);
+    return sha256(inputs.sort(compareOrdinal).join('\n'));
+}
+
+function requireCurrentTypedLintInputs()
+{
+    const current = resolveTypedLintContext();
+    if (current.selection !== typedLintContext.selection
+        || typedLintSourceDigest(current) !== typedLintSourceSha256)
+    {
+        throw new Error('typed lint inputs changed during the scan; refusing baseline consumption or update');
+    }
+}
+
 function configurationDigest()
 {
     const paths = [
@@ -504,11 +585,16 @@ function configurationDigest()
     ];
     const sources = paths.map((file) => `${toPosix(path.relative(root, file))}\n${sha256(fs.readFileSync(file))}`);
     sources.push(`runtime\nnode=${process.version}\nplatform=${process.platform}\narch=${process.arch}`);
+    if (typedLintContext)
+    {
+        sources.push(`typed-lint-selection\n${typedLintContext.selection}`);
+    }
     return sha256(sources.join('\n'));
 }
 
 function sourceStateDigest()
 {
+    const typedInputs = typedLintContext ? `typed-lint-source\n${typedLintSourceDigest()}\n` : '';
     const files = allRepositoryFiles()
         .filter((file) => file !== policy.baseline)
         .filter((file) => fs.existsSync(path.join(root, file)))
@@ -529,7 +615,7 @@ function sourceStateDigest()
                 }
             }
             const changed = new Set(changedFiles('HEAD'));
-            return sha256(files.map((file) =>
+            return sha256(typedInputs + files.map((file) =>
             {
                 const indexedDigest = indexed.get(file);
                 const digest = indexedDigest && !changed.has(file)
@@ -539,7 +625,7 @@ function sourceStateDigest()
             }).join('\n'));
         }
     }
-    return sha256(files.map((file) => `${file}\nsha256:${sha256(fs.readFileSync(path.join(root, file)))}`).join('\n'));
+    return sha256(typedInputs + files.map((file) => `${file}\nsha256:${sha256(fs.readFileSync(path.join(root, file)))}`).join('\n'));
 }
 
 function loadBaseline(mode)
@@ -1001,6 +1087,7 @@ function writeBaseline(violations, selectedFiles, args)
         files
     };
     fs.mkdirSync(path.dirname(target), { recursive: true });
+    requireCurrentTypedLintInputs();
     fs.writeFileSync(target, `${JSON.stringify(document, null, 4)}\n`);
     console.log(`[frontend-style] baseline updated violations=${violationCount} path=${policy.baseline}`);
 }
@@ -1034,6 +1121,15 @@ function validateSpecializedGovernance()
 
 function validateConfiguration()
 {
+    const expectedTypedInputs = {
+        localFsusUiRoot: 'vue',
+        extensions: ['.ts', '.tsx', '.mts', '.cts', '.vue', '.js', '.jsx', '.mjs', '.cjs', '.json'],
+        excludedDirectories: ['.git', '.tmp', 'artifacts', 'coverage', 'dist', 'node_modules']
+    };
+    if (JSON.stringify(policy.typedLintInputs) !== JSON.stringify(expectedTypedInputs))
+    {
+        fail('typedLintInputs must retain the canonical local FsusUI source coverage');
+    }
     if (policy.schema !== policySchema)
     {
         fail(`policy schema must be ${policySchema}`);
@@ -1595,6 +1691,8 @@ function main()
         }
         return checkSourceDiff(args, files);
     }
+    typedLintContext = resolveTypedLintContext();
+    typedLintSourceSha256 = typedLintSourceDigest();
     const eslintFiles = files.filter((file) => toolKinds(file).includes('eslint'));
     const stylelintFiles = files.filter((file) => toolKinds(file).includes('stylelint'));
     const violations = [
@@ -1607,6 +1705,7 @@ function main()
         || compareOrdinal(left.rule, right.rule)
         || compareOrdinal(left.message, right.message));
 
+    requireCurrentTypedLintInputs();
     if (args.updateBaseline)
     {
         if (failures.length > 0)

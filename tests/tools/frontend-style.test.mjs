@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+    cpSync,
+    chmodSync,
     existsSync,
     mkdirSync,
     mkdtempSync,
@@ -1786,4 +1788,175 @@ test('canonical local project rejects an invalid explicit source root and local-
     const env = { FSUSBLOG_USE_LOCAL_FSUSUI: '1', FSUSBLOG_LOCAL_FSUSUI_ROOT: path.join(root, '.tmp/not-an-fsusui-source') };
     assert.throws(() => resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env }), /does not contain the FsusUI source contract/u);
     assert.equal(resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env: { ...env, FSUSBLOG_USE_LOCAL_FSUSUI: '0' } }), null);
+});
+
+async function withLocalTypedFixture(callback)
+{
+    const { resolveLocalFsusUiRepositoryRoot } = await import(new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url));
+    const upstream = resolveLocalFsusUiRepositoryRoot({ repositoryRoot: root });
+    assert.ok(upstream, 'real local FsusUI source is required');
+    const localRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-style-local-ui-'));
+    try
+    {
+        cpSync(path.join(upstream, 'vue'), path.join(localRoot, 'vue'), {
+            recursive: true,
+            filter: (file) => !['node_modules', '.tmp', 'dist', '.git'].includes(path.basename(file))
+        });
+        withFixture((fixtureRoot) =>
+        {
+            symlinkSync(path.join(root, 'src/frontend/node_modules'), path.join(fixtureRoot, 'src/frontend/node_modules'), 'dir');
+            writeFixture(fixtureRoot, 'src/frontend/tsconfig.app.json', `${JSON.stringify({
+                extends: './tsconfig.json', compilerOptions: { baseUrl: '.' }
+            })}\n`);
+            const file = 'src/frontend/src/local-contract.ts';
+            writeFixture(fixtureRoot, file, `import { createFsusError } from '@ozwasyd/element-plus/result';\nexport const result_value = createFsusError('unknown', 'probe');\n`);
+            const env = { FSUSBLOG_USE_LOCAL_FSUSUI: '1', FSUSBLOG_LOCAL_FSUSUI_ROOT: localRoot };
+            callback({ fixtureRoot, localRoot, file, env });
+        });
+    }
+    finally
+    {
+        rmSync(localRoot, { recursive: true, force: true });
+    }
+}
+
+test('local typed source drift withdraws unchanged Blog baseline exemptions', async () =>
+{
+    await withLocalTypedFixture(({ fixtureRoot, localRoot, file, env }) =>
+    {
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline'], env);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const baselineBytes = readFileSync(baselinePath, 'utf8');
+        assert.ok(JSON.parse(baselineBytes).files.some((entry) => entry.path === file && entry.violationCount > 0));
+        const source = readFileSync(path.join(fixtureRoot, file), 'utf8');
+        const publicSource = path.join(localRoot, 'vue/packages/utils/result.ts');
+        const before = readFileSync(publicSource, 'utf8');
+        assert.ok(before.includes('): FsusErrorDetail => ({'));
+        writeFileSync(publicSource, before.replace('): FsusErrorDetail => ({', '): any => ({'));
+        const strict = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', file], env);
+        assert.notEqual(strict.status, 0, output(strict));
+        assert.match(output(strict), /no-unsafe-assignment/u);
+        const full = runChecker(fixtureRoot, ['--mode', 'full'], env);
+        assert.notEqual(full.status, 0, `strict: ${output(strict)}\nfull: ${output(full)}`);
+        assert.match(output(full), /baseline source-state digest is stale/u);
+        assert.match(output(full), /no-unsafe-assignment/u);
+        assert.equal(readFileSync(path.join(fixtureRoot, file), 'utf8'), source);
+        assert.equal(readFileSync(baselinePath, 'utf8'), baselineBytes);
+        const update = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline'], env);
+        assert.notEqual(update.status, 0, output(update));
+        assert.match(output(update), /refusing frontend style baseline violation increase/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), baselineBytes);
+        writeFileSync(publicSource, before);
+        const repeated = runChecker(fixtureRoot, ['--mode', 'full'], env);
+        assert.equal(repeated.status, 0, output(repeated));
+    });
+});
+
+test('typed baseline selection binds local mode and selected root without ambient paths', async () =>
+{
+    await withLocalTypedFixture(({ fixtureRoot, localRoot, file, env }) =>
+    {
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline'], env);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const baselineBytes = readFileSync(baselinePath, 'utf8');
+        const alternate = `${localRoot}-alternate`;
+        try
+        {
+            cpSync(localRoot, alternate, { recursive: true });
+            for (const selection of [
+                { ...env, FSUSBLOG_USE_LOCAL_FSUSUI: '0' },
+                { ...env, FSUSBLOG_LOCAL_FSUSUI_ROOT: alternate }
+            ])
+            {
+                for (const mode of ['changed', 'full', 'strict-full'])
+                {
+                    const rejected = runChecker(fixtureRoot, ['--mode', mode, '--file', file], selection);
+                    assert.notEqual(rejected.status, 0, output(rejected));
+                    assert.match(output(rejected), /naming-convention/u);
+                    if (mode === 'full')
+                    {
+                        assert.match(output(rejected), /baseline configuration digest is stale/u);
+                    }
+                }
+                const update = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline'], selection);
+                assert.notEqual(update.status, 0, output(update));
+                assert.match(output(update), /baseline configuration digest changed/u);
+                assert.equal(readFileSync(baselinePath, 'utf8'), baselineBytes);
+            }
+            writeFileSync(path.join(alternate, 'vue/global.d.ts'), '// unselected source drift\n');
+            const unaffected = runChecker(fixtureRoot, ['--mode', 'full'], {
+                ...env, FSUSBLOG_UNUSED_LOCAL_ROOT: alternate
+            });
+            assert.equal(unaffected.status, 0, output(unaffected));
+            const localOff = { FSUSBLOG_USE_LOCAL_FSUSUI: '0', FSUSBLOG_LOCAL_FSUSUI_ROOT: alternate };
+            const offFixture = createFixture();
+            try
+            {
+                writeFixture(offFixture, 'tools/sample/clean.mjs', 'export const value = 1;\n');
+                assert.equal(runChecker(offFixture, ['--mode', 'full', '--update-baseline'], localOff).status, 0);
+                assert.equal(runChecker(offFixture, ['--mode', 'full'], {
+                    ...localOff, FSUSBLOG_LOCAL_FSUSUI_ROOT: `${alternate}-absent`
+                }).status, 0);
+            }
+            finally
+            {
+                rmSync(offFixture, { recursive: true, force: true });
+            }
+        }
+        finally
+        {
+            rmSync(alternate, { recursive: true, force: true });
+        }
+    });
+});
+
+test('typed input changes during lint refuse consumption and every baseline writer', async () =>
+{
+    await withLocalTypedFixture(({ fixtureRoot, localRoot, env }) =>
+    {
+        const wrapperPath = '.tmp/mutating-eslint.mjs';
+        const marker = path.join(fixtureRoot, '.tmp/mutate-types');
+        const publicSource = path.join(localRoot, 'vue/packages/utils/result.ts');
+        const before = readFileSync(publicSource, 'utf8');
+        writeFixture(fixtureRoot, wrapperPath, `#!${process.execPath}
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+const result = spawnSync(process.execPath, [${JSON.stringify(path.join(toolchain, 'node_modules/eslint/bin/eslint.js'))}, ...process.argv.slice(2)], { encoding: 'utf8', env: process.env });
+if (fs.existsSync(${JSON.stringify(marker)}))
+{
+    fs.appendFileSync(${JSON.stringify(publicSource)}, '\\n// source changed after typed lint\\n');
+}
+process.stdout.write(result.stdout);
+process.stderr.write(result.stderr);
+process.exitCode = result.status;
+`);
+        chmodSync(path.join(fixtureRoot, wrapperPath), 0o755);
+        const policyPath = path.join(fixtureRoot, 'config/development/frontend-style-policy.json');
+        const fixturePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+        fixturePolicy.toolchain.eslint = wrapperPath;
+        writeFileSync(policyPath, `${JSON.stringify(fixturePolicy, null, 4)}\n`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline'], env);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const baselineBytes = readFileSync(baselinePath, 'utf8');
+        writeFileSync(marker, 'mutate\n');
+        for (const args of [
+            ['--mode', 'full'],
+            ['--mode', 'full', '--update-baseline'],
+            ['--mode', 'full', '--update-baseline', '--reviewed-baseline-correction', 'config/development/frontend-style-baseline-corrections.json']
+        ])
+        {
+            writeFileSync(publicSource, before);
+            const rejected = runChecker(fixtureRoot, args, env);
+            assert.notEqual(rejected.status, 0, output(rejected));
+            assert.match(output(rejected), /typed lint inputs changed during the scan/u);
+            assert.equal(readFileSync(baselinePath, 'utf8'), baselineBytes);
+        }
+        rmSync(marker);
+        writeFileSync(publicSource, before);
+        const repeated = runChecker(fixtureRoot, ['--mode', 'full'], env);
+        assert.equal(repeated.status, 0, output(repeated));
+    });
 });
