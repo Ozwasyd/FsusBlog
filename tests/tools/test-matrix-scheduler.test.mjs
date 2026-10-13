@@ -34,6 +34,7 @@ import {
     materializeTestMatrixRunner
 } from './support/esm-fixture-materializer-contracts.mjs';
 import { materializeEsmFixture, preflightMaterializedEsmFixture } from './support/esm-fixture-materializer.mjs';
+import { provisionLockedSchemaValidator } from './support/locked-schema-validator-fixture.mjs';
 import { posixCancellationFailureSource } from './support/posix-cancellation-fixture.mjs';
 import { prepareSchedulerCliMatrixFixture } from './support/scheduler-cli-fixture.mjs';
 
@@ -5416,4 +5417,167 @@ test('sealed scheduler CLI fixture rejects missing finalizer and executable drif
     assert.notEqual(drifted.status, 0);
     assert.match(drifted.stderr, /working-tree bytes differ from the repository index/u);
     assert.equal(fs.existsSync(marker), false);
+});
+
+function assertReleaseFinalSourceRefusal(t, linked)
+{
+    const source = createTempDir('scheduler-release-final-source');
+    const fixture = createTempDir('scheduler-release-final-target');
+    t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    materializeTestMatrixRunner(root, source);
+    const relative = 'tools/test/lanes/release-final.sh';
+    const asset = path.join(source, relative);
+    const bytes = fs.readFileSync(asset);
+    materializeTestMatrixRunner(source, fixture);
+    fs.rmSync(asset);
+    if (linked)
+    {
+        fs.symlinkSync(path.join(fixture, relative), asset);
+    }
+    for (let attempt = 0; attempt < 2; attempt += 1)
+    {
+        assert.throws(() => materializeTestMatrixRunner(source, fixture), linked
+            ? /runtime asset must be a literal regular file.*release-final\.sh/u
+            : /runtime asset is missing.*release-final\.sh/u);
+        assert.deepEqual(fs.readFileSync(path.join(fixture, relative)), bytes);
+    }
+    if (linked)
+    {
+        fs.rmSync(asset);
+    }
+    fs.writeFileSync(asset, bytes);
+    materializeTestMatrixRunner(source, fixture);
+    assert.deepEqual(fs.readFileSync(path.join(fixture, relative)), bytes);
+}
+
+test('original runner refuses missing release-final source despite an existing fixture copy', (t) =>
+{
+    assertReleaseFinalSourceRefusal(t, false);
+});
+
+test('original runner refuses linked release-final source despite an existing fixture copy', (t) =>
+{
+    assertReleaseFinalSourceRefusal(t, true);
+});
+
+test('original runner provisions the locked schema validator and preserves real schema refusals', (t) =>
+{
+    const fixture = createTempDir('scheduler-locked-validator');
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    materializeTestMatrixRunner(root, fixture);
+    const validator = pathToFileURL(path.join(fixture, 'tools/test-matrix/schema-validator/validate.mjs')).href;
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', [
+        `const { validateJsonSchema } = await import(${JSON.stringify(validator)});`,
+        "const schema = { type: 'object', properties: { count: { type: 'integer', minimum: 1 } }, required: ['count'], additionalProperties: false };",
+        'console.log(JSON.stringify([validateJsonSchema({count: 1}, schema), validateJsonSchema({}, schema), validateJsonSchema({count: 0}, schema)]));'
+    ].join('\n')], { cwd: fixture, encoding: 'utf8', env: { PATH: process.env.PATH ?? '' } });
+    assert.equal(child.status, 0, child.stderr);
+    const [positive, missing, invalid] = JSON.parse(child.stdout);
+    assert.deepEqual(positive, []);
+    assert.ok(missing.some((message) => message.includes('required')));
+    assert.ok(invalid.some((message) => message.includes('>= 1')));
+    for (const file of ['package.json', 'package-lock.json'])
+    {
+        const relative = path.join('tools/test-matrix/schema-validator', file);
+        assert.deepEqual(fs.readFileSync(path.join(fixture, relative)), fs.readFileSync(path.join(root, relative)));
+    }
+});
+
+test('locked validator provisioning refuses cold or corrupt caches without adopting existing dependencies', (t) =>
+{
+    const fixture = createTempDir('scheduler-validator-cache');
+    const cache = createTempDir('scheduler-validator-empty-cache');
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(cache, { recursive: true, force: true }));
+    materializeTestMatrixRunner(root, fixture);
+    const directory = path.join(fixture, 'tools/test-matrix/schema-validator');
+    const entry = path.join(directory, 'node_modules/ajv/dist/2020.js');
+    const bytes = fs.readFileSync(entry);
+    assert.throws(() => provisionLockedSchemaValidator(fixture, { npmCache: cache }), /locked dependency provisioning failed/u);
+    assert.deepEqual(fs.readFileSync(entry), bytes);
+    assert.ok(!fs.readdirSync(directory).some((name) => name.startsWith('.fixture-npm-')));
+    const lock = JSON.parse(fs.readFileSync(path.join(directory, 'package-lock.json'), 'utf8'));
+    const integrity = lock.packages['node_modules/ajv'].integrity;
+    const digest = Buffer.from(integrity.slice('sha512-'.length), 'base64').toString('hex');
+    const tarball = path.join(cache, '_cacache/content-v2/sha512', digest.slice(0, 2), digest.slice(2, 4), digest.slice(4));
+    fs.mkdirSync(path.dirname(tarball), { recursive: true });
+    fs.writeFileSync(tarball, 'corrupted archive');
+    assert.throws(() => provisionLockedSchemaValidator(fixture, { npmCache: cache }), (error) =>
+    {
+        assert.match(error.message, /locked dependency provisioning failed/u);
+        assert.match(String(error.cause?.stderr), /integrity|checksum/iu);
+        return true;
+    });
+    assert.deepEqual(fs.readFileSync(entry), bytes);
+    assert.ok(!fs.readdirSync(directory).some((name) => name.startsWith('.fixture-npm-')));
+    provisionLockedSchemaValidator(fixture);
+    assert.deepEqual(fs.readFileSync(entry), bytes);
+});
+
+test('locked validator provisioning refuses linked destination bytes without touching outside files', (t) =>
+{
+    const fixture = createTempDir('scheduler-validator-destination');
+    const outside = createTempDir('scheduler-validator-outside');
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+    materializeTestMatrixRunner(root, fixture);
+    const sentinel = path.join(outside, 'sentinel.js');
+    fs.writeFileSync(sentinel, 'sentinel');
+    const entry = path.join(fixture, 'tools/test-matrix/schema-validator/node_modules/ajv/dist/2020.js');
+    fs.rmSync(entry);
+    fs.symlinkSync(sentinel, entry);
+    assert.throws(() => provisionLockedSchemaValidator(fixture), /dependency must be literal/u);
+    assert.equal(fs.readFileSync(sentinel, 'utf8'), 'sentinel');
+    fs.rmSync(entry);
+    const modules = path.join(fixture, 'tools/test-matrix/schema-validator/node_modules');
+    fs.rmSync(modules, { recursive: true });
+    fs.symlinkSync(outside, modules);
+    assert.throws(() => provisionLockedSchemaValidator(fixture), /dependency must be literal/u);
+    assert.deepEqual(fs.readdirSync(outside), ['sentinel.js']);
+});
+
+test('original runner refuses missing or linked validator locks before provisioning', (t) =>
+{
+    const source = createTempDir('scheduler-validator-lock-source');
+    const fixture = createTempDir('scheduler-validator-lock-target');
+    t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    materializeTestMatrixRunner(root, source);
+    const relative = 'tools/test-matrix/schema-validator/package-lock.json';
+    const file = path.join(source, relative);
+    fs.rmSync(file);
+    assert.throws(() => materializeTestMatrixRunner(source, fixture), /runtime asset is missing.*package-lock/u);
+    fs.symlinkSync(path.join(root, relative), file);
+    assert.throws(() => materializeTestMatrixRunner(source, fixture), /runtime asset must be a literal regular file.*package-lock/u);
+    assert.equal(fs.existsSync(path.join(fixture, relative)), false);
+    assert.throws(() => materializeTestMatrixRunner(root, root), /isolated from its source repository/u);
+});
+
+test('original runner binds installed validator bytes to its fixture admission source seal', (t) =>
+{
+    const fixture = createTempDir('scheduler-validator-source-seal');
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    execFileSync('git', ['init', '--quiet'], { cwd: fixture });
+    fs.writeFileSync(path.join(fixture, '.gitignore'), '**/node_modules/\n');
+    materializeTestMatrixRunner(root, fixture);
+    const relative = 'tools/test-matrix/schema-validator/node_modules/ajv/dist/2020.js';
+    assert.ok(execFileSync('git', ['ls-files', '--', relative], { cwd: fixture, encoding: 'utf8' }).includes(relative));
+    commitRunnerFixture(fixture, path.join(fixture, 'tools/run-test-matrix.mjs'));
+    const before = sealSourceIdentity(fixture);
+    const admission = createBehaviorDocAdmissionFixture({ sourceRepositoryRoot: root, repositoryRoot: fixture });
+    const receipt = JSON.parse(fs.readFileSync(admission.receiptFile, 'utf8'));
+    assert.doesNotThrow(() => validateBehaviorDocStaticAdmissionReceipt(receipt, {
+        expectedRunId: admission.runId,
+        expectedSourceIdentity: before,
+        expectedWorktree: fixture
+    }));
+    fs.appendFileSync(path.join(fixture, relative), '\n// validator byte drift after admission\n');
+    const after = sealSourceIdentity(fixture);
+    assert.notEqual(before.worktreeFingerprint, after.worktreeFingerprint);
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(receipt, {
+        expectedRunId: admission.runId,
+        expectedSourceIdentity: after,
+        expectedWorktree: fixture
+    }), /source\/worktree identity mismatch/u);
 });
