@@ -302,7 +302,7 @@ export function materializeEsmFixture({
         ...discoverRuntimeAssets(source.absoluteRoot, assets, source.absoluteAllowedRoots)
     ])].sort();
     const absoluteFixtureRoot = path.resolve(fixtureRoot);
-    for (const file of files)
+    const copies = files.map((file) =>
     {
         const relative = path.relative(source.absoluteRoot, file);
         const destination = path.resolve(absoluteFixtureRoot, relative);
@@ -311,6 +311,10 @@ export function materializeEsmFixture({
             throw new Error(`ESM fixture destination escapes fixture root: ${destination}`);
         }
         prepareLiteralDestination(absoluteFixtureRoot, destination);
+        return { file, destination };
+    });
+    for (const { file, destination } of copies)
+    {
         fs.copyFileSync(file, destination);
     }
     const materializedFiles = preflightMaterializedEsmFixture({

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/support/esm-fixture-materializer.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "2bfcf446adb7b7d369dc98c03bbcbb22591b28c4d9dd1ed7f71fa66540fcf590"
+        }
+    ]
+}

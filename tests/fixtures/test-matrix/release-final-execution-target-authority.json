@@ -2240,13 +2240,18 @@
         },
         {
             "path": "tests/tools/support/esm-fixture-materializer-contracts.mjs",
-            "contentDigest": "sha256:58c078782a80752b74616861617e5521d72f6832e941fdac4f3d2c714316c228",
-            "indexDigest": "sha256:58c078782a80752b74616861617e5521d72f6832e941fdac4f3d2c714316c228"
+            "contentDigest": "sha256:0808af92d0cabed184b914961de0dd62563f8b7c38927557d96ff3846deec431",
+            "indexDigest": "sha256:0808af92d0cabed184b914961de0dd62563f8b7c38927557d96ff3846deec431"
         },
         {
             "path": "tests/tools/support/esm-fixture-materializer.mjs",
-            "contentDigest": "sha256:265919bc8ec1a79bd84f2f9776f85e548083592c0eb4379573cfd4c7dac79d2b",
-            "indexDigest": "sha256:265919bc8ec1a79bd84f2f9776f85e548083592c0eb4379573cfd4c7dac79d2b"
+            "contentDigest": "sha256:a0a14ce33012f5fe6264e39f2f7557c23a495ea06cd1d717467e9cc5991d45ea",
+            "indexDigest": "sha256:a0a14ce33012f5fe6264e39f2f7557c23a495ea06cd1d717467e9cc5991d45ea"
+        },
+        {
+            "path": "tests/tools/support/locked-schema-validator-fixture.mjs",
+            "contentDigest": "sha256:d9bc95b6986cbddcc7347288e0317e8e544cf1a1ad1ce12cafdd98ec6670664a",
+            "indexDigest": "sha256:d9bc95b6986cbddcc7347288e0317e8e544cf1a1ad1ce12cafdd98ec6670664a"
         },
         {
             "path": "tests/tools/support/posix-cancellation-fixture.mjs",
@@ -2280,8 +2285,8 @@
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
-            "contentDigest": "sha256:092c6706de77b2551b8ed65564d8942a3f822318394b333a7062f38fcdbae4e8",
-            "indexDigest": "sha256:092c6706de77b2551b8ed65564d8942a3f822318394b333a7062f38fcdbae4e8"
+            "contentDigest": "sha256:4ee30b849304a9e352dce46b3faa0c9d9cb6c26e0824483a91f12ccbf68729f4",
+            "indexDigest": "sha256:4ee30b849304a9e352dce46b3faa0c9d9cb6c26e0824483a91f12ccbf68729f4"
         },
         {
             "path": "tests/tools/test-matrix-topology.test.mjs",
@@ -4900,8 +4905,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
+            "indexDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
@@ -40275,6 +40280,7 @@
                 "tests/tools/support/behavior-evidence-pre-runtime-fixture.mjs",
                 "tests/tools/support/esm-fixture-materializer-contracts.mjs",
                 "tests/tools/support/esm-fixture-materializer.mjs",
+                "tests/tools/support/locked-schema-validator-fixture.mjs",
                 "tests/tools/support/posix-cancellation-fixture.mjs",
                 "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
                 "tests/tools/support/scheduler-cli-fixture.mjs",

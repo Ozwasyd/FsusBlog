@@ -15,6 +15,7 @@ public sealed class OfflineMigrationCommandLineTests
         Assert.Equal("drill.json", options.RestoreDrillPath);
         Assert.Equal("restore.env", options.RestoreEnvironmentFilePath);
         Assert.Equal("plan.json", options.PlanOutputPath);
+        Assert.Equal(60, options.TimeoutSeconds);
     }
 
     [Theory]
@@ -45,7 +46,8 @@ public sealed class OfflineMigrationCommandLineTests
     private static string[] PlanArguments()
         => ["plan", "--provider", "postgresql", "--instance-id", "instance", "--database-id", "database",
             "--env-file", "source.env", "--backup-package", "backup.fsbenc", "--backup-manifest", "manifest.json",
-            "--restore-drill", "drill.json", "--restore-env-file", "restore.env", "--output", "plan.json"];
+            "--restore-drill", "drill.json", "--restore-env-file", "restore.env", "--output", "plan.json",
+            "--timeout-seconds", "60"];
 
     [Fact]
     public void Parse_Expand()

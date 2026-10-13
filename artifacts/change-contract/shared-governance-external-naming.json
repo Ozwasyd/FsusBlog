@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/backend/packages.lock.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests; preserve NuGet serialized keys and third-party package identities in the exact canonical backend and Migration consumer locks"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+        }
+    ]
+}

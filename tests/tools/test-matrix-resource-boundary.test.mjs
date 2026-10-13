@@ -888,3 +888,58 @@ test('ESM fixture parser refuses a misbound batch before copying or caching an e
     ].join('\n');
     assert.equal(execFileSync(process.execPath, ['--input-type=module', '--eval', program], { encoding: 'utf8' }), 'verified\n');
 });
+
+test('late destination refusal preserves earlier files and permits a clean retry', async (t) =>
+{
+    for (const boundary of ['leaf', 'parent'])
+    {
+        await t.test(boundary, (t) =>
+        {
+            const temp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-late-destination-')));
+            t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+            const source = path.join(temp, 'source');
+            const fixture = path.join(temp, 'fixture');
+            const outside = path.join(temp, 'outside');
+            for (const directory of [source, fixture, outside])
+            {
+                fs.mkdirSync(path.join(directory, 'tools'), { recursive: true });
+            }
+            fs.mkdirSync(path.join(source, 'tools/z'), { recursive: true });
+            fs.writeFileSync(path.join(source, 'tools/a.mjs'), 'export const fresh = 1;\n');
+            fs.writeFileSync(path.join(source, 'tools/b.mjs'), 'export const fresh = 2;\n');
+            const asset = 'tools/z/worker.py';
+            fs.writeFileSync(path.join(source, asset), 'print("fresh")\n', { mode: 0o755 });
+            const retained = path.join(fixture, 'tools/a.mjs');
+            fs.writeFileSync(retained, 'retained earlier destination\n', { mode: 0o640 });
+            const retainedMode = fs.statSync(retained).mode & 0o777;
+            const sentinel = path.join(outside, 'sentinel.py');
+            fs.writeFileSync(sentinel, 'outside sentinel\n');
+            const obstruction = boundary === 'leaf' ? path.join(fixture, asset) : path.join(fixture, 'tools/z');
+            if (boundary === 'leaf')
+            {
+                fs.mkdirSync(path.dirname(obstruction), { recursive: true });
+            }
+            fs.symlinkSync(boundary === 'leaf' ? sentinel : outside, obstruction);
+            const options = { repositoryRoot: source, fixtureRoot: fixture,
+                entries: ['tools/a.mjs', 'tools/b.mjs'], assets: [asset], allowedRoots: ['tools'] };
+            for (let attempt = 0; attempt < 2; attempt += 1)
+            {
+                assert.throws(() => materializeEsmFixture(options), boundary === 'leaf'
+                    ? /destination must be a literal regular file/u : /destination parent must be a literal directory/u);
+                assert.equal(fs.readFileSync(retained, 'utf8'), 'retained earlier destination\n');
+                assert.equal(fs.statSync(retained).mode & 0o777, retainedMode);
+                assert.equal(fs.existsSync(path.join(fixture, 'tools/b.mjs')), false);
+                assert.equal(fs.readFileSync(sentinel, 'utf8'), 'outside sentinel\n');
+                assert.deepEqual(fs.readdirSync(outside).sort(), ['sentinel.py', 'tools']);
+            }
+            fs.unlinkSync(obstruction);
+            assert.deepEqual(materializeEsmFixture(options).files, ['tools/a.mjs', 'tools/b.mjs', asset]);
+            for (const file of ['tools/a.mjs', 'tools/b.mjs', asset])
+            {
+                assert.deepEqual(fs.readFileSync(path.join(fixture, file)), fs.readFileSync(path.join(source, file)));
+                assert.equal(fs.statSync(path.join(fixture, file)).mode & 0o777,
+                    fs.statSync(path.join(source, file)).mode & 0o777);
+            }
+        });
+    }
+});

@@ -207,8 +207,16 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
             [control.Name] = control,
             ["__fsus_schema_unregistered_control"] = new("__fsus_schema_unregistered_control", [], [])
         }, provider: SchemaProviderKind.PostgreSql), effects));
-        Assert.Throws<InvalidOperationException>(() => CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.MySql));
-        Assert.Throws<InvalidOperationException>(() => CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.Sqlite));
+        foreach (SchemaProviderKind provider in new[] { SchemaProviderKind.MySql, SchemaProviderKind.Sqlite })
+        {
+            IReadOnlyList<string> differences = PgCurrentSchemaControlShape.CompareApplyJournal(
+                new(new Dictionary<string, SchemaTableModel> { [control.Name] = control }, provider: provider), effects);
+            Assert.Contains($"provider mismatch expected={SchemaProviderKind.PostgreSql} actual={provider}", differences);
+        }
+        Assert.Equal("current_schema_control_provider_unavailable", Assert.Throws<InvalidOperationException>(
+            () => CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.Semantic)).Message);
+        Assert.Equal("current_schema_control_provider_unavailable", Assert.Throws<InvalidOperationException>(
+            () => CurrentSchemaControlShape.ProjectApplyJournal((SchemaProviderKind)int.MaxValue)).Message);
     }
 
     [Fact]

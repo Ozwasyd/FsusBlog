@@ -193,7 +193,7 @@ public sealed class OfflineMigrationSourceMaterialCleanupTests
         var expected = ImmutableArray.CreateBuilder<string>();
         if (readerFailed) expected.Add("offline_source_material_reader_cleanup_failed");
         if (commandFailed) expected.Add("offline_source_material_command_cleanup_failed");
-        Assert.Equal(expected.ToImmutable(), actual);
+        Assert.Equal<string>(expected.ToImmutable(), actual);
         Assert.DoesNotContain(actual, code => code.Contains("secret", StringComparison.Ordinal));
         Assert.All(failure.Data.Values.Cast<object>(), value => Assert.IsType<ImmutableArray<string>>(value));
     }
