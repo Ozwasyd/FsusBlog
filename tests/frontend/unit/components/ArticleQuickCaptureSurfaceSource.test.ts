@@ -60,4 +60,19 @@ describe('Quick Capture unactivated leaf source boundary', () =>
         expect(source).toContain('native-type="button"');
         expect(source).toContain('模板：未选择');
     });
+
+    it('keeps observed retirement terminal when a late blocked/busy result or replacement scope prop arrives', () =>
+    {
+        // Source policy only: immediate/synchronous observation prevents render batching from
+        // dropping retirement, and the one-way latch has no prop-driven local reset.
+        expect(source).toContain('const scopeRetired = ref(false);');
+        expect(source).toContain("props.stageResult.reason === 'scope-retired'");
+        expect(source).toContain("props.discoveryResult.reason === 'scope-retired'");
+        expect(source).toContain("{ immediate: true, flush: 'sync' }");
+        expect(source.match(/scopeRetired\.value\s*=/gu)).toHaveLength(1);
+        expect(source).toContain('if (retired) scopeRetired.value = true;');
+        expect(source).toContain('const scopeCurrent = computed(() => !scopeRetired.value && openedScope !== null');
+        expect(source).toContain("if (!scopeCurrent.value) return { schemaVersion: 1, title: '', markdownContent: '' };");
+        expect(source).toContain('if (blockedObservation.value || !attempted.value) return props.modelValue;');
+    });
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 
 import { ElButton, ElForm, ElFormItem, ElInput } from '@ozwasyd/element-plus';
 
@@ -38,14 +38,26 @@ const openedScope = props.currentScope === null ? null : Object.freeze({
     siteScope: props.currentScope.siteScope
 });
 const openedCaptureId = props.captureId;
+const scopeRetired = ref(false);
+
+// Original recovery retirement is terminal. Observe it synchronously so a later result
+// cannot revive this leaf's private input; only the original host can establish a new binding.
+watch(
+    () => (props.stageResult?.status === 'blocked' && props.stageResult.reason === 'scope-retired')
+        || (props.discoveryResult?.status === 'blocked' && props.discoveryResult.reason === 'scope-retired'),
+    retired =>
+    {
+        if (retired) scopeRetired.value = true;
+    },
+    { immediate: true, flush: 'sync' }
+);
 
 // A scope change hides private input; it never substitutes a different user's scope or UUID.
-const scopeCurrent = computed(() => openedScope !== null && props.currentScope !== null
+const scopeCurrent = computed(() => !scopeRetired.value && openedScope !== null && props.currentScope !== null
     && props.currentScope.owner === openedScope.owner
     && props.currentScope.adminPrincipalId === openedScope.adminPrincipalId
     && props.currentScope.siteScope === openedScope.siteScope
-    && props.currentScope.canCreateInbox === true && props.captureId === openedCaptureId
-    && !(props.stageResult?.status === 'blocked' && props.stageResult.reason === 'scope-retired'));
+    && props.currentScope.canCreateInbox === true && props.captureId === openedCaptureId);
 const attempted = computed(() => props.stageResult !== null);
 const blockedObservation = computed(() => props.stageResult?.status === 'blocked');
 const editable = computed(() => scopeCurrent.value && !attempted.value);
