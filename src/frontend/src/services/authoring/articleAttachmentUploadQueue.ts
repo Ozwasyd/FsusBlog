@@ -199,6 +199,7 @@ export function createArticleAttachmentUploadQueue()
         }
     };
     return Object.freeze({
+        hasAdmission: () => active !== null || queued.length > 0,
         enqueue(signal: AbortSignal, start: () => ArticleAttachmentUploadRequest): ArticleAttachmentQueuedUploadRequest
         {
             signal.throwIfAborted();

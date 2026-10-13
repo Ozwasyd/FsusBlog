@@ -1739,3 +1739,18 @@ that are revoked remain cancelled; no stale guard is weakened, lease revived or
 replacement minted. Actual same-batch cohort publication and original native
 application-ended cleanup acknowledgment require their original SDK/UI owners.
 No content/accepted/committed/terminal event is converted to settle or readiness.
+
+
+## Shared Runtime Cover and Flow Admission
+
+The original Writer cover, explicit attachment Flow and resume entrypoints now
+share one native admission check. It reads the actual queue's synchronous slot
+and retained native request holders before any Flow start/resume; the slot also
+covers acquisition before its request is written to the map. Native enqueue
+refuses an existing explicit attempt or Flow pending context. The original
+Flow/runtime owner keeps its own admission/recovery controls. No parallel runtime
+is created. Write's original abandon and scope pause/release remain real cancel
+operations; the Settings uploader belongs to its separate owner and is unchanged.
+FIFO still releases only on original full settlement, relay and listener cleanup.
+These admission facts do not acknowledge full resources, SDK/native cleanup or
+any qualification hold.

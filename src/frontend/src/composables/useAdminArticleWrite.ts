@@ -1137,6 +1137,14 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             throw new Error('article-attachment-upload-recovery-required');
         }
     };
+    const assertFlowUploadAdmissionAvailable = (): void =>
+    {
+        if (attachmentUploadAttempt || nativeUploadRequests.size > 0 || nativeUploadQueue.hasAdmission())
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
+        assertUploadObligationAbsent();
+    };
     const authoringAttachmentRuntime = Object.freeze({
         requestDispatch: (input: Parameters<MarkdownAttachmentRequestDispatch>[0], anchorOptions: ArticleAnchorCaptureOptions) =>
             requestNativeAttachmentUpload(input, anchorOptions),
@@ -2092,6 +2100,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             throw new Error('article-native-upload-original-binding-unavailable');
         }
+        if (attachmentUploadAttempt || imageUploadFlow.pendingContext.value)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
         assertUploadObligationAbsent();
         const reservation: UploadAttemptObservation = Object.freeze({ status: 'observing', observation: null, reason: null });
         consumedAttachmentUploads.set(original.intent, reservation);
@@ -2133,15 +2145,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             throw new Error('article-attachment-upload-intent-invalid');
         }
-        if (attachmentUploadAttempt || nativeUploadRequests.size > 0)
-        {
-            throw new Error('article-attachment-upload-busy');
-        }
+        assertFlowUploadAdmissionAvailable();
         if (consumedAttachmentUploads.has(handle))
         {
             throw new Error('article-attachment-upload-consumed');
         }
-        assertUploadObligationAbsent();
         if (imageUploadFlow.pendingContext.value)
         {
             throw new Error('article-attachment-upload-busy');
@@ -2239,11 +2247,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const resumeImageUpload = async (): Promise<void> =>
     {
-        if (attachmentUploadAttempt || nativeUploadRequests.size > 0)
-        {
-            throw new Error('article-attachment-upload-busy');
-        }
-        assertUploadObligationAbsent();
+        assertFlowUploadAdmissionAvailable();
         await observeWriterResourceWork('imageUploadFlow:resumeUpload', () => imageUploadFlow.resumeUpload({
             messages: {
                 resumeMissing: '没有可恢复的上传任务',
@@ -2254,11 +2258,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const handleCoverUpload = async (files: File[]): Promise<void> =>
     {
-        if (attachmentUploadAttempt)
-        {
-            throw new Error('article-attachment-upload-busy');
-        }
-        assertUploadObligationAbsent();
+        assertFlowUploadAdmissionAvailable();
         if (files.length === 0)
         {
             return;
