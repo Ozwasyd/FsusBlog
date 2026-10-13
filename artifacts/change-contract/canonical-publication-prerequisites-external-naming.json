@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve NuGet lock schema and canonical lifecycle registry keys while consuming only the coordinator-verified publication acceptance prerequisites."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the canonical execution owner and environment authority spellings in the coordinator-supplied migration verifier."
+        }
+    ]
+}

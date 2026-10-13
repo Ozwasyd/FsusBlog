@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/run-comment-fixture-simulated-runtime.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the existing model collector process environment and the unchanged prerequisite migration owner environment names represented in this PR ancestry."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the canonical serialized producer, lifecycle, release fixture and NuGet lock fields of coordinator-supplied prerequisite ancestry; this metadata adds no new runtime authority."
+        }
+    ]
+}
