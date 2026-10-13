@@ -120,6 +120,16 @@ eligible failed cleanup on those same handles. A failed cleanup keeps local
 keeps it pending. Clearing image/canvas references is observable local cleanup,
 not evidence of browser heap reclamation.
 
+Each resource guards cleanup and cancellation callback reentry. A cleanup attempt
+retains its holder and closure until that outer callback returns successfully;
+reentrant retry/cancellation cannot release the same resource or resolve local
+settlement while a callback is active or cleanup debt remains. The census exposes
+both callback-in-progress flags. Before native/provider invocation, producers read
+the actual arguments and method reference, then check the same original
+cancellation state. Cancellation raised by an options or method getter therefore
+prevents that invocation. Its original reason bypasses codec error normalization;
+an actual codec failure continues to retain its original error metadata.
+
 The shared codec loader and codec internal custody are explicitly third-party
 `unknown` census entries. Awaiting their public Promises observes this invocation's
 call completion, not shared module disposal, native allocation recovery or an

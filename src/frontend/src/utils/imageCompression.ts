@@ -81,7 +81,9 @@ async function blobToDataUrl(blob: Blob, owner: ImageProducerOwner): Promise<str
                     reject(error);
                 }
             };
-            reader.readAsDataURL(blob);
+            const readAsDataUrl = reader.readAsDataURL.bind(reader);
+            owner.ensureActive();
+            readAsDataUrl(blob);
         });
     }
     finally
@@ -99,7 +101,12 @@ async function loadImageBitmap(file: File, owner: ImageProducerOwner): Promise<{
     owner.ensureActive();
     if ('createImageBitmap' in window)
     {
-        const bitmap = await owner.observe('bitmap-decode', () => createImageBitmap(file));
+        const bitmap = await owner.observe('bitmap-decode', () =>
+        {
+            const decode = createImageBitmap;
+            owner.ensureActive();
+            return decode(file);
+        });
         // Adopt before cancellation or dimensions so early failures retain the original cleanup handle.
         const resource = owner.hold('image-bitmap', bitmap, () => bitmap.close());
         owner.ensureActive();
@@ -120,6 +127,7 @@ async function loadImageBitmap(file: File, owner: ImageProducerOwner): Promise<{
     {
         element.onload = () => resolve(element);
         element.onerror = () => reject(createAppError(AppErrorCode.InfraFailure, 'image_decode_failed'));
+        owner.ensureActive();
         element.src = dataUrl;
     });
     owner.ensureActive();
@@ -233,6 +241,7 @@ async function compressImageFileOwned(
 ): Promise<ImageCompressionResult>
 {
     const wasmOnly = runtimeOptions.wasmOnly ?? wasmOnlyCompressionMode;
+    owner.ensureActive();
     const wasmCapability = getWasmCapabilityLevel();
 
     if (file.type === 'image/gif')
@@ -271,7 +280,9 @@ async function compressImageFileOwned(
     }
 
     const { width, height } = computeTargetSize(sourceWidth, sourceHeight, options);
-    const canvas = document.createElement('canvas');
+    const createElement = document.createElement.bind(document);
+    owner.ensureActive();
+    const canvas = createElement('canvas');
     owner.hold('canvas', canvas, () =>
     {
         canvas.width = 0;
@@ -280,7 +291,10 @@ async function compressImageFileOwned(
     canvas.width = width;
     canvas.height = height;
 
-    const context = canvas.getContext('2d', { alpha: options.preserveAlpha });
+    const contextOptions = { alpha: options.preserveAlpha };
+    const getContext = canvas.getContext.bind(canvas);
+    owner.ensureActive();
+    const context = getContext('2d', contextOptions);
     if (!context)
     {
         throw createAppError(AppErrorCode.InfraFailure, 'canvas_context_unavailable');
@@ -290,10 +304,12 @@ async function compressImageFileOwned(
     context.clearRect(0, 0, width, height);
     if (!options.preserveAlpha && (options.format === 'jpeg' || options.format === 'webp' || options.format === 'avif'))
     {
+        owner.ensureActive();
         context.fillStyle = 'white';
         context.fillRect(0, 0, width, height);
     }
 
+    owner.ensureActive();
     if (decoded.bitmap)
     {
         context.drawImage(decoded.bitmap, 0, 0, width, height);
@@ -328,22 +344,34 @@ async function compressImageFileOwned(
         owner.hold('codec-reference', wasmCodec);
         try
         {
-            const imageData = context.getImageData(0, 0, width, height);
+            const getImageData = context.getImageData.bind(context);
+            owner.ensureActive();
+            const imageData = getImageData(0, 0, width, height);
             const rgbaResource = owner.hold('image-data', imageData);
             owner.noteThirdParty('codec-internal-custody');
-            const encoded = await owner.observe('codec-encode', () => wasmCodec.encode({
-                rgba: imageData.data,
-                width,
-                height,
-                format: options.format,
-                quality: options.quality,
-                preserveAlpha: options.preserveAlpha
-            }));
+            const encoded = await owner.observe('codec-encode', () =>
+            {
+                const request = {
+                    rgba: imageData.data,
+                    width,
+                    height,
+                    format: options.format,
+                    quality: options.quality,
+                    preserveAlpha: options.preserveAlpha
+                };
+                const encode = wasmCodec.encode.bind(wasmCodec);
+                owner.ensureActive();
+                return encode(request);
+            });
             owner.release(rgbaResource);
             owner.hold('encoded-bytes', encoded);
-            if (isEncodedImageLikelyValid(encoded, options.format))
+            const validationFormat = options.format;
+            owner.ensureActive();
+            if (isEncodedImageLikelyValid(encoded, validationFormat))
             {
-                encodedBlob = new Blob([encoded as unknown as BlobPart], { type: mimeType });
+                const createBlob = Blob;
+                owner.ensureActive();
+                encodedBlob = new createBlob([encoded as unknown as BlobPart], { type: mimeType });
                 pipeline = wasmCodec.level === 'simd' ? 'wasm-simd' : 'wasm-basic';
             }
             else
@@ -359,6 +387,10 @@ async function compressImageFileOwned(
         }
         catch (error)
         {
+            if (owner.isCancellationError(error))
+            {
+                throw error;
+            }
             const normalized = error instanceof WasmEncodeError
                 ? error
                 : new WasmEncodeError({
@@ -386,7 +418,7 @@ async function compressImageFileOwned(
     owner.ensureActive();
     const blob = encodedBlob ?? await owner.observe('canvas-to-blob', () => new Promise<Blob>((resolve, reject) =>
     {
-        canvas.toBlob((value) =>
+        const onBlob = (value: Blob | null) =>
         {
             if (!value)
             {
@@ -394,16 +426,24 @@ async function compressImageFileOwned(
                 return;
             }
             resolve(value);
-        }, mimeType, Math.min(1, Math.max(0.05, options.quality / 100)));
+        };
+        const quality = Math.min(1, Math.max(0.05, options.quality / 100));
+        const toBlob = canvas.toBlob.bind(canvas);
+        owner.ensureActive();
+        toBlob(onBlob, mimeType, quality);
     }));
     owner.hold('encoded-blob', blob);
     owner.ensureActive();
 
     const extension = options.format === 'jpeg' ? 'jpg' : options.format;
-    const nextFile = new File([blob], file.name.replace(/\.[^.]+$/, `.${extension}`), {
+    const nextName = file.name.replace(/\.[^.]+$/, `.${extension}`);
+    const fileOptions = {
         type: mimeType,
         lastModified: Date.now()
-    });
+    };
+    const createFile = File;
+    owner.ensureActive();
+    const nextFile = new createFile([blob], nextName, fileOptions);
 
     return {
         file: nextFile,
@@ -433,10 +473,21 @@ export function requestSha256Hex(blob: Blob, runtimeOptions: ImageHashRuntimeOpt
     return createImageProducerOperation(async (owner) =>
     {
         owner.hold('input-blob', blob);
-        const buffer = await owner.observe('blob-array-buffer', () => blob.arrayBuffer());
+        const buffer = await owner.observe('blob-array-buffer', () =>
+        {
+            const arrayBuffer = blob.arrayBuffer.bind(blob);
+            owner.ensureActive();
+            return arrayBuffer();
+        });
         owner.hold('array-buffer', buffer);
         owner.ensureActive();
-        const digest = await owner.observe('sha256-digest', () => crypto.subtle.digest('SHA-256', buffer));
+        const digest = await owner.observe('sha256-digest', () =>
+        {
+            const subtle = crypto.subtle;
+            const computeDigest = subtle.digest.bind(subtle);
+            owner.ensureActive();
+            return computeDigest('SHA-256', buffer);
+        });
         owner.hold('digest-buffer', digest);
         owner.ensureActive();
         return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('');

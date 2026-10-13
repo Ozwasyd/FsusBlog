@@ -8,6 +8,8 @@ export interface ImageProducerResource {
     readonly cancellationSupported: boolean;
     readonly cancellationRequested: boolean;
     readonly cleanupFailed: boolean;
+    readonly cleanupInProgress: boolean;
+    readonly cancellationInProgress: boolean;
 }
 
 /** A frozen diagnostic snapshot contains no original input, native handle, or release authority. */
@@ -50,6 +52,8 @@ interface OwnedResource {
     cancellationSupported: boolean;
     cancellationRequested: boolean;
     cleanupFailed: boolean;
+    cleanupInProgress: boolean;
+    cancellationInProgress: boolean;
     releasable: boolean;
 }
 
@@ -61,6 +65,7 @@ export interface ImageProducerOwner {
     noteThirdParty(kind: string): void;
     ensureActive(): void;
     isCancellationRequested(): boolean;
+    isCancellationError(error: unknown): boolean;
 }
 
 /** Runs one producer, retaining failed cleanup handles without a timer, replacement run, or native ACK. */
@@ -84,7 +89,9 @@ export function createImageProducerOperation<T>(
     function trySettle(): void
     {
         if (finished && !locallySettled && resources.every((resource) =>
-            resource.scope !== 'local' || resource.terminal === 'settled'))
+            resource.scope !== 'local' || (resource.terminal === 'settled'
+                && !resource.cleanupFailed && !resource.cleanupInProgress && !resource.cancellationInProgress
+                && resource.handle === undefined && resource.cleanup === undefined && resource.cancel === undefined)))
         {
             locallySettled = true;
             cancellationReason = undefined;
@@ -94,11 +101,13 @@ export function createImageProducerOperation<T>(
 
     function release(resource: OwnedResource, propagateError = false): void
     {
-        if (resource.scope !== 'local' || resource.terminal === 'settled')
+        if (resource.scope !== 'local' || resource.terminal === 'settled'
+            || resource.cleanupInProgress || resource.cancellationInProgress)
         {
             return;
         }
         resource.releasable = true;
+        resource.cleanupInProgress = true;
         try
         {
             resource.cleanup?.();
@@ -118,7 +127,11 @@ export function createImageProducerOperation<T>(
                 throw cause;
             }
         }
-        trySettle();
+        finally
+        {
+            resource.cleanupInProgress = false;
+            trySettle();
+        }
     }
 
     function hold(kind: string, handle: unknown, cleanup?: () => void, cancel?: () => void): OwnedResource
@@ -134,6 +147,8 @@ export function createImageProducerOperation<T>(
             cancellationSupported: Boolean(cancel),
             cancellationRequested: false,
             cleanupFailed: false,
+            cleanupInProgress: false,
+            cancellationInProgress: false,
             releasable: false
         };
         resources.push(resource);
@@ -152,7 +167,8 @@ export function createImageProducerOperation<T>(
     {
         for (const resource of resources)
         {
-            if (resource.releasable && resource.cleanupFailed)
+            if (resource.releasable && resource.cleanupFailed
+                && !resource.cleanupInProgress && !resource.cancellationInProgress)
             {
                 release(resource);
             }
@@ -172,9 +188,10 @@ export function createImageProducerOperation<T>(
         }
         for (const resource of resources)
         {
-            if (!resource.releasable && resource.cancel)
+            if (!resource.releasable && resource.cancel && !resource.cancellationInProgress)
             {
                 resource.cancellationRequested = true;
+                resource.cancellationInProgress = true;
                 try
                 {
                     resource.cancel();
@@ -182,6 +199,11 @@ export function createImageProducerOperation<T>(
                 catch (cause)
                 {
                     cleanupErrors.push(Object.freeze({ resourceId: resource.id, action: 'cancel', cause }));
+                }
+                finally
+                {
+                    resource.cancellationInProgress = false;
+                    trySettle();
                 }
             }
         }
@@ -193,6 +215,7 @@ export function createImageProducerOperation<T>(
         release,
         ensureActive,
         isCancellationRequested: () => cancellationRequested,
+        isCancellationError: (error: unknown) => cancellationRequested && error === cancellationReason,
         async observe<R>(kind: string, start: () => Promise<R>): Promise<R>
         {
             ensureActive();
@@ -218,6 +241,8 @@ export function createImageProducerOperation<T>(
                 cancellationSupported: false,
                 cancellationRequested: false,
                 cleanupFailed: false,
+                cleanupInProgress: false,
+                cancellationInProgress: false,
                 releasable: false
             });
         }
@@ -272,7 +297,9 @@ export function createImageProducerOperation<T>(
                 retained: resource.handle !== undefined || resource.cleanup !== undefined,
                 cancellationSupported: resource.cancellationSupported,
                 cancellationRequested: resource.cancellationRequested,
-                cleanupFailed: resource.cleanupFailed
+                cleanupFailed: resource.cleanupFailed,
+                cleanupInProgress: resource.cleanupInProgress,
+                cancellationInProgress: resource.cancellationInProgress
             })))
         })
     });
