@@ -236,11 +236,18 @@ async function loadValidatedPublicKey(
     }
     finally
     {
-        clearBytes(spki);
-        clearBytes(actualHash);
-        clearBytes(expectedHash);
-        clearBytes(modulusBytes);
-        clearBytes(exponentBytes);
+        try
+        {
+            clearBytes(actualHash);
+            clearBytes(expectedHash);
+            clearBytes(modulusBytes);
+            clearBytes(exponentBytes);
+        }
+        finally
+        {
+            // The new snapshot cleanup cannot skip the original temporary-byte wipes.
+            clearBytes(spki);
+        }
     }
 }
 
