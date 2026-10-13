@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="${FSUSBLOG_FINAL_IMAGE_TARGET:-final}"
 PUSH_IMAGE="${FSUSBLOG_FINAL_PUSH:-0}"
 LOCAL_ONLY="${FSUSBLOG_FINAL_LOCAL_ONLY:-0}"
+CURRENT_SCHEMA_RECEIPT="${FSUSBLOG_CURRENT_SCHEMA_RECEIPT:-}"
+CURRENT_SCHEMA_RECEIPT_SHA256="${FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256:-}"
 IMAGE_REPOSITORY="${FSUSBLOG_FINAL_IMAGE_REPOSITORY:-fsusblogapp}"
 COMMIT_SHA="${FSUSBLOG_COMMIT_SHA:-}"
 REQUESTED_RELEASE_ID="${FSUSBLOG_RELEASE_ID:-}"
@@ -191,6 +193,21 @@ case "$IMAGE_TAG" in
     *:latest | *:final-current | fsusblogapp | *:@*) Fail "mutable or malformed image reference is forbidden: $IMAGE_TAG" ;;
 esac
 
+[[ ! -v FSUSBLOG_SCHEMA_MINIMUM_COORDINATE && ! -v FSUSBLOG_SCHEMA_MAXIMUM_COORDINATE ]] ||
+    Fail "schema compatibility windows are retired"
+ValidateCurrentReceiptReference() {
+    node --input-type=module - "$ROOT_DIR" "$CURRENT_SCHEMA_RECEIPT" "$CURRENT_SCHEMA_RECEIPT_SHA256" <<'NODE'
+import { pathToFileURL } from 'node:url';
+const { readCurrentSchemaReleaseBinding } = await import(pathToFileURL(`${process.argv[2]}/tools/release/release-manifest.mjs`));
+readCurrentSchemaReleaseBinding(process.argv[3], process.argv[4]);
+NODE
+}
+if [[ "$PUSH_IMAGE" == "1" ]]; then
+    ValidateCurrentReceiptReference || Fail "current receipt reference projection failed before build or registry writes"
+elif [[ -n "$CURRENT_SCHEMA_RECEIPT" || -n "$CURRENT_SCHEMA_RECEIPT_SHA256" ]]; then
+    Fail "local-only builds emit no release manifest and cannot consume deployment receipt references"
+fi
+
 CleanupLocalContext() {
     if [[ -n "$FSUSUI_EMPTY_CONTEXT" ]]; then
         rm -rf -- "$FSUSUI_EMPTY_CONTEXT"
@@ -334,6 +351,7 @@ image_id="$({
       "org.opencontainers.image.version": process.env.FSUSBLOG_EXPECTED_RELEASE_ID,
       "org.opencontainers.image.created": process.env.FSUSBLOG_EXPECTED_RELEASE_CREATED_AT_UTC,
       "org.opencontainers.image.revision": process.env.FSUSBLOG_EXPECTED_COMMIT_SHA,
+      "io.fsusblog.release.manifest-schema": "fsusblog.release-manifest.v3",
       "io.fsusblog.runtime.dotnet-version": process.env.FSUSBLOG_EXPECTED_DOTNET_RUNTIME_VERSION,
       "io.fsusblog.build.dotnet-sdk-version": process.env.FSUSBLOG_EXPECTED_DOTNET_SDK_VERSION,
       "io.fsusblog.runtime.base-image": process.env.FSUSBLOG_EXPECTED_RUNTIME_BASE_IMAGE,
@@ -417,6 +435,7 @@ RequireCommand awk
 RequireCommand dotnet
 RequireCommand sha256sum
 Log "pushing immutable image $IMAGE_TAG"
+ValidateCurrentReceiptReference || Fail "current receipt changed before registry publication"
 docker push "$IMAGE_TAG"
 repo_digest="$(docker image inspect "$IMAGE_TAG" --format '{{range .RepoDigests}}{{println .}}{{end}}' | awk -v repo="$IMAGE_REPOSITORY" 'index($0, repo "@sha256:") == 1 { print; exit }')"
 [[ "$repo_digest" == "${IMAGE_REPOSITORY}@sha256:"* ]] || Fail "registry digest missing after push"
@@ -446,8 +465,6 @@ dockerfile_digest="sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dock
 dotnet_version="$(dotnet --version)"
 node_version="$(node --version)"
 docker_version="$(docker version --format '{{.Client.Version}}')"
-schema_minimum_coordinate="${FSUSBLOG_SCHEMA_MINIMUM_COORDINATE:-$RELEASE_ID}"
-schema_maximum_coordinate="${FSUSBLOG_SCHEMA_MAXIMUM_COORDINATE:-$RELEASE_ID}"
 manifest_dir="${FSUSBLOG_RELEASE_MANIFEST_DIR:-$ROOT_DIR/build/releases/$RELEASE_ID}"
 manifest_file="$manifest_dir/release-manifest.json"
 
@@ -461,8 +478,8 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --image-digest "$image_digest" \
     --frontend-manifest-hash "$frontend_manifest_hash" \
     --wasm-artifact-hash "$wasm_artifact_hash" \
-    --schema-minimum-coordinate "$schema_minimum_coordinate" \
-    --schema-maximum-coordinate "$schema_maximum_coordinate" \
+    --current-receipt "$CURRENT_SCHEMA_RECEIPT" \
+    --current-receipt-sha256 "$CURRENT_SCHEMA_RECEIPT_SHA256" \
     --dotnet-version "$dotnet_version" \
     --node-version "$node_version" \
     --docker-version "$docker_version" \

@@ -15,8 +15,8 @@ import {
 import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 import { createReleaseRolloutEvidenceFixture } from './support/release-rollout-evidence-fixture.mjs'
 import {
-  createRuntimeRoleMinimalV3Fixture,
-  createRuntimeRoleStaticV3Fixture
+  createRuntimeRoleMinimalV4Fixture,
+  createRuntimeRoleStaticV4Fixture
 } from './support/runtime-role-minimal-v3-fixture.mjs'
 import {
   createReadinessManifest,

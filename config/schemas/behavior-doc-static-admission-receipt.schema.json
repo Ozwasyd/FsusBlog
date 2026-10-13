@@ -682,11 +682,14 @@
                 "effectiveComposeModelDigest",
                 "deploymentAuthoritySchema",
                 "deploymentAuthorityContentDigest",
-                "deploymentObservationDigest"
+                "deploymentObservationDigest",
+                "observationSchema",
+                "evidenceStage",
+                "evidenceClass"
             ],
             "properties": {
                 "schema": {
-                    "const": "fsusblog.runtime-role-observation-build-receipt.v3"
+                    "const": "fsusblog.runtime-role-observation-build-receipt.v4"
                 },
                 "artifactId": {
                     "const": "runtime-role-observation"
@@ -837,6 +840,15 @@
                 },
                 "deploymentObservationDigest": {
                     "$ref": "#/$defs/prefixedDigest"
+                },
+                "observationSchema": {
+                    "const": "fsusblog.runtime-role-observation.v3"
+                },
+                "evidenceStage": {
+                    "const": "pre-runtime"
+                },
+                "evidenceClass": {
+                    "const": "compiled-production-code-model"
                 }
             }
         },

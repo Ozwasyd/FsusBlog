@@ -151,7 +151,7 @@ SlotLoadManifest() {
         --format lines)" || SlotFail "release manifest validation failed"
     local -a fields=()
     mapfile -t fields <<<"$output"
-    [[ "${#fields[@]}" -eq 8 ]] || SlotFail "release manifest validator returned incomplete fields"
+    [[ "${#fields[@]}" -eq 7 ]] || SlotFail "release manifest validator returned incomplete fields"
     export FSUSBLOG_RELEASE_ID="${fields[0]}"
     export FSUSBLOG_RELEASE_CREATED_AT_UTC="${fields[1]}"
     export FSUSBLOG_COMMIT_SHA="${fields[2]}"
@@ -159,7 +159,6 @@ SlotLoadManifest() {
     export FSUSBLOG_IMAGE_REF="${fields[4]}"
     export FSUSBLOG_IMAGE_TAG="${fields[5]}"
     export FSUSBLOG_IMAGE_DIGEST="${fields[6]}"
-    export FSUSBLOG_ROLLBACK_TARGET="${fields[7]}"
 }
 
 SlotStateRead() {

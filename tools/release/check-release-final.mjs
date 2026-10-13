@@ -400,7 +400,7 @@ async function runSelfTest()
         commitSha: commit,
         imageDigest,
         releaseIdentity: {
-            schema: 'fsusblog.release-manifest.v2',
+            schema: 'fsusblog.release-manifest.v3',
             releaseId,
             commitSha: commit,
             imageRepository: 'ghcr.io/fsusblog/app',
@@ -411,7 +411,20 @@ async function runSelfTest()
             createdAtUtc: '2026-07-15T01:01:01.000Z',
             frontendManifestHash: `sha256:${'b'.repeat(64)}`,
             wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-            schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
+            // Reference metadata for the validator self-test only; no receipt
+            // is issued and no native database admission is implied.
+            currentSchema: {
+                receipt: { reference: 'receipts/current-schema.json', sha256: '1'.repeat(64) },
+                target: {
+                    modelVersion: 'current-model.v1',
+                    extractorVersion: 'extractor.v1',
+                    generatorVersion: 'generator.v1',
+                    sourceDigest: '2'.repeat(64),
+                    contentDigest: '3'.repeat(64)
+                },
+                database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' },
+                actualSchemaDigest: '4'.repeat(64)
+            },
             toolchain: {
                 dotnetVersion: '10.0.100',
                 nodeVersion: 'v24.16.0',
@@ -466,6 +479,30 @@ async function runSelfTest()
     if (errors.length > 0)
     {
         fail([`self-test expected pass: ${errors.join('; ')}`]);
+    }
+
+    for (const schema of ['fsusblog.release-manifest.v1', 'fsusblog.release-manifest.v2'])
+    {
+        const retired = structuredClone(manifest);
+        retired.releaseIdentity.schema = schema;
+        delete retired.releaseIdentity.currentSchema;
+        retired.releaseIdentity.schemaCompatibility = { minimumCoordinate: releaseId, maximumCoordinate: releaseId };
+        if (!validateManifest(retired, manifestFile).some(error => error.includes('schema must be fsusblog.release-manifest.v3')))
+        {
+            fail([`self-test expected release-final to reject retired ${schema}`]);
+        }
+    }
+    const legacyWindow = structuredClone(manifest);
+    legacyWindow.releaseIdentity.schemaCompatibility = { minimumCoordinate: releaseId, maximumCoordinate: releaseId };
+    if (!validateManifest(legacyWindow, manifestFile).some(error => error.includes('schemaCompatibility is not allowed')))
+    {
+        fail(['self-test expected release-final to reject a compatibility window on a current-only manifest']);
+    }
+    const missingCurrentSchema = structuredClone(manifest);
+    delete missingCurrentSchema.releaseIdentity.currentSchema;
+    if (!validateManifest(missingCurrentSchema, manifestFile).some(error => error.includes('currentSchema is required')))
+    {
+        fail(['self-test expected release-final to reject missing current schema receipt references']);
     }
 
     const fontLicenseFile = path.join(tmp, 'font-license-summary.json');

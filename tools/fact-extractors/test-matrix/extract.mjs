@@ -54,6 +54,7 @@ import {
 import { validateRequiredEvidenceCatalog } from '../../test-matrix/required-evidence-catalog.mjs'
 import { adaptReleaseFinalizerSemanticOutcome } from '../../test-matrix/outcomes/release-finalizer-adapter.mjs'
 import { postRuntimeReceiptSchema } from '../../test-matrix/behavior-evidence-post-runtime.mjs'
+import { validateCurrentSchemaCodeContractObservation } from '../../docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 
 const requiredFactKeys = Object.freeze([
   'test.topology.profiles',
@@ -91,7 +92,10 @@ const declaredFactSources = Object.freeze([
   'tools/deployment/destructive-operation-authority.mjs',
   'src/migration',
   'src/backend/Infrastructure/SchemaMigration',
-  'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs'
+  'src/shared/Contracts/Migration/CurrentSchemaMigrationIdentityContracts.cs',
+  'src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs',
+  'src/backend/Infrastructure/SchemaMigration/CurrentSchemaReceiptAdmission.cs',
+  'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 ])
 
 const consumerInputs = Object.freeze([
@@ -430,6 +434,16 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     rolloutId: 'runtime-observation-rollout',
     kind: 'deploy',
     manifestPath: '/runtime-observation/release.json',
+    // Metadata-only library fixture: no manifest or issued receipt is produced here.
+    manifestSha256: '1'.repeat(64),
+    candidateSourceRevision: 'b'.repeat(40),
+    currentSchema: {
+      receipt: { reference: '/runtime-observation/current-receipt.json', sha256: '2'.repeat(64) },
+      target: { modelVersion: 'fixture-v1', extractorVersion: 'fixture-v1', generatorVersion: 'fixture-v1',
+        sourceDigest: '3'.repeat(64), contentDigest: '4'.repeat(64) },
+      database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' },
+      actualSchemaDigest: '5'.repeat(64)
+    },
     source: { slot: 'blue', releaseId: releaseA, imageDigest: digestA, runtimeGeneration: 1 },
     target: { slot: 'green', releaseId: releaseB, imageDigest: digestB, runtimeGeneration: 2 },
     createdAtUtc: at
@@ -495,13 +509,14 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
   const volumeScopes = Object.fromEntries(['operator-shared', 'release-artifact-store', 'release-identity',
     'shared-between-slots', 'slot-private'].map((scope) => [scope, Object.entries(volumeTopology)
     .filter(([, value]) => value?.scope === scope).map(([target]) => target).sort()]))
-  const schemaOverlap = runtimeObservation?.schemaOverlap
+  const currentSchemaContract = runtimeObservation?.currentSchemaContract
   const claimEligibilityReasons = ['production-current-active-resource-evidence-absent']
   if (runtimeObservation?.ownership?.claimEligible !== true) claimEligibilityReasons.push('runtime-ownership-authority-conflict')
   if (Object.values(volumeScopes).flat().length !== 10) claimEligibilityReasons.push('volume-topology-incomplete')
   if (unsupportedVolumeCleanup.status !== 'unsupported') claimEligibilityReasons.push('volume-cleanup-authority-conflict')
   if (unsupportedSchemaCleanup.status !== 'unsupported') claimEligibilityReasons.push('schema-cleanup-authority-conflict')
-  if (schemaOverlap?.claimEligible !== true) claimEligibilityReasons.push('schema-overlap-authority-conflict')
+  if (currentSchemaContract?.contractValidated !== true
+    || currentSchemaContract?.nativeQualification !== false) claimEligibilityReasons.push('current-schema-code-contract-conflict')
 
   return {
     evidenceClass: 'synthetic-library-proof',
@@ -539,7 +554,7 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     },
     volumeTopology: projectVolumeTopology(volumeTopology),
     volumeScopes,
-    schemaOverlap,
+    currentSchemaContract,
     runtimeProtectionAuthorityState: 'synthetic-library-proof',
     artifactProtectionAuthorityState: 'synthetic-library-proof',
     schemaProtectionAuthorityState: 'synthetic-library-proof',
@@ -1399,11 +1414,20 @@ export function extract(context)
     unsupportedCombinations: runtimeObservation?.unsupportedCombinations,
     ownership: runtimeObservation?.ownership,
     deploymentAuthority: runtimeObservation?.deploymentAuthority,
-    schemaOverlap: runtimeObservation?.schemaOverlap
+    currentSchemaContract: runtimeObservation?.currentSchemaContract
   }
   const runtimeContentDigest = createHash('sha256')
     .update(JSON.stringify(runtimeUnsigned), 'utf8').digest('hex')
-  if (runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v2'
+  try
+  {
+    validateCurrentSchemaCodeContractObservation(runtimeObservation?.currentSchemaContract)
+  }
+  catch (error)
+  {
+    return failResult([error instanceof Error ? error.message : String(error)])
+  }
+  if (!exactKeys(runtimeObservation, [...Object.keys(runtimeUnsigned), 'observationDigest'])
+    || runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v3'
     || runtimeObservation?.observationDigest !== runtimeContentDigest
     || runtimeModes.map((mode) => mode.id).sort().join(',') !== 'adaptive,single,static-role'
     || runtimeObservation?.ownership?.authorityState !== 'closed-current'
@@ -1421,34 +1445,6 @@ export function extract(context)
       runtimeObservation?.deploymentAuthority?.effectiveCompose?.dockerExecutable?.digest ?? ''))
     || !/^[a-f0-9]{64}$/u.test(String(
       runtimeObservation?.deploymentAuthority?.effectiveCompose?.composeImplementation?.digest ?? ''))
-    || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-current-schema-manifest-probe'
-    || runtimeObservation?.schemaOverlap?.claimEligible !== true
-    || runtimeObservation?.schemaOverlap?.evidenceClass !== 'current-manifest-catalog-production-provider-model'
-    || runtimeObservation?.schemaOverlap?.manifestDescriptorCount !== runtimeObservation?.schemaOverlap?.catalogMetadataCount
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.manifestDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.catalogDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.databaseObservationDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.sourceReleaseManifestDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.targetReleaseManifestDigest ?? ''))
-    || runtimeObservation?.schemaOverlap?.sourceReleaseId === runtimeObservation?.schemaOverlap?.targetReleaseId
-    || runtimeObservation?.schemaOverlap?.previousRollbackReleaseId === runtimeObservation?.schemaOverlap?.sourceReleaseId
-    || runtimeObservation?.schemaOverlap?.sameReleaseFailureCode !== 'schema_previous_rollback_release_not_distinct'
-    || JSON.stringify(runtimeObservation?.schemaOverlap?.missingExpandFailureCodes)
-      !== JSON.stringify(['schema_expand_pending'])
-    || JSON.stringify(runtimeObservation?.schemaOverlap?.concurrentContractFailureCodes) !== JSON.stringify([
-      'schema_contract_backfill_incomplete',
-      'schema_contract_backfill_unverified',
-      'schema_contract_backup_restore_stale',
-      'schema_contract_confirmation_missing',
-      'schema_contract_current_release_dependency',
-      'schema_contract_exclusive_mode_missing',
-      'schema_contract_observation_window',
-      'schema_contract_old_writes_enabled',
-      'schema_contract_previous_release_dependency',
-      'schema_contract_release_window_open',
-      'schema_contract_rollback_manifest_open',
-      'schema_contract_slot_switch_in_progress'
-    ])
     || !Array.isArray(runtimeObservation?.unsupportedCombinations)
     || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
   {
@@ -1540,7 +1536,7 @@ export function extract(context)
     return failResult([`runtime-role deployment source validation failed: ${error instanceof Error ? error.message : String(error)}`])
   }
   const expectedRuntimeBuildReceipt = {
-    schema: 'fsusblog.runtime-role-observation-build-receipt.v3',
+    schema: 'fsusblog.runtime-role-observation-build-receipt.v4',
     artifactId: 'runtime-role-observation',
     artifactPath: '.tmp/contracts/runtime-role/runtime-role-observation.json',
     artifactDigest: runtimeArtifactDigest,
@@ -1561,7 +1557,10 @@ export function extract(context)
     effectiveComposeModelDigest: runtimeObservation.deploymentAuthority.effectiveCompose?.modelDigest,
     deploymentAuthoritySchema: runtimeObservation.deploymentAuthority.authoritySchema,
     deploymentAuthorityContentDigest: runtimeObservation.deploymentAuthority.authorityContentDigest,
-    deploymentObservationDigest: runtimeObservation.deploymentAuthority.observationDigest
+    deploymentObservationDigest: runtimeObservation.deploymentAuthority.observationDigest,
+    observationSchema: runtimeObservation.schema,
+    evidenceStage: runtimeObservation.currentSchemaContract.evidenceStage,
+    evidenceClass: runtimeObservation.currentSchemaContract.evidenceClass
   }
   if (!exactKeys(runtimeBinding.buildReceipt, Object.keys(expectedRuntimeBuildReceipt))
     || digestValue(runtimeBinding.buildReceipt) !== digestValue(expectedRuntimeBuildReceipt))
@@ -1725,7 +1724,7 @@ export function extract(context)
       effectiveCompose: projectEffectiveCompose(runtimeObservation.deploymentAuthority.effectiveCompose),
       volumeTopology: projectVolumeTopology(runtimeObservation.deploymentAuthority.volumeTopology)
     },
-    schemaOverlap: runtimeObservation.schemaOverlap,
+    currentSchemaContract: runtimeObservation.currentSchemaContract,
     observationDigest: runtimeObservation.observationDigest,
     artifactDigest: runtimeArtifactDigest
   }
@@ -1734,7 +1733,7 @@ export function extract(context)
     rollout: 'tools/deployment/release-rollout-lib.mjs',
     releaseAssetsGc: 'tools/storage/release-gc.mjs',
     destructiveOperations: 'tools/deployment/destructive-operation-authority.mjs',
-    onlineSchema: 'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs',
+    currentSchemaAdmission: 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaReceiptAdmission.cs',
     topologyAuthority: 'tools/governance/check-monolithic-distributed-architecture.mjs'
   }
   let destructiveAuthority

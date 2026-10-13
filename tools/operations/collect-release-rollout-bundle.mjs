@@ -5,13 +5,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v1';
+const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v2';
 const REQUIRED_ARTIFACTS = Object.freeze([
     'publicTraffic', 'notificationStream', 'assetCompatibility',
     'workerReconciliation', 'resourceBudget', 'faultInjection'
 ]);
 const REQUIRED_AUXILIARY = Object.freeze([
-    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+    'releaseManifest', 'backupRestoreGate', 'currentSchemaAdmission', 'candidateReadiness',
     'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
     'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
     'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',

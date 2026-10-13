@@ -6,7 +6,7 @@ const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL('../.
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const { root, validatePostRuntimeReaderFirewall } = await import(new URL('../../tools/test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
 
-import { createRuntimeRoleMinimalV3Fixture, createRuntimeRoleStaticV3Fixture } from './support/runtime-role-minimal-v3-fixture.mjs';
+import { createRuntimeRoleMinimalV3Fixture, createRuntimeRoleMinimalV4Fixture, createRuntimeRoleStaticV3Fixture, createRuntimeRoleStaticV4Fixture } from './support/runtime-role-minimal-v3-fixture.mjs';
 
 const identity = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
 const seal = (value) =>
@@ -15,7 +15,7 @@ const seal = (value) =>
     receipt.contentDigest = digestValue(receipt);
     return receipt;
 };
-const fixture = () => createRuntimeRoleMinimalV3Fixture('v3-contract-test', identity);
+const fixture = () => createRuntimeRoleMinimalV4Fixture('v3-contract-test', identity);
 const options = { expectedRunId: 'v3-contract-test', expectedSourceIdentity: identity };
 
 test('pure receipt contracts reject incomplete identities and non-integer counters without expectations', () =>
@@ -237,9 +237,9 @@ test('canonical OpenAPI receipt seals cached and published projection bytes inde
     }
 });
 
-test('canonical static admission validates the current runtime-role v3 build authority', () =>
+test('canonical static admission validates the current runtime-role v4 build authority', () =>
 {
-    const admission = createRuntimeRoleStaticV3Fixture('v3-contract-test', identity, { repositoryRoot: root });
+    const admission = createRuntimeRoleStaticV4Fixture('v3-contract-test', identity, { repositoryRoot: root });
     const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'] };
     assert.equal(validateBehaviorDocStaticAdmissionReceipt(admission, expected), admission);
     for (const mutate of [
@@ -276,23 +276,23 @@ test('canonical static admission validates the current runtime-role v3 build aut
     }
 });
 
-test('canonical runtime-role v3 value validator preserves exact build and oracle identity', () =>
+test('canonical runtime-role v4 value validator preserves exact build and oracle identity', () =>
 {
     const receipt = fixture();
     assert.equal(validateMinimalContractBuildReceipt(receipt, options), receipt);
     assert.equal(receipt.artifacts['runtime-role-observation'].buildReceipt.schema,
-        'fsusblog.runtime-role-observation-build-receipt.v3');
+        'fsusblog.runtime-role-observation-build-receipt.v4');
     validatePostRuntimeReaderFirewall(root, 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs');
 });
 
-test('shared static v3 fixture preserves explicit run, source, extractor and minimal-build inputs', () =>
+test('shared static v4 fixture preserves explicit run, source, extractor and minimal-build inputs', () =>
 {
     const source = { sourceCommit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) };
     const runId = 'shared-static-v3-fixture';
-    const minimalContractBuild = createRuntimeRoleMinimalV3Fixture(runId, source);
+    const minimalContractBuild = createRuntimeRoleMinimalV4Fixture(runId, source);
     const before = structuredClone(minimalContractBuild);
     const extractorIds = ['first-extractor', 'second-extractor'];
-    const admission = createRuntimeRoleStaticV3Fixture(runId, source, {
+    const admission = createRuntimeRoleStaticV4Fixture(runId, source, {
         repositoryRoot: root, extractorIds, minimalContractBuild
     });
     assert.equal(validateBehaviorDocStaticAdmissionReceipt(admission, {
@@ -304,12 +304,16 @@ test('shared static v3 fixture preserves explicit run, source, extractor and min
     assert.deepEqual(minimalContractBuild, before);
 });
 
-test('canonical runtime-role v3 rejects re-sealed legacy, partial and coordinated identity drift', () =>
+test('canonical runtime-role v4 rejects re-sealed legacy, partial and coordinated identity drift', () =>
 {
     for (const mutate of [
         (receipt, artifact) =>
         {
             artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v2';
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v3';
         },
         (receipt, artifact) =>
         {
@@ -388,7 +392,7 @@ test('canonical runtime-role v3 rejects re-sealed legacy, partial and coordinate
     }
 });
 
-test('canonical runtime-role v3 independently checks every project, observation, assembly and deployment digest', () =>
+test('canonical runtime-role v4 independently checks every project, observation, assembly and deployment digest', () =>
 {
     const receipt = fixture();
     const digests = new Map();
@@ -428,3 +432,32 @@ test('canonical runtime-role v3 independently checks every project, observation,
         }), /digest mismatch/u);
     }
 });
+
+test('canonical runtime-role v4 rejects re-sealed observation and evidence-stage drift', () =>
+{
+    for (const mutate of [
+        (value) => { value.observationSchema = 'fsusblog.runtime-role-observation.v2'; },
+        (value) => { value.evidenceStage = 'post-runtime'; },
+        (value) => { value.evidenceClass = 'native-qualification'; },
+        (value) => { delete value.observationSchema; },
+        (value) => { delete value.evidenceStage; },
+        (value) => { delete value.evidenceClass; }
+    ])
+    {
+        const receipt = fixture();
+        mutate(receipt.artifacts['runtime-role-observation'].buildReceipt);
+        assert.throws(() => validateMinimalContractBuildReceipt(seal(receipt), options), /minimal contract build/u);
+    }
+});
+
+test('explicit historical v3 fixtures remain rejected without relabeling their schema', () =>
+{
+    const legacyBuild = createRuntimeRoleMinimalV3Fixture('v3-contract-test', identity)
+    assert.equal(legacyBuild.artifacts['runtime-role-observation'].buildReceipt.schema,
+        'fsusblog.runtime-role-observation-build-receipt.v3')
+    assert.throws(() => validateMinimalContractBuildReceipt(legacyBuild, options), /minimal contract build/u)
+    const legacyAdmission = createRuntimeRoleStaticV3Fixture('v3-contract-test', identity, { repositoryRoot: root })
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(legacyAdmission, {
+        ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role']
+    }))
+})

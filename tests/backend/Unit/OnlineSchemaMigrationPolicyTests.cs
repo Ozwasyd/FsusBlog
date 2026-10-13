@@ -1,14 +1,16 @@
+using System.Text.Json;
+
+using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 
-using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OnlineSchemaMigrationPolicyTests
 {
-    private static SchemaCompatibilityCoordinate Coordinate(string value)
-        => SchemaCompatibilityCoordinate.ParsePersisted(value);
+    private static HistoricalMigrationFence Coordinate(string value)
+        => HistoricalMigrationFence.FromLegacyMetadata(value);
 
     private static ReleaseId Release(string value)
         => ReleaseId.Parse(value);
@@ -20,24 +22,24 @@ public sealed class OnlineSchemaMigrationPolicyTests
             DistributedInvalidationConvergenceObligationMigrationDefinitions.BuildMigration();
         ISchemaMigrationDescriptor delivery =
             DistributedInvalidationDeliveryLedgerMigrationDefinitions.BuildMigration();
-        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> catalog =
-            new OnlineSchemaMigrationCatalog().GetMetadata();
-        var metadata = new Dictionary<string, OnlineSchemaMigrationMetadata>
+        IReadOnlyDictionary<string, OfflineMigrationClassificationFact> catalog =
+            OfflineMigrationClassificationFacts.All;
+        var metadata = new Dictionary<string, OfflineMigrationClassificationFact>
         {
             [convergence.MigrationId] = catalog[convergence.MigrationId],
             [delivery.MigrationId] = catalog[delivery.MigrationId]
         };
 
-        OnlineSchemaMigrationPolicyReport report =
-            OnlineSchemaMigrationPolicy.Validate(metadata);
+        OfflineMigrationClassificationFactValidatorReport report =
+            OfflineMigrationClassificationFactValidator.Validate(metadata);
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.All(metadata.Values, item =>
         {
-            Assert.Equal(OnlineSchemaMigrationPhase.Expand, item.Phase);
+            Assert.Equal(OfflineMigrationPhase.Expand, item.Phase);
             Assert.False(item.Destructive);
             Assert.False(item.RequiresExclusiveMode);
-            Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, item.RollbackMode);
+            Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, item.RollbackMode);
         });
     }
 
@@ -45,32 +47,30 @@ public sealed class OnlineSchemaMigrationPolicyTests
     public void RefreshTokenLineage_IsExplicitAdditiveExpand()
     {
         ISchemaMigrationDescriptor descriptor = RefreshTokenLineageMigrationDefinitions.BuildMigration();
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
-            .GetMetadata()[descriptor.MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[descriptor.MigrationId];
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(new Dictionary<string, OfflineMigrationClassificationFact> { [descriptor.MigrationId] = metadata });
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
     }
 
     [Fact]
     public void UserSessionModeAuthority_IsExplicitAdditiveExpand()
     {
         ISchemaMigrationDescriptor descriptor = UserSessionModeMigrationDefinitions.BuildMigration();
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
-            .GetMetadata()[descriptor.MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[descriptor.MigrationId];
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(new Dictionary<string, OfflineMigrationClassificationFact> { [descriptor.MigrationId] = metadata });
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
     }
 
     [Fact]
@@ -78,11 +78,11 @@ public sealed class OnlineSchemaMigrationPolicyTests
     {
         ISchemaMigrationDescriptor revisionDescriptor = CommentRevisionManagementMigrationDefinitions.BuildMigration();
         ISchemaMigrationDescriptor governanceDescriptor = CommentGovernanceMigrationDefinitions.BuildMigration();
-        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadata =
-            new OnlineSchemaMigrationCatalog().GetMetadata();
+        IReadOnlyDictionary<string, OfflineMigrationClassificationFact> metadata =
+            OfflineMigrationClassificationFacts.All;
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            new Dictionary<string, OnlineSchemaMigrationMetadata>
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(
+            new Dictionary<string, OfflineMigrationClassificationFact>
             {
                 [revisionDescriptor.MigrationId] = metadata[revisionDescriptor.MigrationId],
                 [governanceDescriptor.MigrationId] = metadata[governanceDescriptor.MigrationId]
@@ -90,18 +90,18 @@ public sealed class OnlineSchemaMigrationPolicyTests
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
 
-        OnlineSchemaMigrationMetadata revision = metadata[revisionDescriptor.MigrationId];
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, revision.Phase);
+        OfflineMigrationClassificationFact revision = metadata[revisionDescriptor.MigrationId];
+        Assert.Equal(OfflineMigrationPhase.Expand, revision.Phase);
         Assert.False(revision.Destructive);
         Assert.False(revision.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, revision.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, revision.RollbackMode);
 
-        OnlineSchemaMigrationMetadata governance = metadata[governanceDescriptor.MigrationId];
-        Assert.Equal(OnlineSchemaMigrationPhase.Contract, governance.Phase);
+        OfflineMigrationClassificationFact governance = metadata[governanceDescriptor.MigrationId];
+        Assert.Equal(OfflineMigrationPhase.Contract, governance.Phase);
         Assert.True(governance.Destructive);
         Assert.True(governance.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, governance.RollbackMode);
-        Assert.NotNull(governance.ContractAfterCoordinate);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.BackupRestore, governance.RollbackMode);
+        Assert.NotNull(governance.ContractAfterFence);
         Assert.True(governance.MinimumRetentionWindow > TimeSpan.Zero);
     }
 
@@ -109,16 +109,15 @@ public sealed class OnlineSchemaMigrationPolicyTests
     public void ArticleCommentPolicy_IsExplicitAdditiveExpand()
     {
         ISchemaMigrationDescriptor descriptor = ArticleCommentPolicyMigrationDefinitions.BuildMigration();
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
-            .GetMetadata()[descriptor.MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[descriptor.MigrationId];
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(new Dictionary<string, OfflineMigrationClassificationFact> { [descriptor.MigrationId] = metadata });
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.Contains("article_comment_policy_inheritance", metadata.Validators);
         Assert.Contains("thread_policy_scope", metadata.Validators);
         Assert.Contains("privacy_safe_slow_mode", metadata.Validators);
@@ -127,13 +126,12 @@ public sealed class OnlineSchemaMigrationPolicyTests
     [Fact]
     public void ArticleAssetReferenceLedger_IsExplicitAdditiveExpand()
     {
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
-            .GetMetadata()[ArticleAssetReferenceMigrationDefinitions.MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[ArticleAssetReferenceMigrationDefinitions.MigrationId];
 
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.Contains("article_asset_reference_recheck", metadata.Validators);
     }
 
@@ -141,129 +139,129 @@ public sealed class OnlineSchemaMigrationPolicyTests
     public void ExistingRegistry_IsExplicitlyClassifiedWithoutInferringOnlinePhases()
     {
         IReadOnlyList<ISchemaMigrationDescriptor> descriptors = new SchemaMigrationRegistry().GetDescriptors();
-        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadata =
-            new OnlineSchemaMigrationCatalog().GetMetadata();
+        IReadOnlyDictionary<string, OfflineMigrationClassificationFact> metadata =
+            OfflineMigrationClassificationFacts.All;
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(metadata);
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(metadata);
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.Equal(descriptors.Count, metadata.Count);
-        OnlineSchemaMigrationMetadata passkeyExpand =
+        OfflineMigrationClassificationFact passkeyExpand =
             metadata["20260711-post-recovery-passkey-completion-idempotency"];
-        OnlineSchemaMigrationMetadata publicArticleProjectionExpand =
+        OfflineMigrationClassificationFact publicArticleProjectionExpand =
             metadata["20260714-post-public-article-projection"];
-        OnlineSchemaMigrationMetadata articleOutboxClaimLeaseExpand =
+        OfflineMigrationClassificationFact articleOutboxClaimLeaseExpand =
             metadata["20260715-post-article-mutation-outbox-claim-lease"];
-        OnlineSchemaMigrationMetadata activeReleaseFenceWitnessExpand =
+        OfflineMigrationClassificationFact activeReleaseFenceWitnessExpand =
             metadata["20260715-post-active-release-fence-durable-witness"];
-        OnlineSchemaMigrationMetadata activeReleaseFencedCommitExpand =
+        OfflineMigrationClassificationFact activeReleaseFencedCommitExpand =
             metadata["20260715-post-active-release-fenced-commit-ledger"];
-        OnlineSchemaMigrationMetadata readEventRetirementCompat =
+        OfflineMigrationClassificationFact readEventRetirementCompat =
             metadata["20260715-pre-read-event-retirement-compat"];
-        OnlineSchemaMigrationMetadata readEventRetirementContract =
+        OfflineMigrationClassificationFact readEventRetirementContract =
             metadata["20260715-post-read-event-retirement"];
-        OnlineSchemaMigrationMetadata anonymousEligibilityPredicateExpand =
+        OfflineMigrationClassificationFact anonymousEligibilityPredicateExpand =
             metadata["20260716-pre-anonymous-eligibility-predicate"];
-        OnlineSchemaMigrationMetadata subjectExpand =
+        OfflineMigrationClassificationFact subjectExpand =
             metadata[AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId];
-        OnlineSchemaMigrationMetadata subjectBackfill =
+        OfflineMigrationClassificationFact subjectBackfill =
             metadata[AccountSubjectHashOnlineBackfillHandler.BackfillMigrationId];
-        OnlineSchemaMigrationMetadata articleAssetReferences =
+        OfflineMigrationClassificationFact articleAssetReferences =
             metadata[ArticleAssetReferenceMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata articlePublicationCoordinates =
+        OfflineMigrationClassificationFact articlePublicationCoordinates =
             metadata["20260719-pre-article-publication-coordinates"];
-        OnlineSchemaMigrationMetadata articlePublicationConsistency =
+        OfflineMigrationClassificationFact articlePublicationConsistency =
             metadata["20260719-post-article-publication-consistency"];
-        OnlineSchemaMigrationMetadata articleMutationIdempotency =
+        OfflineMigrationClassificationFact articleMutationIdempotency =
             metadata[ArticleMutationIdempotencyMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata commentModerationEvent =
+        OfflineMigrationClassificationFact commentModerationEvent =
             metadata["20260719-post-comment-moderation-event"];
-        OnlineSchemaMigrationMetadata messageAdminQueue =
+        OfflineMigrationClassificationFact messageAdminQueue =
             metadata["20260719-post-message-admin-queue-state"];
-        OnlineSchemaMigrationMetadata messageMutationOutbox =
+        OfflineMigrationClassificationFact messageMutationOutbox =
             metadata[MessageMutationOutboxMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata messageMutationIdempotency =
+        OfflineMigrationClassificationFact messageMutationIdempotency =
             metadata[MessageMutationIdempotencyMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata conversationStatusAudit =
+        OfflineMigrationClassificationFact conversationStatusAudit =
             metadata[ConversationStatusAuditMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata messageUnreadAuthority =
+        OfflineMigrationClassificationFact messageUnreadAuthority =
             metadata[MessageUnreadAuthorityMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata passkeySignalVersion =
+        OfflineMigrationClassificationFact passkeySignalVersion =
             metadata[PasskeySignalMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata commentMutationIdempotency =
+        OfflineMigrationClassificationFact commentMutationIdempotency =
             metadata[CommentMutationIdempotencyMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata scheduledPublishDueIndex =
+        OfflineMigrationClassificationFact scheduledPublishDueIndex =
             metadata[ScheduledPublishIndexMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata articleDraftBaseRevision =
+        OfflineMigrationClassificationFact articleDraftBaseRevision =
             metadata[ArticleDraftBaseRevisionMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata accountEnrollment =
+        OfflineMigrationClassificationFact accountEnrollment =
             metadata[AccountEnrollmentMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata refreshTokenLineage =
+        OfflineMigrationClassificationFact refreshTokenLineage =
             metadata[RefreshTokenLineageMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata userSessionModeAuthority =
+        OfflineMigrationClassificationFact userSessionModeAuthority =
             metadata[UserSessionModeMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata userSessionAuthenticationContext =
+        OfflineMigrationClassificationFact userSessionAuthenticationContext =
             metadata[UserSessionAuthenticationContextMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata userSessionMetadataMinimization =
+        OfflineMigrationClassificationFact userSessionMetadataMinimization =
             metadata[UserSessionMetadataMinimizationMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata commentMutationOutbox =
+        OfflineMigrationClassificationFact commentMutationOutbox =
             metadata[CommentMutationOutboxMigrationDefinitions.MigrationId];
-        OnlineSchemaMigrationMetadata userSessionMultiDevice =
+        OfflineMigrationClassificationFact userSessionMultiDevice =
             metadata[UserSessionMultiDeviceMigrationDefinitions.MigrationId];
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, passkeyExpand.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleDraftBaseRevision.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, passkeyExpand.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, articleDraftBaseRevision.Phase);
         Assert.False(articleDraftBaseRevision.Destructive);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, publicArticleProjectionExpand.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleOutboxClaimLeaseExpand.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, activeReleaseFenceWitnessExpand.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, activeReleaseFencedCommitExpand.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, readEventRetirementCompat.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Contract, readEventRetirementContract.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, publicArticleProjectionExpand.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, articleOutboxClaimLeaseExpand.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, activeReleaseFenceWitnessExpand.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, activeReleaseFencedCommitExpand.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, readEventRetirementCompat.Phase);
+        Assert.Equal(OfflineMigrationPhase.Contract, readEventRetirementContract.Phase);
         Assert.True(readEventRetirementContract.Destructive);
         Assert.False(readEventRetirementContract.LegacyBootstrapOnly);
         Assert.Equal(TimeSpan.FromDays(30), readEventRetirementContract.MinimumRetentionWindow);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, anonymousEligibilityPredicateExpand.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, subjectExpand.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Backfill, subjectBackfill.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleAssetReferences.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articlePublicationCoordinates.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articlePublicationConsistency.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleMutationIdempotency.Phase);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, articleMutationIdempotency.RollbackMode);
-        Assert.Equal(OnlineSchemaMigrationLockRisk.Low, articleMutationIdempotency.EstimatedLockRisk);
+        Assert.Equal(OfflineMigrationPhase.Expand, anonymousEligibilityPredicateExpand.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, subjectExpand.Phase);
+        Assert.Equal(OfflineMigrationPhase.Backfill, subjectBackfill.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, articleAssetReferences.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, articlePublicationCoordinates.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, articlePublicationConsistency.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, articleMutationIdempotency.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, articleMutationIdempotency.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalLockRisk.Low, articleMutationIdempotency.EstimatedLockRisk);
         Assert.Contains("article_mutation_idempotency", articleMutationIdempotency.Validators);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, commentModerationEvent.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageAdminQueue.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageMutationOutbox.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageMutationIdempotency.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, conversationStatusAudit.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageUnreadAuthority.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, passkeySignalVersion.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, commentMutationIdempotency.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, scheduledPublishDueIndex.Phase);
-        Assert.Equal(OnlineSchemaMigrationLockRisk.Low, scheduledPublishDueIndex.EstimatedLockRisk);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, scheduledPublishDueIndex.RollbackMode);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, accountEnrollment.Phase);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, refreshTokenLineage.Phase);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, refreshTokenLineage.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Expand, commentModerationEvent.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, messageAdminQueue.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, messageMutationOutbox.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, messageMutationIdempotency.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, conversationStatusAudit.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, messageUnreadAuthority.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, passkeySignalVersion.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, commentMutationIdempotency.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, scheduledPublishDueIndex.Phase);
+        Assert.Equal(OfflineMigrationHistoricalLockRisk.Low, scheduledPublishDueIndex.EstimatedLockRisk);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, scheduledPublishDueIndex.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Expand, accountEnrollment.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, refreshTokenLineage.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, refreshTokenLineage.RollbackMode);
         Assert.Contains("refresh_tombstone_retention", refreshTokenLineage.Validators);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, userSessionModeAuthority.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, userSessionModeAuthority.Phase);
         Assert.False(userSessionModeAuthority.Destructive);
-        Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionAuthenticationContext.Phase);
+        Assert.Equal(OfflineMigrationPhase.Contract, userSessionAuthenticationContext.Phase);
         Assert.True(userSessionAuthenticationContext.Destructive);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, userSessionAuthenticationContext.RollbackMode);
-        Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionMetadataMinimization.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.BackupRestore, userSessionAuthenticationContext.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Contract, userSessionMetadataMinimization.Phase);
         Assert.True(userSessionMetadataMinimization.Destructive);
         Assert.True(userSessionMetadataMinimization.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, userSessionMetadataMinimization.RollbackMode);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, commentMutationOutbox.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.BackupRestore, userSessionMetadataMinimization.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Expand, commentMutationOutbox.Phase);
         Assert.False(commentMutationOutbox.Destructive);
-        Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionMultiDevice.Phase);
+        Assert.Equal(OfflineMigrationPhase.Contract, userSessionMultiDevice.Phase);
         Assert.True(userSessionMultiDevice.Destructive);
         Assert.False(userSessionMultiDevice.LegacyBootstrapOnly);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
         Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences, articlePublicationCoordinates, articlePublicationConsistency, articleMutationIdempotency, commentModerationEvent, messageAdminQueue, messageMutationOutbox, messageMutationIdempotency, conversationStatusAudit, messageUnreadAuthority, passkeySignalVersion, commentMutationIdempotency, scheduledPublishDueIndex, articleDraftBaseRevision, accountEnrollment, refreshTokenLineage, userSessionModeAuthority }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
@@ -343,12 +341,12 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>
         {
-            Assert.Equal(OnlineSchemaMigrationPhase.Contract, classification.Phase);
+            Assert.Equal(OfflineMigrationPhase.Contract, classification.Phase);
             Assert.True(classification.LegacyBootstrapOnly);
             Assert.True(classification.Destructive);
             Assert.True(classification.RequiresExclusiveMode);
-            Assert.Equal(OnlineSchemaMigrationRollbackMode.BackupRestore, classification.RollbackMode);
-            Assert.NotNull(classification.ContractAfterCoordinate);
+            Assert.Equal(OfflineMigrationHistoricalRollbackMode.BackupRestore, classification.RollbackMode);
+            Assert.NotNull(classification.ContractAfterFence);
             Assert.True(classification.MinimumRetentionWindow > TimeSpan.Zero);
         });
     }
@@ -356,7 +354,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
     [Fact]
     public void ExistingSeptemberAuthorityMigrations_RetainExplicitAdditiveClassifications()
     {
-        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> catalog = new OnlineSchemaMigrationCatalog().GetMetadata();
+        IReadOnlyDictionary<string, OfflineMigrationClassificationFact> catalog = OfflineMigrationClassificationFacts.All;
         string[] ids =
         [
             BanStateProjectionMigrationDefinitions.MigrationId,
@@ -365,42 +363,42 @@ public sealed class OnlineSchemaMigrationPolicyTests
         ];
         Assert.All(ids, id =>
         {
-            OnlineSchemaMigrationMetadata metadata = catalog[id];
-            Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+            OfflineMigrationClassificationFact metadata = catalog[id];
+            Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
             Assert.False(metadata.Destructive);
             Assert.False(metadata.RequiresExclusiveMode);
             Assert.False(metadata.LegacyBootstrapOnly);
-            Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+            Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
             Assert.Null(metadata.BatchSize);
             Assert.Null(metadata.ResumeTokenName);
-            Assert.Null(metadata.ContractAfterCoordinate);
+            Assert.Null(metadata.ContractAfterFence);
             Assert.Equal(TimeSpan.Zero, metadata.MinimumRetentionWindow);
             Assert.Contains("descriptor_policy", metadata.Validators);
             Assert.Contains("n_minus_one_read_write", metadata.Validators);
         });
-        Assert.Equal(OnlineSchemaMigrationLockRisk.Medium, catalog[ids[0]].EstimatedLockRisk);
-        Assert.Equal(OnlineSchemaMigrationLockRisk.Medium, catalog[ids[1]].EstimatedLockRisk);
-        Assert.Equal(OnlineSchemaMigrationLockRisk.Medium, catalog[ids[2]].EstimatedLockRisk);
+        Assert.Equal(OfflineMigrationHistoricalLockRisk.Medium, catalog[ids[0]].EstimatedLockRisk);
+        Assert.Equal(OfflineMigrationHistoricalLockRisk.Medium, catalog[ids[1]].EstimatedLockRisk);
+        Assert.Equal(OfflineMigrationHistoricalLockRisk.Medium, catalog[ids[2]].EstimatedLockRisk);
     }
 
     [Fact]
     public void PropertyCommandHistory_IsExplicitExpandThatDeclaresRequiredWriterIsolation()
     {
         string id = ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId;
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[id];
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            new Dictionary<string, OnlineSchemaMigrationMetadata> { [id] = metadata });
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[id];
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(
+            new Dictionary<string, OfflineMigrationClassificationFact> { [id] = metadata });
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
         Assert.False(metadata.LegacyBootstrapOnly);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
-        Assert.Equal(OnlineSchemaMigrationLockRisk.Low, metadata.EstimatedLockRisk);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalLockRisk.Low, metadata.EstimatedLockRisk);
         Assert.Null(metadata.BatchSize);
         Assert.Null(metadata.ResumeTokenName);
-        Assert.Null(metadata.ContractAfterCoordinate);
+        Assert.Null(metadata.ContractAfterFence);
         Assert.Equal(TimeSpan.Zero, metadata.MinimumRetentionWindow);
         Assert.Contains("article_property_definition_history_genesis_fail_closed", metadata.Validators);
         Assert.Contains("article_property_definition_history_signed_audit_binding", metadata.Validators);
@@ -421,12 +419,12 @@ public sealed class OnlineSchemaMigrationPolicyTests
                 new RawSqlStep("ALTER TABLE article ALTER COLUMN title TYPE varchar(64);"),
                 new DropColumnStep("article", "legacy_title", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))
             ]);
-        OnlineSchemaMigrationMetadata metadata = CreateMetadata(
+        OfflineMigrationClassificationFact metadata = CreateMetadata(
             descriptor.MigrationId,
-            OnlineSchemaMigrationPhase.Expand,
+            OfflineMigrationPhase.Expand,
             destructive: false);
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(new Dictionary<string, OfflineMigrationClassificationFact> { [descriptor.MigrationId] = metadata });
 
         Assert.True(report.Valid);
     }
@@ -440,16 +438,16 @@ public sealed class OnlineSchemaMigrationPolicyTests
             SchemaMigrationPhase.PostCodeFirst,
             Transactional: true,
             Steps: []);
-        OnlineSchemaMigrationMetadata metadata = CreateMetadata(
+        OfflineMigrationClassificationFact metadata = CreateMetadata(
             descriptor.MigrationId,
-            OnlineSchemaMigrationPhase.Backfill,
+            OfflineMigrationPhase.Backfill,
             destructive: false) with
         {
             BatchSize = null,
             ResumeTokenName = null
         };
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
+        OfflineMigrationClassificationFactValidatorReport report = OfflineMigrationClassificationFactValidator.Validate(new Dictionary<string, OfflineMigrationClassificationFact> { [descriptor.MigrationId] = metadata });
 
         Assert.Contains(report.Violations, violation =>
             violation.Code == "schema_backfill_not_resumable");
@@ -458,95 +456,104 @@ public sealed class OnlineSchemaMigrationPolicyTests
     [Fact]
     public void CommandLine_ParsesStableRolloutInterface()
     {
-        OnlineSchemaMigrationCommand expand = OnlineSchemaMigrationCommandLine.Parse(
+        string[][] retiredInvocations =
         [
-            "migrate",
-            "--phase", "expand",
-            "--release-manifest", "/run/release.json",
-            "--env-file", "/run/server.env",
-            "--dry-run"
-        ]);
-        OnlineSchemaMigrationCommand backfill = OnlineSchemaMigrationCommandLine.Parse(
-        [
-            "migrate",
-            "--phase", "backfill-resume",
-            "--id", "20260712-post-example-backfill",
-            "--release-manifest", "/run/release.json",
-            "--env-file", "/run/server.env"
-        ]);
-        OnlineSchemaMigrationCommand contractDryRun = OnlineSchemaMigrationCommandLine.Parse(
-        [
-            "migrate",
-            "--phase", "contract",
-            "--release-manifest", "/run/release.json",
-            "--env-file", "/run/server.env",
-            "--evidence", "/run/contract-evidence.json",
-            "--dry-run"
-        ]);
+            [
+                "migrate",
+                "--phase", "expand",
+                "--release-manifest", "/run/release.json",
+                "--env-file", "/run/server.env",
+                "--dry-run"
+            ],
+            [
+                "migrate",
+                "--phase", "backfill-resume",
+                "--id", "20260712-post-example-backfill",
+                "--release-manifest", "/run/release.json",
+                "--env-file", "/run/server.env"
+            ],
+            [
+                "migrate",
+                "--phase", "contract",
+                "--release-manifest", "/run/release.json",
+                "--env-file", "/run/server.env",
+                "--evidence", "/run/contract-evidence.json",
+                "--dry-run"
+            ]
+        ];
 
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, expand.Phase);
-        Assert.True(expand.DryRun);
-        Assert.Equal("/run/release.json", expand.ReleaseManifestPath);
-        Assert.Equal(OnlineSchemaMigrationPhase.Backfill, backfill.Phase);
-        Assert.Equal("20260712-post-example-backfill", backfill.MigrationId);
-        Assert.Equal(OnlineSchemaMigrationPhase.Contract, contractDryRun.Phase);
-        Assert.False(contractDryRun.ConfirmDestructive);
+        // Keep the historical test identity and exact old intents as refusal
+        // controls; only the current Server parser is callable after retirement.
+        foreach (string[] invocation in retiredInvocations)
+        {
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+                ServerCommandLine.Parse(invocation));
+            Assert.Equal("server_command_unknown", error.Message);
+        }
+        ServerCommand serve = ServerCommandLine.Parse(["serve", "--urls", "http://127.0.0.1:5000"]);
+        Assert.Equal(ServerCommandKind.Serve, serve.Kind);
+        Assert.Equal(new[] { "--urls", "http://127.0.0.1:5000" }, serve.HostArguments);
     }
 
     [Fact]
     public void CommandLine_RequiresExplicitConfirmationForMutatingContract()
     {
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
-            OnlineSchemaMigrationCommandLine.Parse(
+            ServerCommandLine.Parse(
             [
                 "migrate",
                 "--phase", "contract",
                 "--evidence", "/run/contract-evidence.json"
             ]));
 
-        Assert.Equal("schema_contract_evidence_and_confirmation_required", exception.Message);
+        Assert.Equal("server_command_unknown", exception.Message);
+        InvalidOperationException confirmed = Assert.Throws<InvalidOperationException>(() =>
+            ServerCommandLine.Parse(
+            [
+                "migrate", "--phase", "contract", "--evidence", "/run/contract-evidence.json",
+                "--confirm-destructive"
+            ]));
+        Assert.Equal("server_command_unknown", confirmed.Message);
     }
 
     [Fact]
     public void ContractGate_RequiresNAndNMinusOneWindowAndOperationalEvidence()
     {
-        OnlineSchemaMigrationMetadata metadata = CreateMetadata(
+        OfflineMigrationClassificationFact metadata = CreateMetadata(
             "20260701-post-example-contract",
-            OnlineSchemaMigrationPhase.Contract,
+            OfflineMigrationPhase.Contract,
             destructive: true) with
         {
-            ContractAfterCoordinate = Coordinate("20260710-contract-fence"),
+            ContractAfterFence = Coordinate("20260710-contract-fence"),
             MinimumRetentionWindow = TimeSpan.FromDays(7),
             RequiresExclusiveMode = true,
-            RollbackMode = OnlineSchemaMigrationRollbackMode.BackupRestore
+            RollbackMode = OfflineMigrationHistoricalRollbackMode.BackupRestore
         };
         DateTimeOffset now = DateTimeOffset.Parse("2026-07-20T00:00:00Z");
-        var incompleteEvidence = new OnlineSchemaContractEvidence(
-            CurrentReleaseUsesOldSchema: true,
-            PreviousRollbackReleaseUsesOldSchema: true,
-            BackfillComplete: false,
-            BackfillVerified: false,
-            ObservationStartedAtUtc: now.AddDays(-1),
-            BackupRestoreVerifiedAtUtc: null,
-            SlotSwitchInProgress: true,
-            DestructiveChangeConfirmed: false,
-            RollbackManifestSealed: false,
-            OldWritesDisabled: false,
-            ExclusiveModeEnabled: false);
+        var incompleteEvidence = new
+        {
+            CurrentReleaseUsesOldSchema = true,
+            PreviousRollbackReleaseUsesOldSchema = true,
+            BackfillComplete = false,
+            BackfillVerified = false,
+            ObservationStartedAtUtc = now.AddDays(-1),
+            BackupRestoreVerifiedAtUtc = (DateTimeOffset?)null,
+            SlotSwitchInProgress = true,
+            DestructiveChangeConfirmed = false,
+            RollbackManifestSealed = false,
+            OldWritesDisabled = false,
+            ExclusiveModeEnabled = false
+        };
 
-        IReadOnlyList<OnlineSchemaCompatibilityIssue> issues = OnlineSchemaContractGate.Evaluate(
+        OnlineSchemaMigrationCompatibilityTests.AssertHistoricalBytesRejected(JsonSerializer.SerializeToUtf8Bytes(new
+        {
             metadata,
             incompleteEvidence,
-            Release("20260709000000-111111111111"),
-            Release("20260708000000-222222222222"),
+            currentRelease = Release("20260709000000-111111111111").Value,
+            previousRelease = Release("20260708000000-222222222222").Value,
             now,
-            TimeSpan.FromHours(24));
-
-        Assert.Contains(issues, issue => issue.Code == "schema_contract_release_window_open");
-        Assert.Contains(issues, issue => issue.Code == "schema_contract_backfill_incomplete");
-        Assert.Contains(issues, issue => issue.Code == "schema_contract_slot_switch_in_progress");
-        Assert.Contains(issues, issue => issue.Code == "schema_contract_backup_restore_stale");
-        Assert.Contains(issues, issue => issue.Code == "schema_contract_confirmation_missing");
+            maximumBackupAge = TimeSpan.FromHours(24)
+        }));
     }
 
     [Fact]
@@ -558,16 +565,16 @@ public sealed class OnlineSchemaMigrationPolicyTests
             File.WriteAllText(
                 path,
                 "export ConnectionStrings__DefaultConnection='Host=db;Password=$(not-executed)'\n"
-                + "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=20260719000000-bbbbbbbbbbbb\n");
+                + "SchemaMigration__CurrentReceipt__Path='/run/current-receipt.json'\n");
 
-            IReadOnlyDictionary<string, string?> values = OnlineSchemaMigrationEnvironmentFile.Read(path);
+            IReadOnlyDictionary<string, string?> values = ServerCommandEnvironmentFile.Read(path);
 
             Assert.Equal(
                 "Host=db;Password=$(not-executed)",
                 values["ConnectionStrings:DefaultConnection"]);
             Assert.Equal(
-                "20260719000000-bbbbbbbbbbbb",
-                values["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"]);
+                "/run/current-receipt.json",
+                values["SchemaMigration:CurrentReceipt:Path"]);
         }
         finally
         {
@@ -593,19 +600,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
                   }
                 }
                 """);
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["FSUSBLOG_RELEASE_MANIFEST_PATH"] = path,
-                    ["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"] = "20260719000000-bbbbbbbbbbbb"
-                })
-                .Build();
-            var provider = new OnlineSchemaReleaseManifestProvider(configuration);
-
-            OnlineSchemaReleaseManifest manifest = provider.Load("20260720000000-aaaaaaaaaaaa");
-
-            Assert.Equal("20260719000000-bbbbbbbbbbbb", manifest.PreviousRollbackReleaseId.Value);
-            Assert.Throws<InvalidOperationException>(() => provider.Load("20260721000000-cccccccccccc"));
+            // Exact historical bytes cannot authorize current-only startup.
+            OnlineSchemaMigrationCompatibilityTests.AssertHistoricalBytesRejected(File.ReadAllBytes(path));
+            Assert.Equal("20260719000000-bbbbbbbbbbbb", Release("20260719000000-bbbbbbbbbbbb").Value);
+            Assert.NotEqual(Release("20260720000000-aaaaaaaaaaaa"), Release("20260721000000-cccccccccccc"));
         }
         finally
         {
@@ -613,26 +611,71 @@ public sealed class OnlineSchemaMigrationPolicyTests
         }
     }
 
-    private static OnlineSchemaMigrationMetadata CreateMetadata(
+    [Theory]
+    [InlineData("phase")]
+    [InlineData("rollback")]
+    [InlineData("lock-risk")]
+    [InlineData("default-fence")]
+    [InlineData("recorded-release")]
+    [InlineData("missing-validators")]
+    [InlineData("identity")]
+    public void HistoricalClassification_RejectsUnknownOrCorruptRecordedFields(string field)
+    {
+        OfflineMigrationClassificationFact valid = OfflineMigrationClassificationFacts.All.Values.First();
+        var positive = new Dictionary<string, OfflineMigrationClassificationFact> { [valid.MigrationId] = valid };
+        Assert.True(OfflineMigrationClassificationFactValidator.Validate(positive).Valid);
+        OfflineMigrationClassificationFact invalid = field switch
+        {
+            "phase" => valid with { Phase = (OfflineMigrationPhase)99 },
+            "rollback" => valid with { RollbackMode = (OfflineMigrationHistoricalRollbackMode)99 },
+            "lock-risk" => valid with { EstimatedLockRisk = (OfflineMigrationHistoricalLockRisk)99 },
+            "default-fence" => valid with { MinimumHistoricalFence = default },
+            "recorded-release" => valid with
+            {
+                IntroducedAtFence = HistoricalMigrationFence.FromRecordedValue(
+                    Release("20260720000000-aaaaaaaaaaaa").Value,
+                    Release("20260720000000-aaaaaaaaaaaa").Value)
+            },
+            "missing-validators" => valid with { Validators = [] },
+            "identity" => valid with { MigrationId = "different-recorded-id" },
+            _ => throw new ArgumentException("Unknown corruption control.", nameof(field))
+        };
+        var corrupted = new Dictionary<string, OfflineMigrationClassificationFact> { [valid.MigrationId] = invalid };
+
+        Assert.False(OfflineMigrationClassificationFactValidator.Validate(corrupted).Valid);
+    }
+
+    [Fact]
+    public void HistoricalClassification_CatalogAndValidatorCollectionsAreDetachedReadOnly()
+    {
+        OfflineMigrationClassificationFact valid = OfflineMigrationClassificationFacts.All.Values.First();
+        var validators = Assert.IsAssignableFrom<IList<string>>(valid.Validators);
+        Assert.True(validators.IsReadOnly);
+        Assert.Throws<NotSupportedException>(() => validators[0] = "forged-validator");
+        Assert.True(OfflineMigrationClassificationFactValidator.Validate(
+            new Dictionary<string, OfflineMigrationClassificationFact> { [valid.MigrationId] = valid }).Valid);
+    }
+
+    private static OfflineMigrationClassificationFact CreateMetadata(
         string migrationId,
-        OnlineSchemaMigrationPhase phase,
+        OfflineMigrationPhase phase,
         bool destructive)
         => new(
             migrationId,
             phase,
-            new OnlineSchemaCompatibilityWindow(Coordinate("20260701-release"), Coordinate("20260731-release")),
+            Coordinate("20260701-release"), Coordinate("20260731-release"),
             RequiresExclusiveMode: false,
             Destructive: destructive,
             RollbackMode: destructive
-                ? OnlineSchemaMigrationRollbackMode.BackupRestore
-                : phase == OnlineSchemaMigrationPhase.Backfill
-                    ? OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint
-                    : OnlineSchemaMigrationRollbackMode.CompatibleCode,
-            EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
-            BatchSize: phase == OnlineSchemaMigrationPhase.Backfill ? 100 : null,
-            ResumeTokenName: phase == OnlineSchemaMigrationPhase.Backfill ? "last_id" : null,
-            IntroducedAtCoordinate: Coordinate("20260701-release"),
-            ContractAfterCoordinate: phase == OnlineSchemaMigrationPhase.Contract ? Coordinate("20260710-contract-fence") : null,
-            MinimumRetentionWindow: phase == OnlineSchemaMigrationPhase.Contract ? TimeSpan.FromDays(7) : TimeSpan.Zero,
+                ? OfflineMigrationHistoricalRollbackMode.BackupRestore
+                : phase == OfflineMigrationPhase.Backfill
+                    ? OfflineMigrationHistoricalRollbackMode.ResumeFromCheckpoint
+                    : OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+            EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+            BatchSize: phase == OfflineMigrationPhase.Backfill ? 100 : null,
+            ResumeTokenName: phase == OfflineMigrationPhase.Backfill ? "last_id" : null,
+            IntroducedAtFence: Coordinate("20260701-release"),
+            ContractAfterFence: phase == OfflineMigrationPhase.Contract ? Coordinate("20260710-contract-fence") : null,
+            MinimumRetentionWindow: phase == OfflineMigrationPhase.Contract ? TimeSpan.FromDays(7) : TimeSpan.Zero,
             Validators: ["test-validator"]);
 }

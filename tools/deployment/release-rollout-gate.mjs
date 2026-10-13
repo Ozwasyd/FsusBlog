@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { validateRolloutState } from './release-rollout-lib.mjs';
 
 const schema = 'fsusblog.release-rollout-gate.v1';
 
@@ -229,10 +230,8 @@ function targetHealth(options, errors)
     const traffic = readJson(requiredPath(options, 'traffic-checkpoint'));
     const runtime = slotStatus.slot ?? slotStatus;
     const target = rollout.target ?? {};
-    if (rollout.schema !== 'fsusblog.release-rollout-state.v1')
-    {
-        errors.push('target health rollout state schema is invalid');
-    }
+    try { validateRolloutState(rollout); }
+    catch (error) { errors.push(`target health rollout state is invalid: ${error.message}`); }
     if (runtime.exists !== true || runtime.running !== true || runtime.identityMatchesSlot !== true || runtime.loopbackOnly !== true)
     {
         errors.push('target health runtime identity/binding is invalid');

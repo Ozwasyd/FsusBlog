@@ -19,7 +19,7 @@ const artifactNames = [
   'faultInjection'
 ];
 const auxiliaryNames = [
-    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+    'releaseManifest', 'backupRestoreGate', 'currentSchemaAdmission', 'candidateReadiness',
     'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm', 'candidateSmoke',
     'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
     'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
@@ -53,7 +53,7 @@ function createBundleFixture(t, name) {
   const stages = ROLLOUT_STAGES.map((stage, index) => {
     const file = path.join(stageDirectory, `${String(index).padStart(2, '0')}-${stage}.json`)
     writeJson(file, {
-      schema: 'fsusblog.release-rollout-stage-evidence.v1',
+      schema: 'fsusblog.release-rollout-stage-evidence.v2',
       rolloutId: 'deploy-20260711-bundle',
       stage,
       status: 'ok'
@@ -105,7 +105,7 @@ function createBundleFixture(t, name) {
   }
   const finalFile = path.join(evidenceRoot, 'release-rollout.json')
   const final = {
-    schema: 'fsusblog.release-rollout-evidence.v1',
+    schema: 'fsusblog.release-rollout-evidence.v2',
     status: 'pass',
     rolloutId: 'deploy-20260711-bundle',
     stages,

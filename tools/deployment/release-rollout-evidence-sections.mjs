@@ -1,4 +1,4 @@
-import { validateAuxiliaryEvidence } from './release-rollout-auxiliary-evidence-contract.mjs'
+import { validateAuxiliaryEvidence, validateCurrentSchemaStageOutput } from './release-rollout-auxiliary-evidence-contract.mjs'
 import {
   REQUIRED_AUXILIARY_EVIDENCE,
   REQUIRED_FINAL_ARTIFACTS,
@@ -48,6 +48,7 @@ function validateStageAttempts(stage, expectedStage, evidence, errors, readers)
         continue
       }
       const parsed = readers.readJson(attempt.evidence.path)
+      validateCurrentSchemaStageOutput(parsed, evidence, errors, readers)
       if (parsed.schema !== STAGE_SCHEMA
         || parsed.rolloutId !== evidence.rolloutId
         || parsed.stage !== expectedStage
@@ -90,6 +91,7 @@ export function validateRolloutStages(evidence, errors, readers)
         continue
       }
       const parsed = readers.readJson(metadata.path)
+      validateCurrentSchemaStageOutput(parsed, evidence, errors, readers)
       if (parsed.schema !== STAGE_SCHEMA || parsed.rolloutId !== evidence.rolloutId
         || parsed.stage !== expectedStage || parsed.status !== 'ok')
       {
@@ -203,6 +205,10 @@ export function validateRolloutAuxiliary(evidence, errors, readers, now)
       if (current.sha256 !== metadata.sha256 || current.bytes !== metadata.bytes)
       {
         errors.push(`auxiliary evidence changed after seal: ${name}`)
+      }
+      if (name === 'releaseManifest' && current.sha256 !== `sha256:${evidence.manifestSha256}`)
+      {
+        errors.push('releaseManifest: complete manifest bytes differ from durable rollout binding')
       }
       validateAuxiliaryEvidence(name, readers.readJson(metadata.path), evidence, errors, now)
     }

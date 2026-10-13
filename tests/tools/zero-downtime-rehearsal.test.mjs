@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 // eslint-disable-next-line import-x/order
 import { spawn, spawnSync } from 'node:child_process';
 
@@ -11,6 +12,10 @@ import { fileURLToPath } from 'node:url';
 const {behaviorTest, concurrencyHarnessId} = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const {FAULT_CASES, HOST_INTERRUPTION_STAGES, ROLLOUT_STAGES, materializeFaultPlan, resolveRehearsalPlan} = await import(new URL('../../tools/deployment/zero-downtime-rehearsal-plan.mjs', import.meta.url));
 import { boundedSemanticScale } from './support/timing-policy.mjs';
+import { createReleaseManifest } from '../../tools/release/release-manifest.mjs';
+import { createEmptySlotState, recordSlotStart, setActiveSlot, writeSlotStateAtomic } from '../../tools/deployment/slot-lib.mjs';
+import { completeRollout, readRolloutState, writeRolloutStateAtomic } from '../../tools/deployment/release-rollout-lib.mjs';
+import { createReleaseRolloutEvidenceFixture } from './support/release-rollout-evidence-fixture.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const orchestratorSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal.sh');
@@ -197,144 +202,534 @@ if (runsFixtureShard('base'))
 
 if (runsFixtureShard('normal'))
 {
-    behaviorTest('deployment-blue-green-runtime-role', 'positive', 'recording subprocess fixture proves normal order, nested probes and qualification binding', async (t) =>
+    behaviorTest('deployment-blue-green-runtime-role', 'positive', 'current component subprocess retains fresh admission and all original release evidence', async t =>
     {
-        const fixture = createFixture(t);
-        const result = await runRehearsal(fixture, 'normal');
+        const fixture = createCurrentFixture(t);
+        const result = await runCurrentFixture(fixture, 'normal', 'current-normal');
         assert.equal(result.status, 0, result.stderr);
+        const report = currentSummary(fixture, 'current-normal');
+        assert.equal(report.status, 'pass');
+        assert.equal(report.scope, 'current-release-consumption');
+        assert.equal(Object.hasOwn(report, 'qualificationEligible'), false);
+        assert.equal(report.releaseEvidence.verification.status, 'pass');
+        const evidence = readJson(report.releaseEvidence.path);
+        assert.equal(evidence.stages.length, 15);
+        assert.equal(Object.keys(evidence.artifacts).length, 6);
+        assert.equal(Object.keys(evidence.auxiliary).length, 24);
         const records = readRecords(fixture.log);
-        assertOrdered(records, [
-            'fault-matrix',
-            'topology:up',
-            'release:qualification',
-            'worker-drill',
-            'topology:down',
-            'topology:up',
-            'release:deploy',
-            'worker-reconciliation:qualification',
-            'topology:down'
-        ]);
-        for (const probe of ['asset', 'notification', 'resource', 'worker-reconciliation-normal'])
+        assert.deepEqual(records.map(item => item.kind),
+            ['create', 'start', 'inspect', 'rm', 'create', 'start', 'inspect', 'rm', 'release']);
+        for (const created of records.filter(item => item.kind === 'create'))
         {
-            assert.ok(records.some(item => item.kind === `probe:${probe}`), `missing real child probe ${probe}`);
+            for (const required of ['current-schema-check', '--candidate-source-revision', '--receipt-sha256', '--network'])
+                assert.ok(created.args.includes(required));
+            assert.ok(created.args.some(item => item.startsWith('type=bind,source=') && item.endsWith(',readonly')));
+            assert.equal(created.args.includes('--user'), false);
         }
-        assert.ok(records.filter(item => item.kind === 'observer-service').length >= 2,
-            'qualification and fresh normal paths must each start the repository observer service');
-        const summary = readSummary(fixture, 'normal');
-        assert.equal(summary.status, 'pass');
-        assert.equal(summary.modes[0].checks.find(item => item.name === 'worker-qualification-deploy').status, 'pass');
+        assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        assert.equal(readRolloutState(fixture.raw.rollout.stateFile).status, 'completed');
+        assert.equal(readJson(fixture.raw.runtime.slotState).activeReleaseId, fixture.manifests.target.releaseId);
+        assert.ok(fs.statSync(report.commands.find(item => item.name === 'current-release').stdout.path).size > 1024 * 1024);
+        assert.doesNotMatch(records.flatMap(item => item.args).join('\n'), /expand|--rollback|FsusBlog[.]Migration/u);
     });
 }
 
 if (runsFixtureShard('explicit-rollback'))
 {
-    test('explicit rollback is a second real rollout and ends Green to Blue', async (t) =>
+    test('explicit image rollback is retired before current native commands or state mutation', t =>
     {
-        const fixture = createFixture(t);
-        const result = await runRehearsal(fixture, 'explicit-rollback');
-        assert.equal(result.status, 0, result.stderr);
-        const records = readRecords(fixture.log);
-        const rollback = records.find(item => item.kind === 'release:rollback');
-        assert.ok(rollback);
-        assert.ok(rollback.args.includes('--rollback'));
-        const runRoot = onlyRunRoot(fixture);
-        const slots = readJson(path.join(runRoot, 'modes/explicit-rollback/states/slots.json'));
-        assert.equal(slots.activeSlot, 'blue');
-        const evidence = readJson(path.join(runRoot, 'modes/explicit-rollback/evidence/rehearsal-mode.json'));
-        assert.equal(evidence.status, 'pass');
-        assert.equal(evidence.checks.find(item => item.name === 'rollback-rollout').status, 'pass');
-        assert.equal(evidence.checks.find(item => item.name === 'worker-qualification-rollback').status, 'pass');
+        const fixture = createCurrentFixture(t);
+        const before = fs.readFileSync(fixture.raw.runtime.slotState);
+        const result = spawnSync('bash', [orchestratorSource, '--plan', fixture.plan, '--mode', 'explicit-rollback'], { encoding: 'utf8' });
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /image rollback.*retired/u);
+        assert.deepEqual(fs.readFileSync(fixture.raw.runtime.slotState), before);
+        assert.equal(fs.existsSync(fixture.log), false);
+        assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
     });
 }
 
 if (runsFixtureShard('post-switch-rollback'))
 {
-    test('post-switch mode requires real automatic rollback cases and a fresh success control', async (t) =>
+    test('post-switch image rollback cannot substitute for a current forward-only release', async t =>
     {
-        const fixture = createFixture(t, { delayedSetsidMs: 10_500, delayFirstSetsidOnly: true });
-        const result = await runRehearsal(fixture, 'post-switch-rollback');
-        assert.equal(result.status, 0, result.stderr);
-        const runRoot = onlyRunRoot(fixture);
-        const fault = readJson(path.join(runRoot, 'modes/post-switch-rollback/evidence/fault-matrix.json'));
-        for (const name of ['active-fence-failure', 'public-probe-failure'])
-        {
-            const item = fault.cases.find(candidate => candidate.case === name);
-            assert.equal(item.after.rolloutState.status, 'rolled_back');
-            assert.equal(item.after.rolloutState.recoveries.at(-1).action, 'rollback-gateway-to-source');
-        }
-        const modeEvidence = readJson(path.join(runRoot, 'modes/post-switch-rollback/evidence/rehearsal-mode.json'));
-        assert.equal(modeEvidence.checks.find(item => item.name === 'fault-matrix').status, 'pass');
-        assert.equal(modeEvidence.checks.find(item => item.name === 'deploy-rollout').status, 'pass');
+        const fixture = createCurrentFixture(t);
+        const result = spawnSync('bash', [orchestratorSource, '--plan', fixture.plan, '--mode', 'post-switch-rollback'], { encoding: 'utf8' });
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /image rollback.*retired/u);
+        assert.equal(fs.existsSync(fixture.log), false);
+        const current = await runCurrentFixture(fixture, 'normal', 'forward-control');
+        assert.equal(current.status, 0, current.stderr);
+        assert.equal(readRolloutState(fixture.raw.rollout.stateFile).kind, 'deploy');
+        assert.deepEqual(readRolloutState(fixture.raw.rollout.stateFile).recoveries, []);
     });
 }
 
 if (runsFixtureShard('sigkill-resume'))
 {
     behaviorTest('deployment-blue-green-runtime-role', 'concurrency', {
-        title: 'SIGKILL mode kills an isolated process group, adopts durable state and invokes --resume',
+        title: 'actual child SIGKILL retains current durable state and explicit resume performs fresh admission',
         concurrencyHarness: concurrencyHarnessId
-    }, async (t) =>
+    }, async t =>
     {
-        const fixture = createFixture(t, { delayedSetsidMs: 75 });
-        const result = await runRehearsal(fixture, 'sigkill-resume');
-        assert.equal(result.status, 0, result.stderr);
+        const fixture = createCurrentFixture(t);
+        const interrupted = await runCurrentFixture(fixture, 'normal', 'interrupted-current', { FSUSBLOG_CURRENT_FIXTURE_KILL: '1' });
+        assert.notEqual(interrupted.status, 0);
+        const failed = currentSummary(fixture, 'interrupted-current');
+        assert.equal(failed.status, 'fail');
+        assert.equal(failed.commands.find(item => item.name === 'current-release').signal, 'SIGKILL');
+        assert.equal(readRolloutState(fixture.raw.rollout.stateFile).status, 'running');
+        const resumed = await runCurrentFixture(fixture, 'resume', 'resumed-current');
+        assert.equal(resumed.status, 0, resumed.stderr);
         const records = readRecords(fixture.log);
-        const resumes = records.filter(item => item.kind === 'release:resume');
-        assert.equal(resumes.length, HOST_INTERRUPTION_STAGES.length);
-        assert.ok(resumes.every(item => item.args.includes('--resume')));
-        assert.ok(records.filter(item => item.kind === 'observer-service').length >= HOST_INTERRUPTION_STAGES.length,
-            'each interruption path must own an observer service lifecycle');
-        const runRoot = onlyRunRoot(fixture);
-        const signal = readJson(path.join(runRoot, 'modes/sigkill-resume/evidence/sigkill-resume.json'));
-        assert.equal(signal.schema, 'fsusblog.zero-downtime-rehearsal-sigkill-matrix.v1');
-        assert.deepEqual(signal.stages, [...HOST_INTERRUPTION_STAGES]);
-        assert.deepEqual(signal.entries.map(item => item.stage), [...HOST_INTERRUPTION_STAGES]);
-        assert.equal(new Set(signal.entries.map(item => item.rolloutId)).size, HOST_INTERRUPTION_STAGES.length);
-        for (const entry of signal.entries)
-        {
-            const child = readJson(entry.signalEvidence.path);
-            assert.match(child.stageHold.sha256, /^sha256:[0-9a-f]{64}$/u);
-            assert.equal(readJson(child.stageHold.path).stage, entry.stage);
-        }
-        for (const stage of HOST_INTERRUPTION_STAGES)
-        {
-            const state = readJson(path.join(runRoot, `modes/sigkill-resume/interruptions/${stage}/states/deploy-rollout.json`));
-            assert.equal(state.status, 'completed');
-            assert.ok(state.recoveries.some(item => item.status === 'ok'));
-        }
-        const journal = fs.readFileSync(path.join(runRoot, 'evidence/commands.tsv'), 'utf8');
-        for (const stage of HOST_INTERRUPTION_STAGES)
-        {
-            assert.match(journal, new RegExp(`sigkill-${stage}-initial-rollout-exit\\t137`, 'u'));
-        }
-        assert.equal(records.filter(item => item.kind === 'probe:asset').length, 4);
-        assert.equal(records.filter(item => item.kind === 'probe:notification').length, 4);
-        assert.equal(records.filter(item => item.kind === 'probe:resource').length, 4);
+        assert.equal(records.filter(item => item.kind === 'start').length, 4);
+        assert.ok(records.filter(item => item.kind === 'release').at(-1).args.includes('--resume'));
+        assert.equal(currentSummary(fixture, 'resumed-current').releaseEvidence.verification.status, 'pass');
+        assert.equal(readRolloutState(fixture.raw.rollout.stateFile).status, 'completed');
+        assert.deepEqual(fs.readdirSync(fixture.containers), []);
     });
 }
 
 if (runsFixtureShard('all'))
 {
     behaviorTest('deployment-blue-green-runtime-role', 'negative', {
-        title: 'all mode aggregates a failure and continues into later isolated modes',
+        title: 'a failed current invocation is retained and a separately explicit later run proceeds without legacy modes',
         invariantIds: ['deployment-mode-failure-continuation']
-    }, async (t) =>
+    }, async t =>
     {
-    // The dedicated mode shards own the full timing/lifecycle fixtures. This
-    // fresh fixture replaces only their mode bodies while retaining the real
-    // all-mode selection, continuation loop and summary aggregation entry point.
-        const fixture = createFixture(t, { continuationOnly: true });
-        const result = await runRehearsal(fixture, 'all', { FSUSBLOG_FIXTURE_FAIL_NORMAL: '1' });
-        assert.notEqual(result.status, 0);
-        const records = readRecords(fixture.log);
-        assert.ok(records.some(item => item.kind === 'release:rollback'), 'explicit rollback mode did not continue');
-        assert.ok(records.some(item => item.kind === 'release:resume'), 'SIGKILL resume mode did not continue');
-        const runRoot = onlyRunRoot(fixture);
-        const summary = readJson(path.join(runRoot, 'evidence/rehearsal-summary.json'));
-        assert.equal(summary.status, 'fail');
-        assert.ok(summary.errors.length > 0);
-        assert.equal(new Set(summary.modes.map(item => item.mode)).size, 4);
+        const fixture = createCurrentFixture(t);
+        const failed = await runCurrentFixture(fixture, 'normal', 'rejected-current', { FSUSBLOG_CURRENT_FIXTURE_BAD_OUTPUT: '1' });
+        assert.notEqual(failed.status, 0);
+        assert.equal(currentSummary(fixture, 'rejected-current').status, 'fail');
+        assert.equal(readRecords(fixture.log).some(item => item.kind === 'release'), false);
+        assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+        assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        const later = await runCurrentFixture(fixture, 'normal', 'later-explicit-current');
+        assert.equal(later.status, 0, later.stderr);
+        assert.equal(currentSummary(fixture, 'later-explicit-current').status, 'pass');
+        assert.equal(currentSummary(fixture, 'rejected-current').status, 'fail');
+        const retired = spawnSync('bash', [orchestratorSource, '--plan', fixture.plan, '--mode', 'all'], { encoding: 'utf8' });
+        assert.notEqual(retired.status, 0);
+        assert.match(retired.stderr, /retired/u);
     });
+}
+
+if (runsFixtureShard('base'))
+{
+    test('current plan rejects legacy, missing and drifted whole-byte inputs before mutable work', async t =>
+    {
+        const { resolveCurrentRehearsalPlan } = await import('../../tools/deployment/zero-downtime-rehearsal-plan.mjs');
+        const fixture = createCurrentFixture(t);
+        const context = { planFile: fixture.plan, repoRoot: fixture.root };
+        assert.equal((await resolveCurrentRehearsalPlan(fixture.raw, context)).schema, 'fsusblog.zero-downtime-rehearsal-resolved-plan.v2');
+        for (const [mutate, expected] of [
+            [raw => { raw.schema = 'fsusblog.zero-downtime-rehearsal-plan.v1'; }, /schema/u],
+            [raw => { raw.environment = 'Production'; }, /non-production/u],
+            [raw => { raw.source.sha256 = '9'.repeat(64); }, /SHA mismatch/u],
+            [raw => { raw.target.sha256 = null; }, /SHA is invalid/u],
+            [raw => { raw.target.extra = true; }, /exact current contract/u],
+            [raw => { delete raw.evidenceInputs.workerLedger; }, /exact current contract/u],
+            [raw => { raw.currentSchema = {}; }, /exact current contract/u],
+            [raw => { raw.workRoot = path.join(fixture.root, '.tmp'); }, /dedicated child/u]
+        ])
+        {
+            const raw = structuredClone(fixture.raw); mutate(raw); writeJson(fixture.plan, raw);
+            await assert.rejects(resolveCurrentRehearsalPlan(raw, context), expected);
+        }
+        writeJson(fixture.plan, fixture.raw);
+        await assert.rejects(resolveCurrentRehearsalPlan({ ...fixture.raw, timeoutSeconds: 11 }, context), /bytes differ/u);
+        const receipt = fixture.manifests.target.currentSchema.receipt.reference;
+        const original = fs.readFileSync(receipt);
+        fs.appendFileSync(receipt, ' ');
+        await assert.rejects(resolveCurrentRehearsalPlan(fixture.raw, context), /whole-artifact SHA/u);
+        fs.writeFileSync(receipt, original);
+        fs.chmodSync(fixture.raw.envFile, 0o644);
+        await assert.rejects(resolveCurrentRehearsalPlan(fixture.raw, context), /0400 or 0600/u);
+        assert.equal(fs.existsSync(fixture.log), false);
+        assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+    });
+
+    test('current runner rejects plan drift and cleans an owned admission container after lost create response', async t =>
+    {
+        const { resolveCurrentRehearsalPlan, runCurrentRehearsal } = await import('../../tools/deployment/zero-downtime-rehearsal-plan.mjs');
+        const fixture = createCurrentFixture(t);
+        const resolved = await resolveCurrentRehearsalPlan(fixture.raw, { planFile: fixture.plan, repoRoot: fixture.root });
+        fs.appendFileSync(fixture.plan, ' ');
+        const drift = await runCurrentRehearsal(resolved, { mode: 'normal', runId: 'drift-current' });
+        assert.equal(drift.status, 'fail');
+        assert.match(drift.errors.join('\n'), /plan changed/u);
+        assert.equal(fs.existsSync(fixture.log), false);
+        writeJson(fixture.plan, fixture.raw);
+        const lost = await runCurrentFixture(fixture, 'normal', 'lost-create-current', { FSUSBLOG_CURRENT_FIXTURE_LOST_CREATE: '1' });
+        assert.notEqual(lost.status, 0);
+        const report = currentSummary(fixture, 'lost-create-current');
+        assert.equal(report.status, 'fail');
+        assert.ok(report.commands.some(item => item.name === 'source-create' && item.exitCode === 22));
+        assert.deepEqual(readRecords(fixture.log).map(item => item.kind), ['create', 'inspect', 'rm']);
+        assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+    });
+
+    test('current resume refuses legacy recovery and mismatched durable binding before native work', async t =>
+    {
+        const fixture = createCurrentFixture(t);
+        const state = readJson(fixture.fixtureState);
+        for (const mutate of [
+            value => { value.kind = 'rollback'; },
+            value => { value.manifestSha256 = 'f'.repeat(64); },
+            value => { value.candidateSourceRevision = 'f'.repeat(40); },
+            value => { value.currentSchema.actualSchemaDigest = 'f'.repeat(64); },
+            value => { value.recovery = { action: 'rollback-gateway-to-source' }; }
+        ])
+        {
+            const changed = structuredClone(state); mutate(changed);
+            writeJson(fixture.raw.rollout.stateFile, changed);
+            const before = fs.readFileSync(fixture.raw.rollout.stateFile);
+            const result = await runCurrentFixture(fixture, 'resume', 'refused-resume');
+            assert.notEqual(result.status, 0);
+            assert.deepEqual(fs.readFileSync(fixture.raw.rollout.stateFile), before);
+            assert.equal(fs.existsSync(fixture.log), false);
+        }
+    });
+
+    test('fresh target admission rejects each missing or mismatched Server binding before release, with a full positive control', async t =>
+    {
+        const fixture = createCurrentFixture(t);
+        const before = fs.readFileSync(fixture.raw.runtime.slotState);
+        for (const field of ['candidate', 'receipt', 'target', 'database', 'observation', 'status', 'extra'])
+        {
+            const result = await runCurrentFixture(fixture, 'normal', 'rejected-' + field, {
+                FSUSBLOG_CURRENT_FIXTURE_BAD_OUTPUT: field, FSUSBLOG_CURRENT_FIXTURE_BAD_ROLE: 'target'
+            });
+            assert.notEqual(result.status, 0, field);
+            const report = currentSummary(fixture, 'rejected-' + field);
+            assert.equal(report.status, 'fail');
+            assert.ok(report.commands.some(command => command.name === 'source-admission' && command.exitCode === 0));
+            assert.ok(report.commands.some(command => command.name === 'target-admission' && command.exitCode === 0));
+            assert.equal(report.commands.some(command => command.name === 'current-release'), false);
+            assert.deepEqual(fs.readFileSync(fixture.raw.runtime.slotState), before);
+            assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+            assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        }
+        const control = await runCurrentFixture(fixture, 'normal', 'all-bindings-control');
+        assert.equal(control.status, 0, control.stderr);
+        assert.equal(currentSummary(fixture, 'all-bindings-control').releaseEvidence.verification.status, 'pass');
+    });
+
+    test('complete current replay binds the caller rollout, both durable identities and the exact final file after a positive control', async t =>
+    {
+        const fixture = createCurrentFixture(t);
+        const slots = fs.readFileSync(fixture.raw.runtime.slotState);
+        const completed = readJson(fixture.completedState);
+        const actor = readJson(fixture.actorConfig);
+        const control = await runCurrentFixture(fixture, 'normal', 'complete-binding-control');
+        assert.equal(control.status, 0, control.stderr);
+        for (const [name, mutate] of [
+            ['source', state => { state.source.imageDigest = 'sha256:' + 'f'.repeat(64); }],
+            ['target', state => { state.target.imageDigest = 'sha256:' + 'f'.repeat(64); }],
+            ['path', state => { state.finalEvidencePath = actor.finalEvidence; }]
+        ])
+        {
+            fs.unlinkSync(fixture.raw.rollout.stateFile);
+            fs.writeFileSync(fixture.raw.runtime.slotState, slots);
+            const changed = structuredClone(completed); mutate(changed); writeJson(fixture.completedState, changed);
+            const result = await runCurrentFixture(fixture, 'normal', 'different-completed-' + name);
+            assert.notEqual(result.status, 0, name);
+            assert.match(currentSummary(fixture, 'different-completed-' + name).errors.join('\n'), /completed current evidence bindings differ/u);
+            assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        }
+        writeJson(fixture.completedState, completed);
+        fs.unlinkSync(fixture.raw.rollout.stateFile);
+        fs.writeFileSync(fixture.raw.runtime.slotState, slots);
+        const other = createReleaseRolloutEvidenceFixture({ manifest: fixture.manifests.target,
+            rolloutId: 'different-complete-rollout', source: completed.source, target: completed.target });
+        const directory = path.join(fixture.root, 'different-sealed-complete-evidence'); fs.mkdirSync(directory);
+        actor.finalEvidence = other.createFinalEvidence(directory).file;
+        writeJson(fixture.actorConfig, actor);
+        const different = await runCurrentFixture(fixture, 'normal', 'different-report-rollout');
+        assert.notEqual(different.status, 0);
+        assert.match(currentSummary(fixture, 'different-report-rollout').errors.join('\n'), /completed current evidence bindings differ/u);
+    });
+
+    test('native stderr stays in raw files while oversized typed create and admission stdout refuse without heap capture', async t =>
+    {
+        const fixture = createCurrentFixture(t);
+        for (const [name, flag, commandName] of [
+            ['create', 'FSUSBLOG_CURRENT_FIXTURE_LARGE_CREATE', 'source-create'],
+            ['admission', 'FSUSBLOG_CURRENT_FIXTURE_LARGE_ADMISSION', 'source-admission']
+        ])
+        {
+            const rejected = await runCurrentFixture(fixture, 'normal', 'large-typed-' + name, { [flag]: '1' });
+            assert.notEqual(rejected.status, 0);
+            const report = currentSummary(fixture, 'large-typed-' + name);
+            assert.equal(fs.statSync(report.commands.find(command => command.name === commandName).stdout.path).size, 2 * 1024 * 1024);
+            assert.equal(report.commands.some(command => command.name === 'current-release'), false);
+            assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+            assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        }
+        const control = await runCurrentFixture(fixture, 'normal', 'large-stderr-control', { FSUSBLOG_CURRENT_FIXTURE_STDERR: '1' });
+        assert.equal(control.status, 0, control.stderr);
+        const report = currentSummary(fixture, 'large-stderr-control');
+        assert.equal(fs.statSync(report.commands.find(command => command.name === 'source-create').stderr.path).size, 2 * 1024 * 1024);
+        for (const command of report.commands)
+        {
+            assert.equal(command.processGroup.postObservation, 'zero-members');
+            assert.equal(command.processGroup.zeroObservations, 2);
+            assert.equal(command.processGroup.authority.leaderPid, command.pid);
+            assert.match(command.processGroup.authority.leaderProcessStartIdentity, /^linux:[0-9a-f-]+:\d+$/u);
+        }
+    });
+
+    test('command deadline terminates actual owned TERM and KILL leaders and observes stable zero membership', async t =>
+    {
+        for (const kind of ['term', 'kill'])
+        {
+            const fixture = createCurrentFixture(t);
+            const result = await runCurrentFixture(fixture, 'normal', 'deadline-' + kind,
+                { FSUSBLOG_CURRENT_FIXTURE_HANG: kind });
+            assert.notEqual(result.status, 0, result.stderr);
+            const report = currentSummary(fixture, 'deadline-' + kind);
+            const command = report.commands.find(command => command.name === 'current-release');
+            assert.match(command.failure, /timed out/u);
+            assert.equal(command.processGroup.termination.terminated, true);
+            assert.equal(command.processGroup.termination.forced, kind === 'kill');
+            assert.equal(command.processGroup.zeroObservations, 2);
+            assert.equal(command.processGroup.postObservation, 'zero-members');
+            const pid = Number(fs.readFileSync(path.join(fixture.root, 'owned-command.pid'), 'utf8'));
+            assert.equal(command.pid, pid);
+            assert.equal(fs.existsSync('/proc/' + pid), false);
+            assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+            assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        }
+    });
+
+    test('kernel group collector refuses reused leader and unowned members instead of treating leader close as terminal', async t =>
+    {
+        const { observeCurrentCommandGroup } = await import('../../tools/deployment/zero-downtime-rehearsal-plan.mjs');
+        const procRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-group-kernel-fixture-'));
+        t.after(() => fs.rmSync(procRoot, { recursive: true, force: true }));
+        fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+        fs.writeFileSync(path.join(procRoot, 'sys/kernel/random/boot_id'), 'fixture-boot\n');
+        const writeProcess = (pid, start, token, group = 42) => {
+            const directory = path.join(procRoot, String(pid)); fs.mkdirSync(directory, { recursive: true });
+            const fields = Array(20).fill('0');
+            fields[0] = 'S'; fields[1] = '1'; fields[2] = String(group); fields[3] = '42'; fields[19] = String(start);
+            fs.writeFileSync(path.join(directory, 'stat'), String(pid) + ' (fixture) ' + fields.join(' '));
+            fs.writeFileSync(path.join(directory, 'environ'), 'FSUSBLOG_CURRENT_REHEARSAL_COMMAND_OWNER=' + token + '\0');
+        };
+        const authority = { schema: 'fsusblog.process-group-or-job-identity.v1', platform: 'linux', kind: 'process-group',
+            groupId: 42, leaderPid: 42, leaderProcessStartIdentity: 'linux:fixture-boot:100' };
+        writeProcess(42, 100, 'owned'); writeProcess(43, 200, 'owned');
+        const knownStarts = new Map();
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).identities.length, 2);
+        writeProcess(42, 101, 'owned');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).status, 'unverifiable');
+        writeProcess(42, 100, 'owned'); writeProcess(43, 200, 'foreign');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).status, 'unverifiable');
+        writeProcess(43, 201, 'owned');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).status, 'unverifiable');
+        fs.rmSync(path.join(procRoot, '42'), { recursive: true });
+        writeProcess(43, 200, 'owned');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).identities.length, 1);
+        fs.rmSync(path.join(procRoot, '43'), { recursive: true });
+        assert.deepEqual(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }), { status: 'verified', identities: [] });
+    });
+}
+
+/** Recording component actors only; never issued/native/provider/backup qualification. */
+function createCurrentFixture(t)
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-zdt-current-component-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const workRoot = path.join(root, '.tmp', 'rehearsal'), runtime = path.join(workRoot, 'runtime');
+    const bin = path.join(root, 'bin'), containers = path.join(root, 'containers');
+    for (const directory of [runtime, bin, containers, path.join(root, 'tools', 'deployment')])
+        fs.mkdirSync(directory, { recursive: true });
+    const log = path.join(root, 'recording.jsonl');
+    const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+    const tuple = {
+        target: { modelVersion: 'fixture-model.v1', extractorVersion: 'fixture-extractor.v1',
+            generatorVersion: 'fixture-generator.v1', sourceDigest: '2'.repeat(64), contentDigest: '3'.repeat(64) },
+        database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' },
+        actualSchemaDigest: '4'.repeat(64)
+    };
+    const manifests = {}, references = {};
+    for (const [role, character, date] of [['source', 'a', '20260710010101'], ['target', 'b', '20260711010101']])
+    {
+        const receipt = path.join(root, role + '-current-receipt.json');
+        writeJson(receipt, { format: 'fsusblog.current-schema-receipt.v1', status: 'verified-current', ...tuple });
+        const currentSchema = { receipt: { reference: receipt, sha256: sha(fs.readFileSync(receipt)) }, ...tuple };
+        const value = createReleaseManifest({
+            releaseId: date + '-' + character.repeat(12), commitSha: character.repeat(40),
+            imageRepository: 'ghcr.io/fsusblog/app', imageTag: 'ghcr.io/fsusblog/app:' + date + '-' + character.repeat(12),
+            imageDigest: 'sha256:' + character.repeat(64), registryDigestVerified: true,
+            createdAtUtc: '2026-07-' + date.slice(6, 8) + 'T01:01:01Z',
+            frontendManifestHash: 'sha256:' + '5'.repeat(64), wasmArtifactHash: 'sha256:' + '6'.repeat(64),
+            currentSchema, dotnetVersion: '10.0.100', nodeVersion: '24.16.0', dockerVersion: '29.0.0',
+            dockerfileDigest: 'sha256:' + '7'.repeat(64),
+            runtimeProfile: { id: 'throughput-musl', manifestDigest: 'sha256:' + '8'.repeat(64),
+                profileDigest: 'sha256:' + '9'.repeat(64), baseImageFamily: 'musl', targetRuntime: 'linux-musl-x64',
+                singleFile: true, readyToRun: false, tieredPgo: true, quickJitForLoops: true,
+                serverGc: true, nativeAot: false, threadPoolMode: 'runtime-default', topologyMode: 'smt-visible' }
+        });
+        const file = path.join(root, role + '-manifest.json');
+        writeJson(file, value); manifests[role] = value;
+        references[role] = { manifest: file, sha256: sha(fs.readFileSync(file)) };
+    }
+    const envFile = path.join(root, 'test.env'), adminHeaderFile = path.join(root, 'admin.header');
+    fs.writeFileSync(envFile, ['ASPNETCORE_ENVIRONMENT=Test', 'SITE_BASEURL=http://127.0.0.1:18080',
+        'EXTERNAL_DB_HOST=global-postgres', 'EXTERNAL_REDIS_HOST=global-redis', 'DB_NAME=fsusblog_rehearsal',
+        ...['POSTGRES', 'REDIS', 'OPENRESTY'].map(name => 'FSUSBLOG_REHEARSAL_' + name + '_IMAGE=fixture@sha256:' + 'c'.repeat(64))
+    ].join('\n') + '\n', { mode: 0o600 });
+    fs.writeFileSync(adminHeaderFile, 'Authorization: Bearer fixture-admin\n', { mode: 0o600 });
+    const evidenceInputs = {};
+    for (const key of ['backupRestore', 'productionBuildReceipt', 'trafficScenario', 'trafficBindingKey',
+        'notificationAuthStorageState', 'assetScenario', 'assetBrowserBindingKey', 'workerLedger',
+        'faultInjection', 'challengeKindTargetMap', 'perceptionReleaseTarget', 'perceptionPoolManifest'])
+    {
+        const file = path.join(root, key + '.json');
+        fs.writeFileSync(file, key.endsWith('Key') ? 'k'.repeat(32) : '{}\n', { mode: 0o600 });
+        evidenceInputs[key] = file;
+    }
+    const notificationResyncScenario = path.join(root, 'notification-resync.json');
+    writeJson(notificationResyncScenario, { schema: 'fsusblog.release-notification-resync-scenario.v1' });
+    const slots = createEmptySlotState('2026-07-11T00:00:00.000Z');
+    for (const [role, slot] of [['source', 'blue'], ['target', 'green']])
+        recordSlotStart(slots, { slot, releaseId: manifests[role].releaseId,
+            imageRef: manifests[role].imageRef, imageDigest: manifests[role].imageDigest, startedAt: '2026-07-11T00:01:00.000Z' });
+    setActiveSlot(slots, { slot: 'blue', kind: 'bootstrap', changedAt: '2026-07-11T00:02:00.000Z' });
+    const slotState = path.join(runtime, 'slots.json');
+    writeSlotStateAtomic(slotState, slots);
+    setActiveSlot(slots, { slot: 'green', kind: 'switch', changedAt: '2026-07-11T00:30:00.000Z' });
+    const targetSlots = path.join(root, 'completed-slots.json'); writeSlotStateAtomic(targetSlots, slots);
+    const rolloutId = 'current-component-release';
+    const evidenceFixture = createReleaseRolloutEvidenceFixture({
+        manifest: manifests.target, rolloutId,
+        source: { slot: 'blue', releaseId: manifests.source.releaseId, imageDigest: manifests.source.imageDigest, runtimeGeneration: 1 },
+        target: { slot: 'green', releaseId: manifests.target.releaseId, imageDigest: manifests.target.imageDigest, runtimeGeneration: 2 }
+    });
+    const fixtureDirectory = path.join(root, 'sealed-component-evidence'); fs.mkdirSync(fixtureDirectory);
+    const final = evidenceFixture.createFinalEvidence(fixtureDirectory);
+    const fixtureState = path.join(fixtureDirectory, 'state.json'), completedState = path.join(root, 'completed-state.json');
+    writeRolloutStateAtomic(completedState, completeRollout(readRolloutState(fixtureState), {
+        evidencePath: path.join(workRoot, 'evidence', rolloutId, 'evidence', 'release-rollout.json'),
+        completedAtUtc: '2026-07-11T00:30:00.000Z'
+    }));
+    const raw = {
+        schema: 'fsusblog.zero-downtime-rehearsal-plan.v2', environment: 'Test',
+        nonProductionOnly: true, acknowledgement: 'DESTROY_ISOLATED_LOCAL_REHEARSAL_ONLY', rehearsalId: 'fixture-current',
+        workRoot, publicUrl: 'http://127.0.0.1:18080/health/ready', controlOrigin: 'http://127.0.0.1:18080',
+        envFile, adminHeaderFile, ...references, runtime: { directory: runtime, slotState },
+        rollout: { id: rolloutId, stateFile: path.join(workRoot, 'state.json'),
+            evidenceRoot: path.join(workRoot, 'evidence'), assetStore: path.join(workRoot, 'assets'),
+            retentionState: path.join(workRoot, 'retention.json') },
+        evidenceInputs, notificationResyncScenario, perceptionPolicyVersion: 'fixture-policy.v1', timeoutSeconds: 10
+    };
+    const plan = path.join(root, 'current-plan.json'); writeJson(plan, raw);
+    const actorConfig = path.join(root, 'actors.json');
+    writeJson(actorConfig, { root, log, containers, manifests, raw, finalEvidence: final.file, fixtureState, completedState, targetSlots });
+    fs.writeFileSync(path.join(bin, 'docker'), '#!/usr/bin/env -S node --\n' + String.raw`
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const config = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_CURRENT_FIXTURE_CONFIG));
+const args = process.argv.slice(2), kind = args[0], field = key => args[args.indexOf(key) + 1];
+fs.appendFileSync(config.log, JSON.stringify({ kind, args }) + '\n');
+if (kind === 'create') {
+    const name = field('--name'), id = crypto.createHash('sha256').update(name).digest('hex');
+    const role = Object.keys(config.manifests).find(role => config.manifests[role].commitSha === field('--candidate-source-revision'));
+    if (!role || !args.includes(config.manifests[role].imageRef)) process.exit(40);
+    fs.writeFileSync(path.join(config.containers, name + '.json'), JSON.stringify({
+        Id: id, Name: '/' + name, Config: { Labels: { 'io.fsusblog.rehearsal.owner': name } }, role }));
+    if (process.env.FSUSBLOG_CURRENT_FIXTURE_STDERR === '1') process.stderr.write('e'.repeat(2 * 1024 * 1024));
+    if (process.env.FSUSBLOG_CURRENT_FIXTURE_LOST_CREATE === '1') process.exit(22);
+    process.stdout.write(process.env.FSUSBLOG_CURRENT_FIXTURE_LARGE_CREATE === '1' ? 'f'.repeat(2 * 1024 * 1024) : id + '\n');
+} else if (kind === 'start') {
+    const owned = fs.readdirSync(config.containers).map(name => JSON.parse(fs.readFileSync(path.join(config.containers, name))))
+        .find(value => value.Id === args.at(-1));
+    if (!owned) process.exit(41);
+    const manifest = config.manifests[owned.role];
+    const output = { status: 'verified-current', candidateSourceRevision: manifest.commitSha,
+        artifactSha256: manifest.currentSchema.receipt.sha256, target: manifest.currentSchema.target,
+        database: manifest.currentSchema.database, actualSchemaDigest: manifest.currentSchema.actualSchemaDigest };
+    const bad = process.env.FSUSBLOG_CURRENT_FIXTURE_BAD_OUTPUT;
+    if (!process.env.FSUSBLOG_CURRENT_FIXTURE_BAD_ROLE || process.env.FSUSBLOG_CURRENT_FIXTURE_BAD_ROLE === owned.role) {
+        if (bad === '1' || bad === 'candidate') output.candidateSourceRevision = 'f'.repeat(40);
+        else if (bad === 'receipt') output.artifactSha256 = 'f'.repeat(64);
+        else if (bad === 'target') output.target = { ...output.target, sourceDigest: 'f'.repeat(64) };
+        else if (bad === 'database') output.database = { ...output.database, databaseId: 'wrong-database' };
+        else if (bad === 'observation') output.actualSchemaDigest = 'f'.repeat(64);
+        else if (bad === 'status') delete output.status;
+        else if (bad === 'extra') output.approved = true;
+    }
+    process.stdout.write(process.env.FSUSBLOG_CURRENT_FIXTURE_LARGE_ADMISSION === '1' ? 'x'.repeat(2 * 1024 * 1024) : JSON.stringify(output) + '\n');
+} else if (kind === 'inspect') {
+    const value = JSON.parse(fs.readFileSync(path.join(config.containers, args.at(-1) + '.json')));
+    process.stdout.write(JSON.stringify({ Id: value.Id, Name: value.Name,
+        Owner: value.Config.Labels['io.fsusblog.rehearsal.owner'] }) + '\n');
+} else if (kind === 'rm') {
+    const name = fs.readdirSync(config.containers).find(name => JSON.parse(fs.readFileSync(path.join(config.containers, name))).Id === args.at(-1));
+    if (!name) process.exit(42);
+    fs.unlinkSync(path.join(config.containers, name));
+} else process.exit(43);
+`, { mode: 0o755 });
+    const releaseActor = path.join(root, 'release-actor.cjs');
+    fs.writeFileSync(releaseActor, String.raw`
+const fs = require('node:fs'), path = require('node:path');
+const config = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_CURRENT_FIXTURE_CONFIG));
+const args = process.argv.slice(2);
+fs.appendFileSync(config.log, JSON.stringify({ kind: 'release', args }) + '\n');
+if (process.env.FSUSBLOG_CURRENT_FIXTURE_HANG) {
+    fs.writeFileSync(path.join(config.root, 'owned-command.pid'), String(process.pid));
+    if (process.env.FSUSBLOG_CURRENT_FIXTURE_HANG === 'kill') process.on('SIGTERM', () => {});
+    setInterval(() => {}, 1000);
+} else if (process.env.FSUSBLOG_CURRENT_FIXTURE_KILL === '1') {
+    fs.copyFileSync(config.fixtureState, config.raw.rollout.stateFile);
+    process.kill(process.pid, 'SIGKILL');
+} else {
+    fs.copyFileSync(config.completedState, config.raw.rollout.stateFile);
+    fs.copyFileSync(config.targetSlots, config.raw.runtime.slotState);
+    const directory = path.join(config.raw.rollout.evidenceRoot, config.raw.rollout.id, 'evidence');
+    fs.mkdirSync(directory, { recursive: true });
+    fs.copyFileSync(config.finalEvidence, path.join(directory, 'release-rollout.json'));
+    process.stdout.write('r'.repeat(1024 * 1024 + 1));
+}
+`);
+    fs.writeFileSync(path.join(root, 'tools/deployment/release-rollout.sh'),
+        '#!/usr/bin/env bash\nexec ' + JSON.stringify(process.execPath) + ' -- ' + JSON.stringify(releaseActor) + ' "$@"\n', { mode: 0o755 });
+    return { root, plan, raw, manifests, log, bin, containers, actorConfig, fixtureState, completedState };
+}
+
+function runCurrentFixture(fixture, mode, runId, overrides = {})
+{
+    return new Promise((resolve, reject) =>
+    {
+        const child = spawn(process.execPath, [planToolSource, 'run-current', '--plan', fixture.plan,
+            '--repo-root', fixture.root, '--mode', mode, '--run-id', runId], {
+            cwd: fixture.root, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, PATH: fixture.bin + path.delimiter + process.env.PATH,
+                FSUSBLOG_CURRENT_FIXTURE_CONFIG: fixture.actorConfig, ...overrides }
+        });
+        activeRehearsalProcessGroups.add(child.pid);
+        let stdout = '', stderr = '';
+        child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
+        child.stdout.on('data', chunk => { stdout += chunk; });
+        child.stderr.on('data', chunk => { stderr += chunk; });
+        const timeout = setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 30_000);
+        child.once('error', error => { clearTimeout(timeout); activeRehearsalProcessGroups.delete(child.pid); reject(error); });
+        child.once('close', (status, signal) => {
+            clearTimeout(timeout); activeRehearsalProcessGroups.delete(child.pid);
+            const summary = path.join(fixture.raw.workRoot, fixture.raw.rehearsalId, runId, 'rehearsal-summary.json');
+            if (status !== 0 && fs.existsSync(summary)) {
+                const report = readJson(summary);
+                stderr += JSON.stringify(report.errors);
+            }
+            resolve({ status, signal, stdout, stderr });
+        });
+    });
+}
+
+function currentSummary(fixture, runId)
+{
+    return readJson(path.join(fixture.raw.workRoot, fixture.raw.rehearsalId, runId, 'rehearsal-summary.json'));
 }
 
 function createFixture(t, {

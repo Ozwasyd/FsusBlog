@@ -20,6 +20,7 @@ import {
     minimalContractBuildSchema,
     openApiProjectionPaths,
     runtimeReproduciblePathMapArgument,
+    validateCurrentSchemaCodeContractObservation,
     validateMinimalContractBuildReceipt as validateMinimalContractBuildReceiptValue
 } from './behavior-doc-minimal-contract-build-v3-contract.mjs';
 export {
@@ -581,7 +582,7 @@ export function runMinimalContractBuild({
                 const artifactBytes = fs.readFileSync(stagedOutput, 'utf8');
                 const artifactObservation = JSON.parse(artifactBytes);
                 if (artifactId === 'runtime-role-observation'
-          && (artifactObservation.schema !== 'fsusblog.runtime-role-observation.v2'
+          && (artifactObservation.schema !== 'fsusblog.runtime-role-observation.v3'
             || artifactObservation.deploymentAuthority?.authoritySchema
               !== deploymentObservation.authoritySchema
             || artifactObservation.deploymentAuthority?.authorityContentDigest
@@ -590,6 +591,10 @@ export function runMinimalContractBuild({
               !== deploymentObservation.observationDigest))
                 {
                     throw new Error('minimal contract runtime-role observation did not bind deployment authority');
+                }
+                if (artifactId === 'runtime-role-observation')
+                {
+                    validateCurrentSchemaCodeContractObservation(artifactObservation.currentSchemaContract);
                 }
                 const artifactDigestValue = digestPath(stagingRoot, declaration.cacheFile);
                 const projectDigestValue = artifactDigest(repositoryRoot, declaration.project);
@@ -642,7 +647,10 @@ export function runMinimalContractBuild({
                 effectiveComposeModelDigest: artifactObservation.deploymentAuthority?.effectiveCompose?.modelDigest,
                 deploymentAuthoritySchema: artifactObservation.deploymentAuthority?.authoritySchema,
                 deploymentAuthorityContentDigest: artifactObservation.deploymentAuthority?.authorityContentDigest,
-                deploymentObservationDigest: artifactObservation.deploymentAuthority?.observationDigest
+                deploymentObservationDigest: artifactObservation.deploymentAuthority?.observationDigest,
+                observationSchema: artifactObservation.schema,
+                evidenceStage: artifactObservation.currentSchemaContract.evidenceStage,
+                evidenceClass: artifactObservation.currentSchemaContract.evidenceClass
               }
                         : {})
                 };

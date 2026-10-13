@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const wrapper = path.join(root, 'tools/db/run-online-migrations.sh');
 
-test('wrapper forwards expand dry-run as an argv array and emits server machine JSON', (t) =>
+test('retired wrapper refuses expand dry-run before launching Server', (t) =>
 {
     const fixture = createFixture(t);
     const result = run(fixture, [
@@ -19,17 +19,10 @@ test('wrapper forwards expand dry-run as an argv array and emits server machine 
         '--dry-run'
     ]);
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout), [
-        'migrate',
-        '--phase', 'expand',
-        '--release-manifest', fixture.manifest,
-        '--env-file', fixture.envFile,
-        '--dry-run'
-    ]);
+    assertRetired(fixture, result);
 });
 
-test('wrapper requires a resume id for backfill and forwards it without evaluation', (t) =>
+test('retired wrapper refuses backfill with or without a resume id', (t) =>
 {
     const fixture = createFixture(t);
     const missing = run(fixture, [
@@ -37,8 +30,7 @@ test('wrapper requires a resume id for backfill and forwards it without evaluati
         '--env-file', fixture.envFile,
         '--phase', 'backfill-resume'
     ]);
-    assert.equal(missing.status, 2);
-    assert.equal(JSON.parse(missing.stdout).code, 'schema_wrapper_backfill_id_required');
+    assertRetired(fixture, missing);
 
     const migrationId = '20260712-post-example-backfill';
     const resumed = run(fixture, [
@@ -47,17 +39,10 @@ test('wrapper requires a resume id for backfill and forwards it without evaluati
         '--phase', 'backfill-resume',
         '--id', migrationId
     ]);
-    assert.equal(resumed.status, 0, resumed.stderr);
-    assert.deepEqual(JSON.parse(resumed.stdout), [
-        'migrate',
-        '--phase', 'backfill-resume',
-        '--release-manifest', fixture.manifest,
-        '--env-file', fixture.envFile,
-        '--id', migrationId
-    ]);
+    assertRetired(fixture, resumed);
 });
 
-test('wrapper gates mutating Contract confirmation separately from evidence', (t) =>
+test('retired wrapper refuses Contract even with evidence or destructive confirmation', (t) =>
 {
     const fixture = createFixture(t);
     const missingConfirmation = run(fixture, [
@@ -66,8 +51,7 @@ test('wrapper gates mutating Contract confirmation separately from evidence', (t
         '--phase', 'contract',
         '--evidence', fixture.evidence
     ]);
-    assert.equal(missingConfirmation.status, 2);
-    assert.equal(JSON.parse(missingConfirmation.stdout).code, 'schema_wrapper_contract_confirmation_required');
+    assertRetired(fixture, missingConfirmation);
 
     const dryRun = run(fixture, [
         '--release-manifest', fixture.manifest,
@@ -76,8 +60,7 @@ test('wrapper gates mutating Contract confirmation separately from evidence', (t
         '--evidence', fixture.evidence,
         '--dry-run'
     ]);
-    assert.equal(dryRun.status, 0, dryRun.stderr);
-    assert.ok(JSON.parse(dryRun.stdout).includes('--dry-run'));
+    assertRetired(fixture, dryRun);
 
     const confirmed = run(fixture, [
         '--release-manifest', fixture.manifest,
@@ -86,9 +69,42 @@ test('wrapper gates mutating Contract confirmation separately from evidence', (t
         '--evidence', fixture.evidence,
         '--confirm-destructive'
     ]);
-    assert.equal(confirmed.status, 0, confirmed.stderr);
-    assert.ok(JSON.parse(confirmed.stdout).includes('--confirm-destructive'));
+    assertRetired(fixture, confirmed);
 });
+
+test('retired wrapper does not read required files or evaluate hostile arguments', (t) =>
+{
+    const fixture = createFixture(t);
+    fs.rmSync(fixture.manifest);
+    fs.rmSync(fixture.envFile);
+    fs.rmSync(fixture.evidence);
+    const shellMarker = path.join(fixture.directory, 'argument-evaluated');
+    const result = run(fixture, [
+        '--release-manifest', fixture.manifest,
+        '--env-file', fixture.envFile,
+        '--phase', 'contract',
+        '--id', `$(touch ${shellMarker})`,
+        '--confirm-destructive'
+    ]);
+
+    assertRetired(fixture, result);
+    assert.equal(fs.existsSync(shellMarker), false);
+});
+
+test('retired wrapper refuses empty and unknown invocations without launching a tool', (t) =>
+{
+    const fixture = createFixture(t);
+    assertRetired(fixture, run(fixture, []));
+    assertRetired(fixture, run(fixture, ['--renamed-upgrade', '--phase=expand']));
+});
+
+function assertRetired(fixture, result)
+{
+    assert.equal(result.status, 2, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), { status: 'failed', code: 'schema_wrapper_retired' });
+    assert.equal(fs.existsSync(fixture.processMarker), false);
+    assert.equal(result.stderr, '');
+}
 
 function createFixture(t)
 {
@@ -98,11 +114,12 @@ function createFixture(t)
     const manifest = path.join(directory, 'release.json');
     const envFile = path.join(directory, 'server.env');
     const evidence = path.join(directory, 'contract-evidence.json');
-    fs.writeFileSync(server, 'console.log(JSON.stringify(process.argv.slice(2)))\n');
+    const processMarker = path.join(directory, 'server-started');
+    fs.writeFileSync(server, `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(processMarker)}, 'started');\nconsole.log(JSON.stringify(process.argv.slice(2)))\n`);
     fs.writeFileSync(manifest, '{"schema":"fsusblog.release-manifest.v1","releaseId":"20260720-current"}\n');
     fs.writeFileSync(envFile, 'ConnectionStrings__DefaultConnection=redacted\n');
     fs.writeFileSync(evidence, '{"rollbackManifestSealed":true}\n');
-    return { directory, server, manifest, envFile, evidence };
+    return { directory, server, manifest, envFile, evidence, processMarker };
 }
 
 function run(fixture, args)

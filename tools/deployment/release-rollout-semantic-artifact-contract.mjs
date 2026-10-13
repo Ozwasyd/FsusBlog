@@ -52,7 +52,7 @@ export function validateSemanticArtifact(name, value, errors) {
     if (!value.checks || Object.values(value.checks).some(check => check !== true)) errors.push(`${name}: one or more resource checks did not pass`)
   } else if (name === 'faultInjection') {
     const requiredCases = [
-      'manifest-digest-mismatch', 'capacity-insufficient', 'expand-failure', 'candidate-readiness',
+      'manifest-digest-mismatch', 'capacity-insufficient', 'current-admission-failure', 'candidate-readiness',
       'asset-hash-mismatch', 'gateway-reload-failure', 'active-fence-failure', 'public-probe-failure',
       'drain-timeout', 'source-stop-failure', 'host-interruption', 'redis-disconnect', 'postgres-disconnect'
     ]

@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "fsusblog.runtime-role-observation.v2",
+    "$id": "fsusblog.runtime-role-observation.v3",
     "title": "FsusBlog compiled runtime-role observation",
     "type": "object",
     "additionalProperties": false,
@@ -11,12 +11,12 @@
         "unsupportedCombinations",
         "ownership",
         "deploymentAuthority",
-        "schemaOverlap",
+        "currentSchemaContract",
         "observationDigest"
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.runtime-role-observation.v2"
+            "const": "fsusblog.runtime-role-observation.v3"
         },
         "modes": {
             "type": "array",
@@ -55,11 +55,11 @@
         "deploymentAuthority": {
             "$ref": "#/$defs/deploymentAuthority"
         },
-        "schemaOverlap": {
-            "$ref": "#/$defs/schemaOverlap"
-        },
         "observationDigest": {
             "$ref": "#/$defs/digest"
+        },
+        "currentSchemaContract": {
+            "$ref": "#/$defs/currentSchemaContract"
         }
     },
     "$defs": {
@@ -538,110 +538,162 @@
                 }
             }
         },
-        "schemaOverlap": {
+        "currentSchemaContract": {
             "type": "object",
             "additionalProperties": false,
             "required": [
                 "schema",
+                "evidenceStage",
                 "evidenceClass",
-                "manifestDescriptorCount",
-                "catalogMetadataCount",
-                "manifestDigest",
-                "catalogDigest",
-                "databaseObservationDigest",
-                "sourceReleaseId",
-                "targetReleaseId",
-                "previousRollbackReleaseId",
-                "sourceReleaseManifestDigest",
-                "targetReleaseManifestDigest",
-                "sameReleaseFailureCode",
-                "sourceReadiness",
-                "targetReadiness",
-                "missingExpandFailureCodes",
-                "concurrentContractFailureCodes",
-                "authorityState",
-                "claimEligible"
+                "receiptFormat",
+                "maximumEncodedBytes",
+                "fixtureOnly",
+                "nativeQualification",
+                "codecType",
+                "admissionType",
+                "contractValidated",
+                "fixtureArtifactSha256",
+                "fixtureContentDigest",
+                "positiveControls",
+                "refusalControls",
+                "observationDigest"
             ],
             "properties": {
                 "schema": {
-                    "const": "fsusblog.online-schema-overlap-observation.v1"
+                    "const": "fsusblog.current-schema-code-contract-observation.v1"
+                },
+                "evidenceStage": {
+                    "const": "pre-runtime"
                 },
                 "evidenceClass": {
-                    "type": "string",
-                    "minLength": 1
+                    "const": "compiled-production-code-model"
                 },
-                "manifestDescriptorCount": {
-                    "type": "integer",
-                    "minimum": 0
+                "receiptFormat": {
+                    "const": "fsusblog.current-schema-receipt.v1"
                 },
-                "catalogMetadataCount": {
-                    "type": "integer",
-                    "minimum": 0
+                "maximumEncodedBytes": {
+                    "const": 1048576
                 },
-                "manifestDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
+                "fixtureOnly": {
+                    "const": true
                 },
-                "catalogDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
+                "nativeQualification": {
+                    "const": false
                 },
-                "databaseObservationDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
+                "codecType": {
+                    "const": "FsusBlog.Contracts.SchemaMigration.CurrentSchemaReceiptCodec"
                 },
-                "sourceReleaseId": {
-                    "$ref": "#/$defs/releaseId"
+                "admissionType": {
+                    "const": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaReceiptAdmission"
                 },
-                "targetReleaseId": {
-                    "$ref": "#/$defs/releaseId"
+                "contractValidated": {
+                    "const": true
                 },
-                "previousRollbackReleaseId": {
-                    "$ref": "#/$defs/releaseId"
+                "fixtureArtifactSha256": {
+                    "$ref": "#/$defs/digest"
                 },
-                "sourceReleaseManifestDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
+                "fixtureContentDigest": {
+                    "$ref": "#/$defs/digest"
                 },
-                "targetReleaseManifestDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
+                "positiveControls": {
+                    "const": [
+                        "canonical-codec-roundtrip",
+                        "whole-artifact-admission-contract",
+                        "artifact-sha-distinct-from-content-seal"
+                    ]
                 },
-                "sameReleaseFailureCode": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "sourceReadiness": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "targetReadiness": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "missingExpandFailureCodes": {
-                    "type": "array",
-                    "uniqueItems": true,
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
+                "refusalControls": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "content-seal-as-file-sha",
+                        "content-seal-drift",
+                        "database-swap",
+                        "duplicate-checkpoint",
+                        "duplicate-member",
+                        "empty-bytes",
+                        "latest-reference",
+                        "missing-plan",
+                        "missing-status",
+                        "old-format",
+                        "oversized-bytes",
+                        "physical-schema-swap",
+                        "provider-swap",
+                        "rejected-status",
+                        "semantic-mismatch",
+                        "target-swap",
+                        "unknown-member",
+                        "unknown-provider",
+                        "unknown-status",
+                        "whole-file-drift"
+                    ],
+                    "properties": {
+                        "content-seal-as-file-sha": {
+                            "const": "current_receipt_artifact_digest_mismatch"
+                        },
+                        "content-seal-drift": {
+                            "const": "current_receipt_digest_mismatch"
+                        },
+                        "database-swap": {
+                            "const": "current_receipt_live_admission_mismatch"
+                        },
+                        "duplicate-checkpoint": {
+                            "const": "current_receipt_reference_duplicate"
+                        },
+                        "duplicate-member": {
+                            "const": "current_receipt_json_invalid"
+                        },
+                        "empty-bytes": {
+                            "const": "current_receipt_size_invalid"
+                        },
+                        "latest-reference": {
+                            "const": "current_receipt_latest_reference_forbidden"
+                        },
+                        "missing-plan": {
+                            "const": "current_receipt_reference_missing"
+                        },
+                        "missing-status": {
+                            "const": "current_receipt_json_invalid"
+                        },
+                        "old-format": {
+                            "const": "current_receipt_shape_invalid"
+                        },
+                        "oversized-bytes": {
+                            "const": "current_receipt_size_invalid"
+                        },
+                        "physical-schema-swap": {
+                            "const": "current_receipt_live_admission_mismatch"
+                        },
+                        "provider-swap": {
+                            "const": "current_receipt_live_admission_mismatch"
+                        },
+                        "rejected-status": {
+                            "const": "current_receipt_live_admission_mismatch"
+                        },
+                        "semantic-mismatch": {
+                            "const": "current_receipt_postcondition_failed"
+                        },
+                        "target-swap": {
+                            "const": "current_receipt_live_admission_mismatch"
+                        },
+                        "unknown-member": {
+                            "const": "current_receipt_json_invalid"
+                        },
+                        "unknown-provider": {
+                            "const": "current_receipt_provider_unknown"
+                        },
+                        "unknown-status": {
+                            "const": "current_receipt_json_invalid"
+                        },
+                        "whole-file-drift": {
+                            "const": "current_receipt_artifact_digest_mismatch"
+                        }
                     }
                 },
-                "concurrentContractFailureCodes": {
-                    "type": "array",
-                    "uniqueItems": true,
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
-                    }
-                },
-                "authorityState": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "claimEligible": {
-                    "type": "boolean"
+                "observationDigest": {
+                    "$ref": "#/$defs/digest"
                 }
             }
-        },
-        "releaseId": {
-            "type": "string",
-            "pattern": "^[0-9]{14}-[a-f0-9]{12}$"
         }
     }
 }

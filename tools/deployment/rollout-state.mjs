@@ -20,6 +20,7 @@ import {
 } from './release-rollout-lib.mjs';
 import { readSlotState } from './slot-lib.mjs';
 import { readDeploymentReleaseIdentity } from '../release/deployment-release-identity.mjs';
+import { readReleaseManifest, sha256File } from '../release/release-manifest.mjs';
 
 function parse(argv)
 {
@@ -51,10 +52,20 @@ try {
 {
         if (!options.manifest) {throw new Error('create requires --manifest')};
         if (!options['slot-state']) {throw new Error('create requires --slot-state')};
+        const manifestSha256 = sha256File(options.manifest).slice('sha256:'.length);
         const targetRelease = readDeploymentReleaseIdentity(options.manifest, {
             releaseId: options['target-release'],
             imageDigest: options['target-digest']
         });
+        const manifest = readReleaseManifest(options.manifest);
+        if (sha256File(options.manifest).slice('sha256:'.length) !== manifestSha256)
+        {
+            throw new Error('manifest bytes changed while creating rollout state');
+        }
+        if (targetRelease.releaseId !== manifest.releaseId || targetRelease.imageDigest !== manifest.imageDigest)
+        {
+            throw new Error('manifest target identity changed while creating rollout state');
+        }
         const slotState = readSlotState(path.resolve(options['slot-state']), { allowMissing: false });
         const sourceSlot = options['source-slot'];
         const sourceRecord = slotState.slots?.[sourceSlot];
@@ -73,6 +84,9 @@ try {
             rolloutId: options['rollout-id'],
             kind: options.kind,
             manifestPath: path.resolve(options.manifest),
+            manifestSha256,
+            candidateSourceRevision: manifest.commitSha,
+            currentSchema: manifest.currentSchema,
             source,
             target: {
                 slot: options['target-slot'],

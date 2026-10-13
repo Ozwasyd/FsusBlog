@@ -6,9 +6,11 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url';
+import { createReleaseManifestValueContract } from '../../tools/release/release-manifest-value-contract.mjs';
 import {
     createReleaseManifest,
     LEGACY_RELEASE_MANIFEST_RETIREMENT,
+    readCurrentSchemaReleaseBinding,
     readReleaseManifest,
     readLegacyReleaseManifestV1,
     RELEASE_MANIFEST_SCHEMA,
@@ -31,8 +33,16 @@ function createInput(overrides = {}) {
         createdAtUtc: '2026-07-11T01:01:01.000Z',
         frontendManifestHash: `sha256:${'b'.repeat(64)}`,
         wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-        schemaMinimumCoordinate: releaseId,
-        schemaMaximumCoordinate: releaseId,
+        // Explicit reference metadata only: this fixture is not an issued receipt or database admission.
+        currentSchema: {
+            receipt: { reference: 'receipts/current-schema.json', sha256: '1'.repeat(64) },
+            target: {
+                modelVersion: 'current-model.v1', extractorVersion: 'extractor.v1', generatorVersion: 'generator.v1',
+                sourceDigest: '2'.repeat(64), contentDigest: '3'.repeat(64)
+            },
+            database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' },
+            actualSchemaDigest: '4'.repeat(64)
+        },
         dotnetVersion: '10.0.100',
         nodeVersion: 'v20.19.0',
         dockerVersion: '28.0.0',
@@ -156,7 +166,7 @@ test('manifest atomically binds commit image digest frontend wasm and toolchain'
     const actual = readReleaseManifest(file, { expectedReleaseId: releaseId });
 
     assert.equal(actual.imageRef, `ghcr.io/fsusblog/app@${digest}`);
-    assert.equal(actual.schema, 'fsusblog.release-manifest.v2');
+    assert.equal(actual.schema, 'fsusblog.release-manifest.v3');
     assert.equal(actual.schema, RELEASE_MANIFEST_SCHEMA);
     assert.equal(actual.imageTag, `ghcr.io/fsusblog/app:${releaseId}`);
     assert.equal(actual.frontendManifestHash, `sha256:${'b'.repeat(64)}`);
@@ -207,7 +217,7 @@ test('manifest rejects mutable tags digest mismatches corruption and sensitive f
     }
 });
 
-test('v1 is available only through the explicit rollback-only legacy reader and cannot be rewritten', (t) =>
+test('v1 rollback-only manifests are retired and cannot be read or rewritten', (t) =>
 {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-legacy-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
@@ -219,24 +229,19 @@ test('v1 is available only through the explicit rollback-only legacy reader and 
     };
     fs.writeFileSync(file, `${JSON.stringify(legacy)}\n`);
 
-    assert.throws(() => readReleaseManifest(file), /schema must be fsusblog[.]release-manifest[.]v2/u);
-    const result = readLegacyReleaseManifestV1(file);
-    assert.equal(result.legacy, true);
-    assert.equal(result.rollbackOnly, true);
-    assert.equal(result.retirementCondition, LEGACY_RELEASE_MANIFEST_RETIREMENT);
-    assert.deepEqual(result.manifest, legacy);
+    assert.throws(() => readReleaseManifest(file), /schema must be fsusblog[.]release-manifest[.]v3/u);
+    assert.throws(() => readLegacyReleaseManifestV1(file), error => error.message === LEGACY_RELEASE_MANIFEST_RETIREMENT);
     const checker = path.join(root, 'tools/release/check-release-manifest.mjs');
     const normalRead = spawnSync(process.execPath, [checker, '--manifest', file], { encoding: 'utf8' });
     assert.notEqual(normalRead.status, 0);
     const explicitLegacyRead = spawnSync(process.execPath, [
         checker, '--manifest', file, '--legacy-rollback', 'true'
     ], { encoding: 'utf8' });
-    assert.equal(explicitLegacyRead.status, 0, explicitLegacyRead.stderr);
-    assert.equal(JSON.parse(explicitLegacyRead.stdout).legacy, true);
-    assert.equal(JSON.parse(explicitLegacyRead.stdout).rollbackOnly, true);
+    assert.notEqual(explicitLegacyRead.status, 0);
+    assert.match(explicitLegacyRead.stderr, /unknown, duplicate or missing argument/u);
     assert.throws(
         () => writeReleaseManifestAtomic(path.join(directory, 'rewritten.json'), legacy),
-        /schema must be fsusblog[.]release-manifest[.]v2/u
+        /schema must be fsusblog[.]release-manifest[.]v3/u
     );
     assert.equal(fs.existsSync(path.join(directory, 'rewritten.json')), false);
 });
@@ -279,8 +284,17 @@ test('manifest creator CLI writes the same digest-bound schema consumed by deplo
         '--image-digest', input.imageDigest,
         '--frontend-manifest-hash', input.frontendManifestHash,
         '--wasm-artifact-hash', input.wasmArtifactHash,
-        '--schema-minimum-coordinate', input.schemaMinimumCoordinate,
-        '--schema-maximum-coordinate', input.schemaMaximumCoordinate,
+        '--current-receipt-reference', input.currentSchema.receipt.reference,
+        '--current-receipt-sha256', input.currentSchema.receipt.sha256,
+        '--current-model-version', input.currentSchema.target.modelVersion,
+        '--current-extractor-version', input.currentSchema.target.extractorVersion,
+        '--current-generator-version', input.currentSchema.target.generatorVersion,
+        '--current-source-digest', input.currentSchema.target.sourceDigest,
+        '--current-content-digest', input.currentSchema.target.contentDigest,
+        '--current-provider', String(input.currentSchema.database.provider),
+        '--current-instance-id', input.currentSchema.database.instanceId,
+        '--current-database-id', input.currentSchema.database.databaseId,
+        '--current-actual-schema-digest', input.currentSchema.actualSchemaDigest,
         '--dotnet-version', input.dotnetVersion,
         '--node-version', input.nodeVersion,
         '--docker-version', input.dockerVersion,
@@ -401,7 +415,7 @@ test('production build generates one immutable release id when the caller omits 
     assert.match(result.stdout, new RegExp(`building immutable image fsusblogapp:${generated} for release ${generated}`, 'u'));
 });
 
-test('deploy input checker emits exact release slot digest and rollback target', (t) => {
+test('deploy input checker emits exact current-only bindings without a rollback or admission claim', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-input-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const manifestFile = path.join(directory, 'release-manifest.json')
@@ -420,7 +434,9 @@ test('deploy input checker emits exact release slot digest and rollback target',
   assert.equal(output.releaseId, releaseId)
   assert.equal(output.slot, 'candidate')
   assert.equal(output.imageDigest, digest)
-  assert.equal(output.rollbackTarget, releaseId)
+  assert.equal(Object.hasOwn(output, 'rollbackTarget'), false)
+  assert.equal(output.admissionVerified, false)
+  assert.deepEqual(output.currentSchema, createInput().currentSchema)
 })
 
 test('deploy input checker blocks missing identity digest mismatch mutable tag and damaged JSON', (t) => {
@@ -448,7 +464,7 @@ test('deploy input checker blocks missing identity digest mismatch mutable tag a
   }
 })
 
-test('production dry-run reports immutable release slot digest and rollback before no-build deploy', (t) => {
+test('production dry-run reports immutable release slot digest without image-only rollback before no-build deploy', (t) => {
   const { envFile, manifestFile, descriptorPath, receiptPath } = createDeploymentFixture(t)
 
   const result = spawnSync('bash', [
@@ -465,7 +481,7 @@ test('production dry-run reports immutable release slot digest and rollback befo
 
   assert.equal(result.status, 0, result.stderr)
   assert.ok(result.stdout.includes(`release=${releaseId} slot=green digest=${digest}`))
-  assert.match(result.stdout, /rollbackTarget=20260711010101-0123456789ab/u)
+  assert.doesNotMatch(result.stdout, /rollbackTarget=/u)
   assert.match(result.stdout, /dry-run command: docker pull ghcr\.io\/fsusblog\/app@sha256/u)
   assert.match(result.stdout, /verify pulled image digest and OCI release labels/u)
     assert.match(result.stdout, /up -d --no-build --pull always/u);
@@ -544,4 +560,181 @@ exit 42
     });
     assert.notEqual(createdMismatch.status, 0);
     assert.match(createdMismatch.stderr, /pulled image created label does not match manifest/u);
+});
+
+test('current-only manifest refuses legacy windows and distinguishes semantic target from physical observation', () =>
+{
+    const input = createInput();
+    const manifest = createReleaseManifest(input);
+    assert.deepEqual(manifest.currentSchema, input.currentSchema);
+    assert.notEqual(manifest.currentSchema.target.contentDigest, manifest.currentSchema.actualSchemaDigest);
+    assert.equal(Object.hasOwn(manifest, 'schemaCompatibility'), false);
+    assert.throws(() => createReleaseManifest({ ...input, schemaMinimumCoordinate: releaseId }), /windows are retired/u);
+    assert.throws(() => createReleaseManifest({ ...input, schemaMaximumCoordinate: releaseId }), /windows are retired/u);
+    for (const schema of ['fsusblog.release-manifest.v1', 'fsusblog.release-manifest.v2'])
+    {
+        assert.ok(validateReleaseManifest({ ...manifest, schema }).length > 0);
+    }
+    assert.ok(validateReleaseManifest({ ...manifest, schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId } }).length > 0);
+});
+
+test('filesystem and explicit-value manifest consumers apply the same current-only contract', () =>
+{
+    const releaseIdContract = JSON.parse(fs.readFileSync(path.join(root, 'src/shared/Contracts/Validation/release-id-contract.json'), 'utf8'));
+    const values = createReleaseManifestValueContract({ releaseIdContract });
+    const input = createInput();
+    const actual = createReleaseManifest(input);
+    assert.deepEqual(values.createReleaseManifest(input), actual);
+    for (const manifest of [actual,
+        { ...actual, currentSchema: null },
+        { ...actual, schema: 'fsusblog.release-manifest.v2' },
+        { ...actual, currentSchema: { ...actual.currentSchema, status: 'verified-current' } },
+        { ...actual, currentSchema: { ...actual.currentSchema, target: { ...actual.currentSchema.target, sourceDigest: null } } }
+    ])
+    {
+        assert.deepEqual(values.validateReleaseManifest(manifest), validateReleaseManifest(manifest));
+    }
+    assert.ok(values.validateLegacyReleaseManifestV1({ ...actual, schema: 'fsusblog.release-manifest.v1' }).length > 0);
+});
+
+test('current receipt reference metadata is closed and cannot substitute status hashes or malformed identities', () =>
+{
+    const valid = createReleaseManifest(createInput());
+    const binding = valid.currentSchema;
+    const cases = [
+        null, [], {},
+        { ...binding, receipt: null },
+        { ...binding, receipt: { ...binding.receipt, reference: 'receipts/latest/current.json' } },
+        { ...binding, receipt: { ...binding.receipt, reference: ' receipts/current.json' } },
+        { ...binding, receipt: { ...binding.receipt, sha256: 'sha256:' + binding.receipt.sha256 } },
+        { ...binding, receipt: { ...binding.receipt, sha256: 'A'.repeat(64) } },
+        { ...binding, target: { ...binding.target, modelVersion: '' } },
+        { ...binding, target: { ...binding.target, sourceDigest: null } },
+        { ...binding, target: { ...binding.target, contentDigest: 'bad' } },
+        { ...binding, database: { ...binding.database, provider: 3 } },
+        { ...binding, database: { ...binding.database, provider: '0' } },
+        { ...binding, database: { ...binding.database, databaseId: '' } },
+        { ...binding, database: { ...binding.database, instanceId: 'line\\nidentity' } },
+        { ...binding, actualSchemaDigest: null },
+        { ...binding, status: 'verified-current' },
+        { ...binding, plan: { contentDigest: '1'.repeat(64) } },
+        { ...binding, target: { ...binding.target, compatibilityCoordinate: releaseId } }
+    ];
+    for (const currentSchema of cases)
+    {
+        assert.ok(validateReleaseManifest({ ...valid, currentSchema }).length > 0);
+    }
+    // A known provider's shape is not a claim that a native observer or issuer exists for it.
+    for (const provider of [0, 1, 2])
+    {
+        assert.deepEqual(validateReleaseManifest({
+            ...valid, currentSchema: { ...binding, database: { ...binding.database, provider } }
+        }), []);
+    }
+});
+
+test('creator and input reader reject removed window or duplicate options before reading or writing products', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-release-refusal-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const output = path.join(directory, 'must-not-exist.json');
+    for (const removed of ['--schema-minimum-coordinate', '--schema-maximum-coordinate', '--legacy-rollback'])
+    {
+        const result = spawnSync(process.execPath, [
+            path.join(root, 'tools/release/create-release-manifest.mjs'), '--output', output, removed, releaseId
+        ], { encoding: 'utf8' });
+        assert.notEqual(result.status, 0);
+        assert.equal(fs.existsSync(output), false);
+    }
+    for (const args of [
+        ['--manifest', 'missing.json', '--manifest', 'other.json'],
+        ['--manifest', 'missing.json', '--legacy-rollback', 'false']
+    ])
+    {
+        const result = spawnSync(process.execPath, [
+            path.join(root, 'tools/release/check-release-manifest.mjs'), ...args
+        ], { encoding: 'utf8' });
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /unknown, duplicate or missing argument/u);
+        assert.doesNotMatch(result.stderr, /unable to read/u);
+    }
+});
+
+test('build reference projection binds whole receipt bytes without granting database admission', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-reference-projection-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const file = path.join(directory, 'current.json');
+    const binding = createInput().currentSchema;
+    // Deliberately only a projection fixture, not a sealed Shared receipt or native observation.
+    const projection = {
+        format: 'fsusblog.current-schema-receipt.v1', status: 'verified-current',
+        target: binding.target, database: binding.database, actualSchemaDigest: binding.actualSchemaDigest
+    };
+    const bytes = Buffer.from(JSON.stringify(projection));
+    const wholeSha = crypto.createHash('sha256').update(bytes).digest('hex');
+    fs.writeFileSync(file, bytes);
+    const actual = readCurrentSchemaReleaseBinding(file, wholeSha);
+    assert.deepEqual(actual, { ...binding, receipt: { reference: file, sha256: wholeSha } });
+    assert.equal(Object.hasOwn(actual, 'status'), false);
+    assert.notEqual(actual.target.contentDigest, actual.actualSchemaDigest);
+    assert.deepEqual(createReleaseManifest({ ...createInput(), currentSchema: actual }).currentSchema, actual);
+    fs.appendFileSync(file, '\n');
+    assert.throws(() => readCurrentSchemaReleaseBinding(file, wholeSha), /whole-artifact SHA-256 mismatch/u);
+});
+
+test('reference projection rejects a real FIFO without waiting for a writer', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-reference-fifo-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const fifo = path.join(fs.realpathSync(directory), 'current.fifo');
+    const created = spawnSync('mkfifo', [fifo], { encoding: 'utf8', timeout: 10_000 });
+    assert.equal(created.status, 0, created.stderr);
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e',
+        'import { readCurrentSchemaReleaseBinding } from "./tools/release/release-manifest.mjs"; readCurrentSchemaReleaseBinding(process.argv[1], process.argv[2]);',
+        fifo, '1'.repeat(64)
+    ], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.error, undefined);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /regular artifact/u);
+    assert.equal(fs.lstatSync(fifo).isFIFO(), true);
+});
+
+test('reference projection rejects missing, aliased, oversized, malformed or non-current artifacts', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-reference-refusal-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const file = path.join(directory, 'current.json');
+    const binding = createInput().currentSchema;
+    const base = {
+        format: 'fsusblog.current-schema-receipt.v1', status: 'verified-current',
+        target: binding.target, database: binding.database, actualSchemaDigest: binding.actualSchemaDigest
+    };
+    const attempt = value =>
+    {
+        const bytes = Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value));
+        fs.writeFileSync(file, bytes);
+        const sha = crypto.createHash('sha256').update(bytes).digest('hex');
+        assert.throws(() => readCurrentSchemaReleaseBinding(file, sha));
+    };
+    for (const value of [
+        {}, { ...base, status: undefined }, { ...base, status: 'rejected' },
+        { ...base, format: 'fsusblog.current-schema-receipt.v0' },
+        { ...base, target: { ...base.target, sourceDigest: null } },
+        { ...base, database: { ...base.database, provider: 3 } },
+        Buffer.from('{not-json'), Buffer.from([0xff]), Buffer.alloc(1024 * 1024 + 1, 32)
+    ]) attempt(value);
+    const bytes = Buffer.from(JSON.stringify(base));
+    fs.writeFileSync(file, bytes);
+    const sha = crypto.createHash('sha256').update(bytes).digest('hex');
+    for (const hash of [null, '', 'sha256:' + sha, sha.toUpperCase()])
+    {
+        assert.throws(() => readCurrentSchemaReleaseBinding(file, hash));
+    }
+    assert.throws(() => readCurrentSchemaReleaseBinding('relative.json', sha));
+    assert.throws(() => readCurrentSchemaReleaseBinding(path.join(directory, 'missing.json'), sha));
+    assert.throws(() => readCurrentSchemaReleaseBinding(directory, sha));
+    const alias = path.join(directory, 'alias.json');
+    fs.symlinkSync(file, alias);
+    assert.throws(() => readCurrentSchemaReleaseBinding(alias, sha), /no symlinks/u);
 });

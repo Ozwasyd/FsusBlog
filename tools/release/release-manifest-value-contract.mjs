@@ -1,10 +1,10 @@
 import { createReleaseIdValueContract } from './release-id-value-contract.mjs';
-import { createSchemaCompatibilityCoordinateValueContract } from './schema-compatibility-coordinate-value-contract.mjs';
+import { isDeepStrictEqual } from 'node:util';
 
-export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v2';
+export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v3';
 export const LEGACY_RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1';
 export const LEGACY_RELEASE_MANIFEST_RETIREMENT =
-    'Remove the v1 reader after every N-1 rollback artifact has expired from the supported rollback window.';
+    'Legacy compatibility-window and image-only rollback manifests are retired; rebuild a current-only release manifest.';
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`;
 const COMMIT_SHA = /^[0-9a-f]{40}$/u;
@@ -22,12 +22,11 @@ const TOP_LEVEL_FIELDS = new Set([
     'createdAtUtc',
     'frontendManifestHash',
     'wasmArtifactHash',
-    'schemaCompatibility',
+    'currentSchema',
     'toolchain',
     'runtimeProfile',
     'build'
 ]);
-const SCHEMA_COMPATIBILITY_FIELDS = new Set(['minimumCoordinate', 'maximumCoordinate']);
 const TOOLCHAIN_FIELDS = new Set(['dotnetVersion', 'nodeVersion', 'dockerVersion', 'dockerfileDigest']);
 const BUILD_FIELDS = new Set(['dockerfile', 'target']);
 const RUNTIME_PROFILE_FIELDS = new Set([
@@ -52,11 +51,14 @@ const DEFAULT_RUNTIME_PROFILE = Object.freeze({
 })
 
 
-export function createReleaseManifestValueContract({ releaseIdContract, schemaCompatibilityContract })
+export function createReleaseManifestValueContract({ releaseIdContract })
 {
     const { assertReleaseIdentity, isValidReleaseId } = createReleaseIdValueContract(releaseIdContract);
-    const { assertSchemaCompatibilityWindow } = createSchemaCompatibilityCoordinateValueContract(schemaCompatibilityContract, releaseIdContract);
 function createReleaseManifest(input) {
+    if (Object.hasOwn(input, 'schemaMinimumCoordinate') || Object.hasOwn(input, 'schemaMaximumCoordinate'))
+    {
+        throw new Error('schema compatibility windows are retired');
+    }
   const manifest = {
     schema: RELEASE_MANIFEST_SCHEMA,
     releaseId: input.releaseId,
@@ -69,10 +71,7 @@ function createReleaseManifest(input) {
         createdAtUtc: input.createdAtUtc,
         frontendManifestHash: input.frontendManifestHash,
         wasmArtifactHash: input.wasmArtifactHash,
-        schemaCompatibility: assertSchemaCompatibilityWindow(
-            input.schemaMinimumCoordinate,
-            input.schemaMaximumCoordinate
-        ),
+        currentSchema: structuredClone(input.currentSchema),
         toolchain: {
             dotnetVersion: input.dotnetVersion,
             nodeVersion: input.nodeVersion,
@@ -138,25 +137,7 @@ function validateManifest(manifest, options, contract)
 {
         if (!SHA256.test(String(manifest[field] ?? ''))) {errors.push(`${field} must be sha256:<64 lowercase hex>`)};
     }
-    if (!manifest.schemaCompatibility || typeof manifest.schemaCompatibility !== 'object')
-{
-        errors.push('schemaCompatibility is required');
-    }
- else
-{
-        rejectUnknownFields(manifest.schemaCompatibility, SCHEMA_COMPATIBILITY_FIELDS, 'schemaCompatibility', errors);
-        try
-{
-            assertSchemaCompatibilityWindow(
-                manifest.schemaCompatibility.minimumCoordinate,
-                manifest.schemaCompatibility.maximumCoordinate
-            );
-        }
- catch (error)
-{
-            errors.push(error instanceof Error ? error.message : String(error));
-        }
-    }
+    validateCurrentSchemaBinding(manifest.currentSchema, errors);
     if (!manifest.toolchain || typeof manifest.toolchain !== 'object')
 {
     errors.push('toolchain is required')
@@ -208,13 +189,82 @@ function validateRuntimeProfile(value, errors, options = {}) {
   if (!['smt-visible', 'physical-core-only', 'numa-local'].includes(value.topologyMode)) errors.push('runtimeProfile.topologyMode is invalid')
 }
 
-function validateLegacyReleaseManifestV1(manifest, options = {})
+function validateLegacyReleaseManifestV1()
 {
-    return validateManifest(manifest, options, {
-        schema: LEGACY_RELEASE_MANIFEST_SCHEMA,
-        requireCanonicalIdentity: false
-    });
+    return [LEGACY_RELEASE_MANIFEST_RETIREMENT];
 }
+
+/** Validates only the release's explicit current-only references; it never grants database admission. */
+    return { createReleaseManifest, validateReleaseManifest, validateLegacyReleaseManifestV1 };
+}
+
+export function validateCurrentSchemaBinding(value, errors)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+    {
+        errors.push('currentSchema is required');
+        return;
+    }
+    rejectUnknownFields(value, new Set(['receipt', 'target', 'database', 'actualSchemaDigest']), 'currentSchema', errors);
+    const object = (part, fields, label) =>
+    {
+        if (!part || typeof part !== 'object' || Array.isArray(part))
+        {
+            errors.push(`${label} is required`);
+            return false;
+        }
+        rejectUnknownFields(part, new Set(fields), label, errors);
+        return true;
+    };
+    const text = (value, label) =>
+    {
+        if (typeof value !== 'string' || !value.trim() || value !== value.trim()
+            || /[\u0000-\u001f\u007f-\u009f]/u.test(value)
+            || Buffer.from(value, 'utf8').toString('utf8') !== value)
+        {
+            errors.push(`${label} must be exact nonempty text`);
+        }
+    };
+    const digest = (value, label) =>
+    {
+        if (typeof value !== 'string' || !/^[0-9a-f]{64}$/u.test(value))
+        {
+            errors.push(`${label} must be a raw lowercase SHA-256`);
+        }
+    };
+    if (object(value.receipt, ['reference', 'sha256'], 'currentSchema.receipt'))
+    {
+        text(value.receipt.reference, 'currentSchema.receipt.reference');
+        if (typeof value.receipt.reference === 'string'
+            && value.receipt.reference.split(/[\\/]/u).some(part => part.toLowerCase() === 'latest'))
+        {
+            errors.push('currentSchema.receipt.reference cannot select latest');
+        }
+        digest(value.receipt.sha256, 'currentSchema.receipt.sha256');
+    }
+    if (object(value.target, ['modelVersion', 'extractorVersion', 'generatorVersion', 'sourceDigest', 'contentDigest'], 'currentSchema.target'))
+    {
+        for (const field of ['modelVersion', 'extractorVersion', 'generatorVersion'])
+        {
+            text(value.target[field], `currentSchema.target.${field}`);
+        }
+        for (const field of ['sourceDigest', 'contentDigest'])
+        {
+            digest(value.target[field], `currentSchema.target.${field}`);
+        }
+    }
+    if (object(value.database, ['provider', 'instanceId', 'databaseId'], 'currentSchema.database'))
+    {
+        if (![0, 1, 2].includes(value.database.provider))
+        {
+            errors.push('currentSchema.database.provider must be a closed CurrentSchemaProviderKind value');
+        }
+        text(value.database.instanceId, 'currentSchema.database.instanceId');
+        text(value.database.databaseId, 'currentSchema.database.databaseId');
+    }
+    digest(value.actualSchemaDigest, 'currentSchema.actualSchemaDigest');
+}
+
 function rejectUnknownFields(value, allowed, label, errors)
 {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {return};
@@ -243,5 +293,29 @@ function containsSensitiveField(value) {
   return false
 }
 
-    return { createReleaseManifest, validateReleaseManifest, validateLegacyReleaseManifestV1 };
+/** Checks only bindings of the sole Server command's output, never substitutes for executing that command. */
+export function validateCurrentSchemaAdmissionOutput(value, binding, candidateSourceRevision)
+{
+    const errors = [];
+    validateCurrentSchemaBinding(binding, errors);
+    if (typeof candidateSourceRevision !== 'string' || !/^[0-9a-f]{40}$/u.test(candidateSourceRevision) || /^0+$/u.test(candidateSourceRevision))
+    {
+        errors.push('candidate source revision must be an exact nonzero Git SHA');
+    }
+    const fields = ['status', 'candidateSourceRevision', 'artifactSha256', 'target', 'database', 'actualSchemaDigest'];
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || Object.keys(value).sort().join('\n') !== [...fields].sort().join('\n'))
+    {
+        errors.push('current schema admission output must contain the exact Server output fields');
+        return errors;
+    }
+    if (value.status !== 'verified-current' || value.candidateSourceRevision !== candidateSourceRevision
+        || value.artifactSha256 !== binding?.receipt?.sha256
+        || !isDeepStrictEqual(value.target, binding?.target)
+        || !isDeepStrictEqual(value.database, binding?.database)
+        || value.actualSchemaDigest !== binding?.actualSchemaDigest)
+    {
+        errors.push('current schema admission output does not match the immutable candidate receipt bindings');
+    }
+    return errors;
 }

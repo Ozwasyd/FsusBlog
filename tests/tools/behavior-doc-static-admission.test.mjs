@@ -6,6 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createCurrentSchemaCodeContractFixture } from './support/runtime-role-minimal-v3-fixture.mjs';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
@@ -135,6 +136,9 @@ function fakeMinimalReceipt(runId, source)
                     ...(artifactId === 'runtime-role-observation'
                         ? {
                             sourceCommit: source.sourceCommit,
+                            observationSchema: 'fsusblog.runtime-role-observation.v3',
+                            evidenceStage: 'pre-runtime',
+                            evidenceClass: 'compiled-production-code-model',
                             worktreeFingerprint: source.worktreeFingerprint,
                             projectDigest: 'c'.repeat(64),
                             assemblyPath: runtimeAssemblyPath,
@@ -663,7 +667,8 @@ test('minimal contract build uses only a content-addressed root and never ambien
             : null;
         fs.writeFileSync(args[outputIndex + 1], runtime
             ? `${JSON.stringify({
-                schema: 'fsusblog.runtime-role-observation.v2',
+                schema: 'fsusblog.runtime-role-observation.v3',
+                currentSchemaContract: createCurrentSchemaCodeContractFixture(),
                 deploymentAuthority: {
                     authoritySchema: deployment.authoritySchema,
                     authorityContentDigest: deployment.authorityContentDigest,
@@ -802,7 +807,8 @@ if [[ "$runtime" == "1" ]]; then
     import fs from "node:fs";
     const deployment = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
     fs.writeFileSync(process.argv[2], JSON.stringify({
-      schema: "fsusblog.runtime-role-observation.v2",
+      schema: "fsusblog.runtime-role-observation.v3",
+      currentSchemaContract: ${JSON.stringify(createCurrentSchemaCodeContractFixture())},
       deploymentAuthority: {
         authoritySchema: deployment.authoritySchema,
         authorityContentDigest: deployment.authorityContentDigest,

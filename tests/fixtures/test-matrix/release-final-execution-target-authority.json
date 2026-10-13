@@ -1975,8 +1975,8 @@
         },
         {
             "path": "tests/tools/behavior-doc-static-admission.test.mjs",
-            "contentDigest": "sha256:69bca67b40581e64a542c715905c60c873ea617af9b40d2913699878a3ccf848",
-            "indexDigest": "sha256:69bca67b40581e64a542c715905c60c873ea617af9b40d2913699878a3ccf848"
+            "contentDigest": "sha256:4af10fbcdb20d9f4a570a485d4fec3830ac3f7de6c1d38add011d568b0b5cc4d",
+            "indexDigest": "sha256:4af10fbcdb20d9f4a570a485d4fec3830ac3f7de6c1d38add011d568b0b5cc4d"
         },
         {
             "path": "tests/tools/behavior-evidence-pre-runtime.test.mjs",
@@ -2035,8 +2035,8 @@
         },
         {
             "path": "tests/tools/current-schema-authority.test.mjs",
-            "contentDigest": "sha256:409a7618633dadb1fac336888dce03fc0e96c4f57b513929dd487b1121aaed26",
-            "indexDigest": "sha256:409a7618633dadb1fac336888dce03fc0e96c4f57b513929dd487b1121aaed26"
+            "contentDigest": "sha256:cdb85b9173fa2fc31fe2a3837416e693f7f0dd31bd764e83becb794adc6e63c4",
+            "indexDigest": "sha256:cdb85b9173fa2fc31fe2a3837416e693f7f0dd31bd764e83becb794adc6e63c4"
         },
         {
             "path": "tests/tools/dependency-automerge.test.mjs",
@@ -2225,8 +2225,8 @@
         },
         {
             "path": "tests/tools/support/behavior-doc-admission-fixture.mjs",
-            "contentDigest": "sha256:767eccba64cda365fc058a227690ce9e9be9d813fda8b4f336cb6cdfa66125ab",
-            "indexDigest": "sha256:767eccba64cda365fc058a227690ce9e9be9d813fda8b4f336cb6cdfa66125ab"
+            "contentDigest": "sha256:1b38bfc4aabda6bf9283d55935b8939dcc2dbb1a5c11f365e6cbabff1721dbdc",
+            "indexDigest": "sha256:1b38bfc4aabda6bf9283d55935b8939dcc2dbb1a5c11f365e6cbabff1721dbdc"
         },
         {
             "path": "tests/tools/support/behavior-evidence-pre-runtime-fixture.mjs",
@@ -2254,9 +2254,14 @@
             "indexDigest": "sha256:3e87c19857085d067e957a765a9a50e03ee7f0b6c5274f07ec4cd298578808db"
         },
         {
+            "path": "tests/tools/support/release-rollout-evidence-fixture.mjs",
+            "contentDigest": "sha256:cd673b79a73d6dbb2d0dbf35b00374081f49118125b719f8595a3c37bbe18d39",
+            "indexDigest": "sha256:cd673b79a73d6dbb2d0dbf35b00374081f49118125b719f8595a3c37bbe18d39"
+        },
+        {
             "path": "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
-            "contentDigest": "sha256:2a84f71c98443340ab856b0ecf16c3edccef85d3439d07cc9835bb12b53158e3",
-            "indexDigest": "sha256:2a84f71c98443340ab856b0ecf16c3edccef85d3439d07cc9835bb12b53158e3"
+            "contentDigest": "sha256:3795f3a6ad7e3c32cf3fc57558be3f37c938191276c7c7372507763273b3f6bf",
+            "indexDigest": "sha256:3795f3a6ad7e3c32cf3fc57558be3f37c938191276c7c7372507763273b3f6bf"
         },
         {
             "path": "tests/tools/support/scheduler-cli-fixture.mjs",
@@ -2305,8 +2310,8 @@
         },
         {
             "path": "tests/tools/zero-downtime-rehearsal.test.mjs",
-            "contentDigest": "sha256:214a61f3e2f939d8081a36bb52e9e37b5c9c177d96f973c63de26092c95935b8",
-            "indexDigest": "sha256:214a61f3e2f939d8081a36bb52e9e37b5c9c177d96f973c63de26092c95935b8"
+            "contentDigest": "sha256:6357bb024bd674ab40ba13015c49012fd8f2c3e291bea6e1a3fe0474773a1bed",
+            "indexDigest": "sha256:6357bb024bd674ab40ba13015c49012fd8f2c3e291bea6e1a3fe0474773a1bed"
         },
         {
             "path": "tools/architecture/backend-physical-topology/audit-bootstrap-authoring.mjs",
@@ -2355,8 +2360,8 @@
         },
         {
             "path": "tools/build-final-image.sh",
-            "contentDigest": "sha256:f0e524d0a79279c56d23979b7a3c5a0ccc4aa83b8ce41cef6ee435da66edff5b",
-            "indexDigest": "sha256:f0e524d0a79279c56d23979b7a3c5a0ccc4aa83b8ce41cef6ee435da66edff5b"
+            "contentDigest": "sha256:3a2866ca36911ae8b3879ba860448691447a9451773e0651c46537a3ff8e6927",
+            "indexDigest": "sha256:3a2866ca36911ae8b3879ba860448691447a9451773e0651c46537a3ff8e6927"
         },
         {
             "path": "tools/build-wasm-artifact.sh",
@@ -2785,13 +2790,13 @@
         },
         {
             "path": "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
-            "contentDigest": "sha256:ab274f3ff66a944126a99eccd14d91a789d871f8604308f53f28135b02d8b1d2",
-            "indexDigest": "sha256:ab274f3ff66a944126a99eccd14d91a789d871f8604308f53f28135b02d8b1d2"
+            "contentDigest": "sha256:72dd48614b91bc79fca5374b51b90b179c1b09ce83faab9b11284de53c480530",
+            "indexDigest": "sha256:72dd48614b91bc79fca5374b51b90b179c1b09ce83faab9b11284de53c480530"
         },
         {
             "path": "tools/deployment/release-rollout-evidence-constants.mjs",
-            "contentDigest": "sha256:f35a8d1fc17fa2969bf4f4d299e578a575466d71a1fb23be5e6ba0c1122bbb05",
-            "indexDigest": "sha256:f35a8d1fc17fa2969bf4f4d299e578a575466d71a1fb23be5e6ba0c1122bbb05"
+            "contentDigest": "sha256:3846adc80c6c6703ef90d5935b375d2bc3dd4574df5d8d344ecda395274c4790",
+            "indexDigest": "sha256:3846adc80c6c6703ef90d5935b375d2bc3dd4574df5d8d344ecda395274c4790"
         },
         {
             "path": "tools/deployment/release-rollout-evidence-receipt-contract.mjs",
@@ -2800,23 +2805,33 @@
         },
         {
             "path": "tools/deployment/release-rollout-evidence-sections.mjs",
-            "contentDigest": "sha256:fdef8173bfc1bc49bce0d4ae00e0727dcc86b14e2cc3bbc1501a9b617fa4284e",
-            "indexDigest": "sha256:fdef8173bfc1bc49bce0d4ae00e0727dcc86b14e2cc3bbc1501a9b617fa4284e"
+            "contentDigest": "sha256:ba36b0e1d0973c239639a3b222ef77585cc87db4a22cc59c4eba21e7f77f8474",
+            "indexDigest": "sha256:ba36b0e1d0973c239639a3b222ef77585cc87db4a22cc59c4eba21e7f77f8474"
         },
         {
             "path": "tools/deployment/release-rollout-evidence-verifier.mjs",
-            "contentDigest": "sha256:74a4feae745d219b7e740e3ca5e5e60826aba8837bbbfb79d565f515010e4e52",
-            "indexDigest": "sha256:74a4feae745d219b7e740e3ca5e5e60826aba8837bbbfb79d565f515010e4e52"
+            "contentDigest": "sha256:706827749cc31a67fa7d92aa40e67d6e9376666ad562984213a05901974c87f9",
+            "indexDigest": "sha256:706827749cc31a67fa7d92aa40e67d6e9376666ad562984213a05901974c87f9"
+        },
+        {
+            "path": "tools/deployment/release-rollout-lib.mjs",
+            "contentDigest": "sha256:1349841af0e9be1b6d75545a8987292c630e16d8455f1a4e56773abc4a001416",
+            "indexDigest": "sha256:1349841af0e9be1b6d75545a8987292c630e16d8455f1a4e56773abc4a001416"
         },
         {
             "path": "tools/deployment/release-rollout-semantic-artifact-contract.mjs",
-            "contentDigest": "sha256:e9472fe411d001be7ae056afa9a8f92ee02709b6aa9f034074c54ed1fe0c61c9",
-            "indexDigest": "sha256:e9472fe411d001be7ae056afa9a8f92ee02709b6aa9f034074c54ed1fe0c61c9"
+            "contentDigest": "sha256:da10f9d045294cfa3421e9f4fa7168bc555a6e0a5300d7dbf6e7da2c614eded0",
+            "indexDigest": "sha256:da10f9d045294cfa3421e9f4fa7168bc555a6e0a5300d7dbf6e7da2c614eded0"
         },
         {
             "path": "tools/deployment/release-rollout-traffic-evidence-contract.mjs",
             "contentDigest": "sha256:7eb9ab47890fac087aa434078c6dcde4bf3a0917e0f6e446c890b0624614fb72",
             "indexDigest": "sha256:7eb9ab47890fac087aa434078c6dcde4bf3a0917e0f6e446c890b0624614fb72"
+        },
+        {
+            "path": "tools/deployment/slot-lib.mjs",
+            "contentDigest": "sha256:a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73",
+            "indexDigest": "sha256:a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73"
         },
         {
             "path": "tools/deployment/verify-container-termination.mjs",
@@ -2825,8 +2840,8 @@
         },
         {
             "path": "tools/deployment/zero-downtime-rehearsal-plan.mjs",
-            "contentDigest": "sha256:0379c82e433f833056471cae31648fd568751a733c33a15501e214529d4ce7b3",
-            "indexDigest": "sha256:0379c82e433f833056471cae31648fd568751a733c33a15501e214529d4ce7b3"
+            "contentDigest": "sha256:6445f915b62002872ed27963296757f6affee580f5fac5525b7030e2c98fc63a",
+            "indexDigest": "sha256:6445f915b62002872ed27963296757f6affee580f5fac5525b7030e2c98fc63a"
         },
         {
             "path": "tools/docker/backend-input-closure.mjs",
@@ -2855,13 +2870,13 @@
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
-            "contentDigest": "sha256:2040f32153b8c7a6610d0334cca881384129b7be5207d11c1883dd9c0e70f24d",
-            "indexDigest": "sha256:2040f32153b8c7a6610d0334cca881384129b7be5207d11c1883dd9c0e70f24d"
+            "contentDigest": "sha256:ca0972584f4cb3a877887c2e2dd58590efeaea89f68a5e10e177ec77400e7ae2",
+            "indexDigest": "sha256:ca0972584f4cb3a877887c2e2dd58590efeaea89f68a5e10e177ec77400e7ae2"
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
-            "contentDigest": "sha256:061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45",
-            "indexDigest": "sha256:061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45"
+            "contentDigest": "sha256:0b14e25b65f6fcd683ceda32ba5af710bcf51016acd8508ba4d00770cb1bb1ba",
+            "indexDigest": "sha256:0b14e25b65f6fcd683ceda32ba5af710bcf51016acd8508ba4d00770cb1bb1ba"
         },
         {
             "path": "tools/docs/behavior-doc-static-admission-contract.mjs",
@@ -3600,8 +3615,8 @@
         },
         {
             "path": "tools/operations/check-release-evidence-manifest.mjs",
-            "contentDigest": "sha256:ccd6a2fff63c7a748a2957b465fc5969afac85c59b75db9bf2bfa54b8788fa74",
-            "indexDigest": "sha256:ccd6a2fff63c7a748a2957b465fc5969afac85c59b75db9bf2bfa54b8788fa74"
+            "contentDigest": "sha256:6b614c2cd55946b9650ecc2fe1fa7799132ac120b02b65cd1fa965100229d814",
+            "indexDigest": "sha256:6b614c2cd55946b9650ecc2fe1fa7799132ac120b02b65cd1fa965100229d814"
         },
         {
             "path": "tools/operations/evidence-classification.mjs",
@@ -3660,8 +3675,8 @@
         },
         {
             "path": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:97dd9244afd1ec51afd1127213240c6280941815dc0bacdec2a6845bf3bdfffe",
-            "indexDigest": "sha256:97dd9244afd1ec51afd1127213240c6280941815dc0bacdec2a6845bf3bdfffe"
+            "contentDigest": "sha256:3a1753873f109e9b0e03f51093f8fce547f381dcc11edb37972bc4a100a90669",
+            "indexDigest": "sha256:3a1753873f109e9b0e03f51093f8fce547f381dcc11edb37972bc4a100a90669"
         },
         {
             "path": "tools/release/clean-attempt-evidence-source.mjs",
@@ -3680,8 +3695,8 @@
         },
         {
             "path": "tools/release/create-release-manifest.mjs",
-            "contentDigest": "sha256:60a614d7912abbe1789749d01f453d72bfb5023945a4b0629efb691a11ec89c2",
-            "indexDigest": "sha256:60a614d7912abbe1789749d01f453d72bfb5023945a4b0629efb691a11ec89c2"
+            "contentDigest": "sha256:93f81f98d4cd722684ea49b3398c15a6019f0f00b3733fde5ec5447339838810",
+            "indexDigest": "sha256:93f81f98d4cd722684ea49b3398c15a6019f0f00b3733fde5ec5447339838810"
         },
         {
             "path": "tools/release/font-license-evidence.mjs",
@@ -3724,24 +3739,29 @@
             "indexDigest": "sha256:243e7612329e8a23e05bc5f1d80636553ab24538d01ae5cce8c1fb02a563e884"
         },
         {
+            "path": "tools/release/release-id-value-contract.mjs",
+            "contentDigest": "sha256:bc29a3f55de2e86695ede90801b89f492040dccf9df44399a0d447173caeccdd",
+            "indexDigest": "sha256:bc29a3f55de2e86695ede90801b89f492040dccf9df44399a0d447173caeccdd"
+        },
+        {
             "path": "tools/release/release-id.mjs",
             "contentDigest": "sha256:3c7202a32fe50c3cf9719c34afbc58cb9b004a72539474f9e623d7bc290ab5fc",
             "indexDigest": "sha256:3c7202a32fe50c3cf9719c34afbc58cb9b004a72539474f9e623d7bc290ab5fc"
         },
         {
+            "path": "tools/release/release-manifest-value-contract.mjs",
+            "contentDigest": "sha256:12e879a1428d9952248ad00c7a769b04c0bd0c3653fdb1a34bf72bfca204d0ea",
+            "indexDigest": "sha256:12e879a1428d9952248ad00c7a769b04c0bd0c3653fdb1a34bf72bfca204d0ea"
+        },
+        {
             "path": "tools/release/release-manifest.mjs",
-            "contentDigest": "sha256:0e660fa4da88f38076a17735b1c57a297f703be53e0d4cff7951599f14ffb617",
-            "indexDigest": "sha256:0e660fa4da88f38076a17735b1c57a297f703be53e0d4cff7951599f14ffb617"
+            "contentDigest": "sha256:1e2e1ec1318cf00278cfc7d497c81461c7b74ec2a48bf4b0f2bf5132e93b4d43",
+            "indexDigest": "sha256:1e2e1ec1318cf00278cfc7d497c81461c7b74ec2a48bf4b0f2bf5132e93b4d43"
         },
         {
             "path": "tools/release/release-reliability-qualified-receipt.mjs",
             "contentDigest": "sha256:22e169864c22cee481c9625d57675d9976bd155da9a888f410dda16765d1b879",
             "indexDigest": "sha256:22e169864c22cee481c9625d57675d9976bd155da9a888f410dda16765d1b879"
-        },
-        {
-            "path": "tools/release/schema-compatibility-coordinate.mjs",
-            "contentDigest": "sha256:25caa904712dc451aae6560aff246697ed866689d2723af7c7c5d830dfc49e7c",
-            "indexDigest": "sha256:25caa904712dc451aae6560aff246697ed866689d2723af7c7c5d830dfc49e7c"
         },
         {
             "path": "tools/release/test-evidence-receipts-cli.mjs",
@@ -4375,8 +4395,8 @@
         },
         {
             "path": "tools/test-matrix/post-runtime-producer-registry.mjs",
-            "contentDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89",
-            "indexDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89"
+            "contentDigest": "sha256:360d8ae526ffb8ed8e04887f98ef1069dfcf39a3226569a8e29db77dffdb733e",
+            "indexDigest": "sha256:360d8ae526ffb8ed8e04887f98ef1069dfcf39a3226569a8e29db77dffdb733e"
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
@@ -4900,8 +4920,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
+            "indexDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
@@ -6323,7 +6343,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -7259,6 +7281,8 @@
                 "tools/package.json",
                 "tools/release/browser-contract-receipt-contract.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
+                "tools/release/release-id-value-contract.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
                 "tools/test-evidence/browser-contract-observed-facts.mjs",
                 "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
@@ -7355,6 +7379,8 @@
                 "tools/package.json",
                 "tools/release/browser-contract-receipt-contract.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
+                "tools/release/release-id-value-contract.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
                 "tools/test-evidence/browser-contract-observed-facts.mjs",
                 "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
@@ -8039,7 +8065,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -9192,7 +9220,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -10004,7 +10034,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -10816,7 +10848,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -11782,7 +11816,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -12594,7 +12630,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -13406,7 +13444,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -14218,7 +14258,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -15196,7 +15238,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -16031,7 +16075,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -16843,7 +16889,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -17655,7 +17703,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -17940,6 +17990,7 @@
                 "tests/tools/package.json",
                 "tests/tools/release-reliability-receipt.test.mjs",
                 "tests/tools/support/clean-attempt-evidence-fixture.mjs",
+                "tests/tools/support/release-rollout-evidence-fixture.mjs",
                 "tests/tools/support/timing-policy.mjs",
                 "tests/tools/test-asset-audit.test.mjs",
                 "tests/tools/test-matrix-topology.test.mjs",
@@ -17954,6 +18005,15 @@
                 "tools/contracts/check-behavior-test-evidence.mjs",
                 "tools/contracts/lib/config-error-security-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
+                "tools/deployment/release-rollout-asset-compatibility-contract.mjs",
+                "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
+                "tools/deployment/release-rollout-evidence-constants.mjs",
+                "tools/deployment/release-rollout-evidence-sections.mjs",
+                "tools/deployment/release-rollout-evidence-verifier.mjs",
+                "tools/deployment/release-rollout-lib.mjs",
+                "tools/deployment/release-rollout-semantic-artifact-contract.mjs",
+                "tools/deployment/release-rollout-traffic-evidence-contract.mjs",
+                "tools/deployment/slot-lib.mjs",
                 "tools/deployment/zero-downtime-rehearsal-plan.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
@@ -17985,6 +18045,7 @@
                 "tools/fact-extractors/receipt.mjs",
                 "tools/fact-extractors/registry.mjs",
                 "tools/fact-extractors/runner.mjs",
+                "tools/frontend/public-aot-warm-evidence.mjs",
                 "tools/governance/check-code-intent.mjs",
                 "tools/governance/check-monolithic-distributed-architecture.mjs",
                 "tools/package.json",
@@ -17992,7 +18053,10 @@
                 "tools/release/clean-attempt-evidence-source.mjs",
                 "tools/release/clean-attempt-evidence-transport.mjs",
                 "tools/release/clean-first-attempt-verifier.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
+                "tools/release/release-manifest.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
                 "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",
                 "tools/test-fixtures/receipt/fixture-receipt.mjs",
@@ -18658,7 +18722,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -19172,7 +19238,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
@@ -19418,6 +19486,8 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
@@ -20115,7 +20185,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -20996,7 +21068,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -21810,7 +21884,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -22622,7 +22698,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -23672,7 +23750,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -24519,7 +24599,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -25332,7 +25414,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -26144,7 +26228,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -26981,7 +27067,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -27793,7 +27881,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -28605,7 +28695,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -29417,7 +29509,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -30289,7 +30383,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -31188,7 +31284,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -32001,7 +32099,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -32992,7 +33092,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -33400,6 +33502,8 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts-cli.mjs",
                 "tools/release/test-evidence-receipts.mjs",
@@ -34007,7 +34111,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -34819,7 +34925,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -35146,6 +35254,9 @@
                 "tests/tools/fixtures/release-runtime-matrix.mjs",
                 "tests/tools/package.json",
                 "tools/ci/production-build-artifacts.mjs",
+                "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
+                "tools/deployment/release-rollout-evidence-constants.mjs",
+                "tools/frontend/public-aot-warm-evidence.mjs",
                 "tools/operations/check-release-evidence-manifest.mjs",
                 "tools/operations/evidence-classification.mjs",
                 "tools/package.json",
@@ -35154,9 +35265,10 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/release-clean-attempt-cohort.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-manifest.mjs",
-                "tools/release/schema-compatibility-coordinate.mjs",
                 "tools/runtime-profiles/release-runtime-matrix.mjs",
                 "tools/runtime-profiles/runtime-publish-evidence.mjs",
                 "tools/runtime-profiles/runtime-publish-profile.mjs",
@@ -35734,10 +35846,11 @@
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-clean-attempt-cohort.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-manifest.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
-                "tools/release/schema-compatibility-coordinate.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
                 "tools/run-test-matrix.mjs",
@@ -36101,10 +36214,11 @@
                 "tools/release/release-final-diagnostics.mjs",
                 "tools/release/release-final-domain-evidence.mjs",
                 "tools/release/release-final-terminal-acceptance.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-manifest.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
-                "tools/release/schema-compatibility-coordinate.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/release/theme-css-safety-evidence.mjs",
                 "tools/runtime-profiles/release-runtime-matrix.mjs",
@@ -36773,7 +36887,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -37585,7 +37701,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -38545,7 +38663,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -39384,7 +39504,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -40509,7 +40631,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -41446,7 +41570,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -42258,7 +42384,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -43070,7 +43198,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -43882,7 +44012,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -44694,7 +44826,9 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
                 "tools/release/release-domain-final-binding.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/retention/audit-input.mjs",
@@ -45628,9 +45762,10 @@
                 "tools/release/clean-attempt-evidence-transport.mjs",
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/create-release-manifest.mjs",
+                "tools/release/release-id-value-contract.mjs",
                 "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
                 "tools/release/release-manifest.mjs",
-                "tools/release/schema-compatibility-coordinate.mjs",
                 "tools/runtime-profiles/resolve-runtime-publish-profile.mjs",
                 "tools/runtime-profiles/runtime-publish-profile.mjs",
                 "tools/security/comment-privacy-build-contract.mjs",

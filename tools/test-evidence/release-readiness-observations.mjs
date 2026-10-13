@@ -92,23 +92,9 @@ export function configObservation(value, source)
   }
 }
 
-export function schemaObservation(value, source, manifest)
+export function schemaObservation()
 {
-  exactKeys(value, [
-    'schema', 'releaseId', 'minimumCoordinate', 'maximumCoordinate',
-    'observedCoordinate', 'schemaDigest', 'compatible', 'verified'
-  ], 'observations.databaseSchema')
-  if (value.schema !== observationSchemas.databaseSchema) fail('observations.databaseSchema schema mismatch')
-  requireDigest(value.schemaDigest, 'observations.databaseSchema.schemaDigest')
-  if (value.releaseId !== source.releaseId
-    || value.minimumCoordinate !== manifest.schemaCompatibility.minimumCoordinate
-    || value.maximumCoordinate !== manifest.schemaCompatibility.maximumCoordinate
-    || !releaseIdPattern.test(String(value.observedCoordinate ?? ''))
-    || value.observedCoordinate < value.minimumCoordinate || value.observedCoordinate > value.maximumCoordinate
-    || value.compatible !== true || value.verified !== true)
-  {
-    fail('database schema coordinate is outside the release compatibility window')
-  }
+  fail('legacy database schema windows are retired; current-schema post-runtime admitted native collector is not connected')
 }
 
 export function signingObservation(value, manifestDigest)

@@ -265,7 +265,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-264
+266
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
@@ -1111,6 +1111,13 @@ retry policy. Registration and source-order checks are not actual compiler/SQL
 qualification; successful native scheduler MySQL allocation and canonical locked dependencies
 remain prerequisites.
 
+Correctness attempt migration validates the complete current producer inventory
+against its canonical matrix, physical and reliability authorities before checking
+execution-envelope ownership. Its cardinality follows that exact roster rather
+than a historical fixed count. Missing, extra, duplicate or crossed-authority
+entries remain failures even when their enclosing digest is recomputed. A freshly
+generated inventory refresh is source evidence, not a qualification receipt.
+
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or
 missing logical identities, foreign service declarations and MySQL on a resident
@@ -1679,6 +1686,7 @@ render: enum-set
 - `soak-long-evidence-import`
 - `soak-long-scheduled`
 - `soak-short-runtime`
+- `source-governance`
 - `static-governance`
 - `test-inventory`
 - `test-quality-lint`
@@ -1686,6 +1694,7 @@ render: enum-set
 - `ux-viewport-plan-progress`
 - `ux-viewport-smoke`
 - `ux-viewport-visual`
+- `validate-declarations`
 - `validate-matrix`
 - `visual`
 - `visual-console`

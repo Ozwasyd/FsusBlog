@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -184,6 +185,7 @@ function makeFixture(t, name) {
 
 function writeState(fixture, rolloutId) {
   const state = createRolloutState({
+    ...createCurrentRolloutFixtureBinding(),
     rolloutId,
     kind: 'deploy',
     manifestPath: path.join(path.dirname(fixture.state), 'release-manifest.json'),

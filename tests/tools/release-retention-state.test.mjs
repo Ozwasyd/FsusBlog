@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto'
 import { spawnSync } from 'node:child_process'
@@ -86,6 +87,8 @@ function createFixture(t) {
   const manifestPath = path.join(directory, 'target-release-manifest.json')
   fs.writeFileSync(manifestPath, '{}\n')
   const rollout = createRolloutState({
+    ...createCurrentRolloutFixtureBinding(),
+    manifestSha256: crypto.createHash('sha256').update(fs.readFileSync(manifestPath)).digest('hex'),
     rolloutId: 'retention-transition-001',
     manifestPath,
     source: { slot: 'blue', releaseId: sourceRelease, imageDigest: sourceDigest, runtimeGeneration: 1 },

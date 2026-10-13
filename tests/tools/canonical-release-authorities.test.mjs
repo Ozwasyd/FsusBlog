@@ -24,8 +24,9 @@ import {
   createPureReleaseAuthorityFixture,
   createReadinessManifest,
   createReleaseRolloutEvidenceFixture,
-  createRuntimeRoleMinimalV3Fixture,
-  createRuntimeRoleStaticV3Fixture,
+  createCurrentSchemaCodeContractFixture,
+  createRuntimeRoleMinimalV4Fixture,
+  createRuntimeRoleStaticV4Fixture,
   digest,
   fileDigest,
   semanticDigest,
@@ -51,8 +52,9 @@ function canonicalAuthorityFixture(context)
     fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true })
     fs.copyFileSync(path.join(root, file), path.join(directory, file))
   }
+  const manifest = createReadinessManifest(releaseId, source.sourceCommit)
   const rolloutFixture = createReleaseRolloutEvidenceFixture({
-    rolloutId, target: { slot: 'green', releaseId, imageDigest: digest('1'), runtimeGeneration: 42 }
+    rolloutId, manifest, target: { slot: 'green', releaseId, imageDigest: digest('1'), runtimeGeneration: 42 }
   })
   const rolloutDirectory = path.join(directory, '.tmp', 'rollout')
   const data = { directory: rolloutDirectory, stateFile: path.join(rolloutDirectory, 'state.json'),
@@ -60,16 +62,16 @@ function canonicalAuthorityFixture(context)
   rolloutFixture.advanceState(data, { includeFinalStage: true })
   const artifacts = rolloutFixture.writeArtifacts(data)
   const auxiliary = rolloutFixture.writeAuxiliary(data)
-  const manifest = createReadinessManifest(releaseId, source.sourceCommit)
   write(auxiliary.releaseManifest, manifest)
   const rolloutFile = path.join(rolloutDirectory, 'release-rollout.json')
   const finalized = rolloutFixture.runEvidence(['finalize', '--state', data.stateFile, '--out', rolloutFile,
     ...rolloutFixture.artifactArgs(artifacts), ...rolloutFixture.auxiliaryArgs(auxiliary)])
   assert.equal(finalized.status, 0, finalized.stderr || finalized.stdout)
   const rollout = rolloutFixture.parseStdout(finalized)
-  const minimal = createRuntimeRoleMinimalV3Fixture('canonical-value-test', source)
+  const minimal = createRuntimeRoleMinimalV4Fixture('canonical-value-test', source)
   const artifact = minimal.artifacts['runtime-role-observation']
-  const observation = { schema: 'fsusblog.runtime-role-observation.v2', ownership: { claimEligible: true },
+  const observation = { schema: 'fsusblog.runtime-role-observation.v3', ownership: { claimEligible: true },
+    currentSchemaContract: createCurrentSchemaCodeContractFixture(),
     deploymentAuthority: { observationDigest: artifact.buildReceipt.deploymentObservationDigest } }
   const deployment = { schema: 'fsusblog.runtime-role-deployment-observation.v1', ownership: { claimEligible: true },
     observationDigest: artifact.buildReceipt.deploymentObservationDigest }
@@ -83,7 +85,7 @@ function canonicalAuthorityFixture(context)
   minimal.contentDigest = digestValue(minimal)
   const extractorIds = JSON.parse(fs.readFileSync(path.join(directory, 'config/contracts/behavior-fact-extractors.json')))
     .extractors.map(extractor => extractor.id).sort()
-  const admission = createRuntimeRoleStaticV3Fixture('canonical-value-test', source, {
+  const admission = createRuntimeRoleStaticV4Fixture('canonical-value-test', source, {
     repositoryRoot: directory, extractorIds, minimalContractBuild: minimal
   })
   const admissionFile = path.join(directory, '.tmp', 'admission.json')
@@ -129,7 +131,7 @@ test('canonical authority synthetic value replay and contained wrapper agree wit
     rollout: actual.rollout.ref.fileDigest, runtimeRole: actual.runtimeRole.observation.ref.fileDigest,
     deployment: actual.runtimeRole.deployment.ref.fileDigest, manifest: actual.manifest.ref.fileDigest
   }))
-  assert.equal(actual.runtimeRole.buildReceipt.schema, 'fsusblog.runtime-role-observation-build-receipt.v3')
+  assert.equal(actual.runtimeRole.buildReceipt.schema, 'fsusblog.runtime-role-observation-build-receipt.v4')
 })
 
 test('canonical authority values reject coordinated source mutations and the current legacy producer', context =>
@@ -141,12 +143,16 @@ test('canonical authority values reject coordinated source mutations and the cur
   const cases = [
     ['current legacy producer', values => { values.artifact.buildReceipt.schema = currentBuildSchema }],
     ['v2 build downgrade', values => { values.artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v2' }],
+    ['v3 build downgrade', values => { values.artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v3' }],
     ['unowned producer', values => { values.artifact.buildReceipt.producer = 'fixture-self-approval' }],
     ['empty source closure', values => {
       values.minimal.sourceClosureDigests = []
       values.artifact.buildReceipt.reproducibleBuild.sourceClosureDigest = digestValue([])
     }],
     ['v1 runtime observation', values => { values.observation.schema = 'fsusblog.runtime-role-observation.v1' }],
+    ['v2 runtime observation', values => { values.observation.schema = 'fsusblog.runtime-role-observation.v2' }],
+    ['pre model claims native qualification', values => { values.observation.currentSchemaContract.nativeQualification = true }],
+    ['pre model missing refusal', values => { delete values.observation.currentSchemaContract.refusalControls['content-seal-as-file-sha'] }],
     ['runtime ownership unknown', values => { values.observation.ownership.claimEligible = false }],
     ['deployment ownership unknown', values => { values.deployment.ownership.claimEligible = false }],
     ['deployment observation mismatch', values => { values.observation.deploymentAuthority.observationDigest = digest('f') }],
@@ -166,7 +172,7 @@ test('canonical authority values reject coordinated source mutations and the cur
     ['independent extractor roster drift', values => { values.registry.extractors.pop() }]
   ]
   assert.notEqual(currentBuildSchema,
-    'fsusblog.runtime-role-observation-build-receipt.v3', 'current producer authority inventory changed; re-audit the v3 gap')
+    'fsusblog.runtime-role-observation-build-receipt.v4', 'current producer authority inventory changed; re-audit the v4 boundary')
   for (const [name, mutate, binding = {}] of cases)
   {
     const bytes = new Map(fixture.snapshots)
@@ -210,7 +216,7 @@ test('canonical authority values reject coordinated source mutations and the cur
       ...fixture.options, candidatePlan: values.plan, ...readers
     }), /canonical-release-authorities|BehaviorDoc admission|minimal contract build/u, name)
   }
-  assert.equal(cases.length, 22)
+  assert.equal(cases.length, 26)
 })
 
 function authorityReaderFixture(context)
@@ -297,7 +303,7 @@ test('canonical authority value verifier imports only pure fixed validators and 
     assert.doesNotMatch(source, /\b(?:process|require)\s*(?:\.|\()|\bimport\s*\(/u)
     for (const match of source.matchAll(/(?:from\s*|import\s*)['"]([^'"]+)['"]/gu))
     {
-      if (['node:crypto', 'node:path'].includes(match[1])) continue
+      if (['node:crypto', 'node:path', 'node:util'].includes(match[1])) continue
       assert.ok(match[1].startsWith('.'), `unexpected import ${match[1]}`)
       await visit(path.resolve(path.dirname(file), match[1]))
     }
@@ -376,3 +382,19 @@ test('pure release authority facts follow current inputs and preserve projection
 
 const commit = resolveSourceCommit(root)
 const releaseId = `20260711010101-${commit.slice(0, 12)}`
+
+// Source refusal controls; synthetic metadata is deliberately unable to qualify.
+test('disconnected native collector refuses legacy windows and claimed current schema facts', () =>
+{
+  for (const claimedCurrentSchema of [undefined, {
+    status: 'verified-current', verified: true, qualificationEligible: true,
+    nativeQualification: true, receipt: { contentDigest: digest('1') },
+    admission: { value: { status: 'pass' } }
+  }])
+  {
+    const fixture = pureAuthorityFixture()
+    fixture.authorities.currentSchema = claimedCurrentSchema
+    assert.throws(() => deriveReleaseReadinessAuthorityFacts(fixture), /admitted native collector is not connected/u)
+    assert.throws(() => deriveBlueGreenAuthorityFacts(fixture), /admitted native collector is not connected/u)
+  }
+})

@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -179,6 +180,7 @@ function makeFixture(t, name) {
 
 function rolloutAtCandidateStart(fixture) {
   const state = createRolloutState({
+    ...createCurrentRolloutFixtureBinding(),
     rolloutId: `normal-observer-${path.basename(fixture.directory)}`.slice(0, 120),
     kind: 'deploy',
     manifestPath: path.join(fixture.directory, 'release-manifest.json'),
@@ -190,7 +192,7 @@ function rolloutAtCandidateStart(fixture) {
     'manifest-validate',
     'capacity-preflight',
     'backup-restore-gate',
-    'expand-migration',
+    'current-schema-admission',
     'asset-materialize'
   ]
   for (let index = 0; index < stages.length; index += 1) {

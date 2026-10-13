@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { validateRolloutState } from './release-rollout-lib.mjs';
 
 function fail(message)
 {
@@ -46,10 +47,8 @@ async function main()
     const target = state.target ?? {};
     const generation = Number(target.runtimeGeneration ?? target.generation);
     const errors = [];
-    if (state.schema !== 'fsusblog.release-rollout-state.v1')
-    {
-        errors.push('rollout state schema mismatch');
-    }
+    try { validateRolloutState(state); }
+    catch (error) { errors.push(`rollout state contract mismatch: ${error.message}`); }
     if (state.destructiveCutoverStarted !== true || state.activationCommitted !== false
       || state.currentStage !== 'source-drain')
     {

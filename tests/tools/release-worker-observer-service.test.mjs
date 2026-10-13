@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -357,6 +358,7 @@ function materializedPlan() {
 
 function rolloutState() {
   return createRolloutState({
+    ...createCurrentRolloutFixtureBinding(),
     rolloutId: 'worker-observer-rollout-20260712',
     kind: 'deploy',
     manifestPath: '/tmp/fsusblog-worker-observer-release-manifest.json',

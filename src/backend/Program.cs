@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.RuntimeModes;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Testing;
@@ -89,14 +90,14 @@ if (CurrentSchemaTestMaterializationCommandLine.IsRequested(args))
     return;
 }
 
-OnlineSchemaMigrationCommand command;
+ServerCommand command;
 try
 {
-    command = OnlineSchemaMigrationCommandLine.Parse(args);
+    command = ServerCommandLine.Parse(args);
 }
 catch (InvalidOperationException exception)
 {
-    WriteCommandError(exception.Message, "schema_command_invalid");
+    WriteCommandError(exception.Message, "server_command_invalid");
     Environment.ExitCode = 2;
     return;
 }
@@ -107,20 +108,16 @@ try
     if (command.EnvironmentFilePath is not null)
     {
         builder.Configuration.AddInMemoryCollection(
-            OnlineSchemaMigrationEnvironmentFile.Read(command.EnvironmentFilePath));
+            ServerCommandEnvironmentFile.Read(command.EnvironmentFilePath));
     }
 }
 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
 {
-    WriteCommandError(exception.Message, "schema_env_file_invalid");
+    WriteCommandError(exception.Message, "server_env_file_invalid");
     Environment.ExitCode = 2;
     return;
 }
-if (command.ReleaseManifestPath is not null)
-{
-    builder.Configuration["FSUSBLOG_RELEASE_MANIFEST_PATH"] = command.ReleaseManifestPath;
-}
-if (command.Kind != OnlineSchemaMigrationCommandKind.Serve)
+if (command.Kind != ServerCommandKind.Serve)
 {
     // Keep stdout as a single machine-JSON channel for rollout automation.
     builder.Configuration["Serilog:WriteTo:0:Args:standardErrorFromLevel"] = "Verbose";
@@ -142,7 +139,8 @@ if (builder.Environment.IsDevelopment() &&
             .GetRequiredService<IUserLoginWorkflowService>());
 }
 builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
-builder.Services.AddOnlineSchemaMigrationControlPlane(builder.Configuration);
+builder.Services.AddScoped<ServerCommandHost>();
+builder.Services.AddScoped<CurrentSchemaReceiptCommandHost>();
 // Last registration wins: Server serve verifies the unique current schema
 // projection and never loads the migration catalog or executes descriptors.
 builder.Services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
@@ -150,10 +148,9 @@ builder.Services.ValidateAndPublishFsusDependencyGraph();
 
 await using var app = builder.Build();
 
-if (command.Kind != OnlineSchemaMigrationCommandKind.Serve)
+if (command.Kind != ServerCommandKind.Serve)
 {
     await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-    var commandHost = scope.ServiceProvider.GetRequiredService<OnlineSchemaMigrationCommandHost>();
     using var commandCancellation = new CancellationTokenSource();
     ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
     {
@@ -163,14 +160,18 @@ if (command.Kind != OnlineSchemaMigrationCommandKind.Serve)
     Console.CancelKeyPress += cancelHandler;
     try
     {
-        Environment.ExitCode = await commandHost.RunAsync(command, commandCancellation.Token);
+        Environment.ExitCode = command.Kind == ServerCommandKind.CurrentSchemaCheck
+            ? await scope.ServiceProvider.GetRequiredService<CurrentSchemaReceiptCommandHost>()
+                .RunAsync(command, commandCancellation.Token)
+            : await scope.ServiceProvider.GetRequiredService<ServerCommandHost>()
+                .RunAsync(command, commandCancellation.Token);
     }
     catch (OperationCanceledException)
     {
         Console.WriteLine(JsonSerializer.Serialize(new
         {
             status = "paused",
-            code = "schema_command_cancelled"
+            code = "server_command_cancelled"
         }));
         Environment.ExitCode = 130;
     }
@@ -193,7 +194,11 @@ static void WriteCommandError(string message, string fallbackCode)
     {
         status = "failed",
         code = code.StartsWith("schema_", StringComparison.Ordinal)
+            || code.StartsWith("server_command_", StringComparison.Ordinal)
+            || code.StartsWith("server_env_file_", StringComparison.Ordinal)
             || code.StartsWith("passkey_projection_", StringComparison.Ordinal)
+            || code.StartsWith("current_receipt_", StringComparison.Ordinal)
+            || code.StartsWith("current_schema_", StringComparison.Ordinal)
             ? code
             : fallbackCode
     }));
