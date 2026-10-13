@@ -2744,6 +2744,185 @@
           "responseFrame": "ThemeRegistryDetail"
         }
       ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/AuthoringCanvasEndpoints.cs",
+      "frontendWrapper": "src/frontend/src/api/authoringCanvas.ts",
+      "frontendAdapter": "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+      "id": "authoring-canvas",
+      "routes": [
+        {
+          "method": "DELETE",
+          "path": "/author/canvases/{canvasId:guid}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "AuthoringCanvasWriteReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_delete",
+          "requestFrame": "AuthoringCanvasDeleteRequest"
+        },
+        {
+          "method": "GET",
+          "path": "/author/canvases",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "AuthoringCanvasListResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_list"
+        },
+        {
+          "method": "GET",
+          "path": "/author/canvases/{canvasId:guid}",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "AuthoringCanvasDocumentHeader",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_header"
+        },
+        {
+          "method": "GET",
+          "path": "/author/canvases/{canvasId:guid}/edges",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "AuthoringCanvasEdgesResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_edges"
+        },
+        {
+          "method": "GET",
+          "path": "/author/canvases/{canvasId:guid}/history",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "AuthoringCanvasHistoryResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_history"
+        },
+        {
+          "method": "GET",
+          "path": "/author/canvases/{canvasId:guid}/nodes",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "AuthoringCanvasNodesResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_nodes"
+        },
+        {
+          "method": "POST",
+          "path": "/author/canvases",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "AuthoringCanvasDocumentHeader",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_create",
+          "requestFrame": "AuthoringCanvasCreateRequest"
+        },
+        {
+          "method": "POST",
+          "path": "/author/canvases/{canvasId:guid}/history",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "AuthoringCanvasOperationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_history_apply",
+          "requestFrame": "AuthoringCanvasUndoRedoRequest"
+        },
+        {
+          "method": "POST",
+          "path": "/author/canvases/{canvasId:guid}/operations",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "AuthoringCanvasOperationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_apply",
+          "requestFrame": "AuthoringCanvasApplyRequest"
+        },
+        {
+          "method": "POST",
+          "path": "/author/canvases/{canvasId:guid}/prepare",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "AuthoringCanvasApplyRequest",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_prepare",
+          "requestFrame": "AuthoringCanvasApplyRequest"
+        },
+        {
+          "method": "POST",
+          "path": "/author/canvases/{canvasId:guid}/resolve",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "AuthoringCanvasReferenceResolutionBatch",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_canvas_resolve",
+          "requestFrame": "AuthoringCanvasResolveRequest"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticleCanvasLinkRoutes.cs",
+      "frontendWrapper": "src/frontend/src/api/articleCanvasLinks.ts",
+      "frontendAdapter": "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",
+      "id": "article-canvas-link",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/canvas-links/history",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "ArticleCanvasLinkHistoryResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_canvas_link_history"
+        },
+        {
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/canvas-links",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "ArticleCanvasLinkReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_canvas_link_apply",
+          "requestFrame": "ArticleCanvasLinkRequest"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [
@@ -2929,5 +3108,5 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "openapiOperationCount": 274
+  "openapiOperationCount": 287
 }

@@ -100,6 +100,7 @@ const accountNavItems: readonly AccountNavItem[] = [
       || path.startsWith('/user/manage/article/write')
       || path.startsWith('/user/manage/article/edit/')
     },
+    { label: '画布', to: '/user/manage/canvas', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
     { label: '回收站', to: '/user/manage/article/trash', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
     { label: '分类', to: '/user/manage/category', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
     { label: '标签', to: '/user/manage/tag', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
@@ -162,6 +163,7 @@ const navLabelKeys = {
     '/user/identity/recovery-key': 'recoveryKey', '/user/identity/public-profile': 'publicProfile',
     '/user/identity/comment-records': 'publicComments', '/user/identity/sessions': 'sessions', '/user/identity/mfa': 'mfa',
     '/user/manage': 'dashboard', '/user/manage/article/list': 'articles', '/user/manage/article/trash': 'trash',
+    '/user/manage/canvas': 'canvas',
     '/user/manage/category': 'categories', '/user/manage/tag': 'tags', '/user/manage/assets': 'assets',
     '/user/manage/moderation': 'moderation', '/user/manage/messages': 'inbox', '/user/manage/users': 'users',
     '/user/manage/moderation/anonymous-policy': 'anonymousPolicy', '/user/manage/moderation/anonymous-risk': 'anonymousRisk',

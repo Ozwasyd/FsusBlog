@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Authoring;
 
@@ -38,6 +39,8 @@ public sealed class AuthoringCanvasServiceRegistrationTests
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasOperationTransaction>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasOperationEngine>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasOperationDatabaseVerifier>());
+        Assert.IsType<AuthoringCanvasTransport>(
+            Assert.Single(scope.ServiceProvider.GetServices<AuthoringCanvasTransport>()));
         Assert.IsType<PostgresAuthoringCanvasCoordinateAuthority>(
             Assert.Single(scope.ServiceProvider.GetServices<IAuthoringCanvasExternalCoordinateAuthority>()));
     }

@@ -1,5 +1,7 @@
 using System.Text;
 
+using FsusBlog.Server.Infrastructure.Auth;
+
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
@@ -17,8 +19,9 @@ public sealed class ArticleCreateStore(
     {
         ArgumentNullException.ThrowIfNull(command);
         cancellationToken.ThrowIfCancellationRequested();
+        RequireArticleWrite(command.Actor);
 
-        // Exact-once first: a replayed or conflicting request id resolves before any plan
+        // After current authorization, a replayed or conflicting request id resolves before any plan
         // verification, so retries stay exact even after the original plan expires.
         string requestDigest = ComputeRequestDigest(command);
         ArticleCreateReceipt? replayed = await persistence
@@ -56,15 +59,26 @@ public sealed class ArticleCreateStore(
         Guid receiptId,
         CancellationToken cancellationToken = default)
     {
-        ArticleTemplateContract.ValidateActor(actor);
+        RequireArticleWrite(actor);
+        cancellationToken.ThrowIfCancellationRequested();
         ArticleCreateVerificationSnapshot? snapshot = await persistence
             .ReadVerificationSnapshotAsync(receiptId, cancellationToken)
             .ConfigureAwait(false);
-        if (snapshot is null)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (snapshot is null || snapshot.Receipt.OwnerAdminPrincipalId != actor.AdminPrincipalId)
         {
             return new ArticleCreateVerificationResult(false, [new("receipt_missing", "no durable receipt")]);
         }
         return ArticleCreateVerifier.Verify(snapshot);
+    }
+
+    private static void RequireArticleWrite(ArticleTemplateActor actor)
+    {
+        ArticleTemplateContract.ValidateActor(actor);
+        if (!actor.Permissions.Contains(AdminPermissions.ArticleWrite))
+        {
+            throw new ArticleTemplateAccessDeniedException();
+        }
     }
 
     private async Task<ArticleCreatePayload> ResolveTemplatePayloadAsync(
@@ -82,6 +96,15 @@ public sealed class ArticleCreateStore(
         }
 
         ArticleTemplateDefaults defaults = plan.Defaults;
+        // Reference verification does not provide a transaction receiver. These defaults
+        // must remain rejected until the canonical create aggregate can actually persist them.
+        if (defaults.PropertyDefaults.Count > 0
+            || defaults.RightsProfile is not null
+            || defaults.ResponsibilityProfile is not null
+            || defaults.PrepublishProfile is not null)
+        {
+            throw new ArticleCreateValidationException("article_create_defaults_receiver_unavailable");
+        }
         string markdown = Encoding.UTF8.GetString(plan.ExpandedSource);
         return new ArticleCreatePayload(
             Title: plan.Input.Title ?? defaults.TitlePlaceholder ?? string.Empty,

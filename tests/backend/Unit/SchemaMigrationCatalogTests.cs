@@ -219,6 +219,16 @@ public sealed class SchemaMigrationCatalogTests
                     catalog.Dependencies.Select(static dependency => dependency.MigrationId));
                 Assert.All(catalog.Dependencies, dependency =>
                     Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase));
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20261006-article-canvas-links", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 10, 6), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 10, 6), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+                Assert.Equal(ArticleCanvasLinkMigrationDefinitions.MigrationId, Assert.Single(catalog.Descriptors).MigrationId);
             });
         const string RecentHistoryMigrationId = "20260915-post-author-recent-history";
         Assert.Single(manifest.Descriptors, static descriptor =>
@@ -226,17 +236,19 @@ public sealed class SchemaMigrationCatalogTests
         ISchemaMigrationDescriptor[] preRecentDescriptors = manifest.Descriptors
             .Where(static descriptor => descriptor.MigrationId != RecentHistoryMigrationId
                 && descriptor.MigrationId != ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId
-                && descriptor.MigrationId != ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId)
+                && descriptor.MigrationId != ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId
+                && descriptor.MigrationId != ArticleCanvasLinkMigrationDefinitions.MigrationId)
             .ToArray();
         Assert.Equal(145, preRecentDescriptors.Length);
         Assert.Equal(
             "D53AB234D57D3C847748434A7A64810A21D8DA44219CFA895360A96B918A4117",
             ComputePlanFingerprint(preRecentDescriptors));
-        Assert.Equal(148, manifest.Descriptors.Count);
+        Assert.Equal(149, manifest.Descriptors.Count);
         const string ExpectedPlanFingerprint = "F2FBD2AF4569856A7435D044AAD13FABD6B32A5F68EF6DEA8C546E8B234E7F04";
         ISchemaMigrationDescriptor[] historicalDescriptors = manifest.Descriptors
             .Where(descriptor => descriptor.MigrationId != ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId
-                && descriptor.MigrationId != ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId)
+                && descriptor.MigrationId != ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId
+                && descriptor.MigrationId != ArticleCanvasLinkMigrationDefinitions.MigrationId)
             .ToArray();
         Assert.Equal(146, historicalDescriptors.Length);
         string actualPlanFingerprint = ComputePlanFingerprint(historicalDescriptors);
@@ -500,7 +512,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(148, first.Count);
+        Assert.Equal(149, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

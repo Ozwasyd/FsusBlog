@@ -259,6 +259,22 @@
     { "name": "ThemeRegistryDetail", "value": 248, "family": "theme-registry-response" },
     { "name": "ThemeActivationList", "value": 249, "family": "theme-activation-response" },
     { "name": "ThemeActivation", "value": 250, "family": "theme-activation-response" },
-    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" }
+    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" },
+    { "name": "AuthoringCanvasCreateRequest", "value": 253, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasDocumentHeader", "value": 254, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasListResponse", "value": 255, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasNodesResponse", "value": 256, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasEdgesResponse", "value": 257, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasApplyRequest", "value": 258, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasOperationReceipt", "value": 259, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasUndoRedoRequest", "value": 260, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasHistoryResponse", "value": 261, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasDeleteRequest", "value": 262, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasWriteReceipt", "value": 263, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasResolveRequest", "value": 264, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasReferenceResolutionBatch", "value": 265, "family": "authoring-canvas" },
+    { "name": "ArticleCanvasLinkRequest", "value": 266, "family": "article-canvas-link" },
+    { "name": "ArticleCanvasLinkReceipt", "value": 267, "family": "article-canvas-link" },
+    { "name": "ArticleCanvasLinkHistoryResponse", "value": 268, "family": "article-canvas-link" }
   ]
 }

@@ -1753,6 +1753,24 @@ public static class OfflineMigrationClassificationFacts
                     "article_property_definition_history_write_isolation"
                 ]));
 
+        result.Add(
+            "20261006-post-article-canvas-link-history",
+            new OfflineMigrationClassificationFact(
+                "20261006-post-article-canvas-link-history",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261006-article-canvas-links"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators: ["descriptor_policy", "n_minus_one_read_write", "article_canvas_link_owner_site_scope",
+                    "article_canvas_link_canonical_cas", "article_canvas_link_revision_history", "article_canvas_link_receipt_integrity"]));
+
         foreach (string id in result.Keys.ToArray())
         {
             result[id] = result[id] with

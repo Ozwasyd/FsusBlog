@@ -1517,6 +1517,102 @@
             "value": 252,
             "goldenFamily": "theme-activation-response",
             "goldenOrder": 243
+        },
+        {
+            "name": "AuthoringCanvasCreateRequest",
+            "value": 253,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 244
+        },
+        {
+            "name": "AuthoringCanvasDocumentHeader",
+            "value": 254,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 245
+        },
+        {
+            "name": "AuthoringCanvasListResponse",
+            "value": 255,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 246
+        },
+        {
+            "name": "AuthoringCanvasNodesResponse",
+            "value": 256,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 247
+        },
+        {
+            "name": "AuthoringCanvasEdgesResponse",
+            "value": 257,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 248
+        },
+        {
+            "name": "AuthoringCanvasApplyRequest",
+            "value": 258,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 249
+        },
+        {
+            "name": "AuthoringCanvasOperationReceipt",
+            "value": 259,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 250
+        },
+        {
+            "name": "AuthoringCanvasUndoRedoRequest",
+            "value": 260,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 251
+        },
+        {
+            "name": "AuthoringCanvasHistoryResponse",
+            "value": 261,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 252
+        },
+        {
+            "name": "AuthoringCanvasDeleteRequest",
+            "value": 262,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 253
+        },
+        {
+            "name": "AuthoringCanvasWriteReceipt",
+            "value": 263,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 254
+        },
+        {
+            "name": "AuthoringCanvasResolveRequest",
+            "value": 264,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 255
+        },
+        {
+            "name": "AuthoringCanvasReferenceResolutionBatch",
+            "value": 265,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 256
+        },
+        {
+            "name": "ArticleCanvasLinkRequest",
+            "value": 266,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 257
+        },
+        {
+            "name": "ArticleCanvasLinkReceipt",
+            "value": 267,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 258
+        },
+        {
+            "name": "ArticleCanvasLinkHistoryResponse",
+            "value": 268,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 259
         }
     ],
     "goldenCatalog": {

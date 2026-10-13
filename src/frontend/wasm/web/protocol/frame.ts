@@ -245,6 +245,22 @@ export const FrameType = {
   ThemeActivation: 250,
   ApiError: 251,
   ThemeActivationHistory: 252,
+  AuthoringCanvasCreateRequest: 253,
+  AuthoringCanvasDocumentHeader: 254,
+  AuthoringCanvasListResponse: 255,
+  AuthoringCanvasNodesResponse: 256,
+  AuthoringCanvasEdgesResponse: 257,
+  AuthoringCanvasApplyRequest: 258,
+  AuthoringCanvasOperationReceipt: 259,
+  AuthoringCanvasUndoRedoRequest: 260,
+  AuthoringCanvasHistoryResponse: 261,
+  AuthoringCanvasDeleteRequest: 262,
+  AuthoringCanvasWriteReceipt: 263,
+  AuthoringCanvasResolveRequest: 264,
+  AuthoringCanvasReferenceResolutionBatch: 265,
+  ArticleCanvasLinkRequest: 266,
+  ArticleCanvasLinkReceipt: 267,
+  ArticleCanvasLinkHistoryResponse: 268,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
