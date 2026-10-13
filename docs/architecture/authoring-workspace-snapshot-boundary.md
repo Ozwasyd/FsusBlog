@@ -213,6 +213,21 @@ settlement removes pending work. Original Group cell/startup guard/ratio publica
 CAS/idempotency/history, public issuer and server/persistence contracts remain.
 These repairs still require independent exact-head review and held qualification.
 
+The original Doc SDK's optional attachment revision transition consumes the actual
+original attachment producer's lazy association and the mounted native issuer's
+opaque reservation. It reserves the same private attachment lease during the
+applying loan, publishes the exact accepted native transaction before its public
+source callbacks, and admits completion only in that same transaction's committed
+loan. Original task/request/producer/started-context identity remains; the envelope
+records the actual completed revision. Other old-revision tasks still cancel.
+Ordinary source mutation and ordinary lease acceptance do not acquire this
+exception. Explicit cancellation, owner/context revocation, failed readers and
+synchronous reentry close its acceptance; actual cancellation/withdrawal failures
+remain held for cleanup through the same token or original lease. No settlement,
+second completed lease, copied native body/history, mapping logic or full-ready
+resource authority is supplied. This source increment and its owning integration
+still require independent review and every original held qualification.
+
 Document mutation also blocks new task issuance until its actual revision is
 published, including a new producer key requested by the final external guard.
 Nested retirement closes the actual target owner/preparation admission before
@@ -1572,3 +1587,112 @@ The producer verifies its own private association plus the actual native issuer'
 An unavailable `accepted` publication response retains the SAME nativeCompletion and ownedOperations until the original native owner's final `refused` observation. That final observation records its actual raw cause and uses the original pending entry finish path to cancel the SAME lease and release its actual File before clearing custody. Intermediate accepted refusal cannot discard the deferred original input-release obligation.
 
 No original SDK controlled same-lease transition consumer is installed by this source stage. The producer is available but reserve is not called automatically. The existing Main observer explicitly refuses an armed accepted phase until that original SDK publication API exists. Ordinary updateSource/accept/isCurrent, task settlement, native generic-complete refusal and taskCompletion unavailable remain. Accepted native content cannot confer business/reference/full-resource/recovery/eviction authority. The isolated native issuer source dependency is separate from the accepted native/retry composite; source availability is not runtime qualification.
+
+
+### Main controlled native attachment consumer
+
+The original Main attachment observer uses the actual original Doc SDK ports inside the same authenticated native loan: applying identifies its original private accepted capture/PendingInput.lease and asks SDK reserve to invoke the installed genuine producer; accepted publishes the SAME real event through SDK before public source callbacks; committed accepts that SAME token/event using the existing transaction/provider-result digest proof. No direct producer auto-reserve, second loan/lease, copied native body/history/map or generic second dispatch is used. The actual SDK source and actual UI composite are explicit local-source dependencies, not interface substitutes or package publication.
+
+After SDK accepted publication returns, Main stores that original event and exact returned current context in the SAME private entry. The original Writer's equal-revision form guard admits synchronization only when this private publication matches the actual event/context/live entry; ordinary source equality/revision guards remain. Later public transaction/model/source callbacks use their original path.
+
+Actual successful SDK acceptance stores the historical SAME task envelope and transaction. Original lifecycle proof fields use actual event/result digests and preserve the original started context. SDK failure after lease finalization retains that real completed historical envelope with historical acceptance status, never fabricating an aborted completed lease or replacement completion. Original entry cleanup attempts SDK association cancellation, original lease cancellation where still running, actual File release and controller revocation independently. False/throw, including raw undefined, retains the SAME original pending entry as cleanup custody; only confirmed duties remove it. Completed cleanup-only rows cannot enter ordinary rebase/retry/new-lease paths. Public original-handle cleanup retry and inspection expose real pending duties. An SDK cancel false after failure is kept unconfirmed, not inferred as zero cleanup.
+
+Writer resource observation includes these real cleanup holders and the original Doc adapter's pending tasks; completed task publication never calls settle or confers full settlement. Existing full-resource/host/recovery/eviction/readiness and business-grant guards remain. The dedicated rich upload request adapter, real AssetId and complete original File/batch/item/intent/lease binding, own-work-only result/settled/cancel futures and absence of direct/indirect self-await are separate original-owner integration requirements. URL/void fulfillment is not business identity or completed cleanup. All runtime/security/privacy/receipt/race/backuprestore/IME qualifications remain held.
+
+
+## Original Rich Upload Request Boundary
+
+`requestArticleAttachmentUpload` in the dedicated
+`articleAttachmentUploadRequest` module is an unactivated request adapter for the
+original FsusUI rich attachment contract. Main must supply the actual admitted
+native File, batch/item, same pending intent and lease, configured upload runtime,
+and its own `requestProviderResult(completion)` producer. The adapter probes the
+accepted Main owner's actual `matchesCapturedFile` method; an older owner without
+that capability fails closed. It does not capture another job, issue a task lease,
+dispatch a native transaction, publish a Doc revision, or activate caller wiring.
+
+The adapter starts one original `requestUploadFile` with that File/options/binding.
+Inside the actual ACK-time bounded session loan it binds Main's returned original
+`MarkdownAttachmentConsumerRequest` and awaits only that provider's result. The
+returned rich result is the provider's original value, correlated with the native
+batch/item/document/revision; resolved content must carry its actual AssetId and
+the correlated ACK URL. Upload URL or Flow `Promise<void>` fulfillment cannot
+substitute for provider acceptance, native committed application, original Doc
+task completion, business reference receipt or asset release. Provider result,
+full-settled and cancellation-cleanup work must not await this request's or the
+upstream upload's futures, or native committed application that depends on its own
+rich result, directly or through async/then chains. Direct upstream-future identity
+cycles are refused; those checks do not establish indirect independence. Main's
+actual provider implementation must satisfy that separate consumer contract.
+
+The original upload and provider requests remain inspectable by their invocation
+owner. Full settlement is a separate Promise that waits for actual upload and
+provider full-settlement observations, closed provider acquisition, finished
+adapter execution and fulfilled original consumer cancellation cleanup. Failed or
+unobservable settlement/acquisition stays unresolved. Cancellation permanently
+records the first request before independently attempting both original owners;
+failed cleanup can be retried without repeating upload or provider creation, and
+raw failures including undefined remain separate from content result. Asynchronous
+cancel rejection is appended to the adapter's historical failure record before
+reconsidering settlement, with an explicit cause property even for undefined. A
+successful retry may replace the original UI binding's current cleanup slot, but
+cannot erase that history; historical failure alone does not prevent settlement
+after actual successful cleanup.
+
+The upload census has no authoritative complete numeric network/memory totals.
+The UI's six-number `inspectLocalResources` contract therefore explicitly throws
+`ArticleAttachmentUploadResourcesUnavailable`, carrying the actual upload census;
+the canonical FsusUI binding reports inspection unsupported. It never converts
+unknown network/shared-Wasm work or retained File state to zero. No checkpoint is
+offered. Main's private binding/provider hookup, full numeric resource capability
+and genuine receiver/native/SDK integration remain separate unresolved gates;
+this source adapter does not establish runtime or migration qualification.
+
+
+## Main Native Rich Request Consumption
+
+Main forwards the actual `attachmentRequestDispatch` through ArticleWriteEditor,
+MarkdownEditorAdapter and MarkdownTextEditor to the sole mounted FsusUI editor.
+The rich dispatch does not emit the legacy capture event. Main therefore borrows
+the SAME native capture through the existing mounted `withAttachmentFile` port
+and calls the original accepted-capture admission once. The private pending
+owner returns the original handle, File and SDK lease; no replacement capture,
+history, task, placeholder dispatch or parallel upload is created. The legacy
+capture callback only admits and no longer starts useImageUploadFlow. Original
+explicit operations keep their existing Flow path.
+
+The configured requestUploadFile receives that same original binding. In its ACK
+loan, requestArticleAttachmentCommittedFacts opens a bounded nested scope and
+calls the existing transport provider's observe method. Its named session fields
+remain private; real committed facts supply AssetId and must match the ACK URL.
+The provider's own result never waits for upload, adapter, SDK acceptance or native
+application. Its separate settlement observes genuine callback completion and
+original scope cleanup. A rejected scope is unconfirmed until callback work has
+ended and actual original loan release retries cleanup successfully. Cancellation
+attempts controller abort and original loan release independently, preserving raw
+causes including undefined. No guessed AssetId, success ACK, numeric zero census
+or checkpoint is supplied.
+
+Main retains each original request until its actual full-settlement observation,
+exposes same-handle cancellation retry and includes real upload census and failure
+history in Writer resource inspection. Pause/release cancellation attempts every
+retained request. This does not settle the SDK lease from terminal content: SDK
+producer settlement, numeric full network/memory census, references, recovery,
+eviction and host readiness remain separate unsupported or unqualified gates.
+Whole application diagnostics and every runtime/qualification execution hold
+remain; this source composition is pending independent review.
+
+
+## Accepted Root Cancellation Consumption
+
+Main takes the three original Root owning postimages exactly from independently
+accepted a4f28e43a8608914264a38fca596a7edb4ad2917: Frame, session composition and
+native recreation driver. Real operation cancellation reaches the same source
+principal and original physical operation. Synchronous issuer notification
+withdraws authority before deferred cleanup; queued/closing public lease retry
+retains the original pending holder and raw firstCause, including undefined,
+before delegate cleanup. Failed late acquisition and receiving cleanup remain
+unconfirmed. Same staging target adoption, explicit stage release and ordinary
+Root readmission ordering are preserved. SDK, Writer, registry, factory and
+continuity source are unchanged by this dependency consumption. The three exact
+source postimages do not qualify actual native work, resources or readiness.

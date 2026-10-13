@@ -164,8 +164,8 @@ export function installArticleWorkspaceEditorSessions(
     };
     const hasInstallationCustody = (): boolean => installationComplete && !retired;
     const nativeRecreation = nativeRecreationRoot ? createArticleWorkspaceNativeRecreationDriver(nativeRecreationRoot,
-        (entry, snapshot, draftStateRef) => prepareArticleWorkspaceNativeHandoverContinuity(host, entry, snapshot, draftStateRef),
-        () => installed?.host === host && hasInstallationCustody()) : null;
+        (entry, snapshot, draftStateRef, cancellation) => prepareArticleWorkspaceNativeHandoverContinuity(host, entry, snapshot, draftStateRef, cancellation),
+        () => installed?.host === host && hasInstallationCustody(), factory.inspectNativeHandoverCleanup.bind(factory)) : null;
     installed = { resolveMountedEditor, prepareMountedEditor, nativeRecreationRoot, nativeRecreation, host, factory, assertActive, hasInstallationCustody, retire,
         sealAdmission, hasAdmissionCustody, cancelAdmission };
     try
@@ -273,9 +273,10 @@ export async function prepareArticleWorkspaceSnapshotReferenceAdmission(
 /** Original Auth+Registry reservation and actual native offer; no target/ready receipt. */
 export function prepareArticleWorkspaceNativeHandoverContinuity(
     host: AuthoringSessionHost, entry: OpenArticleDocumentEntry,
-    snapshot: MarkdownEditorSessionSnapshot, draftStateRef: string
+    snapshot: MarkdownEditorSessionSnapshot, draftStateRef: string, cancellation?: AbortSignal
 ): ArticleWorkspaceNativeHandoverReservation
 {
+    cancellation?.throwIfAborted();
     const composition = installed;
     if (composition?.host !== host)
     {
@@ -285,7 +286,7 @@ export function prepareArticleWorkspaceNativeHandoverContinuity(
     const registry = articleWorkspaceTabRouter.getRegistry();
     const handle = registry.issueRetainedDocumentHandle(entry.tabId);
     composition.assertActive();
-    const hasInstallation = (): boolean => installed === composition && composition.hasInstallationCustody();
+    const hasInstallation = (): boolean => !cancellation?.aborted && installed === composition && composition.hasInstallationCustody();
     // Canonical producer returns the existing genuine cell/handle for the active member.
     return composition.factory.prepareNativeHandoverContinuity(entry, snapshot, draftStateRef,
         registry, handle, hasInstallation);

@@ -516,6 +516,11 @@ let layoutRevoked = false;
 let layoutEpoch = 0;
 interface FrameNativeStaging {
     readonly operation: AbortController;
+    readonly cancellation: AbortSignal | undefined;
+    acquiring: boolean;
+    cleanupCompleted: boolean;
+    cleanupQueued: boolean;
+    closing: boolean;
     active: boolean;
     borrowed: ArticleNativeRecreationStagingLease | null;
     cleanup: (() => void) | null;
@@ -546,50 +551,89 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
     }
     own.active = false;
     own.pendingCleanup = true;
-    const failures: unknown[] = [];
-    const attempt = (run: () => void): void =>
+    own.cleanupCompleted = false;
+    if (own.cleanupQueued || own.closing)
     {
+        return; // Authority is withdrawn; issuer notification has not finished yet.
+    }
+    own.closing = true;
+    try
+    {
+        const failures: unknown[] = [];
+        const attempt = (run: () => void): void =>
+        {
+            try
+            {
+                run();
+            }
+            catch (cause: unknown)
+            {
+                recordFrameNativeStagingFailure(own, cause);
+                failures.push(cause);
+            }
+        };
+        attempt(() => own.operation.abort());
+        attempt(() =>
+        {
+            if (own.borrowed)
+            {
+                if (own.borrowed.cancel() !== true)
+                {
+                    throw new Error('article-native-staging-frame-cancellation-not-confirmed');
+                }
+            }
+            else
+            {
+                own.cleanup?.();
+            }
+        });
+        attempt(() =>
+        {
+            own.abortStop?.();
+            own.abortStop = null;
+        });
+        if (failures.length)
+        {
+            throw failures.length === 1 ? failures[0]
+                : new AggregateError(failures, 'article-native-staging-frame-cleanup-incomplete', { cause: failures[0] });
+        }
+        // Only confirmed cleanup clears debt; failure history and withdrawn authority remain.
+        own.cleanupCompleted = true;
+        own.pendingCleanup = own.acquiring;
+        if (!own.acquiring && frameNativeStaging === own)
+        {
+            frameNativeStaging = null;
+        }
+    }
+    finally
+    {
+        own.closing = false;
+    }
+}
+function deferFrameNativeStagingCleanup(own: FrameNativeStaging): void
+{
+    own.active = false;
+    own.pendingCleanup = true;
+    own.cleanupCompleted = false;
+    if (own.cleanupQueued || own.closing)
+    {
+        return;
+    }
+    own.cleanupQueued = true;
+    queueMicrotask(() =>
+    {
+        own.cleanupQueued = false;
         try
         {
-            run();
+            closeFrameNativeStaging(own);
         }
         catch (cause: unknown)
         {
+            // Keep this SAME failed holder/raw cause for exact-operation retry.
             recordFrameNativeStagingFailure(own, cause);
-            failures.push(cause);
-        }
-    };
-    attempt(() => own.operation.abort());
-    attempt(() =>
-    {
-        if (own.borrowed)
-        {
-            if (own.borrowed.cancel() !== true)
-            {
-                throw new Error('article-native-staging-frame-cancellation-not-confirmed');
-            }
-        }
-        else
-        {
-            own.cleanup?.();
+            snapshotPreparationFailure = own.firstCause;
         }
     });
-    attempt(() =>
-    {
-        own.abortStop?.();
-        own.abortStop = null;
-    });
-    if (failures.length)
-    {
-        throw failures.length === 1 ? failures[0]
-            : new AggregateError(failures, 'article-native-staging-frame-cleanup-incomplete', { cause: failures[0] });
-    }
-    // Only confirmed cleanup clears debt; failure history and withdrawn authority remain.
-    own.pendingCleanup = false;
-    if (frameNativeStaging === own)
-    {
-        frameNativeStaging = null;
-    }
 }
 function notifyWorkspaceLayoutInvalidation(): void
 {
@@ -738,7 +782,7 @@ async function admitCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocum
 }
 
 async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal,
-                                                   preparePhysical: boolean): Promise<void>
+                                                   preparePhysical: boolean, operationSignal?: AbortSignal): Promise<void>
 {
     mountedAuthority = null;
     try
@@ -748,6 +792,7 @@ async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDo
         const verify = (): void =>
         {
             signal.throwIfAborted();
+            operationSignal?.throwIfAborted();
             if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== epoch
                 || routeOutletInstance.value !== instance || !viewStartupPorts || viewStartupSignal !== signal
                 || readCurrentStartupPorts() !== viewStartupPorts)
@@ -793,7 +838,7 @@ async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDo
         }
         if (preparePhysical)
         {
-            await prepare.call(port, entry, signal);
+            await prepare.call(port, entry, operationSignal ?? signal);
         }
         verify();
         const current: unknown = getter.call(instance);
@@ -843,7 +888,7 @@ async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDo
         const originalHas = has as (this: unknown, candidate: unknown) => unknown;
         const hasOriginal = originalHas.bind(port);
         const privateCurrent = (): boolean => mountedAuthority === admission && mounted
-            && !layoutRevoking && !layoutRevoked && layoutEpoch === epoch
+            && !operationSignal?.aborted && !layoutRevoking && !layoutRevoked && layoutEpoch === epoch
             && viewStartupPorts === selectedPorts && viewStartupSignal === signal;
         const admission: ArticleWorkspaceMountedAuthority = Object.freeze({
             editorSessionRef: entry.editorSessionRef, nativeEditor,
@@ -889,13 +934,14 @@ function hasPublicStagingOwner(value: unknown): value is { getArticleWorkspacePr
 
 /** Main calls this actual pre-seal physical staging path, adopts its offer, then uses ordinary prepare for readmission. */
 async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource,
-                                                    signal: AbortSignal): Promise<ArticleNativeRecreationStagingLease>
+                                                    signal: AbortSignal, cancellation?: AbortSignal): Promise<ArticleNativeRecreationStagingLease>
 {
     if (frameNativeStaging)
     {
         throw new Error('article-native-staging-frame-custody-pending');
     }
-    const own: FrameNativeStaging = { operation: new AbortController(), active: true, borrowed: null, cleanup: null, abortStop: null, pendingCleanup: true, hasFailure: false, firstCause: undefined, latestCause: undefined };
+    const own: FrameNativeStaging = { operation: new AbortController(), cancellation, acquiring: true, cleanupCompleted: false, cleanupQueued: false, closing: false,
+                                      active: true, borrowed: null, cleanup: null, abortStop: null, pendingCleanup: true, hasFailure: false, firstCause: undefined, latestCause: undefined };
     frameNativeStaging = own;
     const instance = routeOutletInstance.value;
     const epoch = layoutEpoch;
@@ -903,7 +949,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     const installation = workspaceInstallation;
     const hasView = (): boolean => own.active && frameNativeStaging === own && mounted && !layoutRevoked && !layoutRevoking
         && layoutEpoch === epoch && viewStartupPorts === ports && viewStartupSignal === signal
-        && workspaceInstallation === installation && installation !== undefined && !installation.failed;
+        && !cancellation?.aborted && workspaceInstallation === installation && installation !== undefined && !installation.failed;
     const verify = (): void =>
     {
         signal.throwIfAborted();
@@ -921,10 +967,16 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     const onAbort = (): void =>
     {
         own.active = false;
+        if (own.cleanupQueued)
+        {
+            own.pendingCleanup = true;
+            return;
+        }
         closeFrameNativeStaging(own);
     };
-    own.abortStop = () => signal.removeEventListener('abort', onAbort);
-    signal.addEventListener('abort', onAbort, { once: true });
+    const operationSignal = cancellation ? AbortSignal.any([signal, cancellation]) : signal;
+    own.abortStop = () => operationSignal.removeEventListener('abort', onAbort);
+    operationSignal.addEventListener('abort', onAbort, { once: true });
     try
     {
         verify();
@@ -957,7 +1009,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
         const cancel = (): boolean =>
         {
             closeFrameNativeStaging(own);
-            return true;
+            return !own.cleanupQueued && !own.acquiring && !own.pendingCleanup;
         };
         const result = Object.freeze<ArticleNativeRecreationStagingLease>({
             scope: 'native-recreation-staging', editor: borrowed.editor, session: borrowed.session,
@@ -966,6 +1018,14 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
             {
                 own.active = false;
                 own.pendingCleanup = true;
+                if (own.cleanupQueued || own.closing)
+                {
+                    if (own.hasFailure)
+                    {
+                        throw own.firstCause;
+                    }
+                    throw new Error('article-native-staging-frame-cleanup-deferred');
+                }
                 try
                 {
                     borrowed.retryCleanup();
@@ -1009,48 +1069,51 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     catch (cause: unknown)
     {
         own.active = false;
-        snapshotPreparationFailure = cause;
+        recordFrameNativeStagingFailure(own, cause);
+        const primary = own.firstCause;
+        snapshotPreparationFailure = primary;
         let cleanupFailure: { cause: unknown; } | null = null;
-        if (own.borrowed || own.cleanup)
+        try
         {
-            try
-            {
-                closeFrameNativeStaging(own);
-            }
-            catch (cleanupCause: unknown)
-            {
-                cleanupFailure = { cause: cleanupCause };
-            }
+            closeFrameNativeStaging(own);
         }
-        else
+        catch (cleanupCause: unknown)
         {
-            own.abortStop?.();
-            own.abortStop = null;
+            cleanupFailure = { cause: cleanupCause };
+        }
+        if (cleanupFailure)
+        {
+            // eslint-disable-next-line preserve-caught-error -- Preserve the original pre-notification first cause, including undefined; the current acquisition cause is recorded as latest.
+            throw new AggregateError([primary, cleanupFailure.cause], 'article-native-staging-frame-and-cleanup-failed', { cause: primary });
+        }
+        throw primary;
+    }
+    finally
+    {
+        own.acquiring = false;
+        if (!own.active && own.cleanupCompleted && !own.cleanupQueued)
+        {
+            own.pendingCleanup = false;
             if (frameNativeStaging === own)
             {
                 frameNativeStaging = null;
             }
         }
-        if (cleanupFailure)
-        {
-            throw new AggregateError([cause, cleanupFailure.cause], 'article-native-staging-frame-and-cleanup-failed', { cause });
-        }
-        throw cause;
     }
 }
 
 /** Same Frame-private startup signal and original preparation/admission, never a discovered mount. */
 const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootPort>({
-    reserveTarget: (entry, source) =>
+    reserveTarget: (entry, source, cancellation) =>
     {
         const signal = viewStartupSignal;
         if (!signal)
         {
             throw new Error('article-native-recreation-original-startup-signal-required');
         }
-        return reserveCurrentNativeRecreationTarget(entry, source, signal);
+        return reserveCurrentNativeRecreationTarget(entry, source, signal, cancellation);
     },
-    readmitTarget: async (entry, target) =>
+    readmitTarget: async (entry, target, cancellation) =>
     {
         const signal = viewStartupSignal;
         const ports = viewStartupPorts;
@@ -1059,9 +1122,11 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
         {
             throw new Error('article-native-recreation-original-root-required');
         }
+        const operationSignal = AbortSignal.any([signal, cancellation]);
         const verify = (): void =>
         {
             signal.throwIfAborted();
+            operationSignal.throwIfAborted();
             requireStartupAdmission(ports);
             if (viewStartupSignal !== signal || viewStartupPorts !== ports || routeOutletInstance.value !== instance)
             {
@@ -1069,9 +1134,9 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
             }
         };
         verify();
-        await prepareCurrentPrimaryMountedEditor(entry, signal);
+        await completeCurrentPrimaryMountedEditor(entry, signal, true, operationSignal);
         verify();
-        await admitCurrentPrimaryMountedEditor(entry, signal);
+        await completeCurrentPrimaryMountedEditor(entry, signal, false, operationSignal);
         verify();
         const mounted = readCurrentMountedAuthority(entry.editorSessionRef);
         if (mounted?.nativeEditor !== target.editor || !mounted.hasCustody()
@@ -1082,7 +1147,26 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
         verify();
         return mounted;
     },
-    retryCleanup: () => closeFrameNativeStaging()
+    retryCleanup: cancellation =>
+    {
+        const own = frameNativeStaging;
+        if (own?.cancellation === cancellation)
+        {
+            if (own.cleanupQueued)
+            {
+                throw new Error('article-native-staging-frame-cleanup-deferred');
+            }
+            closeFrameNativeStaging(own);
+        }
+    },
+    deferCleanup: cancellation =>
+    {
+        const own = frameNativeStaging;
+        if (own?.cancellation === cancellation)
+        {
+            deferFrameNativeStagingCleanup(own);
+        }
+    }
 });
 
 defineExpose({ prepareMountedEditor: prepareCurrentPrimaryMountedEditor,

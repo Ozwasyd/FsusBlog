@@ -37,6 +37,7 @@
             :document-identity="documentIdentity"
             :native-attachment-input="true"
             :attachment-terminal-observer="attachmentTerminalObserver"
+            :attachment-request-dispatch="dispatchAttachmentRequest"
             @attachment-capture="handleAttachmentCapture"
             @save="$emit('draft-save')"
             @draft-save="$emit('draft-save')"
@@ -114,6 +115,7 @@ import {
 } from '@/services/authoring/articleEditorSurface';
 
 import type {
+    MarkdownAttachmentRequestDispatch,
     MarkdownEditorOutlineItem,
     MarkdownEditorOutlineRange,
     MarkdownEditorRevealOptions,
@@ -145,6 +147,8 @@ const props = withDefaults(defineProps<{
     surfacePreference?: ArticleEditorSurfacePreference | null;
     documentContext?: ArticleDocumentContext | null;
     attachmentTerminalObserver?: MarkdownAttachmentTerminalObserver;
+    attachmentRequestDispatch?: (input: Parameters<MarkdownAttachmentRequestDispatch>[0], options: ArticleAnchorCaptureOptions) =>
+        ReturnType<MarkdownAttachmentRequestDispatch>;
 }>(), {
     layoutMode: 'standard',
     textareaId: 'article-content',
@@ -254,6 +258,13 @@ const editorSizingClass = computed(() =>
     }
 
     return 'h-[min(760px,calc(var(--fsus-viewport-block-size)-310px))] min-h-[520px] max-lg:h-[620px] max-lg:min-h-[460px] max-sm:h-[560px] max-sm:min-h-[420px]';
+});
+
+const dispatchAttachmentRequest = computed<MarkdownAttachmentRequestDispatch | undefined>(() =>
+{
+    const dispatch = props.attachmentRequestDispatch;
+    return dispatch ? input => dispatch(input, { surface: activeSurface.value,
+                                                 tool: sourceCompareOpen.value ? 'source-compare' : 'none', affinity: 'after', viewportOffset: 0, percentage: 0 }) : undefined;
 });
 
 function handleAttachmentCapture(batch: MarkdownAttachmentBatchIntent, capture?: MarkdownAttachmentCaptureObservation): void

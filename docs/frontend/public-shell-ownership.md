@@ -33,6 +33,21 @@ The desktop search trigger remains the native `/search` link. A plain click may 
 
 ## CSS layers
 
+The application `App.vue` owns one real FsusUI configuration snapshot producer
+and passes its original handle through `ElConfigProvider.config-producer`.
+It captures the initial render-pipeline configuration once; later theme writes
+reuse the producer's immutable snapshot rather than recopying external props.
+`services/themeRuntime.ts` updates each bound producer synchronously before its
+owned theme DOM/Ref writes. Reentrant writes and binding during a write are
+rejected. A failed write retires bound producers, including any already updated
+peer, so no partially published configuration remains authoritative. Failed
+bindings block further owned writes until the caller disposes/remounts them.
+App scope disposal unbinds before releasing the actual producer. These are
+configuration-publication boundaries, not authority over pre-binding
+`preTheme.ts` DOM writes, system/third-party DOM changes, or locale transactions.
+The early bootstrap and locale owners remain separate; readonly mode watchers
+and mutation observers do not certify their past writes.
+
 | Layer / file | Owns | Must not |
 | --- | --- | --- |
 | FsusUI critical/runtime CSS | `PublicShell` layout, control sizes, Search/Auth/Theme/Menu states, focus, motion, reduced-motion, and safe-area | Consumer patches internals with `.el-public-shell__*` or `.el-theme-mode-toggle__*` |

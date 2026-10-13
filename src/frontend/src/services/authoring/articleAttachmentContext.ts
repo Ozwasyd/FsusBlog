@@ -37,7 +37,8 @@ import {
     type ArticleDocumentContext,
     type ArticleDocumentContextAdapter,
     type ArticleDocumentTaskEnvelope,
-    type ArticleDocumentTaskLease
+    type ArticleDocumentTaskLease,
+    type ArticleDocumentAttachmentRevisionTransition
 } from './articleDocumentContext';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
 
@@ -144,7 +145,8 @@ export interface ArticleAttachmentTerminalPort {
 export interface ArticleAttachmentNativeTerminalObservation {
     readonly observation: Extract<MarkdownAttachmentTerminalObservation, { phase: 'committed'; }>;
     readonly task: ArticleDocumentTaskEnvelope;
-    readonly taskCompletion: 'unavailable';
+    readonly taskCompletion: 'unavailable' | 'completed';
+    readonly sdkAcceptance?: 'accepted' | 'historical';
 }
 
 interface AcceptedNativeCapture {
@@ -179,8 +181,16 @@ interface PendingInput {
     nativeFailure?: { readonly firstCause: unknown; latestCause: unknown; };
     nativeRevisionAssociation?: NativeRevisionAssociation;
     reservingNativeRevision?: boolean;
+    nativeTransition?: ArticleDocumentAttachmentRevisionTransition;
+    nativeSdkCleanupPending?: boolean;
+    nativePublication?: { readonly transaction: MarkdownEditorTransactionEvent; readonly context: ArticleDocumentContext; };
+    nativeFinalization?: { readonly observation: Extract<MarkdownAttachmentTerminalObservation, { phase: 'committed'; }>;
+        readonly proof: Readonly<{ transactionRef: string; providerResultDigest: string; }>; sdkAccepted: boolean; };
+    nativeFinishing?: boolean;
+    nativeCleanupReentry?: { readonly cause: unknown; };
     file?: File;
     releaseFile?: () => void;
+    nativeHandle?: ArticleAttachmentPendingHandle;
 }
 
 interface NativeRevisionAssociation
@@ -895,6 +905,23 @@ export class ArticleAttachmentContextAdapter
         return !!entry && (!entry.nativeCapture || entry.file === file);
     }
 
+    /** Borrow the SAME admitted pending handle and lease for the original native request. */
+    public readNativeUploadBinding(batch: MarkdownAttachmentBatchIntent, item: MarkdownAttachmentItemIntent, file: File):
+        Readonly<{ intent: ArticleAttachmentPendingHandle; lease: ArticleDocumentTaskLease; }> | null
+    {
+        for (const entry of this.pending.values())
+        {
+            if (entry.nativeInput?.capture.batch === batch && entry.nativeInput.item === item
+                && entry.file === file && entry.nativeHandle && !entry.controller.signal.aborted
+                && !batch.signal.aborted && !item.signal.aborted && entry.lease.isCurrent()
+                && entry.nativeHandle.snapshot.task === entry.lease.envelope)
+            {
+                return Object.freeze({ intent: entry.nativeHandle, lease: entry.lease });
+            }
+        }
+        return null;
+    }
+
     private createPending(intent: ArticleAttachmentIntent, batch: MarkdownAttachmentBatchIntent,
         range: Readonly<{ start: number; end: number; }>, anchor: ArticleAnchorContext,
         result: MarkdownEditorDispatchResult, file?: File, item?: MarkdownAttachmentItemIntent,
@@ -967,6 +994,40 @@ export class ArticleAttachmentContextAdapter
         return failure ? Object.freeze({ ...failure }) : null;
     }
 
+    /** Genuine returned SDK publication, from this adapter's SAME private entry/event. */
+    public hasNativeSourcePublication(transaction: MarkdownEditorDispatchResult, context: ArticleDocumentContext): boolean
+    {
+        for (const entry of this.pending.values())
+        {
+            if (entry.nativePublication?.transaction === transaction && entry.nativePublication.context === context
+                && this.owner.context === context && entry.nativeTransition && entry.nativeCompletion
+                && !entry.controller.signal.aborted && !entry.lease.signal.aborted
+                && this.ownedOperations.has(entry.intent.task.taskRef))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Same original resource holders; no aggregate editor census or work-settlement claim. */
+    public inspectNativeTransitionCleanup(): Readonly<{ pending: number; }>
+    {
+        return Object.freeze({ pending: [...this.pending.values()].filter(entry => entry.nativeSdkCleanupPending === true
+            || entry.nativeTerminal?.taskCompletion === 'completed').length });
+    }
+
+    public retryNativeTransitionCleanup(handle: ArticleAttachmentPendingHandle): boolean
+    {
+        const entry = this.pendingHandles.get(handle);
+        if (!entry || this.pending.get(entry.intent.task.taskRef) !== entry || !entry.nativeCapture)
+        {
+            return false;
+        }
+        this.finish(entry, 'cancelled', 'attachment-native-cleanup-retry');
+        return this.pending.get(entry.intent.task.taskRef) !== entry;
+    }
+
     /** Consume the original native transaction, never generic complete's second dispatch. */
     public observeNativeTerminal(observation: MarkdownAttachmentTerminalObservation,
         port: ArticleAttachmentTransactionPort & Partial<ArticleAttachmentTerminalPort>): boolean
@@ -1015,6 +1076,13 @@ export class ArticleAttachmentContextAdapter
                     entry.nativeCompletion = custody;
                     entry.nativeInputReleaseObserved = false;
                     this.ownedOperations.add(entry.intent.task.taskRef);
+                    // Only the actual original SDK asks the genuine installed producer to reserve.
+                    entry.nativeSdkCleanupPending = true;
+                    entry.nativeTransition = this.owner.reserveAttachmentRevisionTransition(entry.lease, custody, this.nativeRevisionProducer) ?? undefined;
+                    if (!entry.nativeTransition)
+                    {
+                        entry.nativeSdkCleanupPending = false;
+                    }
                     return custody.hasCustody() && this.pending.get(entry.intent.task.taskRef) === entry
                         && !entry.controller.signal.aborted && entry.lease.isCurrent();
                 }
@@ -1035,8 +1103,18 @@ export class ArticleAttachmentContextAdapter
                 }
                 if (original.phase === 'accepted')
                 {
-                    // No controlled same-lease SDK publication is installed in this source stage.
-                    return false;
+                    if (!entry.nativeTransition)
+                    {
+                        return false;
+                    }
+                    const context = this.owner.publishAttachmentRevisionTransition(entry.nativeTransition, original.transaction);
+                    entry.nativePublication = { transaction: original.transaction, context };
+                    // Original Writer synchronizes its real form against this private publication.
+                    port.commitSource(original.transaction);
+                    this.assertCurrentResult(original.transaction, port.binding());
+                    entry.awaitingMap = false;
+                    return this.pending.get(entry.intent.task.taskRef) === entry && !entry.controller.signal.aborted
+                        && !entry.lease.signal.aborted && this.owner.context === context && custody.hasCustody();
                 }
                 const transaction = original.transaction;
                 if (this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted
@@ -1050,6 +1128,23 @@ export class ArticleAttachmentContextAdapter
                     return false;
                 }
                 this.assertCurrentResult(transaction, port.binding());
+                if (entry.nativeTransition && entry.nativePublication?.transaction === transaction)
+                {
+                    const proof = Object.freeze({ transactionRef: this.transactionRef(transaction),
+                        providerResultDigest: calculateOpenArticleDocumentDigest(custody.result) });
+                    entry.nativeFinalization = { observation: original, proof, sdkAccepted: false };
+                    const accepted = this.owner.acceptAttachmentRevisionTransition(entry.nativeTransition, transaction, proof);
+                    if (!accepted.accepted || accepted.envelope !== entry.lease.envelope)
+                    {
+                        throw new Error('attachment-native-same-lease-completion-refused');
+                    }
+                    entry.nativeFinalization.sdkAccepted = true;
+                    // SDK returns success only after its actual association withdrawal succeeds.
+                    entry.nativeSdkCleanupPending = false;
+                    entry.nativeTransition = undefined;
+                    this.finishNativeEntry(entry, 'attachment-native-completion-committed');
+                    return this.pending.get(entry.intent.task.taskRef) !== entry && custody.hasCustody();
+                }
                 // updateSource genuinely aborts old-revision leases. Preserve the SAME lease,
                 // accepted transaction and original handle; never mint a completed replacement.
                 entry.nativeTerminal = Object.freeze({ observation: original, task: entry.lease.envelope,
@@ -1061,6 +1156,14 @@ export class ArticleAttachmentContextAdapter
             {
                 entry.nativeFailure ??= { firstCause: cause, latestCause: cause };
                 entry.nativeFailure.latestCause = cause;
+                try
+                {
+                    this.finishNativeEntry(entry, 'attachment-native-transition-failed');
+                }
+                catch (cleanupCause)
+                {
+                    entry.nativeFailure.latestCause = cleanupCause;
+                }
                 throw cause;
             }
             finally
@@ -1152,7 +1255,7 @@ export class ArticleAttachmentContextAdapter
         }
         for (const entry of this.pending.values())
         {
-            if (this.ownedOperations.has(entry.intent.task.taskRef))
+            if (this.ownedOperations.has(entry.intent.task.taskRef) || entry.nativeTerminal?.taskCompletion === 'completed')
             {
                 continue;
             }
@@ -1431,13 +1534,18 @@ export class ArticleAttachmentContextAdapter
             }
         } });
         this.pendingHandles.set(handle, entry);
+        if (entry.nativeCapture)
+        {
+            entry.nativeHandle = handle;
+        }
         return handle;
     }
 
     private findPending(handle: ArticleAttachmentPendingHandle): PendingInput
     {
         const entry = this.pendingHandles.get(handle);
-        if (!entry || this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted)
+        if (!entry || this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted
+            || entry.nativeTerminal?.taskCompletion === 'completed')
         {
             throw new Error('attachment-pending-handle-invalid');
         }
@@ -1446,6 +1554,10 @@ export class ArticleAttachmentContextAdapter
 
     private finish(entry: PendingInput, state: 'cancelled' | 'stale' | 'removed' | 'failed', reason: string): ArticleAttachmentLifecycleSnapshot
     {
+        if (entry.nativeCapture && (entry.nativeSdkCleanupPending || entry.nativeFinalization))
+        {
+            return this.finishNativeEntry(entry, reason, state);
+        }
         if (this.pending.get(entry.intent.task.taskRef) !== entry)
         {
             return entry.snapshot;
@@ -1459,6 +1571,111 @@ export class ArticleAttachmentContextAdapter
         entry.controller.abort(reason);
         this.record(entry.snapshot);
         return entry.snapshot;
+    }
+
+    /** Attempt actual original duties without contradicting a completed historical SDK lease. */
+    private finishNativeEntry(entry: PendingInput, reason: string,
+        state: 'cancelled' | 'stale' | 'removed' | 'failed' = 'failed'): ArticleAttachmentLifecycleSnapshot
+    {
+        if (entry.nativeFinishing)
+        {
+            const cause = new Error('attachment-native-cleanup-reentrant');
+            entry.nativeCleanupReentry ??= { cause };
+            entry.nativeFailure ??= { firstCause: cause, latestCause: cause };
+            entry.nativeFailure.latestCause = cause;
+            throw cause;
+        }
+        entry.nativeFinishing = true;
+        entry.nativeCleanupReentry = undefined;
+        entry.awaitingMap = false;
+        let failed = false;
+        let first: unknown;
+        const run = (work: () => void): void =>
+        {
+            try
+            {
+                work();
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    first = cause;
+                }
+                failed = true;
+                entry.nativeFailure ??= { firstCause: cause, latestCause: cause };
+                entry.nativeFailure.latestCause = cause;
+            }
+        };
+        try
+        {
+            run(() =>
+            {
+                if (entry.nativeSdkCleanupPending)
+                {
+                    if (this.owner.cancelAttachmentRevisionTransition(entry.nativeTransition ?? entry.lease, reason) !== true)
+                    {
+                        throw new Error('attachment-native-sdk-cleanup-unconfirmed');
+                    }
+                    entry.nativeSdkCleanupPending = false;
+                    entry.nativeTransition = undefined;
+                }
+            });
+            run(() =>
+            {
+                if (entry.lease.envelope.status === 'running')
+                {
+                    entry.lease.cancel(reason);
+                }
+            });
+            run(() =>
+            {
+                const finalization = entry.nativeFinalization;
+                if (entry.lease.envelope.status === 'completed' && finalization)
+                {
+                    entry.completedLease = entry.lease;
+                    entry.nativeTerminal = Object.freeze({ observation: finalization.observation, task: entry.lease.envelope,
+                        taskCompletion: 'completed' as const, sdkAcceptance: finalization.sdkAccepted ? 'accepted' as const : 'historical' as const });
+                    if (entry.snapshot.task !== entry.lease.envelope)
+                    {
+                        entry.snapshot = this.sealLifecycle({ ...entry.snapshot, task: entry.lease.envelope,
+                            state: 'transaction-committed', reason: null, ...finalization.proof });
+                        this.record(entry.snapshot);
+                    }
+                }
+                else if (entry.lease.envelope.status === 'aborted')
+                {
+                    entry.snapshot = this.sealLifecycle({ ...entry.snapshot, state, reason, task: entry.lease.envelope });
+                    this.record(entry.snapshot);
+                }
+                else
+                {
+                    throw new Error('attachment-native-terminal-task-unconfirmed');
+                }
+            });
+            run(() => entry.releaseFile?.());
+            run(() => entry.controller.abort(reason));
+            run(() =>
+            {
+                if (entry.nativeCleanupReentry)
+                {
+                    throw entry.nativeCleanupReentry.cause;
+                }
+            });
+            if (failed)
+            {
+                throw first;
+            }
+            if (this.pending.get(entry.intent.task.taskRef) === entry)
+            {
+                this.pending.delete(entry.intent.task.taskRef);
+            }
+            return entry.snapshot;
+        }
+        finally
+        {
+            entry.nativeFinishing = false;
+        }
     }
 
     private sealLifecycle(value: Omit<ArticleAttachmentLifecycleSnapshot, 'contentDigest'> | ArticleAttachmentLifecycleSnapshot): ArticleAttachmentLifecycleSnapshot
@@ -1516,15 +1733,42 @@ export class ArticleAttachmentContextAdapter
         {
             throw new Error('attachment-cancel-reason-invalid');
         }
-        for (const entry of this.pending.values())
+        let failed = false;
+        let first: unknown;
+        const run = (work: () => void): void =>
         {
-            this.finish(entry, 'cancelled', reason);
-        }
-        for (const lease of this.leases)
+            try
+            {
+                work();
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    first = cause;
+                }
+                failed = true;
+            }
+        };
+        for (const entry of [...this.pending.values()])
         {
-            lease.cancel(reason);
+            run(() =>
+            {
+                this.finish(entry, 'cancelled', reason);
+            });
         }
-        this.leases.clear();
+        for (const lease of [...this.leases])
+        {
+            run(() =>
+            {
+                lease.cancel(reason);
+                this.leases.delete(lease);
+            });
+        }
+        if (failed)
+        {
+            throw first;
+        }
     }
 
     public dispose(): void
