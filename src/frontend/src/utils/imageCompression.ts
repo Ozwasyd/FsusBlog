@@ -296,8 +296,9 @@ async function compressImageFileOwned(
     owner.ensureActive();
 
     const contextOptions = { alpha: options.preserveAlpha };
-    const getContext: (contextId: '2d', options: CanvasRenderingContext2DSettings) => CanvasRenderingContext2D | null = canvas.getContext;
-    const readContext = getContext.bind(canvas);
+    const readContext = canvas.getContext.bind<
+        (this: HTMLCanvasElement, contextId: '2d', options: CanvasRenderingContext2DSettings) => CanvasRenderingContext2D | null
+    >(canvas);
     owner.ensureActive();
     const context = readContext('2d', contextOptions);
     if (!context)
@@ -326,8 +327,9 @@ async function compressImageFileOwned(
     const source = decoded.bitmap ?? decoded.image;
     if (source)
     {
-        const draw: (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => void = context.drawImage;
-        const drawImage = draw.bind(context);
+        const drawImage = context.drawImage.bind<
+            (this: CanvasRenderingContext2D, image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => void
+        >(context);
         owner.ensureActive();
         drawImage(source, 0, 0, width, height);
         owner.ensureActive();
