@@ -92,7 +92,8 @@ public sealed class AuthoringRevisionCompareDraftContextProvider(IAuthoringDraft
                 cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (draft is null || draft.ArticleId != request.ArticleId)
+        if (draft is null || draft.ArticleId != request.ArticleId
+            || !string.Equals(draft.DraftKey, request.DraftKey, StringComparison.Ordinal))
         {
             return new AuthoringRevisionCompareDraftContextResult(
                 RevisionComparePackageReadStatus.Unavailable,
@@ -471,7 +472,8 @@ public sealed class AuthoringRevisionComparePackageReader(
                 cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (draft is null || draft.ArticleId != articleId)
+        if (draft is null || draft.ArticleId != articleId
+            || !string.Equals(draft.DraftKey, selector.DraftKey, StringComparison.Ordinal))
         {
             return RevisionComparePackageReadResult.Unavailable();
         }
@@ -551,6 +553,11 @@ public sealed class AuthoringRevisionComparePackageReader(
         if (revision is null || revision.ArticleId != articleId)
         {
             return RevisionComparePackageReadResult.Unavailable();
+        }
+        if (!string.Equals(revision.Id, selector.RevisionId.Value.ToString(CultureInfo.InvariantCulture),
+            StringComparison.Ordinal))
+        {
+            return RevisionComparePackageReadResult.Invalid();
         }
 
         if (selector.Kind == RevisionCompareSourceKind.CurrentRevision)

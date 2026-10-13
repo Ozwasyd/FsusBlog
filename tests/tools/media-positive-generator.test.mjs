@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { crc32 } from 'node:zlib';
 
 const {CanonicalMediaAssetStore} = await import(new URL('../../tools/test-fixtures/canonical-media-asset-store.mjs', import.meta.url));
 const {generatePositiveMediaBytes, inspectMediaBytes, materializePositiveMedia, scanPositiveMediaGeneratorGovernance, verifyPositiveMediaReceipts} = await import(new URL('../../tools/test-fixtures/media-positive-generator.mjs', import.meta.url));
@@ -19,6 +21,76 @@ function fixture(namespace = 'media-positive-test')
         cleanup: () => fs.rmSync(directory, { recursive: true, force: true })
     };
 }
+
+test('raster receipts bind real RGBA pixels and reject framed PNG with invalid compressed payload', () =>
+{
+    const catalog = loadMediaShapeCatalog();
+    const shape = catalog.shapes.find((item) => item.id === 'png-alpha');
+    const generated = generatePositiveMediaBytes(shape, catalog);
+    assert.equal(generated.facts.codec.pillow, '12.3.0');
+    assert.match(generated.facts.pixelDigest, /^sha256:[a-f0-9]{64}$/u);
+    const bad = Buffer.from(generated.bytes);
+    const idatLength = bad.readUInt32BE(33);
+    bad[41] = 0;
+    bad.writeUInt32BE(crc32(bad.subarray(37, 41 + idatLength)), 41 + idatLength);
+    assert.throws(() => inspectMediaBytes(bad, shape), /decode refused|codec refusal/);
+});
+
+test('fresh codec processes fail closed for unavailable tooling and actual version drift', () =>
+{
+    const catalog = loadMediaShapeCatalog();
+    const bytes = generatePositiveMediaBytes(catalog.shapes.find((item) => item.id === 'raster-small'), catalog).bytes;
+    const verifier = new URL('../../tools/test-fixtures/media-codec-verifier.mjs', import.meta.url).href;
+    const code = `import { verifyDecodedMediaBytes } from ${JSON.stringify(verifier)};
+        try { verifyDecodedMediaBytes(Buffer.from(${JSON.stringify(bytes.toString('base64'))}, 'base64')); process.exitCode = 2; }
+        catch (error) { console.log(error.message); }`;
+    const unavailable = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+        env: { ...process.env, PATH: '' }, encoding: 'utf8', timeout: 10_000
+    });
+    assert.equal(unavailable.status, 0);
+    assert.match(unavailable.stdout, /codec unavailable.*ENOENT/);
+    const directory = fs.mkdtempSync(path.join(tmpdir(), 'fsusblog-media-codec-drift-'));
+    try
+    {
+        fs.writeFileSync(path.join(directory, 'sitecustomize.py'), "import PIL\nPIL.__version__ = '0.0.0'\n");
+        const drift = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+            env: { ...process.env, PYTHONPATH: directory }, encoding: 'utf8', timeout: 10_000
+        });
+        assert.equal(drift.status, 0);
+        assert.match(drift.stdout, /media codec version drift/);
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('generator rejects resealed-free shape overrides and receipts with stale catalog or pixel identities', () =>
+{
+    const catalog = loadMediaShapeCatalog();
+    const shape = catalog.shapes.find((item) => item.id === 'png-alpha');
+    assert.throws(() => generatePositiveMediaBytes({ ...shape, width: 32 }, catalog), /exact current catalog shape/);
+    const sample = fixture('media-pixel-identity');
+    try
+    {
+        const receipt = materializePositiveMedia({ store: sample.store, shapeIds: ['png-alpha'] }).receipts[0];
+        for (const field of ['pixelDigest', 'orientedPixelDigest', 'catalogDigest', 'shapeDigest'])
+        {
+            const altered = structuredClone(receipt);
+            altered[field] = `sha256:${'0'.repeat(64)}`;
+            altered.contentDigest = mediaContentDigest(altered);
+            assert.match(verifyPositiveMediaReceipts({ receipts: [altered], store: sample.store }).join('\n'), /pixel identity|identity is stale/);
+        }
+        const noCover = materializePositiveMedia({ store: sample.store, shapeIds: ['no-cover'] }).receipts[0];
+        noCover.mediaContentDigest = `sha256:${'0'.repeat(64)}`;
+        noCover.contentDigest = mediaContentDigest(noCover);
+        assert.match(verifyPositiveMediaReceipts({ receipts: [noCover], store: sample.store }).join('\n'), /no-cover/);
+    }
+    finally
+    {
+        sample.cleanup();
+    }
+});
 
 test('all positive catalog shapes materialize as independently verified real media or explicit no-cover', () =>
 {

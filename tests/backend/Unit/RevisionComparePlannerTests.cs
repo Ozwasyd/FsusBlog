@@ -7,6 +7,107 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed partial class RevisionComparePlannerTests
 {
     [Fact]
+    public async Task CreateAsync_UncooperativeReaderCannotOutliveSealedTimeout()
+    {
+        var pending = new TaskCompletionSource<RevisionComparePackageReadResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var reader = new DelegateReader((_, _, _) => pending.Task);
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader)
+            .CreateAsync(Request() with
+            {
+                Budgets = Budgets() with { TimeoutMilliseconds = 100 }
+            }).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(RevisionComparePlanStatus.Cancelled, result.Status);
+        Assert.Equal("revision_compare_timeout", result.Receipt.ReasonCode);
+        Assert.Null(result.Bundle);
+        Assert.Null(result.Receipt.BasePackageReference);
+        Assert.Null(result.Receipt.ComparePackageReference);
+        Assert.False(pending.Task.IsCompleted);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_UncooperativeReaderCannotOutliveSealedTimeout()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var available = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : current)));
+        RevisionComparePlanResult plan = await new RevisionComparePlanner(available).CreateAsync(Request() with
+        {
+            Budgets = Budgets() with { TimeoutMilliseconds = 100 }
+        });
+        Assert.True(plan.IsSuccess);
+        var pending = new TaskCompletionSource<RevisionComparePackageReadResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var unread = new DelegateReader((_, _, _) => pending.Task);
+
+        RevisionComparePlanVerification result = await new RevisionComparePlanVerifier(unread)
+            .VerifyAsync(plan.Bundle!, DateTimeOffset.UtcNow).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(result.Valid);
+        Assert.Equal(RevisionComparePlanStatus.Cancelled, result.Status);
+        Assert.Equal("revision_compare_timeout", result.ReasonCode);
+        Assert.False(pending.Task.IsCompleted);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RejectsLateExactReaderAfterItsOwnTimeout()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var plannerReader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : current)));
+        RevisionComparePlanResult plan = await new RevisionComparePlanner(plannerReader).CreateAsync(
+            Request() with
+            {
+                Budgets = Budgets() with
+                {
+                    TimeoutMilliseconds = 100
+                }
+            });
+        Assert.True(plan.IsSuccess);
+        int reads = 0;
+        var lateReader = new DelegateReader(async (_, selector, token) =>
+        {
+            reads++;
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using CancellationTokenRegistration registration = token.Register(() => cancelled.TrySetResult());
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            return RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : current);
+        });
+
+        RevisionComparePlanVerification result = await new RevisionComparePlanVerifier(lateReader)
+            .VerifyAsync(plan.Bundle!, DateTimeOffset.UtcNow);
+
+        Assert.False(result.Valid);
+        Assert.Equal(RevisionComparePlanStatus.Cancelled, result.Status);
+        Assert.Equal("revision_compare_timeout", result.ReasonCode);
+        Assert.Equal(1, reads);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_CancelledRequestDoesNotReadAuthorizedSources()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var plannerReader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : current)));
+        RevisionComparePlanResult plan = await new RevisionComparePlanner(plannerReader).CreateAsync(Request());
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        var unread = new DelegateReader((_, _, _) => throw new InvalidOperationException("reader should not run"));
+
+        RevisionComparePlanVerification result = await new RevisionComparePlanVerifier(unread)
+            .VerifyAsync(plan.Bundle!, DateTimeOffset.UtcNow, cancelled.Token);
+
+        Assert.False(result.Valid);
+        Assert.Equal(RevisionComparePlanStatus.Cancelled, result.Status);
+        Assert.Equal("revision_compare_cancelled", result.ReasonCode);
+    }
+
+    [Fact]
     public async Task CreateAsync_SealsExactAuthorizedPackagesAndIsDeterministic()
     {
         RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base\r\n");

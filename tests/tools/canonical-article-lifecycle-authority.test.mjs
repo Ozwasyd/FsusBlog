@@ -48,6 +48,33 @@ test("governance rejects independent observation without its original sealed agg
     assert.ok(checkCanonicalArticleLifecycleAuthority(target).some(item => item.includes("reread and match the sealed projection aggregate")));
 });
 
+for (const [id, original, replacement] of [
+    ["copied preparation", "projectionVerifier.VerifyAsync(\n                        preparedPublication, invocation.Request, cancellationToken)",
+        "projectionVerifier.PrepareAsync(preparedPublication, invocation.Request, cancellationToken)"],
+    ["receipt-only invocation", "preparedPublication, invocation.Request, cancellationToken)",
+        "preparedPublication, cancellationToken)"],
+    ["missing original invocation", "RequirePublicationInvocation(snapshot, id)",
+        "DiscoverPublicationInvocation(id)"],
+    ["missing sealed aggregate comparison", '"projectionAggregate", "requiredProjectionEdgesVerified"',
+        '"status", "requiredProjectionEdgesVerified"']
+])
+{
+    test(`governance rejects publication projection ${id}`, (context) =>
+    {
+        const target = fixture();
+        context.after(() => fs.rmSync(target, { recursive: true, force: true }));
+        mutate(target, "src/backend/Services/Fixtures/PublicContentFixtureSeeder.Verification.cs", source =>
+        {
+            const start = source.indexOf('else if (original.Fields.ContainsKey("projectionAggregate"))');
+            assert.ok(start >= 0);
+            assert.ok(source.slice(start).includes(original));
+            return source.slice(0, start) + source.slice(start).replace(original, replacement);
+        });
+        assert.ok(checkCanonicalArticleLifecycleAuthority(target).some(item =>
+            item.includes("publication verification must reread and match the sealed projection aggregate")));
+    });
+}
+
 test("governance rejects missing lifecycle authority file", () =>
 {
     const target = fixture();

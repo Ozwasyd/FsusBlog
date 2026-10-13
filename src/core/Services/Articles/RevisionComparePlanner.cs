@@ -33,6 +33,7 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
                     request.ArticleId,
                     request.Base,
                     linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             if (DateTimeOffset.UtcNow > request.ExpiresAtUtc)
@@ -50,6 +51,7 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
                     request.ArticleId,
                     request.Compare,
                     linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             if (DateTimeOffset.UtcNow > request.ExpiresAtUtc)
@@ -377,22 +379,31 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
             return Invalid("revision_compare_plan_tampered", RevisionComparePlanStatus.Tampered);
         }
 
+        using var timeout = new CancellationTokenSource(bundle.Plan.Budgets.TimeoutMilliseconds);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         try
         {
+            linked.Token.ThrowIfCancellationRequested();
             RevisionComparePackageReadResult baseRead = await packageReader.ReadAuthorizedAsync(
                     bundle.Plan.Reader,
                     bundle.Plan.ArticleId,
                     bundle.Plan.BaseSelector,
-                    cancellationToken)
+                    linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
+            linked.Token.ThrowIfCancellationRequested();
             RevisionComparePackageReadResult compareRead = await packageReader.ReadAuthorizedAsync(
                     bundle.Plan.Reader,
                     bundle.Plan.ArticleId,
                     bundle.Plan.CompareSelector,
-                    cancellationToken)
+                    linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
+            linked.Token.ThrowIfCancellationRequested();
+            if (DateTimeOffset.UtcNow > bundle.Plan.ExpiresAtUtc)
+            {
+                return Invalid("revision_compare_plan_expired", RevisionComparePlanStatus.Stale);
+            }
             if (baseRead.Status != RevisionComparePackageReadStatus.Available
                 || compareRead.Status != RevisionComparePackageReadStatus.Available
                 || baseRead.Package is null
@@ -419,6 +430,7 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
                 return Invalid("revision_compare_source_stale", RevisionComparePlanStatus.Stale);
             }
 
+            linked.Token.ThrowIfCancellationRequested();
             return new RevisionComparePlanVerification(
                 true,
                 RevisionComparePlanStatus.Accepted,
@@ -427,7 +439,10 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
         }
         catch (OperationCanceledException)
         {
-            return Invalid("revision_compare_cancelled", RevisionComparePlanStatus.Cancelled);
+            string reason = timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested
+                ? "revision_compare_timeout"
+                : "revision_compare_cancelled";
+            return Invalid(reason, RevisionComparePlanStatus.Cancelled);
         }
     }
 

@@ -21,26 +21,311 @@
         },
         "formats": {
             "type": "array",
-            "minItems": 4
+            "items": {
+                "$ref": "#/$defs/format"
+            },
+            "minItems": 4,
+            "uniqueItems": true,
+            "maxItems": 4
         },
         "aspects": {
             "type": "array",
+            "items": {
+                "$ref": "#/$defs/aspect"
+            },
             "minItems": 6,
+            "uniqueItems": true,
             "maxItems": 6
         },
         "consumerClasses": {
             "type": "array",
+            "items": {
+                "enum": [
+                    "aot",
+                    "archive",
+                    "cache",
+                    "crop",
+                    "detail",
+                    "fallback",
+                    "home-cover",
+                    "hydration",
+                    "lazy",
+                    "scale"
+                ]
+            },
             "minItems": 10,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "maxItems": 10
         },
         "shapes": {
             "type": "array",
             "minItems": 18,
-            "maxItems": 18
+            "maxItems": 18,
+            "items": {
+                "$ref": "#/$defs/shape"
+            }
         },
         "contentDigest": {
             "type": "string",
             "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+    },
+    "$defs": {
+        "format": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "mime",
+                "extensions",
+                "magic",
+                "factOwner",
+                "supportsAlpha"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                },
+                "mime": {
+                    "type": "string",
+                    "pattern": "^image/[a-z0-9.+-]+$"
+                },
+                "extensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "pattern": "^\\.[a-z0-9]{2,5}$"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "maxItems": 2
+                },
+                "magic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                },
+                "factOwner": {
+                    "const": "independent-media-codec-verifier"
+                },
+                "supportsAlpha": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "aspect": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "width",
+                "height",
+                "cropExpectation",
+                "centerSafe"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"
+                },
+                "width": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                },
+                "height": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                },
+                "cropExpectation": {
+                    "enum": [
+                        "center-safe",
+                        "portrait-center-safe"
+                    ]
+                },
+                "centerSafe": {
+                    "const": true
+                }
+            }
+        },
+        "shape": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "validityClass",
+                "format",
+                "mime",
+                "extension",
+                "width",
+                "height",
+                "aspectClass",
+                "alpha",
+                "orientation",
+                "byteDigestRef",
+                "decodedDigestRef",
+                "assetIdentityRequired",
+                "expectedDecode",
+                "expectedCrop",
+                "expectedFallback",
+                "consumerClasses",
+                "faultCondition",
+                "contentDigest"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                },
+                "validityClass": {
+                    "type": "string"
+                },
+                "sourceShapeId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                },
+                "format": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                },
+                "mime": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "maxLength": 256
+                },
+                "extension": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "maxLength": 256
+                },
+                "width": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 1,
+                    "maximum": 65535
+                },
+                "height": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 1,
+                    "maximum": 65535
+                },
+                "aspectClass": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"
+                },
+                "alpha": {
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "orientation": {
+                    "enum": [
+                        1,
+                        3,
+                        6,
+                        8,
+                        null
+                    ]
+                },
+                "byteDigestRef": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "maxLength": 256
+                },
+                "decodedDigestRef": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "maxLength": 256
+                },
+                "assetIdentityRequired": {
+                    "type": "boolean"
+                },
+                "expectedDecode": {
+                    "enum": [
+                        "success",
+                        "success-bounded",
+                        "success-safe-vector",
+                        "not-applicable",
+                        "not-attempted",
+                        "reject",
+                        "reject-before-allocation"
+                    ]
+                },
+                "expectedCrop": {
+                    "enum": [
+                        "center-safe",
+                        "portrait-center-safe",
+                        "not-applicable"
+                    ]
+                },
+                "expectedFallback": {
+                    "enum": [
+                        "none",
+                        "explicit-no-cover",
+                        "media.header.corrupt",
+                        "media.declaration.mismatch",
+                        "media.missing",
+                        "media.dimensions.oversized",
+                        "media.payload.truncated",
+                        "media.path.unsafe",
+                        "media.format.unsupported",
+                        "media.bytes.empty"
+                    ]
+                },
+                "consumerClasses": {
+                    "type": "array",
+                    "items": {
+                        "enum": [
+                            "aot",
+                            "archive",
+                            "cache",
+                            "crop",
+                            "detail",
+                            "fallback",
+                            "home-cover",
+                            "hydration",
+                            "lazy",
+                            "scale"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "maxItems": 10
+                },
+                "faultCondition": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
         }
     }
 }

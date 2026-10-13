@@ -127,10 +127,7 @@ public static class RevisionCompareContract
         }
         foreach (RevisionCompareMetadataValue value in metadata)
         {
-            if (!RevisionCompareMetadataRegistry.TryGet(value.FieldId, out RevisionCompareMetadataDescriptor descriptor)
-                || descriptor.ValueType != value.ValueType
-                || descriptor.Sensitive != value.Sensitive
-                || value.CanonicalValue.Length > MaxMetadataValueLength)
+            if (!RevisionCompareMetadataRegistry.ValidValue(value))
             {
                 throw new RevisionCompareContractException("revision_compare_metadata_invalid");
             }
