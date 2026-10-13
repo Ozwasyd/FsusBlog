@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-canvas-document-boundary.md"
+            ],
+            "reason": "Preserve existing caller-visible DOM and token spellings in the current Canvas architecture documentation while adding the original command-intention prerequisite. No CSS token, selector or internal naming rule is changed."
+        }
+    ]
+}
