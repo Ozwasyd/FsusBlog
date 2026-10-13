@@ -2388,9 +2388,12 @@ PoSpace imported annotations, declared comment event and absent moderation date
 presentation. Each sequential complete preimage and postimage is verified.
 The original Audit Dayjs repair is already identical and is not rewritten.
 
-At intake, the user-table successor has limited source acceptance; later business
-source review remains pending. This combination is therefore a conditional
-source candidate awaiting independent review, not accepted by inclusion. The
+At intake, the user-table successor had limited source acceptance and later
+business source review remained pending. That intake observation is preserved in
+the ordinary WIP. The parent subsequently independently accepted the complete
+fixed business source head with no new P1/P2. A read-only bounded combination
+review found no new P1/P2; this unchanged production combination still awaits the
+parent's final source review and grants no runtime or ready qualification. The
 ordinary WIP preserves both source heads and original commit/path identities.
 No donor roots, tests, documents, configuration or skip-ci directives are imported.
 All existing public editor/host/router, document, ConfigProducer, snapshot/reset,
