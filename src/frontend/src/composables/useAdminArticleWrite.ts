@@ -1079,7 +1079,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             {
                 articleDocumentContextAdapter.updateSource(result.value, result.revision);
             }
-            else if (articleForm.content !== result.value)
+            else if (articleForm.content !== result.value
+                && !authoringAttachments.hasNativeSourcePublication(result, current))
             {
                 throw new Error('article-attachment-source-commit-invalid');
             }
@@ -1111,6 +1112,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             active && authoringAttachments.observeNativeTerminal(observation, attachmentPort),
         readNativeTerminalTransaction: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalTransaction(handle),
         readNativeTerminalFailure: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalFailure(handle),
+        inspectNativeTransitionCleanup: () => authoringAttachments.inspectNativeTransitionCleanup(),
+        retryNativeTransitionCleanup: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.retryNativeTransitionCleanup(handle),
         readUploadObservation: (handle: ArticleAttachmentPendingHandle) => consumedAttachmentUploads.get(handle) ?? null,
         get uploadObligations()
         {
@@ -4861,7 +4864,9 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     {
         const pending = new Set(articleDocumentContextAdapter.pendingTaskRefs);
         const leases = [...writerTaskLeases].filter(lease => pending.has(lease.taskRef));
-        const ownWorkPending = writerLeaseIssuanceReservations > 0 || leases.length > 0 || writerPendingWork.size > 0
+        const nativeTransitionCleanup = authoringAttachments.inspectNativeTransitionCleanup();
+        const ownWorkPending = writerLeaseIssuanceReservations > 0 || pending.size > 0 || writerPendingWork.size > 0
+            || nativeTransitionCleanup.pending > 0
             || attachmentUploadAttempt !== null || draftSaveInFlightIdentity !== null;
         return Object.freeze({
             scope: 'writer-owned-local' as const,
@@ -4882,6 +4887,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 recoveryLifecycle: disposeArticleRecoveryLifecycle !== null }),
             attachmentObservationActive: attachmentUploadAttempt !== null,
             attachmentObligationCount: attachmentUploadObligations.size,
+            nativeTransitionCleanup,
             imageResumeContextRetained: imageUploadFlow.pendingContext.value !== null,
             powCalculating: powProvider.isCalculating.value,
             draftSaveChainPending: draftSaveInFlightIdentity !== null,
