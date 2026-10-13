@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "contractSource": "src/shared/Contracts/ArticleCapture/ArticleInboxCaptureContracts.cs",
+    "family": "article-inbox-capture",
+    "nativeErrorName": "ArticleInboxCapturePayloadInvalid",
+    "nativeErrorReason": "article_inbox_capture_payload_invalid",
+    "maxRequestPayloadBytes": 801568,
+    "maxResponsePayloadBytes": 882,
+    "roots": {
+        "ArticleInboxCaptureCreateRequest": "ArticleInboxCaptureRequest",
+        "ArticleInboxCaptureReconcileRequest": "ArticleInboxCaptureRequest",
+        "ArticleInboxCaptureResponse": "ArticleInboxCaptureResponse"
+    },
+    "records": {
+        "ArticleInboxCaptureRequest": ["int SchemaVersion", "Guid RequestId", "string ExpectedSiteScope", "string Title", "string MarkdownContent"],
+        "ArticleInboxCaptureReceipt": ["Guid ReceiptId", "Guid RequestId", "long OwnerAdminPrincipalId", "int ArticleId", "long DraftId", "long DraftServerRevision", "long RevisionId", "int RevisionNo", "string OutboxEventId", "Guid AuditReference", "string AuditDigest", "string SourceDigest", "string ContentDigest", "long OccurredAtUtcTicks", "bool IsIdempotentReplay"],
+        "ArticleInboxCaptureResponse": ["int SchemaVersion", "Guid RequestId", "long AuthenticatedAdminPrincipalId", "string RequestSiteScope", "ArticleInboxCaptureReceipt? Receipt"]
+    },
+    "encoding": "little-endian signed Int32/Int64; network-order nonempty Guid16; strict UTF8 with Int32 byte lengths; presence/bool exactly 0/1; no trailing bytes; Int64 canonical decimal strings in TS",
+    "authority": "ExpectedSiteScope is a request precondition. Actor/site/session derives from original authenticated server authority. RequestSiteScope is current request context, not historical receipt site authorization. Receipt=null is an unobserved durable outcome only; no cancelled/zero-write/saved/new-UUID inference. No new receipt digest or identity is minted.",
+    "coordination": "Frame numbers and native error value remain unassigned until central owner coordination. Producer execution and generated/frozen frames/catalogs/fixtures/receipts remain held."
+}
