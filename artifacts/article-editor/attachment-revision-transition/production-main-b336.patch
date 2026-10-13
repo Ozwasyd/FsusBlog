@@ -1,0 +1,556 @@
+diff --git a/src/frontend/src/services/authoring/articleDocumentContext.ts b/src/frontend/src/services/authoring/articleDocumentContext.ts
+index 055558e54..8eae29d8c 100644
+--- a/src/frontend/src/services/authoring/articleDocumentContext.ts
++++ b/src/frontend/src/services/authoring/articleDocumentContext.ts
+@@ -1,3 +1,4 @@
++
+ import {
+     calculateOpenArticleDocumentDigest,
+     cancelRetainedArticleDocumentMembershipSeal,
+@@ -18,6 +19,12 @@ import type {
+     RetainedNotificationSubscription,
+     RetainedArticleDocumentInspection
+ } from './openArticleDocumentRegistry';
++import type {
++    MarkdownAttachmentTerminalCustody,
++    MarkdownAttachmentTerminalRevisionIssuer,
++    MarkdownAttachmentTerminalRevisionReservation,
++    MarkdownEditorTransactionEvent
++} from '@ozwasyd/element-plus';
+ 
+ export const articleDocumentContextSchema = 'fsusblog.article-document-context.v1' as const;
+ export const articleDocumentTaskEnvelopeSchema = 'fsusblog.article-document-task-envelope.v1' as const;
+@@ -143,6 +150,28 @@ export interface ArticleDocumentTaskLease {
+     settle(): void;
+ }
+ 
++/** Actual original attachment association; obtained lazily from its original producer. */
++export interface ArticleDocumentAttachmentRevisionAssociation {
++    readonly issuer: MarkdownAttachmentTerminalRevisionIssuer;
++    readonly reservation: MarkdownAttachmentTerminalRevisionReservation;
++    readonly lease: ArticleDocumentTaskLease;
++    readonly custody: MarkdownAttachmentTerminalCustody;
++}
++
++/** Structurally consumes the original Main ArticleAttachmentNativeRevisionProducer. */
++export interface ArticleDocumentAttachmentRevisionProducer {
++    reserve(lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody): ArticleDocumentAttachmentRevisionAssociation | null;
++    hasAssociation(association: ArticleDocumentAttachmentRevisionAssociation,
++        phase: 'applying' | 'accepted' | 'committed', transaction?: MarkdownEditorTransactionEvent): boolean;
++    cancelAssociation(association: ArticleDocumentAttachmentRevisionAssociation): boolean;
++}
++
++declare const attachmentRevisionTransitionBrand: unique symbol;
++
++export interface ArticleDocumentAttachmentRevisionTransition {
++    readonly [attachmentRevisionTransitionBrand]: true;
++}
++
+ export interface ArticleDocumentTaskRegistry {
+     beginTask(
+         kind: ArticleDocumentTaskKind,
+@@ -783,6 +812,36 @@ export function validateArticleDocumentEpochReceipt(value: unknown): value is Ar
+ 
+ export const verifyArticleDocumentEpochReceipt = validateArticleDocumentEpochReceipt;
+ 
++interface ArticleDocumentAttachmentRevisionRecord {
++    readonly token: ArticleDocumentAttachmentRevisionTransition;
++    readonly lease: ArticleDocumentTaskLeaseImpl;
++    readonly custody: MarkdownAttachmentTerminalCustody;
++    readonly producer: ArticleDocumentAttachmentRevisionProducer;
++    readonly before: ArticleDocumentContext;
++    readonly originalEnvelope: ArticleDocumentTaskEnvelope;
++    readonly taskPort: AttachmentRevisionTaskPort;
++    association: ArticleDocumentAttachmentRevisionAssociation | null;
++    transaction: MarkdownEditorTransactionEvent | null;
++    after: ArticleDocumentContext | null;
++    stage: 'reserving' | 'reserved' | 'publishing' | 'published' | 'accepting' | 'completed' | 'cancelled' | 'failed';
++    invalidated: boolean;
++    cancellationRequested: boolean;
++    nativeWithdrawn: boolean;
++    failure: { readonly firstCause: unknown; latestCause: unknown; } | null;
++}
++
++interface AttachmentRevisionTaskPort {
++    envelope(): ArticleDocumentTaskEnvelope;
++    signal(): AbortSignal;
++    finishing(): boolean;
++    accept<T>(value: T, revision: number): ArticleDocumentTaskAcceptance<T>;
++    cancel(reason: string): ArticleDocumentTaskEnvelope;
++}
++
++const attachmentRevisionTaskPorts = new WeakMap<ArticleDocumentTaskLeaseImpl, AttachmentRevisionTaskPort>();
++
++const attachmentRevisionTaskCancellations = new WeakMap<ArticleDocumentTaskLeaseImpl, () => void>();
++
+ const taskFinalizationTokens = new WeakMap<ArticleDocumentTaskLeaseImpl, object>();
+ 
+ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
+@@ -802,6 +861,10 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
+         this.#controller = controller;
+         this.#taskKey = taskKey;
+         this.#currentEnvelope = envelope;
++        attachmentRevisionTaskPorts.set(this, { envelope: () => this.#currentEnvelope,
++            signal: () => this.#controller.signal, finishing: () => this.#finishing,
++            accept: <T>(value: T, revision: number) => this.#accept(value, revision),
++            cancel: (reason: string) => this.#cancel(reason) });
+     }
+ 
+     public get taskRef(): string
+@@ -825,12 +888,18 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
+     }
+ 
+     public cancel(reason = 'task-canceled'): ArticleDocumentTaskEnvelope
++    {
++        return this.#cancel(reason);
++    }
++
++    #cancel(reason: string): ArticleDocumentTaskEnvelope
+     {
+         assertAbortReason(reason);
+         if (this.#finished)
+         {
+             return this.#currentEnvelope;
+         }
++        attachmentRevisionTaskCancellations.get(this)?.();
+         if (this.#finishing)
+         {
+             this.#cancelReason ??= reason;
+@@ -852,6 +921,11 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
+     }
+ 
+     public accept<T>(value: T, completedRevision?: number): ArticleDocumentTaskAcceptance<T>
++    {
++        return this.#accept(value, completedRevision);
++    }
++
++    #accept<T>(value: T, completedRevision?: number): ArticleDocumentTaskAcceptance<T>
+     {
+         if (this.#finished || this.#finishing)
+         {
+@@ -930,6 +1004,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+     #retirementPending = false;
+     #retirementListeners = new Set<NotificationSubscriptionRecord>();
+     #retirementFailures: unknown[] = [];
++    #attachmentRevisionOperation = false;
++    #attachmentRevisionTransition: ArticleDocumentAttachmentRevisionRecord | null = null;
++    #attachmentRevisionCompletion: ArticleDocumentAttachmentRevisionRecord | null = null;
++    #attachmentRevisionTokens = new WeakMap<ArticleDocumentAttachmentRevisionTransition, ArticleDocumentAttachmentRevisionRecord>();
+ 
+     public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): RetainedNotificationSubscription
+     {
+@@ -1251,6 +1329,381 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+ 
+     }
+ 
++    /** Called only by the original attachment owner inside its one applying loan. */
++    public reserveAttachmentRevisionTransition(lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody,
++        producer: ArticleDocumentAttachmentRevisionProducer): ArticleDocumentAttachmentRevisionTransition | null
++    {
++        this.#assertAttachmentRevisionEntry();
++        if (this.#attachmentRevisionTransition || !(lease instanceof ArticleDocumentTaskLeaseImpl)
++            || !this.#pendingTasks.has(lease) || !this.#activeTasksHas(lease))
++        {
++            return null;
++        }
++        this.#attachmentRevisionOperation = true;
++        const token = {};
++        const opaqueToken = token as ArticleDocumentAttachmentRevisionTransition;
++        const taskPort = attachmentRevisionTaskPorts.get(lease)!;
++        const record: ArticleDocumentAttachmentRevisionRecord = { token: opaqueToken, lease, custody, producer, taskPort,
++            before: this.#current, originalEnvelope: taskPort.envelope(), association: null,
++            transaction: null, after: null, stage: 'reserving', invalidated: false, cancellationRequested: false, nativeWithdrawn: false, failure: null };
++        this.#attachmentRevisionTransition = record;
++        this.#attachmentRevisionTokens.set(opaqueToken, record);
++        attachmentRevisionTaskCancellations.set(lease, () =>
++        {
++            record.invalidated = true;
++            record.cancellationRequested = true;
++        });
++        try
++        {
++            Object.freeze(token);
++            this.#assertContextMutation();
++            if (!this.#hasAttachmentRevisionLease(record, record.before) || record.originalEnvelope.kind !== 'attachment'
++                || custody.beforeRevision !== record.before.sourceRevision
++                || custody.batch.documentIdentity.id !== record.before.documentId
++                || custody.batch.documentIdentity.epoch !== record.before.documentEpoch)
++            {
++                this.#withdrawAttachmentRevision(record);
++                return null;
++            }
++            const association = producer.reserve(lease, custody);
++            record.association = association;
++            if (association?.lease !== lease || association.custody !== custody
++                || !this.#hasAttachmentRevisionLease(record, record.before)
++                || !this.#hasAttachmentRevisionProvenance(record, 'applying'))
++            {
++                this.#withdrawAttachmentRevision(record);
++                return null;
++            }
++            record.stage = 'reserved';
++            return opaqueToken;
++        }
++        catch (cause)
++        {
++            this.#abortAttachmentRevision(record, cause);
++            throw cause;
++        }
++        finally
++        {
++            this.#attachmentRevisionOperation = false;
++        }
++    }
++
++    /** Publish the exact accepted native event before its public source callbacks. */
++    public publishAttachmentRevisionTransition(token: ArticleDocumentAttachmentRevisionTransition,
++        transaction: MarkdownEditorTransactionEvent): ArticleDocumentContext
++    {
++        this.#assertAttachmentRevisionEntry();
++        const record = this.#readAttachmentRevision(token, 'reserved');
++        this.#attachmentRevisionOperation = true;
++        try
++        {
++            this.#assertAttachmentRevisionTransaction(record, transaction);
++            this.#assertContextMutation();
++            if (!this.#hasAttachmentRevisionLease(record, record.before)
++                || !this.#hasAttachmentRevisionProvenance(record, 'accepted', transaction))
++            {
++                throw new Error('article-document-attachment-revision-publication-unavailable');
++            }
++            record.stage = 'publishing';
++            record.transaction = transaction;
++            this.#retireLifetimeAuthority();
++            this.#contextMutationPending = true;
++            this.#assertContextMutation();
++            const next = createArticleDocumentContext({ ...record.before, sourceRevision: transaction.revision,
++                contentDigest: undefined, content: transaction.value });
++            this.#cancelTasksForAttachmentRevision(record);
++            this.#assertContextMutation();
++            if (!this.#hasAttachmentRevisionLease(record, record.before)
++                || !this.#hasAttachmentRevisionProvenance(record, 'accepted', transaction))
++            {
++                throw new Error('article-document-attachment-revision-publication-changed');
++            }
++            this.#current = next;
++            record.after = next;
++            record.stage = 'published';
++            this.#contextMutationPending = false;
++            this.#notifyContext();
++            this.#assertRetainedAdmission();
++            if (!this.#hasAttachmentRevisionLease(record, next)
++                || !this.#hasAttachmentRevisionProvenance(record, 'accepted', transaction))
++            {
++                throw new Error('article-document-attachment-revision-publication-changed');
++            }
++            return next;
++        }
++        catch (cause)
++        {
++            this.#abortAttachmentRevision(record, cause);
++            throw cause;
++        }
++        finally
++        {
++            this.#contextMutationPending = false;
++            this.#attachmentRevisionOperation = false;
++        }
++    }
++
++    /** Complete the same original lease only inside this transaction's committed loan. */
++    public acceptAttachmentRevisionTransition<T>(token: ArticleDocumentAttachmentRevisionTransition,
++        transaction: MarkdownEditorTransactionEvent, value: T): ArticleDocumentTaskAcceptance<T>
++    {
++        this.#assertAttachmentRevisionEntry();
++        const record = this.#readAttachmentRevision(token, 'published');
++        this.#attachmentRevisionOperation = true;
++        try
++        {
++            this.#assertRetainedAdmission();
++            if (record.transaction !== transaction || !record.after || !this.#hasAttachmentRevisionLease(record, record.after)
++                || !this.#hasAttachmentRevisionProvenance(record, 'committed', transaction))
++            {
++                throw new Error('article-document-attachment-revision-completion-unavailable');
++            }
++            record.stage = 'accepting';
++            this.#attachmentRevisionCompletion = record;
++            const accepted = record.taskPort.accept(value, transaction.revision);
++            if (!accepted.accepted)
++            {
++                throw new Error('article-document-attachment-revision-completion-refused');
++            }
++            this.#assertRetainedAdmission();
++            if (record.invalidated || record.failure || this.#current !== record.after
++                || record.taskPort.signal().aborted || !this.#hasAttachmentRevisionProvenance(record, 'committed', transaction))
++            {
++                throw new Error('article-document-attachment-revision-completion-changed');
++            }
++            record.stage = 'completed';
++            this.#withdrawAttachmentRevision(record);
++            return accepted;
++        }
++        catch (cause)
++        {
++            this.#abortAttachmentRevision(record, cause);
++            throw cause;
++        }
++        finally
++        {
++            this.#attachmentRevisionCompletion = null;
++            this.#attachmentRevisionOperation = false;
++        }
++    }
++
++    /** Native association withdrawal and real original lease cancellation; never settlement. */
++    public cancelAttachmentRevisionTransition(token: ArticleDocumentAttachmentRevisionTransition | ArticleDocumentTaskLease,
++        reason = 'attachment-revision-transition-canceled'): boolean
++    {
++        this.#assertAttachmentRevisionEntry();
++        const record = token === this.#attachmentRevisionTransition?.lease
++            ? this.#attachmentRevisionTransition
++            : this.#attachmentRevisionTokens.get(token as ArticleDocumentAttachmentRevisionTransition);
++        if (!record || this.#attachmentRevisionTransition !== record)
++        {
++            return false;
++        }
++        assertAbortReason(reason);
++        this.#attachmentRevisionOperation = true;
++        record.invalidated = true;
++        record.cancellationRequested = true;
++        const failures: unknown[] = [];
++        try
++        {
++            try
++            {
++                record.taskPort.cancel(reason);
++            }
++            catch (cause)
++            {
++                failures.push(cause);
++            }
++            try
++            {
++                this.#withdrawAttachmentRevision(record);
++            }
++            catch (cause)
++            {
++                failures.push(cause);
++            }
++            if (failures.length)
++            {
++                for (const cause of failures)
++                {
++                    this.#failAttachmentRevision(record, cause);
++                }
++                throw new AggregateError(failures, 'article-document-attachment-revision-cancellation-failed', { cause: failures[0] });
++            }
++            record.stage = 'cancelled';
++            return true;
++        }
++        finally
++        {
++            this.#attachmentRevisionOperation = false;
++        }
++    }
++
++    #assertAttachmentRevisionEntry(): void
++    {
++        if (this.#attachmentRevisionOperation || this.#contextMutationPending || this.#retirementPending
++            || this.#contextNotificationDepth !== 0 || this.#taskCancellationDepth !== 0
++            || retainedAdapterGuards.get(this)?.retryActive())
++        {
++            const cause = new Error('article-document-attachment-revision-operation-in-progress');
++            if (this.#attachmentRevisionTransition)
++            {
++                this.#failAttachmentRevision(this.#attachmentRevisionTransition, cause);
++            }
++            throw cause;
++        }
++    }
++
++    #readAttachmentRevision(token: ArticleDocumentAttachmentRevisionTransition,
++        stage: ArticleDocumentAttachmentRevisionRecord['stage']): ArticleDocumentAttachmentRevisionRecord
++    {
++        const record = this.#attachmentRevisionTokens.get(token);
++        if (!record || this.#attachmentRevisionTransition !== record || record.invalidated || record.failure || record.stage !== stage)
++        {
++            const cause = new Error('article-document-attachment-revision-token-unavailable');
++            if (record && this.#attachmentRevisionTransition === record)
++            {
++                this.#failAttachmentRevision(record, cause);
++            }
++            throw cause;
++        }
++        return record;
++    }
++
++    #failAttachmentRevision(record: ArticleDocumentAttachmentRevisionRecord, cause: unknown): void
++    {
++        record.invalidated = true;
++        record.cancellationRequested = true;
++        record.failure ??= { firstCause: cause, latestCause: cause };
++        record.failure.latestCause = cause;
++        this.#retirementFailures.push(cause);
++        record.stage = 'failed';
++    }
++
++    #abortAttachmentRevision(record: ArticleDocumentAttachmentRevisionRecord, cause: unknown): void
++    {
++        this.#failAttachmentRevision(record, cause);
++        // Native association and original lease cancellation are independent duties.
++        // Cleanup errors stay in custody; the first actual operation error is rethrown.
++        try
++        {
++            record.taskPort.cancel('attachment-revision-transition-failed');
++        }
++        catch (cleanupCause)
++        {
++            this.#failAttachmentRevision(record, cleanupCause);
++        }
++        try
++        {
++            this.#withdrawAttachmentRevision(record);
++        }
++        catch (cleanupCause)
++        {
++            this.#failAttachmentRevision(record, cleanupCause);
++        }
++    }
++
++    #hasAttachmentRevisionLease(record: ArticleDocumentAttachmentRevisionRecord, context: ArticleDocumentContext): boolean
++    {
++        return this.#attachmentRevisionTransition === record && !record.invalidated && !record.failure && !this.#disposed
++            && this.#current === context && this.#activeTasksHas(record.lease) && this.#pendingTasks.has(record.lease)
++            && record.originalEnvelope.context === record.before
++            && record.taskPort.envelope() === record.originalEnvelope && !record.taskPort.signal().aborted
++            && (!record.taskPort.finishing() || this.#attachmentRevisionCompletion === record);
++    }
++
++    #hasAttachmentRevisionProvenance(record: ArticleDocumentAttachmentRevisionRecord,
++        phase: 'applying' | 'accepted' | 'committed', transaction?: MarkdownEditorTransactionEvent): boolean
++    {
++        const association = record.association;
++        if (!association || record.invalidated || record.failure || this.#attachmentRevisionTransition !== record)
++        {
++            return false;
++        }
++        // These are the same original Main private association and actual mounted native issuer,
++        // not free callbacks or structural transaction metadata acting as a grant.
++        return record.producer.hasAssociation(association, phase, transaction) === true
++            && !record.invalidated && !record.failure && this.#attachmentRevisionTransition === record
++            && association.issuer.hasReservation(association.reservation, record.lease, phase, transaction) === true
++            && !record.invalidated && !record.failure && this.#attachmentRevisionTransition === record;
++    }
++
++    #assertAttachmentRevisionTransaction(record: ArticleDocumentAttachmentRevisionRecord,
++        transaction: MarkdownEditorTransactionEvent): void
++    {
++        if (!transaction.accepted || !transaction.positionMap || typeof transaction.value !== 'string'
++            || transaction.documentIdentity.id !== record.before.documentId
++            || transaction.documentIdentity.epoch !== record.before.documentEpoch
++            || transaction.beforeRevision !== record.before.sourceRevision || record.custody.beforeRevision !== transaction.beforeRevision
++            || !isSourceRevision(transaction.revision) || transaction.revision <= transaction.beforeRevision
++            || transaction.transaction.expectedRevision !== transaction.beforeRevision
++            || transaction.transaction.metadata?.attachmentItemId !== record.custody.item.itemId)
++        {
++            throw new Error('article-document-attachment-revision-transaction-invalid');
++        }
++    }
++
++    #cancelTasksForAttachmentRevision(record: ArticleDocumentAttachmentRevisionRecord): void
++    {
++        this.#taskCancellationDepth += 1;
++        try
++        {
++            for (const task of [...this.#activeTasks.values()])
++            {
++                if (task !== record.lease)
++                {
++                    task.cancel('source-revision-changed');
++                }
++            }
++        }
++        finally
++        {
++            this.#taskCancellationDepth -= 1;
++        }
++    }
++
++    #withdrawAttachmentRevision(record: ArticleDocumentAttachmentRevisionRecord): void
++    {
++        record.invalidated = true;
++        if (record.association && !record.nativeWithdrawn)
++        {
++            if (record.producer.cancelAssociation(record.association) !== true)
++            {
++                throw new Error('article-document-attachment-revision-withdrawal-unavailable');
++            }
++            record.nativeWithdrawn = true;
++        }
++        if (record.cancellationRequested && record.taskPort.envelope().status === 'running')
++        {
++            throw new Error('article-document-attachment-revision-task-cancellation-pending');
++        }
++        this.#attachmentRevisionTokens.delete(record.token);
++        attachmentRevisionTaskCancellations.delete(record.lease);
++        if (this.#attachmentRevisionTransition === record)
++        {
++            this.#attachmentRevisionTransition = null;
++        }
++    }
++
++    #hasAttachmentRevisionCompletion(task: ArticleDocumentTaskLeaseImpl, revision: number | null): boolean
++    {
++        const record = this.#attachmentRevisionCompletion;
++        if (record?.stage !== 'accepting' || record.lease !== task || !record.after || !record.transaction
++            || revision !== record.after.sourceRevision || !this.#hasAttachmentRevisionLease(record, record.after))
++        {
++            return false;
++        }
++        this.#assertRetainedAdmission();
++        this.#assertAttachmentRevisionTransaction(record, record.transaction);
++        if (record.transaction.revision !== record.after.sourceRevision)
++        {
++            return false;
++        }
++        return this.#hasAttachmentRevisionLease(record, record.after)
++            && this.#hasAttachmentRevisionProvenance(record, 'committed', record.transaction)
++            && this.#hasAttachmentRevisionLease(record, record.after);
++    }
++
+     public switchDocument(input: ArticleDocumentSwitchInput): ArticleDocumentEpochReceipt | null
+     {
+         if (this.#contextMutationPending || this.#retirementPending)
+@@ -1538,10 +1991,18 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+         {
+             throw new Error('article-document-task-finalization-invalid');
+         }
+-        const eligible = status === 'completed' && this.isTaskCurrent(task) && completedRevision === this.#current.sourceRevision;
++        const transition = this.#attachmentRevisionTransition;
++        if (status === 'completed' && transition?.lease === task && this.#attachmentRevisionCompletion !== transition)
++        {
++            const cause = new Error('article-document-attachment-revision-completion-requires-token');
++            this.#failAttachmentRevision(transition, cause);
++            throw cause;
++        }
++        const eligible = status === 'completed' && (this.isTaskCurrent(task) || this.#hasAttachmentRevisionCompletion(task, completedRevision))
++            && completedRevision === this.#current.sourceRevision;
+         const resultDigest = eligible && value !== null && value !== undefined
+             ? calculateOpenArticleDocumentDigest(value) : null;
+-        const current = status === 'completed' && this.isTaskCurrent(task);
++        const current = status === 'completed' && (this.isTaskCurrent(task) || this.#hasAttachmentRevisionCompletion(task, completedRevision));
+         const accepted = status === 'completed' && current && completedRevision === this.#current.sourceRevision;
+         const finalStatus = status === 'completed' && !accepted ? task.signal.aborted ? 'aborted' : 'stale' : status;
+         const cancellationReason = task.signal.aborted && isStableRef(task.signal.reason) ? task.signal.reason : null;
+@@ -1559,6 +2020,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
+             abortReason: accepted ? null : abortReason ?? cancellationReason ?? (task.signal.aborted ? 'task-aborted' : 'task-stale'),
+             resultDigest: accepted ? resultDigest : null
+         });
++        if (status === 'completed' && this.#attachmentRevisionCompletion?.lease === task
++            && (!this.#hasAttachmentRevisionCompletion(task, completedRevision) || envelope.status !== 'completed'))
++        {
++            throw new Error('article-document-attachment-revision-finalization-changed');
++        }
+         if (this.#activeTasks.get(task.registryKey) === task)
+         {
+             this.#activeTasks.delete(task.registryKey);

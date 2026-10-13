@@ -133,3 +133,16 @@ remain HOLD/UNRUN. No Main/attachment adapter/composition/Root/shared Vue/Regist
 server DocumentId/guard config/dependency version edit. No package publication,
 merge, issue close or accepted-composite claim. Rollback this isolated SDK increment
 until its exact source and the original owning integration are independently reviewed.
+
+## Exact owning Main production offer
+
+production-main-b336.patch and production-source-offer.json bind exact actual Main
+b336 before blob055558e540fa0a2e6b6e26f163e983e32a960bde to SDK4781 postimage
+8eae29d8c97757a23402941690ce5022f989d7c8. The original generator performs normal
+apply-check/apply/applied-diff-check/reverse-check in a task-owned detached exact
+Main checkout and verifies every other consumer blob. No Main branch/ref/source
+composition is mutated, no composite compiler/runtime or acceptance is inferred.
+The donor architecture paragraph is additive; Main's owning documentation must
+preserve its whole existing remainder rather than replace it with the older SDK
+branch's complete document. Raw standard patch context whitespace remains part
+of the publisher artifact diff and is recorded separately, never an aggregate PASS.

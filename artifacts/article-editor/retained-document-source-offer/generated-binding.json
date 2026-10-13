@@ -15,7 +15,8 @@
     "artifacts/article-editor/retained-pre-retirement/capture-source-offer.py",
     "artifacts/article-editor/retained-retry-custody/capture-source-offer.py",
     "artifacts/article-editor/retained-retry-entry/capture-source-offer.py",
-    "artifacts/article-editor/retained-retry-attach/capture-source-offer.py"
+    "artifacts/article-editor/retained-retry-attach/capture-source-offer.py",
+    "artifacts/article-editor/attachment-revision-transition/capture-production-offer.py"
   ],
   "outputs": [
     {
@@ -89,6 +90,14 @@
     {
       "path": "artifacts/article-editor/retained-retry-attach/source-offer.json",
       "sha256": "3270164985f100ad0c5847f74f23edf94445a8d3ce85723634fe40fd642dd3ff"
+    },
+    {
+      "path": "artifacts/article-editor/attachment-revision-transition/production-main-b336.patch",
+      "sha256": "e35a79e5c29e8be18cc2256da0f9eef61535e967ec88bdd68978f55d9c8b39b6"
+    },
+    {
+      "path": "artifacts/article-editor/attachment-revision-transition/production-source-offer.json",
+      "sha256": "6502f06460571d1acc9ff0677cba5e4be8404691de3b46c414a0377beeadc48d"
     }
   ]
 }
