@@ -15,6 +15,8 @@ export type {
     MarkdownAttachmentTerminalObservation,
     MarkdownAttachmentTerminalObserver,
     MarkdownAttachmentTerminalConsumer,
+    MarkdownAttachmentTerminalRevisionIssuer,
+    MarkdownAttachmentTerminalRevisionReservation,
     MarkdownAttachmentFileConsumer,
     MarkdownAttachmentItemIntent,
     MarkdownAttachmentCaptureContext,

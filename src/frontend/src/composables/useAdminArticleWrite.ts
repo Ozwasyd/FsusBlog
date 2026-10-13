@@ -1047,10 +1047,12 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     }));
     // Every authoring consumer shares the existing canonical document binding.
     const authoringAnchors = new ArticleAnchorContextAdapter(articleDocumentContextAdapter);
-    const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
-        'article-assets', 'article-assets:v1', authoringAnchors);
     let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort> | null = null;
+    const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
+        'article-assets', 'article-assets:v1', authoringAnchors,
+        () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null);
     const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort & ArticleAttachmentTerminalPort = {
+        getAttachmentTerminalRevisionIssuer: () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null,
         withAttachmentTerminalTransaction: (observation, consume) => active && !!attachmentEditor
             && attachmentEditor.withAttachmentTerminalTransaction?.(observation, consume) === true,
         withAttachmentFile: (batch, item, consume) => active && !!attachmentEditor
@@ -1103,6 +1105,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
     const authoringAttachmentRuntime = Object.freeze({
+        // Stable original producer, not an automatic reservation or task-completion grant.
+        getNativeRevisionProducer: () => authoringAttachments.getNativeRevisionProducer(),
         observeNativeTerminal: (observation: Parameters<ArticleAttachmentContextAdapter['observeNativeTerminal']>[0]) =>
             active && authoringAttachments.observeNativeTerminal(observation, attachmentPort),
         readNativeTerminalTransaction: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalTransaction(handle),
@@ -1221,6 +1225,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             // Retire an old physical owner before allocating any replacement resources.
             revokeCurrentMountedAuthority?.();
             const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
+                getAttachmentTerminalRevisionIssuer: () => editor.getAttachmentTerminalRevisionIssuer?.() ?? null,
                 withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true,
                 withAttachmentTerminalTransaction: (observation, consume) =>
                     editor.withAttachmentTerminalTransaction?.(observation, consume) === true });
