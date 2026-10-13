@@ -75,7 +75,8 @@ import { createArticleAttachmentBusinessIntentReader } from '@/services/authorin
 import { requestArticleAttachmentCommittedFacts } from '@/services/authoring/articleAttachmentCommittedRequest';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort, type ArticleAttachmentFilePort, type ArticleAttachmentTerminalPort } from '@/services/authoring/articleAttachmentContext';
 import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
-import { requestArticleAttachmentUpload, type ArticleAttachmentUploadRequest } from '@/services/authoring/articleAttachmentUploadRequest';
+import { createArticleAttachmentUploadQueue, type ArticleAttachmentQueuedUploadRequest } from '@/services/authoring/articleAttachmentUploadQueue';
+import { requestArticleAttachmentUpload } from '@/services/authoring/articleAttachmentUploadRequest';
 import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter,
@@ -1101,7 +1102,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const consumedAttachmentUploads = new WeakMap<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
     const attachmentUploadObligations = new Map<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
     // Original rich requests remain owned until their actual full-settlement observation.
-    const nativeUploadRequests = new Map<ArticleAttachmentPendingHandle, ArticleAttachmentUploadRequest>();
+    const nativeUploadQueue = createArticleAttachmentUploadQueue();
+    const nativeUploadRequests = new Map<ArticleAttachmentPendingHandle, ArticleAttachmentQueuedUploadRequest>();
     const nativeUploadFailures: { cause: unknown; }[] = [];
     const cancelNativeUploadRequests = (reason: string): void =>
     {
@@ -2057,7 +2059,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     });
 
     const requestNativeAttachmentUpload = ({ batch, item, file }: Parameters<MarkdownAttachmentRequestDispatch>[0],
-        anchorOptions: ArticleAnchorCaptureOptions): ArticleAttachmentUploadRequest =>
+        anchorOptions: ArticleAnchorCaptureOptions): ArticleAttachmentQueuedUploadRequest =>
     {
         if (!active || !canStartWriterResourceWork() || !attachmentEditor || !file)
         {
@@ -2094,11 +2096,14 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         const reservation: UploadAttemptObservation = Object.freeze({ status: 'observing', observation: null, reason: null });
         consumedAttachmentUploads.set(original.intent, reservation);
         const binding = original;
-        const request = requestArticleAttachmentUpload({ runtime: imageUploadRuntime, file, batch, item,
+        const signal = AbortSignal.any([batch.signal, item.signal, binding.intent.signal, binding.lease.signal]);
+        const options = imageUploadOptions.value;
+        const runtimeOptions = { wasmOnly: wasmOnlyMode.value };
+        const request = nativeUploadQueue.enqueue(signal, () => requestArticleAttachmentUpload({ runtime: imageUploadRuntime, file, batch, item,
             attemptBinding: { owner: authoringAttachments, documentOwner: articleDocumentContextAdapter,
                 intent: binding.intent, lease: binding.lease, getBinding: () => attachmentPort.binding() },
-            options: imageUploadOptions.value, runtimeOptions: { wasmOnly: wasmOnlyMode.value },
-            requestProviderResult: completion => requestArticleAttachmentCommittedFacts(completion, batch, item) });
+            options, runtimeOptions,
+            requestProviderResult: completion => requestArticleAttachmentCommittedFacts(completion, batch, item) }));
         nativeUploadRequests.set(binding.intent, request);
         void request.settled.then(() =>
         {
@@ -2128,7 +2133,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             throw new Error('article-attachment-upload-intent-invalid');
         }
-        if (attachmentUploadAttempt)
+        if (attachmentUploadAttempt || nativeUploadRequests.size > 0)
         {
             throw new Error('article-attachment-upload-busy');
         }
@@ -2234,7 +2239,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const resumeImageUpload = async (): Promise<void> =>
     {
-        if (attachmentUploadAttempt)
+        if (attachmentUploadAttempt || nativeUploadRequests.size > 0)
         {
             throw new Error('article-attachment-upload-busy');
         }

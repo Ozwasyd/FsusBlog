@@ -1709,3 +1709,33 @@ Ordinary retry/rebase cannot replace a cleanup-only entry. Only actual success o
 all original duties clears this marker; raw first/latest failures, including
 undefined, remain. This does not call settle, attest producer completion or lift
 native/resource/readiness/qualification holds.
+
+
+## Serialized Main Native Upload Admission
+
+Main reserves one real queue slot synchronously before the shared original upload
+runtime begins compression/hash. Original accepted File/handle/lease and selected
+options stay in that plan; the queued request exposes its original started
+adapter when available and never creates another task or capture. Subsequent
+plans start FIFO only after actual original adapter full settlement and result
+relay completion, with queue-owned listener cleanup complete. Content result is
+forwarded independently and never releases runtime admission. The provider,
+upload and queue futures do not await native/SDK application or acceptance.
+
+Batch/item/intent/lease revocation cancels the same admission plan. Never-started
+plans physically leave the queue and release their start closure/listener without
+calling the runtime; active plans cancel their original request. Real cancellation
+and listener cleanup are attempt-all, caught reentry retains debt, and raw
+failures including undefined remain. Acquisition without an escaped original
+request stays unconfirmed and blocks competing generations. Numeric complete
+queue census is explicitly unavailable; an absent started request is not a
+zero-resource original upload receipt. Original upload census remains inspectable.
+Existing explicit Flow start/resume refuses while native requests own admission.
+
+This fixes runtime supersession during multi-item compression/hash startup. It
+does not establish multi-item native revision publication: the original SDK
+controlled publication still cancels all other leases. Queued original leases
+that are revoked remain cancelled; no stale guard is weakened, lease revived or
+replacement minted. Actual same-batch cohort publication and original native
+application-ended cleanup acknowledgment require their original SDK/UI owners.
+No content/accepted/committed/terminal event is converted to settle or readiness.
