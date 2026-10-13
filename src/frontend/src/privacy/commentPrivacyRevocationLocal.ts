@@ -313,12 +313,12 @@ function enforceCpuBudget(startedAt: number, maxCpuMs: number): void
     }
 }
 
-async function sha256(bytes: Uint8Array): Promise<Uint8Array>
+async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array>
 {
     return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
 }
 
-function utf8(value: string): Uint8Array
+function utf8(value: string): Uint8Array<ArrayBuffer>
 {
     return new TextEncoder().encode(value);
 }
@@ -352,7 +352,7 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean
     return diff === 0;
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array
+function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer>
 {
     const result = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
     let offset = 0;
