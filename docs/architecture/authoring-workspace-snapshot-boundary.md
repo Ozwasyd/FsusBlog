@@ -2068,3 +2068,39 @@ These are source walkthroughs, not execution or qualification evidence. Original
 full CLI/config preflight remains unchanged; runtime/tests/import/collection/list/
 discovery/native/browser/security/privacy/receipt/race/backuprestore/IME and all
 qualifications stay HOLD/UNRUN. Physical alias remains independently UNVERIFIED.
+
+
+## Reviewed Independent Compiler Leaf Intake
+
+An isolated successor of accepted Main4303 70f6720f5037ac8756bce0e47886168d047b0053
+compares original accepted History4261 0f4c13b45e771037287c8d0c4ad067aedf9183b7
+leaf patches against actual Main source. History's UI953 compiler26/19 FAIL
+(Blog1/UI25, per parent) is a different source profile and never a UI957 Main
+baseline. Original complete application before/after checks use the SAME actual
+UI957903 source alias and unchanged compiler configuration and program.
+
+Batch one takes exact same-preimage reviewed Home6d0eaa0f1 readonly array
+candidates/predicate with unchanged mutable-copy and empty-array priority;
+Identity7f741d8df computed.value route keys, actual own-key predicate/fallback and
+unused private type bindings; Slider13db592f1 three real number/number-array
+handlers that forward scalar numbers and refuse arrays. Each selected patch is
+applied to its exact full original preimage and yields the exact original leaf
+postimage. Templates and actual UI references are unchanged. No whole History
+tree, public export, runtime assertion/validator, enum conversion or configuration
+is substituted to force diagnostics away. Donor skip-ci metadata is not copied;
+normal original hooks/push/readbacks apply.
+
+The ordinary source-WIP inventory records56 leaf/path observations:42 exact
+preimages not yet consumed,3 already exact postimages and11 divergent current
+preimages. These are Git observations, not approval of global compatibility.
+Known already-included preview/session-host/client leaves are not repeated.
+Divergent Writer/router/outline, recovery/storage/MTA/locale/transport/notification
+owners require separately reviewed compatible hunks; their full old snapshots
+are not imported. Generated contract/catalog/authority surfaces remain held.
+
+The batch leaves every original Document/attachment/Writer/SDK/upload/FIFO/
+cohort/native-end/settlement owner and actual local alias untouched. New source
+intake needs composed review; compilation is author evidence only, physical alias
+independently UNVERIFIED, and no source acceptance implies runtime or full resource
+qualification. Every runtime/tests/import/discovery/native/browser/security/
+privacy/receipt/race/backuprestore/IME/frozen/qualification HOLD/UNRUN remains.
