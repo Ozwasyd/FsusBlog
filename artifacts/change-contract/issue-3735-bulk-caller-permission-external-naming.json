@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Security/AdminSessionValidationService.cs",
+                "src/backend/Services/Security/AdminSessionValidationService.Observation.cs",
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.BulkCallerPermission.cs"
+            ],
+            "reason": "Cover the explicit original-owner incremental PR scope: the two carried accepted session observation paths and this new original writer producer. Preserve original JWT scheme/saved-token, admin/session/projection SQL identifiers, operation policy tokens and APIs. No environment setting, public auth contract, cookie, permissions catalog, DI, database, frozen output or qualification grant is changed."
+        }
+    ]
+}
