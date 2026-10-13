@@ -520,6 +520,7 @@ interface FrameNativeStaging {
     acquiring: boolean;
     cleanupCompleted: boolean;
     cleanupQueued: boolean;
+    closing: boolean;
     active: boolean;
     borrowed: ArticleNativeRecreationStagingLease | null;
     cleanup: (() => void) | null;
@@ -551,54 +552,62 @@ function closeFrameNativeStaging(own = frameNativeStaging): void
     own.active = false;
     own.pendingCleanup = true;
     own.cleanupCompleted = false;
-    if (own.cleanupQueued)
+    if (own.cleanupQueued || own.closing)
     {
         return; // Authority is withdrawn; issuer notification has not finished yet.
     }
-    const failures: unknown[] = [];
-    const attempt = (run: () => void): void =>
+    own.closing = true;
+    try
     {
-        try
+        const failures: unknown[] = [];
+        const attempt = (run: () => void): void =>
         {
-            run();
-        }
-        catch (cause: unknown)
-        {
-            recordFrameNativeStagingFailure(own, cause);
-            failures.push(cause);
-        }
-    };
-    attempt(() => own.operation.abort());
-    attempt(() =>
-    {
-        if (own.borrowed)
-        {
-            if (own.borrowed.cancel() !== true)
+            try
             {
-                throw new Error('article-native-staging-frame-cancellation-not-confirmed');
+                run();
             }
-        }
-        else
+            catch (cause: unknown)
+            {
+                recordFrameNativeStagingFailure(own, cause);
+                failures.push(cause);
+            }
+        };
+        attempt(() => own.operation.abort());
+        attempt(() =>
         {
-            own.cleanup?.();
+            if (own.borrowed)
+            {
+                if (own.borrowed.cancel() !== true)
+                {
+                    throw new Error('article-native-staging-frame-cancellation-not-confirmed');
+                }
+            }
+            else
+            {
+                own.cleanup?.();
+            }
+        });
+        attempt(() =>
+        {
+            own.abortStop?.();
+            own.abortStop = null;
+        });
+        if (failures.length)
+        {
+            throw failures.length === 1 ? failures[0]
+                : new AggregateError(failures, 'article-native-staging-frame-cleanup-incomplete', { cause: failures[0] });
         }
-    });
-    attempt(() =>
-    {
-        own.abortStop?.();
-        own.abortStop = null;
-    });
-    if (failures.length)
-    {
-        throw failures.length === 1 ? failures[0]
-            : new AggregateError(failures, 'article-native-staging-frame-cleanup-incomplete', { cause: failures[0] });
+        // Only confirmed cleanup clears debt; failure history and withdrawn authority remain.
+        own.cleanupCompleted = true;
+        own.pendingCleanup = own.acquiring;
+        if (!own.acquiring && frameNativeStaging === own)
+        {
+            frameNativeStaging = null;
+        }
     }
-    // Only confirmed cleanup clears debt; failure history and withdrawn authority remain.
-    own.cleanupCompleted = true;
-    own.pendingCleanup = own.acquiring;
-    if (!own.acquiring && frameNativeStaging === own)
+    finally
     {
-        frameNativeStaging = null;
+        own.closing = false;
     }
 }
 function deferFrameNativeStagingCleanup(own: FrameNativeStaging): void
@@ -606,7 +615,7 @@ function deferFrameNativeStagingCleanup(own: FrameNativeStaging): void
     own.active = false;
     own.pendingCleanup = true;
     own.cleanupCompleted = false;
-    if (own.cleanupQueued)
+    if (own.cleanupQueued || own.closing)
     {
         return;
     }
@@ -931,7 +940,7 @@ async function reserveCurrentNativeRecreationTarget(entry: Readonly<OpenArticleD
     {
         throw new Error('article-native-staging-frame-custody-pending');
     }
-    const own: FrameNativeStaging = { operation: new AbortController(), cancellation, acquiring: true, cleanupCompleted: false, cleanupQueued: false,
+    const own: FrameNativeStaging = { operation: new AbortController(), cancellation, acquiring: true, cleanupCompleted: false, cleanupQueued: false, closing: false,
                                       active: true, borrowed: null, cleanup: null, abortStop: null, pendingCleanup: true, hasFailure: false, firstCause: undefined, latestCause: undefined };
     frameNativeStaging = own;
     const instance = routeOutletInstance.value;
