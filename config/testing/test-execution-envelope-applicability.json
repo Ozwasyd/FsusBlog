@@ -1160,7 +1160,9 @@
                 "DOTNET_ROOT",
                 "PATH"
             ],
-            "requiredServices": [],
+            "requiredServices": [
+                "mysql"
+            ],
             "fieldApplicability": {
                 "platform": {
                     "status": "required",
@@ -1188,9 +1190,9 @@
                     "notApplicableReason": "matrix-requires-playwright-none"
                 },
                 "services": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
                 },
                 "directories": {
                     "status": "required",
@@ -8365,6 +8367,7 @@
             "evidenceClass": "correctness",
             "executionClass": "coordination",
             "allowedEnvironment": [
+                "DOTNET_ROOT",
                 "FSUSBLOG_CONTENT_FIELD_DOTNET",
                 "PATH"
             ],
