@@ -27,3 +27,9 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Dedicated OS page adapter/fixture SDK whitespace formatting for #3458.
+c4f50575f1d3fb7043c51245f5c51a226ac0e84e
+
+# Font theme admin POD header mechanical formatting for #2575 and #3534.
+4fa48cacb1def74e963dd2feb03beb6440e67472

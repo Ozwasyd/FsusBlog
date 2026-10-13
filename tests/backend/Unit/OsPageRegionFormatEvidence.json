@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "/workspace/.setup/dotnet/dotnet format whitespace . --folder --include src/backend/Infrastructure/Memory/Platform/OsPageNativeApi.cs tests/backend/Unit/OsPageRegionTests.cs --verify-no-changes --verbosity quiet"
+    },
+    "revision": "c4f50575f1d3fb7043c51245f5c51a226ac0e84e",
+    "paths": [
+        "src/backend/Infrastructure/Memory/Platform/OsPageNativeApi.cs",
+        "tests/backend/Unit/OsPageRegionTests.cs"
+    ],
+    "firstPassTreeSha256": "d709cb431f64a0a78e5f77bb864d867c78c56e0cf5e91896a7722a8060897855",
+    "secondPassTreeSha256": "d709cb431f64a0a78e5f77bb864d867c78c56e0cf5e91896a7722a8060897855",
+    "idempotent": true
+}

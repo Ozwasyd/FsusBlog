@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs",
+        "tools/test-matrix/blame-ignore-source.mjs",
+        "tools/configuration/check-cpp-source.mjs",
+        "tools/configuration/cpp-source.test.mjs",
+        "tests/tools/blame-ignore-source.test.mjs",
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tools/style/check-native-tooling-style.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "61874a90de506e4a8cf363392e3bb4beb349bab833c2b95637173583d9047f2d"
+        }
+    ]
+}
