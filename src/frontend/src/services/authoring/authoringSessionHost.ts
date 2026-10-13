@@ -77,7 +77,7 @@ export interface AuthoringSessionResourcePolicy {
     prohibitedFacts: readonly ['title', 'source-size', 'array-position', 'route'];
 }
 
-export const defaultAuthoringSessionResourcePolicy: AuthoringSessionResourcePolicy = Object.freeze({
+export const defaultAuthoringSessionResourcePolicy: AuthoringSessionResourcePolicy = Object.freeze<AuthoringSessionResourcePolicy>({
     schema: authoringSessionResourcePolicySchema,
     maxOpenSessions: 100,
     maxActiveSessions: 1,
@@ -581,15 +581,19 @@ export const authoringSessionLifecycleTransitions: Readonly<Record<AuthoringSess
 
 export class AuthoringSessionHost
 {
+    private readonly factory: FsusUiPublicEditorSessionFactory;
+    private readonly policy: AuthoringSessionResourcePolicy;
     private sessionsByRef = new Map<string, HostedSession>();
     private receipts: AuthoringSessionLifecycleReceipt[] = [];
     private revision = 0;
 
     public constructor(
-        private readonly factory: FsusUiPublicEditorSessionFactory,
-        private readonly policy: AuthoringSessionResourcePolicy = defaultAuthoringSessionResourcePolicy
+        factory: FsusUiPublicEditorSessionFactory,
+        policy: AuthoringSessionResourcePolicy = defaultAuthoringSessionResourcePolicy
     )
     {
+        this.factory = factory;
+        this.policy = policy;
         if (!verifyResourcePolicy(policy))
         {
             throw new Error('session-resource-policy-invalid');
