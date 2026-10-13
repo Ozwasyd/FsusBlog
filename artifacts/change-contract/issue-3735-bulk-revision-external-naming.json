@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.BulkRevisionReference.cs"
+            ],
+            "reason": "Preserve original lifecycle writer/native PostgreSQL/revision/provenance identifiers in this two-source-path increment over exact c190. No permission, session/site/whole-set grant, DI registration, schema or frozen evidence is introduced."
+        }
+    ]
+}

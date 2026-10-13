@@ -29,7 +29,7 @@ namespace FsusBlog.Server.Services.Articles;
 /// in one ambient transaction.  Fixture code can select a scenario, but it cannot write a
 /// status, pointer, revision, publication, outbox, or audit row itself.
 /// </summary>
-public static class ArticleLifecycleTransitionWriter
+public static partial class ArticleLifecycleTransitionWriter
 {
     public const string WriterContract = "fsusblog.canonical-article-lifecycle-writer.v1";
 
