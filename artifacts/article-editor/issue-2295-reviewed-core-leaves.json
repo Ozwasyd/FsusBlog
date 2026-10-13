@@ -113,7 +113,50 @@
             "protectedOwnerOrFrozenSurface": false
         }
     ],
-    "remainingRuntimeGroup": [],
+    "remainingRuntimeGroup": [
+        {
+            "leaf": "1e2e035d7009455390e596e2e60ec8b0c63d101f",
+            "path": "src/frontend/src/router/publicRoutePreload.ts",
+            "preimage": "58dd9c382a02f5bf46ac89836f0646c6af4898ee",
+            "postimage": "7e86170ebde5d3b5daa647a59ed52a7547c48785",
+            "main": "58dd9c382a02f5bf46ac89836f0646c6af4898ee",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        },
+        {
+            "leaf": "1fcd1dac73eb507668389cb4edde6455506959d5",
+            "path": "src/frontend/src/composables/useArticleDetailView.ts",
+            "preimage": "2118ac94f9224e85f80ff068816f04440b9116ad",
+            "postimage": "237d95a660e00774c550ee1759ed82909cf77460",
+            "main": "2118ac94f9224e85f80ff068816f04440b9116ad",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        },
+        {
+            "leaf": "caf1e66a9a20bc1fccbd3614651d91d87bfa6274",
+            "path": "src/frontend/src/services/securityPerceptionChallengeFlow.ts",
+            "preimage": "fecd1a66f3e2fbadf462506cde05dbeabd399ca6",
+            "postimage": "c68bf0cbe834ad81750a5b804447ee5283226ef4",
+            "main": "fecd1a66f3e2fbadf462506cde05dbeabd399ca6",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        },
+        {
+            "leaf": "02026151ce2110aec27b2fb6d8f9a54dc8b1960f",
+            "path": "src/frontend/src/store/site.ts",
+            "preimage": "c484830d2b9af0b984855c5916223efe23a9d44c",
+            "postimage": "dc6e956a4ef89dbfc8fcd53793b6d724a613a89e",
+            "main": "c484830d2b9af0b984855c5916223efe23a9d44c",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        }
+    ],
     "exclusions": "Protected authoring/Writer/SDK/upload/FIFO/cohort/end/settlement, all11 divergent paths and enum/template/config/frozen surfaces not taken; already-present three leaves not repeated",
-    "execution": "ALL HOLD/UNRUN; physical alias independently UNVERIFIED"
+    "execution": "ALL HOLD/UNRUN; physical alias independently UNVERIFIED",
+    "authorEvidence": {
+        "fullApplication": "Same actual UI957 original full program before195FAIL (Blog170/UI25) after163FAIL (Blog138/UI25), complete diagnostic blocks/multiplicity position-only compare added0 removed32",
+        "style": "Original strict-full16 paths before83FAIL after58FAIL, complete finding position-only/multiplicity compare added0 removed25; not green",
+        "AST": "16 TS paths zero parse diagnostics;12 complete module static emits original resolved app options BYTE EXACT; no product execution",
+        "physicalAlias": "Author evidence only; independently UNVERIFIED"
+    }
 }

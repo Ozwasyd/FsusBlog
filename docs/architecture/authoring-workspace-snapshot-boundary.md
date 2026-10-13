@@ -2104,3 +2104,34 @@ intake needs composed review; compilation is author evidence only, physical alia
 independently UNVERIFIED, and no source acceptance implies runtime or full resource
 qualification. Every runtime/tests/import/discovery/native/browser/security/
 privacy/receipt/race/backuprestore/IME/frozen/qualification HOLD/UNRUN remains.
+
+
+## Reviewed Independent Core Source Leaf Batch
+
+A successor preserves fixed Main4304 7af63ad6c897430c46410f41b8dc3e22ecf63195
+and consumes16 additional exact same-preimage independent History4261 leaf/path
+postimages. The type/import/signature group is a separate12-path source commit:
+comment/message/stats private type bindings, two locale imports (divergent
+registry not taken), public seed type, account/router/search/service-worker unused
+private types, actual resolved navigation parameter and owned ICO return buffer.
+Original public exports/value imports/runtime bodies remain; complete12-module
+static emits are byte-exact using original resolved app options. This extra
+source observation never substitutes for the original full application compiler.
+
+A separate four-path boundary group takes the accepted real prewarm failure
+observation carrier preserving nullish first-write/stage/raw cause identity;
+two canonical existing ProtocolFailure consumer references for unknown kinds;
+one identical site ogImage default (original duplicate removed); and the unused
+private no-read-point article challenge computed, preserving the real challenge
+context/route/attributes. No enum declaration is converted, no new cancellation
+acknowledgment/permission/ready state or producer promise is supplied. No actual
+UI template/reference, assertion, validator, alias or compiler config is changed.
+
+The ordinary batch WIP records original leaf commits and exact current full
+preimage/postimage for each path.11 divergent owner paths, original protected
+authoring/Document/Writer/SDK/upload/FIFO/cohort/end/settlement, frozen catalogs/
+authority and held enum/template/config surfaces remain untouched. Previously
+included three postimages and batch4304 are not repeated. New composed source
+review is required; every runtime/tests/import/discovery/native/browser/security/
+privacy/receipt/race/backuprestore/IME/frozen/qualification stays HOLD/UNRUN.
+Physical alias is independently UNVERIFIED, compiler/static evidence author-only.
