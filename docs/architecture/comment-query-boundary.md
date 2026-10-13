@@ -32,7 +32,7 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN content.comment.max-depth -->
 | Key | Value |
 | --- | --- |
-| compare | parent.depth + 1 <= maxDepth |
+| compare | parent.depth + 1 &lt;= maxDepth |
 | configurationKey | CommentThreads:MaxDepth |
 | default | 32 levels |
 | enforcement | reject-new-write |
