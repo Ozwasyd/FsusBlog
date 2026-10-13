@@ -208,13 +208,22 @@ remains an obligation of the actual Anchor owner; a history anchor projection
 cannot be cast into a complete `ArticleAnchorContext`, current map or mounted
 session. This caller creates no owner, activates no tab and restores no anchor.
 
-The actual local FsusUI public export required by the original position-map
-bridge, `MarkdownEditorSessionExpose`, is unavailable. The original snapshot
-source also contains parameter properties rejected by the current full local
-application's `erasableSyntaxOnly` policy. These exact source dependencies must
-be resolved by their producers; this composition does not substitute a default
-export, type cast, shim or reduced compilation surface. Complete application
-types remain failed, and a partial or own-module diagnostic count is not a pass.
+The original position-map bridge's `MarkdownEditorSessionExpose` is exported
+by the actual UI948 source: its definition is in
+`vue/packages/components/markdown-editor/src/markdown-editor-session.ts`, with a
+type-only export through `markdown-editor.ts` and the public component/package
+chain. The earlier consumer failure used a different local source checkout;
+it does not establish that UI948 lacks this interface. The existing local alias
+producer can select an independent exact UI source worktree via
+`FSUSBLOG_LOCAL_FSUSUI_ROOT`; it must resolve both the package root and Markdown
+runtime into that same source, not a registry package or copied interface.
+
+The original Snapshot source still contains parameter properties rejected by
+the consumer full application's `erasableSyntaxOnly` policy. Complete consumer
+application types remain failed; the UI owner's separate Web project result and
+historical failures are not interchangeable with this application/project result.
+This composition does not substitute an export, cast, shim, reduced compilation
+surface or relaxed consumer policy. All inherited producer files remain exact.
 Recent restore receipt provenance remains with the actual recent-closed owner.
 This slice does not attach to Write, Frame, Main, SDK, routing, transport or
 storage and establishes no runtime, privacy/security, IME or full issue acceptance.
