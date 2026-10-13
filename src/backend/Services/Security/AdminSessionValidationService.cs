@@ -21,7 +21,7 @@ public sealed record AdminSessionValidationResult(bool IsValid, string Reason)
     public static AdminSessionValidationResult Invalid(string reason) => new(false, reason);
 }
 
-public sealed class AdminSessionValidationService : IAdminSessionValidationService
+public sealed partial class AdminSessionValidationService : IAdminSessionValidationService
 {
     private readonly AdminSessionProjection _projection;
     private readonly IAdminSessionTouchScheduler _touchScheduler;
