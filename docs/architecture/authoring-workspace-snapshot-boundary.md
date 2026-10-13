@@ -1696,3 +1696,16 @@ unconfirmed. Same staging target adoption, explicit stage release and ordinary
 Root readmission ordering are preserved. SDK, Writer, registry, factory and
 continuity source are unchanged by this dependency consumption. The three exact
 source postimages do not qualify actual native work, resources or readiness.
+
+
+## Native Cleanup Debt After SDK Cancellation
+
+The original pending entry retains an independent nativeCleanupPending duty once
+its real attempt-all cleanup starts. SDK cancellation success only completes the
+SDK duty; subsequent File/controller/lifecycle cleanup failure keeps the SAME
+entry and remains counted in native cleanup inspection. Retry continues through
+finishNativeEntry even after SDK pending is false and no finalization exists.
+Ordinary retry/rebase cannot replace a cleanup-only entry. Only actual success of
+all original duties clears this marker; raw first/latest failures, including
+undefined, remain. This does not call settle, attest producer completion or lift
+native/resource/readiness/qualification holds.
