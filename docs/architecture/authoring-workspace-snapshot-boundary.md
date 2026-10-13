@@ -1647,3 +1647,37 @@ unknown network/shared-Wasm work or retained File state to zero. No checkpoint i
 offered. Main's private binding/provider hookup, full numeric resource capability
 and genuine receiver/native/SDK integration remain separate unresolved gates;
 this source adapter does not establish runtime or migration qualification.
+
+
+## Main Native Rich Request Consumption
+
+Main forwards the actual `attachmentRequestDispatch` through ArticleWriteEditor,
+MarkdownEditorAdapter and MarkdownTextEditor to the sole mounted FsusUI editor.
+The rich dispatch does not emit the legacy capture event. Main therefore borrows
+the SAME native capture through the existing mounted `withAttachmentFile` port
+and calls the original accepted-capture admission once. The private pending
+owner returns the original handle, File and SDK lease; no replacement capture,
+history, task, placeholder dispatch or parallel upload is created. The legacy
+capture callback only admits and no longer starts useImageUploadFlow. Original
+explicit operations keep their existing Flow path.
+
+The configured requestUploadFile receives that same original binding. In its ACK
+loan, requestArticleAttachmentCommittedFacts opens a bounded nested scope and
+calls the existing transport provider's observe method. Its named session fields
+remain private; real committed facts supply AssetId and must match the ACK URL.
+The provider's own result never waits for upload, adapter, SDK acceptance or native
+application. Its separate settlement observes genuine callback completion and
+original scope cleanup. A rejected scope is unconfirmed until callback work has
+ended and actual original loan release retries cleanup successfully. Cancellation
+attempts controller abort and original loan release independently, preserving raw
+causes including undefined. No guessed AssetId, success ACK, numeric zero census
+or checkpoint is supplied.
+
+Main retains each original request until its actual full-settlement observation,
+exposes same-handle cancellation retry and includes real upload census and failure
+history in Writer resource inspection. Pause/release cancellation attempts every
+retained request. This does not settle the SDK lease from terminal content: SDK
+producer settlement, numeric full network/memory census, references, recovery,
+eviction and host readiness remain separate unsupported or unqualified gates.
+Whole application diagnostics and every runtime/qualification execution hold
+remain; this source composition is pending independent review.

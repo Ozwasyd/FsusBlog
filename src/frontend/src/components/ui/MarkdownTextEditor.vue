@@ -47,6 +47,7 @@
             @save="emitSave"
             @submit="emitSubmit"
             :attachment-terminal-observer="attachmentTerminalObserver"
+            :attachment-request-dispatch="attachmentRequestDispatch"
             @transaction="trackAuthoringTransaction"
             @upload-image="requestImageUpload"
         />
@@ -83,6 +84,7 @@
 import {
     ElMarkdownEditor,
     defaultMarkdownEditorCommands,
+    type MarkdownAttachmentRequestDispatch,
     type MarkdownEditorCommand as FsusUiMarkdownEditorCommand,
     type MarkdownEditorCommandContext as FsusUiMarkdownEditorCommandContext,
     type MarkdownEditorMode as FsusUiMarkdownEditorMode,
@@ -172,6 +174,7 @@ const props = withDefaults(defineProps<{
     showModeSwitcher?: boolean;
     nativeAttachmentInput?: boolean;
     attachmentTerminalObserver?: MarkdownAttachmentTerminalObserver;
+    attachmentRequestDispatch?: MarkdownAttachmentRequestDispatch;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     toolbarsExclude?: string[];
     saving?: boolean;

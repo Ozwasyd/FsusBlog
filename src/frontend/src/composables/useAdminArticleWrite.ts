@@ -70,10 +70,12 @@ import {
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
 import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring';
-import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
+import { ArticleAnchorContextAdapter, type ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
 import { createArticleAttachmentBusinessIntentReader } from '@/services/authoring/articleAttachmentBusinessIntentReader';
+import { requestArticleAttachmentCommittedFacts } from '@/services/authoring/articleAttachmentCommittedRequest';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort, type ArticleAttachmentFilePort, type ArticleAttachmentTerminalPort } from '@/services/authoring/articleAttachmentContext';
 import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
+import { requestArticleAttachmentUpload, type ArticleAttachmentUploadRequest } from '@/services/authoring/articleAttachmentUploadRequest';
 import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter,
@@ -100,7 +102,7 @@ import { useAdminStore, type AdminPrincipalSeal } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
 
-import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSession, MarkdownEditorSessionExpose, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
+import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownAttachmentRequestDispatch, MarkdownEditorSession, MarkdownEditorSessionExpose, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
 
 const mountedWriterAuthorityBrand: unique symbol = Symbol('article-writer-mounted-authority');
 
@@ -1098,6 +1100,34 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     // One consumption per genuine handle, without retaining the File or session credentials.
     const consumedAttachmentUploads = new WeakMap<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
     const attachmentUploadObligations = new Map<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
+    // Original rich requests remain owned until their actual full-settlement observation.
+    const nativeUploadRequests = new Map<ArticleAttachmentPendingHandle, ArticleAttachmentUploadRequest>();
+    const nativeUploadFailures: { cause: unknown; }[] = [];
+    const cancelNativeUploadRequests = (reason: string): void =>
+    {
+        let failed = false;
+        let firstCause: unknown;
+        for (const request of nativeUploadRequests.values())
+        {
+            try
+            {
+                request.cancelLocal(reason);
+            }
+            catch (cause)
+            {
+                if (!failed)
+                {
+                    failed = true;
+                    firstCause = cause;
+                }
+                nativeUploadFailures.push({ cause });
+            }
+        }
+        if (failed)
+        {
+            throw firstCause;
+        }
+    };
     const assertUploadObligationAbsent = (handle?: ArticleAttachmentPendingHandle): void =>
     {
         if (handle ? attachmentUploadObligations.has(handle) : attachmentUploadObligations.size > 0)
@@ -1106,6 +1136,21 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
     const authoringAttachmentRuntime = Object.freeze({
+        requestDispatch: (input: Parameters<MarkdownAttachmentRequestDispatch>[0], anchorOptions: ArticleAnchorCaptureOptions) =>
+            requestNativeAttachmentUpload(input, anchorOptions),
+        get nativeUploadRequests()
+        {
+            return Object.freeze([...nativeUploadRequests].map(([handle, request]) => Object.freeze({ handle, request })));
+        },
+        retryNativeUploadCleanup: (handle: ArticleAttachmentPendingHandle, reason?: string): void =>
+        {
+            const request = nativeUploadRequests.get(handle);
+            if (!request)
+            {
+                throw new Error('article-native-upload-original-request-unavailable');
+            }
+            request.cancelLocal(reason);
+        },
         // Stable original producer, not an automatic reservation or task-completion grant.
         getNativeRevisionProducer: () => authoringAttachments.getNativeRevisionProducer(),
         observeNativeTerminal: (observation: Parameters<ArticleAttachmentContextAdapter['observeNativeTerminal']>[0]) =>
@@ -2010,6 +2055,62 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             error: (message) => showErrorToast(message, message)
         }
     });
+
+    const requestNativeAttachmentUpload = ({ batch, item, file }: Parameters<MarkdownAttachmentRequestDispatch>[0],
+        anchorOptions: ArticleAnchorCaptureOptions): ArticleAttachmentUploadRequest =>
+    {
+        if (!active || !canStartWriterResourceWork() || !attachmentEditor || !file)
+        {
+            throw new Error('article-native-upload-admission-unavailable');
+        }
+        let original = authoringAttachments.readNativeUploadBinding(batch, item, file);
+        if (!original)
+        {
+            // Rich dispatch does not emit the legacy capture event. Borrow the same native
+            // observation through its existing mounted File port, then admit it once.
+            const lent = attachmentPort.withAttachmentFile(batch, item, (lentFile, capture) =>
+            {
+                if (lentFile !== file)
+                {
+                    throw new Error('article-native-upload-file-mismatch');
+                }
+                const admitted = authoringAttachments.admitAcceptedCapture({ batch, capture, anchorOptions }, attachmentPort);
+                if (admitted.status !== 'admitted')
+                {
+                    throw new Error(admitted.reason);
+                }
+            });
+            if (!lent)
+            {
+                throw new Error('article-native-upload-capture-unavailable');
+            }
+            original = authoringAttachments.readNativeUploadBinding(batch, item, file);
+        }
+        if (!original || consumedAttachmentUploads.has(original.intent))
+        {
+            throw new Error('article-native-upload-original-binding-unavailable');
+        }
+        assertUploadObligationAbsent();
+        const reservation: UploadAttemptObservation = Object.freeze({ status: 'observing', observation: null, reason: null });
+        consumedAttachmentUploads.set(original.intent, reservation);
+        const binding = original;
+        const request = requestArticleAttachmentUpload({ runtime: imageUploadRuntime, file, batch, item,
+            attemptBinding: { owner: authoringAttachments, documentOwner: articleDocumentContextAdapter,
+                intent: binding.intent, lease: binding.lease, getBinding: () => attachmentPort.binding() },
+            options: imageUploadOptions.value, runtimeOptions: { wasmOnly: wasmOnlyMode.value },
+            requestProviderResult: completion => requestArticleAttachmentCommittedFacts(completion, batch, item) });
+        nativeUploadRequests.set(binding.intent, request);
+        void request.settled.then(() =>
+        {
+            if (nativeUploadRequests.get(binding.intent) === request)
+            {
+                nativeUploadFailures.push(...request.inspectObservationFailures());
+                nativeUploadRequests.delete(binding.intent);
+            }
+            // Actual producer settlement does not itself complete the SDK task or grant references.
+        }, (cause: unknown) => nativeUploadFailures.push({ cause }));
+        return request;
+    };
 
     const observeOwnedImageUpload = async (
         handle: ArticleAttachmentPendingHandle,
@@ -4759,6 +4860,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 reason: next === null ? 'draft-switch' : 'article-switch'
             });
             imageUploadFlow.cancel();
+            cancelNativeUploadRequests('article-document-switch');
             if (typeof imageUploadFlow.clearPending === 'function')
             {
                 imageUploadFlow.clearPending();
@@ -4866,6 +4968,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         const leases = [...writerTaskLeases].filter(lease => pending.has(lease.taskRef));
         const nativeTransitionCleanup = authoringAttachments.inspectNativeTransitionCleanup();
         const ownWorkPending = writerLeaseIssuanceReservations > 0 || pending.size > 0 || writerPendingWork.size > 0
+            || nativeUploadRequests.size > 0
             || nativeTransitionCleanup.pending > 0
             || attachmentUploadAttempt !== null || draftSaveInFlightIdentity !== null;
         return Object.freeze({
@@ -4887,6 +4990,9 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 recoveryLifecycle: disposeArticleRecoveryLifecycle !== null }),
             attachmentObservationActive: attachmentUploadAttempt !== null,
             attachmentObligationCount: attachmentUploadObligations.size,
+            nativeUploadRequests: Object.freeze([...nativeUploadRequests.values()].map(request =>
+                request.inspectUploadResources())),
+            nativeUploadFailures: Object.freeze(nativeUploadFailures.map(failure => Object.freeze({ ...failure }))),
             nativeTransitionCleanup,
             imageResumeContextRetained: imageUploadFlow.pendingContext.value !== null,
             powCalculating: powProvider.isCalculating.value,
@@ -4945,6 +5051,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             },
             () => previewTask.cancel(),
             () => imageUploadFlow.cancel(),
+            () => cancelNativeUploadRequests('article-writer-resource-paused'),
             () => powProvider.terminate(),
             ...[...writerTaskLeases].map(lease => () =>
             {
@@ -5408,6 +5515,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             () => aiAssistTask.cancel(),
             () => assetTask.cancel(),
             () => imageUploadFlow.cancel(),
+            () => cancelNativeUploadRequests('article-writer-resource-released'),
             () => imageUploadFlow.clearPending?.(),
             () => clearDraftSaveTimer(),
             () => writerScope.stop()

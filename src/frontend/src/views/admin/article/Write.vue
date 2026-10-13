@@ -207,6 +207,7 @@
                                                 @submit="requestSubmit"
                                                 @upload-img="handleUploadImg"
                                                 :attachment-terminal-observer="authoringAttachmentRuntime.observeNativeTerminal"
+                                                :attachment-request-dispatch="authoringAttachmentRuntime.requestDispatch"
                                                 @attachment-capture="consumeAcceptedAttachmentCapture"
                                                 @transaction="consumeAuthoringTransaction"
                                                 @selection-change="consumeAuthoringSelection"
@@ -2007,8 +2008,8 @@ onUnmounted(() =>
     boundEditorPort = null;
 });
 
-async function consumeAcceptedAttachmentCapture(batch: MarkdownAttachmentBatchIntent,
-                                                capture: MarkdownAttachmentCaptureObservation | undefined, anchorOptions: ArticleAnchorCaptureOptions): Promise<void>
+function consumeAcceptedAttachmentCapture(batch: MarkdownAttachmentBatchIntent,
+                                          capture: MarkdownAttachmentCaptureObservation | undefined, anchorOptions: ArticleAnchorCaptureOptions): void
 {
     const admitted = authoringAttachmentRuntime.admitAcceptedCapture({ batch, capture, anchorOptions });
     if (admitted.status !== 'admitted')
@@ -2016,26 +2017,7 @@ async function consumeAcceptedAttachmentCapture(batch: MarkdownAttachmentBatchIn
         showErrorToast(admitted.reason, admitted.reason);
         return;
     }
-    for (const item of admitted.items)
-    {
-        try
-        {
-            const observation = await authoringAttachmentRuntime.observeUpload(item.handle, item.file, item.handle.signal);
-            if (observation.status !== 'committed')
-            {
-                const message = observation.status === 'pending' ? '附件上传尚未确认完成' : observation.reason;
-                showErrorToast(message, message);
-                // The original Writer retains the observation; no retry or cleanup authority is inferred.
-                return;
-            }
-        }
-        catch (error)
-        {
-            const message = error instanceof Error ? error.message : 'article-attachment-upload-failed';
-            showErrorToast(message, message);
-            return;
-        }
-    }
+    // The real rich request dispatch owns upload. This legacy capture callback only admits.
 }
 
 function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void

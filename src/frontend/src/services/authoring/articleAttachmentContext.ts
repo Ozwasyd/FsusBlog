@@ -190,6 +190,7 @@ interface PendingInput {
     nativeCleanupReentry?: { readonly cause: unknown; };
     file?: File;
     releaseFile?: () => void;
+    nativeHandle?: ArticleAttachmentPendingHandle;
 }
 
 interface NativeRevisionAssociation
@@ -904,6 +905,23 @@ export class ArticleAttachmentContextAdapter
         return !!entry && (!entry.nativeCapture || entry.file === file);
     }
 
+    /** Borrow the SAME admitted pending handle and lease for the original native request. */
+    public readNativeUploadBinding(batch: MarkdownAttachmentBatchIntent, item: MarkdownAttachmentItemIntent, file: File):
+        Readonly<{ intent: ArticleAttachmentPendingHandle; lease: ArticleDocumentTaskLease; }> | null
+    {
+        for (const entry of this.pending.values())
+        {
+            if (entry.nativeInput?.capture.batch === batch && entry.nativeInput.item === item
+                && entry.file === file && entry.nativeHandle && !entry.controller.signal.aborted
+                && !batch.signal.aborted && !item.signal.aborted && entry.lease.isCurrent()
+                && entry.nativeHandle.snapshot.task === entry.lease.envelope)
+            {
+                return Object.freeze({ intent: entry.nativeHandle, lease: entry.lease });
+            }
+        }
+        return null;
+    }
+
     private createPending(intent: ArticleAttachmentIntent, batch: MarkdownAttachmentBatchIntent,
         range: Readonly<{ start: number; end: number; }>, anchor: ArticleAnchorContext,
         result: MarkdownEditorDispatchResult, file?: File, item?: MarkdownAttachmentItemIntent,
@@ -1516,6 +1534,10 @@ export class ArticleAttachmentContextAdapter
             }
         } });
         this.pendingHandles.set(handle, entry);
+        if (entry.nativeCapture)
+        {
+            entry.nativeHandle = handle;
+        }
         return handle;
     }
 
