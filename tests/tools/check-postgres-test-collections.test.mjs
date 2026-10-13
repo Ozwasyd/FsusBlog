@@ -109,10 +109,10 @@ test("accepts the checked-in PostgreSQL collection manifest", () =>
     assert.equal(result.status, 0, result.stderr);
     assert.match(
         result.stdout,
-        /collections=2 classes=112 estimatedCases=764/u
+        /collections=2 classes=124 estimatedCases=963/u
     );
-    assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:310/u);
-    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:454/u);
+    assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:415/u);
+    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:548/u);
 });
 
 test("rejects omission of the current content-asset and runtime-rollup PostgreSQL classes", () =>
@@ -160,7 +160,7 @@ test("rejects omission of the existing lifecycle class even after its case total
     collection.tests = collection.tests.filter(
         (entry) => entry.class !== "CanonicalArticleLifecycleFixturePortIntegrationTests"
     );
-    collection.estimatedFacts -= 13;
+    collection.estimatedFacts -= 26;
     fs.writeFileSync(
         fixture.manifestPath,
         `${JSON.stringify(manifest, null, 2)}\n`

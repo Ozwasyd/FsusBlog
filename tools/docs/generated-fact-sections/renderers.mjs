@@ -115,6 +115,16 @@ function escapeTableCell(value)
     return normalizeScalarText(value).replace(/\|/gu, '\\|').replace(/\r?\n/gu, ' ');
 }
 
+function serializeLiteralJson(value)
+{
+    // Compound observations are JSON text; scalar strings retain their Markdown contract.
+    // Entities preserve literal punctuation without activating HTML, links, or escapes.
+    // Escape URL scheme colons after ampersands to preserve their decoded JSON text.
+    return normalizeScalarText(JSON.stringify(value)).replace(/[&<>\\`*_[\]~]/gu,
+        (character) => `&#${character.codePointAt(0)};`)
+        .replace(/(https?):\/\//giu, '$1&#58;//');
+}
+
 function markdownTable(headers, rows)
 {
     const headerLine = `| ${headers.map(escapeTableCell).join(' | ')} |`;
@@ -233,7 +243,7 @@ function renderKeyValueTable(value, options = {})
             ? formatDurationLike(entryValue, options.unit)
             : normalizeScalarText(typeof entryValue === 'string' || typeof entryValue === 'number' || typeof entryValue === 'boolean'
                 ? entryValue
-                : JSON.stringify(entryValue));
+                : serializeLiteralJson(entryValue));
         return [key, rendered];
     });
     return markdownTable(['Key', 'Value'], rows);
@@ -261,7 +271,7 @@ function parseTransition(entry)
         failShape('transition-table', 'transition must be string or object');
     }
     // Supports "Action:From->To" and "From->To[:guard]" forms.
-    const withAction = entry.match(/^(?:([^:]+):)?([^:>\-]+)->([^:]+)(?::(.+))?$/u);
+    const withAction = entry.match(/^(?:([^:]+):)?([^:>-]+)->([^:]+)(?::(.+))?$/u);
     if (!withAction)
     {
         failShape('transition-table', `unparseable transition ${entry}`);

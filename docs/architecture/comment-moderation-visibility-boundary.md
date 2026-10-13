@@ -67,7 +67,7 @@ render: key-value-table
 | --- | --- |
 | adminSurface | full-moderation-states |
 | publicSurface | {"blockedRegionFilter":"viewer-region-aware","requires":"Approved","unknownViewer":"apply-all-blocked-regions"} |
-| states | ["deleted","hidden","limited","pending","public","rejected"] |
+| states | &#91;"deleted","hidden","limited","pending","public","rejected"&#93; |
 <!-- FSUSBLOG-GENERATED:END content.comment.region-visibility -->
 
 <!-- fsus-doc-claim

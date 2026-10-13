@@ -99,6 +99,6 @@ render: key-value-table
 | editWindow | {"configurationKey":"Comments:AuthorEditWindowMinutes","default":{"unit":"minutes","value":30}} |
 | expectedVersionCas | true |
 | nextVersion | currentVersion + 1 |
-| operations | ["created","deleted","edited"] |
+| operations | &#91;"created","deleted","edited"&#93; |
 | softDeleteProjectsAsHiddenNextStatus | true |
 <!-- FSUSBLOG-GENERATED:END content.comment.edit-delete-version -->

@@ -4,75 +4,26 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
-                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
-                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
-                "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
-                "src/backend/Services/Authoring/ArticlePropertyDefinitionCommandHistory.cs",
-                "src/backend/Services/Authoring/ArticlePropertyDefinitionCommands.cs",
-                "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs",
-                "src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs",
-                "src/backend/Services/Authoring/ArticlePropertyDefinitionStore.cs",
-                "src/backend/Services/Authoring/ArticlePropertyDefinitionVerifier.cs",
-                "src/backend/Services/Authoring/PostgresArticlePropertyDefinitionPersistence.cs",
-                "src/migration/Catalogs/SchemaMigrationCatalog20260915ArticlePropertyDefinitions.cs",
-                "src/migration/Catalogs/SchemaMigrationCatalog20261002ArticlePropertyDefinitionCommandHistory.cs",
-                "src/migration/Definitions/ArticlePropertyDefinitionAuthorityMigrationDefinitions.cs",
-                "src/migration/Definitions/ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.cs",
-                "src/migration/OfflineMigrationCatalogEntries.generated.cs",
-                "src/migration/OfflineMigrationClassificationFacts.cs",
-                "src/migration/SchemaMigrationManifest.cs",
-                "tools/db/check-schema-allowed-extra-tables.mjs",
-                "tools/governance/check-article-property-definition-authority.mjs"
+                "src/backend/Services/Authoring/ArticlePropertySavedViewDependencyProvider.cs",
+                "tools/mutation/stryker-caller-governance-contract.mjs"
             ],
-            "reason": "Process environment spelling is external while option variables remain internal."
-        },
-        {
-            "id": "shell-environment-variable",
-            "paths": [
-                "tools/test/lanes/static-governance.sh"
-            ],
-            "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+            "reason": "Preserve existing process environment names in the property metadata provider and canonical mutation caller source; internal identifiers retain repository naming."
         },
         {
             "id": "search-index-utf8-scalar-owner",
             "paths": [
-                "docs/testing.generated.md",
-                "tests/coverage-registry.json"
+                "tools/check-backend-test-governance.mjs"
             ],
-            "reason": "The search UTF-8 scalar production owner, governance registry and generated test documentation must migrate atomically while preserving their existing external JSON, document and tooling identifiers; internal C# symbols remain governed by the repository mapping."
-        },
-        {
-            "id": "post-runtime-observation-authority",
-            "paths": [
-                "docs/architecture/repository-layout.md"
-            ],
-            "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
-        },
-        {
-            "id": "content-doc-exactness-authority",
-            "paths": [
-                "config/testing/correctness-attempt-producers.json",
-                "tests/governance/test-lifecycle-registry.json"
-            ],
-            "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping."
+            "reason": "Preserve the original source-governance checker interface and UTF-8 scalar validations while consuming the independently qualified mutation caller contract."
         },
         {
             "id": "json-wire-key",
             "paths": [
-                "config/development/document-inventory.generated.json",
-                "config/development/document-lifecycle.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
                 "tests/backend/Fixtures/postgres-test-collections.json",
                 "tests/backend/packages.lock.json"
             ],
-            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/architecture/article-property-definition-authority.md"
-            ],
-            "reason": "DOM and token spelling is preserved only when documented as a caller-visible contract."
+            "reason": "Preserve original PostgreSQL collection, backend evidence inventory and locked dependency JSON keys in this bounded candidate."
         }
     ]
 }

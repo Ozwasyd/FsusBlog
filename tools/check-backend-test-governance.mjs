@@ -11,6 +11,7 @@ import {
     verifyPlatformRuntimeGovernance,
     verifyPublicAotCrashWorkerGovernance
 } from './backend-test-runtime-governance.mjs';
+import { verifyStrykerCallerContract } from './mutation/stryker-caller-governance-contract.mjs';
 import {
     backendEvidencePathAuthorityFile,
     buildBackendEvidencePathAuthority
@@ -928,9 +929,16 @@ if (!legacyTest.includes('--output "$outputDir"'))
 {
     fail('backend mutation runner must pass the report output directory through the supported CLI option');
 }
-if (!/cd "\$ROOT_DIR"\n\s+Run dotnet tool restore/u.test(legacyTest))
+const strykerToolPolicy = JSON.parse(readFileSync(resolve(root, 'config/testing/mutation/stryker-tool.v1.json'), 'utf8'));
+for (const error of verifyStrykerCallerContract({
+    laneSource: legacyTest,
+    policy: strykerToolPolicy,
+    manifest: toolManifest,
+    patch: readFileSync(resolve(root, strykerToolPolicy.patchPath)),
+    expressionTreePatch: readFileSync(resolve(root, strykerToolPolicy.expressionTreePatchPath))
+}))
 {
-    fail('backend mutation runner must restore .config/dotnet-tools.json through standard repository-root discovery');
+    fail(error);
 }
 for (const configPath of [defaultStrykerConfigPath, criticalStrykerConfigRepoPath])
 {

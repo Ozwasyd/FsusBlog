@@ -106,9 +106,9 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN auth.session.refresh-context -->
 | Key | Value |
 | --- | --- |
-| doesNotPreserve | ["access_token","last_step_up_at","last_step_up_method","refresh_token","step_up_proof"] |
-| mayUpdate | ["idle_expires_at","last_seen_at","refresh_generation","refresh_token_hash","session_mode"] |
-| preserves | ["auth_method","auth_strength","auth_time","authenticated_credential_row_id","duration_policy"] |
+| doesNotPreserve | &#91;"access&#95;token","last&#95;step&#95;up&#95;at","last&#95;step&#95;up&#95;method","refresh&#95;token","step&#95;up&#95;proof"&#93; |
+| mayUpdate | &#91;"idle&#95;expires&#95;at","last&#95;seen&#95;at","refresh&#95;generation","refresh&#95;token&#95;hash","session&#95;mode"&#93; |
+| preserves | &#91;"auth&#95;method","auth&#95;strength","auth&#95;time","authenticated&#95;credential&#95;row&#95;id","duration&#95;policy"&#93; |
 <!-- FSUSBLOG-GENERATED:END auth.session.refresh-context -->
 
 <!-- fsus-doc-claim
@@ -156,8 +156,8 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN auth.passkey.states -->
 | Key | Value |
 | --- | --- |
-| credentialPresence | ["absent","present"] |
-| enrollment | ["cancelled","completed","completing","expired","pending"] |
+| credentialPresence | &#91;"absent","present"&#93; |
+| enrollment | &#91;"cancelled","completed","completing","expired","pending"&#93; |
 <!-- FSUSBLOG-GENERATED:END auth.passkey.states -->
 
 <!-- fsus-doc-claim
@@ -199,8 +199,8 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN auth.credential-session-revocation -->
 | Key | Value |
 | --- | --- |
-| failureModes | ["admin_principal_disabled","authentication_context_mismatch","refresh_token_replay","session_absolute_expired","session_idle_expired","session_mismatch","session_revoked","step_up_proof_consumed","step_up_proof_invalid"] |
-| transitions | {"account_ban":{"effect":"refresh_reissues_restricted","from":"session_mode_normal","to":"session_mode_restricted"},"account_delete":{"effect":"mode_revoked","from":"sessions_active","to":"sessions_revoked"},"admin_principal_disable":{"effect":"login_and_step_up_denied","from":"principal_active","to":"principal_disabled"},"passkey_counter_risk":{"effect":"revoke_sessions_bound_to_credential","from":"credential_present","to":"credential_present"},"passkey_delete":{"effect":"revoke_sessions_bound_to_credential","from":"credential_present","to":"credential_absent"},"recovery_key_verify_with_session_revoke":{"effect":"optional_passkey_revoke","from":"sessions_active","to":"sessions_revoked"},"refresh_token_replay":{"effect":"compromise_refresh_family","from":"family_active","to":"family_revoked"},"session_logout_or_revoke":{"effect":"publish_revocation_snapshot","from":"session_active","to":"session_revoked"}} |
+| failureModes | &#91;"admin&#95;principal&#95;disabled","authentication&#95;context&#95;mismatch","refresh&#95;token&#95;replay","session&#95;absolute&#95;expired","session&#95;idle&#95;expired","session&#95;mismatch","session&#95;revoked","step&#95;up&#95;proof&#95;consumed","step&#95;up&#95;proof&#95;invalid"&#93; |
+| transitions | {"account&#95;ban":{"effect":"refresh&#95;reissues&#95;restricted","from":"session&#95;mode&#95;normal","to":"session&#95;mode&#95;restricted"},"account&#95;delete":{"effect":"mode&#95;revoked","from":"sessions&#95;active","to":"sessions&#95;revoked"},"admin&#95;principal&#95;disable":{"effect":"login&#95;and&#95;step&#95;up&#95;denied","from":"principal&#95;active","to":"principal&#95;disabled"},"passkey&#95;counter&#95;risk":{"effect":"revoke&#95;sessions&#95;bound&#95;to&#95;credential","from":"credential&#95;present","to":"credential&#95;present"},"passkey&#95;delete":{"effect":"revoke&#95;sessions&#95;bound&#95;to&#95;credential","from":"credential&#95;present","to":"credential&#95;absent"},"recovery&#95;key&#95;verify&#95;with&#95;session&#95;revoke":{"effect":"optional&#95;passkey&#95;revoke","from":"sessions&#95;active","to":"sessions&#95;revoked"},"refresh&#95;token&#95;replay":{"effect":"compromise&#95;refresh&#95;family","from":"family&#95;active","to":"family&#95;revoked"},"session&#95;logout&#95;or&#95;revoke":{"effect":"publish&#95;revocation&#95;snapshot","from":"session&#95;active","to":"session&#95;revoked"}} |
 <!-- FSUSBLOG-GENERATED:END auth.credential-session-revocation -->
 
 ### Verified directional authentication relations

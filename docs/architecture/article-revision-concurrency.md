@@ -36,10 +36,10 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN content.article.rollback-semantics -->
 | Key | Value |
 | --- | --- |
-| allowedTargets | ["Archived","Draft","Published"] |
+| allowedTargets | &#91;"Archived","Draft","Published"&#93; |
 | clonesResponsibilityFromSourceRevision | true |
 | createsPublication | true |
-| forbiddenTargets | ["Deleted","Scheduled"] |
+| forbiddenTargets | &#91;"Deleted","Scheduled"&#93; |
 | operation | Rollback |
 <!-- FSUSBLOG-GENERATED:END content.article.rollback-semantics -->
 
