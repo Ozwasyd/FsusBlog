@@ -1414,8 +1414,9 @@ All complete/recoverable/eviction guards remain; unknown resources remain unknow
 The application consumes the original upload producer source through
 `b58021be2aed3d073f0bb5a1bfd7d8e89532274e`. The bounded intake includes the
 upload API, Flow/runtime, binary composition/transport contract and implementation,
-decode worker, and image compression/operation owner. Seven production files retain
-the exact donor postimages. The upload API additionally preserves the existing
+decode worker, and image compression/operation owner. At prerequisite intake,
+seven production files retained the exact donor postimages. The upload API
+additionally preserves the existing
 `readCommittedUploadPreview` implementation and dependencies. Binary transport
 preserves the original `binaryRoutePolicy` implementation, its single policy call,
 and both return branches' private scope and generation policy. These two reconciled
@@ -1450,3 +1451,16 @@ pending handle, and original SDK job/attempt before the application can bind
 No substitute success result, second content owner, or business acceptance is
 introduced by this producer prerequisite. Runtime/native/receipt/IME qualification
 and full host capture/restore/readiness guards remain unchanged and unrun.
+
+### Canvas receiver binding prerequisite successor
+
+The separate accepted producer successor
+`42432fe0a8df3e64490da558d5492bdd4ebd8de4` changes only image compression.
+The application consumes its exact `imageCompression.ts` postimage
+`a71feabd24498d7d1b9f394322a606af3c622465`: context lookup and drawing bind
+the original canvas/context receiver once, then preserve the original cancellation
+check before invocation. The original operation helper, other producer leaves,
+Main preview/Auth reconciliations, and native business completion refusal are
+unchanged. This source fix removes two receiver-binding lint findings; raw
+rejection and existing FileReader stringification findings remain WIP. It supplies
+no business acknowledgement or runtime/resource qualification.
