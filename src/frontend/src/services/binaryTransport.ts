@@ -430,7 +430,7 @@ function createAbortLikeError(message: string): Error
     return error;
 }
 
-function startWorkerDecode<T>(queued: QueuedDecodeRequest): void
+function startWorkerDecode(queued: QueuedDecodeRequest): void
 {
     const worker = getWorker();
     const { requestId, signal } = queued;
@@ -549,7 +549,7 @@ function decodeInWorker<T>(
 
         abortCleanup?.();
         queued.abortCleanup = null;
-        startWorkerDecode<T>(queued);
+        startWorkerDecode(queued);
     });
 }
 
@@ -998,12 +998,7 @@ function resolveBinaryRequest(options: {
       && descriptor.rateLimitPolicy === 'public_read'
       && descriptor.method === 'GET'
       && !descriptor.requiresPow;
-        const privateScope: PrivateRequestScope = descriptor.auth === 'admin'
-            ? 'admin'
-            : descriptor.auth === 'user' || descriptor.auth === 'optional'
-        ? 'account'
-        : 'public';
-        const abortOnGenerationChange = descriptor.auth !== 'optional';
+        const { routeClass, privateScope, abortOnGenerationChange } = binaryRoutePolicy(descriptor.auth);
         if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include')
         {
             return {
@@ -1011,7 +1006,7 @@ function resolveBinaryRequest(options: {
                 requestOptions: options.requestOptions,
                 retryPublicReadWithPow,
                 operationId: options.binaryRoute.operationId,
-                routeClass: binaryRouteClass(descriptor.auth),
+                routeClass,
                 privateScope,
                 abortOnGenerationChange
             };
@@ -1024,7 +1019,7 @@ function resolveBinaryRequest(options: {
                 credentials: descriptor.credentialPolicy
             },
             operationId: options.binaryRoute.operationId,
-            routeClass: binaryRouteClass(descriptor.auth),
+            routeClass,
             privateScope,
             abortOnGenerationChange
         };
@@ -1044,6 +1039,21 @@ function resolveBinaryRequest(options: {
     throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
 }
 
+/** Consume the original compiled-endpoint ClassifyAuth wire states, including optional projections. */
+function binaryRoutePolicy(auth: string): {
+    routeClass: BinaryFailureRouteClass;
+    privateScope: PrivateRequestScope;
+    abortOnGenerationChange: boolean;
+}
+{
+    const routeClass = binaryRouteClass(auth);
+    return {
+        routeClass,
+        privateScope: routeClass === 'admin' ? 'admin' : routeClass === 'account' ? 'account' : 'public',
+        abortOnGenerationChange: auth !== 'optional'
+    };
+}
+
 function binaryRouteClass(auth: string): BinaryFailureRouteClass
 {
     if (auth === 'admin')
@@ -1054,7 +1064,11 @@ function binaryRouteClass(auth: string): BinaryFailureRouteClass
     {
         return 'account';
     }
-    return 'public';
+    if (auth === 'anonymous')
+    {
+        return 'public';
+    }
+    throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_invalid');
 }
 
 function shouldRetryPublicReadWithPow<T>(
