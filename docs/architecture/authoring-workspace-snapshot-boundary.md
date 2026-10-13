@@ -2139,9 +2139,8 @@ Physical alias is independently UNVERIFIED, compiler/static evidence author-only
 
 ## Reviewed Privacy Source Leaf Batch
 
-The next isolated source batch consumes six exact same-preimage History4261
-leaf/path postimages: actual issuer metadata credentialEpoch forwarded to ticket
-request; actual issuer expiresAtUnixMs while preserving min(root expiry, issuer
+The next isolated source batch retains five exact same-preimage History4261
+leaf/path postimages: actual issuer expiresAtUnixMs while preserving min(root expiry, issuer
 expiry); RSA actual owned view-range SPKI snapshot used by BOTH hash and import,
 owned opening allocations and nested-finally snapshot wiping; revocation digest
 owned ArrayBuffer types; unread private prover int64 writer removal; and unused
@@ -2158,3 +2157,13 @@ and frozen output remain original. All runtime/crypto/WASM/network/tests/import/
 discovery/security/privacy/receipt/race/backuprestore/IME/qualification HOLD/UNRUN
 and independent physical alias UNVERIFIED remain. Source review/author static
 evidence do not certify privacy or complete resource/settlement qualification.
+
+
+The actual six-leaf full compiler first run exposed credentialEpoch forwarding
+incompatibility with Main's frozen AnonymousCommentTicketRequestDto (TS2353).
+That one original hunk is explicitly reversed; Main privacy adapter remains
+byte-exact to base and the five other original postimages remain. The original
+leaf and failed diagnostic evidence stay in ordinary WIP as a real dependency
+blocker, not a compatible-intake claim. Only an original canonical contract/
+producer dependency may resolve it; no local cast/DTO/config/schema/frozen refresh
+is introduced. All original fail-closed guards and execution holds stay intact.

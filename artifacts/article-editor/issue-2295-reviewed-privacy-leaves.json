@@ -14,15 +14,6 @@
             "protectedOwnerOrFrozenSurface": false
         },
         {
-            "leaf": "f5a938c0ea16df438476a350358d2a218d1b6b54",
-            "path": "src/frontend/src/privacy/commentPrivacyAdapter.ts",
-            "preimage": "111807358700140aa0c2f974f07e8e9c55263e7e",
-            "postimage": "2a57afcb89a19f4912afebf0f57c55aca6833153",
-            "main": "111807358700140aa0c2f974f07e8e9c55263e7e",
-            "status": "exact-preimage-not-consumed",
-            "protectedOwnerOrFrozenSurface": false
-        },
-        {
             "leaf": "336343ef3b3706bb0c8652d41f24b637041e5ecc",
             "path": "src/frontend/src/privacy/commentPrivacyCredentialProvider.ts",
             "preimage": "e124581eb9f2bd3dd7081ca8e16dc95717a417f6",
@@ -62,7 +53,18 @@
     "allocationDisclosure": "RSA changes actual owned view-range snapshot/allocation and cleanup; no emitted-JS identity claim. Revocation digest owned buffer annotations do not cast unowned memory.",
     "notificationDeferred": "2a queued-mode annotation is exact-preimage candidate but paired post-await d3 originally in divergent list; neither consumed here to avoid unrelated new diagnostic or implied compatibility. Public PowParams export retained.",
     "boundaries": "All11 original divergences/protected authoring/SDK/Writer/upload/FIFO/cohort/end/settlement, enums/templates/config/frozen sources untouched; all runtime/crypto/WASM/qualification HOLD/UNRUN; physical alias independently UNVERIFIED",
-    "authorEvidence": {
+    "blockedEpochLeaf": {
+        "leaf": "f5a938c0ea16df438476a350358d2a218d1b6b54",
+        "path": "src/frontend/src/privacy/commentPrivacyAdapter.ts",
+        "preimage": "111807358700140aa0c2f974f07e8e9c55263e7e",
+        "postimage": "2a57afcb89a19f4912afebf0f57c55aca6833153",
+        "main": "111807358700140aa0c2f974f07e8e9c55263e7e",
+        "status": "exact-preimage-not-consumed",
+        "protectedOwnerOrFrozenSurface": false,
+        "reason": "Main canonical AnonymousCommentTicketRequestDto lacks credentialEpoch; actual full compiler adds TS2353. History contract tree differs. Original frozen/schema/authority producer required, not local type/cast/config patch.",
+        "state": "Exact patch reversed; Main current source preserved; no original epoch validation weakened"
+    },
+    "firstDiagnosticRunWithExcludedLeaf": {
         "completeOriginalSameUI957DiagnosticBlocks": {
             "before": 163,
             "after": 157,
@@ -84,6 +86,24 @@
             "removed": 3
         },
         "AST": "All6 TS zero parse diagnostics",
+        "physicalAlias": "Author only; independently UNVERIFIED",
+        "qualification": "ALL HOLD/UNRUN"
+    },
+    "authorEvidence": {
+        "originalFullSameUI957CompleteDiagnosticBlocks": {
+            "before": 163,
+            "after": 156,
+            "added": [],
+            "removedByPath": {
+                "src/privacy/commentPrivacyBlindRsaSuite.ts": 2,
+                "src/privacy/commentPrivacyCredentialProvider.ts": 2,
+                "src/privacy/commentPrivacyRevocationLocal.ts": 1,
+                "src/privacy/commentPrivacyWasmProver.ts": 1,
+                "src/services/notificationStreamTypes.ts": 1
+            }
+        },
+        "AST": "All selected5 exact source postimages AST0; privacyAdapter original Main base preserved",
+        "style": "Same6-source before13FAIL after10FAIL, added0 removed3; unchanged blocked adapter remains included in scoped lint comparison",
         "physicalAlias": "Author only; independently UNVERIFIED",
         "qualification": "ALL HOLD/UNRUN"
     }
