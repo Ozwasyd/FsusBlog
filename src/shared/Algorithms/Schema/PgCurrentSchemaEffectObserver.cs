@@ -87,7 +87,8 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken, tableScope).ConfigureAwait(false);
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null && Text(row, "table_name") != tableScope) continue;
+            if (tableScope is not null && Text(row, "table_name") != tableScope)
+                continue;
             expressions.Add(new(Text(row, "kind"), Text(row, "table_name"), Text(row, "name"), Text(row, "expression"),
                 Optional(row, "columns")?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? [],
                 Optional(row, "sequence_references")?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? []));
@@ -108,7 +109,8 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken).ConfigureAwait(false) : new DataTable();
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null) continue;
+            if (tableScope is not null)
+                continue;
             sequences.Add(new(Text(row, "name"), Text(row, "data_type"), Convert.ToInt64(row["start"]), Convert.ToInt64(row["increment"]),
                 Convert.ToInt64(row["minimum"]), Convert.ToInt64(row["maximum"]), Convert.ToInt64(row["cache"]), Convert.ToBoolean(row["cyclic"])));
         }
@@ -131,7 +133,8 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken).ConfigureAwait(false) : new DataTable();
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null) continue;
+            if (tableScope is not null)
+                continue;
             functions.Add(new(Text(row, "name"), Text(row, "language"), Text(row, "return_type"), Convert.ToInt32(row["argument_count"]), Text(row, "body"),
                 Text(row, "volatility"), Convert.ToBoolean(row["strict"]), Convert.ToBoolean(row["security_definer"]), Text(row, "parallel"),
                 Convert.ToBoolean(row["leakproof"]), Optional(row, "configuration"), Text(row, "kind"), Convert.ToBoolean(row["returns_set"]),
@@ -157,15 +160,18 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken, tableScope).ConfigureAwait(false);
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null && Text(row, "table_name") != tableScope) continue;
-            if (Text(row, "function_schema") != "public") throw new InvalidOperationException("current_schema_pg_trigger_function_schema_unknown");
+            if (tableScope is not null && Text(row, "table_name") != tableScope)
+                continue;
+            if (Text(row, "function_schema") != "public")
+                throw new InvalidOperationException("current_schema_pg_trigger_function_schema_unknown");
             triggers.Add(new(Text(row, "table_name"), Text(row, "name"), Text(row, "function_name"), Convert.ToInt32(row["type"]), Text(row, "enabled"),
                 Optional(row, "condition"), Convert.ToInt32(row["argument_count"]), Text(row, "arguments_hex"), Convert.ToBoolean(row["is_constraint"]),
                 Convert.ToBoolean(row["deferrable"]), Convert.ToBoolean(row["initially_deferred"]), Optional(row, "old_table"), Optional(row, "new_table"),
                 Text(row, "column_numbers"), Convert.ToBoolean(row["is_clone"])));
         }
         rows = await QueryAsync(connection, transaction, "SELECT current_setting('standard_conforming_strings') AS value;", cancellationToken).ConfigureAwait(false);
-        if (rows.Rows.Count != 1 || Text(rows.Rows[0], "value") is not ("on" or "off")) throw new InvalidOperationException("current_schema_pg_string_semantics_unobserved");
+        if (rows.Rows.Count != 1 || Text(rows.Rows[0], "value") is not ("on" or "off"))
+            throw new InvalidOperationException("current_schema_pg_string_semantics_unobserved");
         return new(Text(rows.Rows[0], "value") == "on", expressions, sequences, functions, triggers);
     }
 
@@ -212,9 +218,11 @@ public static class PgCurrentSchemaEffectObserver
                     errors.Add("extra_or_duplicate_effect:" + key);
                     continue;
                 }
-                if (!EqualityComparer<T>.Default.Equals(definition, normalize(value))) errors.Add("effect_changed:" + key);
+                if (!EqualityComparer<T>.Default.Equals(definition, normalize(value)))
+                    errors.Add("effect_changed:" + key);
             }
-            foreach (string key in wanted.Keys.Except(seen, StringComparer.Ordinal)) errors.Add("effect_missing:" + key);
+            foreach (string key in wanted.Keys.Except(seen, StringComparer.Ordinal))
+                errors.Add("effect_missing:" + key);
         }
     }
 
@@ -251,7 +259,8 @@ public static class PgCurrentSchemaEffectObserver
         }
         await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         var table = new DataTable();
-        for (int index = 0; index < reader.FieldCount; index++) table.Columns.Add(reader.GetName(index), reader.GetFieldType(index));
+        for (int index = 0; index < reader.FieldCount; index++)
+            table.Columns.Add(reader.GetName(index), reader.GetFieldType(index));
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             var values = new object[reader.FieldCount];

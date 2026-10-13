@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "89d5e00817bcf60ee96d3cd7b3ab228fe3810aa2",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace FsusBlog.slnx --no-restore --include src/backend/Infrastructure/Operations/ProductionHealth.cs src/backend/Program.cs src/backend/Services/SystemService.cs --verbosity diagnostic"
+    },
+    "paths": [
+        "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+        "src/backend/Program.cs",
+        "src/backend/Services/SystemService.cs"
+    ],
+    "idempotent": true,
+    "originalNarrowFormatRevision": "8a4916b135eedaec0d6252f9b6e5e1bd53040913",
+    "firstPassTreeSha256": "0694f7bbd7abefeacf11bf500cb1e12598120d524cdad19b8d89945679db1217",
+    "secondPassTreeSha256": "0694f7bbd7abefeacf11bf500cb1e12598120d524cdad19b8d89945679db1217",
+    "actualExecution": {
+        "sourceRevision": "390c86209fa23f2cbc4de138afac1c82e549b5d9",
+        "firstPassExitCode": 0,
+        "secondPassExitCode": 0,
+        "firstPassFormattedFiles": 0,
+        "secondPassFormattedFiles": 0,
+        "firstPassLogSha256": "1bcae165eb3069691931de2babd130707e405af3dcb0b1a72dc174c937cdb250",
+        "secondPassLogSha256": "e5fb1c6513de401a07cb436a16e81e5c0fc61aba8f652d2164f8f0e444d3c74d"
+    },
+    "currentCandidateBindingReason": "After separate owned import-order structural repair, rerun the exact original own-three whitespace command twice on the actual current source. Keep the original format-only revision identity and preserve original execution evidence separately; no new whitespace delta is claimed.",
+    "originalExecutionEvidence": "artifacts/style/issue-1688-three-production-pre-import-idempotence.json",
+    "originalExecutionEvidenceSha256": "67f64abf3e6dd60ff4914e705a2d9f5edfdc0f6cd19b80933a49810341727c42",
+    "separateImportOrderRepairEvidence": "artifacts/style/issue-1688-system-service-import-order.json",
+    "qualificationEligible": false
+}

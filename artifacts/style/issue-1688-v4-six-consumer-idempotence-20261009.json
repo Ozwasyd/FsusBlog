@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "f16ca9a2428e398bcde61a36c396326f506b51e3",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace --folder --include src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs src/shared/Contracts/Schema/CurrentSchemaModel.cs --verbosity minimal"
+    },
+    "paths": [
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
+    ],
+    "idempotent": true,
+    "firstPassTreeSha256": "c06ca46fdb2a92e1075f4e154a7aa72a24ae813585b7b4bb21725ce91e85e168",
+    "secondPassTreeSha256": "c06ca46fdb2a92e1075f4e154a7aa72a24ae813585b7b4bb21725ce91e85e168",
+    "originalConsumerExecutionEvidence": "artifacts/style/issue-1688-v4-six-pre-xml-idempotence-20261009.json",
+    "originalConsumerExecutionEvidenceSha256": "03b84e5249041fd6e4ba1cab2df0f8c533622d848475b5f6e34ca6d063ecdbda",
+    "originalProducerEvidence": "artifacts/style/issue-1688-v4-six-upstream-format-20261009.json",
+    "currentCandidateExecution": {
+        "sourceRevision": "51c4cde9d2b1cabf623ef8d4c5861b266ce1bff2",
+        "firstPassExitCode": 0,
+        "secondPassExitCode": 0,
+        "sourceFilesChangedByEitherPass": 0,
+        "command": "dotnet format whitespace --folder --include src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs src/shared/Contracts/Schema/CurrentSchemaModel.cs --verbosity minimal",
+        "firstPassLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "secondPassLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "bindingReason": "The existing commit-range gate hashes final candidate content including added XML summaries. Actual two unchanged original-command passes bind the current candidate while preserving original source execution evidence and format-only revision identity.",
+    "documentationSourceEvidence": "artifacts/style/issue-1688-v4-schema-xml-consumer-20261009.json",
+    "qualificationEligible": false
+}

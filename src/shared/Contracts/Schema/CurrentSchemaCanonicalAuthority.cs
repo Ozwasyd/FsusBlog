@@ -4,6 +4,7 @@ using System.Text.Json;
 
 namespace FsusBlog.Contracts.Schema;
 
+/// <summary>Seals, verifies and projects current schema facts without granting migration or startup admission.</summary>
 public static class CurrentSchemaCanonicalAuthority
 {
     public const string ModelVersion = "fsusblog.current-schema.v4";
@@ -115,14 +116,20 @@ public static class CurrentSchemaCanonicalAuthority
             foreach ((string name, SchemaColumnModel column) in original.Columns)
             {
                 // Original recipes use BY DEFAULT identity, unlike entity serials.
-                columns[name] = columns[name] with { GenerationKind = column.GenerationKind };
+                columns[name] = columns[name] with
+                {
+                    GenerationKind = column.GenerationKind
+                };
             }
             var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
             var indexes = new Dictionary<string, SchemaIndexModel>(physical.IndexDefinitions, StringComparer.Ordinal);
             foreach (SchemaConstraintModel constraint in physical.Constraints.Values)
             {
                 string name = constraint.Kind == "primary-key" ? "pk_" + physical.Name : constraint.Name;
-                constraints.Add(name, constraint with { Name = name });
+                constraints.Add(name, constraint with
+                {
+                    Name = name
+                });
                 if (constraint.Kind == "unique")
                 {
                     indexes.Add(name, ConstraintIndex(name, constraint.Columns));
@@ -413,7 +420,10 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
             }
-            if (!constraints.TryAdd(constraintName, constraint with { Name = constraintName }))
+            if (!constraints.TryAdd(constraintName, constraint with
+            {
+                Name = constraintName
+            }))
             {
                 throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
             }
@@ -424,7 +434,11 @@ public static class CurrentSchemaCanonicalAuthority
                 // semantic/source/content identity retain the declared nullability.
                 foreach (string name in constraint.Columns)
                 {
-                    columns[name] = columns[name] with { IsNullable = false, IsPrimaryKey = true };
+                    columns[name] = columns[name] with
+                    {
+                        IsNullable = false,
+                        IsPrimaryKey = true
+                    };
                 }
             }
             ordinal++;
@@ -472,9 +486,16 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 throw new InvalidOperationException("current_schema_complete_target_index_null_placement_unavailable");
             }
-            return key with { NullPlacement = nulls, Collation = provider == SchemaProviderKind.Sqlite ? "BINARY" : "default" };
+            return key with
+            {
+                NullPlacement = nulls,
+                Collation = provider == SchemaProviderKind.Sqlite ? "BINARY" : "default"
+            };
         }).ToArray();
-        return index with { Keys = keys };
+        return index with
+        {
+            Keys = keys
+        };
     }
 
     private static string ProjectStorageConversion(SchemaColumnModel column)

@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace FsusBlog.Contracts.Schema;
 
+/// <summary>The semantic model or explicitly selected native database provider.</summary>
 public enum SchemaProviderKind
 {
     Semantic,
@@ -10,6 +11,7 @@ public enum SchemaProviderKind
     Sqlite
 }
 
+/// <summary>Binds current model, extractor and generator versions to exact source and content digests.</summary>
 public sealed record CurrentSchemaIdentity(
     string ModelVersion,
     string ExtractorVersion,
@@ -17,6 +19,7 @@ public sealed record CurrentSchemaIdentity(
     string SourceDigest,
     string ContentDigest);
 
+/// <summary>Identifies the original source owner and its declared source range for a schema fact.</summary>
 public sealed record SchemaOwnerModel(string Owner, string SourceRange);
 
 /// <summary>Exact MySQL partition metadata; null names retain an unpartitioned native row, not a missing observation.</summary>
@@ -64,6 +67,7 @@ public sealed record SchemaMySqlIndexKeyPhysicalFacts(
     [property: JsonRequired] long? PrefixLength,
     [property: JsonRequired] string? Expression);
 
+/// <summary>Describes constraint columns, references, expression and validation or deferral state.</summary>
 public sealed record SchemaConstraintModel(
     string Name,
     string Kind,
@@ -79,6 +83,7 @@ public sealed record SchemaConstraintModel(
     string? ForeignKeyMatchType = null,
     string? ReferencedSchema = null);
 
+/// <summary>Describes one ordered index key, including its sort, null, operator and collation semantics.</summary>
 public sealed record SchemaIndexKeyModel(
     string Column,
     string Direction,
@@ -87,9 +92,13 @@ public sealed record SchemaIndexKeyModel(
     string Collation)
 {
     /// <summary>Required for physical MySQL comparison; null is unobserved, not a complete key.</summary>
-    public SchemaMySqlIndexKeyPhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlIndexKeyPhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
+/// <summary>Describes a complete index with ordered keys, included columns, method and predicate.</summary>
 public sealed record SchemaIndexModel(
     string Name,
     bool IsUnique,
@@ -100,9 +109,13 @@ public sealed record SchemaIndexModel(
     bool NullsNotDistinct)
 {
     /// <summary>Required for physical MySQL comparison; no visibility default is selected by the model.</summary>
-    public SchemaMySqlIndexPhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlIndexPhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
+/// <summary>Preserves a native sequence owner, type, bounds, increment, cache and cycle facts.</summary>
 public sealed record SchemaOwnedSequenceModel(
     string Schema,
     string Name,
@@ -116,6 +129,7 @@ public sealed record SchemaOwnedSequenceModel(
     long CacheSize,
     bool IsCyclic);
 
+/// <summary>Declares an entity constraint for the sole current schema extractor.</summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class CurrentSchemaConstraintAttribute(
     string name,
@@ -139,6 +153,7 @@ public sealed class CurrentSchemaConstraintAttribute(
     }
 }
 
+/// <summary>Describes semantic column storage and its explicit default, generation and provider facts.</summary>
 public sealed record SchemaColumnModel(
     string Name,
     bool IsNullable,
@@ -156,9 +171,13 @@ public sealed record SchemaColumnModel(
     SchemaOwnedSequenceModel? OwnedSequence = null)
 {
     /// <summary>Required for physical MySQL comparison; null charset/collation inside a measured object remain distinct from no observation.</summary>
-    public SchemaMySqlColumnPhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlColumnPhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
+/// <summary>Groups a table name, complete column and index facts, constraints and source ownership.</summary>
 public sealed class SchemaTableModel(
     string name,
     Dictionary<string, SchemaColumnModel> columns,
@@ -194,9 +213,13 @@ public sealed class SchemaTableModel(
         constraints ?? new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
     public SchemaOwnerModel? Owner { get; } = owner;
     /// <summary>Required for physical MySQL comparison; originates in the same current-owned definition as compiler output.</summary>
-    public SchemaMySqlTablePhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlTablePhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
+/// <summary>Contains complete table facts with their explicitly selected provider and optional identity.</summary>
 public sealed class SchemaModelSnapshot(
     IReadOnlyDictionary<string, SchemaTableModel> tables,
     CurrentSchemaIdentity? identity = null,
@@ -207,20 +230,24 @@ public sealed class SchemaModelSnapshot(
     public SchemaProviderKind Provider { get; } = provider;
 }
 
+/// <summary>Pairs the current semantic schema with its content-addressed canonical identity.</summary>
 public sealed record CurrentSchemaCanonicalModel(
     SchemaModelSnapshot SemanticSchema,
     CurrentSchemaIdentity Identity);
 
+/// <summary>Pairs an authority-generated schema projection with its verified current identity.</summary>
 public sealed record CurrentSchemaProjection(
     SchemaModelSnapshot Schema,
     CurrentSchemaIdentity Identity);
 
+/// <summary>Obtains the current projection through the single canonical authority.</summary>
 public sealed class GeneratedCurrentSchemaProjectionAdapter
 {
     public CurrentSchemaProjection Observe(CurrentSchemaCanonicalModel canonical)
         => CurrentSchemaCanonicalAuthority.Generate(canonical);
 }
 
+/// <summary>Obtains migration target facts through the single canonical projection authority.</summary>
 public sealed class MigrationTargetSchemaAdapter
 {
     public SchemaModelSnapshot Observe(CurrentSchemaCanonicalModel canonical)

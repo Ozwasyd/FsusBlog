@@ -1,0 +1,58 @@
+{
+    "producerSource": "452923bdc20eea22037bf9c04b5f35c95c823a9b",
+    "consumerParent": "be1b15d25c94fed7a53ccbb48ba09cac3e5b524d",
+    "files": [
+        {
+            "path": "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+            "preimageBlob": "e7c65f0966a7ddc30ae0a82b869070da6e28805a",
+            "postimageBlob": "20b19edcfa58856d780baa4b233568f02913fb70",
+            "xmlSummaryCount": 1,
+            "allOtherBytesExact": true,
+            "xmlSummariesValid": true
+        },
+        {
+            "path": "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+            "preimageBlob": "94e8847f6e1a9c15c5e0bfd47c926006e63cc3c9",
+            "postimageBlob": "fcdfb75edc023aaa3ec9416e69856ea68a6e5f1b",
+            "xmlSummaryCount": 15,
+            "allOtherBytesExact": true,
+            "xmlSummariesValid": true
+        }
+    ],
+    "totalXmlSummaries": 16,
+    "sourceOnlyDocumentation": true,
+    "consumerSource": "51c4cde9d2b1cabf623ef8d4c5861b266ce1bff2",
+    "productionTokenEquivalence": [
+        {
+            "schema": "fsusblog.xml-documentation-production-token-equivalence.v1",
+            "parserAssemblyVersion": "5.9.0.0",
+            "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+            "productionTokenCount": 4662,
+            "beforeProductionTokenSha256": "c0162c784a98613556c4b79889939915af7f33d22afd35b4314724899b02be7e",
+            "afterProductionTokenSha256": "c0162c784a98613556c4b79889939915af7f33d22afd35b4314724899b02be7e",
+            "productionTokensEquivalent": true,
+            "xmlDocumentationTriviaDeliberatelyAdded": true,
+            "syntaxErrorCount": 0
+        },
+        {
+            "schema": "fsusblog.xml-documentation-production-token-equivalence.v1",
+            "parserAssemblyVersion": "5.9.0.0",
+            "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+            "productionTokenCount": 1093,
+            "beforeProductionTokenSha256": "f8a0aa98811a4eb91a2a693adf3bf3059641fa4ccf212165a4a147f9b8232277",
+            "afterProductionTokenSha256": "f8a0aa98811a4eb91a2a693adf3bf3059641fa4ccf212165a4a147f9b8232277",
+            "productionTokensEquivalent": true,
+            "xmlDocumentationTriviaDeliberatelyAdded": true,
+            "syntaxErrorCount": 0
+        }
+    ],
+    "modelAndGeneratorV4Preserved": true,
+    "originalStrictReleaseSource": "be1b15d25c94fed7a53ccbb48ba09cac3e5b524d",
+    "originalStrictReleaseErrors": 0,
+    "originalStrictReleaseWarnings": 0,
+    "originalStrictReleaseLogSha256": "040c1713ce998502ab5cf6cec86a386103c93152f1ad66661ceaa4675468105f",
+    "strictReleaseExecutedOnDocumentationCandidate": false,
+    "unchangedSourceApplicability": "Only16 XML summary insertions differ from the actual strict-build source; removing exactly those summaries restores prior bytes. Every production token is unchanged. Retain original tested commit/build stamp; no build receipt is rebound.",
+    "backendSchemaReceiptNativeOrHeldAuditsExecuted": 0,
+    "qualificationEligible": false
+}

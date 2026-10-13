@@ -1,0 +1,63 @@
+{
+    "sourceBefore": "d2db14ec7ad20f424d9d71022d3f54325efaff81",
+    "baselineCommit": "85ce94590c81e52700021e9a3a32aa4033e1cf1c",
+    "pureFormattingCommit": "56f49e4b49e2c10c86900bfdfefc3ffbec87342a",
+    "formatAndBlameMetadataCommit": "1153805dd47909dfd02f6abdf11c99b764fbe1c6",
+    "pureNamingCommit": "318436fa293a1ecae3c920c54c15ee18023af96a",
+    "sourcePath": "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+    "formatDiagnosticsRepaired": 9,
+    "privateLocalSymbolsRenamed": 16,
+    "exactChangedIdentifierTokens": 66,
+    "originalStyleGate": {
+        "exitCode": 0,
+        "files": 1,
+        "violations": 0,
+        "new": 0
+    },
+    "allowlistedOriginalStyleControls": 3,
+    "sourceOnlyIdentityNegativeControls": 3,
+    "compilerErrorsBeforeAndAfter": 0,
+    "publicAndNativeShapePreserved": true,
+    "nativeLayoutSize": 256,
+    "nativeFields": 13,
+    "imports": [
+        "libc!openat",
+        "libc!statx"
+    ],
+    "noPInvokeInvoked": true,
+    "idempotence": "Both format-stage and final naming-candidate official double passes recorded; current gate binds final content to pure-format revision per repository schema. Earlier format-stage evidence kept separately.",
+    "blame": "Only exact pure formatting SHA is appended; all existing entries preserved. Naming SHA is deliberately not ignored.",
+    "scopedMetadata": "Original DllImport EntryPoint/MarshalAs/StructLayout/FieldOffset preserve external identities. No native managed identifier waiver or naming-policy edit; guard path added to existing trusted naming-surface union only.",
+    "runtimeAndNativeQualified": false,
+    "prior291Runtime": "Historical e1d9c841d source only; not rerun or relabelled for this source-only mechanical repair.",
+    "heldAuditExecuted": false,
+    "at": "2026-10-08T14:57:02.445214+00:00",
+    "actualSharedBuild": {
+        "command": [
+            "dotnet",
+            "build",
+            "src/shared/FsusBlog.Shared.csproj",
+            "--configuration",
+            "Release",
+            "--no-restore"
+        ],
+        "exitCode": 0,
+        "errors": 0,
+        "inheritedOtherFileWarnings": 163,
+        "targetGuardWarnings": 0,
+        "at": "2026-10-08T15:03:00.152159+00:00",
+        "candidate": "a3f066994b72c8aa653c58cbd72d36195586a77d"
+    },
+    "compiledIdentity": {
+        "beforeActualSource": "e1d9c841d1ccdf5e4905676c15ba5f177b731c07",
+        "beforeAssemblySha256": "2ccd77853d7b8e5ac8ab0954fecbc57b94f5bd31292aca2416217ad2a7b76c14",
+        "afterAssemblySha256": "80df7cc6e9a24dba383f9c46d727f374293debd06860c97acce347d7b4f1f18a",
+        "nestedTypes": 8,
+        "methods": 49,
+        "fullMethodILSignaturesMarshallingImportsExplicitOffsetsEqual": true,
+        "privateFieldNamesExcludedAsAuthorizedRename": true,
+        "targetAssemblyLoaded": false,
+        "PInvokeExecuted": false,
+        "artifact": "compiled-identity.json"
+    }
+}

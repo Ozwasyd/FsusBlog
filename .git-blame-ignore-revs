@@ -27,3 +27,24 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Authoring extension RPC/execution whitespace formatting for #3654 and #1688.
+6f7621cb0336f8a775d13334c9be6f49cdcbc0cc
+
+# Reserved three-file formatter replay in #1688 source integration.
+89d5e00817bcf60ee96d3cd7b3ab228fe3810aa2
+
+# Exact-source decimal formatter consumer for #1688; original proof is retained.
+5e375e81b36df3813938afb6cca08dc9518b8fca
+
+# Canonical moderation formatter source consumer; original execution a0db452f.
+f3169d1ac313325b3b6f1873f8e813398d85ac32
+
+# Canonical schema four-file consumer; original full run at af4a8e32.
+2563e0ad63dea0e7eb52017a44e7c26344e8bfc4
+
+# Canonical native guard formatter consumer; separate naming remains visible.
+20556cdd0bd59c5d4c83d6e7375a33e600a69e92
+
+# Canonical v4 six-file formatter source consumer; original execution fd965b0c.
+f16ca9a2428e398bcde61a36c396326f506b51e3

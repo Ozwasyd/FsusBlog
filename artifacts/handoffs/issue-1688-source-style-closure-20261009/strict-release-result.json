@@ -1,0 +1,13 @@
+{
+  "testedSource": "be1b15d25c94fed7a53ccbb48ba09cac3e5b524d",
+  "exitCode": 0,
+  "actualDistinctErrors": 0,
+  "actualWarnings": 0,
+  "ruleCounts": {},
+  "affectedFiles": {},
+  "diagnostics": [],
+  "artifact": ".tmp/issue-1688/v4-six-source-consumer-20261009/exact-strict-release-build.log",
+  "artifactSha256": "040c1713ce998502ab5cf6cec86a386103c93152f1ad66661ceaa4675468105f",
+  "artifactModifiedAtUtc": "2026-10-09T05:49:00.567173+00:00",
+  "command": "source /workspace/.setup/activate.sh && ./tools/test/run-with-dotnet-release-build-lock.sh ./tools/build-with-data-env.sh dotnet build src/backend/FsusBlog.Server.csproj -c Release --no-restore --no-incremental -warnaserror -v minimal /p:NuGetAudit=true -p:FsusBlogCommitSha=be1b15d25c94fed7a53ccbb48ba09cac3e5b524d"
+}

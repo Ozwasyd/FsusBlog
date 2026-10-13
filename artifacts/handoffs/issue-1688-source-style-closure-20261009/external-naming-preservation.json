@@ -1,0 +1,32 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
+        "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+        "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+        "src/backend/Program.cs",
+        "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+        "src/backend/Services/SystemService.cs",
+        "src/shared/Algorithms/ExactDecimalLiteral.cs",
+        "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
+        "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+        "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs"
+      ],
+      "reason": "Preserve the original external process-environment spellings and public/native identifiers on the registered src/**/*.cs boundary while consuming scoped formatter, private/local naming and documentation repairs. No environment option, native EntryPoint, marshalling or public contract is renamed."
+    }
+  ]
+}
