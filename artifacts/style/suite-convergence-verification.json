@@ -1,0 +1,187 @@
+{
+    "schema": "fsusblog.suite-style-verification.v1",
+    "issue": 3593,
+    "runId": "3593-20261008-current-candidate",
+    "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "testedCommit": "7c6f30f4238f093a3ac0feea2b7399c616d4e2f4",
+    "sourceSha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+    "stage": "source-integration",
+    "qualificationEligible": false,
+    "issueAccepted": false,
+    "checks": [
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file tests/tools/test-suite-convergence.test.mjs",
+            "exitCode": 0,
+            "status": "passed",
+            "diagnostics": 0
+        },
+        {
+            "command": "node tools/test-replacement-transaction.mjs check-diff origin/master",
+            "exitCode": 0,
+            "status": "passed",
+            "governedChanges": 0,
+            "caseCounts": {
+                "base": 17,
+                "candidate": 17
+            }
+        },
+        {
+            "command": "node /tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs --root /workspace/FsusBlog --range origin/master..HEAD",
+            "exitCode": 0,
+            "status": "passed",
+            "trustedPolicyCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8"
+        },
+        {
+            "command": "node /tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs --root /workspace/FsusBlog --github-event /tmp/fsusblog-3593/pr-event.json",
+            "exitCode": 0,
+            "status": "passed",
+            "trustedPolicyCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+            "scope": "Local PR contract and generated-binding classification only; not remote or independent review"
+        },
+        {
+            "command": "node --test tests/tools/test-suite-convergence.test.mjs tests/tools/test-replacement-transaction.test.mjs tools/post-baseline-history.test.mjs",
+            "exitCode": 1,
+            "status": "failed",
+            "passed": 53,
+            "failed": 1,
+            "skipped": 0,
+            "reason": "Preserved MFA oracle rejects eight conflicting current-master replacement declarations"
+        },
+        {
+            "command": "node tools/check-test-suite-convergence.mjs --out /tmp/fsusblog-3593/convergence-summary.json",
+            "exitCode": 1,
+            "status": "failed",
+            "reason": "Canonical ledger conflicts and two backend-QPS replacement IDs absent from compact before snapshot"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs validate",
+            "exitCode": 1,
+            "status": "failed",
+            "reason": "Unchanged release-final Node parser identity and execution target authority closure drift"
+        },
+        {
+            "command": "PATH=/tmp/fsusblog-3593/dotnet:$PATH DOTNET_CLI_HOME=/tmp/fsusblog-3593/dotnet-home NUGET_PACKAGES=/tmp/fsusblog-3593/nuget DOTNET_CLI_TELEMETRY_OPTOUT=1 timeout 180 dotnet build tests/backend/FsusBlog.Server.Tests.csproj --configuration Debug --nologo --verbosity minimal -p:RestoreLockedMode=true",
+            "exitCode": 1,
+            "status": "blocked",
+            "sdk": "10.0.401",
+            "reason": "NU1004: checked-in backend test lock differs from Server project dependencies; no lock update accepted"
+        },
+        {
+            "command": "PATH=/tmp/fsusblog-3593/dotnet:$PATH DOTNET_CLI_HOME=/tmp/fsusblog-3593/dotnet-home NUGET_PACKAGES=/tmp/fsusblog-3593/nuget RestoreLockedMode=true DOTNET_CLI_TELEMETRY_OPTOUT=1 node tools/test-inventory/produce.mjs --configuration Debug --out /tmp/fsusblog-3593/test-inventory.json",
+            "exitCode": 1,
+            "status": "blocked",
+            "reason": "Canonical xUnit compile prerequisite fails NU1004"
+        },
+        {
+            "command": "PATH=/tmp/fsusblog-3593/dotnet:$PATH DOTNET_CLI_HOME=/tmp/fsusblog-3593/dotnet-home NUGET_PACKAGES=/tmp/fsusblog-3593/nuget RestoreLockedMode=true node tools/check-test-retention.mjs --run-id 3593-20261008-current-candidate --out /tmp/fsusblog-3593/retention.json",
+            "exitCode": 1,
+            "status": "blocked",
+            "reason": "Real Debug build output/intermediate context is missing"
+        },
+        {
+            "command": "gh pr checks 3814",
+            "exitCode": 1,
+            "status": "blocked",
+            "reason": "No checks reported for candidate; REST check-runs also returns total_count=0"
+        },
+        {
+            "command": "gh api repos/Ozwasyd/FsusBlog/pulls/3814/reviews",
+            "exitCode": 0,
+            "status": "blocked",
+            "reason": "No independent review submitted"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs validate",
+            "cwd": "/tmp/fsusblog-3593/trusted-base",
+            "testedCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+            "exitCode": 1,
+            "status": "failed",
+            "reason": "Exact-master replay returns the same parser identity and authority closure mismatch as candidate"
+        }
+    ],
+    "capabilities": {
+        "node": "v24.19.0",
+        "eslint": "10.8.0",
+        "sdkInstalledFromOfficialScript": "10.0.401",
+        "dockerDaemon": "28.4.0",
+        "nativeCompiler": "/usr/bin/g++",
+        "browser": "/usr/bin/chromium",
+        "postgresRuntime": "not started; compiled prerequisite failed"
+    },
+    "notRun": [
+        "Compiled UserAuthPostgresConcurrencyTests from original PR3679",
+        "PostgreSQL runtime controls",
+        "Full CI; matrix admission and compile prerequisite remain failed"
+    ],
+    "permissions": {
+        "actionsPermissionsRead": "HTTP 403 Resource not accessible by integration",
+        "rulesetsRead": "HTTP 403 Upgrade to GitHub Pro or make repository public",
+        "inference": "Neither error proves that Actions is disabled or grants a local qualification exception"
+    },
+    "blockerHandoff": {
+        "parentNeeds": [
+            "Canonical ledger owner correction commit/evidence for eight duplicate conflicts and two backend-QPS missing before IDs",
+            "Execution-target authority owner correction for real parser/closure drift",
+            "Backend dependency owner correction of checked-in lock discrepancy, then current canonical inventory/retention and compiled PG evidence",
+            "Independent reviewer and current candidate remote PR gates"
+        ],
+        "recordedExternalPrerequisites": []
+    },
+    "artifacts": [
+        {
+            "path": "artifacts/style/suite-convergence-validation/case-identity-proof.json",
+            "sha256": "eebd3cbd85cdd54ace61026858fde6a1e832882639266ef34d0e1ab99b696474"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/compiled-locked-build.log",
+            "sha256": "c041ff53cd75c05512be9aa1e68275ea7abfa88e9b67a0051a299b93cfe24a34"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/convergence-gate.log",
+            "sha256": "3fbee12613b3b722f2c6aee29dca53813cd58d15e85ba0df7789c0395d3e7369"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/final-ast-proof.json",
+            "sha256": "a473aeb8d054bfc005a1706408e7e08359f497bf8281a8e9de518116253f65f7"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/inventory.log",
+            "sha256": "892a4ea3174ef7e560d4c38464325c61845a15916a5c9c2ce4db52af548f12b6"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/matrix-validate.log",
+            "sha256": "a60186a4a72e81882fef354686a2253ed14f21bbe68a8b29b06d5912289ed245"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/original-controls.log",
+            "sha256": "7bac2a1cfc3f9ea4927d90dc1f045cbf392ede08e9b5e3926b45594e3f1b2dff",
+            "representation": "whitespace-normalized-presentation",
+            "rawArtifact": {
+                "sourceCommit": "e179f92a7056781ffd55b277a4f98fb3bfcd69b9",
+                "path": "artifacts/style/suite-convergence-validation/original-controls.log",
+                "gitBlob": "f79830d11ce97b1f8a3d41add5807f57c3d5a750",
+                "sha256": "d0952130e73a30018d4cce941083f325d484309f74d762789433688dbe165562",
+                "externalArchivePath": "candidate-presentation/raw/original-controls.log"
+            },
+            "presentationTransform": {
+                "operation": "remove two ASCII spaces from each of two blank lines",
+                "lineNumbers": [
+                    70,
+                    82
+                ],
+                "removedBytes": 4,
+                "allNonBlankLineBytesPreserved": true,
+                "lineCountPreserved": true,
+                "historicalResultsAndQualificationUnchanged": true
+            }
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/retention-gate.log",
+            "sha256": "40b9d160684375ac2c53f37230e329297732521a854df80f486cfa441b05d1e9"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/base-matrix-validate.log",
+            "sha256": "33f2089ae1f5f86634ceab232141cd64bc93bc3098dd26b355b3bfdcba1e8b1a"
+        }
+    ]
+}

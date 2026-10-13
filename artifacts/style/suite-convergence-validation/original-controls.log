@@ -1,0 +1,94 @@
+✔ rename transaction seals exact identities, compatibility and catalog closure (5.316133ms)
+✔ rename transaction accepts complete explicit mappings for all five renamed dimensions (1.143317ms)
+✔ rename transaction rejects missing assertion mappings and invalid mapped targets (1.129286ms)
+✔ merge, parameterize and split preserve every case through explicit mappings (2.360805ms)
+✔ delete requires explicit retirement and a generated empty ledger disposition (1.536768ms)
+✔ planning fails closed on missing IDs, failed quality and lost compatibility dimensions (1.400293ms)
+✔ transaction validation rejects partial catalogs and sealed-content tampering (2.63021ms)
+✔ atomic apply deletes and writes as one unit and rolls everything back on verification failure (4.814079ms)
+✔ diff checker uses exact AST case identities for JS rewrites and fails closed on removal or discovery errors (3349.496652ms)
+✔ a renamed source cannot mask a separate JS case removal (533.026177ms)
+✔ diff checker binds multiline JS case identities without relying on removed call text (2747.009344ms)
+✔ diff checker binds exact NUL-delimited Git paths without quoted-display false removals (5726.99303ms)
+✔ diff checker rejects dynamic case placeholders that can conceal changed runtime cases (1449.708505ms)
+✔ tool-owned JS test cases require the same exact replacement transaction (880.776054ms)
+✔ receipt publication exposes a complete validated receipt only after all six files pass verification (2.285923ms)
+✔ partial receipt staging write restores all six files without publishing terminal bytes (8.448946ms)
+✔ preexisting receipt retains its exact bytes and inode without applying any files (1.210688ms)
+✔ racing receipt publication preserves the other publisher inode and rolls back all six files (2.018611ms)
+✔ receipt link I/O failure leaves no final receipt and restores all six files (1.883539ms)
+✔ each of six staging write and rename failures restores the complete before state (13.33377ms)
+✔ null and undefined verification failures remain failures and preserve the original thrown value (2.571962ms)
+✔ post-publication cleanup failure preserves the complete receipt and all six applied files (2.950069ms)
+✔ diff checker detects deleted tests, renamed tests and removed discoverable cases (55.686415ms)
+✖ #2348 canonical MFA retirement retains before identities without post-baseline self-admission (61.97212ms)
+✔ matrix is the single current command and retention governance authority (88.752109ms)
+✔ backend source-locking owner accepts runtime artifacts and rejects production docs and test source (1.924259ms)
+✔ backend source-locking owner does not mistake a temporary JSON artifact for repository source (0.270296ms)
+✔ backend source-locking owner reconstructs segmented repository paths (0.272089ms)
+✔ replacement merge accepts identical declarations and reports conflicting owners (0.348293ms)
+✔ replacement chains remain acyclic without a fixed historical edge count (0.507532ms)
+✔ issue-local replacement manifest count is exact (0.181253ms)
+✔ retention audit reports every undeclared deletion and missing replacement target in one pass (0.536806ms)
+✔ retention audit accepts a declared deletion whose replacement exists after convergence (0.193711ms)
+✔ compact retention audit resolves hashed deletions, replacement targets, and path bindings (2.235967ms)
+✔ retention audit inherits pre-baseline declarations but rejects a wrong baseline path (0.236145ms)
+✔ final after snapshot must be independently run-bound and source-bound (0.31315ms)
+✔ final evidence contracts report every invalid status field (0.282043ms)
+✔ child issue evidence requires the exact closed #1032 through #1050 set (0.621964ms)
+✔ path migration expansion emits every exact baseline test ID (0.296365ms)
+✔ convergence plan enforces all child issues exactly once and only earlier dependencies (0.720302ms)
+✔ post-baseline history refuses missing owner capabilities (2.251491ms)
+✔ new post-baseline retirement is bound to the trusted exact Git transition (36873.094591ms)
+✔ historical xUnit identity rejects conditional code, comments, missing attributes and another class owner (0.615524ms)
+✔ post-baseline history ignores local Git replacement objects (52.648946ms)
+✔ post-baseline history rejects non-regular historical xUnit paths (88.225777ms)
+✔ post-baseline history refuses repository-local grafts that forge immutable ancestry (156.29989ms)
+✔ post-baseline history refuses ambient grafts that forge immutable ancestry (156.49597ms)
+✔ historical xUnit source recognizes contiguous attribute lists without guessing aliased identity (0.761504ms)
+✔ real immutable result and anchor history refuse live methods with different or unknown syntax (1323.402241ms)
+✔ real immutable source history refuses local and global Fact aliases for a different attribute (155.418161ms)
+✔ real immutable source refuses cross-file Fact and Theory type shadows but retains Attribute identities (464.766746ms)
+✔ deletion evidence is independent of test attribution and refuses unresolved identifiers (0.444408ms)
+✔ canonical retired Fact identity is bound to the exact archived owner and static case (1.786203ms)
+✔ canonical retired identity retains every exact Git preimage and deletion refusal (24538.136872ms)
+ℹ tests 54
+ℹ suites 0
+ℹ pass 53
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 63910.42463
+
+✖ failing tests:
+
+test at tests/tools/test-suite-convergence.test.mjs:35:1
+✖ #2348 canonical MFA retirement retains before identities without post-baseline self-admission (61.97212ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   'xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
+  +   'xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
+  +   'xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
+  +   'xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
+  +   'xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
+  +   'xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
+  +   'xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
+  +   'xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json'
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-suite-convergence.test.mjs:56:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json', 'xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json', 'xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json', 'xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json', 'xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json', 'xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json', 'xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json', 'xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
