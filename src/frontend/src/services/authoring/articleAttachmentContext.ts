@@ -13,6 +13,7 @@ import {
     type MarkdownAttachmentTerminalCustody,
     type MarkdownAttachmentTerminalObservation,
     type MarkdownAttachmentTerminalConsumer,
+    type MarkdownAttachmentTerminalCohortIssuer,
     type MarkdownAttachmentTerminalRevisionIssuer,
     type MarkdownAttachmentTerminalRevisionReservation,
     type MarkdownAttachmentTerminalApplicationEndIssuer,
@@ -42,6 +43,7 @@ import {
     type ArticleDocumentContextAdapter,
     type ArticleDocumentTaskEnvelope,
     type ArticleDocumentTaskLease,
+    type ArticleDocumentAttachmentRevisionCohort,
     type ArticleDocumentAttachmentRevisionTransition
 } from './articleDocumentContext';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
@@ -140,6 +142,7 @@ export type ArticleAttachmentCapture = {
 
 /** An authentic native terminal loan; absent port remains unavailable. */
 export interface ArticleAttachmentTerminalPort {
+    getAttachmentTerminalCohortIssuer?(): MarkdownAttachmentTerminalCohortIssuer | null;
     getAttachmentTerminalRevisionIssuer?(): MarkdownAttachmentTerminalRevisionIssuer | null;
     getAttachmentTerminalApplicationEndIssuer?(): MarkdownAttachmentTerminalApplicationEndIssuer | null;
     withAttachmentTerminalTransaction(observation: MarkdownAttachmentTerminalObservation,
@@ -157,6 +160,8 @@ export interface ArticleAttachmentNativeTerminalObservation {
 interface AcceptedNativeCapture {
     readonly stage: 'accepted';
     readonly entries: PendingInput[];
+    cohort?: { readonly issuer: MarkdownAttachmentTerminalCohortIssuer; readonly acquisitionLease: ArticleDocumentTaskLease;
+        token: ArticleDocumentAttachmentRevisionCohort | null; cleanupPending: boolean; withdrawn: boolean; };
 }
 
 interface CapturedInput {
@@ -312,11 +317,13 @@ export class ArticleAttachmentContextAdapter
     private readonly nativeRevisionAssociations = new WeakMap<ArticleAttachmentNativeRevisionAssociation, NativeRevisionAssociation>();
     private readonly nativeRevisionCleanup = new Set<NativeRevisionAssociation>();
     private nativeRevisionFailure: { readonly firstCause: unknown; latestCause: unknown; } | null = null;
+    private readonly readNativeCohortIssuer?: () => MarkdownAttachmentTerminalCohortIssuer | null;
     private readonly nativeRevisionProducer: ArticleAttachmentNativeRevisionProducer;
 
     public constructor(owner: ArticleDocumentContextAdapter, provider: string, providerVersion: string,
         anchors?: ArticleAnchorContextAdapter, readNativeIssuer?: () => MarkdownAttachmentTerminalRevisionIssuer | null,
-        readNativeEndIssuer?: () => MarkdownAttachmentTerminalApplicationEndIssuer | null)
+        readNativeEndIssuer?: () => MarkdownAttachmentTerminalApplicationEndIssuer | null,
+        readNativeCohortIssuer?: () => MarkdownAttachmentTerminalCohortIssuer | null)
     {
         this.anchors = anchors;
         if (![provider, providerVersion].every(value => /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u.test(value)))
@@ -368,10 +375,16 @@ export class ArticleAttachmentContextAdapter
             }
         };
         this.nativeRevisionProducer = Object.freeze({
-            reserve: (lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody) =>
+            reserve: (lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody,
+                continuation?: Readonly<{ cohort: ArticleDocumentAttachmentRevisionCohort; context: ArticleDocumentContext; }>) =>
             {
                 const entry = originalEntry(lease, custody);
-                if (!entry || entry.nativeRevisionAssociation || entry.reservingNativeRevision || !lease.isCurrent())
+                const current = (): boolean => !!entry && (continuation
+                    ? this.acceptedNativeCapture(entry)?.cohort?.token === continuation.cohort
+                        && entry.snapshot.anchor.document === continuation.context
+                        && this.owner.hasAttachmentRevisionCohortBinding(continuation.cohort, lease, custody, continuation.context)
+                    : lease.isCurrent() && this.owner.isCurrentContext(entry.snapshot.anchor.document));
+                if (!entry || entry.nativeRevisionAssociation || entry.reservingNativeRevision || !current())
                 {
                     return null;
                 }
@@ -380,8 +393,7 @@ export class ArticleAttachmentContextAdapter
                 try
                 {
                     const issuer = readNativeIssuer?.();
-                    if (!issuer || originalEntry(lease, custody) !== entry || !lease.isCurrent()
-                        || !this.owner.isCurrentContext(entry.snapshot.anchor.document)
+                    if (!issuer || originalEntry(lease, custody) !== entry || !current()
                         || this.owner.context.sourceRevision !== custody.beforeRevision)
                     {
                         return null;
@@ -426,7 +438,7 @@ export class ArticleAttachmentContextAdapter
                     }
                     entry.controller.signal.addEventListener('abort', revoke, { once: true });
                     lease.signal.addEventListener('abort', revoke, { once: true });
-                    if (originalEntry(lease, custody) !== entry || readNativeIssuer?.() !== issuer || !lease.isCurrent()
+                    if (originalEntry(lease, custody) !== entry || readNativeIssuer?.() !== issuer || !current()
                         || !issuer.hasReservation(reservation, lease, 'applying') || originalEntry(lease, custody) !== entry)
                     {
                         cancel(record);
@@ -466,8 +478,11 @@ export class ArticleAttachmentContextAdapter
                 {
                     return false;
                 }
-                return association.issuer.hasReservation(association.reservation, association.lease, phase, transaction)
-                    && current() && readNativeIssuer?.() === association.issuer && current();
+                const token = record ? this.acceptedNativeCapture(record.entry)?.cohort?.token : null;
+                const binding = (): boolean => !token || this.owner.hasAttachmentRevisionCohortBinding(token,
+                    association.lease, association.custody, this.owner.context);
+                return binding() && association.issuer.hasReservation(association.reservation, association.lease, phase, transaction)
+                    && current() && readNativeIssuer?.() === association.issuer && current() && binding();
             },
             cancelAssociation: (association: ArticleAttachmentNativeRevisionAssociation): boolean =>
             {
@@ -503,6 +518,7 @@ export class ArticleAttachmentContextAdapter
                 return this.nativeRevisionCleanup.size === 0;
             }
         });
+        this.readNativeCohortIssuer = readNativeCohortIssuer;
         this.captureDocumentId = owner.context.documentId;
         this.unsubscribe = owner.subscribeContext(context =>
         {
@@ -932,6 +948,62 @@ export class ArticleAttachmentContextAdapter
         }
     }
 
+    private acceptedNativeCapture(entry: PendingInput): AcceptedNativeCapture | null
+    {
+        const capture = entry.nativeInput?.capture;
+        const record = capture ? this.captured.get(capture) : null;
+        return record && 'stage' in record && record.stage === 'accepted' && record.entries.includes(entry) ? record : null;
+    }
+
+    /** Fresh genuine SDK/native continuation for this original entry; never ordinary current. */
+    private nativeContinuation(entry: PendingInput): ArticleDocumentContext | null
+    {
+        const token = this.acceptedNativeCapture(entry)?.cohort?.token;
+        if (!token || this.disposed || entry.awaitingMap || entry.nativeCleanupPending
+            || this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted
+            || entry.lease.signal.aborted || entry.lease.envelope.status !== 'running')
+        {
+            return null;
+        }
+        const context = this.owner.readAttachmentRevisionContinuation(token, entry.lease);
+        // Only private original holder/context checks follow the final native proof.
+        return context && this.owner.context === context && entry.snapshot.anchor.document === context
+            && this.pending.get(entry.intent.task.taskRef) === entry && !entry.awaitingMap
+            && !entry.nativeCleanupPending && !entry.controller.signal.aborted && !entry.lease.signal.aborted
+            && this.acceptedNativeCapture(entry)?.cohort?.token === token ? context : null;
+    }
+
+    /** Exact original File/handle/lease plus actual public map and fresh native-backed proof. */
+    public readNativeUploadContinuation(handle: ArticleAttachmentPendingHandle, file: File,
+        lease: ArticleDocumentTaskLease, documentOwner: ArticleDocumentContextAdapter,
+        binding: ArticlePositionMapBinding): ArticleDocumentContext | null
+    {
+        const entry = this.pendingHandles.get(handle);
+        if (!entry?.nativeCapture || this.owner !== documentOwner || entry.lease !== lease || entry.file !== file
+            || entry.nativeHandle !== handle || handle.snapshot !== entry.snapshot || entry.snapshot.task !== lease.envelope
+            || handle.request !== entry.request || handle.signal !== entry.controller.signal
+            || !entry.nativeInput || entry.nativeInput.capture.batch.items[entry.nativeInput.item.order] !== entry.nativeInput.item
+            || entry.nativeInput.capture.batch.signal.aborted || entry.nativeInput.item.signal.aborted
+            || binding.document !== entry.snapshot.anchor.document)
+        {
+            return null;
+        }
+        // Map/retained readers run before the final original SDK/native proof.
+        this.assertNativeSourceBinding(binding);
+        return this.nativeContinuation(entry);
+    }
+
+    private assertNativeSourceBinding(binding: ArticlePositionMapBinding): void
+    {
+        const context = createArticleDocumentContext({ ...binding.document, content: binding.map.source });
+        if (context.contextDigest !== binding.document.contextDigest
+            || binding.map.documentIdentity.id !== binding.document.documentId
+            || binding.map.documentIdentity.epoch !== binding.document.documentEpoch)
+        {
+            throw new Error('attachment-native-source-binding-invalid');
+        }
+    }
+
     /** Native admissions require the exact File; the original explicit-capture route is unchanged. */
     public matchesCapturedFile(handle: ArticleAttachmentPendingHandle, file: File): boolean
     {
@@ -947,7 +1019,7 @@ export class ArticleAttachmentContextAdapter
         {
             if (entry.nativeInput?.capture.batch === batch && entry.nativeInput.item === item
                 && entry.file === file && entry.nativeHandle && !entry.controller.signal.aborted
-                && !batch.signal.aborted && !item.signal.aborted && entry.lease.isCurrent()
+                && !batch.signal.aborted && !item.signal.aborted && (entry.lease.isCurrent() || this.nativeContinuation(entry))
                 && entry.nativeHandle.snapshot.task === entry.lease.envelope)
             {
                 return Object.freeze({ intent: entry.nativeHandle, lease: entry.lease });
@@ -1180,9 +1252,12 @@ export class ArticleAttachmentContextAdapter
             {
                 if (original.phase === 'applying')
                 {
+                    const continuation = this.acceptedNativeCapture(entry)?.cohort?.token
+                        ? this.nativeContinuation(entry) : null;
                     if (entry.nativeCompletion || entry.awaitingMap || entry.controller.signal.aborted
-                        || this.pending.get(entry.intent.task.taskRef) !== entry || !entry.lease.isCurrent()
-                        || !this.owner.isCurrentContext(entry.snapshot.anchor.document)
+                        || this.pending.get(entry.intent.task.taskRef) !== entry
+                        || (!continuation && (!entry.lease.isCurrent()
+                            || !this.owner.isCurrentContext(entry.snapshot.anchor.document)))
                         || this.owner.context.sourceRevision !== custody.beforeRevision || !custody.hasCustody())
                     {
                         return false;
@@ -1192,13 +1267,40 @@ export class ArticleAttachmentContextAdapter
                     this.ownedOperations.add(entry.intent.task.taskRef);
                     // Only the actual original SDK asks the genuine installed producer to reserve.
                     entry.nativeSdkCleanupPending = true;
-                    entry.nativeTransition = this.owner.reserveAttachmentRevisionTransition(entry.lease, custody, this.nativeRevisionProducer) ?? undefined;
+                    entry.nativeTransition = this.owner.reserveAttachmentRevisionTransition(entry.lease, custody, this.nativeRevisionProducer, record.cohort?.token ?? undefined) ?? undefined;
                     if (!entry.nativeTransition)
                     {
                         entry.nativeSdkCleanupPending = false;
                     }
-                    return custody.hasCustody() && this.pending.get(entry.intent.task.taskRef) === entry
-                        && !entry.controller.signal.aborted && entry.lease.isCurrent();
+                    if (entry.nativeTransition && !record.cohort)
+                    {
+                        const issuer = this.readNativeCohortIssuer?.();
+                        if (!issuer)
+                        {
+                            throw new Error('attachment-native-cohort-owner-unavailable');
+                        }
+                        // Retain the same capture holder before fallible native/SDK acquisition.
+                        record.cohort = { issuer, acquisitionLease: entry.lease, token: null, cleanupPending: true, withdrawn: false };
+                        const members = capture.batch.items.map((item, index) =>
+                        {
+                            const member = record.entries[index];
+                            if (!member || member.nativeInput?.item !== item || member.nativeInput.capture !== capture
+                                || this.pending.get(member.intent.task.taskRef) !== member || !member.file)
+                            {
+                                throw new Error('attachment-native-cohort-roster-invalid');
+                            }
+                            return Object.freeze({ item, jobRef: capture.plan.jobs[index], leaseRef: member.lease });
+                        });
+                        record.cohort.token = this.owner.reserveAttachmentRevisionCohort(entry.nativeTransition, issuer, members);
+                        if (!record.cohort.token)
+                        {
+                            throw new Error('attachment-native-cohort-reservation-unavailable');
+                        }
+                        record.cohort.cleanupPending = false;
+                    }
+                    return !!entry.nativeTransition && custody.hasCustody()
+                        && this.pending.get(entry.intent.task.taskRef) === entry && !entry.controller.signal.aborted
+                        && !entry.lease.signal.aborted && this.owner.context.sourceRevision === custody.beforeRevision;
                 }
                 if (entry.nativeCompletion !== custody)
                 {
@@ -1226,6 +1328,7 @@ export class ArticleAttachmentContextAdapter
                     // Original Writer synchronizes its real form against this private publication.
                     port.commitSource(original.transaction);
                     this.assertCurrentResult(original.transaction, port.binding());
+                    this.synchronizeNativeCohortPeers(record, entry, original.transaction, context, port);
                     entry.awaitingMap = false;
                     return this.pending.get(entry.intent.task.taskRef) === entry && !entry.controller.signal.aborted
                         && !entry.lease.signal.aborted && this.owner.context === context && custody.hasCustody();
@@ -1292,6 +1395,56 @@ export class ArticleAttachmentContextAdapter
                 }
             }
         });
+    }
+
+    private synchronizeNativeCohortPeers(record: AcceptedNativeCapture, applying: PendingInput,
+        transaction: MarkdownEditorTransactionEvent, context: ArticleDocumentContext, port: ArticleAttachmentTransactionPort): void
+    {
+        const token = record.cohort?.token;
+        if (!token || !transaction.positionMap || !this.anchors)
+        {
+            throw new Error('attachment-native-cohort-publication-unavailable');
+        }
+        for (const entry of record.entries)
+        {
+            if (entry === applying || entry.nativeFinalization?.sdkAccepted)
+            {
+                continue;
+            }
+            const snapshot = entry.snapshot;
+            const lease = entry.lease;
+            const binding = port.binding();
+            this.assertCurrentResult(transaction, binding);
+            if (binding.document !== context || snapshot.anchor.document.sourceRevision !== transaction.beforeRevision
+                || !this.owner.hasAttachmentRevisionCohortPublication(token, lease, transaction, context))
+            {
+                throw new Error('attachment-native-cohort-peer-publication-invalid');
+            }
+            const mapped = transaction.positionMap.mapRange(snapshot.anchor.range);
+            const range = { start: transaction.positionMap.map(snapshot.anchor.range.start, 1),
+                end: transaction.positionMap.map(snapshot.anchor.range.end, -1) };
+            if (mapped.deleted !== false || mapped.partiallyDeleted !== false || !mapped.range
+                || !Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end)
+                || range.start < 0 || range.end <= range.start || range.end > transaction.value.length)
+            {
+                throw new Error('attachment-native-cohort-peer-map-invalid');
+            }
+            const anchor = this.anchors.capture(binding, { ...range, direction: snapshot.anchor.direction },
+                { affinity: snapshot.anchor.affinity, viewportOffset: snapshot.anchor.viewportOffset,
+                    percentage: snapshot.anchor.percentage, surface: snapshot.anchor.surface, tool: snapshot.anchor.tool });
+            const next = this.sealLifecycle({ ...snapshot, anchor, task: lease.envelope,
+                transactionRef: this.transactionRef(transaction) });
+            if (entry.snapshot !== snapshot || entry.lease !== lease || this.pending.get(entry.intent.task.taskRef) !== entry
+                || entry.controller.signal.aborted || lease.signal.aborted
+                || !this.owner.hasAttachmentRevisionCohortPublication(token, lease, transaction, context))
+            {
+                throw new Error('attachment-native-cohort-peer-publication-revoked');
+            }
+            entry.job.range = anchor.range;
+            entry.snapshot = next;
+            entry.awaitingMap = false;
+            this.record(next);
+        }
     }
 
     /** FsusUI emits transaction before model update; commit through the existing document owner. */
@@ -1373,6 +1526,12 @@ export class ArticleAttachmentContextAdapter
             if (this.ownedOperations.has(entry.intent.task.taskRef) || entry.nativeCleanupPending
                 || entry.nativeTerminal?.taskCompletion === 'completed')
             {
+                continue;
+            }
+            if (entry.nativeCapture && this.acceptedNativeCapture(entry)?.cohort
+                && entry.snapshot.anchor.document.contextDigest !== binding.document.contextDigest)
+            {
+                this.finish(entry, 'stale', 'attachment-native-cohort-map-unavailable');
                 continue;
             }
             if (entry.snapshot.anchor.document.contextDigest === binding.document.contextDigest)
@@ -1727,6 +1886,20 @@ export class ArticleAttachmentContextAdapter
         };
         try
         {
+            run(() =>
+            {
+                const cohort = this.acceptedNativeCapture(entry)?.cohort;
+                if (cohort && !cohort.withdrawn && !entry.nativeFinalization?.sdkAccepted)
+                {
+                    cohort.cleanupPending = true;
+                    if (this.owner.cancelAttachmentRevisionCohort(cohort.token ?? cohort.acquisitionLease, reason) !== true)
+                    {
+                        throw new Error('attachment-native-cohort-cleanup-unconfirmed');
+                    }
+                    cohort.cleanupPending = false;
+                    cohort.withdrawn = true;
+                }
+            });
             run(() =>
             {
                 if (entry.nativeSdkCleanupPending)

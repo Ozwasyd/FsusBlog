@@ -17,6 +17,7 @@ export type {
     MarkdownAttachmentTerminalConsumer,
     MarkdownAttachmentTerminalRevisionIssuer,
     MarkdownAttachmentTerminalRevisionReservation,
+    MarkdownAttachmentTerminalCohortIssuer,
     MarkdownAttachmentTerminalApplicationEndIssuer,
     MarkdownAttachmentTerminalApplicationEndHandle,
     MarkdownAttachmentTerminalApplicationEndObservation,

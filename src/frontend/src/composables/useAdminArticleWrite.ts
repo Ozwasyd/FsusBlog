@@ -79,6 +79,7 @@ import { createArticleAttachmentUploadQueue, type ArticleAttachmentQueuedUploadR
 import { requestArticleAttachmentUpload } from '@/services/authoring/articleAttachmentUploadRequest';
 import {
     articleDocumentContextAuthority,
+    type ArticleDocumentContext,
     type ArticleDocumentContextAdapter,
     type ArticleDocumentRetainedBinding,
     type ArticleDocumentRetainedInspection,
@@ -1054,8 +1055,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
         'article-assets', 'article-assets:v1', authoringAnchors,
         () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null,
-        () => active ? attachmentEditor?.getAttachmentTerminalApplicationEndIssuer?.() ?? null : null);
+        () => active ? attachmentEditor?.getAttachmentTerminalApplicationEndIssuer?.() ?? null : null,
+        () => active ? attachmentEditor?.getAttachmentTerminalCohortIssuer?.() ?? null : null);
+    let nativeSourceWatch: { readonly transaction: MarkdownEditorDispatchResult; readonly context: ArticleDocumentContext; } | null = null;
     const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort & ArticleAttachmentTerminalPort = {
+        getAttachmentTerminalCohortIssuer: () => active ? attachmentEditor?.getAttachmentTerminalCohortIssuer?.() ?? null : null,
         getAttachmentTerminalRevisionIssuer: () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null,
         getAttachmentTerminalApplicationEndIssuer: () => active ? attachmentEditor?.getAttachmentTerminalApplicationEndIssuer?.() ?? null : null,
         withAttachmentTerminalTransaction: (observation, consume) => active && !!attachmentEditor
@@ -1089,7 +1093,17 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             {
                 throw new Error('article-attachment-source-commit-invalid');
             }
-            articleForm.content = result.value;
+            const publication = authoringAttachments.hasNativeSourcePublication(result, current)
+                ? { transaction: result, context: current } : null;
+            nativeSourceWatch = publication;
+            try
+            {
+                articleForm.content = result.value;
+            }
+            finally
+            {
+                nativeSourceWatch = null;
+            }
             syncAuthoringDocumentContext();
         },
         binding: () => ({ document: articleDocumentContextAdapter.context,
@@ -1287,6 +1301,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             // Retire an old physical owner before allocating any replacement resources.
             revokeCurrentMountedAuthority?.();
             const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
+                getAttachmentTerminalCohortIssuer: () => editor.getAttachmentTerminalCohortIssuer?.() ?? null,
                 getAttachmentTerminalRevisionIssuer: () => editor.getAttachmentTerminalRevisionIssuer?.() ?? null,
                 getAttachmentTerminalApplicationEndIssuer: () => editor.getAttachmentTerminalApplicationEndIssuer?.() ?? null,
                 withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true,
@@ -4891,7 +4906,13 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             {
                 return;
             }
-            articleDocumentContextAdapter.updateSource(content);
+            const publication = nativeSourceWatch;
+            if (publication?.transaction.value !== content
+                || articleDocumentContextAdapter.context !== publication.context
+                || !authoringAttachments.hasNativeSourcePublication(publication.transaction, publication.context))
+            {
+                articleDocumentContextAdapter.updateSource(content);
+            }
             syncAuthoringDocumentContext();
             const clientRevision = createArticleRecoveryClientRevision();
             activeRecoveryClientRevision = clientRevision;
