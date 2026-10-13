@@ -6,7 +6,7 @@
         @keydown="handleGlobalKeydown"
     >
         <p
-            v-if="canvas.loading.value"
+            v-if="canvas.loading.value || packageExportReading"
             role="status"
         >{{ t('common.loading.status') }}</p>
         <p
@@ -237,7 +237,7 @@
             :visible="packageDialogVisible"
             :mode="packageDialogMode"
             :export-content="exportedPackageJson"
-            @close="packageDialogVisible = false"
+            @close="closePackageDialog"
         />
     </div>
 </template>
@@ -256,6 +256,7 @@ import { AUTHORING_CANVAS_BUDGETS } from '@/contracts/authoringCanvas';
 import { fsusDialogWidths } from '@/fsusui/dialog';
 import { planEdgeToLinkConversion, type EdgeToLinkTransaction, type EdgeToLinkHistory, type EdgeToLinkReceipt, type EdgeToLinkPendingWrite, type EdgeToLinkPlan } from '@/services/authoringCanvasEdgeToLink';
 import { exportAuthoringCanvasPackage } from '@/services/authoringCanvasPackage';
+import { readAuthoringCanvasPackageSource } from '@/services/authoringCanvasPackageSource';
 
 import AuthoringCanvasEdgeRenderer from './AuthoringCanvasEdgeRenderer.vue';
 import AuthoringCanvasEdgeToLinkDialog from './AuthoringCanvasEdgeToLinkDialog.vue';
@@ -271,6 +272,7 @@ const props = defineProps<{
 }>();
 const router = useRouter();
 const canvas = useAuthoringCanvas(props.session);
+const packageSession = props.session;
 const { t } = useI18nText();
 const viewportRef = ref<HTMLElement | null>(null);
 const referenceDialogVisible = ref(false);
@@ -334,6 +336,8 @@ const currentLinkBinding = ref<{
 const packageDialogVisible = ref(false);
 const packageDialogMode = ref<'export' | 'import'>('export');
 const exportedPackageJson = ref('');
+const packageExportReading = ref(false);
+let packageGeneration = 0;
 let resizeObserver: ResizeObserver | undefined;
 onMounted(async () =>
 {
@@ -448,6 +452,16 @@ function handleConvertToLink(edge: AuthoringCanvasEdge)
 type PendingLinkWrite = EdgeToLinkPendingWrite;
 const linkCommitting = ref(false);
 const pendingLinkWrite = shallowRef<PendingLinkWrite | null>(props.linkTransaction?.pendingWrite?.() ?? null);
+function closePackageDialog()
+{
+    packageGeneration++;
+    packageDialogVisible.value = false;
+    exportedPackageJson.value = '';
+}
+watch(() => [props.session, props.session.ownerContext.userId, props.session.ownerContext.siteId,
+             props.canvasId, canvas.document.value?.id, canvas.document.value?.revision, canvas.document.value?.contentDigest,
+             canvas.loading.value, canvas.saving.value, canvas.pendingTransition.value, linkCommitting.value, pendingLinkWrite.value],
+      closePackageDialog, { flush: 'sync' });
 const linkHistory = shallowRef<EdgeToLinkHistory | null>(null);
 const linkHistoryLoading = ref(false);
 const linkHistorySource = ref<number | string>();
@@ -662,19 +676,57 @@ async function changeLinkHistory(kind: 'undo' | 'redo')
                                                 expectedArticleRevision: history.articleRevision, targetJournalId: top.journalId } };
     await executePendingLinkWrite();
 }
-function openExportDialog()
+function packageSourceReady(): boolean
 {
-    if (!canvas.document.value)
+    const document = canvas.document.value;
+    return Boolean(document && props.session === packageSession
+        && (!props.canvasId || document.id === props.canvasId)
+        && document.userId === packageSession.ownerContext.userId && document.siteId === packageSession.ownerContext.siteId
+        && !canvas.loading.value && !canvas.saving.value && !canvas.pendingTransition.value
+        && !linkCommitting.value && !pendingLinkWrite.value && !packageSession.pendingWrite?.());
+}
+async function openExportDialog()
+{
+    const document = canvas.document.value;
+    if (!document || !packageSourceReady() || packageExportReading.value)
     {
         return;
     }
-    const pkg = exportAuthoringCanvasPackage(canvas.document.value, canvas.projections.value);
-    exportedPackageJson.value = JSON.stringify(pkg, null, 2);
-    packageDialogMode.value = 'export';
-    packageDialogVisible.value = true;
+    closePackageDialog();
+    const generation = packageGeneration;
+    const coordinate = { id: document.id, revision: document.revision, contentDigest: document.contentDigest };
+    packageExportReading.value = true;
+    try
+    {
+        const source = await readAuthoringCanvasPackageSource(packageSession, coordinate);
+        if (generation !== packageGeneration || !packageSourceReady())
+        {
+            return;
+        }
+        const pkg = exportAuthoringCanvasPackage(source);
+        exportedPackageJson.value = JSON.stringify(pkg, null, 2);
+        packageDialogMode.value = 'export';
+        packageDialogVisible.value = true;
+    }
+    catch
+    {
+        if (generation === packageGeneration)
+        {
+            canvas.error.value = t('admin.canvas.unavailable');
+        }
+    }
+    finally
+    {
+        packageExportReading.value = false;
+    }
 }
 function openImportDialog()
 {
+    if (!packageSourceReady())
+    {
+        return;
+    }
+    closePackageDialog();
     packageDialogMode.value = 'import';
     packageDialogVisible.value = true;
 }
@@ -742,6 +794,7 @@ function handleWheel(e: WheelEvent)
 }
 onBeforeUnmount(() =>
 {
+    closePackageDialog();
     linkHistoryGeneration++;
     resizeObserver?.disconnect();
     clearTimeout(zoomTimer);
