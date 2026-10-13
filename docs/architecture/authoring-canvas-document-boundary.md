@@ -185,18 +185,25 @@ pipeline and does not supply canonical package admission.
 The compiler accepts original `AuthoringCanvasNode[]` and
 `AuthoringCanvasEdge[]` facts, the target's `id`, `revision`, `contentDigest`,
 `nodeIds` and `edgeIds`, and explicit source-to-fresh-ID node and edge bindings.
-Only `plain-text-note` nodes and `visual-only` edges are admitted. Groups,
-references and unknown kinds reject the entire candidate. Bindings must be
+Only `plain-text-note` and `group-frame` nodes and `visual-only` edges are
+admitted. References and unknown kinds reject the entire candidate. Frames copy
+their geometry and label and remap each member through the complete fresh node
+bindings. Original document policy requires unique document-local non-frame
+members: missing/external members, self-membership, duplicate members and
+frame-as-member dependencies (including cycles) reject the entire candidate.
+Empty frames remain allowed by the original contract. Bindings must be
 complete, exact and unique canonical nonzero lowercase UUIDs. Duplicate source
 or target rosters reject the candidate; fresh IDs must not collide with any
 supplied source or target identity or another fresh binding. Original record
 and command limits, presentation validators and `CanvasWireWriter` validation
 remain in force.
 
-Notes precede edges in the batch, preserving original source array order within
-each kind. The receiver's original command writer assigns append order; this
-stage does not copy source document title, viewport, timestamps or foreign
-record order. The output owns and freezes its payloads and batch and copies the
+Notes precede frames, then edges in the batch, preserving original source array
+order within each kind and ensuring members exist before a frame is created.
+Frame member array order is retained after remapping. The receiver's original
+command writer assigns append order; this stage does not copy source document
+title, viewport, timestamps or foreign record order. The output owns and freezes
+its payloads, member arrays and batch and copies the
 expected target coordinate. It issues no new digest, status, grant or receipt,
 and calls no storage, API or executor. Shape and syntax checks do not observe
 authority or establish that the supplied target is still current; original

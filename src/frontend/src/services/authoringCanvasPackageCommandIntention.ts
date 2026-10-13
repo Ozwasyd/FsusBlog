@@ -4,6 +4,7 @@ import {
     validateAuthoringCanvasNode,
     type AuthoringCanvasDocument,
     type AuthoringCanvasEdge,
+    type AuthoringCanvasGroupFrameNode,
     type AuthoringCanvasNode,
     type AuthoringCanvasPlainTextNoteNode
 } from '@/contracts/authoringCanvas';
@@ -60,7 +61,7 @@ function bindFreshIds(sourceIds: readonly string[], bindings: Readonly<Record<st
 }
 
 /**
- * Compiles only note/visual-edge facts into the original command language for an
+ * Compiles note/frame/visual-edge facts into the original command language for an
  * explicitly selected existing target. Coordinates are copied caller expectations,
  * not an observation of existence, permissions, CAS or package admission.
  * The native command compiler and server preparation remain required before any write.
@@ -105,11 +106,29 @@ export function compileAuthoringCanvasPackageCommandIntention(
     {
         requireUuid(id, identities);
     }
-    const nodes = sourceNodes.map(node =>
+    const nodes = sourceNodes.map<AuthoringCanvasPlainTextNoteNode | AuthoringCanvasGroupFrameNode>(node =>
     {
-        if (!validateAuthoringCanvasNode(node).valid || node.type !== 'plain-text-note')
+        if (!validateAuthoringCanvasNode(node).valid
+            || (node.type !== 'plain-text-note' && node.type !== 'group-frame'))
         {
             throw new Error('canvas_package_intention_node_invalid');
+        }
+        if (node.type === 'group-frame')
+        {
+            if (node.memberNodeIds.length > authoringCanvasLimits.maxNodesPerCanvas)
+            {
+                throw new Error('canvas_package_intention_budget_exceeded');
+            }
+            const owned: AuthoringCanvasGroupFrameNode = { id: node.id, type: 'group-frame',
+                x: node.x, y: node.y, width: node.width, height: node.height,
+                label: node.label, memberNodeIds: [...node.memberNodeIds] };
+            if (!validateAuthoringCanvasNode(owned).valid || !owned.label.trim()
+                || new Set(owned.memberNodeIds).size !== owned.memberNodeIds.length)
+            {
+                throw new Error('canvas_package_intention_frame_invalid');
+            }
+            new CanvasWireWriter().text(owned.label, authoringCanvasLimits.maxFrameLabelLength, false);
+            return owned;
         }
         const owned: AuthoringCanvasPlainTextNoteNode = { id: node.id, type: 'plain-text-note',
             x: node.x, y: node.y, width: node.width, height: node.height, text: node.text };
@@ -151,15 +170,37 @@ export function compileAuthoringCanvasPackageCommandIntention(
     }
     const nodeBindings = bindFreshIds(nodeIds, bindings.nodes, reservedIds, identities);
     const edgeBindings = bindFreshIds(edgeIds, bindings.edges, reservedIds, identities);
+    const noteIds = new Set(nodes.filter(node => node.type === 'plain-text-note').map(node => node.id));
     const commands: AuthoringCanvasCommand[] = [];
-    for (const node of nodes)
+    // Original document policy permits only non-frame members. Creating notes
+    // before frames therefore satisfies every admitted membership dependency.
+    const orderedNodes = [...nodes.filter(node => node.type === 'plain-text-note'),
+        ...nodes.filter(node => node.type === 'group-frame')];
+    for (const node of orderedNodes)
     {
         const id = nodeBindings.get(node.id);
         if (!id)
         {
             throw new Error('canvas_package_intention_bindings_invalid');
         }
-        commands.push(Object.freeze({ type: 'create-node', node: Object.freeze({ ...node, id }) }));
+        if (node.type === 'group-frame')
+        {
+            const memberNodeIds = node.memberNodeIds.map(memberId =>
+            {
+                const freshId = nodeBindings.get(memberId);
+                if (!noteIds.has(memberId) || !freshId)
+                {
+                    throw new Error('canvas_package_intention_frame_member_invalid');
+                }
+                return freshId;
+            });
+            Object.freeze(memberNodeIds);
+            commands.push(Object.freeze({ type: 'create-node', node: Object.freeze({ ...node, id, memberNodeIds }) }));
+        }
+        else
+        {
+            commands.push(Object.freeze({ type: 'create-node', node: Object.freeze({ ...node, id }) }));
+        }
     }
     for (const edge of edges)
     {

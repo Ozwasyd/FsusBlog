@@ -6,7 +6,7 @@
             "paths": [
                 "docs/architecture/authoring-canvas-document-boundary.md"
             ],
-            "reason": "Preserve existing caller-visible DOM and token spellings in the current Canvas architecture documentation while adding the original command-intention prerequisite. No CSS token, selector or internal naming rule is changed."
+            "reason": "Preserve existing caller-visible DOM and token spellings in the current Canvas architecture documentation while extending the original command-intention prerequisite with non-nested group frames. No CSS token, selector or internal naming rule is changed."
         }
     ]
 }
