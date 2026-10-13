@@ -96,9 +96,11 @@ interface AcknowledgedUploadCompletion {
     readonly binding: ImageUploadAttemptBinding | undefined;
     snapshot: ResumeSessionSnapshot | null;
     readonly response: Awaited<ReturnType<typeof completeUpload>>;
+    readonly local: OwnedLocalUploadAttempt;
     transportCompleted: boolean;
     recoveryRequired: boolean;
     callbackError: unknown;
+    callbackErrorRecorded: boolean;
 }
 
 class UploadAttemptSupersededError extends Error
@@ -157,7 +159,8 @@ interface LocalUploadResourceRecord {
     cancel?: () => void;
     work?: Promise<unknown>;
     callbackWork?: unknown;
-    scopeCleanup?: readonly (() => void)[];
+    scopeCleanup?: { action: () => void; completed: boolean; }[];
+    retryCleanup?: () => void;
     cleanupFailures?: unknown[];
 }
 
@@ -207,20 +210,121 @@ class OwnedLocalUploadAttempt
         }
     }
 
+    private ownCleanup(resource: LocalUploadResourceRecord, actions: readonly (() => void)[],
+        completed?: () => void): () => void
+    {
+        resource.scopeCleanup = actions.map(action => ({ action, completed: false }));
+        let running = false;
+        const run = (): void =>
+        {
+            if (running || resource.terminal === 'settled')
+            {
+                return;
+            }
+            running = true;
+            resource.retryCleanup = run;
+            let failed = false;
+            let failure: unknown;
+            for (const entry of resource.scopeCleanup ?? [])
+            {
+                if (entry.completed)
+                {
+                    continue;
+                }
+                try
+                {
+                    entry.action();
+                    entry.completed = true;
+                }
+                catch (error)
+                {
+                    if (!failed)
+                    {
+                        failure = error;
+                    }
+                    failed = true;
+                    (resource.cleanupFailures ??= []).push(error);
+                }
+            }
+            resource.result = 'finished';
+            resource.terminal = failed ? 'unknown' : 'settled';
+            if (!failed)
+            {
+                resource.retryCleanup = undefined;
+                resource.scopeCleanup = undefined;
+                completed?.();
+            }
+            running = false;
+            this.reconsider();
+            if (failed)
+            {
+                throw failure;
+            }
+        };
+        return run;
+    }
+
+    cleanup(kind: string, actions: readonly (() => void)[]): () => void
+    {
+        const resource: LocalUploadResourceRecord = { id: String(this.resources.length + 1), kind,
+            result: 'pending', terminal: 'active', cancellationSupported: false, cancellationRequested: false };
+        this.resources.push(resource);
+        return this.ownCleanup(resource, actions);
+    }
+
+    retryPendingCleanup(): void
+    {
+        let failed = false;
+        let failure: unknown;
+        // These are the original retained actions, not a reconstructed cleanup receipt.
+        for (const retry of this.resources.map(resource => resource.retryCleanup))
+        {
+            try
+            {
+                retry?.();
+            }
+            catch (error)
+            {
+                if (!failed)
+                {
+                    failure = error;
+                }
+                failed = true;
+            }
+        }
+        if (failed)
+        {
+            throw failure;
+        }
+    }
+
     cancelLocal(reason?: unknown): void
     {
-        if (!this.controller.signal.aborted)
+        if (this.inspect().fullLocalSettled)
         {
-            this.controller.abort(reason ?? new DOMException('upload_local_cancel_requested', 'AbortError'));
+            return;
         }
+        const actions: (() => void)[] = [() =>
+        {
+            if (!this.controller.signal.aborted)
+            {
+                this.controller.abort(reason ?? new DOMException('upload_local_cancel_requested', 'AbortError'));
+            }
+        }];
         for (const resource of this.resources)
         {
             if (resource.cancellationSupported && resource.terminal !== 'settled')
             {
                 resource.cancellationRequested = true;
-                resource.cancel?.();
+                const cancel = resource.cancel;
+                if (cancel)
+                {
+                    actions.push(cancel);
+                }
             }
         }
+        actions.push(() => this.retryPendingCleanup());
+        this.cleanup('attempt-cancel-cleanup', actions)();
     }
 
     listen(signal: AbortSignal, listener: () => void): () => void
@@ -231,6 +335,10 @@ class OwnedLocalUploadAttempt
         this.resources.push(resource);
         const detach = (): void =>
         {
+            if (resource.terminal === 'settled')
+            {
+                return;
+            }
             try
             {
                 signal.removeEventListener('abort', invoke);
@@ -239,24 +347,56 @@ class OwnedLocalUploadAttempt
             {
                 (resource.cleanupFailures ??= []).push(error);
                 resource.terminal = 'unknown';
+                resource.retryCleanup = detach;
                 throw error;
             }
             resource.result = 'finished';
             resource.terminal = 'settled';
+            resource.retryCleanup = undefined;
             this.reconsider();
         };
         const invoke = (): void =>
         {
+            let failed = false;
+            let failure: unknown;
             try
             {
                 listener();
             }
-            finally
+            catch (error)
+            {
+                failed = true;
+                failure = error;
+                (resource.cleanupFailures ??= []).push(error);
+            }
+            try
             {
                 detach();
             }
+            catch (error)
+            {
+                if (!failed)
+                {
+                    failed = true;
+                    failure = error;
+                }
+            }
+            if (failed)
+            {
+                throw failure;
+            }
         };
-        signal.addEventListener('abort', invoke, { once: true });
+        try
+        {
+            signal.addEventListener('abort', invoke, { once: true });
+        }
+        catch (error)
+        {
+            (resource.cleanupFailures ??= []).push(error);
+            resource.terminal = 'unknown';
+            resource.retryCleanup = detach;
+            throw error;
+        }
         return detach;
     }
 
@@ -287,6 +427,7 @@ class OwnedLocalUploadAttempt
                 if (!finished)
                 {
                     resource.terminal = 'unknown';
+                    resource.retryCleanup = () => finish(action);
                 }
                 throw error;
             }
@@ -298,6 +439,7 @@ class OwnedLocalUploadAttempt
                     resource.result = 'finished';
                     resource.terminal = 'settled';
                     resource.cancel = undefined;
+                    resource.retryCleanup = undefined;
                 }
                 this.reconsider();
             }
@@ -353,9 +495,12 @@ class OwnedLocalUploadAttempt
         cleanup: readonly (() => void)[] = [], cancellationSupported = false): Promise<T>
     {
         const resource: LocalUploadResourceRecord = { id: String(this.resources.length + 1), kind,
-            result: 'pending', terminal: 'active', cancellationSupported, cancellationRequested: false,
-            scopeCleanup: cleanup };
+            result: 'pending', terminal: 'active', cancellationSupported, cancellationRequested: false };
         this.resources.push(resource);
+        const cleanScope = this.ownCleanup(resource, cleanup, () =>
+        {
+            resource.callbackWork = undefined;
+        });
         let callbackFailed = false;
         let callbackFailure: unknown;
         let value!: T;
@@ -374,30 +519,15 @@ class OwnedLocalUploadAttempt
         resource.result = 'finished';
         let cleanupFailed = false;
         let cleanupFailure: unknown;
-        // Each action is this scope's original cleanup, never another producer's terminal.
-        for (const release of cleanup)
+        try
         {
-            try
-            {
-                release();
-            }
-            catch (error)
-            {
-                if (!cleanupFailed)
-                {
-                    cleanupFailure = error;
-                }
-                cleanupFailed = true;
-                (resource.cleanupFailures ??= []).push(error);
-            }
+            cleanScope();
         }
-        resource.terminal = cleanupFailed ? 'unknown' : 'settled';
-        if (!cleanupFailed)
+        catch (error)
         {
-            resource.callbackWork = undefined;
-            resource.scopeCleanup = undefined;
+            cleanupFailed = true;
+            cleanupFailure = error;
         }
-        this.reconsider();
         if (callbackFailed)
         {
             throw callbackFailure;
@@ -405,6 +535,39 @@ class OwnedLocalUploadAttempt
         if (cleanupFailed)
         {
             throw cleanupFailure;
+        }
+        return value;
+    }
+
+    async runWithCleanup<T>(kind: string, task: () => Promise<T>, actions: readonly (() => void)[]): Promise<T>
+    {
+        let failed = false;
+        let failure: unknown;
+        let value!: T;
+        try
+        {
+            value = await task();
+        }
+        catch (error)
+        {
+            failed = true;
+            failure = error;
+        }
+        try
+        {
+            this.cleanup(kind, actions)();
+        }
+        catch (error)
+        {
+            if (!failed)
+            {
+                failed = true;
+                failure = error;
+            }
+        }
+        if (failed)
+        {
+            throw failure;
         }
         return value;
     }
@@ -643,8 +806,8 @@ export function useImageUploadRuntime()
         ownedState.ownedAttempt = null;
         if (attempt)
         {
-            attempt.borrow?.release();
             attempt.access = null;
+            attempt.borrow?.release();
         }
     };
 
@@ -656,7 +819,7 @@ export function useImageUploadRuntime()
                 + `upload_id=${ownedState.acknowledgedCompletion.uploadId}; result_url=${ownedState.acknowledgedCompletion.response.url}` : undefined
         });
 
-    const retainCompletionRecovery = (error?: unknown): void =>
+    const retainCompletionRecovery = (error?: unknown, failed = false): void =>
     {
         const acknowledged = ownedState.acknowledgedCompletion;
         if (!acknowledged)
@@ -664,19 +827,35 @@ export function useImageUploadRuntime()
             return;
         }
         acknowledged.recoveryRequired = true;
-        if (error !== undefined && acknowledged.callbackError === undefined)
+        if (failed && !acknowledged.callbackErrorRecorded)
         {
             acknowledged.callbackError = error;
+            acknowledged.callbackErrorRecorded = true;
         }
-        discardOwnedAttempt();
-        pendingAttempt.value = null;
-        activeSession.uploadId = '';
-        activeSession.resumeKey = '';
-        activeSession.fileName = '';
-        cleanupRequired.value = true;
-        phase.value = 'error';
-        errorMessage.value = acknowledged.callbackError === undefined ? 'upload_completion_recovery_required'
-            : `${toAppError(acknowledged.callbackError, '上传完成回调失败').message}; upload_completion_recovery_required`;
+        const attempt = ownedState.ownedAttempt;
+        const borrow = attempt?.borrow;
+        acknowledged.local.cleanup('completion-recovery-cleanup', [
+            () =>
+            {
+                if (ownedState.ownedAttempt === attempt)
+                {
+                    ownedState.ownedAttempt = null;
+                }
+                if (attempt)
+                {
+                    attempt.access = null;
+                    borrow?.release();
+                }
+            },
+            () => pendingAttempt.value = null,
+            () => activeSession.uploadId = '',
+            () => activeSession.resumeKey = '',
+            () => activeSession.fileName = '',
+            () => cleanupRequired.value = true,
+            () => phase.value = 'error',
+            () => errorMessage.value = !acknowledged.callbackErrorRecorded ? 'upload_completion_recovery_required'
+                : `${toAppError(acknowledged.callbackError, '上传完成回调失败').message}; upload_completion_recovery_required`
+        ])();
         // No receiver exists here. Keep the original snapshot/ACK in this instance;
         // revoking a loan or clearing public transport is not recovery acknowledgement.
     };
@@ -714,8 +893,8 @@ export function useImageUploadRuntime()
         }
         const controller = new AbortController();
         const deadline = performance.now() + SESSION_BORROW_LIFETIME_MS;
-        let released = false;
-        const current = (): boolean => !released && !ownedState.disposed && performance.now() < deadline
+        let revoked = false;
+        const current = (): boolean => !revoked && !ownedState.disposed && performance.now() < deadline
             && ownedState.ownedAttempt === attempt && attempt.generation === attemptGeneration && attempt.access !== null
             && bindingIsCurrent(attempt.binding, attempt.file, attempt.completed);
         const assertCurrent = (): void =>
@@ -728,30 +907,50 @@ export function useImageUploadRuntime()
         };
         const release = (): void =>
         {
-            if (released)
+            // Permission is permanently revoked before fallible physical cleanup starts.
+            revoked = true;
+            let failed = false;
+            let failure: unknown;
+            for (const clean of [cleanLoan, () => attempt.local.retryPendingCleanup()])
             {
-                return;
-            }
-            released = true;
-            clearTimer();
-            detachLease();
-            detachIntent();
-            detachLocal();
-            controller.abort(new DOMException('upload_session_borrow_released', 'AbortError'));
-            attempt.borrow = null;
-            if (!attempt.active)
-            {
-                attempt.access = null;
-                if (ownedState.ownedAttempt === attempt)
+                try
                 {
-                    ownedState.ownedAttempt = null;
+                    clean();
                 }
+                catch (error)
+                {
+                    if (!failed)
+                    {
+                        failure = error;
+                    }
+                    failed = true;
+                }
+            }
+            if (failed)
+            {
+                throw failure;
             }
         };
         const clearTimer = attempt.local.timer(release, SESSION_BORROW_LIFETIME_MS, release);
         const detachLease = attempt.local.listen(attempt.binding.lease.signal, release);
         const detachIntent = attempt.local.listen(attempt.binding.intent.signal, release);
         const detachLocal = attempt.local.listen(attempt.local.controller.signal, release);
+        const cleanLoan = attempt.local.cleanup('session-loan-cleanup', [
+            clearTimer, detachLease, detachIntent, detachLocal,
+            () => controller.abort(new DOMException('upload_session_borrow_released', 'AbortError')),
+            () => attempt.borrow = null,
+            () =>
+            {
+                if (!attempt.active)
+                {
+                    attempt.access = null;
+                    if (ownedState.ownedAttempt === attempt)
+                    {
+                        ownedState.ownedAttempt = null;
+                    }
+                }
+            }
+        ]);
         const borrow: ImageUploadSessionBorrow = Object.freeze({
             signal: controller.signal,
             isCurrent: current,
@@ -857,7 +1056,7 @@ export function useImageUploadRuntime()
     const canResume = computed(() => readOriginalAdmission() === null && (phase.value === 'paused' || phase.value === 'error'));
 
     const performUpload = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions,
-        local: OwnedLocalUploadAttempt): Promise<string> =>
+        local: OwnedLocalUploadAttempt, started: (generation: number) => void): Promise<string> =>
     {
         const blocked = readOriginalAdmission();
         if (blocked)
@@ -868,6 +1067,7 @@ export function useImageUploadRuntime()
         ownedState.acknowledgedCompletion = null;
         const previousCancellation = cancellationOperation;
         const generation = ++attemptGeneration;
+        started(generation);
         currentLocalAttempt?.cancelLocal(new DOMException('upload_attempt_superseded', 'AbortError'));
         currentLocalAttempt = local;
         cancellationOperation = previousCancellation ? { generation, context: previousCancellation.context } : null;
@@ -1199,8 +1399,8 @@ export function useImageUploadRuntime()
         const acknowledgedResponse = Object.freeze({ ...complete });
         ownedState.acknowledgedCompletion = shallowReactive({
             generation, uploadId, binding: runtimeOptions.attemptBinding, snapshot,
-            response: acknowledgedResponse, transportCompleted: false,
-            recoveryRequired: false, callbackError: undefined
+            response: acknowledgedResponse, local, transportCompleted: false,
+            recoveryRequired: false, callbackError: undefined, callbackErrorRecorded: false
         });
         cancellationOperation = null;
         if (ownedState.ownedAttempt?.generation === generation)
@@ -1249,18 +1449,12 @@ export function useImageUploadRuntime()
         }
         const attemptOptions = { ...runtimeOptions, attemptBinding: runtimeOptions.attemptBinding
             ? Object.freeze({ ...runtimeOptions.attemptBinding }) : undefined };
-        const previousGeneration = attemptGeneration;
-        const work = performUpload(file, options, attemptOptions, local);
-        const generation = attemptGeneration;
-        if (generation === previousGeneration)
-        {
-            return await work;
-        }
+        let generation: number | null = null;
         const binding = attemptOptions.attemptBinding;
         const onAbort = (): void =>
         {
             local.cancelLocal();
-            if (generation === attemptGeneration)
+            if (generation !== null && generation === attemptGeneration)
             {
                 void abandon().catch(() =>
                 {
@@ -1268,36 +1462,64 @@ export function useImageUploadRuntime()
                 });
             }
         };
-        const detachLease = binding ? local.listen(binding.lease.signal, onAbort) : undefined;
-        const detachIntent = binding ? local.listen(binding.intent.signal, onAbort) : undefined;
+        let detachLease: (() => void) | undefined;
+        let detachIntent: (() => void) | undefined;
         let succeeded = false;
-        try
+        let failed = false;
+        let failure: unknown;
+        let originalAttempt: OwnedUploadAttempt | null = null;
+        let originalBorrow: ImageUploadSessionBorrow | null = null;
+        return await local.runWithCleanup('upload-attempt-finalization', async () =>
         {
-            const url = await work;
-            succeeded = true;
-            return url;
-        }
-        catch (error)
-        {
-            if (ownedState.acknowledgedCompletion?.generation === generation && !ownedState.acknowledgedCompletion.transportCompleted)
+            try
             {
-                retainCompletionRecovery(error);
+                // Registration is inside the original guarded execution, before work starts.
+                detachLease = binding ? local.listen(binding.lease.signal, onAbort) : undefined;
+                detachIntent = binding ? local.listen(binding.intent.signal, onAbort) : undefined;
+                const work = performUpload(file, options, attemptOptions, local, value => generation = value);
+                const url = await work;
+                succeeded = true;
+                return url;
             }
-            throw error;
-        }
-        finally
-        {
-            detachLease?.();
-            detachIntent?.();
-            if (ownedState.ownedAttempt?.generation === generation)
+            catch (error)
             {
-                ownedState.ownedAttempt.active = false;
-                if (!succeeded || !ownedState.ownedAttempt.borrow?.isCurrent())
+                failed = true;
+                failure = error;
+                throw error;
+            }
+        }, [
+            () =>
+            {
+                originalAttempt = ownedState.ownedAttempt?.generation === generation ? ownedState.ownedAttempt : null;
+                originalBorrow = originalAttempt?.borrow ?? null;
+            },
+            () =>
+            {
+                if (failed && ownedState.acknowledgedCompletion?.generation === generation
+                    && !ownedState.acknowledgedCompletion.transportCompleted)
                 {
-                    discardOwnedAttempt();
+                    retainCompletionRecovery(failure, true);
+                }
+            },
+            () => detachLease?.(),
+            () => detachIntent?.(),
+            () =>
+            {
+                if (originalAttempt)
+                {
+                    originalAttempt.active = false;
+                    if (!succeeded || !originalBorrow?.isCurrent())
+                    {
+                        if (ownedState.ownedAttempt === originalAttempt)
+                        {
+                            ownedState.ownedAttempt = null;
+                        }
+                        originalAttempt.access = null;
+                        originalBorrow?.release();
+                    }
                 }
             }
-        }
+        ]);
     };
 
     const requestUploadFile = (file: File, options: ImageCompressionOptions,
@@ -1316,20 +1538,16 @@ export function useImageUploadRuntime()
         const result = (async (): Promise<string> =>
         {
             const signal = runtimeOptions.signal;
-            const detach = signal ? local.listen(signal, () => local.cancelLocal(signal.reason)) : undefined;
-            try
+            let detach: (() => void) | undefined;
+            return await local.runWithCleanup('upload-caller-finalization', async () =>
             {
+                detach = signal ? local.listen(signal, () => local.cancelLocal(signal.reason)) : undefined;
                 if (signal?.aborted)
                 {
                     local.cancelLocal(signal.reason);
                 }
                 return await executeUploadFile(file, options, runtimeOptions, local);
-            }
-            finally
-            {
-                detach?.();
-                local.finishExecution();
-            }
+            }, [() => detach?.(), () => local.finishExecution()]);
         })();
         return Object.freeze({ result, settled: local.settled,
             cancelLocal: (reason?: unknown) => local.cancelLocal(reason),

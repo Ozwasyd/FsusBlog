@@ -234,7 +234,28 @@ callback. Cleanup tries every owned action; failed cleanup retains the actual
 causes and original handles as unknown, while a simultaneous callback failure
 remains the error reported to the original ACK recovery owner. A failed timer
 clear can retry its original handle; a cleared timer is distinguished from a
-failed subsequent action. `session-ready-callback-scope` and
+failed subsequent action. Each cleanup retains its original actions with separate
+completion marks. Only an action that actually returns successfully is retired;
+failed actions remain callable through the owning request's `cancelLocal` and
+the original loan's `release`. A retry invokes those same unfinished actions and
+rechecks the scope, changing unknown to settled only after genuine success.
+Reinspection alone does not clear failures, and historical raw causes remain
+private even after a later successful retry.
+
+Loan permission revocation is permanent and precedes its fallible cleanup.
+Every original loan timer/listener, controller abort and reference retirement
+is attempted independently; failed cleanup does not reopen the loan or make
+the next release a no-op. Completed callback scopes with failed cleanup can also
+be retried from that loan or request without repeating their callback. The
+outer upload finalization similarly attempts both binding listeners and captured
+original-attempt retirement independently; caller finalization always attempts
+execution-finished marking even if its own listener cannot detach. The original
+work/callback rejection keeps priority over every later cleanup failure, including
+recovery reporting. Cleanup without a prior work failure reports its first actual
+failure. Original ACK recovery keeps the first raw failure (including null or
+undefined) and remains a business obligation after local cleanup succeeds.
+
+`session-ready-callback-scope` and
 `flow-callback-scope` own their awaited invocation only. Their finite completion
 does not wait for unrelated external resources; the original borrow lifetime,
 Flow task listener and actual child requests are accounted separately. Completed
