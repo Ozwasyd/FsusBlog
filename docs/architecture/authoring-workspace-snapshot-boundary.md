@@ -2279,3 +2279,23 @@ seven enum diagnostics, Blog Analytics regionChartRef, all protected authoring
 owners and frozen contracts remain unchanged. Full-program static checking is
 not rendering or keyboard acceptance. All runtime, render, tests and security,
 privacy, receipt, native, race, backup/restore and IME qualification holds remain.
+
+
+## Plugin Enum Selection Unknown Receiver Boundary
+
+A separate successor to the exact business B checkpoint changes only the local
+PluginAdmin selection receiver to `unknown`. The existing draft record's `any`
+field propagates through Vue's actual generic `toRaw` return; explicitly holding
+that result as unknown prevents its propagation. The original own-property
+guard, identity lookup and page-private finite JSON comparison/validation stay
+unchanged. All existing values, including null, false, zero, empty strings and
+nested arrays/objects, follow the same selection and schema refusal behavior.
+There is no replacement validator, cast, new default or runtime branch.
+
+The original full application compiler options produce byte-identical complete
+SFC script JavaScript; template/style contents and attributes and the original
+JSON helper are unchanged. This is static source equivalence, not behavior or
+rendering qualification. The exact donor checkpoint and its newly introduced
+unsafe-assignment failure remain preserved in the preceding ordinary WIP. All
+protected owners, frozen contracts and original execution qualifications remain
+held. Residual original plugin lint findings remain separately disclosed.

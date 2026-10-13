@@ -6,7 +6,7 @@
             "paths": [
                 "docs/architecture/authoring-workspace-snapshot-boundary.md"
             ],
-            "reason": "Preserve external CSS-like contracts while documenting canonical original business B sources; no template-codegen, authority or qualification refresh."
+            "reason": "Preserve external CSS-like contracts in current architecture documentation while describing only the real unknown receiver boundary; no authority or qualification refresh."
         }
     ]
 }
