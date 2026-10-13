@@ -1,0 +1,49 @@
+{
+    "sourceRevision": "1282d9d6251d666b5ab73a73b7469d145f8924ea",
+    "predecessorPublicationRevision": "33261e37639ce2ae8c384c9e5a2f4c3a855da12f",
+    "reviewProvenance": "Two findings supplied by the delegating owner's independent PR4239 review; no independent acceptance is claimed for this repair.",
+    "inspectionOnly": true,
+    "P1": {
+        "problem": "A failed cleanup remained eligible while its callback executed; reentrant retry/cancel could release the original holder and resolve settled before the outer callback threw.",
+        "repair": "Per-resource cleanupInProgress and cancellationInProgress guards block same-resource release/retry/cancel reentry. Cleanup retains the actual holder and closure until the outer callback returns successfully. trySettle requires finished invocation, settled local terminals, no callback in progress, no cleanup failure and no retained handle/cleanup/cancel closures.",
+        "throwPath": "The outer cleanup catch retains original holder/closure, marks unknown and appends the actual cause. finally clears only the in-progress flag; outstanding debt still prevents settlement.",
+        "analogousBoundary": "Cancellation callbacks also have a same-resource reentry guard and settlement barrier; they do not grant native completion or allow cleanup to release their holder while active."
+    },
+    "P2": {
+        "problem": "observe checked cancellation before executing start, but reading options.quality inside start could abort the signal and still invoke encode/toBlob.",
+        "repair": "Prepare the actual request/quality and bind the same provider method before checking the original owner cancellation immediately before the invocation. Codec normalization explicitly bypasses the exact original cancellation reason; actual native codec errors retain their original metadata/cause.",
+        "analogousBoundariesReviewed": [
+            "FileReader handlers and actual bound readAsDataURL method before native read",
+            "Original bitmap decoder reference before invoking createImageBitmap",
+            "Fallback image handlers before source assignment starts image decode",
+            "Actual sizing parameters and createElement reference before canvas creation",
+            "Actual alpha parameter and original getContext method before native 2d acquisition",
+            "Format/preserveAlpha branch evaluation before fill/draw stages",
+            "Actual bound getImageData method before native pixel read",
+            "Actual codec request fields and original bound encode before provider work",
+            "Encoded format/Blob constructor and final File parameters before allocation",
+            "Actual callback, computed quality and bound toBlob before browser encoding",
+            "Original Blob arrayBuffer method before invocation",
+            "Original crypto.subtle object and digest method before invocation"
+        ]
+    },
+    "initialRepairCompilerFailure": {
+        "sourceRevision": "8886abb772f57b8f09f0b511f3f81959f0077a84",
+        "status": "FAIL",
+        "diagnostics": 168,
+        "introduced": 6,
+        "cause": "Binding the overloaded native canvas getContext inferred the general RenderingContext return type.",
+        "sourceCorrection": "Select the real DOM 2d signature before binding that same native method. No replacement provider, ambient declaration shim, altered configuration or alternate runner."
+    },
+    "preserved": [
+        "Same original invocation result and legacy Promise delegation",
+        "Original File identity and actual operation handles",
+        "Actual finite hash arrayBuffer/digest completion",
+        "Bitmap adoption before early-failure dimension/context/draw paths",
+        "Cleanup failure causes and same-handle retry",
+        "Visible shared codec unknowns outside finite local settled",
+        "No whole-upload, business cleanup or native/application readiness claim"
+    ],
+    "runtimeTestsDiscoveryQualification": "HOLD/UNRUN",
+    "independentRepairRereview": "PENDING"
+}
