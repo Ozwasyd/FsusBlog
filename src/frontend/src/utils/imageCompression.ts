@@ -243,6 +243,7 @@ async function compressImageFileOwned(
     const wasmOnly = runtimeOptions.wasmOnly ?? wasmOnlyCompressionMode;
     owner.ensureActive();
     const wasmCapability = getWasmCapabilityLevel();
+    owner.ensureActive();
 
     if (file.type === 'image/gif')
     {
@@ -288,8 +289,11 @@ async function compressImageFileOwned(
         canvas.width = 0;
         canvas.height = 0;
     });
+    owner.ensureActive();
     canvas.width = width;
+    owner.ensureActive();
     canvas.height = height;
+    owner.ensureActive();
 
     const contextOptions = { alpha: options.preserveAlpha };
     const getContext: (contextId: '2d', options: CanvasRenderingContext2DSettings) => CanvasRenderingContext2D | null = canvas.getContext;
@@ -301,24 +305,34 @@ async function compressImageFileOwned(
         throw createAppError(AppErrorCode.InfraFailure, 'canvas_context_unavailable');
     }
     owner.hold('canvas-context', context);
+    owner.ensureActive();
 
-    context.clearRect(0, 0, width, height);
+    const clearRect = context.clearRect.bind(context);
+    owner.ensureActive();
+    clearRect(0, 0, width, height);
+    owner.ensureActive();
     if (!options.preserveAlpha && (options.format === 'jpeg' || options.format === 'webp' || options.format === 'avif'))
     {
         owner.ensureActive();
         context.fillStyle = 'white';
-        context.fillRect(0, 0, width, height);
+        owner.ensureActive();
+        const fillRect = context.fillRect.bind(context);
+        owner.ensureActive();
+        fillRect(0, 0, width, height);
+        owner.ensureActive();
     }
 
     owner.ensureActive();
-    if (decoded.bitmap)
+    const source = decoded.bitmap ?? decoded.image;
+    if (source)
     {
-        context.drawImage(decoded.bitmap, 0, 0, width, height);
+        const draw: (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number) => void = context.drawImage;
+        const drawImage = draw.bind(context);
+        owner.ensureActive();
+        drawImage(source, 0, 0, width, height);
+        owner.ensureActive();
         decoded.releaseBitmap?.();
-    }
-    else if (decoded.image)
-    {
-        context.drawImage(decoded.image, 0, 0, width, height);
+        owner.ensureActive();
     }
 
     const mimeType = resolveOutputMime(options.format);
@@ -349,6 +363,7 @@ async function compressImageFileOwned(
             owner.ensureActive();
             const imageData = getImageData(0, 0, width, height);
             const rgbaResource = owner.hold('image-data', imageData);
+            owner.ensureActive();
             owner.noteThirdParty('codec-internal-custody');
             const encoded = await owner.observe('codec-encode', () =>
             {
@@ -373,6 +388,8 @@ async function compressImageFileOwned(
                 const createBlob = Blob;
                 owner.ensureActive();
                 encodedBlob = new createBlob([encoded as unknown as BlobPart], { type: mimeType });
+                owner.hold('encoded-blob', encodedBlob);
+                owner.ensureActive();
                 pipeline = wasmCodec.level === 'simd' ? 'wasm-simd' : 'wasm-basic';
             }
             else
@@ -433,7 +450,10 @@ async function compressImageFileOwned(
         owner.ensureActive();
         toBlob(onBlob, mimeType, quality);
     }));
-    owner.hold('encoded-blob', blob);
+    if (!encodedBlob)
+    {
+        owner.hold('encoded-blob', blob);
+    }
     owner.ensureActive();
 
     const extension = options.format === 'jpeg' ? 'jpg' : options.format;
@@ -445,6 +465,8 @@ async function compressImageFileOwned(
     const createFile = File;
     owner.ensureActive();
     const nextFile = new createFile([blob], nextName, fileOptions);
+    owner.hold('output-file', nextFile);
+    owner.ensureActive();
 
     return {
         file: nextFile,

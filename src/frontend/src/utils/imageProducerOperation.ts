@@ -184,7 +184,9 @@ export function createImageProducerOperation<T>(
         if (!cancellationRequested)
         {
             cancellationRequested = true;
-            cancellationReason = reason ?? new DOMException('Image producer cancellation requested', 'AbortError');
+            cancellationReason = reason === undefined
+                ? new DOMException('Image producer cancellation requested', 'AbortError')
+                : reason;
         }
         for (const resource of resources)
         {
@@ -215,7 +217,7 @@ export function createImageProducerOperation<T>(
         release,
         ensureActive,
         isCancellationRequested: () => cancellationRequested,
-        isCancellationError: (error: unknown) => cancellationRequested && error === cancellationReason,
+        isCancellationError: (error: unknown) => cancellationRequested && Object.is(error, cancellationReason),
         async observe<R>(kind: string, start: () => Promise<R>): Promise<R>
         {
             ensureActive();

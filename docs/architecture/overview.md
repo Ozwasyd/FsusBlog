@@ -130,6 +130,17 @@ cancellation state. Cancellation raised by an options or method getter therefore
 prevents that invocation. Its original reason bypasses codec error normalization;
 an actual codec failure continues to retain its original error metadata.
 
+Cancellation recognition uses SameValue comparison so a legal `NaN` reason is
+re-thrown unchanged rather than normalized as a codec failure. Defined reasons,
+including `null`, are retained; an omitted reason still receives the default
+AbortError. Synchronous canvas transitions check cancellation after each completed
+platform call or setter, and again after reading/binding the next actual method
+and its arguments. Returned canvas/context/pixel/Blob/File resources are adopted
+before those post-call checks. A thrown provider failure exits before the next
+cancellation check, retaining the primary failure. Started asynchronous reader,
+bitmap, codec and toBlob work still awaits its actual original completion rather
+than treating a post-start cancellation request as terminal evidence.
+
 The shared codec loader and codec internal custody are explicitly third-party
 `unknown` census entries. Awaiting their public Promises observes this invocation's
 call completion, not shared module disposal, native allocation recovery or an
