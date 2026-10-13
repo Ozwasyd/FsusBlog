@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceFrontendDataInputs, inspectSourceFrontendConfiguration } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
@@ -366,12 +366,34 @@ test('source integration explicitly refuses every unregistered source surface ra
     assert.deepEqual(unsupportedSourceStageFiles(['tools/contracts/Unknown.slnx'], ['tools/contracts/Unknown.slnx']), []);
 });
 
+test('C++ suffixes remain unsupported until their actual compiler context succeeds and controls are selected', async () =>
+{
+    const files = ['src/Example.cpp', 'src/Value.hpp', 'src/Other.hpp', 'src/Unsupported.c'];
+    assert.deepEqual(unsupportedSourceStageFiles(files), files);
+    assert.deepEqual(unsupportedSourceStageFiles(files, [], [], null, ['src/Example.cpp', 'src/Value.hpp']), files.slice(2));
+    const { sourceGovernanceChildEntries, selectSourceRegressionTargets, sourceRegressionArguments } =
+        await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+    assert.equal(sourceGovernanceChildEntries.cpp, 'tools/configuration/check-cpp-source.mjs');
+    assert.deepEqual(selectSourceRegressionTargets(['src/Value.hpp']), ['tools/configuration/cpp-source.test.mjs']);
+    assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.cpp]).includes('tools/configuration/cpp-source.test.mjs'));
+    const nativeArguments = sourceRegressionArguments('tests/tools/native-tooling-style.test.mjs');
+    const selectedNativeControl = new RegExp(nativeArguments[1].slice('--test-name-pattern='.length));
+    for (const control of ['rejects unnamed C++ parameter type facts', 'records typedef and imported type shadows',
+        'recognizes commented preprocessor boundaries', 'preserves quoted constructor argument tokens',
+        'rejects incorrectly named real C++ declarations', 'keeps ambiguous C++ parameter syntax strict',
+        'header classification retains required external tools'])
+    {
+        assert.ok(selectedNativeControl.test(`native tooling style governance ${control}`));
+    }
+    assert.equal(selectedNativeControl.test('unregistered native checker audit'), false);
+});
+
 test('flat solution checker and its refusal controls are explicit source execution ports', async () =>
 {
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
-    assert.equal(sourceGovernanceExecutableEntries().length, 10);
+    assert.equal(sourceGovernanceExecutableEntries().length, 14);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
@@ -452,14 +474,14 @@ function frontendRoutingFixture(t)
     };
     git('init', '-q');
     const policy = { configurationSources: ['tools/frontend/check-frontend-style.mjs', 'config/extra.json'],
-        ruleRegistry: sourceGovernanceDataInputs[1],
-        toolchain: { package: sourceGovernanceDataInputs[2], lock: sourceGovernanceDataInputs[3] },
+        ruleRegistry: sourceFrontendDataInputs[1],
+        toolchain: { package: sourceFrontendDataInputs[2], lock: sourceFrontendDataInputs[3] },
         eslintConfig: 'eslint.config.mjs', stylelintConfig: 'stylelint.config.mjs' };
-    for (const file of [...sourceGovernanceDataInputs, ...policy.configurationSources])
+    for (const file of [...sourceFrontendDataInputs, ...policy.configurationSources])
     {
         write(file, '{}\n');
     }
-    write(sourceGovernanceDataInputs[0], JSON.stringify(policy));
+    write(sourceFrontendDataInputs[0], JSON.stringify(policy));
     const files = ['tools/check.mjs', 'src/code.js', 'src/code.cjs', 'src/code.ts', 'src/code.tsx', 'src/view.vue', 'src/theme.css', 'src/theme.scss'];
     for (const file of files)
     {
@@ -521,7 +543,7 @@ test('SOURCE compares the union of actual base and current policy inputs includi
 {
     const fixture = frontendRoutingFixture(t);
     fixture.policy.configurationSources = ['tools/frontend/check-frontend-style.mjs', 'config/added.json'];
-    fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+    fixture.write(sourceFrontendDataInputs[0], JSON.stringify(fixture.policy));
     fixture.write('config/added.json', '{}\n');
     fixture.commit();
     const configuration = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
@@ -566,19 +588,19 @@ test('SOURCE refuses absent, nonregular, untracked and malformed configuration i
         else if (scenario === 'untracked')
         {
             fixture.policy.configurationSources.push('config/untracked.json');
-            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+            fixture.write(sourceFrontendDataInputs[0], JSON.stringify(fixture.policy));
             fixture.commit();
             fixture.write('config/untracked.json', '{}\n');
         }
         else if (scenario === 'malformed')
         {
             fixture.policy.configurationSources = null;
-            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+            fixture.write(sourceFrontendDataInputs[0], JSON.stringify(fixture.policy));
         }
         else
         {
             fixture.policy.configurationSources.push('../escaped.json');
-            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+            fixture.write(sourceFrontendDataInputs[0], JSON.stringify(fixture.policy));
         }
         assert.throws(() => inspectSourceFrontendConfiguration(fixture.root, fixture.base),
             /tracked regular input|nonregular or escaped input|complete policy input set|invalid input path/u);

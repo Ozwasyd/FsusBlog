@@ -2,6 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { URL } from 'node:url';
+
+const { isValidatedBlameIgnoreSourceReceipt } = await import(new URL('./blame-ignore-source.mjs', import.meta.url));
 
 const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
     && !['nightly', 'release-manual'].includes(tier.cadence);
@@ -354,6 +357,8 @@ export const sourceGovernanceChildEntries = Object.freeze({
     frontend: 'tools/frontend/check-frontend-style.mjs',
     csharp: 'tools/dotnet/check-csharp-style.mjs',
     solution: 'tools/configuration/check-solution-source.mjs',
+    cpp: 'tools/configuration/check-cpp-source.mjs',
+    blameIgnore: 'tools/test-matrix/blame-ignore-source.mjs',
     docs: 'tools/style/check-native-tooling-style.mjs',
     lifecycle: 'tools/docs/generate-document-lifecycle.mjs'
 });
@@ -380,7 +385,9 @@ export const sourceRegressionEntries = Object.freeze([
     'tests/tools/pr-applicable-execution-authority.test.mjs',
     'tools/frontend/source-unit-style-diff.test.mjs',
     'tests/tools/native-tooling-style.test.mjs',
-    'tools/configuration/solution-source.test.mjs'
+    'tests/tools/blame-ignore-source.test.mjs',
+    'tools/configuration/solution-source.test.mjs',
+    'tools/configuration/cpp-source.test.mjs'
 ]);
 
 export function selectSourceRegressionTargets(changedFiles)
@@ -390,8 +397,10 @@ export function selectSourceRegressionTargets(changedFiles)
         || matchesImpactPath(file, 'tools/frontend/check-frontend-style.mjs')
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
         || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
-        || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')) ? [...sourceRegressionEntries]
-        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : [];
+        || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')
+        || matchesImpactPath(file, 'tools/configuration/check-cpp-source.mjs')) ? [...sourceRegressionEntries]
+        : [...(changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : []),
+            ...(changedFiles.some(file => /\.(?:cc|cpp|cxx|h|hh|hpp|hxx)$/u.test(file)) ? ['tools/configuration/cpp-source.test.mjs'] : [])];
 }
 
 export function sourceGovernanceExecutableEntries()
@@ -407,18 +416,20 @@ export function sourceRegressionArguments(entry)
         throw new Error(`unknown source regression entry: ${entry}`);
     }
     return entry === 'tests/tools/native-tooling-style.test.mjs'
-        ? ['--test', '--test-name-pattern=^(?:native fragment mock span transport|original Markdown adapter package boundary)', entry]
+        ? ['--test', '--test-name-pattern=^(?:native fragment mock span transport|original Markdown adapter package boundary|native tooling style governance (?:preserves registered C ABI spelling but rejects leakage into internal C\\+\\+|does not classify direct-initialized C\\+\\+ locals as functions|portable C\\+\\+ fallback accepts formatter continuations but rejects block indentation debt|accepts header objects initialized from visible values|rejects incorrectly named real C\\+\\+ declarations|keeps ambiguous C\\+\\+ parameter syntax strict|header classification retains required external tools|rejects unnamed C\\+\\+ parameter type facts|records typedef and imported type shadows|recognizes commented preprocessor boundaries|preserves quoted constructor argument tokens)$)', entry]
         : ['--test', entry];
 }
 
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [])
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], blameIgnoreReceipt = null, checkedCpp = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
+        && !(/\.(?:cc|cpp|cxx|h|hh|hpp|hxx)$/u.test(file) && checkedCpp.includes(file))
+        && !(file === '.git-blame-ignore-revs' && isValidatedBlameIgnoreSourceReceipt(blameIgnoreReceipt))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
@@ -436,7 +447,7 @@ export function sourceShellSyntaxArguments(file)
 
 // Fixed repository inputs of the reviewed frontend SOURCE checker/parser contract.
 // These are data/configuration witnesses, never executable child ports.
-export const sourceGovernanceDataInputs = Object.freeze([
+export const sourceFrontendDataInputs = Object.freeze([
     'config/development/frontend-style-policy.json',
     'config/development/frontend-style-rule-registry.json',
     'tools/frontend/style-toolchain/package.json',
@@ -446,6 +457,12 @@ export const sourceGovernanceDataInputs = Object.freeze([
     'tools/frontend/style-toolchain/eslint.config.mjs',
     'tools/frontend/style-toolchain/stylelint.config.mjs'
 ]);
+
+export const sourceGovernanceDataInputs = Object.freeze([...sourceFrontendDataInputs,
+    'config/development/native-tooling-style-policy.json', '.clang-format', '.clang-tidy',
+    'docs/development/native-tooling-style-enforcement.md',
+    'tools/governance/javascript-format-parser/package.json',
+    'tools/governance/javascript-format-parser/package-lock.json']);
 
 export function assertSourceShellSyntaxInspection(input)
 {
@@ -503,7 +520,7 @@ export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
         {
             throw new Error('SOURCE frontend configuration requires the complete policy input set');
         }
-        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
+        return new Set([...sourceFrontendDataInputs, ...policy.configurationSources,
             policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
             policy.eslintConfig, policy.stylelintConfig]);
     }
