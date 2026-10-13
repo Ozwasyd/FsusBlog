@@ -1,0 +1,80 @@
+{
+    "kind": "ordinary source P2 repair candidate WIP; no authority/receipt/qualification",
+    "mainBase": "e379198d484474dea2d5645a9b077cb5ae71636b",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "sourcePath": "src/frontend/src/views/admin/AuditLog.vue",
+    "preimage": "9f089f71d8777f70bc714204813d8d5901b938c1",
+    "postimage": "e52448e202548e33202a249eb81ac85884df0ec2",
+    "actualP2": "#4309 original Audit native-Date-only check rejects legitimate manually edited Dayjs pair, retaining stale filter. Original #4285 Date-path acceptance corrected; exact History postimage shares defect.",
+    "conditionalSourceHold": "#4309 Audit boundary and dependent #4310/#4311 consumption remain CONDITIONALLY HOLD pending independent review of this real source successor. Other four #4309 source leaves and #4310 business/accepted #4311 annotation are not rewritten.",
+    "actualProducerChain": [
+        {
+            "path": "vue/packages/components/time-picker/src/common/picker.vue",
+            "lines": "718-746",
+            "fact": "handleStartChange/handleEndChange validate parsed Dayjs and emitInput real pair"
+        },
+        {
+            "path": "vue/packages/components/time-picker/src/common/picker.vue",
+            "lines": "273-287",
+            "fact": "emitInput maps members via formatter with actual valueFormat"
+        },
+        {
+            "path": "vue/packages/components/time-picker/src/utils.ts",
+            "lines": "72-81",
+            "fact": "Without format, formatter returns date/Dayjs unchanged"
+        },
+        {
+            "path": "vue/packages/components/date-picker/src/date-picker.tsx",
+            "lines": "61-62",
+            "fact": "Public model update forwarded unchanged"
+        }
+    ],
+    "normalization": "Native valid Date kept; real dayjs.isDayjs + isValid then actual toDate result finite Date accepted. No generic dayjs(value) parser, cast, non-null, string/number coercion, new date/default range or producer/type-framework change. Entire two-member pair normalized before one state assignment; clear null/undefined/empty-string remains null; invalid pair throws preserving previous state.",
+    "sourceBoundary": {
+        "base": "e379198d484474dea2d5645a9b077cb5ae71636b",
+        "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+        "templateAndStyleContentAttrsByteIdentical": true,
+        "nonSelectedFunctionDeclarationsByteIdentical": [
+            "toAdminSystemStatus",
+            "resetAuditCursor",
+            "buildQuery",
+            "loadAudit",
+            "applyFilters",
+            "resetFilters",
+            "selectFacet",
+            "handleSizeChange",
+            "openDetail",
+            "verifyRow",
+            "formatTime",
+            "auditRowClassName",
+            "formatAuditActor",
+            "formatAuditTarget",
+            "applyRouteQueryFilters"
+        ],
+        "sourceChange": "one actual Dayjs import, normalizeAuditDate helper, original handler accepts normalized pair; no other product code change",
+        "qualification": "static source comparison only; no product evaluation"
+    },
+    "failureHistory": "Old #4309 d607d32b9c28f9568845520d3832f52d748c308d, #4310 dd2bb660256eb4e04ad8a4024d753d8cd70e8e68, #4311 e379198d484474dea2d5645a9b077cb5ae71636b and ordinary original records unchanged; acceptance overbreadth disclosed here.",
+    "holds": "All original protected owners, shared UI18templatecodegen/7enum/Analytics refs, frozen DTO/schema/authority and runtime/render/tests/security/privacy/receipt/native/race/backuprestore/IME qualification HOLD/UNRUN; physical alias independent UNVERIFIED.",
+    "staticChecks": {
+        "fullProgram": {
+            "before": 122,
+            "after": 122,
+            "beforeUI": 25,
+            "afterUI": 25,
+            "added": [],
+            "removed": []
+        },
+        "sameAuditStrictFull": {
+            "beforeFindings": 0,
+            "afterFindings": 0,
+            "added": [],
+            "removed": [],
+            "actualExitBefore": 0,
+            "actualExitAfter": 0
+        },
+        "SFC_AST": "0 diagnostics",
+        "originalDocs": "7/41FAIL byte identical to #4311 logs; no frozen refresh",
+        "semanticEvidence": "Actual UI producer source and consumer branch diff only; legitimate Dayjs edits newly normalized, not JS-byte-equivalent or runtime-qualified"
+    }
+}
