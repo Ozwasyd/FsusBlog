@@ -535,7 +535,7 @@
     "execution": "ALL runtime/tests/import/discovery/qualification HOLD/UNRUN; physical alias independently UNVERIFIED; normal hooks/push, no donor skip-ci trailers copied",
     "authorStaticEvidence": {
         "originalFullCompiler": "Same actual UI957 before216FAIL (Blog191/UI25), after195FAIL (Blog170/UI25), complete diagnostic-block/multiplicity comparison added0 removed21 (Home2 Identity16 Slider3), position normalization only",
-        "style": "Original strict-full three-path source style23FAIL before/after, exact finding multiplicity position normalization only; no weakening or unaudited fix",
+        "style": "Original strict-full three-path source style28FAIL before / 23FAIL after; complete finding multiplicity comparison normalizes positions only, added0 removed5 (four unused Identity type bindings and one prior error-typed unsafe return); no weakening or unaudited fix",
         "AST": "TS/SFC script zero diagnostics; original SFC template/styles byte exact",
         "physicalAlias": "Author filesystem evidence only; independently UNVERIFIED",
         "qualification": "ALL HOLD/UNRUN"
