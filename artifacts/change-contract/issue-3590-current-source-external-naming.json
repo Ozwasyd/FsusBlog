@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-matrix/fixture-profile-contract.mjs",
+                "tools/testing/fixture-catalog.mjs",
+                "tools/test-matrix/runtime-state-domain-catalog.mjs"
+            ],
+            "reason": "Preserve process environment names while consuming the full-roster migration source and correcting finite fixture classification and source observations."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "Preserve the declared SDK root and pinned content-field host environment names in the canonical wrapper."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/test-execution-envelope-applicability.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/fixture-profile-matrix.generated.json",
+                "config/testing/content-field-contracts.generated.json"
+            ],
+            "reason": "Preserve canonical applicability, schema, producer inventory and execution-target wire keys while regenerating actual candidate identities."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/runtime-state-equivalence.md"
+            ],
+            "reason": "Preserve existing caller-visible documentation spelling while explaining conditional observations; no CSS selector or token contract changes."
+        }
+    ]
+}

@@ -1035,7 +1035,11 @@ export function observeFixtureConsumerSource(sourcePath, content)
         observations.add('rejects legacy multi-worker session prep in browser-contract mode');
     }
 
-    if (/data-scale|scale\.article-comment/u.test(pathHint + text) && /seed|cleanup|probe/u.test(pathHint + text))
+    // Bind the operation to a generator script, rather than joining a resource
+    // helper's data-scale name with unrelated auth seed or readiness probe text.
+    const scaleProducerSource = /^(?:tools\/data-scale\/(?:seed|cleanup|probe)|tools\/test\/lanes\/data-scale)\.sh$/u.test(pathHint);
+    const scaleProducerReference = /(?:^|[/\s"'`])tools\/data-scale\/(?:seed|cleanup|probe)\.sh(?=$|[\s"'`};,)])/u.test(text);
+    if (scaleProducerSource || scaleProducerReference)
     {
         observations.add('scale data is produced by the scale-data generator for the selected scale profile only');
     }

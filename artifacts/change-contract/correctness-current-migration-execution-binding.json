@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/correctness-attempt-migration.mjs",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tools/test/run-matrix-governance-once.sh",
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tools/testing/fixture-catalog.mjs",
+        "tools/test-matrix/fixture-profile-contract.mjs",
+        "tests/tools/fixture-catalog.test.mjs",
+        "tests/tools/matrix-fixture-profile.test.mjs",
+        "tools/test-matrix/runtime-state-domain-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "af0ed65405e2bbd67766e86c6d36eaa965886bb56b1bae1070f2488e57c4a746"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+        },
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "25894e315ea042b54da3536a87cab5c2c42aaac3ac4f1aa13e05fc277951fc5f"
+        }
+    ]
+}

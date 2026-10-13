@@ -6,6 +6,18 @@ Production runtime correctness uses one state-access authority:
 exactly one observer implementation. Scheduler code, lane scripts and fixtures
 must not keep another domain, conflict or observer table.
 
+The static command analyzer preserves operation findings inside shell conditions,
+with the source expression, guard line and any recognized parameter aliases.
+The public-content invocation guard requires the matrix source, a nonempty sealed
+consumer and one of its two profile literals observed from the current shell
+source. Explicit `conditionEnvironment` values are diagnostic inputs to a
+three-valued observation (`true`, `false`, `unknown`), not sealed runtime evidence.
+Missing values, dynamic fallbacks and unsupported conditions remain unknown.
+Findings and undeclared-operation refusals remain present even when supplied
+diagnostic values evaluate a guard to false. Step or function names do not waive
+effects, and `RunTier` does not reseal a fixture profile. These source observations
+grant no runtime qualification or permission to omit state-domain evidence.
+
 ## Execution sessions
 
 `RuntimeExecutionSession` creates a distinct current-run/current-attempt root

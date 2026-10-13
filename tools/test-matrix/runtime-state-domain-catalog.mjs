@@ -99,16 +99,119 @@ export function analyzeRuntimeStateAccess(source)
     return [...new Set(analyzeRuntimeStateOperations(source).map((finding) => finding.domain))].sort();
 }
 
-export function analyzeRuntimeStateOperations(source, sourcePath = '<fixture>')
+function shellConditionOperand(value, aliases)
+{
+    const parameter = value.match(/^\$\{([A-Z_][A-Z0-9_]*):-([\s\S]*)\}$/u);
+    if (parameter)
+    {
+        return { parameter: parameter[1], fallback: /[$`]/u.test(parameter[2]) ? null : parameter[2] };
+    }
+    const variable = value.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/u);
+    return variable ? aliases.get(variable[1]) ?? { unknown: value } : { unknown: value };
+}
+
+function shellConditionPredicate(expression, aliases)
+{
+    // This closed shell form is observed from source, including its literals and
+    // aliases. Other shell syntax stays unknown; no function or step is exempt.
+    const match = expression.match(/^\[\[\s*"(\$\w+)"\s*==\s*"([^"$`]+)"\s*&&\s*-n\s*"(\$\{[A-Z_][A-Z0-9_]*:-\})"\s*&&\s*\(\s*"(\$\w+)"\s*==\s*"([^"$`]+)"\s*\|\|\s*"(\$\w+)"\s*==\s*"([^"$`]+)"\s*\)\s*\]\]$/u);
+    if (!match)
+    {
+        return null;
+    }
+    return { all: [
+        { operand: shellConditionOperand(match[1], aliases), equals: match[2] },
+        { operand: shellConditionOperand(match[3], aliases), nonempty: true },
+        { any: [
+            { operand: shellConditionOperand(match[4], aliases), equals: match[5] },
+            { operand: shellConditionOperand(match[6], aliases), equals: match[7] }
+        ] }
+    ] };
+}
+
+function evaluateShellCondition(predicate, environment)
+{
+    if (!predicate)
+    {
+        return 'unknown';
+    }
+    const children = predicate.all ?? predicate.any;
+    if (children)
+    {
+        const values = children.map((child) => evaluateShellCondition(child, environment));
+        const decisive = predicate.all ? 'false' : 'true';
+        return values.includes(decisive) ? decisive : values.includes('unknown') ? 'unknown' : predicate.all ? 'true' : 'false';
+    }
+    const operand = predicate.operand;
+    if (!operand?.parameter || !Object.hasOwn(environment, operand.parameter)
+        || typeof environment[operand.parameter] !== 'string')
+    {
+        return 'unknown';
+    }
+    const value = environment[operand.parameter] || operand.fallback;
+    if (value === null)
+    {
+        return 'unknown';
+    }
+    return (predicate.nonempty ? value.length > 0 : value === predicate.equals) ? 'true' : 'false';
+}
+
+function shellConditionsByLine(source, environment)
+{
+    const lines = source.split(/\r?\n/u);
+    const aliases = new Map();
+    const stack = [];
+    return lines.map((line, index) =>
+    {
+        const assignment = line.match(/^\s*(?:local\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u);
+        if (assignment)
+        {
+            const quoted = assignment[2].match(/^"([^"]*)"\s*$/u);
+            aliases.set(assignment[1], quoted ? shellConditionOperand(quoted[1], aliases) : { unknown: assignment[2] });
+        }
+        if (/^\s*fi(?:\s|;|$)/u.test(line))
+        {
+            stack.pop();
+        }
+        else if (/^\s*(?:else|elif)(?:\s|;|$)/u.test(line) && stack.length)
+        {
+            // Alternative branches and unsupported nested syntax remain
+            // conditional and unknown rather than reusing the then predicate.
+            stack[stack.length - 1] = { expression: line.trim(), line: index + 1, predicate: null, value: 'unknown' };
+        }
+        else if (/^\s*if\s+(?!\()/u.test(line))
+        {
+            const header = [];
+            for (let cursor = index; cursor < lines.length; cursor += 1)
+            {
+                header.push(lines[cursor].trim());
+                if (/;\s*then\s*(?:#.*)?$/u.test(lines[cursor]) || /^\s*then\s*(?:#.*)?$/u.test(lines[cursor]))
+                {
+                    break;
+                }
+            }
+            const expression = header.join(' ').replace(/^if\s+/u, '').replace(/;?\s*then\s*(?:#.*)?$/u, '');
+            const predicate = shellConditionPredicate(expression, aliases);
+            stack.push({ expression, line: index + 1, predicate, value: evaluateShellCondition(predicate, environment) });
+        }
+        return stack.map((condition) => ({ ...condition }));
+    });
+}
+
+export function analyzeRuntimeStateOperations(source, sourcePath = '<fixture>', { conditionEnvironment = {} } = {})
 {
     const findings = [];
     const seen = new Set();
+    const conditions = shellConditionsByLine(source, conditionEnvironment);
     const add = (operation, domain, matcher, lineNumber) =>
     {
         const key = `${operation}\0${domain}\0${sourcePath}\0${lineNumber}`;
         if (!seen.has(key))
         {
-            findings.push({ operation, domain, source: sourcePath, line: lineNumber, ruleId: `${domain}.${operation}`, matcher });
+            const guards = conditions[lineNumber - 1];
+            findings.push({ operation, domain, source: sourcePath, line: lineNumber, ruleId: `${domain}.${operation}`, matcher,
+                ...(guards.length ? { conditions: guards, conditionState: guards.some((guard) => guard.value === 'false')
+                    ? 'false' : guards.every((guard) => guard.value === 'true') ? 'true' : 'unknown' } : {}) });
         }
         seen.add(key);
     };
@@ -371,7 +474,7 @@ export function discoverShellCallNames(text, candidates)
     return [...candidates].filter((name) => new RegExp(`\\b${name}\\b`, 'u').test(code));
 }
 
-export function analyzeRuntimeStepCommand(step, { sourceOverrides = new Map() } = {})
+export function analyzeRuntimeStepCommand(step, { sourceOverrides = new Map(), conditionEnvironment = {} } = {})
 {
     const direct = commandSourcePaths(step.command ?? '');
     const entrySources = [...direct.sources];
@@ -445,7 +548,7 @@ export function analyzeRuntimeStepCommand(step, { sourceOverrides = new Map() } 
         {
             access.add(domain);
         }
-        findings.push(...analyzeRuntimeStateOperations(analyzedText, source));
+        findings.push(...analyzeRuntimeStateOperations(analyzedText, source, { conditionEnvironment }));
         const nestedSources = source.endsWith('.sh')
             ? staticShellSources(source, text)
             : source.endsWith('.mjs')
@@ -498,7 +601,7 @@ export function analyzeRuntimeStepCommand(step, { sourceOverrides = new Map() } 
         {
             continue;
         }
-        const operationFindings = analyzeRuntimeStateOperations(definition.body, `${definition.source}#${name}`);
+        const operationFindings = analyzeRuntimeStateOperations(definition.body, `${definition.source}#${name}`, { conditionEnvironment });
         findings.push(...operationFindings);
         for (const finding of operationFindings)
         {
@@ -717,7 +820,8 @@ export function validateRuntimeStateDomainCatalog(catalogPath = path.join(root, 
         {
             if (!entry[finding.operation]?.includes(finding.domain))
             {
-                errors.push(`${entry.stepId} analyzer detected undeclared ${finding.operation} ${finding.domain} at ${finding.source}:${finding.line} rule=${finding.ruleId}`);
+                const condition = finding.conditions ? ` conditional=${finding.conditionState} guards=${finding.conditions.map((guard) => guard.expression).join(' && ')}` : '';
+                errors.push(`${entry.stepId} analyzer detected undeclared ${finding.operation} ${finding.domain} at ${finding.source}:${finding.line} rule=${finding.ruleId}${condition}`);
             }
         }
         for (const resetField of ['resetBefore', 'resetAfter'])
