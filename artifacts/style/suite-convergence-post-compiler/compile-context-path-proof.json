@@ -1,0 +1,16 @@
+{
+  "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "actualMsbuildProperties": {
+    "Configuration": "Debug",
+    "TargetPath": "/workspace/FsusBlog/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "IntermediateOutputPath": "obj\\Debug/net10.0/"
+  },
+  "producerDeclaredIntermediateExists": false,
+  "actualIntermediatePath": "tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll",
+  "actualIntermediateExists": true,
+  "actualOutputExists": true,
+  "actualOutputSha256": "54169f405b1d28576d5c285e7407c37478f5e20626cc71b7353594a0fbfde87b",
+  "actualIntermediateSha256": "54169f405b1d28576d5c285e7407c37478f5e20626cc71b7353594a0fbfde87b",
+  "canonicalContextAccepted": false,
+  "limit": "Raw MSBuild IntermediateOutputPath contains a backslash on Linux; current canonical observer does not normalize it. No filesystem alias or fake compiler output created."
+}

@@ -1,0 +1,25 @@
+{
+  "master": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "candidate": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+  "cases": 17,
+  "identical": true,
+  "caseIds": [
+    "node-test:tests/tools/test-suite-convergence.test.mjs#2348-canonical-mfa-retirement-retains-before-identities--a4fe4944c8",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-accepts-runtime-artifacts-a-e2dc7d58d1",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-does-not-mistake-a-temporar-a8f8c27204",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-reconstructs-segmented-repo-86e7108d25",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#child-issue-evidence-requires-the-exact-closed-1032-thro-d560990262",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#compact-retention-audit-resolves-hashed-deletions-replac-2ab62f815c",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#convergence-plan-enforces-all-child-issues-exactly-once--b6ef7911c7",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#final-evidence-contracts-report-every-invalid-status-fie-0f187ef8af",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#issue-local-replacement-manifest-count-is-exact-e028734d05",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#matrix-is-the-single-current-command-and-retention-gover-2d95901b5e",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#path-migration-expansion-emits-every-exact-baseline-test-1ad9e3dc8a",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-chains-remain-acyclic-without-a-fixed-histor-d6df85c3cf",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-merge-accepts-identical-declarations-and-rep-96f182811c",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-accepts-a-declared-deletion-whose-replac-c6090891ca",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-inherits-pre-baseline-declarations-but-r-ab0022c0f5",
+    "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304"
+  ]
+}

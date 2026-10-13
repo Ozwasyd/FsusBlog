@@ -1,0 +1,506 @@
+{
+  "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "counts": {
+    "total": "728",
+    "executed": "728",
+    "passed": "676",
+    "failed": "52",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "classCounts": {
+    "PublicArtifactRevocationTests": {
+      "Passed": 50
+    },
+    "AuthoringExtensionPackagePersistenceTests": {
+      "Passed": 51
+    },
+    "SpaAssetManifestServiceTests": {
+      "Passed": 73
+    },
+    "DocumentExportHtmlProviderTests": {
+      "Failed": 21,
+      "Passed": 10
+    },
+    "AuthoringExtensionRpcTests": {
+      "Passed": 110,
+      "Failed": 1
+    },
+    "ArticleVaultExecutionTests": {
+      "Passed": 33
+    },
+    "DocumentExportContractTests": {
+      "Passed": 70
+    },
+    "AuthoringCommandContributionTests": {
+      "Passed": 43,
+      "Failed": 1
+    },
+    "DocumentExportSystemdCgroupAuthorityTests": {
+      "Failed": 3,
+      "Passed": 11
+    },
+    "PrivateAssetDeliveryTests": {
+      "Passed": 28
+    },
+    "AuthoringExtensionExecutionResolverTests": {
+      "Passed": 20,
+      "Failed": 1
+    },
+    "DocumentExportSandboxTests": {
+      "Failed": 22,
+      "Passed": 14
+    },
+    "PrivateAssetStoreTests": {
+      "Passed": 39
+    },
+    "AuthoringExtensionServiceBrokerTests": {
+      "Passed": 45,
+      "Failed": 1
+    },
+    "AuthoringExtensionWorkerSandboxTests": {
+      "Failed": 2,
+      "Passed": 29
+    },
+    "CanonicalArticlePublicationFixturePortTests": {
+      "Passed": 34
+    },
+    "PublicHotReadDbAdmissionTests": {
+      "Passed": 16
+    }
+  },
+  "failures": [
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<svg><use href=\\\"https://example.com/remote.svg#ic\"\u00b7\u00b7\u00b7)",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSystemdCgroupAuthorityTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsDigestOrVersionDriftBeforeTheBusinessUnitAdmissionCall",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsDigestOrVersionDriftBeforeTheBusinessUnitAdmissionCall() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs:line 204\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "AuthoringExtensionRpcTests",
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0\u00e9\\ud834\\udd1e\ufffd\ufffd\ufffd\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"\u00b7\u00b7\u00b7)",
+      "outcome": "Failed",
+      "message": "Assert.Equal() Failure: Strings differ\n           \u2193 (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"\u00b7\u00b7\u00b7\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"\u00b7\u00b7\u00b7\n           \u2191 (pos 0)",
+      "stack": "   at FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(String text, String digest) in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcTests.cs:line 727\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "code/contract"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConcurrentTasksHaveDistinctRunOwnershipAndNoResidualFiles",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConcurrentTasksHaveDistinctRunOwnershipAndNoResidualFiles() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 378\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ProcessCountBudgetTerminatesTreeAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.OwnsDeepFrozenInputBeforeAwaitAndIgnoresCallerMutation",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.OwnsDeepFrozenInputBeforeAwaitAndIgnoresCallerMutation() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 302\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "AuthoringExtensionWorkerSandboxTests",
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_ExecutesVerifiedWasmInsideObservedNamespaces",
+      "outcome": "Failed",
+      "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
+      "stack": "   at System.IO.FileSystem.ResolveLinkTarget(String linkPath, Boolean returnFinalTarget, Boolean isDirectory)\n   at FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_ExecutesVerifiedWasmInsideObservedNamespaces() in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs:line 304\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.OutputBudgetRejectsBeforeReadingAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<a href=\\\"#missing\\\">missing target</a>\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.WallBudgetTerminatesTreeAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CpuBudgetTerminatesTreeAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CpuBudgetTerminatesTreeAndSealsFailureReceipt() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 217\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"two-files\")",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(String mode) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 347\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass18_0.<RejectsArtifactMutationAndPreservesQualifiedFailureReceipt>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 348",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.PreStartFailureCleansRunDirectoryAndSealsReceiptWithoutClaimingIsolation",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.PreStartFailureCleansRunDirectoryAndSealsReceiptWithoutClaimingIsolation() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 147\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p style=\\\"background:url(https://example.com/a)\\\"\"\u00b7\u00b7\u00b7)",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(themeProfile: \"light-v1\", direction: \"ltr\", background: \"#FFFFFF\", foreground: \"#0F0F11\", muted: \"#71717A\", link: \"#2A599C\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(String themeProfile, String direction, String background, String foreground, String muted, String link) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 185\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"symlink-output\")",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(String mode) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 347\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass18_0.<RejectsArtifactMutationAndPreservesQualifiedFailureReceipt>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 348",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConstructorRejectsRegistryAndLimitDriftBeforeCreatingItsRunRoot",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConstructorRejectsRegistryAndLimitDriftBeforeCreatingItsRunRoot() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 98\n   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)\n   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)\n   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)\n   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass3_0.<ConstructorRejectsRegistryAndLimitDriftBeforeCreatingItsRunRoot>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 98",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<a href=\\\"javascript:alert(1)\\\">bad</a>\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.TreatsUserStringsAsInputBytesInsteadOfArguments",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.TreatsUserStringsAsInputBytesInsteadOfArguments() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 363\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(observePageEbookLimit: False, expectedWarningCount: 0)",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(Boolean observePageEbookLimit, Int32 expectedWarningCount) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 218\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p id=\\\"duplicate\\\">a</p><p id=\\\"duplicate\\\">b</p>\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardErrorBudgetDrainsBoundedlyAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(themeProfile: \"dark-v1\", direction: \"rtl\", background: \"#09090B\", foreground: \"#F0F0F4\", muted: \"#A1A1AA\", link: \"#4B79CC\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(String themeProfile, String direction, String background, String foreground, String muted, String link) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 185\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.IndependentVerifierRejectsReceiptAndBuildIdentityTamper",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.IndependentVerifierRejectsReceiptAndBuildIdentityTamper() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 394\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<script>alert(1)</script>\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.UsesExactBrokeredToolMinimalEnvironmentNoNetworkAndPostCleanupReceipt",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.UsesExactBrokeredToolMinimalEnvironmentNoNetworkAndPostCleanupReceipt() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 19\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSystemdCgroupAuthorityTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs:line 270\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img data-asset-id=\\\"3f3b2e7a-1d2e-4f8a-9c5b-6a7b8\"\u00b7\u00b7\u00b7)",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(observePageEbookLimit: True, expectedWarningCount: 1)",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(Boolean observePageEbookLimit, Int32 expectedWarningCount) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 218\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CancellationKillsOwnedProcessTreeThenSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CancellationKillsOwnedProcessTreeThenSealsFailureReceipt() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 123\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderPreservesAllowedTailAfterCompleteValidPrefix",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderPreservesAllowedTailAfterCompleteValidPrefix() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 155\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 512\n   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)\n   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)\n   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)\n   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.InputAndMessageBudgetsRejectBeforeRunAdmission",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.InputAndMessageBudgetsRejectBeforeRunAdmission() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 300\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "AuthoringExtensionExecutionResolverTests",
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface",
+      "outcome": "Failed",
+      "message": "Assert.All() Failure: 1 out of 12 items in the collection did not pass.\n[10]: Item:  typeof(FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry)\n      Error: FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry+<>O.<0>__IsControl: Func/Action",
+      "stack": "   at FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface() in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs:line 307\n   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)\n   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)",
+      "observedBlockerClass": "code/contract"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(observedCsv: \"headings,unknown-feature\")",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(String observedCsv) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 243\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.<>c__DisplayClass9_0.<RejectsUnknownOrDuplicateObservedFeatures>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 244",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardOutputBudgetDrainsBoundedlyAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderRejectsFullySealedPrematureWrapperCloseAfterCompleteValidPrefix",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderRejectsFullySealedPrematureWrapperCloseAfterCompleteValidPrefix() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 142\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.<>c__DisplayClass5_0.<ProviderRejectsFullySealedPrematureWrapperCloseAfterCompleteValidPrefix>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 142",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img src=\\\"https://example.com/a.png\\\" data-asset-\"\u00b7\u00b7\u00b7)",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSystemdCgroupAuthorityTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsClosedWorkloadDriftBeforeAnyTransientServiceCanStart",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsClosedWorkloadDriftBeforeAnyTransientServiceCanStart() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs:line 175\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProducesStableOfflineFullSyntaxDocumentAndQualifiedReceipt",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProducesStableOfflineFullSyntaxDocumentAndQualifiedReceipt() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 28\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.DaemonizedSessionCannotEscapeWallLimitOrCgroupCleanup",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.DaemonizedSessionCannotEscapeWallLimitOrCgroupCleanup() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 253\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileBytesBudgetTerminatesAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.MemoryBudgetTerminatesTreeAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "AuthoringExtensionWorkerSandboxTests",
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_BenignNetworkImportIsRejectedBeforeReadiness",
+      "outcome": "Failed",
+      "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
+      "stack": "   at System.IO.FileSystem.ResolveLinkTarget(String linkPath, Boolean returnFinalTarget, Boolean isDirectory)\n   at FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_BenignNetworkImportIsRejectedBeforeReadiness() in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs:line 373\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsUnregisteredShellFloatingPathAndChangedExecutableBytes",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsUnregisteredShellFloatingPathAndChangedExecutableBytes() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 64\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(observedCsv: \"headings,headings\")",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(String observedCsv) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 243\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.<>c__DisplayClass9_0.<RejectsUnknownOrDuplicateObservedFeatures>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 244",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "AuthoringCommandContributionTests",
+      "name": "FsusBlog.Server.Tests.AuthoringCommandContributionTests.TransactionAdapter_AppliesMutationThroughCanonicalRpcOnce",
+      "outcome": "Failed",
+      "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Mutation preview does not bind the exact approved plan and host context.",
+      "stack": "   at FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionRpcAuthority.ValidateMutationPlan(AuthoringMutationPlan plan, AuthoringRpcEnvelope envelope, AuthoringMutationApproval approval) in /workspace/FsusBlog/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:line 1049\n   at FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionRpcAuthority.ApplyMutationAsync(AuthoringRpcEnvelope envelope, AuthoringMutationApproval approval, CancellationToken cancellationToken) in /workspace/FsusBlog/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:line 838\n   at FsusBlog.Server.Tests.AuthoringCommandContributionTests.TransactionAdapter_AppliesMutationThroughCanonicalRpcOnce() in /workspace/FsusBlog/tests/backend/Unit/AuthoringCommandContributionTests.cs:line 382\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "code/contract"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<iframe srcdoc=\\\"bad\\\"></iframe>\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p onclick=\\\"alert(1)\\\">bad</p>\")",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(String fragment) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 88\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "DocumentExportHtmlProviderTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.IndependentVerifierRejectsOutputReceiptAndSandboxTamper",
+      "outcome": "Failed",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.CreateProvider(DocumentExportTestToolFixture fixture) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 780\n   at FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.IndependentVerifierRejectsOutputReceiptAndSandboxTamper() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportHtmlProviderTests.cs:line 330\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "environment"
+    },
+    {
+      "class": "AuthoringExtensionServiceBrokerTests",
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionServiceBrokerTests.LinuxRuntime_OwnsObservedNamespaceSessionAndClosedTransport",
+      "outcome": "Failed",
+      "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Service readiness handshake is missing or not closed.",
+      "stack": "   at FsusBlog.Server.Infrastructure.AuthoringExtensions.LinuxBubblewrapAuthoringServiceRuntime.ParseHealth(String line) in /workspace/FsusBlog/src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs:line 149\n   at FsusBlog.Server.Infrastructure.AuthoringExtensions.LinuxBubblewrapAuthoringServiceRuntime.StartAsync(AuthoringServiceLaunchDescriptor descriptor, CancellationToken cancellationToken) in /workspace/FsusBlog/src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs:line 60\n   at FsusBlog.Server.Infrastructure.AuthoringExtensions.LinuxBubblewrapAuthoringServiceRuntime.StartAsync(AuthoringServiceLaunchDescriptor descriptor, CancellationToken cancellationToken) in /workspace/FsusBlog/src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs:line 83\n   at FsusBlog.Server.Tests.AuthoringExtensionServiceBrokerTests.LinuxRuntime_OwnsObservedNamespaceSessionAndClosedTransport() in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs:line 941\n--- End of stack trace from previous location ---",
+      "observedBlockerClass": "code/contract"
+    },
+    {
+      "class": "DocumentExportSandboxTests",
+      "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileCountBudgetTerminatesAndSealsFailureReceipt",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "stack": "   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.AssertBudget(String mode, String failureCode, DocumentExportResourceBudgets executionLimits, CancellationToken cancellationToken) in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 318\n--- End of stack trace from previous location ---\n----- Inner Stack Trace -----\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment() in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 1584\n   at FsusBlog.Server.Services.DocumentExport.DocumentExportSystemdCgroupAuthority..ctor(DocumentExportSystemdCgroupAuthorityContract contract, Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs:line 98\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateAuthority(Int32 cpuPollIntervalMilliseconds) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 68\n   at FsusBlog.Server.Tests.Helpers.DocumentExportTestToolFixture.CreateSandbox(DocumentExportToolContract tool, DocumentExportResourceBudgets executionLimits) in /workspace/FsusBlog/tests/backend/Helpers/DocumentExportTestToolFixture.cs:line 73\n   at FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.<>c__DisplayClass17_0.<AssertBudget>b__0() in /workspace/FsusBlog/tests/backend/Unit/DocumentExportSandboxTests.cs:line 319",
+      "observedBlockerClass": "environment"
+    }
+  ],
+  "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+  "qualified": false,
+  "failureClasses": {
+    "environment": 48,
+    "code/contract": 4
+  }
+}

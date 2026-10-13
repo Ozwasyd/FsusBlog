@@ -1,0 +1,70 @@
+[
+  {
+    "name": "dotnet302-identity",
+    "command": [
+      "/tmp/fsusblog-3593/dotnet302/dotnet",
+      "--info"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "node16-identity",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "--version"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "docker-capability",
+    "command": [
+      "docker",
+      "version"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "cxx-capability",
+    "command": [
+      "g++",
+      "--version"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "systemd-user-capability",
+    "command": [
+      "systemctl",
+      "--user",
+      "status"
+    ],
+    "exitCode": 1
+  },
+  {
+    "name": "bwrap-capability",
+    "command": [
+      "bwrap",
+      "--unshare-user",
+      "--ro-bind",
+      "/",
+      "/",
+      "--proc",
+      "/proc",
+      "/usr/bin/true"
+    ],
+    "exitCode": 1
+  },
+  {
+    "name": "browser-capability",
+    "command": [
+      "chromium",
+      "--version"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "postgres-client",
+    "path": null,
+    "status": "not installed"
+  }
+]

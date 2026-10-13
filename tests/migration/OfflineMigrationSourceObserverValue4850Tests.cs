@@ -39,22 +39,35 @@ public sealed class OfflineMigrationSourceObserverValue4850Tests
         OfflineMigrationSourceObservation accepted = Observation(provider, true);
         int column = Array.FindIndex(accepted.Schema.ToArray(), fact => fact.Name == "column/article/title");
         Assert.True(column >= 0);
-        AssertUnknown(accepted with { Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with { Value = "changed" }) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.RemoveAt(column) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.Add(new("column/article/unknown", "present")) });
+        AssertUnknown(accepted with { Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with { Value = "changed" }) },
+            OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Changed,
+            accepted.Schema[column].Name, accepted.Schema[column].Value, "changed");
+        AssertUnknown(accepted with { Schema = accepted.Schema.RemoveAt(column) },
+            OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Missing,
+            accepted.Schema[column].Name, accepted.Schema[column].Value, null);
+        AssertUnknown(accepted with { Schema = accepted.Schema.Add(new("column/article/unknown", "present")) },
+            OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Extra,
+            "column/article/unknown", null, "present");
         foreach (OfflineMigrationFact fact in accepted.BusinessShape.Where(fact => fact.Name != "business.profile"))
         {
             AssertUnknown(accepted with
             {
                 BusinessShape = accepted.BusinessShape.Select(value => value.Name == fact.Name ? value with { Value = "1" } : value).ToImmutableArray()
-            });
+            }, OfflineMigrationFingerprintCategory.Business, OfflineMigrationFingerprintDifferenceKind.Changed,
+                fact.Name, fact.Value, "1");
         }
         Assert.Equal(OfflineMigrationSourceFingerprints.LegacyId, registry.Match(accepted).Id);
 
-        void AssertUnknown(OfflineMigrationSourceObservation changed)
+        void AssertUnknown(OfflineMigrationSourceObservation changed,
+            OfflineMigrationFingerprintCategory category, OfflineMigrationFingerprintDifferenceKind kind,
+            string factName, string? expectedValue, string? actualValue)
         {
-            InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() => registry.Match(changed));
-            Assert.StartsWith("source_fingerprint_unknown:", refusal.Message, StringComparison.Ordinal);
+            OfflineMigrationSourceFingerprintException refusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() => registry.Match(changed));
+            int expectedCount = category == OfflineMigrationFingerprintCategory.Schema ? accepted.Schema.Length : accepted.BusinessShape.Length;
+            int actualCount = category == OfflineMigrationFingerprintCategory.Schema ? changed.Schema.Length : changed.BusinessShape.Length;
+            OfflineMigrationSourceObserverValueAssertions.Unknown(refusal, OfflineMigrationSourceFingerprints.LegacyId,
+                OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.LegacyId,
+                    category, kind, factName, expectedValue, actualValue, expectedCount, actualCount));
         }
     }
 
@@ -67,10 +80,24 @@ public sealed class OfflineMigrationSourceObserverValue4850Tests
         OfflineMigrationSourceRegistry registry = OfflineMigrationSourceFingerprints.CreateRegistry();
         OfflineMigrationSourceObservation empty = Observation(provider, false);
         OfflineMigrationSourceObservation old = Observation(provider, true);
-        Assert.Throws<InvalidOperationException>(() => registry.Match(empty with { Schema = empty.Schema.Add(new("table/unknown", "base")) }));
-        Assert.Throws<InvalidOperationException>(() => registry.Match(old with { History = [new("history.state", "partial")] }));
-        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceFingerprints.RequireKnownSchema(provider,
-            old.Schema.Add(new("table/schema_migration", "base"))));
+        OfflineMigrationSourceFingerprintException emptyRefusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            registry.Match(empty with { Schema = empty.Schema.Add(new("table/unknown", "base")) }));
+        OfflineMigrationSourceObserverValueAssertions.Unknown(emptyRefusal, OfflineMigrationSourceFingerprints.EmptyId,
+            OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.EmptyId,
+                OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Extra,
+                "table/unknown", null, "base", empty.Schema.Length, empty.Schema.Length + 1));
+        OfflineMigrationSourceFingerprintException historyRefusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            registry.Match(old with { History = [new("history.state", "partial")] }));
+        OfflineMigrationSourceObserverValueAssertions.Unknown(historyRefusal, OfflineMigrationSourceFingerprints.LegacyId,
+            OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.LegacyId,
+                OfflineMigrationFingerprintCategory.History, OfflineMigrationFingerprintDifferenceKind.Changed,
+                "history.state", "absent", "partial", old.History.Length, 1));
+        OfflineMigrationSourceFingerprintException schemaRefusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, old.Schema.Add(new("table/schema_migration", "base"))));
+        OfflineMigrationSourceObserverValueAssertions.Unknown(schemaRefusal, OfflineMigrationSourceFingerprints.LegacyId,
+            OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.LegacyId,
+                OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Extra,
+                "table/schema_migration", null, "base", old.Schema.Length, old.Schema.Length + 1));
         Assert.False(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, empty.Schema));
         Assert.True(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, old.Schema));
     }
@@ -126,9 +153,26 @@ public sealed class OfflineMigrationSourceObserverValue4850Tests
     public async Task MissingNativeFullContentCapabilityFailsBeforeConnection(CurrentSchemaProviderKind provider)
     {
         using var cancellation = new CancellationTokenSource();
-        InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        if (Enum.IsDefined(provider))
+        {
+            // Public native provider paths now exist. The historical unsupported-provider
+            // string assertion is replaced by the existing original wrong-driver/held-session
+            // control, which still requires refusal before connection or catalog I/O.
+            await using var unrelated = new Npgsql.NpgsqlConnection();
+            Assert.Equal(System.Data.ConnectionState.Closed, unrelated.State);
+            InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                new OfflineMigrationSourceObserver().ObserveAsync(provider, unrelated, null!, cancellation.Token));
+            Assert.Equal(provider == CurrentSchemaProviderKind.Sqlite
+                ? "offline_sqlite_identity_held_native_transaction_required"
+                : "offline_source_native_streaming_driver_required", refusal.Message);
+            Assert.Null(refusal.InnerException);
+            Assert.Equal(System.Data.ConnectionState.Closed, unrelated.State);
+            return;
+        }
+        InvalidOperationException unknown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             new OfflineMigrationSourceObserver().ObserveAsync(provider, "not-a-database-connection", cancellation.Token));
-        Assert.Equal(Enum.IsDefined(provider) ? "offline_source_provider_full_content_capability_unavailable" : "offline_source_provider_unknown", refusal.Message);
+        Assert.Equal("offline_source_provider_unknown", unknown.Message);
+        Assert.Null(unknown.InnerException);
     }
 
     [Theory]

@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "ca427ddec14ac49fd1f38993661696a8765d1952",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "node tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js --config eslint.config.mjs --fix --rule \"@stylistic/semi: off\" --rule \"import-x/order: off\" --rule \"curly: off\" tests/tools/test-suite-convergence.test.mjs"
+    },
+    "paths": [
+        "tests/tools/test-suite-convergence.test.mjs"
+    ],
+    "firstPassTreeSha256": "21017584e95286e6236b19fed3ccd71b7622ca6cfcafeed23b844947ca70698b",
+    "secondPassTreeSha256": "21017584e95286e6236b19fed3ccd71b7622ca6cfcafeed23b844947ca70698b",
+    "idempotent": true,
+    "mechanicalPass": {
+        "firstPassTreeSha256": "4b37ab83e37aaa85aad9657dfc901941a03135cafe3d04bcef57a0ab0c6d63a8",
+        "secondPassTreeSha256": "4b37ab83e37aaa85aad9657dfc901941a03135cafe3d04bcef57a0ab0c6d63a8",
+        "astTokenCommentEquivalent": true
+    },
+    "note": "Formatter disables only token-changing fixes during the layout stage; canonical lint and the later style-admission commit apply every original rule."
+}

@@ -1,0 +1,2773 @@
+{
+  "schema": "fsusblog.owned-chain-failure-routing.v1",
+  "runId": "2026-10-08T04:31:15.540499+00:00",
+  "assignment": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "master": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "testedUnitCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "sourceAndClassificationCheckpoint": "d3d7feb7f5018c9adfaf809bc71854592e0237db",
+  "recordCount": 56,
+  "records": [
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<svg><use href=\\\"https://example.com/remote.svg#ic\"···)",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsDigestOrVersionDriftBeforeTheBusinessUnitAdmissionCall",
+      "testClass": "DocumentExportSystemdCgroupAuthorityTests",
+      "testSource": "tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs",
+      "testDeclarationLine": 195,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs",
+          "line": 204
+        }
+      ],
+      "testedSourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+      "masterSourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3580,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "ResolveControlEnvironment refuses missing owned /run/user/<uid>/bus before the original contract-drift controls reach the business-unit admission call.",
+      "smallestNextCapabilityOrRepair": "Actual owned systemd user manager and its bus, then original delegated cgroup/containment authority; no fake DBus/session identity.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0é\\ud834\\udd1e���\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"···)",
+      "testClass": "AuthoringExtensionRpcTests",
+      "testSource": "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+      "testDeclarationLine": 713,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+          "line": 727
+        }
+      ],
+      "testedSourceBlob": "081ffad3608925cacb6901695436b79795189d62",
+      "masterSourceBlob": "081ffad3608925cacb6901695436b79795189d62",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3564,
+      "kind": "compiled-InlineData-input-corruption",
+      "cause": "Original source encodes terminal unpaired U+D800. The actual compiled InlineData material ends with U+FFFD three times. Directly invoking the unchanged original method with intended UTF-16 passes the independent golden digest; compiled-attribute input retains the original failure.",
+      "smallestNextCapabilityOrRepair": "No missing physical capability. Canonical RPC test owner must preserve the original invalid-UTF16 vector/case and literal expected digest with a governed lossless executable input; no digest weakening or production hash rewrite.",
+      "message": "Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Passed",
+        "sourceBlob": "4fdac10903ec2517708edd26d17befd7a81a6dac",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConcurrentTasksHaveDistinctRunOwnershipAndNoResidualFiles",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 375,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 378
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ProcessCountBudgetTerminatesTreeAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 188,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.OwnsDeepFrozenInputBeforeAwaitAndIgnoresCallerMutation",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 277,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 302
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_ExecutesVerifiedWasmInsideObservedNamespaces",
+      "testClass": "AuthoringExtensionWorkerSandboxTests",
+      "testSource": "tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs",
+      "testDeclarationLine": 298,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs",
+          "line": 304
+        }
+      ],
+      "testedSourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
+      "masterSourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3574,
+      "kind": "pinned-native-worker-host-missing",
+      "cause": "File.ResolveLinkTarget at the original absolute /usr/local/bin/node fails before the real worker launches. Official task-scoped Node exists but does not fulfill the original fixture absolute-host contract.",
+      "smallestNextCapabilityOrRepair": "Provide the actual admitted Node at the original worker-host path or an owner-governed fixture host binding; then actual bwrap namespaces/mounts and original WASM controls. Do not substitute a fake host.",
+      "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.OutputBudgetRejectsBeforeReadingAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 271,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<a href=\\\"#missing\\\">missing target</a>\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.WallBudgetTerminatesTreeAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 241,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CpuBudgetTerminatesTreeAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 208,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 217
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"two-files\")",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 343,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 347
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 348
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.PreStartFailureCleansRunDirectoryAndSealsReceiptWithoutClaimingIsolation",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 144,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 147
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p style=\\\"background:url(https://example.com/a)\\\"\"···)",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(themeProfile: \"light-v1\", direction: \"ltr\", background: \"#FFFFFF\", foreground: \"#0F0F11\", muted: \"#71717A\", link: \"#2A599C\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 165,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 185
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"symlink-output\")",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 343,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 347
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 348
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConstructorRejectsRegistryAndLimitDriftBeforeCreatingItsRunRoot",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 95,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 98
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 98
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<a href=\\\"javascript:alert(1)\\\">bad</a>\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.TreatsUserStringsAsInputBytesInsteadOfArguments",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 359,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 363
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(observePageEbookLimit: False, expectedWarningCount: 0)",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 204,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 218
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p id=\\\"duplicate\\\">a</p><p id=\\\"duplicate\\\">b</p>\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardErrorBudgetDrainsBoundedlyAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 279,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(themeProfile: \"dark-v1\", direction: \"rtl\", background: \"#09090B\", foreground: \"#F0F0F4\", muted: \"#A1A1AA\", link: \"#4B79CC\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 165,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 185
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.IndependentVerifierRejectsReceiptAndBuildIdentityTamper",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 391,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 394
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<script>alert(1)</script>\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.UsesExactBrokeredToolMinimalEnvironmentNoNetworkAndPostCleanupReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 16,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 19
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu",
+      "testClass": "DocumentExportSystemdCgroupAuthorityTests",
+      "testSource": "tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs",
+      "testDeclarationLine": 230,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs",
+          "line": 270
+        }
+      ],
+      "testedSourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+      "masterSourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3580,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "ResolveControlEnvironment refuses missing owned /run/user/<uid>/bus before the original contract-drift controls reach the business-unit admission call.",
+      "smallestNextCapabilityOrRepair": "Actual owned systemd user manager and its bus, then original delegated cgroup/containment authority; no fake DBus/session identity.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img data-asset-id=\\\"3f3b2e7a-1d2e-4f8a-9c5b-6a7b8\"···)",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(observePageEbookLimit: True, expectedWarningCount: 1)",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 204,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 218
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CancellationKillsOwnedProcessTreeThenSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 119,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 123
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderPreservesAllowedTailAfterCompleteValidPrefix",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 146,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 155
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 494,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 512
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.InputAndMessageBudgetsRejectBeforeRunAdmission",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 291,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 300
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface",
+      "testClass": "AuthoringExtensionExecutionResolverTests",
+      "testSource": "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs",
+      "testDeclarationLine": 290,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs",
+          "line": 307
+        }
+      ],
+      "testedSourceBlob": "eb991a9c1f9b5084106df61756a6d028e8a44a30",
+      "masterSourceBlob": "eb991a9c1f9b5084106df61756a6d028e8a44a30",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3566,
+      "kind": "compiled-delegate-cache-surface",
+      "cause": "The unchanged negative compiled-surface assertion sees ClosedTrustedAuthoringAdapterRegistry+<>O.<0>__IsControl as Func/Action. Source method-group Any(char.IsControl) produces a compiler-owned static delegate cache; nested dynamic/erased surfaces remain prohibited.",
+      "smallestNextCapabilityOrRepair": "No missing physical capability. Resolver owner must reconcile original source/compiled contract while retaining nested Func/Action/dynamic refusal controls; no blanket generated-member exclusion or assertion removal.",
+      "message": "Assert.All() Failure: 1 out of 12 items in the collection did not pass.\n[10]: Item:  typeof(FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry)\n      Error: FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry+<>O.<0>__IsControl: Func/Action",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Passed",
+        "sourceBlob": "536842a5cb29074e47a2ea97018c399d94fe896e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(observedCsv: \"headings,unknown-feature\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 233,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 243
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 244
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardOutputBudgetDrainsBoundedlyAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 275,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderRejectsFullySealedPrematureWrapperCloseAfterCompleteValidPrefix",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 133,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 142
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 142
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img src=\\\"https://example.com/a.png\\\" data-asset-\"···)",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsClosedWorkloadDriftBeforeAnyTransientServiceCanStart",
+      "testClass": "DocumentExportSystemdCgroupAuthorityTests",
+      "testSource": "tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs",
+      "testDeclarationLine": 173,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs",
+          "line": 175
+        }
+      ],
+      "testedSourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+      "masterSourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3580,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "ResolveControlEnvironment refuses missing owned /run/user/<uid>/bus before the original contract-drift controls reach the business-unit admission call.",
+      "smallestNextCapabilityOrRepair": "Actual owned systemd user manager and its bus, then original delegated cgroup/containment authority; no fake DBus/session identity.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProducesStableOfflineFullSyntaxDocumentAndQualifiedReceipt",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 21,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 28
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.DaemonizedSessionCannotEscapeWallLimitOrCgroupCleanup",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 251,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 253
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileBytesBudgetTerminatesAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 287,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.MemoryBudgetTerminatesTreeAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 198,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_BenignNetworkImportIsRejectedBeforeReadiness",
+      "testClass": "AuthoringExtensionWorkerSandboxTests",
+      "testSource": "tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs",
+      "testDeclarationLine": 365,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs",
+          "line": 373
+        }
+      ],
+      "testedSourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
+      "masterSourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3574,
+      "kind": "pinned-native-worker-host-missing",
+      "cause": "File.ResolveLinkTarget at the original absolute /usr/local/bin/node fails before the real worker launches. Official task-scoped Node exists but does not fulfill the original fixture absolute-host contract.",
+      "smallestNextCapabilityOrRepair": "Provide the actual admitted Node at the original worker-host path or an owner-governed fixture host binding; then actual bwrap namespaces/mounts and original WASM controls. Do not substitute a fake host.",
+      "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsUnregisteredShellFloatingPathAndChangedExecutableBytes",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 61,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 64
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(observedCsv: \"headings,headings\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 233,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 243
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 244
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.AuthoringCommandContributionTests.TransactionAdapter_AppliesMutationThroughCanonicalRpcOnce",
+      "testClass": "AuthoringCommandContributionTests",
+      "testSource": "tests/backend/Unit/AuthoringCommandContributionTests.cs",
+      "testDeclarationLine": 373,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+          "line": 1049
+        },
+        {
+          "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+          "line": 838
+        },
+        {
+          "path": "tests/backend/Unit/AuthoringCommandContributionTests.cs",
+          "line": 382
+        }
+      ],
+      "testedSourceBlob": "74bea3f64246391282fd3eadf691d8c39c2ab3e4",
+      "masterSourceBlob": "74bea3f64246391282fd3eadf691d8c39c2ab3e4",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3568,
+      "kind": "unbound-approved-preview-fixture",
+      "cause": "CreateTransactionFixtureAsync supplies PreviewDigest as repeated d rather than the exact approved plan/envelope digest. Original production ValidateMutationPlan rejects it before mutation; the canonical once-only transaction assertions are not reached.",
+      "smallestNextCapabilityOrRepair": "No missing physical capability. Command owner must bind independent approved preview material to the actual plan/host context, preserving mutation count, denial and replay controls; no production approval bypass.",
+      "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Mutation preview does not bind the exact approved plan and host context.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Passed",
+        "sourceBlob": "8994d265845ef0182ef003ba935ad7088034def5",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<iframe srcdoc=\\\"bad\\\"></iframe>\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p onclick=\\\"alert(1)\\\">bad</p>\")",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 81,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 88
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.IndependentVerifierRejectsOutputReceiptAndSandboxTamper",
+      "testClass": "DocumentExportHtmlProviderTests",
+      "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "testDeclarationLine": 324,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 780
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "line": 330
+        }
+      ],
+      "testedSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "masterSourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3560,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before renderer admission at DocumentExportSystemdCgroupAuthority.ResolveControlEnvironment; negative controls receive PlatformNotSupportedException before the intended renderer/budget refusal.",
+      "smallestNextCapabilityOrRepair": "Real /run/user/<uid>/bus, owned user manager, delegated cgroup-v2 and admitted original bwrap/static renderer profile. Preserve all failure/cleanup controls.",
+      "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.AuthoringExtensionServiceBrokerTests.LinuxRuntime_OwnsObservedNamespaceSessionAndClosedTransport",
+      "testClass": "AuthoringExtensionServiceBrokerTests",
+      "testSource": "tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs",
+      "testDeclarationLine": 909,
+      "failureCallSites": [
+        {
+          "path": "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs",
+          "line": 149
+        },
+        {
+          "path": "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs",
+          "line": 60
+        },
+        {
+          "path": "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs",
+          "line": 83
+        },
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs",
+          "line": 941
+        }
+      ],
+      "testedSourceBlob": "61bf0bb69e47ca7d422ca9c5835e75c2607a672e",
+      "masterSourceBlob": "61bf0bb69e47ca7d422ca9c5835e75c2607a672e",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3572,
+      "kind": "protected-native-namespace-admission",
+      "cause": "Original LinuxBubblewrapAuthoringServiceRuntime drains child stderr and sees no closed readiness line. A real same-prefix prlimit/bwrap --unshare-all probe fails with uid-map read-only denial before payload execution; this is an unavailable native admission stage, not proved protocol correctness.",
+      "smallestNextCapabilityOrRepair": "An admitted Linux environment allowing the original unshare-all UID-map/session profile. Rerun the original readiness/namespace/session/transport test; no forged ready line or weaker isolation.",
+      "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Service readiness handshake is missing or not closed.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "61bf0bb69e47ca7d422ca9c5835e75c2607a672e",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "tracking-728",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileCountBudgetTerminatesAndSealsFailureReceipt",
+      "testClass": "DocumentExportSandboxTests",
+      "testSource": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "testDeclarationLine": 283,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 318
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 1584
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+          "line": 98
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 68
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "line": 73
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "line": 319
+        }
+      ],
+      "testedSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "masterSourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+      "byteIdenticalToMaster": true,
+      "responsibleIssue": 3578,
+      "kind": "active-owned-systemd-user-manager",
+      "cause": "Production authority refuses before sandbox allocation/admission; Assert.Throws mismatch is caused by the earlier real PlatformNotSupportedException. No budget, tamper or cleanup success is inferred.",
+      "smallestNextCapabilityOrRepair": "Real owned systemd user manager/bus, writable delegated cgroup-v2 and admitted bwrap/prlimit profile; original complete sandbox suite must rerun.",
+      "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
+        "fullChildAccepted": false
+      }
+    },
+    {
+      "batch": "affected-318",
+      "testName": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-cold-wait\", expectedViolation: null)",
+      "testClass": "CanonicalArticleProjectionVerifierTests",
+      "testSource": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "testDeclarationLine": 150,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+          "line": 626
+        },
+        {
+          "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+          "line": 153
+        }
+      ],
+      "testedSourceBlob": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d",
+      "masterSourceBlob": "4908b5ffc5527f045c7661244284a977cddd1684",
+      "byteIdenticalToMaster": false,
+      "responsibleIssue": 3654,
+      "kind": "partial-AOT-read-expectation",
+      "cause": "The simulated first AOT read is absent. ObserveAotOutput returns aot_current_document_missing before hydration lookup; the second completed document reads its sidecar once. Original fixture expects two sidecar reads along with two coordinate reads. Both scenarios fail again in the complete class repeat.",
+      "smallestNextCapabilityOrRepair": "No missing physical capability. Original projection owner must resolve partial-read/current-coordinate contract and fixture through its protected controls; do not reduce the original assertion or drop cold-wait/shared-budget cases.",
+      "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Passed",
+        "sourceBlob": "642ee88a2edc230f2069a8a624348f9e32d9c4f1",
+        "fullChildAccepted": false,
+        "semanticBasis": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+        "originalFailureRetainedInHistory": true
+      }
+    },
+    {
+      "batch": "affected-318",
+      "testName": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-shared-budget\", expectedViolation: null)",
+      "testClass": "CanonicalArticleProjectionVerifierTests",
+      "testSource": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "testDeclarationLine": 150,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+          "line": 626
+        },
+        {
+          "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+          "line": 153
+        }
+      ],
+      "testedSourceBlob": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d",
+      "masterSourceBlob": "4908b5ffc5527f045c7661244284a977cddd1684",
+      "byteIdenticalToMaster": false,
+      "responsibleIssue": 3654,
+      "kind": "partial-AOT-read-expectation",
+      "cause": "The simulated first AOT read is absent. ObserveAotOutput returns aot_current_document_missing before hydration lookup; the second completed document reads its sidecar once. Original fixture expects two sidecar reads along with two coordinate reads. Both scenarios fail again in the complete class repeat.",
+      "smallestNextCapabilityOrRepair": "No missing physical capability. Original projection owner must resolve partial-read/current-coordinate contract and fixture through its protected controls; do not reduce the original assertion or drop cold-wait/shared-budget cases.",
+      "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Passed",
+        "sourceBlob": "642ee88a2edc230f2069a8a624348f9e32d9c4f1",
+        "fullChildAccepted": false,
+        "semanticBasis": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+        "originalFailureRetainedInHistory": true
+      }
+    },
+    {
+      "batch": "affected-318",
+      "testName": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled",
+      "testClass": "LifecycleHostedBootstrapServiceTests",
+      "testSource": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "testDeclarationLine": 139,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+          "line": 165
+        }
+      ],
+      "testedSourceBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
+      "masterSourceBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+      "byteIdenticalToMaster": false,
+      "responsibleIssue": 3654,
+      "kind": "current-schema-detail-contract-drift",
+      "cause": "Production task outcome is current_schema_verified since source commit cca8895fbd (Refs #2213); two unchanged cache-enable/disable controls expect compatibility_check. This is the closed current-schema boundary with a stale or conflicting observable expectation, not a missing database/capability proof.",
+      "smallestNextCapabilityOrRepair": "Canonical #3654 reconciliation preserving the cache controls and current-schema runtime contract; no restoration of retired online compatibility or assertion weakening.",
+      "message": "Assert.Equal() Failure: Strings differ\n            ↓ (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            ↑ (pos 1)",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentOwnerConfirmation": "Parent explicitly confirmed #3654 as the canonical bootstrap/projection test-compatibility owner.",
+      "historicalResponsibleBoundaryIssue": 2213,
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Passed",
+        "sourceBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+        "fullChildAccepted": false,
+        "semanticBasis": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+        "originalFailureRetainedInHistory": true
+      }
+    },
+    {
+      "batch": "affected-318",
+      "testName": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled",
+      "testClass": "LifecycleHostedBootstrapServiceTests",
+      "testSource": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "testDeclarationLine": 93,
+      "failureCallSites": [
+        {
+          "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+          "line": 116
+        }
+      ],
+      "testedSourceBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
+      "masterSourceBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+      "byteIdenticalToMaster": false,
+      "responsibleIssue": 3654,
+      "kind": "current-schema-detail-contract-drift",
+      "cause": "Production task outcome is current_schema_verified since source commit cca8895fbd (Refs #2213); two unchanged cache-enable/disable controls expect compatibility_check. This is the closed current-schema boundary with a stale or conflicting observable expectation, not a missing database/capability proof.",
+      "smallestNextCapabilityOrRepair": "Canonical #3654 reconciliation preserving the cache controls and current-schema runtime contract; no restoration of retired online compatibility or assertion weakening.",
+      "message": "Assert.Equal() Failure: Strings differ\n            ↓ (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            ↑ (pos 1)",
+      "status": "failed; not accepted",
+      "implementationWithinThisAssignment": false,
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentOwnerConfirmation": "Parent explicitly confirmed #3654 as the canonical bootstrap/projection test-compatibility owner.",
+      "historicalResponsibleBoundaryIssue": 2213,
+      "currentVerification": {
+        "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+        "outcome": "Passed",
+        "sourceBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+        "fullChildAccepted": false,
+        "semanticBasis": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+        "originalFailureRetainedInHistory": true
+      }
+    }
+  ],
+  "summaryByKind": {
+    "active-owned-systemd-user-manager": 46,
+    "compiled-InlineData-input-corruption": 1,
+    "pinned-native-worker-host-missing": 2,
+    "compiled-delegate-cache-surface": 1,
+    "unbound-approved-preview-fixture": 1,
+    "protected-native-namespace-admission": 1,
+    "partial-AOT-read-expectation": 2,
+    "current-schema-detail-contract-drift": 2
+  },
+  "summaryByResponsibleIssue": {
+    "3560": 21,
+    "3580": 3,
+    "3564": 1,
+    "3578": 22,
+    "3574": 2,
+    "3566": 1,
+    "3568": 1,
+    "3572": 1,
+    "3654": 4
+  },
+  "ownedImplementationGap": "No failing backend control is implemented by #3593 or tracking-only #3551. Repairing classification/accounting is owned; backend/fixture/source fixes stay with their existing canonical owners. #3593 original controls and strict owner style passed, while protected shared authority gates remain open.",
+  "ciPolicy": "User now permits SHA-bound applicable local verification in place of remote CI; absent remote checks alone is not a blocker. Independent review and real code/admission/runtime requirements remain mandatory.",
+  "protectedPrs": "#3879 and #3891 unchanged; no merge or package publication",
+  "classificationCorrection": "Previous coarse four-code classification included the native broker readiness refusal. Exact unshare-all capability probe now separates it as protected native admission; does not qualify its protocol. The other three tracking code/fixture controls remain actual failures.",
+  "probeEvidence": {
+    "utf16": [
+      {
+        "label": "intended-direct-original-method",
+        "utf16": [
+          97,
+          10,
+          0,
+          233,
+          55348,
+          56606,
+          55296
+        ],
+        "passed": true
+      },
+      {
+        "label": "compiled-InlineData-original-method",
+        "utf16": [
+          97,
+          10,
+          0,
+          233,
+          55348,
+          56606,
+          65533,
+          65533,
+          65533
+        ],
+        "passed": false,
+        "error": "Xunit.Sdk.EqualException: Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)\n   at Xunit.Assert.Equal(ReadOnlySpan`1 expected, ReadOnlySpan`1 actual, Boolean ignoreCase, Boolean ignoreLineEndingDifferences, Boolean ignoreWhiteSpaceDifferences, Boolean ignoreAllWhiteSpace) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 965\n   at Xunit.Assert.Equal(String expected, String actual, Boolean ignoreCase, Boolean ignoreLineEndingDifferences, Boolean ignoreWhiteSpaceDifferences, Boolean ignoreAllWhiteSpace) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 1342\n   at Xunit.Assert.Equal(String expected, String actual) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 849\n   at FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(String text, String digest) in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcTests.cs:line 727\n   at Program.<Main>$(String[] args) in /tmp/fsusblog-3593/failure-routing/utf16-probe/Program.cs:line 14"
+      }
+    ],
+    "capabilities": [
+      {
+        "name": "systemd",
+        "command": [
+          "systemctl",
+          "--user",
+          "is-active",
+          "default.target"
+        ],
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "Failed to connect to user scope bus via local transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)\n"
+      },
+      {
+        "name": "bwrap-unshare-all",
+        "command": [
+          "/usr/bin/prlimit",
+          "--as=67108864",
+          "--cpu=5",
+          "--nofile=32",
+          "--",
+          "/usr/bin/bwrap",
+          "--unshare-all",
+          "--die-with-parent",
+          "--new-session",
+          "--clearenv",
+          "--cap-drop",
+          "ALL",
+          "--ro-bind",
+          "/",
+          "/",
+          "/usr/bin/true"
+        ],
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "bwrap: setting up uid map: Read-only file system\n"
+      },
+      {
+        "name": "user-bus-path",
+        "uid": 1000,
+        "directoryExists": false,
+        "busExists": false
+      },
+      {
+        "name": "worker-node-host",
+        "expected": "/usr/local/bin/node",
+        "exists": false,
+        "taskPinnedNodeExists": true
+      }
+    ]
+  },
+  "acceptance": false,
+  "diagnosticEvidence": [
+    {
+      "path": "artifacts/governance/issue-3551-failure-routing/capabilities.json.gz",
+      "rawSha256": "7ce7b7f8ef8d0bfcf36c99eaf0808f6ced1a05ae780a23b518f32e35793a568c",
+      "sha256": "9a393f95637146e0243d8b8bd6f0015fb5ecd7d8b74e55eb8e07f4ecdf16d0dc"
+    },
+    {
+      "path": "artifacts/governance/issue-3551-failure-routing/systemd.log.gz",
+      "rawSha256": "24bd92b8693e9052f38d86d80d98f5a522a4742d4e5f5774ee9efdbab8ef0083",
+      "sha256": "facd6ef18e358396ef5c5ff84b791ca4bbca1e2807639b171283c624d49d06b5"
+    },
+    {
+      "path": "artifacts/governance/issue-3551-failure-routing/bwrap-unshare-all.log.gz",
+      "rawSha256": "f427400003f1438951931a9e02e12a36f46d63466731694d824cbf9e0d36a5d4",
+      "sha256": "236204f6e13b54037237a7d422b555fa109dae682e1e9765b9ee59d465459985"
+    },
+    {
+      "path": "artifacts/governance/issue-3551-failure-routing/utf16-probe.log.gz",
+      "rawSha256": "65bb3250bb9ab4e231ed629cadb28b3521ef22cf0af4a3bb5508946262f2d6a8",
+      "sha256": "823220c5d297d13b36908a675286766289f31025646d885ea21fbae157accbc8"
+    },
+    {
+      "path": "artifacts/governance/issue-3551-failure-routing/utf16-probe.exit.gz",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "path": "artifacts/governance/issue-3551-failure-routing/utf16-probe_Program.cs.gz",
+      "rawSha256": "4751cb274bb2972dc27ec9054e267d187d270dd5b82edf8f70168976a33284da",
+      "sha256": "0d88b9bcb1c3540abe5fbf0e4f05356c6eeaf4b076d45ddf3f5645309d96e320"
+    },
+    {
+      "path": "artifacts/governance/issue-3551-failure-routing/utf16-probe_Probe.csproj.gz",
+      "rawSha256": "ec1296b003c1ada0b86164f7519a2fb0a438b138341ed1544439340af90af975",
+      "sha256": "f9ec01c39ac961cfdcdd633a7719be005ed3e6143a46fb733b40edd43d44e291"
+    }
+  ],
+  "diagnosticBoundAssembly": {
+    "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "sha256": "54169f405b1d28576d5c285e7407c37478f5e20626cc71b7353594a0fbfde87b",
+    "sourceCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+    "purpose": "Diagnostic invocation of original unchanged method only; the failed compiled-InlineData case remains failed and no runtime qualification is inferred."
+  },
+  "latestMasterRecheck": {
+    "sha": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+    "newUnitQualificationInferred": false,
+    "mergeTreePreview": {
+      "exitCode": 0,
+      "tree": "971c79deba4fc60fd8a401fffebcf088b24b67d4",
+      "actualMergePerformed": false
+    }
+  },
+  "latestRepairVerification": "artifacts/style/suite-convergence-classified-repair-verification.json",
+  "currentStatusSummary": {
+    "historicalRecords": 56,
+    "nowPassed": 7,
+    "stillFailed": 49,
+    "trackingFailed": 49,
+    "projectionBootstrapFailed": 0
+  },
+  "latestSharedCompatibilityVerification": "artifacts/style/suite-convergence-shared-fixture-style-verification.json",
+  "latestSemanticControlVerification": "artifacts/style/suite-convergence-semantic-control-correction.json"
+}

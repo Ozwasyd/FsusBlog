@@ -1,0 +1,41 @@
+{
+  "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "command": [
+    "timeout",
+    "300",
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--no-build",
+    "--configuration",
+    "Debug",
+    "--filter",
+    "FullyQualifiedName~PublicHotReadDbAdmissionTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~DocumentExportHtmlProviderTests|FullyQualifiedName~AuthoringExtensionPackagePersistenceTests|FullyQualifiedName~AuthoringExtensionRpcTests|FullyQualifiedName~AuthoringExtensionExecutionResolverTests|FullyQualifiedName~AuthoringCommandContributionTests|FullyQualifiedName~PublicArtifactRevocationTests|FullyQualifiedName~AuthoringExtensionServiceBrokerTests|FullyQualifiedName~AuthoringExtensionWorkerSandboxTests|FullyQualifiedName~CanonicalArticlePublicationFixturePortTests|FullyQualifiedName~DocumentExportSandboxTests|FullyQualifiedName~DocumentExportSystemdCgroupAuthorityTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~PrivateAssetDeliveryTests|FullyQualifiedName~PrivateAssetStoreTests|FullyQualifiedName~SpaAssetManifestServiceTests",
+    "--results-directory",
+    "/tmp/fsusblog-3593/support-compiler-next/tracking-owner-results",
+    "--logger",
+    "trx"
+  ],
+  "owners": [
+    "PublicHotReadDbAdmissionTests",
+    "DocumentExportContractTests",
+    "DocumentExportHtmlProviderTests",
+    "AuthoringExtensionPackagePersistenceTests",
+    "AuthoringExtensionRpcTests",
+    "AuthoringExtensionExecutionResolverTests",
+    "AuthoringCommandContributionTests",
+    "PublicArtifactRevocationTests",
+    "AuthoringExtensionServiceBrokerTests",
+    "AuthoringExtensionWorkerSandboxTests",
+    "CanonicalArticlePublicationFixturePortTests",
+    "DocumentExportSandboxTests",
+    "DocumentExportSystemdCgroupAuthorityTests",
+    "ArticleVaultExecutionTests",
+    "PrivateAssetDeliveryTests",
+    "PrivateAssetStoreTests",
+    "SpaAssetManifestServiceTests"
+  ],
+  "exitCode": 1,
+  "qualificationEligible": false
+}

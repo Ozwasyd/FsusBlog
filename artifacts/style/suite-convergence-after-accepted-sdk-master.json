@@ -1,0 +1,554 @@
+{
+  "schema": "fsusblog.suite-convergence-accepted-sdk-master-recheck.v1",
+  "runId": "issue-3593-after-4008-20261008T065548Z",
+  "testedCommit": "98f5999e663d34747ccf8f3dc06b68bdff852adc",
+  "latestFetchedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+  "issues": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "sourceBinding": {
+    "runId": "issue-3593-after-4008-20261008T065548Z",
+    "testedCommit": "98f5999e663d34747ccf8f3dc06b68bdff852adc",
+    "master": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "suppliedSourceAlreadyPresent": true,
+    "duplicateCherryPick": false,
+    "files": [
+      {
+        "path": "artifacts/change-contract/xunit-msbuild-separators-external-naming.json",
+        "blobs": {
+          "98f5999e663d34747ccf8f3dc06b68bdff852adc": "dd40c3e643931fd18573bc133af84362a654cdb8",
+          "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": "dd40c3e643931fd18573bc133af84362a654cdb8",
+          "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa": "dd40c3e643931fd18573bc133af84362a654cdb8"
+        },
+        "exactAcceptedMaster": true
+      },
+      {
+        "path": "docs/testing.md",
+        "blobs": {
+          "98f5999e663d34747ccf8f3dc06b68bdff852adc": "21b26b1d405d80a33a283bc0c4200786f09df829",
+          "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": "2ff04752350c9de9912a617e0a5a6d9eac68f4e5",
+          "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa": "2ff04752350c9de9912a617e0a5a6d9eac68f4e5"
+        },
+        "exactAcceptedMaster": false
+      },
+      {
+        "path": "tests/tools/xunit-configuration-context.test.mjs",
+        "blobs": {
+          "98f5999e663d34747ccf8f3dc06b68bdff852adc": "99a7a3b3bf7ef0acb78f874def47ac896eef7faf",
+          "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": "99a7a3b3bf7ef0acb78f874def47ac896eef7faf",
+          "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa": "99a7a3b3bf7ef0acb78f874def47ac896eef7faf"
+        },
+        "exactAcceptedMaster": true
+      },
+      {
+        "path": "tools/test-inventory/discovery.mjs",
+        "blobs": {
+          "98f5999e663d34747ccf8f3dc06b68bdff852adc": "321a60d2ed1a2ce70cad0daae74334e8899e9bb6",
+          "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": "321a60d2ed1a2ce70cad0daae74334e8899e9bb6",
+          "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa": "321a60d2ed1a2ce70cad0daae74334e8899e9bb6"
+        },
+        "exactAcceptedMaster": true
+      }
+    ],
+    "environment": {
+      "sdk": "10.0.302",
+      "runtime": "10.0.10",
+      "NUGET_PACKAGES": "/workspace/FsusBlog/.tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages",
+      "RestoreLockedMode": true
+    }
+  },
+  "masterSourceBinding": [
+    {
+      "path": "tests/tools/test-suite-convergence.test.mjs",
+      "identities": {
+        "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": {
+          "blob": "4e8e2dbd640c64d05a8587180655865ba23f3f0b",
+          "sha256": "9f97de6db36e22e2c78407ddcc7a99eca48f201952bcb49d8de8a287de74ed7b"
+        },
+        "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": {
+          "blob": "4e8e2dbd640c64d05a8587180655865ba23f3f0b",
+          "sha256": "9f97de6db36e22e2c78407ddcc7a99eca48f201952bcb49d8de8a287de74ed7b"
+        },
+        "98f5999e663d34747ccf8f3dc06b68bdff852adc": {
+          "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+          "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238"
+        }
+      }
+    },
+    {
+      "path": "config/development/frontend-style-baseline.json",
+      "identities": {
+        "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": {
+          "blob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+          "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+        },
+        "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": {
+          "blob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+          "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+        },
+        "98f5999e663d34747ccf8f3dc06b68bdff852adc": {
+          "blob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+          "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+        }
+      }
+    },
+    {
+      "path": "config/development/frontend-style-policy.json",
+      "identities": {
+        "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": {
+          "blob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+          "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        },
+        "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": {
+          "blob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+          "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        },
+        "98f5999e663d34747ccf8f3dc06b68bdff852adc": {
+          "blob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+          "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        }
+      }
+    },
+    {
+      "path": "tests/test-retention-before.json",
+      "identities": {
+        "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": {
+          "blob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+          "sha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46"
+        },
+        "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": {
+          "blob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+          "sha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46"
+        },
+        "98f5999e663d34747ccf8f3dc06b68bdff852adc": {
+          "blob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+          "sha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46"
+        }
+      }
+    },
+    {
+      "path": "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+      "identities": {
+        "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": {
+          "blob": "a3488d045e47a976015c9b5c0675b74f779bb614",
+          "sha256": "55192b506f50e1bb193bf24320e8403ac81a1160c0bbfc23838eb7c7e759e12b"
+        },
+        "a4fa942e95b6141e1f1dec42f7cddf1daf54144d": {
+          "blob": "a3488d045e47a976015c9b5c0675b74f779bb614",
+          "sha256": "55192b506f50e1bb193bf24320e8403ac81a1160c0bbfc23838eb7c7e759e12b"
+        },
+        "98f5999e663d34747ccf8f3dc06b68bdff852adc": {
+          "blob": "a3488d045e47a976015c9b5c0675b74f779bb614",
+          "sha256": "55192b506f50e1bb193bf24320e8403ac81a1160c0bbfc23838eb7c7e759e12b"
+        }
+      }
+    }
+  ],
+  "noDuplicateReplay": true,
+  "noMerge": true,
+  "conflictPreview": {
+    "exitCode": 0,
+    "tree": "4e4043001eb50a6a908a1394e8beaaf930ff4c6e",
+    "actualMergePerformed": false
+  },
+  "currentMasterRootStyle": {
+    "exitCode": 1,
+    "diagnostics": 563,
+    "setupExit": 0,
+    "initialToolchainMissingLogRetained": true
+  },
+  "candidateRootStyle": {
+    "exitCode": 0,
+    "diagnostics": 0,
+    "originalStaticIds": 17,
+    "unchanged": true
+  },
+  "originalControls": {
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0
+  },
+  "sdkContextControls": {
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0
+  },
+  "acceptedMasterReaderContext": {
+    "exitCode": 0,
+    "configuration": "Debug",
+    "sourceCount": 694,
+    "sdkCompileInputs": {
+      ".tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs": {
+        "source": ".tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs",
+        "packageId": "Microsoft.NET.Test.Sdk",
+        "version": "18.5.1",
+        "contentHash": "SfqVaLiIqAbRWuPg5BP4QFwBIirQj/YIL8Dhxl6zntBKbXp0cQykoV480SmwG+yRMiWptxEI6NbHQuGSZ8b97w==",
+        "sourceDigest": "sha256:d66f12f9433816a8c7dc1b2acb9e1010f5418f5eeb51e80f1df57aa1dcab8d8a",
+        "targetDigest": "sha256:93e2c4a4e08fa8db6af3b5907205741ad5184e642181bfdbe949c5109e19aa2f"
+      }
+    },
+    "output": "/workspace/FsusBlog/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "intermediateOutput": "/workspace/FsusBlog/tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll"
+  },
+  "originalInventoryRetention": {
+    "runId": "issue-3593-after-4008-20261008T065548Z",
+    "testedCommit": "98f5999e663d34747ccf8f3dc06b68bdff852adc",
+    "master": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "checks": [
+      {
+        "name": "inventory",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test-inventory/produce.mjs",
+          "--configuration",
+          "Debug",
+          "--out",
+          "/tmp/fsusblog-3593/after-4008/inventory.json"
+        ],
+        "exitCode": 1
+      },
+      {
+        "name": "retention-cli",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/check-test-retention.mjs",
+          "--out",
+          "/tmp/fsusblog-3593/after-4008/retention.json",
+          "--run-id",
+          "issue-3593-after-4008-20261008T065548Z"
+        ],
+        "exitCode": 1
+      },
+      {
+        "name": "lifecycle-retention-controls",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/canonical-article-lifecycle-authority.test.mjs",
+          "tests/tools/test-lifecycle-governance.test.mjs",
+          "tests/tools/test-retention-audit.test.mjs"
+        ],
+        "exitCode": 1
+      },
+      {
+        "name": "context-controls",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/xunit-configuration-context.test.mjs"
+        ],
+        "exitCode": 0
+      },
+      {
+        "name": "original-controls",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/test-suite-convergence.test.mjs",
+          "tests/tools/test-replacement-transaction.test.mjs",
+          "tools/post-baseline-history.test.mjs"
+        ],
+        "exitCode": 0
+      },
+      {
+        "name": "build-server-cleanup",
+        "command": [
+          "dotnet",
+          "build-server",
+          "shutdown"
+        ],
+        "exitCode": 0
+      }
+    ],
+    "generatedInventoryPresent": false,
+    "generatedRetentionPresent": false,
+    "finishedUtc": "2026-10-08T07:00:14.872004+00:00"
+  },
+  "lifecycleRetentionControls": {
+    "total": 64,
+    "passed": 63,
+    "failed": 1,
+    "skipped": 0,
+    "reason": "Migration Debug output/intermediate DLL missing; actual original compilation still has two CS0246 errors."
+  },
+  "inventoryCompilation": {
+    "exitCode": 1,
+    "warnings": 1558,
+    "errors": [
+      "OfflineMigrationExpandSafetyTests.cs:79 CreateTableStep CS0246",
+      "OfflineMigrationExpandSafetyTests.cs:80 AddColumnStep CS0246"
+    ],
+    "complete": false,
+    "requiredNextAction": "Coordinator supplies exact canonical #3657 migration repair and acceptance evidence; do not implement another owner."
+  },
+  "sourceChecks": [
+    {
+      "name": "trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "pr-gate",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--github-event",
+        "/tmp/fsusblog-3593/after-4008/pr-event.json"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "root-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/test-suite-convergence.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "current-ast",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/tmp/fsusblog-3593/support-msbuild-separators/ast-request.json"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "prGate": {
+    "exitCode": 1,
+    "actualApiBase": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+    "actualApiHead": "98f5999e663d34747ccf8f3dc06b68bdff852adc",
+    "errors": 9,
+    "limit": "Actual API still reports b9c base; not substituted with newly fetched a4fa master. Current-master trusted range recorded separately."
+  },
+  "remainingGates": [
+    "Canonical migration compilation/full inventory/retention",
+    "Canonical AST renamed-case and native-registration transaction",
+    "Ordinary generated source/output admission",
+    "QPS compact-before history for c81f0d3f88 and e536405a30",
+    "Canonical resolver/RPC formatting",
+    "Original full matrix/PG/native and independent review"
+  ],
+  "limits": [
+    "Master acceptance covers the four supplied SDK source files only. Three candidate blobs equal accepted master; docs retain only an existing seven-line roster paragraph.",
+    "No retained-build, package-signature, nested-channel or native qualification inferred from the source merge or private Compile observation.",
+    "No incomplete inventory or retention output fabricated. All original negative controls retained.",
+    "Prior runtime 248/248 and 689/738 are preserved at their actual earlier test SHAs; not rerun or relabeled here.",
+    "GitHub content writes paused; WIP drafts remain local. No comments, new PRs, merges, deployment, frozen-PR or denied-scope action."
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/accepted-master-sdk-context-command.json.gz",
+      "sha256": "8694ae7c04cf39c940d1e064707673ba8b6c302eb8612b6402a5edfc33177abf",
+      "rawSha256": "2ef1bd53109a0f9fa09a3e5c88e94be0479016b9f82c56d8f26962c4df30fb29"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/accepted-master-sdk-context.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/accepted-master-sdk-context.log.gz",
+      "sha256": "93958af2594b6a03e0f47f2cd1715ddee81d95bdef8dcd14a0384adc9d5f0dc3",
+      "rawSha256": "4cbeec04c50c4f27d9b6ada0de048c5f5d4ab3af80a4eae4968f9cac2c44275a"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/binding.json.gz",
+      "sha256": "8d2ff808ae880d00115c14ba584db4f6a94cf8e3f5d3749d41b0740ce6ee0bbd",
+      "rawSha256": "6d0ad1681baa0433fe71653c015d04a24004fb4989bcc4d155554ab990cadf05"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/build-server-cleanup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/build-server-cleanup.log.gz",
+      "sha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c",
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/conflict-preview.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/conflict-preview.log.gz",
+      "sha256": "5d57312fb21ff24b84648264f0cb79a982369bc0d62b5278a66fd8ac48f444ed",
+      "rawSha256": "eab19acf19a8ae77cb35ac7b0d80b9ada4607e8e9af996e3c5648cf4fd0dcc5f"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/context-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/context-controls.log.gz",
+      "sha256": "8646fb1c985ec72121614f195829db3ac5d242768ea0d5d43df1c869681e68b0",
+      "rawSha256": "e5f2b05a2a62a3ac8c373ec980332bb23f4576d48a654e672d32b3fdc3ca63f1"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/current-ast.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/current-ast.log.gz",
+      "sha256": "905843fe4682aacd2bf41056f85ce311431878cbc770c4ec4581c806258aebdb",
+      "rawSha256": "f9efd84a152ba5065e5abf629fe42a2c2c4172f0ba54171ce512c2f525cfc2d1"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/current-master-source-binding.json.gz",
+      "sha256": "72df0c856e27f9ce70e0f8806faab813e99b7536019320fe7617b166c07aee71",
+      "rawSha256": "ae115d04863d38f5c83cbc6e863799c70cd62297f248898708927f829d41216c"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/final-build-server-cleanup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/final-build-server-cleanup.log.gz",
+      "sha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c",
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/inventory.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/inventory.log.gz",
+      "sha256": "b8234e05e0af3a0e86f7c827b8a78dd986e7cd5d96e672818e0e1a37881fa54a",
+      "rawSha256": "d7783f0e765f63fc84433df6eddea81a4c519443f14913a382d009836c17f5c7"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/lifecycle-retention-controls.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/lifecycle-retention-controls.log.gz",
+      "sha256": "106adba24263fb1181421ae1889f27992436de36aa7bba437011208aea1be71f",
+      "rawSha256": "d771b6933b08d74e79642049eebe400f5027143bd3ea7ad02add8018cc6c6dcd"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-root-style-after-setup.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-root-style-after-setup.log.gz",
+      "sha256": "b8eaeb2f8edf0295944b83ae819e164acf0d9b3623fab254da3ad4bd8b249b72",
+      "rawSha256": "ade506188a1b6d6c6578989b00d93d5464e8e954e74141ce63bc5656d193a308"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-root-style-command.json.gz",
+      "sha256": "a41ec2cf95b8b46e73c25aedc711d260c7f718261be346d6eca0b541268939df",
+      "rawSha256": "93b5fc6c43d81eef65c56e58fb4dd81e0048de8cb1f74769180508977c20ba93"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-root-style.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-root-style.log.gz",
+      "sha256": "6e8988d46b2c368e95d5ca392397b22b5e0574396bea6f58e0410d59f4211457",
+      "rawSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-style-toolchain-command.json.gz",
+      "sha256": "25fad74a66d714d899efcedc7969c15d83466c8d9bd6182cad4d3450db1b0abb",
+      "rawSha256": "3ddc8e990303376e0ca72c11806e2abb40739d564cea4c2a7d7c4fcc48ba0eba"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-style-toolchain-setup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/master-style-toolchain-setup.log.gz",
+      "sha256": "018c5359a1f53f083de074be41246aa66c6283de49aac2714fb7b17bf91a9631",
+      "rawSha256": "64c4fffd506151dcb283b5d7b7aed275187df338eee5845f005eb81c3b8dfcaf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/original-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/original-controls.log.gz",
+      "sha256": "0320ed3d4b13db82ec4c194e691091308296e2b7fc22040eedcf391ca0ebab7d",
+      "rawSha256": "a32b41d430725e34213d4f5719ba7dabd53e0651e0dd221487a1c20ae53746a7"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/results.json.gz",
+      "sha256": "338a628a836777f32615c430a621eb9ce8e0efbfbcb34cc19b8068db07753908",
+      "rawSha256": "18c40a6a2fa486ff681a1832ef1052226d2c5ba8690a195a7ca9adf46e02c116"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/retention-cli.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/retention-cli.log.gz",
+      "sha256": "25006a702ab73acd6f4c148db08c8a2973acc81bc5d85c214816e49d889449a0",
+      "rawSha256": "7da502d88e4c2853a98b5ba276fb9a61d8eeb5a3008e5096d5c8ea3b3b787725"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/root-identity.json.gz",
+      "sha256": "ad37f5c035eb12ab4eb63367f25188fc1bb2908a1871826aeba212ee03f7cb80",
+      "rawSha256": "639d1001e9e660f821f9114ef95a8e04cbfb6bf9f4fd1296d5257241d6a5ddc6"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/root-style.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/root-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/source-results.json.gz",
+      "sha256": "0d56400b1e0a5d6038e351d2670a0b72ee6be9594b9d95ff530ea27558bb967b",
+      "rawSha256": "e44e5d3893be9136d7da21c8e54ef0b20b4987da5de64a3a816eed10717be2fe"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/trusted-range.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-after-accepted-sdk-master/trusted-range.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08"
+    }
+  ]
+}

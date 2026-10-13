@@ -1,0 +1,398 @@
+{
+  "schema": "fsusblog.suite-style-current-acceptance.v1",
+  "runId": "2026-10-08T03:50:02.136584+00:00",
+  "issues": [
+    3593,
+    3551
+  ],
+  "testedCheckpoint": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+  "master": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "nodeVersion": "24.16.0",
+  "officialNodeArchiveSha256": "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9",
+  "sdkVersion": "10.0.302",
+  "runtimeVersion": "10.0.10",
+  "trustedPolicyCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "sourceChangesFrozenSince": "1a7307d6dc807da7035b8c5cba8c9e5c7e09eb47",
+  "mechanicalCommit": "ca427ddec14ac49fd1f38993661696a8765d1952",
+  "mechanicalReceipt": "artifacts/style/suite-convergence-idempotence.json",
+  "accepted": false,
+  "qualificationEligible": false,
+  "checks": [
+    {
+      "name": "exact-5f7-original-controls",
+      "command": "node --test tests/tools/test-suite-convergence.test.mjs tests/tools/test-replacement-transaction.test.mjs tools/post-baseline-history.test.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed; 54/54; zero skipped",
+      "rawSha256": "27c46d524a10d5f2ae657a9771adf9d83c50bd9d9ba7d98bbf5d3645659908cc",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/exact-5f7-original-controls.log.gz",
+      "sha256": "fb2f3bc4f090a2b44c433f916919010aef219bd5e2e3d16f45752ff579932675"
+    },
+    {
+      "name": "current-roster-controls",
+      "command": "node --test tests/tools/correctness-attempt-migration.test.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed; 6/6; four negative controls; canonical AST acceptance remains failed",
+      "rawSha256": "4fa62d38a51cc05a0ee702227e5b3bc0de698bc1071f7b08a55418ec855069ef",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/current-roster-controls.log.gz",
+      "sha256": "0d2d1b47a7a80c5928556c869aa7f7433a97f02a4bb2c3a2ab69504007748770"
+    },
+    {
+      "name": "current-owner-style",
+      "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file tests/tools/test-suite-convergence.test.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed; zero diagnostics",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/current-owner-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8"
+    },
+    {
+      "name": "supplied-roster-style",
+      "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file tests/tools/correctness-attempt-migration.test.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/supplied-roster-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8"
+    },
+    {
+      "name": "supplied-migration-style",
+      "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file tools/test/correctness-attempt-migration.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/supplied-migration-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8"
+    },
+    {
+      "name": "current-ast-retention",
+      "command": "node tools/test-replacement-transaction.mjs check-diff origin/master",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed; supplied #3521 native-table-not-closed and original static case renamed",
+      "rawSha256": "78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/current-ast-retention.log.gz",
+      "sha256": "3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1"
+    },
+    {
+      "name": "current-convergence",
+      "command": "node tools/check-test-suite-convergence.mjs --out <task-scoped-output>",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed; two unresolved current-epoch backend-QPS historical identities; zero source reads",
+      "rawSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/current-convergence.log.gz",
+      "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65"
+    },
+    {
+      "name": "current-trusted-range",
+      "command": "node trusted-master/tools/governance/check-change-contract.mjs --root <candidate> --range origin/master..HEAD",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/current-trusted-range.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b"
+    },
+    {
+      "name": "trusted-pr-corrected",
+      "command": "node trusted-master/tools/governance/check-change-contract.mjs --root <candidate> --github-event <actual-live-pr-event>",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed; eight unchanged master source paths in ordinary generated binding",
+      "rawSha256": "a05fccc92a6276afbe4c1de9ef3bb6a4ffeb0c031b8600e39ab1efbd086e1cae",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/trusted-pr-corrected.log.gz",
+      "sha256": "c5c25023ccef1cba1acc046edc556b89374d58754536ef4855bee77bd6346850"
+    },
+    {
+      "name": "producer-generation-check",
+      "command": "node tools/test/generate-correctness-attempt-producers.mjs --check",
+      "testedCommit": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+      "exitCode": 0,
+      "outcome": "passed; two independent stdout generations byte-identical to checked output",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/producer-generation-check.log.gz",
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "name": "backend401",
+      "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --configuration Debug --filter FullyQualifiedName~DocumentExportContractTests --logger trx",
+      "testedCommit": "1a7307d6dc807da7035b8c5cba8c9e5c7e09eb47",
+      "exitCode": 1,
+      "outcome": "failed; 11 compiler/analyzer errors; no xUnit or TRX",
+      "rawSha256": "96ecdd7b01f227cf50b1eee92f8f1c2f37ff60ca827c0b449d66c5a4c2967be0",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/backend401.log.gz",
+      "sha256": "2accb970df191e3db59d08c608f0b16bb976bdbfb3591e3649bbe9d806641c86"
+    },
+    {
+      "name": "backend302",
+      "command": "dotnet build tests/backend/FsusBlog.Server.Tests.csproj --configuration Debug --no-restore --nologo --verbosity quiet",
+      "testedCommit": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+      "exitCode": 1,
+      "outcome": "failed; 11 errors",
+      "rawSha256": "943496aa59b1b1a0167098809733e1463c223aab2eb2aceff1f124266ebeb0f9",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/backend302.log.gz",
+      "sha256": "05d366c74c7d6b7f317c18f14076153825723594cf926aea6f9d90d26ec7f44a"
+    },
+    {
+      "name": "inventory302",
+      "command": "RestoreLockedMode=true node tools/test-inventory/produce.mjs --configuration Debug --out <task-scoped-output>",
+      "testedCommit": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+      "exitCode": 1,
+      "outcome": "failed; first-run SDK welcome on stderr obscured actual compile diagnostics; explicit build and retry retained",
+      "rawSha256": "ecb9406609eeabb632a9dec6f13d5cd7181e425d30777396c00eef1766e994f6",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/inventory302.log.gz",
+      "sha256": "fa600861792dfe1d72373f0195dfe3e464a5ab53bedae88bb9b488959aa98362"
+    },
+    {
+      "name": "inventory302-retry",
+      "command": "RestoreLockedMode=true node tools/test-inventory/produce.mjs --configuration Debug --out <task-scoped-output>",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed; canonical Debug compilation; 11 errors",
+      "rawSha256": "8c28edaa5b54674996e4baf2d237ccfd643aac679378accfa4735fa2af02bce2",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/inventory302-retry.log.gz",
+      "sha256": "2cacdf8c34c4e3d4230eaafb4821e7378b7d596d10f588457f15323cf183092f"
+    },
+    {
+      "name": "lifecycle-retention-controls",
+      "command": "node --test tests/tools/canonical-article-lifecycle-authority.test.mjs tests/tools/test-lifecycle-governance.test.mjs tests/tools/test-retention-audit.test.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed; 63/64, zero skipped; sole original CLI missing successful Debug context",
+      "rawSha256": "9a706c411f940d280ff8a44eeeab57b4a3654c26b231de30b9f80f8878e212e1",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/lifecycle-retention-controls.log.gz",
+      "sha256": "fb01932fcfcce12b06efc4cf4a50b5a5ee9455fd6e6ef5415dc6d793b3b7e01f"
+    },
+    {
+      "name": "lifecycle-retention-controls-without-sdk-path",
+      "command": "node --test tests/tools/canonical-article-lifecycle-authority.test.mjs tests/tools/test-lifecycle-governance.test.mjs tests/tools/test-retention-audit.test.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed; missing PATH corrected without deleting failed evidence",
+      "rawSha256": "59a533555074d648fe07a9e29757dd34febab54139b9af51ff9fea27474454d2",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/lifecycle-retention-controls-without-sdk-path.log.gz",
+      "sha256": "1b0ab95c5c13377e5f216d2fd4c7c61df8638dca838a2af936c42b0e026c154a"
+    },
+    {
+      "name": "matrix16-302",
+      "command": "timeout 180 node tools/run-test-matrix.mjs validate",
+      "testedCommit": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+      "exitCode": 124,
+      "outcome": "timed out; no completion receipt",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/matrix16-302.log.gz",
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "name": "matrix16-302-retry",
+      "command": "timeout 480 node tools/run-test-matrix.mjs validate",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed; schema package missing plus real matrix drift; dependency installed and rerun",
+      "rawSha256": "97933eb74e5c1f0369f5b0fcd5de11a47181a05cf431ae97168a04d5bf23e199",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/matrix16-302-retry.log.gz",
+      "sha256": "680972a1af5a09992bb954f2801c79111fdf16bab8c9a7e7eac401a698a02090"
+    },
+    {
+      "name": "matrix-prepared",
+      "command": "timeout 480 node tools/run-test-matrix.mjs validate",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed with actual pinned Node/SDK/runtime and installed locked Ajv; no full matrix qualification",
+      "rawSha256": "1e6bb70f63de1351e3d7d0346a13fc00e2db9f6f519f7ffa360022f2ebc1da7a",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/matrix-prepared.log.gz",
+      "sha256": "ada205e6be2c32b182bef755c11f2c359f359df213d2b21f2ecd2ad443cfe7dd"
+    },
+    {
+      "name": "matrix-schema-setup",
+      "command": "npm ci --ignore-scripts --cache <task-scoped-cache> --prefix tools/test-matrix/schema-validator",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed; tracked lock unchanged",
+      "rawSha256": "aedc927a066b81fee64239ac305a484814f924bce88b6860a916fc7ff3608992",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/matrix-schema-setup.log.gz",
+      "sha256": "2604af17296b8b8216fb519a6cfb690beb6c5dc747ab4fd23477ad50ea62f136"
+    },
+    {
+      "name": "schema-missing-argument",
+      "command": "node tools/test-matrix/schema-validator/validate.mjs",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 1,
+      "outcome": "failed invocation; corrected with real parsed matrix/schema below",
+      "rawSha256": "6b9a5899f4afcefb7dc456fbbcdd0eb21132aace2052ba5dfdee098f6da80e5e",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/schema-missing-argument.log.gz",
+      "sha256": "d9703ba46a216ce1cd0e244138daf0c4cb57f234f17750f00fcde4259936c7d4"
+    },
+    {
+      "name": "schema-prepared",
+      "command": "validateJsonSchema(parseMatrix(actual matrix.yml), actual matrix.schema.json)",
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92",
+      "exitCode": 0,
+      "outcome": "passed; zero schema errors",
+      "rawSha256": "8eef72411b99ac74476cb91a59ddac8da45349b7a28e11535951d1df21b4b29b",
+      "artifact": "artifacts/style/suite-convergence-current-acceptance/schema-prepared.log.gz",
+      "sha256": "d2334b82c1aec46bb3b9a29f8e0b00af954021ab86f29fd826d6b4ca9b963852"
+    }
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/prerequisite-replays.json",
+      "sha256": "64a4f103916ee8a5047e9f7f2853e872f895a199b2aaeb66ff184e4c38e0bfc3"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/current-owner-identity.json",
+      "sha256": "a381f8bbf7ee0b1c4cbb6904045a321918743c3e9fa8fd24d8f7bf7bbb7fe393"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/candidate-roster-ast.json",
+      "sha256": "13cc590c31b528bf0a5a1500e35e9036160d42e24c59bad764de4c14eec4d733"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/master-roster-ast.json",
+      "sha256": "811a18e103aec5be67e05e1925dfa3cab6be29262ece10ca858afb61fcf48b15"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/producer-repeat.json",
+      "sha256": "5cbf43f9bff28ece0a5cee4cc8720455e8e405116ad7ee9cb895dd897912f0e5"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/compiler-diagnostics302.json",
+      "sha256": "40edd29a44f1ddcaa71e3f03ba9a1dab485485eada9e8c0365dd1f17038f5a52"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/compiler-diagnostics401.json",
+      "sha256": "f82d0bff88a4c825c80856d3a28d983c5768903adf5288ce7b133b4ed04656f8"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/current-convergence.json",
+      "sha256": "19a1631d4b039f2916ccb3393abc371e0a9412aa0a333f765e8259ecdc481ca9"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/environment-capabilities.json",
+      "sha256": "6a811e1fe1e3ba1ed79f6b1d83f1ae1dc5b0f2baccb8bf7ab47d8d96d14a379f"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/fsusui-public-api.json",
+      "sha256": "5f8411c7ec6ca4c6066cb419f95c581084fda8e34e6d6eeb749c083ba823463d"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/remote-check-runs.json",
+      "sha256": "e83cfac35507982a40cfeb776ce85aa0367e7646f81fe857df4a6c841ea8a170"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/remote-status.json",
+      "sha256": "f488aaf2a2a2bc0459005116354373ad92eaa4dca2f9947e185df11ad95673a4"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/remote-reviews.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/unchanged-original-authorities.json",
+      "sha256": "915ef3a356e7637960ec470e1fddba9f653cbb2195d4fa8f8036cdeb75aaf918"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/current-checks.json",
+      "sha256": "98c50c4d90f2af73ffd6eb6157ce501060285feb105c7b9d010d375755b49168"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/source-checks.json",
+      "sha256": "bf2b2094babe0263684bf8374d9d8f6946c0d55be40dca09262018bfbfe7c277"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/dotnet302-identity.log.gz",
+      "sha256": "b1e5dc8187cd6b2a6ce2c6ad8ca67949fd1c87c03c3cb0abbf46180662eda3c6",
+      "rawSha256": "58058c71908e62f0dfcb03bcb438397f2e6f0b565eae9628607673a36efdf2f1"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/node16-identity.log.gz",
+      "sha256": "f18172de73054a77547bbcb44297359cb7b135e24b5818e6f3f09c1c0a8ef151",
+      "rawSha256": "a8f8f7ba69d43285857a0ea34017ef8dadd3ba012404bb7dd188fc773cf63ee2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/docker-capability.log.gz",
+      "sha256": "77154c30d5ee16135b6ba05b0dd171ad8f4fec13dd1c0db055091da7ca07e744",
+      "rawSha256": "23bb448078b126be1dd5cdfdadd0d7b6bb251dc741fb31b565eb6b4a5bceeb5e"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/cxx-capability.log.gz",
+      "sha256": "f8a6ddc15a82ea3127930593f3ba78da9a02bb614afa21f1a21fc50746aad54e",
+      "rawSha256": "5f6798e87440f1e8b88bf6822c33bebe434f83374640a7f8ba967902ee1ea098"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/systemd-user-capability.log.gz",
+      "sha256": "facd6ef18e358396ef5c5ff84b791ca4bbca1e2807639b171283c624d49d06b5",
+      "rawSha256": "24bd92b8693e9052f38d86d80d98f5a522a4742d4e5f5774ee9efdbab8ef0083"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/bwrap-capability.log.gz",
+      "sha256": "236204f6e13b54037237a7d422b555fa109dae682e1e9765b9ee59d465459985",
+      "rawSha256": "f427400003f1438951931a9e02e12a36f46d63466731694d824cbf9e0d36a5d4"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/browser-capability.log.gz",
+      "sha256": "c890f38aa6e26e401c346590455cc5806bff49ee5c6c86bb98f6fbf9b1ba4eb2",
+      "rawSha256": "351a5b39f40600fdc78e0d5d098f0049857fa4ff7e917adab5fc6a61edefb1dc"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/original-40-convergence.log.gz",
+      "exitCode": 1,
+      "sha256": "bca33650f085b8df0b731c057f1d96142cea9cbe56d021482a52948ea6a34b2d",
+      "rawSha256": "2c956ff4ff28f3671720a9bdde58103ecdf106e335c478a7c4ec5c47e782d57d"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/master-convergence.log.gz",
+      "exitCode": 1,
+      "sha256": "ba9108d55652009cea5e52bb4b61ea63a06c98e875285eca92051b508cf47708",
+      "rawSha256": "3fbee12613b3b722f2c6aee29dca53813cd58d15e85ba0df7789c0395d3e7369"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-current-acceptance/closed-3558-runtime.log.gz",
+      "exitCode": 1,
+      "sha256": "3865d0ae45669baa1e0e1851919531ccbb761c834e126ee36a618d929d2cd72d",
+      "rawSha256": "6ecee77fce5b657a2b5a86804f74b76dde5c1c419de25a921c0f902a0a379cff"
+    }
+  ],
+  "trackingEvidence": "artifacts/governance/issue-3551-current-acceptance-accounting.json",
+  "remainingOwnerRequests": [
+    {
+      "owner": "#3521 shared governance",
+      "need": "Make the new four refusal registrations discoverable by the original canonical AST adapter; preserve the original case ID or provide a valid reviewed replacement transaction. Supply admitted generated repair metadata rather than ordinary binding to eight unchanged master inputs."
+    },
+    {
+      "owner": "coordinator / canonical compiler owners",
+      "need": "Provide exact source/acceptance increments for the 11 diagnostics in compiler-diagnostics302.json; preserve original assertions and analyzer qualification."
+    },
+    {
+      "owner": "coordinator / original current-epoch history owner",
+      "need": "Provide canonical authority for both backend-QPS identities rejected in current-convergence.json; no reseal, dropped history or fabricated before."
+    },
+    {
+      "owner": "matrix/fixture authority owners",
+      "need": "Provide exact admitted execution envelope, profile, fixture and content-field generated authority repair commits for the current raw matrix failures."
+    },
+    {
+      "owner": "#3568 locks",
+      "need": "Five observation consumer locks remain pending upstream; previous supplied backend/benchmark lock bytes are preserved."
+    }
+  ],
+  "notRun": [
+    {
+      "check": "complete required CI lanes, compiled child runtime and PG acceptance",
+      "reason": "canonical Debug compiler/inventory and retained authority gates failed; no claim of passing execution"
+    },
+    {
+      "check": "independent exact-head review and remote checks",
+      "reason": "actual queried checkpoint has zero check runs/statuses/reviews; absence is not passing"
+    },
+    {
+      "check": "merged-master acceptance",
+      "reason": "global no-merge barrier; this task does not merge"
+    }
+  ]
+}

@@ -1,0 +1,279 @@
+{
+  "schema": "fsusblog.suite-style-final-source-checkpoint.v1",
+  "runId": "2026-10-08T05:06:48.094745+00:00",
+  "testedCommit": "8840337b5e4933057c59c93eaa8edb607c9610e4",
+  "compiledTestedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+  "msbuildSourceTestedCommit": "d368a26574cf09afaa14dea70385b951f6498e36",
+  "latestOriginMaster": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+  "requestedConflictBase": "87209d571a93254dcacfe9093753002e8c98822a",
+  "branch": "task/3593-suite-style",
+  "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3814",
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "checks": {
+    "originalControls": {
+      "exitCode": 0,
+      "passed": 54,
+      "failed": 0,
+      "skipped": 0,
+      "startAndEndCommitEqual": true
+    },
+    "strictRootStyle": {
+      "exitCode": 0,
+      "diagnostics": 0
+    },
+    "currentMasterCanonicalAst": {
+      "exitCode": 0,
+      "rootStaticIds": 17,
+      "originalIdsPreserved": true,
+      "contextStaticIds": 13,
+      "diagnostics": 0
+    },
+    "trustedCommitRange": {
+      "exitCode": 0
+    },
+    "trustedLivePr": {
+      "exitCode": 1,
+      "remainingErrors": 9,
+      "reason": "ordinary generated binding includes eight unchanged master inputs plus required atomic source/output closure"
+    },
+    "conflictPreviews": {
+      "requested872": {
+        "exitCode": 0,
+        "tree": "cdd31d647cde3c4eca734a38d5e4f049f7db176a"
+      },
+      "latestMaster": {
+        "exitCode": 0,
+        "tree": "aaba45bdfbddea106468b2fe8d9b6426cb6e98c4"
+      },
+      "actualMergePerformed": false
+    },
+    "buildServerCleanup": {
+      "exitCode": 0,
+      "result": "Task SDK MSBuild and VB/C# compiler servers shut down; negative-control worktree removed."
+    }
+  },
+  "setupCorrections": [
+    "Corrected last evidence-only commit footer to Refs: #3593, #3551 with exact lease; no source tree changed. Old 4db162536 metadata SHA is superseded by this tested 8840337b5 source checkpoint.",
+    "Updated final PR title/classification/release-note fields to its actual canonical runtime-support scope; original generated-policy failures remain visible.",
+    "A live PR base advanced to 0a755584 during checks. Initial missing Git object failure was corrected by fetching current master; trusted PR checks were rerun without inventing a base.",
+    "Current trusted-master AST adapter initially lacked TypeScript. Locked npm ci --ignore-scripts installed its unchanged pinned dependency; the actual adapter then preserved all 17 root static IDs with zero diagnostics."
+  ],
+  "remainingOwners": {
+    "canonical3521": "Admit retained static IDs/native registration table and generated binding through original governance; resolve actual external SDK Compile source ownership with original negative controls. Separator capability is passing, not complete inventory.",
+    "canonical3654": "Provide exact increments for four bootstrap/projection failures, two migration CS0246 and shared C# style including inherited RPC/resolver whitespace.",
+    "canonicalHistoryOwnerViaParent": "Resolve two current-epoch backend-QPS compact-before identities through governed retention history.",
+    "nativeChildren": "49 original failed tests still require owned systemd user manager/delegation, original host Node path and original bwrap namespace admission."
+  },
+  "issueStatuses": {
+    "3593": "WIP; implementation and root source controls pass; original admission gates and independent review remain unaccepted. No #3543 prerequisite grant.",
+    "3551": "WIP tracking-only; 19 children accounted (18 open, historical #3558 closed); actual 17-class run 689 passed, 49 failed of 738, zero skips. Three supplied repairs pass; all original 728 runtime names remain."
+  },
+  "ciPolicy": {
+    "localShaBoundSubstitutionAuthorized": true,
+    "absentRemoteChecksAloneIsBlocker": false,
+    "independentReviewRequired": true
+  },
+  "limits": [
+    "The next publication adds evidence only; all source/build inputs remain bound to the recorded tested commits.",
+    "No complete matrix, PG/runtime, protected native or independent acceptance is claimed.",
+    "No merge, master push, deployment, package publication, protected PR modification or denied #3622 comment occurred."
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/build-server-cleanup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/build-server-cleanup.log.gz",
+      "sha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c",
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/current-master-adapter-install.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/current-master-adapter-install.log.gz",
+      "sha256": "1bcb2cd4542ab1d0d3272b9e06f23e4b9e5fd78c9834f4739a7b3967e44621d4",
+      "rawSha256": "78b26fef7d291ed6257fb06ae7b48822382b8c67250eb78888028cb45a9ebdf4"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/current-master-ast-owner-corrected.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/current-master-ast-owner-corrected.json.gz",
+      "sha256": "9948989e2671c11158224acabb61e44f417a77f729b81fecfb5e591dbab0f993",
+      "rawSha256": "623836a0b80fcafa84e68d3aa19039653f621215a926eb379c22cdef1427c11b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/current-master-ast-owner-corrected.stderr.gz",
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/current-master-ast-owner-report.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/exact-head-after.json.gz",
+      "sha256": "7d5333dbd69bf80411e810eeb273a25bd916377f61c97c5130b54bb9990ec5ff",
+      "rawSha256": "000254eb2c260d7e77e9a40adfab70f2caf5f4c544694b478fbcf03aa36c0c0a"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/exact-head-before.json.gz",
+      "sha256": "f88f366697204a784d5b14e529046019250212365696aa104304c207286e84a5",
+      "rawSha256": "64fd3eee2621fbb728b986dab5d8746cb34e8e5300c8c396885118358e6bc0f6"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/exact-head-original-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/exact-head-original-controls.log.gz",
+      "sha256": "8c7eecafc656d873297c411c0fbacc5f64fcd937e58f375fc936031129186e34",
+      "rawSha256": "0875afba2c4e7f9aecf1c2b35b87f8f0826e8e142ca09367d4c034fa71d8e965"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/exact-head-owner-style.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/exact-head-owner-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/merge-preview-872.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/merge-preview-872.log.gz",
+      "sha256": "1e97ede96bce917f505187fd60d17245543e38cc08cfbafc9d1d0acf0de78dab",
+      "rawSha256": "19246ec075189558b7d8e7603a62626d9e38ad179901bc30697bbe1222b33386"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/merge-preview-latest.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/merge-preview-latest.log.gz",
+      "sha256": "2a5e61b19478362427364b6669308c7f8a56d2007d9a69f59e29dbca6ad83ab2",
+      "rawSha256": "6888692f5a514b94f3a6b38396029fe4f634417f799c1437bbced762f316d4bd"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/merge-preview.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/merge-preview.log.gz",
+      "sha256": "1e97ede96bce917f505187fd60d17245543e38cc08cfbafc9d1d0acf0de78dab",
+      "rawSha256": "19246ec075189558b7d8e7603a62626d9e38ad179901bc30697bbe1222b33386"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/original-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/original-controls.log.gz",
+      "sha256": "2ba5ce94cbf087d85e98075f7af9a329bf6e4e23f34e6d5d960604abd715eaec",
+      "rawSha256": "a4beeac5f49787fd6da181893ee33fae75bf195685e3fcc850f96e2344f3b924"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/owner-style.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/owner-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/pr-current-event.json.gz",
+      "sha256": "eb026cdd0bfb3f82e842f7cd705e0383f57f01ca925a1d0ada251d3aebe0dd5b",
+      "rawSha256": "e76277f6bb7cf17bf80bc0791258616a6e9ca713cb82669ae170980827831c7e"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr-corrected.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr-corrected.log.gz",
+      "sha256": "8d0d470889d9326212f0d96a8f14a2ee62ea88c70fdfa571c454160a3a09d27b",
+      "rawSha256": "e7ff7f816df67f8a7129b13cc09232c644b669b9296eecbe2694bb45db3960b9"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr-current-master.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr-current-master.log.gz",
+      "sha256": "52ac04ff6651d557a14eae73c8350a24abb90ae9fe9730f79eaaeabcc9b719e6",
+      "rawSha256": "77f192cbaec10942aabb86cec9887a93cb98885e5b2289f0e10f562476d9efb0"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr-final.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr-final.log.gz",
+      "sha256": "c5c25023ccef1cba1acc046edc556b89374d58754536ef4855bee77bd6346850",
+      "rawSha256": "a05fccc92a6276afbe4c1de9ef3bb6a4ffeb0c031b8600e39ab1efbd086e1cae"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-pr.log.gz",
+      "sha256": "626dfc7ac39efbcf0d73b4cb2c7c1da32f25ca75d0a36f1853cc1daf54317157",
+      "rawSha256": "1f5e64b25e12aa72818e9e0f7f52428777d6804da83277f3563afff47e765ece"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-range-corrected.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-range-corrected.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-range-final.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-range-final.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-range.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-final-source-checkpoint/trusted-range.log.gz",
+      "sha256": "4a10944ef1af226a5410a633d068e491c798b98c45b8b74790e9a6da2b4e7c8f",
+      "rawSha256": "3373524b969b69dfa7d7edf78afcffc3c10066e8e0a02213c896ab99ca7497b8"
+    }
+  ]
+}

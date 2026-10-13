@@ -1,0 +1,40 @@
+{
+  "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "replays": [
+    {
+      "sourceCommit": "9bf3ebb9779de226c369d1d0b8021ba140d2f176",
+      "replayCommit": "4d11aace54d904ed466d351fc3b233cb75a01567",
+      "sourceBlobsIdentical": true,
+      "files": [
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+          "sourceAndReplayBlob": "2d1e27b9d98cd35fb60f43499d4e04894b4108c8"
+        }
+      ]
+    },
+    {
+      "sourceCommit": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+      "replayCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "sourceBlobsIdentical": true,
+      "files": [
+        {
+          "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+          "sourceAndReplayBlob": "75947dd73871bab169cc9f5ed6828bbf35783a15"
+        },
+        {
+          "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+          "sourceAndReplayBlob": "7f1b9073618a5905a13490fb9996061ae1c1d55c"
+        },
+        {
+          "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+          "sourceAndReplayBlob": "e4521c2f5d864f29b8eb4a46481ab32f5131d34e"
+        },
+        {
+          "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+          "sourceAndReplayBlob": "f65b401745fe6405e5eb7d0f0bc88864b5eeac39"
+        }
+      ]
+    }
+  ],
+  "status": "source WIP; independent verification required"
+}

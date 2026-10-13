@@ -1,0 +1,658 @@
+{
+  "schema": "fsusblog.suite-convergence-sdk-compile-verification.v1",
+  "runId": "2026-10-08T06:37:49.985958+00:00",
+  "testedCommit": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+  "latestFetchedMaster": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+  "issues": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "replay": {
+    "original": "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa",
+    "replay": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+    "stablePatchId": "14e29fb73012a62c4a4d961ade83ff7c20c00a55",
+    "patchIdentical": true
+  },
+  "cache": {
+    "runId": "20261008T062019Z",
+    "packageCache": "/workspace/FsusBlog/.tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages",
+    "repositoryContained": true,
+    "createdByThisTask": true,
+    "installation": "official dotnet locked restore; no source/package fabrication, alias or hardlink"
+  },
+  "build": {
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "lockedRestoreExit": 0,
+    "debugBuildExit": 0,
+    "warnings": 1432,
+    "errors": 0
+  },
+  "assemblyBinding": {
+    "testedCommit": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+    "assemblies": [
+      {
+        "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+        "sha256": "7d2f80575fd285e07cf3a0575ff3746b64eabad04e4fa4334cfaa08c14eb0aff",
+        "mtimeUtc": "2026-10-08T06:22:23.592971+00:00"
+      },
+      {
+        "path": "tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll",
+        "sha256": "7d2f80575fd285e07cf3a0575ff3746b64eabad04e4fa4334cfaa08c14eb0aff",
+        "mtimeUtc": "2026-10-08T06:22:23.592971+00:00"
+      }
+    ],
+    "cache": "/workspace/FsusBlog/.tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages",
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "restoreLockedMode": true,
+    "scope": "Task-owned official restore/build and unchanged complete seven-class runtime regression only; no retained-build/native/signature qualification"
+  },
+  "sdkCompileContext": {
+    "exitCode": 0,
+    "project": {
+      "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "directory": "tests/backend"
+    },
+    "configuration": "Debug",
+    "sourceCount": 694,
+    "sdkCompileInputs": {
+      ".tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs": {
+        "source": ".tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs",
+        "packageId": "Microsoft.NET.Test.Sdk",
+        "version": "18.5.1",
+        "contentHash": "SfqVaLiIqAbRWuPg5BP4QFwBIirQj/YIL8Dhxl6zntBKbXp0cQykoV480SmwG+yRMiWptxEI6NbHQuGSZ8b97w==",
+        "sourceDigest": "sha256:d66f12f9433816a8c7dc1b2acb9e1010f5418f5eeb51e80f1df57aa1dcab8d8a",
+        "targetDigest": "sha256:93e2c4a4e08fa8db6af3b5907205741ad5184e642181bfdbe949c5109e19aa2f"
+      }
+    },
+    "output": "/workspace/FsusBlog/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "intermediateOutput": "/workspace/FsusBlog/tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll"
+  },
+  "externalCacheNegative": {
+    "exitCode": 1,
+    "expectedRefusal": true
+  },
+  "contextControls": {
+    "exitCode": 0,
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0,
+    "ownerReportedCountNotInherited": 22
+  },
+  "sourceStyle": {
+    "exitCode": 0,
+    "files": 2,
+    "violations": 0
+  },
+  "originalControls": {
+    "exitCode": 0,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0
+  },
+  "runtimeRegression": {
+    "testedCommit": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+    "command": [
+      "timeout",
+      "240",
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--no-build",
+      "--configuration",
+      "Debug",
+      "--filter",
+      "FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests",
+      "--results-directory",
+      "/tmp/fsusblog-3593/support-sdk-compile-3521/runtime-results",
+      "--logger",
+      "trx"
+    ],
+    "exitCode": 0,
+    "counts": {
+      "total": "248",
+      "executed": "248",
+      "passed": "248",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trxSha256": "0a58c0486bdbc5c27f7971ab94ad59e9f9dc19abfdfd459ba63f7a65501075d7",
+    "unchangedCaseNames": 248
+  },
+  "sourceChecks": {
+    "testedCommit": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+    "trustedMaster": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+    "checks": [
+      {
+        "name": "root-style",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "changed",
+          "--file",
+          "tests/tools/test-suite-convergence.test.mjs"
+        ],
+        "exitCode": 0
+      },
+      {
+        "name": "trusted-range",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+          "--root",
+          "/workspace/FsusBlog",
+          "--range",
+          "origin/master..HEAD"
+        ],
+        "exitCode": 0
+      },
+      {
+        "name": "pr-gate",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+          "--root",
+          "/workspace/FsusBlog",
+          "--github-event",
+          "/tmp/fsusblog-3593/support-sdk-compile-3521/pr-event.json"
+        ],
+        "exitCode": 1
+      },
+      {
+        "name": "current-ast",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "/tmp/fsusblog-3593/trusted-base/tools/test-inventory/ts-ast-adapter/index.mjs",
+          "/tmp/fsusblog-3593/support-msbuild-separators/ast-request.json"
+        ],
+        "exitCode": 0
+      },
+      {
+        "name": "convergence",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/check-test-suite-convergence.mjs",
+          "--out",
+          "/tmp/fsusblog-3593/support-sdk-compile-3521/convergence.json"
+        ],
+        "exitCode": 1
+      },
+      {
+        "name": "csharp-changed",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/dotnet/check-csharp-style.mjs",
+          "--mode",
+          "changed",
+          "--base",
+          "origin/master"
+        ],
+        "exitCode": 1
+      },
+      {
+        "name": "fresh-conflict-preview",
+        "command": [
+          "git",
+          "merge-tree",
+          "--write-tree",
+          "HEAD",
+          "origin/master"
+        ],
+        "exitCode": 0
+      }
+    ]
+  },
+  "rootIdentity": {
+    "originalCases": 17,
+    "unchanged": true,
+    "ids": [
+      "node-test:tests/tools/test-suite-convergence.test.mjs#2348-canonical-mfa-retirement-retains-before-identities--a4fe4944c8",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-accepts-runtime-artifacts-a-e2dc7d58d1",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-does-not-mistake-a-temporar-a8f8c27204",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-reconstructs-segmented-repo-86e7108d25",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#child-issue-evidence-requires-the-exact-closed-1032-thro-d560990262",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#compact-retention-audit-resolves-hashed-deletions-replac-2ab62f815c",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#convergence-plan-enforces-all-child-issues-exactly-once--b6ef7911c7",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#final-evidence-contracts-report-every-invalid-status-fie-0f187ef8af",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#issue-local-replacement-manifest-count-is-exact-e028734d05",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#matrix-is-the-single-current-command-and-retention-gover-2d95901b5e",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#path-migration-expansion-emits-every-exact-baseline-test-1ad9e3dc8a",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-chains-remain-acyclic-without-a-fixed-histor-d6df85c3cf",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-merge-accepts-identical-declarations-and-rep-96f182811c",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-accepts-a-declared-deletion-whose-replac-c6090891ca",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-inherits-pre-baseline-declarations-but-r-ab0022c0f5",
+      "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304"
+    ]
+  },
+  "csharpSdkBound": {
+    "checks": [
+      {
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/dotnet/check-csharp-style.mjs",
+          "--root",
+          "/workspace/FsusBlog",
+          "--mode",
+          "changed",
+          "--base",
+          "origin/master"
+        ],
+        "exitCode": 1,
+        "name": "csharp-sdk-bound"
+      },
+      {
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "/tmp/fsusblog-3593/trusted-base/tools/dotnet/check-csharp-style.mjs",
+          "--root",
+          "/workspace/FsusBlog",
+          "--mode",
+          "changed",
+          "--base",
+          "origin/master"
+        ],
+        "exitCode": 1,
+        "name": "trusted-csharp-sdk-bound"
+      }
+    ],
+    "environment": {
+      "PATHPrefix": "/tmp/fsusblog-3593/dotnet302",
+      "DOTNET_CLI_HOME": "/tmp/fsusblog-3593/dotnet302-home",
+      "NUGET_PACKAGES": "/workspace/FsusBlog/.tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages"
+    },
+    "earlierWrapperError": "Earlier final runner omitted SDK PATH; trim exception is not evidence of source regression. Retained as failed invocation and superseded by SDK-bound actual runs."
+  },
+  "remainingGates": {
+    "lifecycleRetention": {
+      "exitCode": 1,
+      "total": 64,
+      "passed": 63,
+      "failed": 1,
+      "skipped": 0,
+      "reason": "Migration Debug output/intermediate DLL absent; original migration compilation fails."
+    },
+    "canonicalInventory": {
+      "exitCode": 1,
+      "warnings": 1558,
+      "errors": [
+        "OfflineMigrationExpandSafetyTests.cs:79 CreateTableStep CS0246",
+        "OfflineMigrationExpandSafetyTests.cs:80 AddColumnStep CS0246"
+      ],
+      "complete": false,
+      "requiredCanonicalHandoff": "Coordinator routing #3657; exact commit and evidence required."
+    },
+    "astRetention": {
+      "exitCode": 1,
+      "reason": "Original native registration and renamed static case lack admitted replacement transaction."
+    },
+    "prGate": {
+      "exitCode": 1,
+      "errors": 9,
+      "reason": "Eight unchanged original generated inputs and atomic source/output closure."
+    },
+    "convergence": {
+      "exitCode": 1,
+      "remainingCompactBeforeIds": [
+        "c81f0d3f88",
+        "e536405a30"
+      ]
+    },
+    "physicalNative": "Previous complete 17-owner execution remains bound to db33476d2a709a54fcad2291741c3b5fab2ccb31: 689/738, 49 failed, zero skips. Not rerun or relabeled at this checkpoint."
+  },
+  "conflictPreview": {
+    "exitCode": 0,
+    "tree": "99c9f17309e1b7863966fa9e73c530bb836c2dcf",
+    "actualMergePerformed": false
+  },
+  "limits": [
+    "Only exact coordinator-supplied SDK input delta consumed; stable patch identity verified.",
+    "Official locked restore created the task-owned cache; no manual package copying, fabricated SDK context, aliases or links. Cache retained for continuation; not cleanup qualification.",
+    "Actual bounded source/target/lock/metadata observation is private runtime context. Serialized output grants no capability.",
+    "SDK Program remains Compile input in both graphs and cannot own test cases. External cache still refuses. No package signature, retained-build, nested-channel or native qualification inherited.",
+    "All earlier failures remain exact historical receipts. Full compiled inventory/PG/native/matrix/independent acceptance remain incomplete.",
+    "GitHub secondary rate-limit instruction received: stop nonessential writes; preserve WIP drafts locally. No denied scope retries or #3622 comments."
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/actual-internal-context.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/actual-internal-context.log.gz",
+      "sha256": "3504a8b7e090ec8298fd2518f6d4ca01a32b7e2b8e1c2f729e5c51b491ac6c21",
+      "rawSha256": "1bcaba1a219203f71d106254cb457632865eed3b502789bd714a1764b17c64fa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/assembly-binding.json.gz",
+      "sha256": "3dbd240e1a7c8efba312a607a9c115ca57ffe27b5036233e46458ad9b37d7482",
+      "rawSha256": "ddb25bfcc5a61fccce274a719871ee0e0cf9002617ce922815209c0418c6c982"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/ast-retention.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/ast-retention.log.gz",
+      "sha256": "3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1",
+      "rawSha256": "78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/backend-build.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/backend-build.log.gz",
+      "sha256": "c4d9f18a3f525b4c1b8ac0cccf1751f0e55c79faa8d056429550870d0fb84d90",
+      "rawSha256": "f9be316e21c07bc14b7effc17bf1838cf26611793745ab63c1c71710206de438"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/build-server-cleanup.exit.gz",
+      "sha256": "b2fa73c59e09261649cb68f6f52a189d661372adfa9d73dbbb31e03585771f97",
+      "rawSha256": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/build-server-cleanup.log.gz",
+      "sha256": "6c8ea09c26bd86500e6bd5dbc22baaab0e850f6f991c1928c3f8922e9e1a4929",
+      "rawSha256": "2c1c86c2a0b02065dac4defedbcd80186c2885f9efa4d936804b612899f7b6a8"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/cache-layout.json.gz",
+      "sha256": "08320af142ea39b67410b7e59fc09f2a694dc6b86bfb1d3ab976835197c24a1d",
+      "rawSha256": "f3142434c30029001cfb8be14f3c8def98b5e54ac811365cd97aefad942ae707"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/command-record.json.gz",
+      "sha256": "0bec71085bb0893dbba9376bc849987602c339dd7393c7b8bee6d9dd1d2bf8b3",
+      "rawSha256": "631e690eae7808e8b108a04a94fcdb1a533b0874f27d78b3288d2439fcf5c6e5"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/conflict-preview.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/conflict-preview.log.gz",
+      "sha256": "ac4648915fccac092f01964d01461a62f862ccb3a4b3b205e98aaaf91673c1a6",
+      "rawSha256": "60782739759d5dc8e3e8a51e5dd924f7fda63b6d8067306bb7a3d469909b4a78"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/context-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/context-controls.log.gz",
+      "sha256": "9ab034332f76f232e2ea0cd1dd3d6877a9cdcfc73cdaa8af0a5f8626fb8cc3ab",
+      "rawSha256": "0066f5e18554ba4be32af844552aa9925920f64a37853221a80691ab14b7741c"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/convergence.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/convergence.json.gz",
+      "sha256": "fe48dba04310a6010af8d6e7ca2d994d025e69c61c6b393989d65fd75578d7dc",
+      "rawSha256": "19a1631d4b039f2916ccb3393abc371e0a9412aa0a333f765e8259ecdc481ca9"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/convergence.log.gz",
+      "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+      "rawSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/csharp-changed.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/csharp-changed.log.gz",
+      "sha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+      "rawSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/csharp-sdk-bound-results.json.gz",
+      "sha256": "da91e09f668956d98a79bbc77b7fbcfb7e8ea6638c3f7d84f09ddc49203ba4fe",
+      "rawSha256": "21499e348bc7e5e8492c3a60458ea31f65e30847e774aa7c6f024166148792d0"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/csharp-sdk-bound.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/csharp-sdk-bound.log.gz",
+      "sha256": "8367d5b873b446434a64ac63cac790134c1932d0cc94700a7494adbb9b5cc540",
+      "rawSha256": "02df4c01089e3317c907ec660c82c93d71ae79d029cc8d667801b8f41b487da7"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/current-ast.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/current-ast.log.gz",
+      "sha256": "905843fe4682aacd2bf41056f85ce311431878cbc770c4ec4581c806258aebdb",
+      "rawSha256": "f9efd84a152ba5065e5abf629fe42a2c2c4172f0ba54171ce512c2f525cfc2d1"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/external-cache-negative.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/external-cache-negative.log.gz",
+      "sha256": "52ed59d41594315b156b8caca0e205dcdef80c683a78328b4f50feb48a121115",
+      "rawSha256": "498804e9c0ae444b11a6207989e5b95f81f07598361fbd32c5893d6c0fb8d33a"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/final-build-server-cleanup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/final-build-server-cleanup.log.gz",
+      "sha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c",
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/fresh-conflict-preview.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/fresh-conflict-preview.log.gz",
+      "sha256": "8da68c377c7744f8bc9af72a7e273a40c815a1812136615f3f95c7692e1cdec2",
+      "rawSha256": "1a20e2f1a800fb38181b05eea229705a785ae61613a98a9676028c2bd03472d0"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/inventory.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/inventory.log.gz",
+      "sha256": "7efb1f95024190137f3a461daf72732e32165ccdaa0e067a182ffbbd63e5c16c",
+      "rawSha256": "48f61fd038de5f0c805d3b4a212d2865bd09f63b661681a6ca903ef778e40690"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/lifecycle-retention-controls.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/lifecycle-retention-controls.log.gz",
+      "sha256": "018dd42587428cb33949c45dbfac4d0a4564623ec7ba79a8a2c6599a23218897",
+      "rawSha256": "b00325b983111abd0542ffea3b910b5595c84696c1cfe4ce4038d67963752d90"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/locked-restore.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/locked-restore.log.gz",
+      "sha256": "41fa8f5606ec94585a4c89e75c93e4be60c593da9bd6d6e2d45264914183923b",
+      "rawSha256": "c94c90afe2f4e538587d0007edc2b02d1f16872bc2bf904826a9bffabc0cb7d1"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/original-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/original-controls.log.gz",
+      "sha256": "1d4b007f54625d2979f2335295e742fa00a7813c6372284424cfd635bd735f9f",
+      "rawSha256": "50be7bcd826e96a44998114c19753f283b2c0f5c9edccf26925ff02845739cae"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/owner-style-results.json.gz",
+      "sha256": "9822f258d019c12704fdaa6930c68d7d10f6209910c2bee842ae060940bf0671",
+      "rawSha256": "a818ffed96daba38bafcd84ad50262182201443e92e691a8773f7181918a575b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/remaining-owner-style-command.json.gz",
+      "sha256": "9a740bbc5d98503c48c9375091bf1c17f234026315ded41798fe8623a107c891",
+      "rawSha256": "25b2c34a2c685d224a90504e4b666583021394f06f89bd1acacafcde8d530e6a"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/remaining-owner-style.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/remaining-owner-style.log.gz",
+      "sha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+      "rawSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/replay-binding.json.gz",
+      "sha256": "4eb1ee10a22c73a1972e8181e147a1d63d5e7817d50a155695d1cb54535e271b",
+      "rawSha256": "d58b35ad60b223680ccdfa8237613499d383c895b2beb116fd9ef49195ac05bf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/resolver-style.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/resolver-style.log.gz",
+      "sha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+      "rawSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/root-identity.json.gz",
+      "sha256": "32d8e18a79fe3c682de7e005b76541aa2092a788a7765bdaf2a421e8cdec68c3",
+      "rawSha256": "e90509b6f623dc4f6e6df90d85d1001147fe18698035ee510e43cf75da280ed4"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/root-style.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/root-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/rpc-style.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/rpc-style.log.gz",
+      "sha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+      "rawSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/runtime-regression.log.gz",
+      "sha256": "39b406e211eec348fbf0f8b3643fed0f768f23e99cbcf08b7d290a8a52ddf8ea",
+      "rawSha256": "585b3a19e9ce5547e04742b6783777d24512f13f59edd65f3069405c17fd647b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/runtime-summary.json.gz",
+      "sha256": "368a603f0fe46944f33625e93b6a175bd6732f41b398bee448c38b36e5399e67",
+      "rawSha256": "cae3a210de7c8c0c6dc3c77a9aad894a27e27c793742d11c12ab181791ca7a91"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/source-results.json.gz",
+      "sha256": "c0e5b60411231d9dc3cc27f99565079908fbb2a9a241a615def4248bcab65ccd",
+      "rawSha256": "3a2bfd3521279408827ad57779ca1fe85c331180a1e7ae7e189e6b4e49d2c037"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/source-style.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/source-style.log.gz",
+      "sha256": "8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9",
+      "rawSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/trusted-csharp-changed.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/trusted-csharp-changed.log.gz",
+      "sha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+      "rawSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/trusted-csharp-command.json.gz",
+      "sha256": "8fd6b10ec6e5882343c9c9578b7a482dcf43a08852ce012dc0851986193977e8",
+      "rawSha256": "da723c58f6fdeb3ace6af388bc4d8030dfc1a1649f39f9bd6aa8dc5cef371edd"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/trusted-csharp-sdk-bound.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/trusted-csharp-sdk-bound.log.gz",
+      "sha256": "8367d5b873b446434a64ac63cac790134c1932d0cc94700a7494adbb9b5cc540",
+      "rawSha256": "02df4c01089e3317c907ec660c82c93d71ae79d029cc8d667801b8f41b487da7"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/trusted-range.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/trusted-range.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-sdk-compile-verification/runtime-results.trx.gz",
+      "sha256": "b67e4e066bfa0600700294143fa8aca708ded4a9ccdf741989e04ebd30c8820b",
+      "rawSha256": "0a58c0486bdbc5c27f7971ab94ad59e9f9dc19abfdfd459ba63f7a65501075d7"
+    }
+  ]
+}

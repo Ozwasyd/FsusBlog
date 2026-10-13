@@ -1,0 +1,868 @@
+{
+  "schema": "fsusblog.suite-style-classified-repair-verification.v1",
+  "runId": "2026-10-08T04:58:26.754956+00:00",
+  "issues": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "compiledTestedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+  "msbuildTestedCommit": "d368a26574cf09afaa14dea70385b951f6498e36",
+  "latestOriginMaster": "87209d571a93254dcacfe9093753002e8c98822a",
+  "sdk": "10.0.302",
+  "runtime": "10.0.10",
+  "node": "24.16.0",
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "replays": {
+    "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+    "originMaster": "87209d571a93254dcacfe9093753002e8c98822a",
+    "runId": "2026-10-08T04:49:20.435663+00:00",
+    "replays": [
+      {
+        "original": "991735d3335c0ee0b9621f8ed3f9202638def2b9",
+        "replay": "ebe0a555e9175d8c3e2074cda3166ac638df5032",
+        "stablePatchId": "5590eb87e1a87b38639331bc00b3cc594487b637",
+        "exactPatchIdentical": true,
+        "blobs": [
+          {
+            "path": "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+            "original": "4fdac10903ec2517708edd26d17befd7a81a6dac",
+            "replay": "4fdac10903ec2517708edd26d17befd7a81a6dac"
+          }
+        ]
+      },
+      {
+        "original": "2f1546c656ffe4cef43a168a539c4b287fc5b4f5",
+        "replay": "56359ee2841490ac96dfcedafcfac058cf135fc5",
+        "stablePatchId": "b1188f0e494232122f3ca87a543bf668293cbddf",
+        "exactPatchIdentical": true,
+        "blobs": [
+          {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+            "original": "b6db0f8195e5871990c3f8fb7396744af58c74b6",
+            "replay": "b6db0f8195e5871990c3f8fb7396744af58c74b6"
+          },
+          {
+            "path": "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs",
+            "original": "30768f187cd21c7a4eb9c2306cdd957e6e0ee5b8",
+            "replay": "536842a5cb29074e47a2ea97018c399d94fe896e"
+          }
+        ]
+      },
+      {
+        "original": "1d4769b7aa6582d51fc4643e12a2e411b34991e2",
+        "replay": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "stablePatchId": "b22c98e7b665f357c6360966b32c35b52cac4643",
+        "exactPatchIdentical": true,
+        "blobs": [
+          {
+            "path": "tests/backend/Unit/AuthoringCommandContributionTests.cs",
+            "original": "8994d265845ef0182ef003ba935ad7088034def5",
+            "replay": "8994d265845ef0182ef003ba935ad7088034def5"
+          }
+        ]
+      }
+    ],
+    "resolverPreimageDifference": "The five additional type-roster entries already exist in the canonical parent, but not in this task parent. The identical supplied patch adds no roster entry; no unsupplied prior increment was consumed."
+  },
+  "msbuildReplay": {
+    "original": "9b1455c00389daf6472749f78c22d4a77a37766e",
+    "replay": "d368a26574cf09afaa14dea70385b951f6498e36",
+    "stablePatchId": "b58316a30541a7656434cbb4f0e7ccb3fec4a427",
+    "patchIdentical": true,
+    "baseline": "87209d571a93254dcacfe9093753002e8c98822a"
+  },
+  "compiledSourceAndAssemblyBinding": {
+    "compiledCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+    "msbuildCandidate": "d368a26574cf09afaa14dea70385b951f6498e36",
+    "csharpDeltaAfterCompile": "",
+    "assemblies": {
+      "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "81af0fcb1de1958e6b1b1f806e4ea1a9cbaa807efb6d545e6a45dac4b3eda21b",
+      "tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll": "81af0fcb1de1958e6b1b1f806e4ea1a9cbaa807efb6d545e6a45dac4b3eda21b"
+    }
+  },
+  "casePreservation": {
+    "originalCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+    "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+    "oldCases": 728,
+    "currentCases": 738,
+    "missingCases": [],
+    "addedCases": [
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_CharacterRules_PreserveEveryUtf16CodeUnit(field: \"ModuleName\")",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_CharacterRules_PreserveEveryUtf16CodeUnit(field: \"ModuleSha256\")",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_CharacterRules_PreserveEveryUtf16CodeUnit(field: \"ReviewOwner\")",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_CharacterRules_PreserveEveryUtf16CodeUnit(field: \"SourcePath\")",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_CharacterRules_PreserveEveryUtf16CodeUnit(field: \"SourceSha256\")",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_NonSha256Lengths_FailsClosed(length: 0)",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_NonSha256Lengths_FailsClosed(length: 128)",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_NonSha256Lengths_FailsClosed(length: 63)",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_NonSha256Lengths_FailsClosed(length: 65)",
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.Registry_PlatformSet_PreservesDefinedAndClosedMembers"
+    ],
+    "previousFailedCaseNamesPreserved": true,
+    "failedCaseCount": 49
+  },
+  "backendRestore": {
+    "exitCode": 0,
+    "command": [
+      "timeout",
+      "180",
+      "dotnet",
+      "restore",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--locked-mode",
+      "--force",
+      "--nologo"
+    ]
+  },
+  "backendBuild": {
+    "exitCode": 0,
+    "warnings": 1510,
+    "errors": 0,
+    "command": [
+      "timeout",
+      "240",
+      "dotnet",
+      "build",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--configuration",
+      "Debug",
+      "--nologo",
+      "--verbosity",
+      "quiet"
+    ]
+  },
+  "runtimeBatches": [
+    {
+      "name": "repaired-original-classes",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~AuthoringExtensionRpcTests|FullyQualifiedName~AuthoringExtensionExecutionResolverTests|FullyQualifiedName~AuthoringCommandContributionTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-classified-repairs/repaired-original-classes-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 0,
+      "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+      "counts": {
+        "total": "186",
+        "executed": "186",
+        "passed": "186",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "classCounts": {
+        "AuthoringExtensionRpcTests": {
+          "Passed": 111
+        },
+        "AuthoringExtensionExecutionResolverTests": {
+          "Passed": 31
+        },
+        "AuthoringCommandContributionTests": {
+          "Passed": 44
+        }
+      },
+      "trxSha256": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450"
+    },
+    {
+      "name": "tracking-owner-runtime",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~PublicHotReadDbAdmissionTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~DocumentExportHtmlProviderTests|FullyQualifiedName~AuthoringExtensionPackagePersistenceTests|FullyQualifiedName~AuthoringExtensionRpcTests|FullyQualifiedName~AuthoringExtensionExecutionResolverTests|FullyQualifiedName~AuthoringCommandContributionTests|FullyQualifiedName~PublicArtifactRevocationTests|FullyQualifiedName~AuthoringExtensionServiceBrokerTests|FullyQualifiedName~AuthoringExtensionWorkerSandboxTests|FullyQualifiedName~CanonicalArticlePublicationFixturePortTests|FullyQualifiedName~DocumentExportSandboxTests|FullyQualifiedName~DocumentExportSystemdCgroupAuthorityTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~PrivateAssetDeliveryTests|FullyQualifiedName~PrivateAssetStoreTests|FullyQualifiedName~SpaAssetManifestServiceTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-classified-repairs/tracking-owner-runtime-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 1,
+      "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+      "counts": {
+        "total": "738",
+        "executed": "738",
+        "passed": "689",
+        "failed": "49",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "classCounts": {
+        "ArticleVaultExecutionTests": {
+          "Passed": 33
+        },
+        "DocumentExportContractTests": {
+          "Passed": 70
+        },
+        "SpaAssetManifestServiceTests": {
+          "Passed": 73
+        },
+        "CanonicalArticlePublicationFixturePortTests": {
+          "Passed": 34
+        },
+        "AuthoringExtensionPackagePersistenceTests": {
+          "Passed": 51
+        },
+        "DocumentExportSystemdCgroupAuthorityTests": {
+          "Failed": 3,
+          "Passed": 11
+        },
+        "AuthoringExtensionWorkerSandboxTests": {
+          "Failed": 2,
+          "Passed": 29
+        },
+        "PublicArtifactRevocationTests": {
+          "Passed": 50
+        },
+        "DocumentExportSandboxTests": {
+          "Failed": 22,
+          "Passed": 14
+        },
+        "AuthoringCommandContributionTests": {
+          "Passed": 44
+        },
+        "AuthoringExtensionExecutionResolverTests": {
+          "Passed": 31
+        },
+        "DocumentExportHtmlProviderTests": {
+          "Passed": 10,
+          "Failed": 21
+        },
+        "AuthoringExtensionRpcTests": {
+          "Passed": 111
+        },
+        "PublicHotReadDbAdmissionTests": {
+          "Passed": 16
+        },
+        "PrivateAssetDeliveryTests": {
+          "Passed": 28
+        },
+        "AuthoringExtensionServiceBrokerTests": {
+          "Passed": 45,
+          "Failed": 1
+        },
+        "PrivateAssetStoreTests": {
+          "Passed": 39
+        }
+      },
+      "trxSha256": "8eefcfff9440d52aaf22934b1c1d0854aa502dd97a844e996fcafece68dc26ca"
+    },
+    {
+      "name": "projection-bootstrap",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~CanonicalArticleProjectionVerifierTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-classified-repairs/projection-bootstrap-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 1,
+      "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+      "counts": {
+        "total": "125",
+        "executed": "125",
+        "passed": "121",
+        "failed": "4",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "classCounts": {
+        "CanonicalArticleProjectionVerifierTests": {
+          "Passed": 110,
+          "Failed": 2
+        },
+        "LifecycleHostedBootstrapServiceTests": {
+          "Passed": 11,
+          "Failed": 2
+        }
+      },
+      "trxSha256": "1c5250ee65e77e7818429a53e4e4dca9ec66f0e0f0f4f573862edbd80a747ad5"
+    }
+  ],
+  "sourceChecks": [
+    {
+      "name": "original-controls",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/tools/test-replacement-transaction.test.mjs",
+        "tools/post-baseline-history.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "owner-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/test-suite-convergence.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "ast-retention",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-replacement-transaction.mjs",
+        "check-diff",
+        "origin/master"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "convergence",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/check-test-suite-convergence.mjs",
+        "--out",
+        "/tmp/fsusblog-3593/support-classified-repairs/convergence.json"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "merge-preview",
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "HEAD",
+        "origin/master"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "msbuildSourceChecks": [
+    {
+      "name": "new-context-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/xunit-configuration-context.test.mjs"
+      ],
+      "exitCode": 0,
+      "testedCommit": "d368a26574cf09afaa14dea70385b951f6498e36"
+    },
+    {
+      "name": "discovery-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tools/test-inventory/discovery.mjs"
+      ],
+      "exitCode": 0,
+      "testedCommit": "d368a26574cf09afaa14dea70385b951f6498e36"
+    },
+    {
+      "name": "root-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/test-suite-convergence.test.mjs"
+      ],
+      "exitCode": 0,
+      "testedCommit": "d368a26574cf09afaa14dea70385b951f6498e36"
+    },
+    {
+      "name": "ast-retention",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-replacement-transaction.mjs",
+        "check-diff",
+        "origin/master"
+      ],
+      "exitCode": 1,
+      "testedCommit": "d368a26574cf09afaa14dea70385b951f6498e36"
+    },
+    {
+      "name": "merge-preview",
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "HEAD",
+        "origin/master"
+      ],
+      "exitCode": 0,
+      "testedCommit": "d368a26574cf09afaa14dea70385b951f6498e36"
+    },
+    {
+      "name": "csharp-changed",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "changed",
+        "--base",
+        "origin/master"
+      ],
+      "exitCode": 1,
+      "testedCommit": "d368a26574cf09afaa14dea70385b951f6498e36"
+    }
+  ],
+  "msbuildControls": {
+    "context": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "oldSourceWithIdenticalNewControls": {
+      "passed": 10,
+      "failed": 3,
+      "skipped": 0,
+      "exitCode": 1,
+      "qualificationEligible": false,
+      "oldSourceCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1"
+    },
+    "originalLifecycleRetention": {
+      "passed": 63,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1
+    }
+  },
+  "actualMsbuildContext": {
+    "command": [
+      "dotnet",
+      "msbuild",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--nologo",
+      "-verbosity:quiet",
+      "-property:Configuration=Debug",
+      "-property:BuildProjectReferences=false",
+      "-getProperty:Configuration,TargetPath,IntermediateOutputPath",
+      "-getItem:Compile"
+    ],
+    "exitCode": 0,
+    "observedIntermediateOutputPath": "obj\\Debug/net10.0/",
+    "projectionExitCode": 1,
+    "remainingRefusal": "xunit Compile source is outside its canonical repository boundary: ../../tmp/fsusblog-3593/nuget/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs"
+  },
+  "canonicalRootStaticIds": {
+    "count": 17,
+    "unchanged": true,
+    "diagnostics": 0
+  },
+  "remainingGates": [
+    {
+      "owner": 3521,
+      "gate": "Canonical AST native-table-not-closed and renamed all-225 static ID need admitted replacement; external SDK Compile source still fails ownership; ordinary generated binding includes unchanged master inputs."
+    },
+    {
+      "owner": 3654,
+      "gate": "Four actual bootstrap/projection failures; common-master migration CS0246; strict C# whitespace/using-order including pre-existing surfaces in newly touched RPC/resolver owners."
+    },
+    {
+      "owner": "canonical retention/QPS history owner via parent",
+      "gate": "Two current-epoch backend-QPS IDs do not resolve in compact before; no mappings/before seal deleted."
+    },
+    {
+      "owner": "original child native owners",
+      "gate": "49 protected systemd/worker-host/bwrap refusals remain failed, not runtime acceptance."
+    }
+  ],
+  "ciPolicy": {
+    "localShaBoundSubstitutionAuthorized": true,
+    "absentRemoteChecksAloneIsBlocker": false,
+    "independentReviewRequired": true
+  },
+  "limits": [
+    "The 186-case focused run is repeated as part of the 738-case whole-owner run; all original 728 names remain and only ten resolver controls are added.",
+    "All historic failures/logs remain. Three repaired current controls pass; the 49 native refusals and four projection/bootstrap failures remain unqualified.",
+    "The MSBuild source increment changes no C# source/build inputs after the compiled tested commit; it is not full inventory admission.",
+    "The parent confirmed bootstrap/projection compatibility routing to #3654; historical #2213 closed boundary is retained as provenance.",
+    "Full canonical inventory, matrix, PG/runtime and independent acceptance remain incomplete. No merge, production action, package publication or protected PR modification occurred."
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-assembly-binding.json.gz",
+      "sha256": "058130297fb50cd2e20b949fc454795977c791c29af38385efb2bc52fd5f3472",
+      "rawSha256": "cf84c3f33574f2bb02476bc310230c0718b055ced29f6f91ef2483ce4fb12879"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-ast-retention.log.gz",
+      "sha256": "3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1",
+      "rawSha256": "78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-backend-build.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-backend-build.log.gz",
+      "sha256": "ec2c9e40e2f7f854c06e95a55ae9f3ba1fe0d3417d0a791cf481ffa815fd81a4",
+      "rawSha256": "fe628d2062e2d8697c7dd924c9236d4d4be37fcc6e6a90b29cb992c987c0695a"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-case-preservation.json.gz",
+      "sha256": "691b195125b6f5d3b810c63209d3480ae4f9d17edfcad13d4b7e005ce435501f",
+      "rawSha256": "8a2420906be9d04cd0245ca679efa9aa715d8664db4bbc19c641bd9a6def5478"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-convergence.json.gz",
+      "sha256": "fe48dba04310a6010af8d6e7ca2d994d025e69c61c6b393989d65fd75578d7dc",
+      "rawSha256": "19a1631d4b039f2916ccb3393abc371e0a9412aa0a333f765e8259ecdc481ca9"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-convergence.log.gz",
+      "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+      "rawSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-locked-restore.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-locked-restore.log.gz",
+      "sha256": "bece0c1ff7ee6b4ca058fdf9a3f7e21e783d5853cce114a1aa0320777fd8d743",
+      "rawSha256": "aed625be2517ca0767b18958404d9813351e45b20cb78385780a3fd0f8f5b938"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-merge-preview.log.gz",
+      "sha256": "a34b89e196658d187a51ce36fa5f026dda1fbee769979dff2d8eff42759120ea",
+      "rawSha256": "fea3ac4267f8be9438a3d27826bbf5fa270220f6e812873e7e039e888df8b5e1"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-original-controls.log.gz",
+      "sha256": "664a157dd3a72e96e3bfbb6dfba411fec5abc629b60f5a17f7b2b44541be4c71",
+      "rawSha256": "e849dffa9771ea6a50c4244ad0f271e2686d3182a11133cb9657b042d4b223d4"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-owner-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-projection-bootstrap.log.gz",
+      "sha256": "9c84d2e66e5955425bdbd9e19632ae450e5573718c7630ab60ac8ea6ffdb6aae",
+      "rawSha256": "a232dc690d5fc476b32adf9efd3d891daec1c49f9c3a08adc974d4787f7abf2b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-repaired-original-classes.log.gz",
+      "sha256": "83a12ad5b33c43970eb29ac9a672ec7a120419a3922629e5393c7927b1e2c15b",
+      "rawSha256": "05beff463a2e06791b71e288811cc8d6034dc32a6c4d9644eada658f9368ac5c"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-replay-binding.json.gz",
+      "sha256": "a056c2511aa6a61c98df7f6534791d28cb74221ac87a8da3c21ea167d37fbe21",
+      "rawSha256": "049c49daa9e60abfdd13425ceab77b07607107d71867f62510b80629ac22d8a5"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-runtime-summary.json.gz",
+      "sha256": "87c78407a8efc2149651cd89ca12752de124bb9e5a398c660e7e20995b69ada2",
+      "rawSha256": "054e93508e84f53f14263945b43bbf773ab5a6a3397252ebab82b8db75996244"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-source-results.json.gz",
+      "sha256": "bf18a1f50b8cd0e9e44c5011d985df70d24829169a9df16ccbb1fead66ab18af",
+      "rawSha256": "f5a7fd07cd57a39b58567b21d4f0fae22271170584fdcf4325e5fed67cab98c8"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/classified-tracking-owner-runtime.log.gz",
+      "sha256": "622768683869e039be2d578cdc156ee7516ff5bd94f1e27c939b802bda89ea06",
+      "rawSha256": "d62de06574fe505ecbda0496c0d4079cc9c4e1849345153a806afb6904c723fc"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-actual-context.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-actual-context.log.gz",
+      "sha256": "338210d6d190539b74c699921888dbd8bef2b475af98ce925fdf7361ec1c4690",
+      "rawSha256": "bc301a1b1e006e520f34ab65631ea3847178290175688f77eaa6a7549674f94b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-ast-owner-report.json.gz",
+      "sha256": "9948989e2671c11158224acabb61e44f417a77f729b81fecfb5e591dbab0f993",
+      "rawSha256": "623836a0b80fcafa84e68d3aa19039653f621215a926eb379c22cdef1427c11b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-ast-owner.stderr.gz",
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-ast-request.json.gz",
+      "sha256": "29060b551d96d84d75cce28ce0015adfa825a43eb92a15fed5d09d0ef220754c",
+      "rawSha256": "03c3738c1f2f894938394039c574abcd5e3c9a53ec6f9aa6cd92c34a6282df74"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-ast-retention.log.gz",
+      "sha256": "3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1",
+      "rawSha256": "78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-context-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-context-controls.log.gz",
+      "sha256": "7c64d0890572671d31f748851100e9fb3ec0e33428c966c01ba9a494a789b4fa",
+      "rawSha256": "228b92d212d6370da566420c1d81d4da83222375e927cccca4eab982140cbbe6"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-csharp-changed.log.gz",
+      "sha256": "402a24529d7ec3501bec9481136108e184447925c29fda59ba6a8dda04386d0c",
+      "rawSha256": "8327c67d9a4cfd340312120d68f254076d9d96213caa8b84d830e8b4eee20620"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-discovery-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-lifecycle-retention-controls.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-lifecycle-retention-controls.log.gz",
+      "sha256": "587bee36b0860097ea97dea4f6e94ff148adf196572bd4f23195fe8230aaf730",
+      "rawSha256": "4a0c62cf78c00b5ba4bce5f7d6dc2455e74faeb026b4233c02a20928c78d9119"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-merge-preview.log.gz",
+      "sha256": "22f409fd424ddf681458e1da99f015a2c257b76a8471fc760f8d3360f1bb626b",
+      "rawSha256": "15916ed91db63b8c7f6b39b8ed796871f580f97bbfeff633f5a95457f4c41f42"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-msbuild-context.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-msbuild-context.json.gz",
+      "sha256": "e51693d0277bbf593b28835555930febb838f8cc7a3efd9a63a4832caf144450",
+      "rawSha256": "1ca30acd6090ae24b77f15509f6cbd5bf776c762ee6eb419587dd789f6b6b7db"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-msbuild-context.stderr.gz",
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-negative-setup.log.gz",
+      "sha256": "c2c2ba899f5352a022e7fd6a9ee9d7870952469a63810605f077b817d1843e67",
+      "rawSha256": "41d87075cc0c8e4d83cc6c653e346fc20d92b0b599ddbdb840c2394ffc289878"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-new-context-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-old-source-new-controls.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-old-source-new-controls.log.gz",
+      "sha256": "dc3fb49b8af13623ec721cebbd77056e00fa1cb50a4b8b07f0148a93582afaae",
+      "rawSha256": "4c98d42f85ab56d1e36252d0bda32e04ea0f450ab0176ac8f5166ae13fb7a521"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-replay-binding.json.gz",
+      "sha256": "b9c26668fe7563290cd14c768a62ba1314a28a97ad54973f1d821ee32a637d10",
+      "rawSha256": "9b2b6170efb1a2fffa655d0abeefa5b72a0a2929ecf4382ccd5e4eb90f8e9403"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-root-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/msbuild-source-results.json.gz",
+      "sha256": "fc0be1dfe2c2b8a6d40747d62c1d89097c0bcb505dfa220443ba132e41cd7c72",
+      "rawSha256": "3b3318317b0e45925313a8487da32d3c83ad90f9e68af68467c9888b0264c712"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/projection-bootstrap-results.trx.gz",
+      "sha256": "b876c64d6107662ccc75df8a05d4e3b79c81d0499d51c7ae48f2ca55428e12d0",
+      "rawSha256": "1c5250ee65e77e7818429a53e4e4dca9ec66f0e0f0f4f573862edbd80a747ad5"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/repaired-original-classes-results.trx.gz",
+      "sha256": "11069fa91649efb02da21bc8b3e9f7fe6d791feeef2efeed0a5413db4a95e3ee",
+      "rawSha256": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/tracking-owner-runtime-results.trx.gz",
+      "sha256": "588ca897cfe050f924b08a49edde26976a749a65f8df5b8aa731d26a782f1d32",
+      "rawSha256": "8eefcfff9440d52aaf22934b1c1d0854aa502dd97a844e996fcafece68dc26ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3554.json.gz",
+      "sha256": "48774a036ef8cff34209c940041003a2d5021cb786e95cea450d43db286db8f7",
+      "rawSha256": "adc9f1c2375430974c07b2f1d1ea6e98fb65d8df2df7fb51058e1176fed53be0"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3556.json.gz",
+      "sha256": "6120b3d4b1c9136471f29a2b0d27cc1d1362e6ce579292773299f7ca06fc9871",
+      "rawSha256": "46ced26740b0107d2b7d7aff0f98991b32bbdbc16e77b44811a4d2e94637551a"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3558.json.gz",
+      "sha256": "c9393adad428259ee45c1b4be79b82fbc22e419f86ec4bb56175a42c5fac7c58",
+      "rawSha256": "58a890cf39d919b427b8708d1c8cd34ac0e4f5c9c57a42d4f7ebde13fb7317d4"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3560.json.gz",
+      "sha256": "546033bc13cbd6bfbf93fc58d29a291fdd6b51f76d42c77ae1bd32940bf2f912",
+      "rawSha256": "0278cd333ec2fa4be82b34acc77dfebed092be0a055cfb6f61240720ca314f27"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3562.json.gz",
+      "sha256": "16dbd70486014aee7ef55b26a1c861af50c783fadc6ac3efae26b67b2e19b4ce",
+      "rawSha256": "03cbaff96072464a410ba55b8d20b3b6dd67de081aff3039d8ab97238f1e4e81"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3564.json.gz",
+      "sha256": "80d0a18f2c9838faedb4161a4c66e93f7fbaf5f22772b7fb5746befa88a2cf0d",
+      "rawSha256": "e46f2c98f0d29852b994ba976acf42e9c75506942b5d04f00bbd55cb5e5dcd41"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3566.json.gz",
+      "sha256": "e3a9c3860b3e84c6d1798ceebf5b63e7770715c598849451b6d9c306f8093d81",
+      "rawSha256": "90674d1e1181e4429ec7d38903dcdd32efb6069ed00f07cec0b038fa59c2309e"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3568.json.gz",
+      "sha256": "718479e663d7efa0fdda4bd608dbb4822667d77504a3d9c37d9903f7ada34cfe",
+      "rawSha256": "6cfac290dee9399875a791a51a5a3dd6a87a89cc714d2e45b2c2c5711d3b2092"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3570.json.gz",
+      "sha256": "76d734365b9db5d5631d44f4cef1166ec773c66679b1ab9fcd5a85f1b78681e3",
+      "rawSha256": "441deb6262f759d222d41839fa93e92fcc50a3cb37fb710a821d8b0b63945e16"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3572.json.gz",
+      "sha256": "5e722b7c2e814c1c4066befd80295862d56b8774178cf07b946de57a90172202",
+      "rawSha256": "f35306a11a86bfa82509c7452dc304ff8c5e7cbe9062c934572f3e0fdcb8f15c"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3574.json.gz",
+      "sha256": "7505e548ac1241335ab345b3399d40796f2550dbd738b725f67a674dd5c67d19",
+      "rawSha256": "cc7fceda1deaa9ffb243e73944f49976a099c1b79ae03c3a003dd8044d33416e"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3576.json.gz",
+      "sha256": "589f7f04c0989b94c41649df07038e6b18a1449040fe9015f114523860708061",
+      "rawSha256": "a5f09a9a2c97e3ac94241dcaa941c73f0eef3a429a38c2e8fd4a3e75dd75b3e3"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3578.json.gz",
+      "sha256": "e13a28f2a870c149991326ba024c426c1e23fd0700cc9f21872d9d7a505d6922",
+      "rawSha256": "078590156f86fe702f432c890a57ca2ae1ccbca1f2f31aee5b13101fdc9d4e45"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3580.json.gz",
+      "sha256": "8e439d17b3fba2c551b6d13cf260bf5f6a48b7ccc1e48ee0285ed73f47ee0681",
+      "rawSha256": "509ab015af5bb136761c19de2844018b654904dcc84464b772b25b4a16787b14"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3582.json.gz",
+      "sha256": "3bc0b5c2697cbcfae41d12fbcf302ea2c65d575e81ea94709966f934710f4755",
+      "rawSha256": "4501f773726a258467558a23fe1c9a9a07c393a04c88b789af84d90be73ab262"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3584.json.gz",
+      "sha256": "8ecadc212834b4abcbcc6256f1d65ed5bcbebcf86c4328a9e734d23b4963ada6",
+      "rawSha256": "62ea293f44fd010577acf614325810aacc6c6ea1bcd088f8130a25df07669544"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3586.json.gz",
+      "sha256": "e7ee2eb1e2e8347dd740e8c78ee526dc3a39c9f8bd416c973cba711949bb8bd2",
+      "rawSha256": "904cede34ff4105c3f4b94273ce0a540ee102da8e29ea9149055d960a10ce124"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3588.json.gz",
+      "sha256": "c02568a488230125071c8f9278e8603e1d4d5090dbcda7d69c83c2304d7055ea",
+      "rawSha256": "9f9cbe7860063c8c7204c73029d88afb76bc48be576200ae854c4a18db29b2e3"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-classified-repairs/child-3590.json.gz",
+      "sha256": "24b18056a795575bbbb9acece8b78d20ad2457c295cd729a603eb947a2554568",
+      "rawSha256": "e7e72f502c5accb6de708412755ba7471dcd8dd7b0cc4ebd5b20dc43a7bcdcd0"
+    }
+  ]
+}

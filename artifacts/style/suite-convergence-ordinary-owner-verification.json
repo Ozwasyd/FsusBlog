@@ -1,0 +1,1126 @@
+{
+  "schema": "fsusblog.suite-convergence-ordinary-owner-verification.v1",
+  "runId": "issue-3593-ordinary-owners-20261008T081317Z",
+  "testedCommit": "7564be84483b6b543985430d83df41ceffc3a81c",
+  "latestFetchedMaster": "3466db03e0421f4e90d36528b9062cdf7446abda",
+  "issues": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "suppliedHeads": [
+    "074d09e8ef497928313ea0df36f62844893fe2bc",
+    "56f1a723729e829b12328e5a4cfd5db11424e457"
+  ],
+  "rosterReplays": [
+    {
+      "original": "2d61c69e22d2b10dede34da668d6992b4c77d4a7",
+      "replay": "70a26c8613f447597f05a871b28205e34537aade",
+      "stablePatchId": "fe2c48359061d47c21c40fcec7770d5b9868c7a6",
+      "patchIdentical": true
+    },
+    {
+      "original": "22253dd86236d618763faad9544dce1d7daa1de9",
+      "replay": "89f39b35f1c5ceaac8f1ac0c937f63be77897dc6",
+      "stablePatchId": "73fd3c752e0c1c2306894f80113517806472d0d4",
+      "patchIdentical": true
+    }
+  ],
+  "applicability": {
+    "sourceCandidate": "7564be84483b6b543985430d83df41ceffc3a81c",
+    "files": [
+      {
+        "path": "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+        "candidateBlob": "69f945597d0c24cd5a3a9d929c2bb95853cc08ab",
+        "suppliedHead": "074d09e8ef497928313ea0df36f62844893fe2bc",
+        "suppliedBlob": "69f945597d0c24cd5a3a9d929c2bb95853cc08ab",
+        "identical": true,
+        "reexecuted": true
+      },
+      {
+        "path": "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs",
+        "candidateBlob": "30768f187cd21c7a4eb9c2306cdd957e6e0ee5b8",
+        "suppliedHead": "56f1a723729e829b12328e5a4cfd5db11424e457",
+        "suppliedBlob": "30768f187cd21c7a4eb9c2306cdd957e6e0ee5b8",
+        "identical": true,
+        "reexecuted": true
+      },
+      {
+        "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+        "candidateBlob": "e9e46c81f0a540fe2184fc49f36bf03494969822",
+        "suppliedHead": "56f1a723729e829b12328e5a4cfd5db11424e457",
+        "suppliedBlob": "e9e46c81f0a540fe2184fc49f36bf03494969822",
+        "identical": true,
+        "reexecuted": true
+      },
+      {
+        "path": "tests/backend/Unit/DocumentExportContractTests.cs",
+        "candidateBlob": "a96b45ae2fc84e83d0064f26a6d07f221f434244",
+        "suppliedHead": "074d09e8ef497928313ea0df36f62844893fe2bc",
+        "suppliedBlob": "a96b45ae2fc84e83d0064f26a6d07f221f434244",
+        "identical": true,
+        "reexecuted": false
+      },
+      {
+        "path": "tests/backend/Unit/AccountSubjectHashProjectionTests.cs",
+        "candidateBlob": "dcc707ffbd5f6f579cb664697c2c1ed3f64439e2",
+        "suppliedHead": "074d09e8ef497928313ea0df36f62844893fe2bc",
+        "suppliedBlob": "dcc707ffbd5f6f579cb664697c2c1ed3f64439e2",
+        "identical": true,
+        "reexecuted": true
+      }
+    ],
+    "onlyMissingRosters": [
+      {
+        "rpc": {
+          "before": 16,
+          "after": 26,
+          "added": 10
+        }
+      },
+      {
+        "resolver": {
+          "before": 12,
+          "after": 17,
+          "added": 5
+        }
+      }
+    ],
+    "predicateCacheFixAlreadyPresent": true,
+    "wholePrerequisiteBranchesConsumed": false,
+    "unchangedDocumentExportNotRerun": true
+  },
+  "formatOnly": {
+    "commit": "efe83b23aafed77f3653fb839a9d4b216d0e5e44",
+    "evidence": "artifacts/style/issue-3593-ordinary-format-idempotence.json",
+    "formatter": {
+      "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+        "command": "dotnet format whitespace . --folder --include tests/backend/Unit/AuthoringExtensionRpcTests.cs src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs --verbosity quiet"
+      },
+      "paths": [
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"
+      ],
+      "firstPassTreeSha256": "16e3eb7da7380f6160aecabf006d1bc5362e2b49c8b939c5b9f0cb6b43bbb0d1",
+      "secondPassTreeSha256": "16e3eb7da7380f6160aecabf006d1bc5362e2b49c8b939c5b9f0cb6b43bbb0d1",
+      "idempotent": true
+    },
+    "roslyn": {
+      "formats": [
+        {
+          "name": "rpc",
+          "completeSyntaxShapesAndAritiesEquivalent": true,
+          "normalizedFullSyntaxEquivalent": true,
+          "rawUnnormalizedSyntaxApiResult": false,
+          "rawTokensAndValuesEquivalent": true,
+          "anchoredNonWhitespaceTriviaEquivalent": true,
+          "tokenCount": 13317,
+          "tests": 50,
+          "assertions": 239,
+          "tokenSha256": "e613111ae4325aa005bcc4f9edd27e4d8304c1f726079474e7aaaf461f97e5fc"
+        },
+        {
+          "name": "resolver-production",
+          "completeSyntaxShapesAndAritiesEquivalent": true,
+          "normalizedFullSyntaxEquivalent": true,
+          "rawUnnormalizedSyntaxApiResult": true,
+          "rawTokensAndValuesEquivalent": true,
+          "anchoredNonWhitespaceTriviaEquivalent": true,
+          "tokenCount": 3179,
+          "tests": 0,
+          "assertions": 0,
+          "tokenSha256": "3add003b60472b0806605673cc6105f03c8803f7933f65e0d3db99aae01055ed"
+        }
+      ],
+      "rosters": [
+        {
+          "Name": "rpc",
+          "added": [
+            "AuthoringCanonicalDocumentRead",
+            "AuthoringDocumentReadReceipt",
+            "AuthoringDocumentReadResult",
+            "AuthoringFileBrokerProposal",
+            "AuthoringNetworkBrokerProposal",
+            "IAuthoringCanonicalDocumentReadTransaction",
+            "IAuthoringCapabilityBrokerGrantReadScope",
+            "IAuthoringCapabilityBrokerGrantReadScopeStore",
+            "IAuthoringCapabilityGrantReadScope",
+            "IAuthoringCapabilityGrantReadScopeStore"
+          ],
+          "beforeOwners": 16,
+          "afterOwners": 26,
+          "exactOldOwnersRetained": true,
+          "strictGuardTokensUnchanged": true,
+          "otherTokensUnchanged": true,
+          "tests": 50,
+          "assertions": 239
+        },
+        {
+          "Name": "resolver-test",
+          "added": [
+            "AuthoringTerminalReadScopes",
+            "IAuthoringInstalledPackageAsyncReadScope",
+            "IAuthoringInstalledPackageReadScope",
+            "IAuthoringInstalledPackageReadScopeAuthority",
+            "IAuthoringPackageReadScopeStore"
+          ],
+          "beforeOwners": 12,
+          "afterOwners": 17,
+          "exactOldOwnersRetained": true,
+          "strictGuardTokensUnchanged": true,
+          "otherTokensUnchanged": true,
+          "tests": 24,
+          "assertions": 119
+        }
+      ],
+      "comparison": "Complete Roslyn syntax shapes/arities and raw token values; anchored non-whitespace trivia; full AST NormalizeWhitespace comparison with topLevel:false",
+      "methodBodyMutationNegativeControlRefused": true,
+      "runtimeAcceptance": false
+    }
+  },
+  "build": {
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "lockedRestoreExit": 0,
+    "buildExit": 0,
+    "warnings": 1314,
+    "errors": 0,
+    "nugetPackages": "/workspace/FsusBlog/.tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages",
+    "restoreLockedMode": true
+  },
+  "assemblyBinding": {
+    "testedCommit": "7564be84483b6b543985430d83df41ceffc3a81c",
+    "assemblies": [
+      {
+        "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+        "sha256": "4bde12b033645926884798ed827ab12e2de7cac4195c5758f6babbcd79f35ff7",
+        "mtimeUtc": "2026-10-08T08:14:37.698774+00:00"
+      },
+      {
+        "path": "tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll",
+        "sha256": "4bde12b033645926884798ed827ab12e2de7cac4195c5758f6babbcd79f35ff7",
+        "mtimeUtc": "2026-10-08T08:14:37.698774+00:00"
+      }
+    ]
+  },
+  "affectedRuntime": {
+    "testedCommit": "7564be84483b6b543985430d83df41ceffc3a81c",
+    "command": [
+      "timeout",
+      "300",
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--no-build",
+      "--configuration",
+      "Debug",
+      "--filter",
+      "FullyQualifiedName~AuthoringExtensionRpcTests|FullyQualifiedName~AuthoringExtensionExecutionResolverTests|FullyQualifiedName~AccountSubjectHashProjectionTests",
+      "--results-directory",
+      "/tmp/fsusblog-3593/ordinary-owner-rosters/affected-classes-results",
+      "--logger",
+      "trx"
+    ],
+    "exitCode": 0,
+    "counts": {
+      "total": "160",
+      "executed": "160",
+      "passed": "160",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests": {
+        "Passed": 31
+      },
+      "FsusBlog.Server.Tests.AuthoringExtensionRpcTests": {
+        "Passed": 111
+      },
+      "FsusBlog.Server.Tests.Unit.AccountSubjectHashProjectionTests": {
+        "Passed": 18
+      }
+    },
+    "trxPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/affected-classes-results/_47a516f2524f_2026-10-08_08_14_41_net10.0.trx",
+    "trxSha256": "42392fdbf5e6b72800b2dafad512108acfa0680dc71ebf6207aed92a9c0b2793",
+    "failures": []
+  },
+  "casePreservation": [
+    {
+      "class": "AuthoringExtensionRpcTests",
+      "caseNamesPreserved": true,
+      "count": 111,
+      "oldReceiptCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+      "currentTestedCommit": "7564be84483b6b543985430d83df41ceffc3a81c"
+    },
+    {
+      "class": "AuthoringExtensionExecutionResolverTests",
+      "caseNamesPreserved": true,
+      "count": 31,
+      "oldReceiptCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+      "currentTestedCommit": "7564be84483b6b543985430d83df41ceffc3a81c"
+    }
+  ],
+  "nodeControls": {
+    "exitCode": 0,
+    "total": 23,
+    "passed": 23,
+    "failed": 0,
+    "skipped": 0,
+    "unchangedFull54ControlsNotRerun": true
+  },
+  "strictCsharpOwners": {
+    "exitCode": 0,
+    "files": 3,
+    "violations": 0
+  },
+  "trustedRange": {
+    "exitCode": 0,
+    "checkerCommit": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "candidate": "7564be84483b6b543985430d83df41ceffc3a81c"
+  },
+  "sourcePreservation": [
+    {
+      "path": "tests/tools/test-suite-convergence.test.mjs",
+      "previousTestedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "previousBlob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+      "currentBlob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+      "unchanged": true
+    },
+    {
+      "path": "tests/test-retention-before.json",
+      "previousTestedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "previousBlob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+      "currentBlob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-baseline.json",
+      "previousTestedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "previousBlob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+      "currentBlob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-policy.json",
+      "previousTestedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "previousBlob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+      "currentBlob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+      "unchanged": true
+    }
+  ],
+  "cleanup": {
+    "timeUtc": "2026-10-08T08:21:50.694167+00:00",
+    "reason": "Own build-server shutdown exceeded six minutes after MSBuild server reported successful shutdown; compiler shutdown did not finish.",
+    "signals": [
+      {
+        "pid": 623419,
+        "command": "/tmp/fsusblog-3593/dotnet302/dotnet exec /tmp/fsusblog-3593/dotnet302/sdk/10.0.302/Roslyn/bincore/VBCSCompiler.dll -shutdown "
+      },
+      {
+        "pid": 623407,
+        "command": "dotnet build-server shutdown "
+      }
+    ],
+    "signal": "SIGTERM",
+    "scope": "Only the two verified processes of this run shutdown command; no shared server killed.",
+    "cleanupAccepted": false,
+    "rawCommandExitCode": 0,
+    "processesAbsentAfterSignal": true,
+    "assessment": "Interrupted. Raw shell exit0 is retained but does not prove compiler-server shutdown or resource-lifecycle acceptance."
+  },
+  "commands": [
+    {
+      "name": "locked-restore",
+      "command": [
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "backend-build",
+      "command": [
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--configuration",
+        "Debug"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "affected-classes",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~AuthoringExtensionRpcTests|FullyQualifiedName~AuthoringExtensionExecutionResolverTests|FullyQualifiedName~AccountSubjectHashProjectionTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/ordinary-owner-rosters/affected-classes-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "scanner-migration-controls",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/tools/correctness-attempt-migration.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "changed-owner-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+        "--file",
+        "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs",
+        "--file",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "build-server-cleanup",
+      "command": [
+        "dotnet",
+        "build-server",
+        "shutdown"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "previousMigrationVerification": {
+    "artifact": "artifacts/style/suite-convergence-migration-prerequisite-verification.json",
+    "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+    "unchangedBroadReruns": false,
+    "runtime": [
+      {
+        "name": "expand-original",
+        "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+        "exitCode": 0,
+        "command": [
+          "timeout",
+          "600",
+          "dotnet",
+          "test",
+          "tests/migration/FsusBlog.Migration.Tests.csproj",
+          "--no-restore",
+          "--no-build",
+          "--configuration",
+          "Debug",
+          "--filter",
+          "FullyQualifiedName~OfflineMigrationExpandSafetyTests",
+          "--results-directory",
+          "/tmp/fsusblog-3593/migration-dbeac/expand-original-results",
+          "--logger",
+          "trx"
+        ],
+        "counts": {
+          "total": "71",
+          "executed": "71",
+          "passed": "71",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "trxSha256": "b0cf423a11e716678c6dc1dccd90a700df2129670d9270f5c5f318af5b3a7b72"
+      },
+      {
+        "name": "migration-complete",
+        "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+        "exitCode": 1,
+        "command": [
+          "timeout",
+          "600",
+          "dotnet",
+          "test",
+          "tests/migration/FsusBlog.Migration.Tests.csproj",
+          "--no-restore",
+          "--no-build",
+          "--configuration",
+          "Debug",
+          "--results-directory",
+          "/tmp/fsusblog-3593/migration-dbeac/migration-complete-results",
+          "--logger",
+          "trx"
+        ],
+        "counts": {
+          "total": "1647",
+          "executed": "1647",
+          "passed": "1530",
+          "failed": "117",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "trxSha256": "37c3dffea7a7190b76db105696eab913add199f22f030efb18650a71d7b744f0"
+      }
+    ],
+    "inventory": {
+      "producerExit": 0,
+      "sourceState": {
+        "commit": "ea21316571e18f70f9f11d5471656198319e343f"
+      },
+      "inventoryDigest": "sha256:44e5441e68fe902dae3253f37f556e155d46a0ccaf91f541c9117285c2f5a4f1",
+      "artifactSha256": "81bb2967c9c1f012b8159bf197c01402182a1239f9443cdd6ceafbebd25fe496",
+      "sourceFiles": 3051,
+      "canonicalCaseRecords": 19835,
+      "diagnosticCounts": {
+        "bySeverity": {
+          "error": 169,
+          "info": 939
+        },
+        "byCode": {
+          "native-table-not-closed": 169,
+          "dynamic-case-obligation": 939
+        }
+      },
+      "expandCanonicalRecords": 9,
+      "expandRuntimeRows": 71,
+      "migrationCanonicalRecords": 1585,
+      "migrationRuntimeRows": 1647,
+      "sdkProgramTestCaseOwners": 0,
+      "schemaProductionIsClosureAcceptance": false,
+      "completeAccepted": false,
+      "limit": "169 native-table-not-closed errors plus 939 dynamic-case obligations remain. Expand has9 canonical method/data records, including2 dynamic templates; actual71 cases execute separately. Do not compare1585 Migration canonical records directly with1647 runtime rows."
+    },
+    "retentionMissingTargets": 35,
+    "lifecycleControls": {
+      "total": 64,
+      "passed": 63,
+      "failed": 1,
+      "skipped": 0
+    }
+  },
+  "remainingGates": {
+    "migrationRuntime": "117 actual failed rows across16 classes; no skips and no qualification.",
+    "newMigrationOwnerStyle": {
+      "exitCode": 1,
+      "originalUnchangedLine": 123,
+      "reason": "dotnet format whitespace requires deletion of8 indentation characters; canonical owner increment required."
+    },
+    "astRetention": {
+      "exitCode": 1,
+      "currentFirstRefusal": "tests/frontend/unit/locales/localeDomainBundleStore.test.ts identity extraction incomplete against current master; original native-registration/renamed-case gates remain preserved."
+    },
+    "convergence": {
+      "exitCode": 1,
+      "unresolvedCompactBeforeIds": [
+        "c81f0d3f88",
+        "e536405a30"
+      ]
+    },
+    "matrixValidation": {
+      "exitCode": 1,
+      "reason": "Original dependency phase inversion control and release-final parser/execution target authority closure drift; full matrix lanes not rerun in this followup."
+    },
+    "prGate": {
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--github-event",
+        "/tmp/fsusblog-3593/migration-dbeac/pr-event.json"
+      ],
+      "exitCode": 1,
+      "actualApiHead": "ea21316571e18f70f9f11d5471656198319e343f",
+      "actualApiBase": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+      "errors": 9,
+      "reason": "Eight unchanged original generated inputs and atomic source/output closure; actual API base retained.",
+      "currentHeadNotRerun": true,
+      "historicalApiBindingOnly": true
+    },
+    "existingCanonicalOwnerStyle": {
+      "rpcResolverNowPassed": true,
+      "testedCommit": "7564be84483b6b543985430d83df41ceffc3a81c",
+      "previousFailuresRetained": true,
+      "migrationOriginalLine123StillOpen": true
+    },
+    "fullQualification": "Original independent review, full matrix/PG/native/retained-build/nested-channel qualification remain incomplete; supplied ordinary capability heads do not grant these."
+  },
+  "githubContentWritesPaused": true,
+  "proofs": [
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/affected-classes-results/_47a516f2524f_2026-10-08_08_14_41_net10.0.trx",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/affected-classes-results___47a516f2524f_2026-10-08_08_14_41_net10.0.trx.gz",
+      "rawBytes": 228642,
+      "rawSha256": "42392fdbf5e6b72800b2dafad512108acfa0680dc71ebf6207aed92a9c0b2793",
+      "compressedBytes": 34748,
+      "sha256": "67de78140ad8ad3c85b0cfea15f7d2b5efc3fc5a1c4c754cc2045ae1346bb21e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/affected-classes.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/affected-classes.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/affected-classes.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/affected-classes.log.gz",
+      "rawBytes": 425,
+      "rawSha256": "40476e4329e9f153945fe5547118a0b9b5bbef5cd2a2f78ad55e34ba074eb15b",
+      "compressedBytes": 304,
+      "sha256": "059e5b5f593ae210c621abe60ec32a44c92adebd5829481f7ee7a2d6feb95743"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/assembly-binding.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/assembly-binding.json.gz",
+      "rawBytes": 537,
+      "rawSha256": "5adce69d4b4c8598698c335c8f03c1645005c4fc4e7b6f020ece0abb468d1fa3",
+      "compressedBytes": 262,
+      "sha256": "e1180ecc57d4ee3e38f5bd90e7fa8e177a2a95282b500260b49c63b19e774aa6"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/backend-build.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/backend-build.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/backend-build.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/backend-build.log.gz",
+      "rawBytes": 692008,
+      "rawSha256": "d65fcbddbdf5908dc98c09892529e27fb23ec70882336a35e7a675c3693dafd7",
+      "compressedBytes": 18935,
+      "sha256": "b00fb5604b7670cd4ca285f24ac1b0a326321eeaa8891f992afa25d1da93e344"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/before-format-style.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/before-format-style.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "compressedBytes": 22,
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/before-format-style.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/before-format-style.log.gz",
+      "rawBytes": 24191,
+      "rawSha256": "ad3647abd0080d6f705d7b68f061c6c7279e23129a4866b4432b343ca0f07965",
+      "compressedBytes": 1023,
+      "sha256": "229e864843584f8d94d363e04050fea3b32a237f34153f0f218d1e04f468dab2"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/before-source-sha",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/before-source-sha.gz",
+      "rawBytes": 41,
+      "rawSha256": "1983eed1d98c5ed8373bc04c43d73ef3bbe092fa57b10a4a19391fb95f632cd8",
+      "compressedBytes": 58,
+      "sha256": "2d9edae82698a2837fe90441c0fb8c602138d570f885f9688ebcaab22aa5365b"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/binding.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/binding.json.gz",
+      "rawBytes": 375,
+      "rawSha256": "4dea29a8ce9644abf47fe343fdcba4de378a208bb3f38b0558116f95113bcbbf",
+      "compressedBytes": 285,
+      "sha256": "09832e15073fab3f6d980ac7ca9db972eecc1e0c31b97efcbc0a575d6afdf99f"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/build-server-cleanup.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/build-server-cleanup.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/build-server-cleanup.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/build-server-cleanup.log.gz",
+      "rawBytes": 110,
+      "rawSha256": "2c1c86c2a0b02065dac4defedbcd80186c2885f9efa4d936804b612899f7b6a8",
+      "compressedBytes": 93,
+      "sha256": "6c8ea09c26bd86500e6bd5dbc22baaab0e850f6f991c1928c3f8922e9e1a4929"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/case-preservation.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/case-preservation.json.gz",
+      "rawBytes": 496,
+      "rawSha256": "7db3e512f2073c909a2daad4b04ffcf96fe65ec16ef3d37c56736dfec6623fd8",
+      "compressedBytes": 227,
+      "sha256": "d11dc56c23fbefa6dbee23909f1d900f00f69ee38bafd494ec970308466070e2"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/changed-owner-style.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/changed-owner-style.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/changed-owner-style.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/changed-owner-style.log.gz",
+      "rawBytes": 45,
+      "rawSha256": "58217e7675dae3f3a8a6e9003bc3fe122abf5b9d6cedb3f1d71d4e1c0777e941",
+      "compressedBytes": 65,
+      "sha256": "3222fe66e32b01429d87b9afbdf0f95fb9ba1db2fb5bbeb516cd0dda573406a2"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/cleanup-interruption.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/cleanup-interruption.json.gz",
+      "rawBytes": 835,
+      "rawSha256": "36506189b797e3fffc3537140f5ee6e163e4d18b89809be7edc7d4cc303492d7",
+      "compressedBytes": 477,
+      "sha256": "62bc69082ec72dfc880ba979d21f4db2b222c277fe8766ab97a7cbc2882046d0"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/commands.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/commands.json.gz",
+      "rawBytes": 2279,
+      "rawSha256": "8ef67e3ae7c12e7143f7f709499a3981324574979331d215055a59346d090916",
+      "compressedBytes": 647,
+      "sha256": "9f2489bb399b26af88b62fe4b0228f4c11756de7a93ff7587d8e451a683dbce6"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/exact-applicability.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/exact-applicability.json.gz",
+      "rawBytes": 2149,
+      "rawSha256": "d230cceeddcdebb72b46d716c54c661196e602531cab74037ed0c655d1568069",
+      "compressedBytes": 655,
+      "sha256": "8678c0a5220897fe070ce5a3090a420e6f114682bb16742b6ac206f6397a1474"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/executor-recovery.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/executor-recovery.json.gz",
+      "rawBytes": 555,
+      "rawSha256": "672b9a4c02fb9f92aca7601014abb8c05c59ca6d557f11429298574d8d837d2e",
+      "compressedBytes": 374,
+      "sha256": "f9ade7a75bf0429ead465d1c163dcf5370e03e903c72c4b61fd26cf1075f26fa"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/format.py",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/format.py.gz",
+      "rawBytes": 3975,
+      "rawSha256": "2013008bc63a53d675505599d1783b142b80d7abe9bc903a5f6938b731ec1068",
+      "compressedBytes": 1656,
+      "sha256": "573f33ff1bab75e0e02713a32ba4f098a92172577e0330947c76b119b55ec89a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/formatter-pass-1.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/formatter-pass-1.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/formatter-pass-1.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/formatter-pass-1.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/formatter-pass-2.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/formatter-pass-2.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/formatter-pass-2.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/formatter-pass-2.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/formatter.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/formatter.json.gz",
+      "rawBytes": 737,
+      "rawSha256": "ea822def39efa0e079e54a59d9576daa2849ed620463555ebf8eae534f2724a9",
+      "compressedBytes": 365,
+      "sha256": "9061302210ea3716d80b90ce39891a8078f22bc7c9397829f4fc75dedac4f858"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/locked-restore.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/locked-restore.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/locked-restore.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/locked-restore.log.gz",
+      "rawBytes": 574,
+      "rawSha256": "c25cab490ed6bbfbfdcb521ffa48559a36c0e2bccefc0715d6d2b033628c1933",
+      "compressedBytes": 277,
+      "sha256": "0f69f6c649c8ea463ac3b499543d3b238a49194bbcc61d7245fae7850dfb0892"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/resolver-production.after-format.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/resolver-production.after-format.cs.gz",
+      "rawBytes": 28698,
+      "rawSha256": "8b0fd6275f2e651104eb63907358b47c6fcf35d829dc06502d49288578f804bc",
+      "compressedBytes": 5203,
+      "sha256": "42f33d0800797ca4f29dfe374329eb223db7ee3d6c4af82c935116388c734177"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/resolver-production.before-format.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/resolver-production.before-format.cs.gz",
+      "rawBytes": 28682,
+      "rawSha256": "f09cd6ce7029f9e50dbc5a453f6ea6f8a7abdd8df2b903411e65db40300b895a",
+      "compressedBytes": 5203,
+      "sha256": "a28eb38f80963c482559baf85e152e61d2b7237a9754696e0dd53ae708008301"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/resolver-production.before-roster.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/resolver-production.before-roster.cs.gz",
+      "rawBytes": 28682,
+      "rawSha256": "f09cd6ce7029f9e50dbc5a453f6ea6f8a7abdd8df2b903411e65db40300b895a",
+      "compressedBytes": 5203,
+      "sha256": "a28eb38f80963c482559baf85e152e61d2b7237a9754696e0dd53ae708008301"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/resolver-test.before-roster.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/resolver-test.before-roster.cs.gz",
+      "rawBytes": 39171,
+      "rawSha256": "6ae1d39bf6559d26137ab1f5590232d95937aa7532b98013207311da38ec3d55",
+      "compressedBytes": 5949,
+      "sha256": "b05b317b655e33c187d5320b929d5d3714a1324f42882d9c3cf99ae4a69bd768"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/results.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/results.json.gz",
+      "rawBytes": 2650,
+      "rawSha256": "548def07ad876bf84261e70f773176c9e7f0a147fc4f105785cbeed0641699d3",
+      "compressedBytes": 776,
+      "sha256": "e13cf7a5b3674f0245f6250a9bb1f9230cfa6a0358375f7bb726f1f4948cc07c"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-api-basis.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-api-basis.json.gz",
+      "rawBytes": 518,
+      "rawSha256": "83743f1e61d82d092ccbc13f82101af76590d18ba3d892b89bb9217e1d3cd0b9",
+      "compressedBytes": 363,
+      "sha256": "1f130abf4ec5449a4fa0a564f61f2e7c74de7f02eccc2255a37131c3488cdd57"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-csharp-diagnostic.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-csharp-diagnostic.exit.gz",
+      "rawBytes": 4,
+      "rawSha256": "e726b440cc164001999e718b51780d80314709efe06e7857282377be9111127b",
+      "compressedBytes": 24,
+      "sha256": "274d0035164388b09930d35c6a9c7ae1d48fc64fd5ba4a18c6471e18dbb47a4a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-csharp-diagnostic.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-csharp-diagnostic.log.gz",
+      "rawBytes": 2042,
+      "rawSha256": "44f21a4023c5f957bcd2dd908b6b641895aeca587774750be0c0ac51aa7a7b2b",
+      "compressedBytes": 548,
+      "sha256": "93d3d17b38538d40c3e19d9fcd62ed3a2a9e7a4a05b6c94b786465a44081df66"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-diagnostic.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-diagnostic.exit.gz",
+      "rawBytes": 4,
+      "rawSha256": "e726b440cc164001999e718b51780d80314709efe06e7857282377be9111127b",
+      "compressedBytes": 24,
+      "sha256": "274d0035164388b09930d35c6a9c7ae1d48fc64fd5ba4a18c6471e18dbb47a4a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-diagnostic.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-diagnostic.log.gz",
+      "rawBytes": 309,
+      "rawSha256": "9c5f5d9f5d265038bbabf88378d9a27280485a8a8d5ba54dc93f1bc7c553bef3",
+      "compressedBytes": 236,
+      "sha256": "3af8aebe5217d139b6e4ffaa1c909f9907fb18326c7119c89aaf5076f0e46de8"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence-final.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence-final.exit.gz",
+      "rawBytes": 4,
+      "rawSha256": "e726b440cc164001999e718b51780d80314709efe06e7857282377be9111127b",
+      "compressedBytes": 24,
+      "sha256": "274d0035164388b09930d35c6a9c7ae1d48fc64fd5ba4a18c6471e18dbb47a4a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence-final.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence-final.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence-final.stderr",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence-final.stderr.gz",
+      "rawBytes": 350,
+      "rawSha256": "639b3921e19620ccd3a708fb389f78bb8b88315c59eac6818e2ded6f4df48fe7",
+      "compressedBytes": 248,
+      "sha256": "c4a57bdca4b5dfab5eb53fd52a0654ef0f4f9bc0002ddf7ecf70a019f6b41fac"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence-verified.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence-verified.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence-verified.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence-verified.log.gz",
+      "rawBytes": 2430,
+      "rawSha256": "9c21a08729ee9eb02f335d06d582fea4c445767fb649bf75a35665967cba0223",
+      "compressedBytes": 762,
+      "sha256": "33a285e13e740f7a430915ed0f0187dc59718f3b4bac18dd9474c9de52ff42ff"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence-verified.stderr",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence-verified.stderr.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence.exit.gz",
+      "rawBytes": 4,
+      "rawSha256": "e726b440cc164001999e718b51780d80314709efe06e7857282377be9111127b",
+      "compressedBytes": 24,
+      "sha256": "274d0035164388b09930d35c6a9c7ae1d48fc64fd5ba4a18c6471e18dbb47a4a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-equivalence.stderr",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-equivalence.stderr.gz",
+      "rawBytes": 193,
+      "rawSha256": "9dcfda11fdb7b12464ec16d151b7067e2858726f8093fefdd736f9214e543e4e",
+      "compressedBytes": 175,
+      "sha256": "b38baa2d69be0c8b2d08c52863f6cb4b2f30daf2fbd6081b9ce53a8d3ec009ae"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-normalization-diagnostic.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-normalization-diagnostic.exit.gz",
+      "rawBytes": 4,
+      "rawSha256": "e726b440cc164001999e718b51780d80314709efe06e7857282377be9111127b",
+      "compressedBytes": 24,
+      "sha256": "274d0035164388b09930d35c6a9c7ae1d48fc64fd5ba4a18c6471e18dbb47a4a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-normalization-diagnostic.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-normalization-diagnostic.log.gz",
+      "rawBytes": 2117,
+      "rawSha256": "403955c5ab32d84f3858ee1317f72b16315eb860c4e0297f9569b35fefdad4b9",
+      "compressedBytes": 572,
+      "sha256": "581418ca9f727f8d6c9ac34b1063e567a63038c64887fb6daed4e30395cf9791"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-shape-diagnostic.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-shape-diagnostic.exit.gz",
+      "rawBytes": 4,
+      "rawSha256": "e726b440cc164001999e718b51780d80314709efe06e7857282377be9111127b",
+      "compressedBytes": 24,
+      "sha256": "274d0035164388b09930d35c6a9c7ae1d48fc64fd5ba4a18c6471e18dbb47a4a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roslyn-shape-diagnostic.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roslyn-shape-diagnostic.log.gz",
+      "rawBytes": 350,
+      "rawSha256": "e6c272eabcb3fd5be0fdacef739cbd963706f4cd513f074968d4cc3c1e65b479",
+      "compressedBytes": 248,
+      "sha256": "1eba45567011723987da26aa84da348b0df49a2ed70faf33c19aeab00a86b0cd"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/roster-replays.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/roster-replays.json.gz",
+      "rawBytes": 441,
+      "rawSha256": "d7bdd3423e4a969ad3d2e05f23da2da986d31611bcbb9f4ce679307819776c46",
+      "compressedBytes": 264,
+      "sha256": "42a3c6fcdec34713d004ff452d49221d452dd76aadcd0fa7f4ad9d91f2d5bc8a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/rpc.after-format.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/rpc.after-format.cs.gz",
+      "rawBytes": 91416,
+      "rawSha256": "62aad61890936ff9c2c0af8e47090c964ded078a04077d8e0aeec670da4f26d4",
+      "compressedBytes": 13090,
+      "sha256": "b796b51c3ec02e6d5a9b5fa51c50e4d0c1ee5a1fbb9fc466264675c5efefca3d"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/rpc.before-format.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/rpc.before-format.cs.gz",
+      "rawBytes": 90144,
+      "rawSha256": "2f4d55856c22d52b681cea937a3752ff311426b767e5a4cca1130e0dc8a341c1",
+      "compressedBytes": 13075,
+      "sha256": "46ed68f3521caed5c8f2f05f83017f99cd59a83f626020febb1c61ea489d0c89"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/rpc.before-roster.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/rpc.before-roster.cs.gz",
+      "rawBytes": 89582,
+      "rawSha256": "083de23b934fe326502fe045be7e94492fac9003c788eee553da2601b08110fb",
+      "compressedBytes": 13017,
+      "sha256": "56eaa1522f699f6a35cf2301dc1c8cc1e66d24355f25b05a85fd396481f3f84d"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/run.py",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/run.py.gz",
+      "rawBytes": 4454,
+      "rawSha256": "83a19fc82c4ef231a6524bddaac23a7ea6e59741108c323c543257caf8f52ce9",
+      "compressedBytes": 1929,
+      "sha256": "e83a709f9019df3476e348c8cbf752677f6efcfb44e695cf56d1ba35af0d8e5e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/runtime-summary.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/runtime-summary.json.gz",
+      "rawBytes": 1493,
+      "rawSha256": "9ecb9d1019197c8799d9d757800a792da739c8377c0c07eadc8435e085ebbfe1",
+      "compressedBytes": 631,
+      "sha256": "ee951f6934fbca838418bb9c531a821e16c2cade574a0f1033719992248902a9"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/scanner-migration-controls.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/scanner-migration-controls.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/scanner-migration-controls.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/scanner-migration-controls.log.gz",
+      "rawBytes": 3532,
+      "rawSha256": "9a8116b7fd1d489edf7cc1cb45cf19afc7776402e62afaeee3711bb303deb825",
+      "compressedBytes": 1209,
+      "sha256": "fed973f8076d386d2ccb5d5c1f29a14fecb688fc6887caf945c27d34814f7e13"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/source-preservation.json",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/source-preservation.json.gz",
+      "rawBytes": 1289,
+      "rawSha256": "fb0814ea1e142d63528bb2bc6975b5118ecebe18d067d9809f32383c9c919cdb",
+      "compressedBytes": 406,
+      "sha256": "459b6b8e026188a368fe9d14daf4f68a98de523c1deb5d1dfc45e50c955ae9c2"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/token-probe/Program.cs",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/token-probe__Program.cs.gz",
+      "rawBytes": 6741,
+      "rawSha256": "ffdf669edff14d7a070e26d96b89e72f36055ff0dc209851b6962afebc5f875f",
+      "compressedBytes": 2273,
+      "sha256": "6c095d4c124f86dab19994042035844088a1de657ebe2f6046d74f9658472b65"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/token-probe/TokenProbe.csproj",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/token-probe__TokenProbe.csproj.gz",
+      "rawBytes": 648,
+      "rawSha256": "735888de0e9ed38a4a74edfc2645c020c01cb0ba383632eb8318aeac3ff15f45",
+      "compressedBytes": 302,
+      "sha256": "52545e14a4a3a6a2e1fe6e535a1e8fedd1176e6913963f240fca8b1a6db9309e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/trusted-range.exit",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/trusted-range.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/ordinary-owner-rosters/trusted-range.log",
+      "path": "artifacts/style/suite-convergence-ordinary-owner-verification/trusted-range.log.gz",
+      "rawBytes": 54,
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "compressedBytes": 72,
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b"
+    }
+  ],
+  "limits": [
+    "Only missing compatible canonical rosters and layouts consumed. No whole branch merge and no duplicate five-predicate implementation.",
+    "160 actual complete-class rows: RPC111, resolver31, shared reflection helper18. Owner191/119 reports are not relabeled as this run.",
+    "Full raw Roslyn RPC equivalence API returned false; exact result and failed probes retained. Complete syntax shapes/arities, raw token/value identities, anchored non-whitespace trivia, normalized full syntax and body-mutation negative control passed; trusted original format-only gate independently passed. No repository checker changed.",
+    "Historical full Migration1530/117, inventory169errors939obligations, retention35targets/63of64controls and backend738689/49 remain bound to their original tested SHAs. No broad unchanged rerun and no inherited qualification.",
+    "SDK shutdown was interrupted after over six minutes; raw exit0 does not grant cleanup acceptance. Only verified task shutdown subprocesses received SIGTERM.",
+    "No GitHub content writes, current API head/base fabrication, issue closing, master merge, cross-chain resolution, deployment, database mutation or native qualification."
+  ]
+}

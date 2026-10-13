@@ -1,0 +1,641 @@
+{
+  "schema": "fsusblog.suite-style-semantic-control-correction.v1",
+  "runId": "2026-10-08T06:16:52.490949+00:00",
+  "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+  "latestFetchedMaster": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+  "issues": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "basis": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+    "independentlyChecked": true,
+    "contraryEvidenceFound": false,
+    "productionIdentity": {
+      "productionOwners": [
+        {
+          "path": "src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs",
+          "sha256ByCommit": {
+            "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": "3bf38274e9b805302b198fd8722b0232e3278ad74d6fbc2fae66cfb986c23b74",
+            "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "3bf38274e9b805302b198fd8722b0232e3278ad74d6fbc2fae66cfb986c23b74",
+            "ed640762defe145f162c0d3e7d209fd3824e4268": "3bf38274e9b805302b198fd8722b0232e3278ad74d6fbc2fae66cfb986c23b74",
+            "0e9dd5751bdd584204fd149bdb1526b97ff682a6": "3bf38274e9b805302b198fd8722b0232e3278ad74d6fbc2fae66cfb986c23b74"
+          },
+          "unchanged": true
+        },
+        {
+          "path": "src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs",
+          "sha256ByCommit": {
+            "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": "1f8124fae0e5125e3c448722565d9b3a23af8ee5c86372c4ce1298a345078510",
+            "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "1f8124fae0e5125e3c448722565d9b3a23af8ee5c86372c4ce1298a345078510",
+            "ed640762defe145f162c0d3e7d209fd3824e4268": "1f8124fae0e5125e3c448722565d9b3a23af8ee5c86372c4ce1298a345078510",
+            "0e9dd5751bdd584204fd149bdb1526b97ff682a6": "1f8124fae0e5125e3c448722565d9b3a23af8ee5c86372c4ce1298a345078510"
+          },
+          "unchanged": true
+        },
+        {
+          "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+          "sha256ByCommit": {
+            "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8": "d4ffa1dbb1c183fdf9199b9fa8a9457bf51094429d728fc0557141e3387d5540",
+            "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "d4ffa1dbb1c183fdf9199b9fa8a9457bf51094429d728fc0557141e3387d5540",
+            "ed640762defe145f162c0d3e7d209fd3824e4268": "d4ffa1dbb1c183fdf9199b9fa8a9457bf51094429d728fc0557141e3387d5540",
+            "0e9dd5751bdd584204fd149bdb1526b97ff682a6": "d4ffa1dbb1c183fdf9199b9fa8a9457bf51094429d728fc0557141e3387d5540"
+          },
+          "unchanged": true
+        }
+      ],
+      "basisUrl": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+      "independentFinding": "Missing-then-present AOT yields two document lookups and one marker-bound hydration read. Current schema runner success already yields current_schema_verified; neither correction changes producer/runtime behavior or any negative case."
+    },
+    "existingContracts": [
+      "docs/api/contracts.md:1924",
+      "docs/database-migration.md:523"
+    ],
+    "correction": "Two missing-then-present AOT scenarios perform exactly two document lookups and one marker-bound sidecar read. Successful existing current-schema startup already emits current_schema_verified. Only three assertion sites were corrected; all other counts, digests, failure categories and caller-budget controls remain unchanged."
+  },
+  "replay": {
+    "original": "44cfc4e0b4f2abb5d503e5f2f6bd441526c58aca",
+    "replay": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+    "stablePatchId": "8d3f05b701872b2c488e69e589a67d2f7fc56b03",
+    "patchIdentical": true,
+    "blobs": [
+      {
+        "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+        "blob": "642ee88a2edc230f2069a8a624348f9e32d9c4f1",
+        "exactF53Postimage": true
+      },
+      {
+        "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "blob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+        "exactF53Postimage": true
+      }
+    ]
+  },
+  "build": {
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "restoreLockedMode": true,
+    "restoreExit": 0,
+    "buildExit": 0,
+    "errors": 0,
+    "warnings": 1432
+  },
+  "runtimeBatches": [
+    {
+      "name": "four-original-failures",
+      "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled|FullyQualifiedName~LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled|FullyQualifiedName~CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-semantic-3654/four-original-failures-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "total": "13",
+        "executed": "13",
+        "passed": "13",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "classCounts": {
+        "CanonicalArticleProjectionVerifierTests": {
+          "Passed": 11
+        },
+        "LifecycleHostedBootstrapServiceTests": {
+          "Passed": 2
+        }
+      },
+      "trxSha256": "4279169cd732807ec2e78adc77eceabbad77d8da2b154e96438c30a47353f1c4"
+    },
+    {
+      "name": "seven-original-classes",
+      "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-semantic-3654/seven-original-classes-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "total": "248",
+        "executed": "248",
+        "passed": "248",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "classCounts": {
+        "SecurityAdminPolicyDefaultsTests": {
+          "Passed": 43
+        },
+        "AuthoringExtensionRpcBrokerTests": {
+          "Passed": 51
+        },
+        "CanonicalArticleProjectionVerifierTests": {
+          "Passed": 112
+        },
+        "CanonicalArticleLifecycleScheduledFailureTests": {
+          "Passed": 8
+        },
+        "LifecycleHostedBootstrapServiceTests": {
+          "Passed": 13
+        },
+        "TaxonomyExactMetadataTests": {
+          "Passed": 14
+        },
+        "RealConcurrencyHarnessTests": {
+          "Passed": 7
+        }
+      },
+      "trxSha256": "331e410c9b1b784fde51d9d5260272fb58662d2922f9044209e4db49481d60b6"
+    },
+    {
+      "name": "seventeen-original-owners",
+      "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~PublicHotReadDbAdmissionTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~DocumentExportHtmlProviderTests|FullyQualifiedName~AuthoringExtensionPackagePersistenceTests|FullyQualifiedName~AuthoringExtensionRpcTests|FullyQualifiedName~AuthoringExtensionExecutionResolverTests|FullyQualifiedName~AuthoringCommandContributionTests|FullyQualifiedName~PublicArtifactRevocationTests|FullyQualifiedName~AuthoringExtensionServiceBrokerTests|FullyQualifiedName~AuthoringExtensionWorkerSandboxTests|FullyQualifiedName~CanonicalArticlePublicationFixturePortTests|FullyQualifiedName~DocumentExportSandboxTests|FullyQualifiedName~DocumentExportSystemdCgroupAuthorityTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~PrivateAssetDeliveryTests|FullyQualifiedName~PrivateAssetStoreTests|FullyQualifiedName~SpaAssetManifestServiceTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-semantic-3654/seventeen-original-owners-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 1,
+      "counts": {
+        "total": "738",
+        "executed": "738",
+        "passed": "689",
+        "failed": "49",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "classCounts": {
+        "DocumentExportSystemdCgroupAuthorityTests": {
+          "Failed": 3,
+          "Passed": 11
+        },
+        "DocumentExportSandboxTests": {
+          "Passed": 14,
+          "Failed": 22
+        },
+        "AuthoringCommandContributionTests": {
+          "Passed": 44
+        },
+        "PrivateAssetDeliveryTests": {
+          "Passed": 28
+        },
+        "SpaAssetManifestServiceTests": {
+          "Passed": 73
+        },
+        "ArticleVaultExecutionTests": {
+          "Passed": 33
+        },
+        "AuthoringExtensionRpcTests": {
+          "Passed": 111
+        },
+        "DocumentExportHtmlProviderTests": {
+          "Passed": 10,
+          "Failed": 21
+        },
+        "DocumentExportContractTests": {
+          "Passed": 70
+        },
+        "PrivateAssetStoreTests": {
+          "Passed": 39
+        },
+        "PublicArtifactRevocationTests": {
+          "Passed": 50
+        },
+        "PublicHotReadDbAdmissionTests": {
+          "Passed": 16
+        },
+        "AuthoringExtensionExecutionResolverTests": {
+          "Passed": 31
+        },
+        "AuthoringExtensionWorkerSandboxTests": {
+          "Failed": 2,
+          "Passed": 29
+        },
+        "AuthoringExtensionServiceBrokerTests": {
+          "Passed": 45,
+          "Failed": 1
+        },
+        "CanonicalArticlePublicationFixturePortTests": {
+          "Passed": 34
+        },
+        "AuthoringExtensionPackagePersistenceTests": {
+          "Passed": 51
+        }
+      },
+      "trxSha256": "2a9363d3f0cfe70c17e12df00936e9cb157b27e1e046f71181ce7740c8442352"
+    }
+  ],
+  "casePreservation": {
+    "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+    "targetedBatchPassed": 13,
+    "allFourOldFailedNamesPassed": [
+      "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled",
+      "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled",
+      "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-cold-wait\", expectedViolation: null)",
+      "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-shared-budget\", expectedViolation: null)"
+    ],
+    "sevenClassNamesPreserved": 248,
+    "seventeenOwnerNamesPreserved": 738,
+    "negativeRosterPreserved": true,
+    "comparisonSourceCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597"
+  },
+  "assemblyBinding": {
+    "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+    "assemblies": {
+      "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": {
+        "sha256": "bc0f7c85376ec144d7123f7b53a857b187fd73357b1e5d258b2a179446a023ca",
+        "mtime": 1791439586.822143
+      },
+      "tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll": {
+        "sha256": "bc0f7c85376ec144d7123f7b53a857b187fd73357b1e5d258b2a179446a023ca",
+        "mtime": 1791439586.822143
+      }
+    },
+    "canonicalInventoryOutcome": "backend rebuild succeeds; migration compile fails before canonical inventory publication"
+  },
+  "sourceChecks": [
+    {
+      "name": "root-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/test-suite-convergence.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "current-ast",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/tmp/fsusblog-3593/support-msbuild-separators/ast-request.json"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "originalNodeControls": {
+    "exitCode": 0,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0
+  },
+  "semanticOwnersStrictStyle": {
+    "exitCode": 0,
+    "files": 2,
+    "violations": 0
+  },
+  "canonicalRootAst": {
+    "originalStaticIds": 17,
+    "unchanged": true,
+    "diagnostics": 0
+  },
+  "remainingGates": {
+    "csharpChanged": {
+      "exitCode": 1,
+      "remainingFiles": [
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs"
+      ]
+    },
+    "canonicalInventory": {
+      "exitCode": 1,
+      "errors": [
+        "OfflineMigrationExpandSafetyTests.cs:79 CreateTableStep CS0246",
+        "OfflineMigrationExpandSafetyTests.cs:80 AddColumnStep CS0246"
+      ],
+      "complete": false
+    },
+    "astRetention": {
+      "exitCode": 1,
+      "reason": "correctness-attempt-migration native registration/renamed original static identity needs admitted transaction"
+    },
+    "convergence": {
+      "exitCode": 1,
+      "backendSourceReadFindings": 0,
+      "remainingCompactBeforeIds": [
+        "c81f0d3f88",
+        "e536405a30"
+      ]
+    },
+    "prGate": {
+      "exitCode": 1,
+      "errors": 9,
+      "reason": "eight unchanged generated source inputs and original atomic source/output closure"
+    }
+  },
+  "taskBuildServerCleanupExit": 0,
+  "conflictPreview": {
+    "exitCode": 0,
+    "tree": "971c79deba4fc60fd8a401fffebcf088b24b67d4",
+    "actualMergePerformed": false
+  },
+  "limits": [
+    "The four formerly failing names now pass independently within a 13-case focused batch and again in the complete 248-case seven-class run. All old 248 and 738 names are preserved.",
+    "All earlier 244/248 and four-failure TRX/logs remain tied to their original source checkpoints; no historical failure is overwritten.",
+    "All 49 protected native failures remain failed. Unit fixture success does not qualify real current-schema admission, provider/PG/AOT runtime, matrix or child acceptance.",
+    "Local SHA-bound CI may replace absent remote checks, but remaining actual code/policy gates and independent review cannot be waived.",
+    "No master push, merge, deployment, package publication, gate relaxation or denied #3622 comment route action."
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/assembly-binding.json.gz",
+      "sha256": "73eb658dd18df78e0b1d3ee4357ef8a2d6f3b36117ad6826c122acd5c4937745",
+      "rawSha256": "b456b4e951b462ad02286fbe7a446f8c2e82032663fece2c6aab10c834cad4a1"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/ast-retention.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/ast-retention.log.gz",
+      "sha256": "3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1",
+      "rawSha256": "78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/backend-build.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/backend-build.log.gz",
+      "sha256": "de6d79613b3ec8a3dba35d3b76bec57d100d56dcdb3586df0bb56d4781cf9c72",
+      "rawSha256": "136482ba226999aedbaa44aa93e93688c6537a690dbe76729a2eb62f6617ab6d"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/build-server-cleanup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/build-server-cleanup.log.gz",
+      "sha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c",
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/case-preservation.json.gz",
+      "sha256": "ef217fd77ade4fa9d9b74ca0dff0010bdea6fbdd0eeeca1d5b17b91ca67ebad5",
+      "rawSha256": "51b76ea946b52e4504266670808dbe8dedf079ce73b6aa80b7888a696fe583c6"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/comments-3551.json.gz",
+      "sha256": "a7c6f9786feb8039906aa4f2e65931d7403c319bc02ddcf45ad5e45c4b0caac1",
+      "rawSha256": "ea79e5c2f21123cb55e3868b0d07721f01c68531e7fb95843f03880710ac1ba9"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/comments-3593.json.gz",
+      "sha256": "75d5ba9ec03ab1280e494d8729babfe6656c3cb60e7684dce5dc402ed515608a",
+      "rawSha256": "af6c3d878c0d7730f0b964088a1d20babaaa993c6e2d8644ab5334b39b0ad2a5"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/conflict-preview.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/conflict-preview.log.gz",
+      "sha256": "8d53ee8741ca9f00f5f6cad9c7fb36d015c4e494442046199ae682f63a2c09c0",
+      "rawSha256": "3355edf7c8e83c4639190c58ec505dbc3788e0ed43c5a3b38c2555dd5d905d8f"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/convergence.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/convergence.json.gz",
+      "sha256": "fe48dba04310a6010af8d6e7ca2d994d025e69c61c6b393989d65fd75578d7dc",
+      "rawSha256": "19a1631d4b039f2916ccb3393abc371e0a9412aa0a333f765e8259ecdc481ca9"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/convergence.log.gz",
+      "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+      "rawSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/csharp-changed.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/csharp-changed.log.gz",
+      "sha256": "8367d5b873b446434a64ac63cac790134c1932d0cc94700a7494adbb9b5cc540",
+      "rawSha256": "02df4c01089e3317c907ec660c82c93d71ae79d029cc8d667801b8f41b487da7"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/current-ast.log.gz",
+      "sha256": "9948989e2671c11158224acabb61e44f417a77f729b81fecfb5e591dbab0f993",
+      "rawSha256": "623836a0b80fcafa84e68d3aa19039653f621215a926eb379c22cdef1427c11b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/current-master-delta.log.gz",
+      "sha256": "3440c0170d4c323d82f04b822e3a55bd5a7fa571f257be31d8ab0554709b9fab",
+      "rawSha256": "3659e1d60d4fd177ab981ee8f160df6f404c11a48aabccb3937430ac29615216"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/formal-basis.json.gz",
+      "sha256": "555f591128cd1dbf60919ad712354da123ea93d20082c664167c560efd3fc025",
+      "rawSha256": "243b694281ebb92f7e7473b23e8f68ffecdddf2d3f27915a4bb25769943c05ac"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/four-original-failures.log.gz",
+      "sha256": "727d38c1b6df12ca0bf01f096a2d769ac16cd7a70634bb65671cc5ec0dfb8a06",
+      "rawSha256": "c04faed25dadc927aaa724a2e44b7646764d40963c565c1c4412676bf8c435a0"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/inventory.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/inventory.log.gz",
+      "sha256": "9f0c2b5df84ae7a3669b27cd90af84cb4c4181e7184a0d6f8633ee4eb8ffceb5",
+      "rawSha256": "49f9542612b983beaced006f455d2a6f4fa5260496390cac631d0bb4c0ecdc73"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/issue-3551.json.gz",
+      "sha256": "5829a79bef3b348b2507ddb690fa6396dbc1dfbbae1319bb3d35d203cd41f27f",
+      "rawSha256": "dfa879edd1837f3ddaac2d8b1c3cf43f7af83a56ecd3a417f25c0eca9ef59caf"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/issue-3593.json.gz",
+      "sha256": "132d63afbf62c009124e44e75958c7ac30b29bab9b17463ca7c5b0a4b84f5b08",
+      "rawSha256": "9598f9a1af202b24c096e03b8fad822aca36e1ef2384d6cc0d2dccdcefb92972"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/locked-restore.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/locked-restore.log.gz",
+      "sha256": "f284d257080912df139f44fecb95407efc5619d63af67bfd0afd0d5850edb522",
+      "rawSha256": "79e21c1d57659b97962c14cf11d1a0e7ae2f6ad40bbd54d7d859aed8ca7c6e01"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/original-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/original-controls.log.gz",
+      "sha256": "2aecd41eeba70b500fd07640c6e4caa4913cdc1d0ef6c5adb17860fa6b50f482",
+      "rawSha256": "1f1e2964d739142303a3cf0ae63a016e95a6c23cb0cf25f4da0fc04ac4d4fb94"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/production-identity.json.gz",
+      "sha256": "57a36a5da0bb4983b8da4ac63dade90a8ba8d89b7336538d85bb948512e66755",
+      "rawSha256": "0690af75d727eb8d1d814d584ea035960d651ab518e5fff3a868573fcfc8f3c7"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/replay-binding.json.gz",
+      "sha256": "619b92e32ab2124d2c44c4a3ae0178c61a0adb1a6fa548c182f6a563d026e163",
+      "rawSha256": "ca333257b6e3af53cef133c9762d6a8f54083a37f6d4a11669a9d288dfa2d0b5"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/root-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/runtime-summary.json.gz",
+      "sha256": "3dca911ab97e45513d7a33dd79cfeb6aa228736895a24c903a1837d57dce05a1",
+      "rawSha256": "8d70e17c58bfa07b2b936c160fbbe2a151762b755811009f34417633075f9204"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/semantic-owner-style.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/semantic-owner-style.log.gz",
+      "sha256": "02f3e2a03716fd31f5e9e657e003beb46a37cb50fd7ecf33ad90764fbd26cbf1",
+      "rawSha256": "bbfb2e234c051cd60397d2f1e4e6e2d51cccf51df4e3d95746c9967ed6234027"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/seven-original-classes.log.gz",
+      "sha256": "39710fe1cd793b8f0246c173d8a4b5c8694bbf0e3f71557c65fec0b35b8a239d",
+      "rawSha256": "c8d7438238e3ef0c65e133d7fd0544a22e8dbe025626add4a2c80ace7ac21203"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/seventeen-original-owners.log.gz",
+      "sha256": "b45b93d1727083ef6b49eac2c1e87371e1d734c289c82643995af7c6c931a4b1",
+      "rawSha256": "f0d1511b407cc3048754f7a4ddeefdc567fb0ebc8c1341d908efeacf008162da"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/source-results.json.gz",
+      "sha256": "97feceba341573e07364c0f724cec6ab352b9841ea8f40d2b8ce2bfcdb409b74",
+      "rawSha256": "873e250f4f516247ca1b9f578981273cae6e7da831335bbaaf4d76bc0d26e176"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/trusted-range.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/four-original-failures-results.trx.gz",
+      "sha256": "aa19fa27facf874f6cd55f831780c6f9815404952c1cd2c259dd9b1fd1dac569",
+      "rawSha256": "4279169cd732807ec2e78adc77eceabbad77d8da2b154e96438c30a47353f1c4"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/seven-original-classes-results.trx.gz",
+      "sha256": "f0cf7c484b8aa745c44322edb6d2e68251e790e869368b99ddc7d119957bf070",
+      "rawSha256": "331e410c9b1b784fde51d9d5260272fb58662d2922f9044209e4db49481d60b6"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-semantic-control-correction/seventeen-original-owners-results.trx.gz",
+      "sha256": "cb5d3ba6f13f0811376aba70016ff2536369a911f21fb83a1ce124ee1ac7ca4d",
+      "rawSha256": "2a9363d3f0cfe70c17e12df00936e9cb157b27e1e046f71181ce7740c8442352"
+    }
+  ]
+}

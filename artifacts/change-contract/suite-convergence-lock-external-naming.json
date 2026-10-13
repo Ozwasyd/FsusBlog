@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve NuGet-owned package IDs and serialized lock keys, plus externally stable canonical lifecycle and frozen historical retention identities, when consuming the exact coordinator-supplied owner repairs; internal naming cannot replace these existing package-manager and test-governance contracts."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-inventory/discovery.mjs"
+            ],
+            "reason": "Preserve the canonical execution owner and environment authority spellings while consuming the exact coordinator-supplied resolver and bounded MSBuild projection repairs and verifying the complete current producer roster."
+        }
+    ]
+}

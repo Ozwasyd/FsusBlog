@@ -1,0 +1,27 @@
+{
+  "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "errors": [
+    {
+      "path": "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+      "line": 79,
+      "column": 17,
+      "code": "CS0246",
+      "message": "The type or namespace name 'CreateTableStep' could not be found (are you missing a using directive or an assembly reference?)"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+      "line": 80,
+      "column": 17,
+      "code": "CS0246",
+      "message": "The type or namespace name 'AddColumnStep' could not be found (are you missing a using directive or an assembly reference?)"
+    }
+  ],
+  "inventoryProduced": false,
+  "master": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "file": "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+  "masterAndCandidateBlob": "a3488d045e47a976015c9b5c0675b74f779bb614",
+  "byteIdenticalToCommonMaster": true,
+  "command": "RestoreLockedMode=true node tools/test-inventory/produce.mjs --configuration Debug --out <task-scoped-output>",
+  "exitCode": 1,
+  "owner": "#3654; parent-supplied minimal compatibility increment required; no local duplicate fix"
+}

@@ -1,0 +1,349 @@
+{
+  "schema": "fsusblog.test-suite-convergence.v1",
+  "trackingIssue": 1267,
+  "status": "blocked",
+  "mode": "implementation",
+  "authority": {
+    "matrix": "tests/matrix.yml",
+    "replacementLedger": "tests/test-retention-replacements.json",
+    "issueLocalReplacementManifests": false
+  },
+  "beforeSnapshot": "tests/test-retention-before.json",
+  "afterSnapshot": null,
+  "summary": {
+    "beforeTestRecords": 11587,
+    "afterTestRecords": null,
+    "replacementDeclarations": 1518,
+    "postBaselineDeletionDeclarations": 128,
+    "deletedTestRecords": 0,
+    "backendSourceFilesScanned": 650,
+    "errors": 2
+  },
+  "afterAuthorityErrors": [],
+  "postBaselineDeclarationSources": [
+    {
+      "source": "tests/admin-inline-empty-state-retirement-baseline.json",
+      "issue": 1435,
+      "accepted": 1
+    },
+    {
+      "source": "tests/anonymous-nullifier-concurrency-retirement-baseline.json",
+      "issue": 2353,
+      "accepted": 1
+    },
+    {
+      "source": "tests/bounded-runtime-projection-retirement-baseline.json",
+      "issue": 3543,
+      "accepted": 8
+    },
+    {
+      "source": "tests/ci-local-matrix-retirement-baseline.json",
+      "issue": 2753,
+      "accepted": 7
+    },
+    {
+      "source": "tests/lightweight-acceptance-baseline.json",
+      "issue": 1146,
+      "accepted": 31
+    },
+    {
+      "source": "tests/moderation-regions-datalist-retirement-baseline.json",
+      "issue": 2749,
+      "accepted": 1
+    },
+    {
+      "source": "tests/public-aot-byte-shape-retirement-baseline.json",
+      "issue": 2591,
+      "accepted": 1
+    },
+    {
+      "source": "tests/public-article-reading-layout-retirement-baseline.json",
+      "issue": 2748,
+      "accepted": 1
+    },
+    {
+      "source": "tests/public-response-compression-retirement-baseline.json",
+      "issue": 2576,
+      "accepted": 2
+    },
+    {
+      "source": "tests/sensitive-endpoint-session-retirement-baseline.json",
+      "issue": 2345,
+      "accepted": 1
+    },
+    {
+      "source": "tests/service-composition-registration-baseline.json",
+      "issue": 1410,
+      "accepted": 13
+    },
+    {
+      "source": "tests/test-asset-lifecycle-retirement-baseline.json",
+      "accepted": 39
+    },
+    {
+      "source": "tests/test-governance-modernization-baseline.json",
+      "accepted": 19
+    },
+    {
+      "source": "tests/timing-policy-retirement-baseline.json",
+      "issue": 2580,
+      "accepted": 2
+    },
+    {
+      "source": "tests/upload-range-retirement-baseline.json",
+      "issue": 2381,
+      "accepted": 1
+    }
+  ],
+  "missingDeletionMappings": [],
+  "unknownDeletionDeclarations": [
+    {
+      "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88",
+      "source": "tests/test-retention-replacements.json"
+    },
+    {
+      "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30",
+      "source": "tests/test-retention-replacements.json"
+    }
+  ],
+  "mismatchedDeletionPaths": [],
+  "missingReplacementTargets": [],
+  "replacementChainAuthority": {
+    "chainEdges": [
+      {
+        "source": "node-test:tests/tools/performance-evidence-summary.test.mjs#lane-and-matrix-contracts-assign-one-writer-to-the-aggre-8cef309edd",
+        "target": "node-test:tests/tools/performance-evidence-summary.test.mjs#performance-evidence-producers-stay-isolated-and-the-fre-02a4e67e46"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/bootstrap/preHydrationBrowserSafety.test.ts#does-not-read-browser-origin-during-setup-or-initial-com-106ec6d300",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/bootstrap/preHydrationBrowserSafety.test.ts#guards-article-toc-dom-access-at-the-composable-boundary-97c2baa90d",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/bootstrap/preHydrationBrowserSafety.test.ts#keeps-document-and-storage-reads-out-of-initial-render-v-0f1d247797",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/bootstrap/preHydrationBrowserSafety.test.ts#keeps-full-app-public-takeover-render-visible-state-gate-ca291ea81c",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#keeps-frontend-and-backend-default-seo-titles-aligned-364656fac9",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#syncs-public-document-head-from-the-same-active-site-ide-428baf3d13",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#keeps-auth-brand-image-selection-centralized-in-the-adap-0a3ac2e518",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#uses-the-site-chrome-adapter-without-search-in-auth-page-4cdd1b429b",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#applies-public-main-and-footer-minimum-height-rules-to-t-a05ab3d419",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#composes-the-public-header-through-the-blog-site-chrome--2cb9011007",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-body-material-synchronized-with-resolved-theme-tok-92359af637",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-compliance-footer-year-derived-from-the-shell-rend-1e970e7adc",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-desktop-nav-active-indicator-and-uses-the-fsusui-b-75fb595d76",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-fsusui-bottom-tab-touch-targets-in-the-critical-sh-d3a61a0b30",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-mobile-public-shell-actions-aligned-when-packaged--c6aa6f5f7f",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-public-aot-theme-toggle-hydration-safe-before-reco-65a5f36e52",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-public-nav-as-links-but-hands-clicks-to-the-spa-ro-09c63cbf7a",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-public-spa-shell-account-probe-free-by-default-ba25d5fe2d",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#keeps-the-header-brand-text-equal-to-the-configured-site-b3f2441026",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#passes-fsusui-theme-toggle-variant-and-labels-through-th-a45d230523",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#provides-one-public-site-identity-from-the-shell-to-page-6f538d2662",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#publishes-measured-sticky-geometry-with-an-ssr-safe-fall-67a4f019e1",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#renders-desktop-and-mobile-theme-mode-with-the-shared-lo-bfcdc8679d",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#uses-the-fsusui-trigger-mobile-search-model-without-dupl-89f8cf9ade",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/PublicBlogLayoutShell.test.ts#uses-the-shared-public-fallback-title-before-site-data-l-b4f2db247f",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/SiteChromeHeaderAdapter.test.ts#centralizes-brand-image-fallback-order-for-all-layouts-c6db56fea2",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/SiteChromeHeaderAdapter.test.ts#includes-the-new-primitive-in-the-local-fsusui-export-co-c0f5535739",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/SiteChromeHeaderAdapter.test.ts#keeps-defineprops-defaults-independent-from-script-setup-1c2561555f",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/SiteChromeHeaderAdapter.test.ts#keeps-the-blog-header-adapter-on-the-fsusui-site-header--7555769f5c",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/components/SiteChromeHeaderAdapter.test.ts#owns-public-navigation-and-theme-toggle-composition-at-t-c7d4670603",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/composables/useHomeViewRuntime.test.ts#coalesces-article-batch-fallback-refresh-through-a-singl-a40e2dc5dd",
+        "target": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/composables/useHomeViewRuntime.test.ts#does-not-force-full-list-refresh-for-non-first-page-arti-10da57e10a",
+        "target": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/composables/useHomeViewRuntime.test.ts#does-not-schedule-secondary-article-refresh-for-local-up-d852862ccc",
+        "target": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/composables/useHomeViewRuntime.test.ts#keeps-home-secondary-refresh-behind-one-coalesced-entryp-37a173bd84",
+        "target": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/playwright/acceptanceShared.test.ts#does-not-count-expected-mfa-step-up-challenge-responses--2990c076e5",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/playwright/acceptanceShared.test.ts#keeps-mobile-landscape-chrome-checks-scoped-to-navigatio-4deb9d79bf",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/playwright/acceptanceShared.test.ts#pins-audited-browser-contexts-to-the-configured-frontend-53589ec0a4",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/playwright/acceptanceShared.test.ts#treats-sandboxed-srcdoc-script-blocking-as-an-expected-p-55afe0332e",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#keeps-direct-public-fixture-seeding-compatible-with-righ-8472c1b41c",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#keeps-local-fixture-sessions-reusable-instead-of-passwor-4bcbada1d7",
+        "target": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#documents-the-public-article-rights-v3-behavior-8522243a01",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#does-not-add-a-separate-public-rights-endpoint-or-side-c-435af85358",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#gates-code-copy-enhancement-with-the-decoded-rights-v3-c-c27cedc4cc",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#keeps-extended-reading-compact-with-matching-previous-an-c0c15091f9",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#keeps-publicaot-articledetail-rights-metadata-in-the-sam-9175801f53",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#keeps-the-public-rights-notice-compact-instead-of-a-tall-0f2eedb20c",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#renders-a-visible-rights-v3-notice-from-decoded-articled-d2e7e9877f",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#renders-copyright-and-citation-details-after-article-tag-5a332ca8b4",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/articleRightsPublicWorkflow.test.ts#uses-one-heading-scale-for-adjacent-rights-and-extended--90d844143d",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#does-not-shrink-public-taxonomy-touch-targets-at-the-wid-9f3672172a",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-archive-and-static-public-pages-on-one-shared-read-18658573f6",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-article-reading-aids-progressive-and-hash-navigati-277d625d63",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-article-reading-aids-progressive-and-hash-navigati-277d625d63",
+        "target": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#article-detail-flow-renders-body-comments-and-reading-no-74c0374ffb"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-user-comments-and-error-recovery-paths-searchable--779506cb69",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#routes-guest-comment-replies-through-login-and-keeps-com-3ed2247905",
+        "target": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      },
+      {
+        "source": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#syncs-public-list-filter-pagination-and-exposes-useful-e-3bd0df701d",
+        "target": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778"
+      }
+    ],
+    "errors": []
+  },
+  "backendSourceLockViolations": [],
+  "errors": [
+    "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88: replacement declaration does not resolve in the compact before snapshot",
+    "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30: replacement declaration does not resolve in the compact before snapshot"
+  ]
+}

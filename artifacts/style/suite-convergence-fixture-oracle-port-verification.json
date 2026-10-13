@@ -1,0 +1,1841 @@
+{
+  "schema": "fsusblog.suite-convergence-fixture-oracle-port-verification.v1",
+  "runId": "issue-3593-fixture-oracle-ports-20261008T094509Z",
+  "testedCommit": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+  "latestFetchedMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "issues": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "canonicalOwnerRoot": 3657,
+  "authorization": "Coordinator explicitly authorized these six ordered fixture/oracle migrations and prohibited treating altered-input success as original-case repair.",
+  "changeClassification": "test fixture/oracle migrations only; production unchanged",
+  "replays": {
+    "previousCandidate": "bb6df3ce5df404aad809941ee529b326039667a3",
+    "testedCandidate": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+    "master": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "fixtureOracleMigrationsOnly": true,
+    "productionChanges": false,
+    "replays": [
+      {
+        "original": "f9521e2eed97111202da6754281a4752dda47ae3",
+        "replay": "1d2bc8a7c749ebc675b49e1516e25088ad6ddb71",
+        "stablePatchId": "34b29e0c9d778aea4c652d1042e4bf49d637eac5",
+        "patchIdentical": true
+      },
+      {
+        "original": "4f19482f1a32578981bfc6786e54a6de483c95a7",
+        "replay": "7280790a6ce49558ad1a665f871b9c364d8461cb",
+        "stablePatchId": "b5c5e5c6d2793dbc840793bb475894ec366028df",
+        "patchIdentical": true
+      },
+      {
+        "original": "de06ad07a7e5e6f2653a320b4a5c8a4000191f41",
+        "replay": "5cf62a147723e2cb2d68d67c23c9dfe05e8c338a",
+        "stablePatchId": "005b1c7760ba3bc4cb64e82b27392a692b1e7967",
+        "patchIdentical": true
+      },
+      {
+        "original": "c9634e56d8df58e9534d7602e9c4c70e347290c6",
+        "replay": "cdcac92b69a7f6edc02e3010ef4bf1a3048ad3ad",
+        "stablePatchId": "86649230176d86487d26d3ef3287835cd140c6eb",
+        "patchIdentical": true
+      },
+      {
+        "original": "16d7e586649521d94a1a03f2824720f0dddc4d30",
+        "replay": "d0a57299dd1f6f9a4b4434ba50c6621a6e22964b",
+        "stablePatchId": "caf1a56e1104e3343680163e5e1581b5a58cb4f4",
+        "patchIdentical": true
+      },
+      {
+        "original": "77ba8e5f124edd103d37168d8b54a8048674b391",
+        "replay": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+        "stablePatchId": "fee1c25a23d60819b9636c498e160a278a68641c",
+        "patchIdentical": true
+      }
+    ],
+    "createdUtc": "2026-10-08T09:43:51.047743+00:00"
+  },
+  "orderedApplicability": [
+    {
+      "original": "f9521e2eed97111202da6754281a4752dda47ae3",
+      "files": [
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverTests.cs",
+          "beforeBlob": "3b97eb0a6ca68ca17e3a9ba751886c09475f763e",
+          "afterBlob": "a8c763835c8871c8a59a79c3bcb3345a97b42bd1",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+          "beforeBlob": "b8f58a537da9782bc036dd19b2176befcc54c360",
+          "afterBlob": "fcc1af8e30b69aa2acf9a472b1cdf14abbdcaebd",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+          "beforeBlob": "ebf1c96c36530063bbcaafa5a8da34a3606b088b",
+          "afterBlob": "903fb7369e6c78cc0b186a6b0a628688360276c1",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+          "beforeBlob": "4ff798bbfc61de0917229b9612bb133419f3b080",
+          "afterBlob": "2204bcbbc55887d1e5840eebcd89268c21e74e1b",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs",
+          "beforeBlob": "00164cccbf7cfc1bc5ba0ed7ec0ebfc04e7f472c",
+          "afterBlob": "b3d1b7c270ce5852faff3c890557d9f5be56130c",
+          "preimageIdentical": true
+        }
+      ]
+    },
+    {
+      "original": "4f19482f1a32578981bfc6786e54a6de483c95a7",
+      "files": [
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverTests.cs",
+          "beforeBlob": "a8c763835c8871c8a59a79c3bcb3345a97b42bd1",
+          "afterBlob": "2eba4aa7739bb8eefe103ef450e8c9357ab40afd",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+          "beforeBlob": "fcc1af8e30b69aa2acf9a472b1cdf14abbdcaebd",
+          "afterBlob": "98df3e0e80b0c64438cd379e28d3c2aeb53c662c",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+          "beforeBlob": "903fb7369e6c78cc0b186a6b0a628688360276c1",
+          "afterBlob": "04ef1aa8b77c2f156e025f224f261b436d318b49",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+          "beforeBlob": "2204bcbbc55887d1e5840eebcd89268c21e74e1b",
+          "afterBlob": "37b082fc2d2d276df9eb30026afd63c9049b3f0b",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs",
+          "beforeBlob": "b3d1b7c270ce5852faff3c890557d9f5be56130c",
+          "afterBlob": "7389d2f3dc35366fa7609fca19edbbbb4ff478be",
+          "preimageIdentical": true
+        }
+      ]
+    },
+    {
+      "original": "de06ad07a7e5e6f2653a320b4a5c8a4000191f41",
+      "files": [
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+          "beforeBlob": "98df3e0e80b0c64438cd379e28d3c2aeb53c662c",
+          "afterBlob": "aae26fc192b34ac79b58c43ae5ef95f894022791",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+          "beforeBlob": "1c266c37acc670df0705d6765de42078725c84ff",
+          "afterBlob": "d0494d3f439ed2be7803c84b7457cfc0277e06d2",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+          "beforeBlob": "37b082fc2d2d276df9eb30026afd63c9049b3f0b",
+          "afterBlob": "b589ae28ef26e192fd7a48c940548aa8088b973e",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+          "beforeBlob": "0769e04abff796d9339c1f44dcee3ee913f18d4e",
+          "afterBlob": "955c7977de720d655fbf0f88c3481e61045cb10a",
+          "preimageIdentical": true
+        }
+      ]
+    },
+    {
+      "original": "c9634e56d8df58e9534d7602e9c4c70e347290c6",
+      "files": [
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverTests.cs",
+          "beforeBlob": "2eba4aa7739bb8eefe103ef450e8c9357ab40afd",
+          "afterBlob": "9ce1c4802904f86fadbeaf0befefdc146232fd64",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+          "beforeBlob": "aae26fc192b34ac79b58c43ae5ef95f894022791",
+          "afterBlob": "91ee4ef273866513413ddaac7407b1bad0ce593f",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+          "beforeBlob": "04ef1aa8b77c2f156e025f224f261b436d318b49",
+          "afterBlob": "06d75dd7267fcd043a718e09c2a4af695e336768",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+          "beforeBlob": "b589ae28ef26e192fd7a48c940548aa8088b973e",
+          "afterBlob": "dc368cd512d4ee658bd634b66cbe0dbf57811da2",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs",
+          "beforeBlob": "7389d2f3dc35366fa7609fca19edbbbb4ff478be",
+          "afterBlob": "81e4360cb1325f4a57d131f2a6d5056c717c43c4",
+          "preimageIdentical": true
+        }
+      ]
+    },
+    {
+      "original": "16d7e586649521d94a1a03f2824720f0dddc4d30",
+      "files": [
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+          "beforeBlob": "91ee4ef273866513413ddaac7407b1bad0ce593f",
+          "afterBlob": "3109dc598e81592746ea748bd944356580847094",
+          "preimageIdentical": true
+        },
+        {
+          "path": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+          "beforeBlob": "dc368cd512d4ee658bd634b66cbe0dbf57811da2",
+          "afterBlob": "9c515420bc35aa3e58ef8ae593ea056488adc731",
+          "preimageIdentical": true
+        }
+      ]
+    },
+    {
+      "original": "77ba8e5f124edd103d37168d8b54a8048674b391",
+      "files": [
+        {
+          "path": "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs",
+          "beforeBlob": "c3d076f2829443fea8b6e52d40d91ec736e6702a",
+          "afterBlob": "4058123c663a78f44c94e44cbd43c647c5054e12",
+          "preimageIdentical": true
+        }
+      ]
+    }
+  ],
+  "finalExactDonorPostimages": [
+    {
+      "path": "tests/migration/OfflineMigrationSourceObserverTests.cs",
+      "canonicalCommit": "c9634e56d8df58e9534d7602e9c4c70e347290c6",
+      "blob": "9ce1c4802904f86fadbeaf0befefdc146232fd64"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+      "canonicalCommit": "16d7e586649521d94a1a03f2824720f0dddc4d30",
+      "blob": "3109dc598e81592746ea748bd944356580847094"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+      "canonicalCommit": "c9634e56d8df58e9534d7602e9c4c70e347290c6",
+      "blob": "06d75dd7267fcd043a718e09c2a4af695e336768"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+      "canonicalCommit": "16d7e586649521d94a1a03f2824720f0dddc4d30",
+      "blob": "9c515420bc35aa3e58ef8ae593ea056488adc731"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs",
+      "canonicalCommit": "c9634e56d8df58e9534d7602e9c4c70e347290c6",
+      "blob": "81e4360cb1325f4a57d131f2a6d5056c717c43c4"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+      "canonicalCommit": "de06ad07a7e5e6f2653a320b4a5c8a4000191f41",
+      "blob": "d0494d3f439ed2be7803c84b7457cfc0277e06d2"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+      "canonicalCommit": "de06ad07a7e5e6f2653a320b4a5c8a4000191f41",
+      "blob": "955c7977de720d655fbf0f88c3481e61045cb10a"
+    },
+    {
+      "path": "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs",
+      "canonicalCommit": "77ba8e5f124edd103d37168d8b54a8048674b391",
+      "blob": "4058123c663a78f44c94e44cbd43c647c5054e12"
+    }
+  ],
+  "frozenBindings": [
+    {
+      "path": "tests/tools/test-suite-convergence.test.mjs",
+      "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+      "unchanged": true
+    },
+    {
+      "path": "tests/test-retention-before.json",
+      "blob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-baseline.json",
+      "blob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-policy.json",
+      "blob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+      "unchanged": true
+    }
+  ],
+  "build": {
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "lockedRestoreExit": 0,
+    "buildExit": 0,
+    "warnings": 2534,
+    "errors": 0,
+    "buildServersDisabled": true,
+    "nugetPackages": "/workspace/FsusBlog/.tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages",
+    "restoreLockedMode": true
+  },
+  "assemblyBinding": {
+    "testedCommit": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+    "assemblies": [
+      {
+        "path": "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll",
+        "sha256": "9f8dbda77f64336361489bd3af6f73a951987565de1d2ad55b078dd4f5c42f6a",
+        "mtimeUtc": "2026-10-08T09:45:36.800655+00:00"
+      },
+      {
+        "path": "tests/migration/obj/Debug/net10.0/FsusBlog.Migration.Tests.dll",
+        "sha256": "9f8dbda77f64336361489bd3af6f73a951987565de1d2ad55b078dd4f5c42f6a",
+        "mtimeUtc": "2026-10-08T09:45:36.800655+00:00"
+      }
+    ]
+  },
+  "minimalRoster": {
+    "selectors": [
+      "OfflineMigrationSourceObserverTests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+      "OfflineMigrationSourceObserverTests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues",
+      "OfflineMigrationSourceObserverValue4755Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+      "OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues",
+      "OfflineMigrationSourceObserverValue4805Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+      "OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues",
+      "OfflineMigrationSourceObserverValue5207Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+      "OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues",
+      "OfflineMigrationSourceObserverValue5323Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+      "OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues",
+      "OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection",
+      "OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection",
+      "OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection",
+      "OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection",
+      "OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+      "OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+      "PgCurrentSchemaOwnedTargetObserverTests.CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse"
+    ],
+    "basis": "Changed fixture/oracle methods plus immediate NUL helper users and original invalid-value negatives; derived from this task priorTRX. No consumer result inherited."
+  },
+  "actualRuntime": {
+    "testedCommit": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+    "runId": "issue-3593-fixture-oracle-ports-20261008T094509Z",
+    "command": [
+      "timeout",
+      "300",
+      "dotnet",
+      "test",
+      "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "--no-restore",
+      "--no-build",
+      "--configuration",
+      "Debug",
+      "--filter",
+      "FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences|FullyQualifiedName~FsusBlog.Migration.Tests.PgCurrentSchemaOwnedTargetObserverTests.CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse",
+      "--results-directory",
+      "/tmp/fsusblog-3593/migration-fixture-ports/minimal-results",
+      "--logger",
+      "trx"
+    ],
+    "exitCode": 1,
+    "counts": {
+      "total": "45",
+      "executed": "45",
+      "passed": "38",
+      "failed": "7",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests": {
+        "Failed": 1,
+        "Passed": 8
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests": {
+        "Failed": 1,
+        "Passed": 5
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests": {
+        "Passed": 8,
+        "Failed": 1
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests": {
+        "Passed": 5,
+        "Failed": 2
+      },
+      "FsusBlog.Migration.Tests.PgCurrentSchemaOwnedTargetObserverTests": {
+        "Passed": 1
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests": {
+        "Passed": 5,
+        "Failed": 2
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests": {
+        "Passed": 3
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests": {
+        "Passed": 3
+      }
+    },
+    "trxSha256": "7cdd5023b20a1a2188193600fd1d69a248b851cb26289b0433a17110f3b75b7b",
+    "failures": [
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs:line 299\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs:line 382\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs:line 281\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs:line 289\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs:line 372\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs:line 274\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.<>c.<<SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences>b__31_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 512\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 559\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 506\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__28_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 454\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 559\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 439\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs:line 299\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs:line 382\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs:line 281\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.<>c.<<SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences>b__17_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 347\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 394\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 341\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 289\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 394\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 274\n--- End of stack trace from previous location ---"
+      }
+    ]
+  },
+  "fixtureOracleAccounting": {
+    "previousTestedCommit": "e41fff59a5d54be3eed479a0f1d30ea27d17266b",
+    "testedCommit": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+    "total": 45,
+    "caseIdentitiesPreserved": true,
+    "previousPassed": 26,
+    "previousFailed": 19,
+    "previousFailureNowPortedControlPass": [
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+      "FsusBlog.Migration.Tests.PgCurrentSchemaOwnedTargetObserverTests.CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse",
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix"
+    ],
+    "newlyFailed": [],
+    "originalCaseRepairsClaimed": 0,
+    "rows": [
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "category": "explicit-full-byte-article-fixture-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Failed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "category": "explicit-full-byte-article-fixture-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Failed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"CREATE TABLE unknown_source(id INTEGER)\", refusal: \"source_fingerprint_unknown:\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO category(id,name) VALUES(1,zeroblob(1)\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_storage_class_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_boolean_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO category(id,name) VALUES(1,zeroblob(1)\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_storage_class_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO category(id,name) VALUES(1,zeroblob(1)\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_storage_class_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.PgCurrentSchemaOwnedTargetObserverTests.CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse",
+        "category": "explicit-pg-native-context-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+        "category": "explicit-full-byte-nul-fixture-and-redacted-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+        "category": "explicit-full-byte-nul-fixture-and-redacted-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+        "category": "explicit-full-byte-nul-fixture-and-redacted-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"CREATE TABLE unknown_source(id INTEGER)\", refusal: \"source_fingerprint_unknown\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"CREATE TABLE unknown_source(id INTEGER)\", refusal: \"source_fingerprint_unknown:\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+        "category": "original-native-precondition-control-with-ported-nul-helper",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Failed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_boolean_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_timestamp_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO category(id,name) VALUES(1,zeroblob(1)\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_storage_class_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_timestamp_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"CREATE TABLE unknown_source(id INTEGER)\", refusal: \"source_fingerprint_unknown\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: -1)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "category": "explicit-full-byte-article-fixture-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Failed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"CREATE TABLE unknown_source(id INTEGER)\", refusal: \"source_fingerprint_unknown\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_timestamp_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "category": "explicit-full-byte-article-fixture-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Failed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": true,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_boolean_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: -1)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+        "category": "original-native-precondition-control-with-ported-nul-helper",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Failed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_timestamp_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: -1)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "category": "explicit-full-byte-article-fixture-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Failed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+        "category": "explicit-full-byte-nul-fixture-and-redacted-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_timestamp_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+        "category": "explicit-full-byte-nul-fixture-and-redacted-oracle-port",
+        "previousOutcome": "Failed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": true,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_boolean_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: -1)",
+        "category": "explicit-capability-fixture-oracle-port",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": true,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO article(id,title,categoryid,views,crea\"\u00b7\u00b7\u00b7, refusal: \"offline_source_boolean_value_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(sql: \"INSERT INTO category(id,name) VALUES(1,zeroblob(1)\"\u00b7\u00b7\u00b7, refusal: \"offline_source_sqlite_storage_class_invalid\")",
+        "category": "unchanged-original-invalid-value-control",
+        "previousOutcome": "Passed",
+        "currentOutcome": "Passed",
+        "caseIdentityPreserved": true,
+        "fixtureApiInputChanged": false,
+        "declaredNulStorageBindingChanged": false,
+        "oracleChanged": false,
+        "originalCaseRepairClaimed": false,
+        "canonicalOwnerRoot": 3657
+      }
+    ],
+    "warning": "An unchanged test name is not unchanged input/oracle equivalence. New fixture/oracle success does not repair or accept historical failures."
+  },
+  "declaredNulInput": {
+    "inputKind": "source-declared-input-fingerprint-only",
+    "valueExpression": "\"a\\0\" + new string('x', 511)",
+    "unicodeScalars": 513,
+    "utf8Bytes": 513,
+    "utf8Sha256": "a2758e2bf597083794435702828dcedaf4b5dda7b66bf6a757e235b0dff64412",
+    "rawValueStoredInArtifact": false,
+    "actualStorageEvidence": "Five executed original test methods contain native SQLite typeof and byte-for-byte storage assertions introduced by supplied fixture ports; allfive pass. This fingerprint computation itself grants no runtime acceptance.",
+    "projectionChanged": true,
+    "originalCaseRepairsClaimed": 0
+  },
+  "sourcePreservation": {
+    "results": [
+      {
+        "path": "tests/migration/OfflineMigrationSourceObserverTests.cs",
+        "originalTestMethods": 36,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 20,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "7b4ccea0b5d2709eb8b79e4b539208296c02fd23ee86658043a61641705af36e"
+      },
+      {
+        "path": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+        "originalTestMethods": 22,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 14,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "a70e70b1f6d19ce1672fc7b9417c07dae8dce1ac61f2a1ac390e3c59c6093a3a"
+      },
+      {
+        "path": "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+        "originalTestMethods": 25,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 18,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "0813a538019bbfd42f5b6e7f700431a0cc65fb58be4d40bfa985dc6035d7631f"
+      },
+      {
+        "path": "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+        "originalTestMethods": 9,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 2,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "614a7a848dbc5c953a51c8a2d4d5334c2977f6d8f77ec317e7fe863113ff57a8"
+      },
+      {
+        "path": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+        "originalTestMethods": 22,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 14,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "2a6860a4e64c78b6a0074f6f0f8757095552e92f360edf3c815c452ef39fd75c"
+      },
+      {
+        "path": "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+        "originalTestMethods": 9,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 2,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "77adbdda3ef974954ec02993c85a70cd19e63bf82680e3c5de4c0ce3d3d3b5b7"
+      },
+      {
+        "path": "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs",
+        "originalTestMethods": 24,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 16,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "c51daff8a36c55a6ce91b2d6cec85848d03e59e3952af72bde0d49b915d54f46"
+      },
+      {
+        "path": "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs",
+        "originalTestMethods": 8,
+        "exactTestNamesAndAttributeTokensPreserved": true,
+        "protectedSqlAndNulLiteralOccurrences": 1,
+        "protectedLiteralOccurrencesPreserved": true,
+        "originalAttributesSha256": "4483ba8f42b1bea3cd904a5b985687e2d5e06f3250addd6de7bddc2e805a5203"
+      }
+    ],
+    "scope": "Exact original Fact/Theory names and data attribute tokens; original SQL/NUL string input occurrences retained. Canonical assertion changes are authorized separately; this probe grants no runtime or native qualification."
+  },
+  "sourcePreservationLimit": "155 original Fact/Theory names/data attributes and87 SQL/NUL literal occurrences retained. This does not establish unchanged effective stored input, API input or oracle semantics. Per-row ports account those changes explicitly.",
+  "nativeWait": {
+    "testedCommit": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+    "rows": [
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs:line 299\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs:line 382\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs:line 281\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs:line 289\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs:line 372\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs:line 274\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.<>c.<<SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences>b__31_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 512\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 559\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 506\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__28_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 454\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 559\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverTests.cs:line 439\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs:line 299\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs:line 382\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs:line 281\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.<>c.<<SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences>b__17_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 347\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 394\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 341\n--- End of stack trace from previous location ---"
+      },
+      {
+        "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+        "outcome": "Failed",
+        "message": "System.InvalidOperationException : offline_source_sqlite_native_operation_failed",
+        "stackTrace": "   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(Exception primary, CleanupState transactionCleanup, CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken, Boolean registrationUnverified, Boolean nativeInterruptUnverified) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 224\n   at FsusBlog.Migration.OfflineMigrationSqliteNativeSession.ReadAsync(String connectionString, Func`4 observe, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSqliteNativeSession.cs:line 190\n   at FsusBlog.Migration.OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind provider, String connectionString, CancellationToken cancellationToken) in /workspace/FsusBlog/src/migration/OfflineMigrationSourceObserver.cs:line 33\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.<>c.<<SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission>b__14_0>d.MoveNext() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 289\n--- End of stack trace from previous location ---\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.WithSqliteFixtureAsync(Func`3 run, Boolean legacy) in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 394\n   at FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission() in /workspace/FsusBlog/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs:line 274\n--- End of stack trace from previous location ---"
+      }
+    ],
+    "failed": 7,
+    "publicApi": "OfflineMigrationSourceObserver.ObserveAsync(CurrentSchemaProviderKind.Sqlite, string, CancellationToken)",
+    "observedCode": "offline_source_sqlite_native_operation_failed",
+    "qualification": false,
+    "canonicalOwnerRoot": 3657,
+    "requiredNextEvidence": "Actual original public native SQLite provider/identity/custody qualification, applicable canonical source identity and candidate-bound execution with all native negatives preserved. No unavailable-wrapper refusal can qualify a successful measurement.",
+    "underlyingCauseNotInferred": true,
+    "sourceStageRefusalNotWaived": true
+  },
+  "style": {
+    "testedCommit": "3e049c367cad2757ee42baa870d05f1bf21f5c7d",
+    "exitCode": 1,
+    "diagnosticOccurrences": 374,
+    "perFile": {
+      "tests/migration/OfflineMigrationSourceObserverTests.cs": 60,
+      "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs": 30,
+      "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs": 34,
+      "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs": 23,
+      "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs": 30,
+      "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs": 23,
+      "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs": 34,
+      "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs": 140
+    },
+    "canonicalOwnerRoot": 3657,
+    "independentFormattingNotPerformed": true
+  },
+  "trustedRange": {
+    "exitCode": 0,
+    "trustedCheckerCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "testedCandidate": "3e049c367cad2757ee42baa870d05f1bf21f5c7d"
+  },
+  "commands": [
+    {
+      "name": "locked-restore",
+      "command": [
+        "dotnet",
+        "restore",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "--locked-mode"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "migration-build",
+      "command": [
+        "dotnet",
+        "build",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "--no-restore",
+        "--configuration",
+        "Debug",
+        "--disable-build-servers"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "minimal-ported-controls",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences|FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences|FullyQualifiedName~FsusBlog.Migration.Tests.PgCurrentSchemaOwnedTargetObserverTests.CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse",
+        "--results-directory",
+        "/tmp/fsusblog-3593/migration-fixture-ports/minimal-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "strict-affected-owner-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/migration/OfflineMigrationSourceObserverTests.cs",
+        "--file",
+        "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+        "--file",
+        "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+        "--file",
+        "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+        "--file",
+        "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+        "--file",
+        "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+        "--file",
+        "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs",
+        "--file",
+        "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "previousEvidence": {
+    "ordinaryOwners": {
+      "testedCommit": "7564be84483b6b543985430d83df41ceffc3a81c",
+      "receipt": "artifacts/style/suite-convergence-ordinary-owner-verification.json",
+      "notRerun": true
+    },
+    "migrationControls": {
+      "testedCommit": "e41fff59a5d54be3eed479a0f1d30ea27d17266b",
+      "receipt": "artifacts/style/suite-convergence-migration-refusal-verification.json",
+      "total": 540,
+      "passed": 515,
+      "failed": 25,
+      "sourceEquivalentRepairsPreviouslyReported": 68,
+      "notRelabelledAsCurrent": true
+    },
+    "fullMigration": {
+      "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "receipt": "artifacts/style/suite-convergence-migration-prerequisite-verification.json",
+      "total": 1647,
+      "passed": 1530,
+      "failed": 117,
+      "notRerun": true
+    },
+    "inventoryRetention": {
+      "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "canonicalRetentionOwnerRoot": 3521,
+      "missingTargets": 35,
+      "inventoryErrors": 169,
+      "dynamicObligations": 939,
+      "notRerun": true
+    }
+  },
+  "remainingGates": [
+    "Seven actual original public native observer failures require original qualified provider/identity/custody execution; no bypass or fabricated native receipt.",
+    "374 current strict whitespace diagnostic occurrences across8 affected canonical owners; no independent owner reformat or debt waiver.",
+    "Canonical3521 legitimate-history transition for35refs/8IDs and original inventory/retention closure; record deletion and invented compiled ownership prohibited.",
+    "Original AST/locale/QPS compact-before, generated atomic binding, matrix/PG/full native authority and current-master PR/independent acceptance gates remain open."
+  ],
+  "githubContentWritesPaused": true,
+  "originalCaseRepairsClaimed": 0,
+  "limits": [
+    "Only supplied six ordered patches consumed; source edits limited to eight tests/migration owners. All donor preimages, postimages and stable patch identities checked.",
+    "45 minimal controls derived from our own earlierTRX, not consumer3608 receipts.20 original invalid-value controls pass,12 capability fixture/oracle rows pass,5 NUL fixture/oracle rows pass,1 PG oracle row passes;7 public native rows still fail. No full Migration result claimed.",
+    "Six supported-provider rows replace historical invalid connection-string input with declared wrong-driver/held-session input. Other provider rows and unknown-provider inputs are preserved. Two representative native controls additionally replace obsolete unsupported-provider expectation with actual observation requirements.",
+    "The declared513-scalar NUL expression remains; actual full-byte storage projection is newly enforced, not historical-input equivalence. Allfive overflow controls now execute TEXT/type/full-byte assertions and exact redacted refusal records.",
+    "Old e41 andea inputs/failures remain immutable in prior source and proof archives.12 historical failures have passing new controls, but zero original-case repairs are claimed from these fixture/oracle ports.",
+    "No repeated full Migration/backend/inventory/retention/Node runs, denied audits, guessed source consumption, production mutation, API writes, issue close, master merge, cross-chain conflict resolution or deployment."
+  ],
+  "proofs": [
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/16d7e586649521d94a1a03f2824720f0dddc4d30.patch",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/16d7e586649521d94a1a03f2824720f0dddc4d30.patch.gz",
+      "rawBytes": 3818,
+      "rawSha256": "d185d84f2f6b3c227db0277baff1c636bf6c71796e7918fdb089c20d6ca9638f",
+      "compressedBytes": 791,
+      "sha256": "9cdfa1808aad6e987258eb5029a433e4b88dc9fcf326c2c0a0c2d1e8508af27e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/16d7e586649521d94a1a03f2824720f0dddc4d30.replay-message.txt",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/16d7e586649521d94a1a03f2824720f0dddc4d30.replay-message.txt.gz",
+      "rawBytes": 420,
+      "rawSha256": "c21792721b89c4a4d723559b9ecef1866813a511565cc4afa40ce2afdc9f7209",
+      "compressedBytes": 297,
+      "sha256": "8bd308c3ae97ab44d3be34f58b6c5eedee9c543244da15b3d29260aa77b2f5ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/16d7e586649521d94a1a03f2824720f0dddc4d30.replay.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/16d7e586649521d94a1a03f2824720f0dddc4d30.replay.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/4f19482f1a32578981bfc6786e54a6de483c95a7.patch",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/4f19482f1a32578981bfc6786e54a6de483c95a7.patch.gz",
+      "rawBytes": 2489,
+      "rawSha256": "b333c36e17695448a8bc95651dff783f12b192d5585640d25ad51f9d38f0f81b",
+      "compressedBytes": 381,
+      "sha256": "e3983da32014bf1c387a8bafd2141d579072204918d65e048273d621c85dcf5e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/4f19482f1a32578981bfc6786e54a6de483c95a7.replay-message.txt",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/4f19482f1a32578981bfc6786e54a6de483c95a7.replay-message.txt.gz",
+      "rawBytes": 285,
+      "rawSha256": "f8db4d640c8b73b367227e6f91110e84243dde6b73bfe9d882b8b657e409012b",
+      "compressedBytes": 233,
+      "sha256": "5d7bf764aa9ea4a351ea8b5b93bf1f2e63b68e017729990dc9e202b3bbfef542"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/4f19482f1a32578981bfc6786e54a6de483c95a7.replay.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/4f19482f1a32578981bfc6786e54a6de483c95a7.replay.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/77ba8e5f124edd103d37168d8b54a8048674b391.patch",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/77ba8e5f124edd103d37168d8b54a8048674b391.patch.gz",
+      "rawBytes": 1472,
+      "rawSha256": "e233dfd7e3890122365a54668e84c61a43f5cf2aec165e377254c2b8222f9282",
+      "compressedBytes": 548,
+      "sha256": "fc67f8ebd243e73acf4e96e59004247967cccb9cd256e2c80e7bcbf2eb061847"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/77ba8e5f124edd103d37168d8b54a8048674b391.replay-message.txt",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/77ba8e5f124edd103d37168d8b54a8048674b391.replay-message.txt.gz",
+      "rawBytes": 362,
+      "rawSha256": "38ec64b9d6b77f117f2308a18978f73a002ff73eaa3e3c9d503d7e6c8d1a8c5b",
+      "compressedBytes": 264,
+      "sha256": "b66b7b0f0fcfa592fc45b43dedab7dd4303e0ee5fb2c234842737b55af93c83a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/77ba8e5f124edd103d37168d8b54a8048674b391.replay.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/77ba8e5f124edd103d37168d8b54a8048674b391.replay.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/applicability.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/applicability.json.gz",
+      "rawBytes": 6335,
+      "rawSha256": "c6029d63cf0bbba110d7edcb80c4d6e2e207919bd9f49ee1fb005d91e5d17556",
+      "compressedBytes": 1288,
+      "sha256": "5b9764e4fb76de1e89703ce84319ed93b2c9c9c73b6b75095bf3419a6cf9ff20"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/assembly-binding.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/assembly-binding.json.gz",
+      "rawBytes": 547,
+      "rawSha256": "2179e5ab77cfd1131c64bc9426c724fbf466770906507479d0b6be17739c6e52",
+      "compressedBytes": 263,
+      "sha256": "3e753fe8662a2c8ef31f2b23f375fbea00a4bf5e067d59fb955e8f3712c959c5"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/binding.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/binding.json.gz",
+      "rawBytes": 434,
+      "rawSha256": "ad0656fd9baaaf7415f64ada07e09c1a8b3b03b0690c6a479729abd6c31bd57e",
+      "compressedBytes": 309,
+      "sha256": "ab2123e464fe5020c510a38e8f72f3ff63dd3fb94a618181efd1d81844fa7baa"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/c9634e56d8df58e9534d7602e9c4c70e347290c6.patch",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/c9634e56d8df58e9534d7602e9c4c70e347290c6.patch.gz",
+      "rawBytes": 16468,
+      "rawSha256": "3f0e9ac30323faeb8f151c9e3141faf7a361b4d50ea794032f87497a8dfb9d35",
+      "compressedBytes": 1574,
+      "sha256": "2a696c45f18a58d87230ff8a90b57d3151bd7bf27a7d4cdacc3009e37a41716d"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/c9634e56d8df58e9534d7602e9c4c70e347290c6.replay-message.txt",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/c9634e56d8df58e9534d7602e9c4c70e347290c6.replay-message.txt.gz",
+      "rawBytes": 393,
+      "rawSha256": "e2f68fae1eaec2ada6ddfaac069fbad617cc156ef2614549510e96a1729d03c9",
+      "compressedBytes": 291,
+      "sha256": "405da6024877cb85866dca1aa9199ee819e6f9f43ebbc6cad7bf027bfe924608"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/c9634e56d8df58e9534d7602e9c4c70e347290c6.replay.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/c9634e56d8df58e9534d7602e9c4c70e347290c6.replay.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/commands.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/commands.json.gz",
+      "rawBytes": 5513,
+      "rawSha256": "36108f5e520d26b4a93a34cb0c4b4015499bcda9dc2e64a402c0d94c741c9fac",
+      "compressedBytes": 914,
+      "sha256": "36c7881779ac0d755cafacbbede08c08f192c75089eba23afb416d768c775a50"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/de06ad07a7e5e6f2653a320b4a5c8a4000191f41.patch",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/de06ad07a7e5e6f2653a320b4a5c8a4000191f41.patch.gz",
+      "rawBytes": 10206,
+      "rawSha256": "1a30c0e8c7274c6f9fa9badcac1c4be0c0646669267c10c682c2b46a2feee858",
+      "compressedBytes": 1170,
+      "sha256": "8c619ac310e9afa82bf71bea48724e99249bfea96adc91226626d60c8a5a506a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/de06ad07a7e5e6f2653a320b4a5c8a4000191f41.replay-message.txt",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/de06ad07a7e5e6f2653a320b4a5c8a4000191f41.replay-message.txt.gz",
+      "rawBytes": 421,
+      "rawSha256": "f146aed9d1d3372c7f0be72cae1fc7802982c5ecf140e9d89bf3cbb1a96b094b",
+      "compressedBytes": 299,
+      "sha256": "425c97b7e3887eb9af8eb1fdd6f6d54e39c485a3c2d716e37001006c0b087a42"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/de06ad07a7e5e6f2653a320b4a5c8a4000191f41.replay.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/de06ad07a7e5e6f2653a320b4a5c8a4000191f41.replay.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/declared-nul-input.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/declared-nul-input.json.gz",
+      "rawBytes": 596,
+      "rawSha256": "dbb8f799458be2ffc21314f0519f75d2f342ba5f98875003a5e3b70f36d77f3d",
+      "compressedBytes": 421,
+      "sha256": "3ce312c2e5514e4fa5e9309de2db9e6bfb06f06c7ceb2979194d9ee26907b489"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/f9521e2eed97111202da6754281a4752dda47ae3.patch",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/f9521e2eed97111202da6754281a4752dda47ae3.patch.gz",
+      "rawBytes": 11805,
+      "rawSha256": "960fb327a5ccb23cd4fd61fde82c1d361a7949a2805dc7f2da5ffa17ec224a37",
+      "compressedBytes": 1126,
+      "sha256": "e80adfe579ee01168e2673afcf34a7aa75296edce5ef3c6aa05d8af8ce442872"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/f9521e2eed97111202da6754281a4752dda47ae3.replay-message.txt",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/f9521e2eed97111202da6754281a4752dda47ae3.replay-message.txt.gz",
+      "rawBytes": 432,
+      "rawSha256": "8cb376086f00f2d384e3afb581a180086b5dcb0ff85956db97d6780df4369b17",
+      "compressedBytes": 317,
+      "sha256": "45f604db64ada97b78c6b566858b675adab77091c50ba8448e69196541c12bc7"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/f9521e2eed97111202da6754281a4752dda47ae3.replay.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/f9521e2eed97111202da6754281a4752dda47ae3.replay.log.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/final-source-bindings.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/final-source-bindings.json.gz",
+      "rawBytes": 2521,
+      "rawSha256": "22f852ba6eae6799a149f392f8c6aee15afeece05b4e330cfa1f41fa441cf462",
+      "compressedBytes": 812,
+      "sha256": "d76df157291fec40dddd12262f65aa7cd978bd2fdac3162e86324da89f08bad0"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/fixture-oracle-accounting.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/fixture-oracle-accounting.json.gz",
+      "rawBytes": 28566,
+      "rawSha256": "2773b18b40daba277a3e1b9db5ec58ae614c260420d939daa0621490810176dc",
+      "compressedBytes": 1485,
+      "sha256": "f76e81a3a72ef1136bf5896e7e777ced6a6df956e1712e5077950275c16b721f"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/locked-restore.exit",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/locked-restore.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/locked-restore.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/locked-restore.log.gz",
+      "rawBytes": 584,
+      "rawSha256": "ec2cb2c946c07d64808660e43dad8eff27a632137e9e470f255e0b6461f5ea69",
+      "compressedBytes": 266,
+      "sha256": "aa2fdf89386d669b9fdaebacae935b0ee83249d64faa9433bf5f2e59cdfc23ef"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/migration-build.exit",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/migration-build.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/migration-build.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/migration-build.log.gz",
+      "rawBytes": 1360484,
+      "rawSha256": "d5b91a4cfc9e303df2b6d2f36f081f76142a031773c8f25cafc8bd13849db2d2",
+      "compressedBytes": 30668,
+      "sha256": "6eab390e5a8ec779c89d43c9f1d7c8ca68e5fb6c688be45ef8d5bd7a48179be8"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/minimal-ported-controls.exit",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/minimal-ported-controls.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "compressedBytes": 22,
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/minimal-ported-controls.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/minimal-ported-controls.log.gz",
+      "rawBytes": 15505,
+      "rawSha256": "a92b803b623fbfb3f6ddb5cba940c4b112d620252175266bb8d2930088faeed3",
+      "compressedBytes": 1223,
+      "sha256": "7cd5569d8a90b452bd22052eda4a6182f3543ffd93233f912c25e5c52b0635ff"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/minimal-results/_47a516f2524f_2026-10-08_09_45_38_net10.0.trx",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/minimal-results___47a516f2524f_2026-10-08_09_45_38_net10.0.trx.gz",
+      "rawBytes": 102313,
+      "rawSha256": "7cdd5023b20a1a2188193600fd1d69a248b851cb26289b0433a17110f3b75b7b",
+      "compressedBytes": 9765,
+      "sha256": "18804a48d861c36fbb57ae714adf9ac8938abc8f0dd4d8924444b8d50adcd05e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/minimal-roster.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/minimal-roster.json.gz",
+      "rawBytes": 2733,
+      "rawSha256": "88f82bf94fd8035ad8af1080997cc5daaec1b28682705223f94bb40359e9d979",
+      "compressedBytes": 558,
+      "sha256": "61ad7c9a9aa9b34ecc501dd0079f804879418216c08bd748c81f390df3fc4ac3"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/native-wait.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/native-wait.json.gz",
+      "rawBytes": 14913,
+      "rawSha256": "91a6306327210ec96f452cccc38def31598019492dbcb0eab671105c8b4b788a",
+      "compressedBytes": 1260,
+      "sha256": "c2478756f54a9788544c914f9c603fd6b5a7ba65ed6fdd2e4a93fc66f2d4b63a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/replays.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/replays.json.gz",
+      "rawBytes": 1717,
+      "rawSha256": "8999f5f87c35f9392315db2febe912c982e1a749c0ee795a8c4e8b789a8aed79",
+      "compressedBytes": 758,
+      "sha256": "d30236f8fe7f6f203a7c4996aa62fec1db2f85e88082d5e78b4b2611c84fb13f"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/results.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/results.json.gz",
+      "rawBytes": 5873,
+      "rawSha256": "92748e49e68b50461291b41fbd955ff2871b3998aeab6e4ae5a80c7dff658c4f",
+      "compressedBytes": 1043,
+      "sha256": "2cf5de7cd06c32380818017161efce930ca62906885afa6defe9e2a7dba9a7b9"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/run.py",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/run.py.gz",
+      "rawBytes": 8224,
+      "rawSha256": "2a2eedd245f361ba1cf843e1a367f511bb862a6c88dfe4ef431d6b0c5d3d78fa",
+      "compressedBytes": 3111,
+      "sha256": "7bcb257e5233d8eca42190cf530357bba452a274e6444c7b349664c7cd298eea"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/runtime-summary.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/runtime-summary.json.gz",
+      "rawBytes": 19457,
+      "rawSha256": "a06ed029603c878091b70c85755f12bc9bb043a2bfde051a8a2893433f9cff36",
+      "compressedBytes": 1701,
+      "sha256": "a707e08288b1448a2240b2a1f58dee38edb88933c5ab96d347dc36e5aef01078"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/source-map.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/source-map.json.gz",
+      "rawBytes": 2817,
+      "rawSha256": "a98c89e69948bf41b98e25aacd4f3448b15d27cfc0bf65b457ec6d65b08631cd",
+      "compressedBytes": 287,
+      "sha256": "75cd6708c294758129574c610ba3f30a314d71d576312235b87e9baf54f63798"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/source-preservation.exit",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/source-preservation.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/source-preservation.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/source-preservation.log.gz",
+      "rawBytes": 3333,
+      "rawSha256": "90fabae8b5b40b007eb010ffa71ae90ad6aacdf84ae30daebb04365a4af30739",
+      "compressedBytes": 811,
+      "sha256": "888e09ed9a7e60675c6c0176a6da59f9bd57a1155ee9ce21a3620d19d4347971"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/source-preservation.stderr",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/source-preservation.stderr.gz",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedBytes": 20,
+      "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/source-probe/Program.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/source-probe__Program.cs.gz",
+      "rawBytes": 2940,
+      "rawSha256": "f3f9b14be9b4b4c4f1324304855e3d7036e4b493c98bdc8f2b518b3b4b5e2c60",
+      "compressedBytes": 1404,
+      "sha256": "c73f477b12d587c50bdc1773eb171ad167b20e23800122f1c602e0df1636810a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/source-probe/SourceProbe.csproj",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/source-probe__SourceProbe.csproj.gz",
+      "rawBytes": 648,
+      "rawSha256": "735888de0e9ed38a4a74edfc2645c020c01cb0ba383632eb8318aeac3ff15f45",
+      "compressedBytes": 302,
+      "sha256": "52545e14a4a3a6a2e1fe6e535a1e8fedd1176e6913963f240fca8b1a6db9309e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/strict-affected-owner-style.exit",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/strict-affected-owner-style.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "compressedBytes": 22,
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/strict-affected-owner-style.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/strict-affected-owner-style.log.gz",
+      "rawBytes": 85709,
+      "rawSha256": "dcaeba68a5c3b96836ab0ba1619decbb396ff66dc45fb65f8262db1151f83baf",
+      "compressedBytes": 2461,
+      "sha256": "729bc3f1aa49fd25e97b02adfb71b7847beaa620553b0c73be30a441d45f5243"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/style-summary.json",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/style-summary.json.gz",
+      "rawBytes": 795,
+      "rawSha256": "034f636feaa171f0d8396fb81e7dc3cb2d4304e52e53ffe478b4b913f46a0c3a",
+      "compressedBytes": 296,
+      "sha256": "3e22fe2bdb88c2efcddd911f29e9820dbfb1aba8dc15df70abd135f14f1ed532"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverTests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverTests.cs.after.cs.gz",
+      "rawBytes": 51361,
+      "rawSha256": "eacd9e383c1122a95264f0ec53e2b7923947b0e9ca2a78e6bb390e8313c109a3",
+      "compressedBytes": 9783,
+      "sha256": "6709e4da2024e7678bc4fe131e4d8f492acd154cf05f03786f36ee68f4df0d4b"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverTests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverTests.cs.before.cs.gz",
+      "rawBytes": 49362,
+      "rawSha256": "b6e3623d0598b4813d114f8355ada8ec5bd44eeb9efef616b6a3c0543fbb078d",
+      "compressedBytes": 9343,
+      "sha256": "9cd140c24c8feff7d8f0c9f9c26cba82df5390c0dca652030548b3514cb5d117"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue4755Tests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue4755Tests.cs.after.cs.gz",
+      "rawBytes": 32649,
+      "rawSha256": "2cfc28a5f272b61f8b6810ec66eb0568849dcd5a9657fe2f3bb3d4c434d4b253",
+      "compressedBytes": 6998,
+      "sha256": "edad3c321675534e6e89f31f1d56dab38f371622aac03e36e1cfa7819dce3fdb"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue4755Tests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue4755Tests.cs.before.cs.gz",
+      "rawBytes": 29635,
+      "rawSha256": "6346f9dde54548d7252b213266b1114a5820625b031090fea03d400735d53e8a",
+      "compressedBytes": 6311,
+      "sha256": "8abd210cd9389582b67eac8ae6fbf2cc35ad85e034e8718d35b4ebd494039d8b"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue4805Tests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue4805Tests.cs.after.cs.gz",
+      "rawBytes": 37789,
+      "rawSha256": "62e62ae355c7e4cebfcfc0780a37b21dbb2ea4173aced3a84f7d7ace5b6b766e",
+      "compressedBytes": 7427,
+      "sha256": "c0ec36599387029e5b19571ccb6333132f9df5c76ef9357ce6fb066a8304d2a0"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue4805Tests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue4805Tests.cs.before.cs.gz",
+      "rawBytes": 35790,
+      "rawSha256": "b77fd431f122cd4b74f9409badad96d6a248f9e7e16d69d5fb8702358e67c8db",
+      "compressedBytes": 7001,
+      "sha256": "6bf9535802c0092a3bf7bbd7cc29b2f4f87422e607e648ac3c88e74a0f523f79"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue4850Tests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue4850Tests.cs.after.cs.gz",
+      "rawBytes": 16764,
+      "rawSha256": "48e5bd7e5e3f197cda8272f708c05ad937b00d0538b3cab720dea4cc1c41d87f",
+      "compressedBytes": 3970,
+      "sha256": "284d6241b0445dde6fc60e4785d73fc1f5e8bff4c329d71c5adfdd4bc7dd1659"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue4850Tests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue4850Tests.cs.before.cs.gz",
+      "rawBytes": 15725,
+      "rawSha256": "c8545e715ea8f9363b2e3e97fe0298ce5fb71648c21d95c145d03975cc416cf9",
+      "compressedBytes": 3708,
+      "sha256": "a085761bf7cecca54caf1ac2208499728604100ba98459dad7745973cee5254e"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue5207Tests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue5207Tests.cs.after.cs.gz",
+      "rawBytes": 32642,
+      "rawSha256": "b0a2e3f57eca46d60ffaed4f346bbfecd28c2dc94c80fef965f082eb50a89233",
+      "compressedBytes": 6990,
+      "sha256": "da676279e23f931d7dc96b82da880ff5c42214bd8fd4f314e4125685ed4f3723"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue5207Tests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue5207Tests.cs.before.cs.gz",
+      "rawBytes": 29628,
+      "rawSha256": "ffb279a771e5d0f2bc48e5d27238ced47bc3dead42f23b55264739fb7c93aa23",
+      "compressedBytes": 6307,
+      "sha256": "647acdbfd5442b32905e67dd0b888c0b1444ab3585a7644e0758473b42d28d87"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue5263Tests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue5263Tests.cs.after.cs.gz",
+      "rawBytes": 16764,
+      "rawSha256": "d55ea6f69a4c775e26bf80d015431dce35dc330b5dc0c7f8787e52a4fff06248",
+      "compressedBytes": 3969,
+      "sha256": "2b06dc04d1607987000150c77ccbfe53b64ff937b75b02b9ffeb2dbf83ad51b3"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue5263Tests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue5263Tests.cs.before.cs.gz",
+      "rawBytes": 15725,
+      "rawSha256": "a89961edecd120d53e3f8cb287982fd46ff5afef3ef9c62687ed4c479020b272",
+      "compressedBytes": 3708,
+      "sha256": "640630f97fd86910b5d8ad4c80cd2cc86fd0d1102a40b59efc4350cf1a336435"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue5323Tests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue5323Tests.cs.after.cs.gz",
+      "rawBytes": 36266,
+      "rawSha256": "5ee42a2e7e35324f5bd6184ef0b8744d8cbd8f1c53dcc86b384c8bcc92842344",
+      "compressedBytes": 7219,
+      "sha256": "5ca4a879c90c49dac1e1a1025017e731c0e1e9a6b1d894240088bafcbb5191e4"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__OfflineMigrationSourceObserverValue5323Tests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__OfflineMigrationSourceObserverValue5323Tests.cs.before.cs.gz",
+      "rawBytes": 34120,
+      "rawSha256": "e45504e3121bbdcbffafc7635730fe4be628876f12a6cc46906d3d7dd8d012a6",
+      "compressedBytes": 6776,
+      "sha256": "c50b12b2bcd9f8cb29d1758341230b458b8e2768604cbc33e735bd4620b03b7a"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__PgCurrentSchemaOwnedTargetObserverTests.cs.after.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__PgCurrentSchemaOwnedTargetObserverTests.cs.after.cs.gz",
+      "rawBytes": 16841,
+      "rawSha256": "d5a32fd43d5d2aec071a99fa117623cfb7237f8b90bf09dddc29f0f1c3267604",
+      "compressedBytes": 3418,
+      "sha256": "2f21035bea6bf871ac9646af6197e889a9105234e09f337031f0c0539f5a5939"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/tests__migration__PgCurrentSchemaOwnedTargetObserverTests.cs.before.cs",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/tests__migration__PgCurrentSchemaOwnedTargetObserverTests.cs.before.cs.gz",
+      "rawBytes": 16851,
+      "rawSha256": "1511fbd89d765c28cfd1b34a10499729bac0f0db8609c310dcd1f07d47769f4e",
+      "compressedBytes": 3450,
+      "sha256": "7e77b496cde9ef9d34897ecab5015580ad1be0a44a684588bb909da972898de1"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/trusted-range.exit",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/trusted-range.exit.gz",
+      "rawBytes": 2,
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "compressedBytes": 22,
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf"
+    },
+    {
+      "originalPath": "/tmp/fsusblog-3593/migration-fixture-ports/trusted-range.log",
+      "path": "artifacts/style/suite-convergence-fixture-oracle-port-verification/trusted-range.log.gz",
+      "rawBytes": 54,
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "compressedBytes": 72,
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b"
+    }
+  ]
+}

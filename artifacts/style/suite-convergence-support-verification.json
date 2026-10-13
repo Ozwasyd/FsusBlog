@@ -1,0 +1,151 @@
+{
+    "runId": "3593-support-b104-20261008T030318Z",
+    "sourceCommit": "b104b99d84b91af577336efd6430d492c25683c9",
+    "sourceBranch": "codex/issue-3568-current-acceptance-20261008",
+    "sourcePr": "https://github.com/Ozwasyd/FsusBlog/pull/3848",
+    "candidateCommit": "bff92731236493619f6c061f2e6bde239093783a",
+    "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "incorporation": "conflict-free cherry-pick; only provenance/footer ordering changed in the local commit message",
+    "locks": [
+        {
+            "path": "tests/backend/packages.lock.json",
+            "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9"
+        },
+        {
+            "path": "benchmarks/core/packages.lock.json",
+            "sha256": "ba5c059240d7151a2187925c627061d93e6872cd7dcd2f0c8b3694e5829422fc"
+        }
+    ],
+    "initialAttemptCommit": "e8b6cc8879932d1913b72c86573a4c8ce9b388ab",
+    "initialInvocationCorrections": [
+        "benchmark path corrected from nonexistent FsusBlog.Benchmarks.csproj to actual FsusBlog.Core.Benchmarks.csproj",
+        "cherry-pick provenance moved before terminal Refs trailer; source patch unchanged"
+    ],
+    "issueAccepted": false,
+    "qualificationEligible": false,
+    "schema": "fsusblog.suite-style-support-prerequisite.v1",
+    "issue": 3593,
+    "testedCommit": "bff92731236493619f6c061f2e6bde239093783a",
+    "checks": [
+        {
+            "command": "dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --locked-mode --force --nologo",
+            "exitCode": 0,
+            "artifact": "artifacts/style/suite-convergence-support-b104/backend-locked-restore.log.gz",
+            "sha256": "513501c7c5523b8165709ba4e14efddb6264cb22ae471e3e5063ac818eb3d9b7",
+            "rawSha256": "5e5031bcc788f4513f809130dd793cad9331e0e9d5810d55ebe782ac82f61eca"
+        },
+        {
+            "command": "dotnet restore benchmarks/core/FsusBlog.Core.Benchmarks.csproj --locked-mode --force --nologo",
+            "exitCode": 0,
+            "artifact": "artifacts/style/suite-convergence-support-b104/benchmark-locked-restore-corrected.log.gz",
+            "sha256": "1c0c619a049fcd14f2532bc95972ed15804b7163e80df106469cab3de0ee96da",
+            "rawSha256": "6a6384d62d5d9119a67f75506b008a36cba162549d542e93aca5a44027f1b5b6"
+        },
+        {
+            "command": "node --test tests/tools/test-suite-convergence.test.mjs tests/tools/test-replacement-transaction.test.mjs tools/post-baseline-history.test.mjs",
+            "exitCode": 1,
+            "artifact": "artifacts/style/suite-convergence-support-b104/current-original-controls.log.gz",
+            "sha256": "0c5b1a7bdf51aa92910df61c557cbe791f941c2320e7023384b9d580fe61198d",
+            "rawSha256": "87a32657bc38ef0e765c850f45205ee06375e6d8840d87e3879c99eb788eadb0"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file tests/tools/test-suite-convergence.test.mjs",
+            "exitCode": 0,
+            "artifact": "artifacts/style/suite-convergence-support-b104/current-style.log.gz",
+            "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+            "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+        },
+        {
+            "command": "node tools/test-replacement-transaction.mjs check-diff origin/master",
+            "exitCode": 0,
+            "artifact": "artifacts/style/suite-convergence-support-b104/current-ast-retention-diff.log.gz",
+            "sha256": "82757b33afdc297615be5cb06610254de614aa899abe1462b180877909077cba",
+            "rawSha256": "39c1bf43db736e095b544d56d091d80d9833934033d43810919069ddb9e958f9"
+        },
+        {
+            "command": "RestoreLockedMode=true timeout 240 node tools/test-inventory/produce.mjs --configuration Debug --out /tmp/fsusblog-3593/support-b104/test-inventory.json",
+            "exitCode": 1,
+            "artifact": "artifacts/style/suite-convergence-support-b104/inventory.log.gz",
+            "sha256": "2a24c8c417fa0c47af3111777834a53776935f605b7cfd4d6427f81305a7e811",
+            "rawSha256": "c460f6786401e04f02f678cc2cf4079395d6adc16c4c84295f16f431d2cdda10"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs validate",
+            "exitCode": 1,
+            "artifact": "artifacts/style/suite-convergence-support-b104/matrix-validate.log.gz",
+            "sha256": "a341f609f73ea828f382fa1dd25bc372b6e1bcaf4042a0aeb7caa9501dbef82a",
+            "rawSha256": "bce87225108827b18abb515e310484bbb98f95fa033b3633dd1de25ee3c8ef85"
+        },
+        {
+            "command": "node tools/check-test-suite-convergence.mjs --out /tmp/fsusblog-3593/support-b104/convergence-summary.json",
+            "exitCode": 1,
+            "artifact": "artifacts/style/suite-convergence-support-b104/convergence-gate.log.gz",
+            "sha256": "ba9108d55652009cea5e52bb4b61ea63a06c98e875285eca92051b508cf47708",
+            "rawSha256": "3fbee12613b3b722f2c6aee29dca53813cd58d15e85ba0df7789c0395d3e7369"
+        },
+        {
+            "command": "RestoreLockedMode=true node tools/check-test-retention.mjs --run-id 3593-support-b104-current-candidate --out /tmp/fsusblog-3593/support-b104/retention.json",
+            "exitCode": 1,
+            "artifact": "artifacts/style/suite-convergence-support-b104/retention-gate.log.gz",
+            "sha256": "55c40457af51b0d589c0f93c0b4322ed3970353a0589dc86001a86f09d1f413b",
+            "rawSha256": "40b9d160684375ac2c53f37230e329297732521a854df80f486cfa441b05d1e9"
+        },
+        {
+            "command": "node /tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs --root /workspace/FsusBlog --github-event /tmp/fsusblog-3593/support-b104/current-pr-event.json",
+            "exitCode": 1,
+            "artifact": "artifacts/style/suite-convergence-support-b104/current-pr-contract.log.gz",
+            "sha256": "e07b360aea91fa3fd761d99d0fd9c87190583b051ecaf945a6e72879debd0150",
+            "rawSha256": "568d666d82498955bc74c9086483e19ecf7d4281efbbc8912a1a2e52a9e44b28"
+        }
+    ],
+    "lockProof": {
+        "originalCommit": "b104b99d84b91af577336efd6430d492c25683c9",
+        "candidateCommit": "bff92731236493619f6c061f2e6bde239093783a",
+        "proofs": [
+            {
+                "path": "tests/backend/packages.lock.json",
+                "suppliedBytesEqualCandidate": true,
+                "preExistingVersionsConstraintsAndHashesPreserved": true,
+                "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9"
+            },
+            {
+                "path": "benchmarks/core/packages.lock.json",
+                "suppliedBytesEqualCandidate": true,
+                "preExistingVersionsConstraintsAndHashesPreserved": true,
+                "sha256": "ba5c059240d7151a2187925c627061d93e6872cd7dcd2f0c8b3694e5829422fc"
+            }
+        ]
+    },
+    "checkEnvironment": {
+        "node": "v24.19.0",
+        "dotnetSdk": "10.0.401",
+        "PATHPrefix": "/tmp/fsusblog-3593/dotnet",
+        "DOTNET_CLI_HOME": "/tmp/fsusblog-3593/dotnet-home",
+        "NUGET_PACKAGES": "/tmp/fsusblog-3593/nuget",
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1"
+    },
+    "originalControls": {
+        "passed": 53,
+        "failed": 1,
+        "skipped": 0
+    },
+    "compileBlocker": {
+        "owner": "root #3654",
+        "error": "CS0182",
+        "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "lines": [
+            23,
+            24,
+            25,
+            26
+        ],
+        "runtimeTestsExecuted": false
+    },
+    "pendingOwners": {
+        "fiveObservationLocks": "root #3568",
+        "correctnessAttemptInventoryAndRetentionLedger": "root #3521"
+    },
+    "matrixBlocker": "Existing release-final independent Node parser and execution-target authority closure mismatch remains; exact-master replay was retained in the earlier receipt.",
+    "prContractBeforeMetadataRepair": "Failed only because the newly incorporated backend lock is an existing json-wire-key naming surface; the ordinary registered exception manifest is added by this evidence commit without changing trusted rules.",
+    "remoteGate": "No check runs or independent reviews observed"
+}
