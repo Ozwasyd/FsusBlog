@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [],
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "/workspace/FsusBlog-quick-capture-recovery/src/frontend",
+    "paths": {
+      "@/*": [
+        "/workspace/FsusBlog-quick-capture-recovery/src/frontend/src/*"
+      ],
+      "vitest": [
+        "/workspace/FsusBlog/src/frontend/node_modules/vitest"
+      ]
+    }
+  },
+  "files": [
+    "/workspace/FsusBlog-quick-capture-recovery/tests/frontend/unit/services/articleCaptureRecovery.test.ts"
+  ]
+}
