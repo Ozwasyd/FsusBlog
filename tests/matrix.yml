@@ -4151,6 +4151,71 @@ tiers:
       localOnly: false
       nightlyOnly: false
 
+    - id: article-vault-conflict-contract
+      executionClass: runtime
+      evidenceClass: diagnostic
+      qualificationEligible: false
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: node --test tests/tools/article-vault-conflict-contract.test.mjs
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
+      services: []
+      parallelizable: true
+      exclusiveResources: []
+      phase: 1
+      cost: low
+      resourceClass: cpu
+      cpuWeight: 0.5
+      memoryWeight: 0.5
+      minCpuUnits: 1
+      executionKey: article-vault-conflict-contract
+      executionVariant: ordinary
+      cacheInputs:
+          - tools/governance/check-article-vault-conflicts.mjs
+          - tests/tools/article-vault-conflict-contract.test.mjs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs
+          - src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 2
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: fast
+      coverage: [article-vault-conflict-contract-source-governance]
+      artifacts: []
+      evidence:
+          - tools/governance/check-article-vault-conflicts.mjs
+          - tests/tools/article-vault-conflict-contract.test.mjs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs
+          - src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json
+      ciJob: fast-static-governance
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: conditional
+      retentionClass: must-keep
+      triggerFiles:
+          - tools/governance/check-article-vault-conflicts.mjs
+          - tests/tools/article-vault-conflict-contract.test.mjs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs
+          - src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs
+          - src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json
+      triggerReason: Coordinate-bound conflict contract source and refusal checks confer no runtime or product qualification
+
     - id: app-config-local-tuning
       executionClass: runtime
       fixtureProfile: none
@@ -11236,3 +11301,177 @@ tiers:
       ciJob: cross-stack-contract
       localOnly: false
       nightlyOnly: false
+
+    - id: "macos-vault-observer-source"
+      executionClass: "runtime"
+      evidenceClass: "diagnostic"
+      qualificationEligible: false
+      fixtureProfile: "none"
+      fixtureProfileReason: "none-runtime"
+      fixtureProfileProof: "tests/tools/matrix-fixture-profile.test.mjs"
+      fixtureMutatorAllowed: false
+      owner: "ServerContractAgent"
+      command: "node --test tests/tools/macos-vault-observer-source.test.mjs"
+      outputReceiptSchema: "fsusblog.ci.job-result.v1"
+      executionDependsOn: ["validate-matrix", "behavior-doc-static-admission"]
+      services: []
+      parallelizable: true
+      exclusiveResources: []
+      phase: 1
+      cost: "low"
+      resourceClass: "cpu"
+      cpuWeight: 0.5
+      memoryWeight: 0.5
+      minCpuUnits: 1
+      executionKey: "macos-vault-observer-source"
+      executionVariant: "ordinary"
+      cacheInputs:
+          [
+              "src/article-vault/macos/FSEventsNative.cs",
+              "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+              "src/article-vault/macos/MacVaultRawFactCodec.cs",
+              "src/article-vault/macos/MacVaultRootPathScope.cs",
+              "src/article-vault/macos/MacVaultWatchContracts.cs",
+              "src/article-vault/macos/MacVaultWatcherSession.cs",
+              "src/article-vault/macos/native/MacVaultFSEvents.c",
+              "tools/test/check-macos-vault-observer-source.mjs",
+              "tools/test/build-macos-vault-native.mjs",
+              "tests/tools/macos-vault-observer-source.test.mjs",
+              "src/article-vault/macos/MacVaultObservationAdapter.cs",
+          ]
+      requiresBootstrap: "none"
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: "none"
+      cacheProfile: "none"
+      timeoutMinutes: 2
+      shardable: false
+      defaultShards: 1
+      risk: "high"
+      cadence: "pr"
+      requiredFor: "fast"
+      coverage: ["macos-vault-observer-source-governance"]
+      artifacts: []
+      evidence:
+          [
+              "src/article-vault/macos/FSEventsNative.cs",
+              "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+              "src/article-vault/macos/MacVaultRawFactCodec.cs",
+              "src/article-vault/macos/MacVaultRootPathScope.cs",
+              "src/article-vault/macos/MacVaultWatchContracts.cs",
+              "src/article-vault/macos/MacVaultWatcherSession.cs",
+              "src/article-vault/macos/native/MacVaultFSEvents.c",
+              "tools/test/check-macos-vault-observer-source.mjs",
+              "tools/test/build-macos-vault-native.mjs",
+              "tests/tools/macos-vault-observer-source.test.mjs",
+              "src/article-vault/macos/MacVaultObservationAdapter.cs",
+          ]
+      ciJob: "fast-static-governance"
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: "conditional"
+      retentionClass: "must-keep"
+      triggerFiles:
+          [
+              "src/article-vault/macos/FSEventsNative.cs",
+              "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+              "src/article-vault/macos/MacVaultRawFactCodec.cs",
+              "src/article-vault/macos/MacVaultRootPathScope.cs",
+              "src/article-vault/macos/MacVaultWatchContracts.cs",
+              "src/article-vault/macos/MacVaultWatcherSession.cs",
+              "src/article-vault/macos/native/MacVaultFSEvents.c",
+              "tools/test/check-macos-vault-observer-source.mjs",
+              "tools/test/build-macos-vault-native.mjs",
+              "tests/tools/macos-vault-observer-source.test.mjs",
+              "src/article-vault/macos/MacVaultObservationAdapter.cs",
+          ]
+      triggerReason: "macOS observer source mutations are diagnostic and confer no native or full-agent qualification"
+    - id: "article-vault-conflict-presentation-diagnostics"
+      executionClass: "runtime"
+      evidenceClass: "diagnostic"
+      qualificationEligible: false
+      fixtureProfile: "none"
+      fixtureProfileReason: "none-runtime"
+      fixtureProfileProof: "tests/tools/matrix-fixture-profile.test.mjs"
+      fixtureMutatorAllowed: false
+      owner: "ServerContractAgent"
+      command: "node --test tests/tools/article-vault-conflict-terminal-contract.test.mjs tests/tools/article-vault-conflict-terminal-ui.test.mjs tests/tools/article-vault-conflict-terminal-plan.test.mjs"
+      outputReceiptSchema: "fsusblog.ci.job-result.v1"
+      executionDependsOn: ["validate-matrix", "behavior-doc-static-admission"]
+      services: []
+      parallelizable: true
+      exclusiveResources: []
+      phase: 1
+      cost: "low"
+      resourceClass: "cpu"
+      cpuWeight: 0.5
+      memoryWeight: 0.5
+      minCpuUnits: 1
+      executionKey: "article-vault-conflict-presentation-diagnostics"
+      executionVariant: "ordinary"
+      cacheInputs:
+          [
+              "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+              "tests/tools/article-vault-conflict-terminal-ui.test.mjs",
+              "tests/tools/article-vault-conflict-terminal-plan.test.mjs",
+              "tools/governance/article-vault-conflict-terminal-ui.mjs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+              "src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json",
+              "src/frontend/src/components/article-vault/VaultConflictList.vue",
+              "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+              "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+              "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+          ]
+      requiresBootstrap: "none"
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: "none"
+      cacheProfile: "none"
+      timeoutMinutes: 2
+      shardable: false
+      defaultShards: 1
+      risk: "high"
+      cadence: "pr"
+      requiredFor: "fast"
+      coverage: ["article-vault-conflict-presentation-diagnostics"]
+      artifacts: []
+      evidence:
+          [
+              "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+              "tests/tools/article-vault-conflict-terminal-ui.test.mjs",
+              "tests/tools/article-vault-conflict-terminal-plan.test.mjs",
+              "tools/governance/article-vault-conflict-terminal-ui.mjs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+              "src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json",
+              "src/frontend/src/components/article-vault/VaultConflictList.vue",
+              "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+              "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+              "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+          ]
+      ciJob: "fast-static-governance"
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: "conditional"
+      retentionClass: "must-keep"
+      triggerFiles:
+          [
+              "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+              "tests/tools/article-vault-conflict-terminal-ui.test.mjs",
+              "tests/tools/article-vault-conflict-terminal-plan.test.mjs",
+              "tools/governance/article-vault-conflict-terminal-ui.mjs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+              "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+              "src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json",
+              "src/frontend/src/components/article-vault/VaultConflictList.vue",
+              "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+              "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+              "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+          ]
+      triggerReason: "Unqualified bounded presentation/proposal negative controls; no native, transport, execution, terminal or independent UX acceptance."

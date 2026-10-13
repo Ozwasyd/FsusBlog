@@ -1,0 +1,175 @@
+{
+    "schema": "fsusblog.article-vault.chain-handoff.v1",
+    "recordedAt": "2026-10-08T09:30:36.285250+00:00",
+    "testedSource": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+    "canonicalSource": "b74df8814da2a8ff6455ec2b5f1d97956183040c",
+    "checkedRemoteMetadataHead": "65b3904551d2a7fbc5e2c08e3e52f62dcda40cec",
+    "verifiedOriginMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "accepted": false,
+    "payloads": [
+        {
+            "path": "checks/backend-result.json",
+            "sha256": "6ab44d5c0240e91fb3a672d4e23ac3f923315874834d9c79c83c1ef158f8c8c1"
+        },
+        {
+            "path": "checks/backend.log.txt.gz",
+            "sha256": "2765917bc35106e65479103e9a64324e978347a408716087505b6e9e5433b397",
+            "uncompressedSha256": "771ea33b2c1109b7bf308c9d45b41df43126dffaf1fa3565ada4abf018b7d3af"
+        },
+        {
+            "path": "checks/metadata-inspector-result.json",
+            "sha256": "f47a6e7540b20069fdd74d76ae0c2aa72e38668bed779fd72462642251180d68"
+        },
+        {
+            "path": "checks/metadata-inspector.log.txt.gz",
+            "sha256": "da1971d0704bec0539270c27bc651816db210949dc279257e03cd5734610ee22",
+            "uncompressedSha256": "78f5f6931808f2a96f22f5d2b2c4921a6341a29a70ec865c420a29e144a4dd2a"
+        },
+        {
+            "path": "checks/observations-result.json",
+            "sha256": "edeac702afc3bbd883a311d8005ad22f8fac35041c150ac2c37d1e5597c0bc7b"
+        },
+        {
+            "path": "checks/observations.log.txt.gz",
+            "sha256": "ec454d56657750756b49bca1c52abd9f4de86e65bb3b9e042d4acdddc4e3d61e",
+            "uncompressedSha256": "be3a7ac374b14d6dfc80e15b324236c2669851e3bc49ef2a3974441874ee52ef"
+        },
+        {
+            "path": "checks/scanner-suite-result.json",
+            "sha256": "518bc20dd099f758e05b2d96a56ff7a1d9ec7279abd1dbef1ef7e00d980d712f"
+        },
+        {
+            "path": "checks/scanner-suite.log.txt.gz",
+            "sha256": "386032c35e460c67f131005130f87a5987f39b5c0569f06d67df5faae32e5740",
+            "uncompressedSha256": "546e423986abd27ba568871c1ba8f02cd3001b0baedbb2981fd7120b868e8e5d"
+        },
+        {
+            "path": "checks/csharp-style-result.json",
+            "sha256": "7006678ebae511eea2292da1414d3006fd7f41a9e5e231e79c62deb00e3ee149"
+        },
+        {
+            "path": "checks/csharp-style.log.txt.gz",
+            "sha256": "02b4bd9227257feaa681ca3354c8b12037c9d524b8d10bd6e901132a967c93ab",
+            "uncompressedSha256": "5288e645993e17189c2f7b8aee1184e42c089b85263d0aebcb4f77ec419e9ff6"
+        },
+        {
+            "path": "checks/root-owner-style-result.json",
+            "sha256": "46165d007bd36847b075787f57d7b0dcf20931b2377b7dab76137d41f0e63e6d"
+        },
+        {
+            "path": "checks/root-owner-style.log.txt.gz",
+            "sha256": "3327b10a270e8ba8f1a5c5a119000f4fcdaded9ed8bcf8bf09e029df94003f87",
+            "uncompressedSha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+        },
+        {
+            "path": "checks/source-repository-result.json",
+            "sha256": "76b536e31e6b84e3de1c09aebc5615a21d99248c231f3a862fdefe2fa2cb79f9"
+        },
+        {
+            "path": "checks/source-repository.log.txt.gz",
+            "sha256": "d7f981890ec0783808b8ecd5a49b52fab6f5038536bd91dde8776cd137d46a8d",
+            "uncompressedSha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885"
+        },
+        {
+            "path": "checks/consumed-commit-range-result.json",
+            "sha256": "a9b9aed10c76036d069ebf7eaabe471b1622a9395447d83b9ac81d7046843e8e"
+        },
+        {
+            "path": "checks/consumed-commit-range.log.txt.gz",
+            "sha256": "6820e7b0731a224bd25c375aefc16565dfc6b1f734d55b71dc53731e0d6ad4a5",
+            "uncompressedSha256": "aecfd5411729b44226b75197e9c47e29e5bfed20ae525414f4df8c095bb925f6"
+        },
+        {
+            "path": "checks/matrix-result.json",
+            "sha256": "4fd92d9054a85fea5a9ad2082cc6f78c8d39bda9342cbdafc8b20449c29172b9"
+        },
+        {
+            "path": "checks/matrix.log.txt.gz",
+            "sha256": "43ed3b4d8b4354e619d98baa1a13eb8e66165235f597062480b1accb73ef5d19",
+            "uncompressedSha256": "f60af7c232ef273b84c1a3c43bfd273a53e8f3feaa412b128a353d7c492f7996"
+        },
+        {
+            "path": "checks/convergence-result.json",
+            "sha256": "429c3d1aa0f4526e44ca4963edd67f036f7b24c6a37f5875ef9f3237273c620b"
+        },
+        {
+            "path": "checks/convergence.log.txt.gz",
+            "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+            "uncompressedSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+        },
+        {
+            "path": "checks/pr-contract-69b-result.json",
+            "sha256": "c1e2c2009a16424c66884740d683c6dee0db2f484a9626c3d3e4dc218579c21d"
+        },
+        {
+            "path": "checks/pr-contract-69b.log.txt.gz",
+            "sha256": "775928f1e8edfd08579f382a09ecdd6b011b595e08f1ccb55e3cf57e8219fc9a",
+            "uncompressedSha256": "c6f30213f842ba5f31450356cf73cb6e3e79883d04fb985061c16ed44a14a1fb"
+        },
+        {
+            "path": "checks/pr-contract-naming-result.json",
+            "sha256": "2e7d76396a74b999756192c73570b1da538173cc7f652bfa8e8ae03a46a3ae83"
+        },
+        {
+            "path": "checks/pr-contract-naming.log.txt.gz",
+            "sha256": "7b219444c1ebce18f87976bb2860e0051c55eab4f1873ed73ba40c83d7bed762",
+            "uncompressedSha256": "c3be569692a350b87c69b377f64af1eb7b7a91f9543a8e8097c4374c9a6ae0e9"
+        },
+        {
+            "path": "observations-class-counts.json",
+            "sha256": "6f55ed542e1f06f6d2ea4965489242584caac1707172a1f2d87c42e0d5f73467"
+        },
+        {
+            "path": "native-failures.json",
+            "sha256": "e41b911a9e104caf695f528288f7fd3dd24fdf139774e394ffe992f2d5e6a624"
+        },
+        {
+            "path": "backend-class-counts.json",
+            "sha256": "887f3541e2edecb2aa2d1a16786eea889a9071b2bf173e8c9dd30e6979414c89"
+        },
+        {
+            "path": "owner-scanner.json",
+            "sha256": "284758e32a7ca065f87647094c8f81a434665059aa094f563a6be69e96e70042"
+        },
+        {
+            "path": "consumption.json",
+            "sha256": "31f1ec8e1457dd74b6c2b65f0b8bdedc72ef503e40d6269596bbe234006db321"
+        },
+        {
+            "path": "results/observations.trx.txt.gz",
+            "sha256": "31944a66228eebb931cd0907ba12d8d7098b04675da763cb28cc1b73d9b46e17",
+            "uncompressedSha256": "95b2fd6e330a4782b6cc4e918653fce64b634802f3b5b49c7a314bfee563c7eb"
+        },
+        {
+            "path": "results/metadata-inspector.trx.txt.gz",
+            "sha256": "67836e4df0466d01b7279fc592b3b6cf61ab4df17019ab928071f09b2174e3f9",
+            "uncompressedSha256": "7ae03869841b1bbd6750cac2f2d74ababebe8be053e002ff5bf00e1a801a5860"
+        },
+        {
+            "path": "results/backend.trx.txt.gz",
+            "sha256": "bdb4f6cfe467284c85a912a4e67e585b9673b7971fa82d6b7f0828dcb569e362",
+            "uncompressedSha256": "a14faf6ef08e917588196fb7e63498d5bd1c45a59a5a325a8d16cd34467e5287"
+        },
+        {
+            "path": "README.md",
+            "sha256": "f8b96df6bab575c7a838edf47b6425e837b0e98641d78ecc20aceaee2e1777e3"
+        },
+        {
+            "path": "issue-accounting.json",
+            "sha256": "ea214bbe2867b1bc76a83197325001b9067a85d88c55408dac0be84d01b9820e"
+        },
+        {
+            "path": "issue-accounting.md",
+            "sha256": "d094cf33032479c13f48d153865f424981e2cb1389e9c7c9ebef81a10f5ea59e"
+        }
+    ],
+    "remainingOwnerRequests": [
+        "Canonical lease/native operation owner must provide real external-writer exclusion and expected-old conditional replace/remove bound to descriptor identity and created temp. Root/path scope alone grants none.",
+        "Materialization/recovery owner must provide accepted complete metadata, final source reopen/readback, durable recovery journal/backup/restore and base transaction.",
+        "Watcher/rescan owner must provide actual event-cut and protected-lease terminal receipts; no arbitrary digest acknowledgement acceptance.",
+        "Canonical b74 owner/coordinator must supply a valid review-lineage commit footer if commit-range acceptance is needed; parent b74 and consumed69b preserved.",
+        "Finite matrix authority/convergence owners remain sole gate owners; no frozen authority or retirement edit."
+    ]
+}

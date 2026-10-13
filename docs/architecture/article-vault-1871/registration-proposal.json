@@ -1,0 +1,58 @@
+{
+    "proposalOnly": true,
+    "applyBy": "original #3582 integration owner",
+    "documentsRegistryTarget": "config/development/document-lifecycle.json",
+    "appendDocuments": [
+        {
+            "path": "docs/architecture/article-vault-1871/local-first-decision.md",
+            "status": "historical",
+            "owner": "backend",
+            "relatedIssues": [
+                1871
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/prototype-evidence.md",
+            "status": "historical",
+            "owner": "backend",
+            "relatedIssues": [
+                1871
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/registration-proposal.json",
+            "status": "historical",
+            "owner": "governance",
+            "relatedIssues": [
+                1871
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        }
+    ],
+    "newAuthorityClaims": [],
+    "producerCommands": [
+        "node tools/docs/generate-document-lifecycle.mjs --write",
+        "node tools/docs/generate-document-lifecycle.mjs --check",
+        "node tools/docs/check-authoritative-development-docs.mjs"
+    ],
+    "testMatrixProposal": {
+        "id": "article-vault-decision-prototype",
+        "purpose": "optional non-production scenario evidence; no native or writer qualification",
+        "commands": [
+            "bash prototypes/article-vault-1871/run.sh",
+            "bash prototypes/article-vault-1871/check-controls.sh"
+        ],
+        "sources": [
+            "prototypes/article-vault-1871/ArticleVaultDecisionPrototype.csproj",
+            "prototypes/article-vault-1871/Program.cs",
+            "prototypes/article-vault-1871/canonical-sources.sha256.txt",
+            "prototypes/article-vault-1871/controls/CanonicalControls.csproj"
+        ]
+    },
+    "notes": "Append exact lifecycle records, then use the existing producer. Optional matrix wiring must use its actual existing schema; this proposal is not an executable matrix entry. No code-intent, ownership, platform, base or qualification registry change is requested. docs/architecture.md remains the current architecture authority."
+}

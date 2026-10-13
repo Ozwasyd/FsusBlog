@@ -1,0 +1,12 @@
+{
+    "candidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "2e927f4990b76962159a83a799870ef33484e366..HEAD"
+    ],
+    "startedAt": "2026-10-08T09:19:09.668351+00:00",
+    "endedAt": "2026-10-08T09:19:10.540039+00:00",
+    "exitCode": 1
+}

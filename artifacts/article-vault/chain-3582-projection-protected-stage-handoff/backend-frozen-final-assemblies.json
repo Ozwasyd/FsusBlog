@@ -1,0 +1,5 @@
+{
+  "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "f31649c72e38b889aa629cf76b8ad8bbf9d204fe4f0eb3b5ca60b53a9be99c92",
+  "src/backend/bin/Release/net10.0/FsusBlog.Server.dll": "4ea505720b27ec9d2f95995379dde87e73b31a1006a5b838e8a22a2adb2efd09",
+  "src/shared/bin/Release/net10.0/FsusBlog.Shared.dll": "7ba791c3b6286e424c07dd5dcb3c45ca4f4d5c7bbbbd6eac8d41bb946a449054"
+}

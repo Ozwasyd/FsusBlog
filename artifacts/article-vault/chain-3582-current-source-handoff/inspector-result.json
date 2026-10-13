@@ -1,0 +1,46 @@
+{
+    "candidate": "8b2553209d1496c8960d5b89d76430941c42d8a0",
+    "endCandidate": "8b2553209d1496c8960d5b89d76430941c42d8a0",
+    "startedAt": "2026-10-08T13:27:31.918466+00:00",
+    "endedAt": "2026-10-08T13:27:33.924621+00:00",
+    "command": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~AccountSubjectHashProjectionTests",
+        "--logger",
+        "trx;LogFileName=inspector-frozen.trx",
+        "--results-directory",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/current-source-frozen/results"
+    ],
+    "exitCode": 0,
+    "counts": {
+        "total": "18",
+        "executed": "18",
+        "passed": "18",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "assemblyHashes": {
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "1337bd4c9bf493ad387aad2cec9b015f38eadc4fe946e43fc5d142f17fd30bd0",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "1818bbae934ff39e5b22c611d92f8519a58d32f05165558efe8e5457518a678a",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "e75fd19f11f944c03e9c8c82383d5cdb028686fd2bdb2e2bd630c6979d4249c5"
+    },
+    "nativeOrProductQualified": false
+}

@@ -1,0 +1,150 @@
+{
+    "schema": "fsusblog.article-vault.chain-source-review-diagnostic.v1",
+    "qualificationClaim": false,
+    "acceptedIssues": 0,
+    "testedSourceCandidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "actualPrBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "latestVerifiedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "sourceDiffFileCount": 177,
+    "recordedAt": "2026-10-08T07:03:43.974440+00:00",
+    "checks": {
+        "backendFocusedOriginal": {
+            "passed": 823,
+            "failed": 0,
+            "skipped": 0,
+            "exitCode": 0
+        },
+        "rootExecution": {
+            "passed": 37,
+            "failed": 0,
+            "skipped": 0
+        },
+        "originalSourceScannerAndDiagnosticControls": {
+            "passed": 137,
+            "failed": 0,
+            "skipped": 0,
+            "exitCode": 0
+        },
+        "actualOwnedAndBoundarySourceFindings": 0,
+        "rootCsharpStyle": {
+            "files": 4,
+            "exitCode": 0
+        },
+        "actualRemotePrMetadataContract": {
+            "exitCode": 0,
+            "bodyScopeUpdatePendingRateLimit": true
+        },
+        "originalMatrix": {
+            "exitCode": 1,
+            "owner": "canonical #1686 finite authority"
+        },
+        "originalConvergence": {
+            "exitCode": 1,
+            "owner": "canonical #3521 two retention replacements"
+        },
+        "currentCommitRangeContract": {
+            "exitCode": 1,
+            "reason": "Published original scopes/Refs footers plus cherry-pick footer placement fail original contract; no history rewrite."
+        },
+        "macOriginal": {
+            "passed": 27,
+            "failed": 9,
+            "skipped": 0,
+            "exitCode": 1
+        },
+        "darwinNativeBuilder": {
+            "exitCode": 1,
+            "reason": "mac_vault_native_build_requires_darwin"
+        },
+        "currentGraphCounterexample": {
+            "exitCode": 3,
+            "staleGraphBuildAccepted": true,
+            "staleGraphVerifyCurrentAccepted": true,
+            "freshPositivePassed": true,
+            "actualByteAndRelationNegativeControlsPassed": true
+        }
+    },
+    "historicalCandidateChecks": {
+        "d6a076905ba82f5a1359b1363ee049ad66a66e20": {
+            "frontendOriginal141": "pass/0 skipped; inputs unchanged at current source candidate",
+            "originalLocalSourceFsusUITypecheck": "exit0; actual f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+            "registrationOriginalStyle6": "exit0",
+            "completeDiffCsharpAndNodeStyle": "exit1 in canonical owner sources; Windows root using order repaired and current4-file style verified"
+        }
+    },
+    "remainingGates": [
+        "Canonical finite execution parser/declaration/path/owner-content closure. Do not mutate frozen authority to self-admit diagnostic tiers.",
+        "Original two convergence retirement declarations and complete supplied-source style/immutable commit contract records.",
+        "Actual current persisted definition/rights/property/taxonomy metadata reader and producer; writer/publication/transport admission remains closed.",
+        "Parent exact successor materialization/graph/consumer handoffs and genuine graph currentness/occurrence/identity repair.",
+        "Real Linux supported filesystem and mount/native permission, Windows local NTFS, Darwin SDK+APFS/FSEvents, actual protected lease and terminal rescan proof.",
+        "Actual canonical backups/restores, native writes/base commit, journal/resume/undo/cleanup, accepted-server mutation interruption and independently rendered production/terminal qualification."
+    ],
+    "artifacts": {
+        "README.md": "3e6348fb1b62ee3adfbf995983988059f78bacd21ceeba86fdbba8d60f5441b1",
+        "candidate-source-diff-hashes.json": "fa4745cb8f32b0df9b5fec6101c367cefbc501358cd5a53e44f8a1d7efde3708",
+        "canonical-source-consumption.json": "375bd368546dbb393c8ca7783902392fa36d96a10813e1ffa2585e4e5c6a3d09",
+        "current-source-range-contract.log.txt": "ac9575d9da170f607ca8a8163c987f60caa24f68e3e2c706f1422be0a8247a24",
+        "graph-counterexample/after.json": "3e2422106361be1295de42ef930dbb9cdfdaaa30329ae911780d5f99cfdc11a2",
+        "graph-counterexample/before.json": "207bb8f20e784165408bcc7823a9b86c16685e71e83abf06d336c7adb399b1fb",
+        "graph-counterexample/counterexample-inputs.json": "8e9c5af45a55d1fc5d1d9d8bc474c400866aa4666935f6011ffade5c16bfe794",
+        "graph-counterexample/project.csproj.txt": "28c1ead81a22b84be0efaf61cb4eb852580059dce3d52a99d57339a4eaa36865",
+        "graph-counterexample/result.json": "b578d5a30e9091ef3b0311d3ce7d8bc727a3a3138b9718f42d71f254123ddc12",
+        "graph-counterexample/run.log.txt": "3d929a4505252e56d345fcef4405d40bd6b0fd15352de867a16dd8172eaa58d6",
+        "graph-counterexample/run.sh.txt": "adf20a0f067a605258df6a57cd0b6db66ebe2baf816fae2d0bac8bd1db8a3413",
+        "graph-counterexample/snapshot.py.txt": "acd0b2e6f3028fb731bb3cbd8711d922aef4eac4720e189403942883593a33c4",
+        "graph-counterexample/source.cs.txt": "ef676125c2c5d86ebb70daf3a26cc79524f729bffb9ce6e9b8385b0ff052ff07",
+        "issue-accounting.json": "32baec9ea7c4d4dc4f4f5f188486bbae0ec29996b021480f3fd2f2db6456a28c",
+        "issue-accounting.md": "86a222c39ccc091f1b43cd726f936358eed6398c6337954706412acc90ecf857",
+        "original-919-linux-root-path.log.txt": "f8b07b29c6746f100bf88ae750bc7558932be275868182fed6738ff8eb1f1a17",
+        "original-919-windows-root-path.log.txt": "e39715a6d5c381bb28600ce61a499e5abc2522cbcdf53dfb6f95a938bde90dc8",
+        "prior-d6-frontend-result.json": "53ccc447c3b576b03dea370cc2d81ba85cb141d2c0e3b928b1417a10fe52cee2",
+        "prior-d6-frontend.log.txt": "8acc8ba532a3750ed2ddd9686008233671bafb9ecae0183751376c9dd3421ab7",
+        "prior-d6-local-types-result.json": "d5681833d73a77f3f69e870f8fbc6619e961772d938aa84abd7e172c0e3ef2b3",
+        "prior-d6-local-types.log.txt": "4a4add837f0874bc71033dafb1b20181fa729bd52dcac84d23a5a99eeeb3b010",
+        "prior-d6-registration-style-result.json": "58ea9bab3905b4acfdd21b23e03847c2b42ce780c0e89ce053851cd7d8434310",
+        "prior-d6-registration-style.log.txt": "5c8f8ea1fa0c683b4580872b2f421cb0a3da4d6e45cc270eeaf11441716dd833",
+        "prior-d6-whole-csharp-style-result.json": "6386104c8d45b59097447fa76420f418e989d1dcca9eeefce949b298b7a273bd",
+        "prior-d6-whole-csharp-style.log.txt": "f3ac0b64b0123155b4a27389d8ee31788a79d54bb97f9cf30c1d1d3770f21ac9",
+        "prior-d6-whole-node-style-result.json": "de874ac36070f7128f5d10841089c5dc845b094b9a1fd0c064ae715febf67e9b",
+        "prior-d6-whole-node-style.log.txt": "f8ac94cabe9537de8df937fa64e74f10061afdcababf99a0ed451279dc5472bf",
+        "proposed-pr-body.md": "fa41980e43e82942323f7718cc985fefaeb072e8c18782c608a9f19e6d73a417",
+        "proposed-pr-patch.json": "f6b5bf0a40abae6bace365f24f72c57d395d4bda83132eb5b620ef10a74df9d9",
+        "source-classification-d6/blog-classification.json": "2ecf1fa842a5c1fd3e2a0475cfed8c09cbc7e8411e4893ee2e167e743df07f89",
+        "source-classification-d6/classification-scope.json": "194f2c27a167345e098ae9a7b2a403c76870639cb0ca56fbe906f972108667db",
+        "source-classification-d6/fsusui-classification.json": "c4b9f5beace7a4ccddfbb7c130fd82bb9c92f23fb4dbccfe3d5eb71288b9cdaf",
+        "tested-9e/backend-class-counts.json": "85fde0b29ec8e50891ffc80e2ac0617eb5f3b4e13791fc348c61d3fbae345d19",
+        "tested-9e/backend-result.json": "80e417a80e1a97cbf3f559f5b779156a9a4ddc042b325d5de5daf338cbb1c06e",
+        "tested-9e/backend-source-hashes.json": "82d80f5fa2e47ff64ef244a837da64d53d16ff439c26378e118c4a57aa826dce",
+        "tested-9e/backend.log.txt": "43aafb6faf80487c7b0fb0d16731cafc0ba1f920803521ae558c5b4fcb1401ac",
+        "tested-9e/cleanup-observation.log.txt": "87158f30c36b7641581b929c8d81ac5b70daddfc4868b1984063ef09e4d74615",
+        "tested-9e/convergence-result.json": "e26cc5b3f71729a8de70655d41b0aa2da055c2d71e53f1b401e275a085655b1f",
+        "tested-9e/convergence.log.txt": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2",
+        "tested-9e/darwin-native-builder-result.json": "82c54ae5160601b5485258b31ec453c276d8d1250c46819cacb49d9783860d93",
+        "tested-9e/darwin-native-builder.log.txt": "61be0f33a2e2b7e452f344c550c5c5c0c1a108b83f421a9b2b5360b98fade40f",
+        "tested-9e/dotnet-info.log.txt": "c678d92880048a5bfd14a0a89c6cea3b6c823a498bdfda8021cd3e94506a4e7f",
+        "tested-9e/fresh-master-conflict.json": "f36a35aeb8b8d47e97585da47f49c6443c48e13106c60c0f7e11ce50aec2480a",
+        "tested-9e/loaded-build-assembly-bindings.json": "a5e446015967d5057472ec3b7747d1e121af3b2fd5fb06917f20d966d029ee05",
+        "tested-9e/mac-original-result.json": "8065ba2b8186ff96b47bc739a56d5fd7faf894ec793bbed7146e03c78ab7448c",
+        "tested-9e/mac-original-trx-summary.json": "7c3d47df127d1302d776d28e4a1adf19a2fc782dfd27b44449e0c90af06822f8",
+        "tested-9e/mac-original.log.txt": "cdb026eac22b00baecf3ba6ae5afc51013bc4466313ae631902e8a8df787400d",
+        "tested-9e/matrix-result.json": "44207766681057f53dfeab0fff511be1126a239d2c813d3db1b8572b935c1eca",
+        "tested-9e/matrix.log.txt.gz": "f40812e75ba227c7deea94a57ceed103c552c4b6f358fd3d49e8838622c74f3f",
+        "tested-9e/owner-source-scanner.json": "a0e9c83b57d59d7bf665f1929b206a486f8643f2362cce0a30dfab9fd3654234",
+        "tested-9e/pr-current-gate.log.txt": "5527a8088d1158f83fc892c1915c2df5c168cfa8bb56f01180a1ccfc56dfa38e",
+        "tested-9e/producers-check-result.json": "c4c7cb0a83d3b09e81a883937170eda2f4a857ece35edb8c3c029cedcb601160",
+        "tested-9e/root-current-style.log.txt": "338c3460669d174026aff5806362826322bba8ad7b474d80ac85fdd8acbc56ec",
+        "tested-9e/source-result.json": "4770b839c71f9b5ddc7c769cec5e374ba7d79a5bfc087f55a0ce315aeeaaf6a8",
+        "tested-9e/source.log.txt": "9645b82805d297ae355a935c600be22fb4745deeaaa63d7d7fa1940d4c9a704c",
+        "tested-9e/testing-doc-check-result.json": "de37f434828953073e13d0a7a3c2b1ae6dcf476f1ed3efaf0e0c2f5c82f82364",
+        "tested-9e/trx-summary.json": "e7e7f0c0e13689410b526769e7009c3babc8ff7e1ece1e9c672316eb415d6553"
+    },
+    "losslessCompressedLogs": [
+        {
+            "path": "tested-9e/matrix.log.txt.gz",
+            "uncompressedSha256": "a780349ffb838b98f106a183d70a676a8bb8fab4c987e337559a8a92dcf87298"
+        }
+    ]
+}

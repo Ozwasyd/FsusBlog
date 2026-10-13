@@ -1,0 +1,13 @@
+{
+    "candidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+    "result": [
+        {
+            "path": "tests/backend/Unit/ArticleVaultExecutionTests.cs",
+            "findings": []
+        },
+        {
+            "path": "tests/backend/Unit/DocumentExportContractTests.cs",
+            "findings": []
+        }
+    ]
+}

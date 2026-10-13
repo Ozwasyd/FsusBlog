@@ -1,0 +1,69 @@
+{
+  "candidate": "f217668ff0647d3dba621d25fa5303b18b471020",
+  "result": {
+    "tests/backend/Unit/ArticleVaultExecutionTests.cs": [],
+    "tests/backend/Unit/DocumentExportContractTests.cs": []
+  },
+  "controls": {
+    "positive": [],
+    "negative": [
+      {
+        "path": "negative.fixture.cs.txt",
+        "line": 5,
+        "column": 26,
+        "rule": "production-source-read",
+        "target": "src/backend/Services/ExampleService.cs",
+        "message": "replace repository source read src/backend/Services/ExampleService.cs with behavior, serialization, persistence, or one static owner"
+      },
+      {
+        "path": "negative.fixture.cs.txt",
+        "line": 6,
+        "column": 23,
+        "rule": "documentation-source-read",
+        "target": "docs/testing.md",
+        "message": "replace repository source read docs/testing.md with behavior, serialization, persistence, or one static owner"
+      },
+      {
+        "path": "negative.fixture.cs.txt",
+        "line": 7,
+        "column": 28,
+        "rule": "test-source-read",
+        "target": "tests/backend/Unit/OtherTests.cs",
+        "message": "replace repository source read tests/backend/Unit/OtherTests.cs with behavior, serialization, persistence, or one static owner"
+      },
+      {
+        "path": "negative.fixture.cs.txt",
+        "line": 8,
+        "column": 25,
+        "rule": "source-reader-helper",
+        "target": "src/backend/Services/HiddenService.cs",
+        "message": "source-reader helper is not executable behavior evidence"
+      },
+      {
+        "path": "negative.fixture.cs.txt",
+        "line": 18,
+        "column": 29,
+        "rule": "production-source-read",
+        "target": "*.cs",
+        "message": "repository-root file reads must move to executable behavior or one static governance owner"
+      },
+      {
+        "path": "negative.fixture.cs.txt",
+        "line": 22,
+        "column": 27,
+        "rule": "source-reader-helper",
+        "target": null,
+        "message": "source-reader helper is not executable behavior evidence"
+      },
+      {
+        "path": "negative.fixture.cs.txt",
+        "line": 23,
+        "column": 12,
+        "rule": "generic-repo-source-reader",
+        "target": null,
+        "message": "generic repository source reader hides the asserted target"
+      }
+    ],
+    "errors": []
+  }
+}

@@ -1,0 +1,14 @@
+{
+    "canonical": "39459f8162c775b79747a35228cd38b3c5b5faf6",
+    "scope": "Exact owner pure journal controls; no native backup/protection qualification",
+    "files": [
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryJournalTests.cs",
+            "canonicalSha256": "b690d605cc2c8f3038b9202d70d9376928b814fdbf6c26ba203545e7955ee1ac"
+        },
+        {
+            "path": "tests/backend/Helpers/TestInfrastructure/VaultResolutionJournalTestInputs.cs",
+            "canonicalSha256": "7f32cabb151eea86f1d7224eacd5dc8d1b79a1e4600cc00bae8b3c8797b0aecd"
+        }
+    ]
+}

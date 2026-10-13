@@ -1,0 +1,83 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  FsusBlog.Shared -> /workspace/FsusBlog/src/shared/bin/Release/net10.0/FsusBlog.Shared.dll
+  FsusBlog.ArticleVault.MacOS -> /workspace/FsusBlog/src/article-vault/macos/bin/Release/net10.0/FsusBlog.ArticleVault.MacOS.dll
+  FsusBlog.ArticleVault.MacOS.Tests -> /workspace/FsusBlog/tests/article-vault/macos/bin/Release/net10.0/FsusBlog.ArticleVault.MacOS.Tests.dll
+Test run for /workspace/FsusBlog/tests/article-vault/macos/bin/Release/net10.0/FsusBlog.ArticleVault.MacOS.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.14]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealDeliveryOverflowPreservesFailureAndInvalidWatermark [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealPermissionLossAndControlTamperRequireRescan [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealApfsUnicodeAndCaseManifestCollisionsFailBeforeStream [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealSymlinkEscapeIsBlockedAndDoesNotReadTarget [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealRootMoveAndRestartInvalidateInstanceAndReleaseResources [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealRenameRetainsObservedSpellingWithoutSynthesizingPair [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealCreateModifyRemoveRetainFlagsAndOneRootBinding [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealTempSaveAtomicReplacePreservesRawFlagsAndUnknownTempFailure [FAIL]
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealDeliveryOverflowPreservesFailureAndInvalidWatermark [6 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealDeliveryOverflowPreservesFailureAndInvalidWatermark() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 183
+--- End of stack trace from previous location ---
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealPermissionLossAndControlTamperRequireRescan [1 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealPermissionLossAndControlTamperRequireRescan() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 116
+--- End of stack trace from previous location ---
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealApfsUnicodeAndCaseManifestCollisionsFailBeforeStream [1 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealApfsUnicodeAndCaseManifestCollisionsFailBeforeStream() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 160
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealSymlinkEscapeIsBlockedAndDoesNotReadTarget [1 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealSymlinkEscapeIsBlockedAndDoesNotReadTarget() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 100
+--- End of stack trace from previous location ---
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealRootMoveAndRestartInvalidateInstanceAndReleaseResources [1 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealRootMoveAndRestartInvalidateInstanceAndReleaseResources() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 132
+--- End of stack trace from previous location ---
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealRenameRetainsObservedSpellingWithoutSynthesizingPair [< 1 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealRenameRetainsObservedSpellingWithoutSynthesizingPair() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 41
+--- End of stack trace from previous location ---
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealCreateModifyRemoveRetainFlagsAndOneRootBinding [1 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealCreateModifyRemoveRetainFlagsAndOneRootBinding() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 19
+--- End of stack trace from previous location ---
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealTempSaveAtomicReplacePreservesRawFlagsAndUnknownTempFailure [3 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealTempSaveAtomicReplacePreservesRawFlagsAndUnknownTempFailure() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 55
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.20]     FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealTruncatePartialWriteNeverReadsOrAdmitsEmptyBody [FAIL]
+  Failed FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealTruncatePartialWriteNeverReadsOrAdmitsEmptyBody [< 1 ms]
+  Error Message:
+   Real macOS/APFS is required; platform skips are forbidden.
+  Stack Trace:
+     at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.ApfsFixture..ctor(String[] projections) in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 231
+   at FsusBlog.ArticleVault.MacOS.Tests.MacVaultWatcherApfsTests.RealTruncatePartialWriteNeverReadsOrAdmitsEmptyBody() in /workspace/FsusBlog/tests/article-vault/macos/MacVaultWatcherApfsTests.cs:line 75
+--- End of stack trace from previous location ---
+Results File: /workspace/FsusBlog/.tmp/chain-3582-expanded/frozen-9e/results/mac-current-original.trx
+
+Failed!  - Failed:     9, Passed:    27, Skipped:     0, Total:    36, Duration: 116 ms - FsusBlog.ArticleVault.MacOS.Tests.dll (net10.0)

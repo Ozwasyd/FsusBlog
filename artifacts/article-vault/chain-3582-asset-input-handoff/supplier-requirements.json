@@ -1,0 +1,36 @@
+{
+    "source": "e933ae5197f4990433cdabfaec34668695984e2a",
+    "actualVerifierSource": "2900bbc18b074859f3c7555a10ade8c567a9a21f",
+    "actualVerifier": "ArticleVaultAssetInputVerifier.VerifyCurrent",
+    "providerBindings": [
+        {
+            "owner": "sole original operation/store authority",
+            "method": "IArticleVaultExecutionStore.LoadSealedAsync and original operation identity authority",
+            "required": "Exact site/Vault/device/agent, plan reference/SHA, global operation identity/deadline, group/item/article; original authenticated principal and explicit trusted site."
+        },
+        {
+            "owner": "original current source/dependency authority",
+            "required": "Fresh currentRequest/currentDependencies, selected source side/digest, exact current article/revision, AssetId/digest/MIME/extension/size/dimensions/owner, current required/granted rights and permission/rights/authority digests."
+        },
+        {
+            "owner": "#1779 original private asset read owner",
+            "availableMethods": [
+                "IPrivateAssetAccessService.IssueTicketAsync",
+                "IPrivateAssetTicketRedemptionService.RedeemAsync",
+                "IPrivateAssetMetadataSource.FindAsync",
+                "IPrivateAssetStore.OpenReadAsync"
+            ],
+            "required": "Actual authorized original record and bytes bound to exact selected operation/source/rights; a raw handle, display URL or record timestamps are not a Vault grant/revision."
+        },
+        {
+            "owner": "#1779/#2258 upload/reference ledger owner",
+            "availableMethod": "IFileService.ObserveCommittedUploadAsync",
+            "required": "Original immutable operation/item/AssetId/content-bound read/reuse/upload/init/retry observation including source/asset server revision, reference list/ledger digest and explicit reuse decision. No caller-created receipt."
+        }
+    ],
+    "existingRootInputs": "Actual sealed plan/current revision/group observations and long administrator ID from the current source reader; no asset record, authorized bytes/current asset dependency rights/read grant or asset version/reuse ledger. Long ID is not reconstructed into authenticated ClaimsPrincipal.",
+    "rootCallSite": "Full verified executable candidate admission remains root-owned and unfinished; it may use this actual check only after genuine suppliers supply required facts. SOURCE HOLD, original Blocked and current RequireExecutionAdmission refusal persist.",
+    "notAbsent": "Consistency verifier, private reads and ledger observation APIs already exist; exact binding facts are missing.",
+    "originalNewFixtureNotExecuted": "Original ArticleVaultAssetInputVerifierTests uses the separately supplied staging fixture/new plural VaultDependencyRights closure; root current public enum/caller source remains singular. No fixture modification, compatibility alias or sibling closure guess. Only existing original pure AssetValidation class42 is executed, with API present and compiled.",
+    "noQualificationInherited": "Supplier220/113/8 counts are not root results; full-current verifier positive/acquisition/runtime/graph/native/product qualification is not claimed."
+}

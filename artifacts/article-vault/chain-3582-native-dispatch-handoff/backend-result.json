@@ -1,0 +1,70 @@
+{
+    "candidate": "4d408e71ea9246876fbb5ed7198e2276da473089",
+    "endCandidate": "4d408e71ea9246876fbb5ed7198e2276da473089",
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "startedAt": "2026-10-08T14:03:58.969238+00:00",
+    "endedAt": "2026-10-08T14:05:37.309168+00:00",
+    "command": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "-p:RestoreLockedMode=true",
+        "--filter",
+        "FullyQualifiedName~ArticleVaultCurrentSourceReaderTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~ArticleVaultRecoveryServiceRegistrationTests|FullyQualifiedName~ArticleVaultAcceptedSourceAdapterTests|FullyQualifiedName~AuthoringRevisionComparePackageReaderTests|FullyQualifiedName~ArticleVaultSourceAdmissionTests|FullyQualifiedName~ArticleVaultResolutionOperationPlanTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~AccountSubjectHashProjectionTests|FullyQualifiedName~ArticleVaultAgentCanonicalOperationAdapterTests",
+        "--logger",
+        "trx;LogFileName=backend.trx",
+        "--results-directory",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-dispatch-frozen/results"
+    ],
+    "exitCode": 0,
+    "nativeOrProductQualified": false,
+    "realPostgres": false,
+    "counts": {
+        "total": "251",
+        "executed": "251",
+        "passed": "251",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "runId": "1f91359e-c3eb-4979-af31-9d2d85c0612e",
+    "classes": {
+        "DocumentExportContractTests": 70,
+        "AuthoringRevisionComparePackageReaderTests": 21,
+        "ArticleVaultCurrentSourceReaderTests": 47,
+        "ArticleVaultAcceptedSourceAdapterTests": 29,
+        "ArticleVaultExecutionTests": 37,
+        "ArticleVaultResolutionOperationPlanTests": 4,
+        "ArticleVaultRecoveryServiceRegistrationTests": 13,
+        "AccountSubjectHashProjectionTests": 18,
+        "ArticleVaultAgentCanonicalOperationAdapterTests": 8,
+        "ArticleVaultSourceAdmissionTests": 4
+    },
+    "assemblies": {
+        "src/shared/bin/Release/net10.0/FsusBlog.Shared.dll": "efdd8f9722ac55c43347d32259aaaa906c980e0c76d71d728ae7bbda02a3a345",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "d448aa276bfaf340ba78e57741eb53f223f3efeb58870bce51d1bc985f6e010b",
+        "src/article-vault/linux/bin/Release/net10.0/FsusBlog.ArticleVault.Linux.dll": "b072e55f7d669e7e8c469f220b425e7041ddcaebd5aab8e68296f1d8f505870e",
+        "tests/article-vault/linux/bin/Release/net10.0/FsusBlog.ArticleVault.Linux.Tests.dll": "48742fd7ad64e6366802b2e7ba887d37cdf8202cd5ac209f1ba031cdef2bf7c7",
+        "src/backend/bin/Release/net10.0/FsusBlog.Server.dll": "11b1eece07fb6cae6955e3cf397b317b8ca88ca94fb1ff981c35b5c1f7a17c7b"
+    },
+    "backendAssemblyCapture": {
+        "at": "2026-10-08T14:07:11.477164+00:00",
+        "candidate": "4d408e71ea9246876fbb5ed7198e2276da473089",
+        "workingTree": "",
+        "afterBothRuns": true,
+        "noInterveningSourceChange": true
+    }
+}

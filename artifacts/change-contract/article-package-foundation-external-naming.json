@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs"
+            ],
+            "reason": "These new shared contract paths fall within the registered process-spelling scope; adding explicit package identity, inventory and byte validators preserves existing process environment spellings and their adapters."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve existing caller-visible document and token spellings while documenting only the finite article-package foundation; generated fact sections and existing external adapters remain unchanged."
+        }
+    ]
+}

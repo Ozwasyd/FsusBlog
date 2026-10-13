@@ -1,0 +1,17 @@
+{
+    "candidate": "a5f104b08d9a4c6ae147dacceeb538b7a29f66d3",
+    "productionSource": "eec0a4e9fad3b9a6cc889489cead22facdcec2e8",
+    "sourceAndTestsUnchangedSinceFrozenRun": true,
+    "bodySha256": "25ba5dc2e430947410be1ab43335ec2ffb32a770b234f1f239905f01b407fc5a",
+    "command": [
+        "node",
+        "tools/governance/check-change-contract.mjs",
+        "--github-event",
+        ".tmp/chain-3582-expanded/protection-b827-frozen/proposed-pr-event.json"
+    ],
+    "exitCode": 0,
+    "changedFiles": 559,
+    "isLocalProposedMetadataCheck": true,
+    "remoteBodyApplied": false,
+    "contentWriteQueuePending": true
+}

@@ -1,0 +1,15 @@
+# Chain #3582 source review evidence
+
+Diagnostic delivery only. Tested source commit `9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b`; accepted issues=0. The later evidence-only delivery commit does not change tested production/test inputs. This is neither a qualification manifest nor a replacement for any frozen authority, platform receipt or original gate.
+
+The actual original related backend union823 and source/diagnostic137 passed, including root execution37, closed boundary70, metadata inspector18, real disposable PostgreSQL2, canonical mapper69 and typed proposal27. Exact commands, exits, source hashes and class counters are retained. Original matrix/convergence, whole supplied-source style and immutable range-contract failures remain red. Actual remote draft metadata contract passes; the proposed title/body is LOCAL and awaits coordinator serialization after GitHub service guidance.
+
+The original macOS category36 executes27 managed passes and9 genuine platform failures, with zero skips. The original native builder refuses Linux. Linux/Windows root-path failures retain their original tested919 identity. Current actual Shared graph counterexample accepts the saved-server graph for a fresh-server Ready/PullUpdate plan in both Build and VerifyCurrent; matching-current, real byte-mismatch and relation-drift controls retain their expected results. Exit3 is a defect, not acceptance.
+
+`issue-accounting.json` accounts for49 coordinated issues, with21 retained root responsibilities and28 sole canonical implementations transferred. Tracking rows aggregate evidence only. Source consumption never grants downstream execution/product acceptance. `canonical-source-consumption.json` records exact original and consumed identities; the already present macOS merge capability was verified byte-for-byte without duplicating its implementation.
+
+`source-classification-d6` binds actual loaded design authorities and Skills. Its state matrix records REQUIRED future evidence and contains no inspected rendered artifact or accepted UX receipt. Both the classifier candidate and original frontend/typecheck candidate are deliberately retained at their real d6 identity.
+
+The graph source snapshots are quarantined text evidence. To repeat the actual private diagnostic, copy its four text sources into `.tmp/chain-3582-expanded/graph-coordinate-probe/` as `Program.cs`, `GraphCoordinateProbe.csproj`, `run.sh` and `snapshot.py`, provide official SDK10.0.302 at the recorded task path, and run `bash .tmp/chain-3582-expanded/graph-coordinate-probe/run.sh` from the repository root. Expected current outcome is the retained defect exit3. This fixture is not provider, authorization or runtime admission evidence.
+
+Raw logs retain their exact bytes with a `.log.txt` suffix because repository Git ignores `.log`. Logs with trailing blank lines use lossless `.log.txt.gz` archives; the manifest includes their uncompressed SHA-256. Structured archived records use repository indentation; original producer outputs remain unchanged in the task directory.

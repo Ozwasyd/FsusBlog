@@ -1,0 +1,17 @@
+{
+  "preservedBranch": "codex/chain-3582-published-90426f93a",
+  "commits": [
+    {
+      "old": "4b9edf144798fedc794bbd9a9b94ab444b1e1075",
+      "new": "6782bad0210d75393bfdcbc739e3506017ec1377",
+      "tree": "b85dff98a0877de880697005a3ae3e32372cd5a4",
+      "sourceTreeUnchanged": true
+    },
+    {
+      "old": "90426f93aa720580d40c1c32ca7ce212d465dfd1",
+      "new": "89b1a14c238e919069f9377b4310d86d64dae414",
+      "tree": "bec25776b05aca64b4725402f6554f6105b6464d",
+      "sourceTreeUnchanged": true
+    }
+  ]
+}

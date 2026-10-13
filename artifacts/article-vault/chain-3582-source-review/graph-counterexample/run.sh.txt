@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -u
+cd /workspace/FsusBlog
+probe_root=/workspace/FsusBlog/.tmp/chain-3582-expanded/graph-coordinate-probe
+export DOTNET_CLI_HOME="$probe_root/cli-home"
+export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
+export FSUSBLOG_PRODUCTION_BUILD_ROOT="$probe_root/build"
+python3 "$probe_root/snapshot.py" before
+.tmp/chain-3582/dotnet/dotnet run --project "$probe_root/GraphCoordinateProbe.csproj" -- "$probe_root/artifacts" > "$probe_root/run.log" 2>&1
+probe_exit=$?
+python3 "$probe_root/snapshot.py" after "$probe_exit"
+exit "$probe_exit"

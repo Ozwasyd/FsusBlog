@@ -1,0 +1,449 @@
+[
+    {
+        "source": "a95de1defd39a46f34992bed9eee3c150d990456",
+        "consumed_as": "2e9468914ece894bf5114457365c9f3ff1bb7479"
+    },
+    {
+        "source": "eeb4e84096571ecb3a989629825f2508e2de7b71",
+        "consumed_as": "a2152cdacabd693e6a2eb71dccaa1bacf4083635"
+    },
+    {
+        "source": "e38a0badac3867560b5d0fdc1b8d1c648d15ee37",
+        "consumed_as": "5f987c6a13c3ed9c91a13ebdff7ee790378de7b7"
+    },
+    {
+        "source": "e724251e44222c1c36388984f71f88e901a02c48",
+        "consumed_as": "2efff526141d8959c1b7f54c30c15039c6e58b89"
+    },
+    {
+        "source": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+        "consumed_as": "c38062095db96757d4123539e50739195a62485a"
+    },
+    {
+        "source": "9bf3ebb9779de226c369d1d0b8021ba140d2f176",
+        "consumed_as": "41156b85a8726d49ca4059a18c8361d58664696d"
+    },
+    {
+        "source": "5d71bb2eec8c7c3645a799560e2ba28675d5357b",
+        "consumed_as": "62572ec34cce0832877e35c9d194acb821cded19",
+        "parentSuppliedFixedTip": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd"
+    },
+    {
+        "source": "1ee76ebfdffbd162dbea495b96481aaf5b0a95d7",
+        "consumed_as": "d24930ebcaf9e4f3a6b93ff7b6716fba94b27b00",
+        "parentSuppliedFixedTip": "f4600360c7d2847f048ebc5465baae052aa7efe8"
+    },
+    {
+        "source": "0ef9493cb1e2509254e28ac6a9ba95e860f8d4be",
+        "consumed_as": "a1fe92168dbcafab522b871813e1c91312d1e0b9",
+        "parentSuppliedFixedTip": "f4600360c7d2847f048ebc5465baae052aa7efe8"
+    },
+    {
+        "source": "3bcaf98b5039a334a6870e67a46d8bdf64790972",
+        "consumed_as": "f541fe48a5ef823b482460ede14634314fd5b938",
+        "parentSuppliedFixedTip": "f4600360c7d2847f048ebc5465baae052aa7efe8"
+    },
+    {
+        "source": "f4600360c7d2847f048ebc5465baae052aa7efe8",
+        "consumed_as": "d0a8f9debc61787a68faa474fcd923b84d504928",
+        "parentSuppliedFixedTip": "f4600360c7d2847f048ebc5465baae052aa7efe8"
+    },
+    {
+        "source": "4b9b17d2fe36262ab04fcfac2d6e810d6718ca86",
+        "consumed_as": "004e3327c78db56e519ca687a4d331f8c590d7be",
+        "parentSuppliedFixedTip": "4b9b17d2fe36262ab04fcfac2d6e810d6718ca86",
+        "relatedIssues": [
+            2106,
+            2107
+        ],
+        "scope": "finite source capability; not runtime qualification",
+        "before": "44328900fcc889c63ba18d8939957a558e710071",
+        "consumedAt": "2026-10-08T05:50:17.357192+00:00"
+    },
+    {
+        "source": "1e3da416a469ccfabd00fbcbf52a9ff333ef6483",
+        "consumed_as": "66ffcf5deefb0d9cad9b6e3daa69f6fb10fdc874",
+        "parentSuppliedFixedTip": "1e3da416a469ccfabd00fbcbf52a9ff333ef6483",
+        "relatedIssues": [
+            2113
+        ],
+        "scope": "finite source capability; not runtime qualification",
+        "before": "004e3327c78db56e519ca687a4d331f8c590d7be",
+        "consumedAt": "2026-10-08T05:50:17.373173+00:00"
+    },
+    {
+        "source": "50e286822b93c4d16a109ca25872c2dc3e479332",
+        "consumed_as": "79230f13124de81df997fb0e5254a228acc030c9",
+        "parentSuppliedFixedTip": "3cc6fdb22797dec39c4252deeb2240e288243329",
+        "relatedIssues": [
+            2670
+        ],
+        "scope": "finite source capability; not runtime qualification",
+        "before": "66ffcf5deefb0d9cad9b6e3daa69f6fb10fdc874",
+        "consumedAt": "2026-10-08T05:50:17.388802+00:00"
+    },
+    {
+        "source": "3cc6fdb22797dec39c4252deeb2240e288243329",
+        "consumed_as": "6d7bfa18c217a9e17f78a2011194b061741d09d3",
+        "parentSuppliedFixedTip": "3cc6fdb22797dec39c4252deeb2240e288243329",
+        "relatedIssues": [
+            2670
+        ],
+        "scope": "finite source capability; not runtime qualification",
+        "before": "79230f13124de81df997fb0e5254a228acc030c9",
+        "consumedAt": "2026-10-08T05:50:17.406869+00:00"
+    },
+    {
+        "source": "0d6fad033ed1ab3213c44562994a3b8b553ec5be",
+        "consumed_as": "13bf4eed1f15bc4a10ebb2f0b2e54ebbe06590b7",
+        "parentSuppliedFixedTip": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+        "relatedIssues": [
+            2110
+        ],
+        "scope": "finite source capability; not runtime qualification",
+        "before": "6d7bfa18c217a9e17f78a2011194b061741d09d3",
+        "consumedAt": "2026-10-08T05:50:17.426704+00:00"
+    },
+    {
+        "source": "6398529051d0dec2e5aa4fb83d05dd3ddc3992e0",
+        "consumed_as": "91a86e414768b8d294f8933b349d6f1b8c497cb6",
+        "parentSuppliedFixedTip": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+        "relatedIssues": [
+            2110,
+            2112
+        ],
+        "scope": "finite source capability; not runtime qualification",
+        "before": "13bf4eed1f15bc4a10ebb2f0b2e54ebbe06590b7",
+        "consumedAt": "2026-10-08T05:50:17.447376+00:00"
+    },
+    {
+        "source": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+        "consumed_as": "6aad7ff3a7cc76b1eb45dd641f920273707c8279",
+        "parentSuppliedFixedTip": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+        "relatedIssues": [
+            2110,
+            2112
+        ],
+        "scope": "finite source capability; not runtime qualification",
+        "before": "91a86e414768b8d294f8933b349d6f1b8c497cb6",
+        "consumedAt": "2026-10-08T05:50:17.470116+00:00"
+    },
+    {
+        "source": "0b3060cd57675380acf78171a51a238dce2fa830",
+        "consumed_as": "7ef90f5a71643f265eeabab93a52a59bd0e11c1d",
+        "parentSuppliedFixedTip": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+        "relatedIssues": [
+            2119
+        ],
+        "scope": "finite source capability; not runtime qualification; graph current-coordinate counterexample under review",
+        "before": "6aad7ff3a7cc76b1eb45dd641f920273707c8279",
+        "consumedAt": "2026-10-08T05:52:41.091142+00:00"
+    },
+    {
+        "source": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+        "consumed_as": "0bc690eb8a3f70738477320ccbd0816935dfed52",
+        "parentSuppliedFixedTip": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+        "relatedIssues": [
+            2120,
+            2121
+        ],
+        "scope": "finite source capability; not runtime qualification; graph current-coordinate counterexample under review",
+        "before": "7ef90f5a71643f265eeabab93a52a59bd0e11c1d",
+        "consumedAt": "2026-10-08T05:52:41.105071+00:00"
+    },
+    {
+        "source": "80a2736711edff3a711ec854d55c65433a127a5f",
+        "consumed_as": "50068eb43939be73e72054f8d7a662184d2497a1",
+        "parentSuppliedFixedTip": "80a2736711edff3a711ec854d55c65433a127a5f",
+        "relatedIssues": [
+            2124
+        ],
+        "scope": "finite source capability; not runtime qualification; graph current-coordinate counterexample under review",
+        "before": "0bc690eb8a3f70738477320ccbd0816935dfed52",
+        "consumedAt": "2026-10-08T05:52:41.118947+00:00"
+    },
+    {
+        "source": "fb4d18e9342716def4dca6a73d102f7246e42846",
+        "consumed_as": "7138ff1c5ca2cc68b4e03fac86a3841654bc379d",
+        "parentSuppliedFixedTip": "fb4d18e9342716def4dca6a73d102f7246e42846",
+        "relatedIssues": [
+            2118,
+            2398
+        ],
+        "scope": "Explicit canonical portable property mapping candidates; not authorized persisted reader, full package or current definition/rights admission",
+        "consumedAt": "2026-10-08T06:12:32.317740+00:00"
+    },
+    {
+        "source": "ca6258eb7d7201fd57a811d8458cc33143623703",
+        "consumed_as": "34c3b97e61b48479bd30382dce6a5b1d6cad8ce3",
+        "parentSuppliedFixedTip": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+        "relatedIssues": [
+            2122,
+            2123
+        ],
+        "before": "58835795bf4121e07d313dc3ddc38b397eb778ea",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.693106+00:00"
+    },
+    {
+        "source": "38c1d07b82c84e9f925323e48894ff574a517991",
+        "consumed_as": "19fdfba64ad47a8a5f8de4901752b520700f27c6",
+        "parentSuppliedFixedTip": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+        "relatedIssues": [
+            2122,
+            2123
+        ],
+        "before": "34c3b97e61b48479bd30382dce6a5b1d6cad8ce3",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.711777+00:00"
+    },
+    {
+        "source": "5ad2f6f1f98cc5917621e2c5c0701b75d1185cbc",
+        "consumed_as": "36afbbd145bda49354ddc8599430a57763c1421a",
+        "parentSuppliedFixedTip": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+        "relatedIssues": [
+            2122,
+            2123
+        ],
+        "before": "19fdfba64ad47a8a5f8de4901752b520700f27c6",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.728788+00:00"
+    },
+    {
+        "source": "695017b6f7b087c5488b9fe0b877ab443f06099b",
+        "consumed_as": "255e0b8060bc8e32debc40754dd9654308440373",
+        "parentSuppliedFixedTip": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+        "relatedIssues": [
+            2122,
+            2123
+        ],
+        "before": "36afbbd145bda49354ddc8599430a57763c1421a",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.746356+00:00"
+    },
+    {
+        "source": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+        "consumed_as": "e6cc3be21a0314db2f6c6bd600638ddaca87d360",
+        "parentSuppliedFixedTip": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+        "relatedIssues": [
+            2122,
+            2123
+        ],
+        "before": "255e0b8060bc8e32debc40754dd9654308440373",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.765245+00:00"
+    },
+    {
+        "source": "b2c57cbc905fe0057699cb58274975ff483cfbfe",
+        "consumed_as": "d7dea8197dd2bbb8f8403314a507a8d1505cc4b8",
+        "parentSuppliedFixedTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+        "relatedIssues": [
+            2130,
+            2131,
+            2132,
+            2133,
+            2134,
+            2135
+        ],
+        "before": "e6cc3be21a0314db2f6c6bd600638ddaca87d360",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.785200+00:00"
+    },
+    {
+        "source": "8231cbf28868b69c30236bf7bdf419501b203359",
+        "consumed_as": "d6cc42a7b37e4cca2206afde3301f519257f10c3",
+        "parentSuppliedFixedTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+        "relatedIssues": [
+            2130,
+            2131,
+            2132,
+            2133,
+            2134,
+            2135
+        ],
+        "before": "d7dea8197dd2bbb8f8403314a507a8d1505cc4b8",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.804459+00:00"
+    },
+    {
+        "source": "1bc73abf04a8b97f144e396bf211a94f607ef598",
+        "consumed_as": "4f8e96ea318aa187ab1b7da1ddc689e2f1a4ada0",
+        "parentSuppliedFixedTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+        "relatedIssues": [
+            2130,
+            2131,
+            2132,
+            2133,
+            2134,
+            2135
+        ],
+        "before": "d6cc42a7b37e4cca2206afde3301f519257f10c3",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.825964+00:00"
+    },
+    {
+        "source": "1c1d4b3949ef3c16cd8c10da4f7256ef2c5f4f09",
+        "consumed_as": "c9fa49626399feae7318adc1aa70636ead57c884",
+        "parentSuppliedFixedTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+        "relatedIssues": [
+            2130,
+            2131,
+            2132,
+            2133,
+            2134,
+            2135
+        ],
+        "before": "4f8e96ea318aa187ab1b7da1ddc689e2f1a4ada0",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.847270+00:00"
+    },
+    {
+        "source": "0a6c660646ecea88784fbde575af7abb2ba3aa63",
+        "consumed_as": "d20d1b858faca00c85b10c5d3468544a27fc0602",
+        "parentSuppliedFixedTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+        "relatedIssues": [
+            2130,
+            2131,
+            2132,
+            2133,
+            2134,
+            2135
+        ],
+        "before": "c9fa49626399feae7318adc1aa70636ead57c884",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.870877+00:00"
+    },
+    {
+        "source": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+        "consumed_as": "ea7802ad60034765609eb2dddcf923977c7f2c1c",
+        "parentSuppliedFixedTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+        "relatedIssues": [
+            2130,
+            2131,
+            2132,
+            2133,
+            2134,
+            2135
+        ],
+        "before": "d20d1b858faca00c85b10c5d3468544a27fc0602",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.892991+00:00"
+    },
+    {
+        "source": "a69a1ea853d617048649f55e3c74661ad21a51a8",
+        "consumed_as": "d8c1f69a35224fbaf82002df6d0dcd95ad4deb0b",
+        "parentSuppliedFixedTip": "a69a1ea853d617048649f55e3c74661ad21a51a8",
+        "relatedIssues": [
+            2670,
+            2673
+        ],
+        "before": "ea7802ad60034765609eb2dddcf923977c7f2c1c",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.917659+00:00"
+    },
+    {
+        "source": "9543eaca9fda48800a632cbb30f3a417910f00ee",
+        "consumed_as": "e087cfe9ef70daca901d659ca9a1a236853de498",
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671,
+            2674
+        ],
+        "before": "d8c1f69a35224fbaf82002df6d0dcd95ad4deb0b",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.937596+00:00"
+    },
+    {
+        "source": "5b3bc8491f9683f8ccf583ac831160149ba9c6ab",
+        "consumed_as": "6de939b13d83dd9608f94fd4f40bed762bbf0ded",
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671,
+            2674
+        ],
+        "before": "e087cfe9ef70daca901d659ca9a1a236853de498",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.962470+00:00"
+    },
+    {
+        "source": "e63715b162459ae968525b1b37e19cd5898efd61",
+        "consumed_as": "9cc1e2e91e51cf0b38a7045efb6940da56cd4643",
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671,
+            2674
+        ],
+        "before": "6de939b13d83dd9608f94fd4f40bed762bbf0ded",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:31.984934+00:00"
+    },
+    {
+        "source": "543f8e069da06c34ecbe2120d7c6ac3c2bd4e036",
+        "consumed_as": "c09fb8d1af056365a32925277f9669c0a019b82c",
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671,
+            2674
+        ],
+        "before": "9cc1e2e91e51cf0b38a7045efb6940da56cd4643",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:32.008454+00:00"
+    },
+    {
+        "source": "b3be0d7c46b3ad207d25d7e7cad6a2117093b5e6",
+        "consumed_as": "c14dc5e040ebedd0800e6a11e3d4325e9c93b30d",
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671,
+            2674
+        ],
+        "before": "c09fb8d1af056365a32925277f9669c0a019b82c",
+        "scope": "Canonical source consumption only; original current runtime/native/UX acceptance remains open",
+        "consumedAt": "2026-10-08T06:35:32.025231+00:00"
+    },
+    {
+        "source": "da37fa49a2ec4e76fdde1dbbc205f50e6df1a8b2",
+        "consumed_as": null,
+        "representation": "canonical merge capability already present byte-for-byte through root consumption of exact e1b4ffba4781bf6729e38b240df8c7647f19768e ancestry",
+        "verifiedPaths": [
+            "src/article-vault/observations/FsusBlog.ArticleVault.Observations.csproj",
+            "src/article-vault/observations/LinuxVaultObservationAdapter.cs",
+            "src/article-vault/observations/packages.lock.json",
+            "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
+            "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs",
+            "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs",
+            "src/shared/Contracts/ArticleVault/ArticleVaultSnapshotAssessment.cs",
+            "tests/article-vault-observations/ArticleVaultEventNormalizationTests.cs",
+            "tests/article-vault-observations/ArticleVaultSnapshotAssessmentTests.cs",
+            "tests/article-vault-observations/FsusBlog.ArticleVault.Observations.Tests.csproj",
+            "tests/article-vault-observations/packages.lock.json"
+        ],
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671
+        ],
+        "qualificationClaim": false
+    },
+    {
+        "source": "1a7d2fed0138e3cfffeabbdf6666148d75e4ea41",
+        "consumed_as": "4518c6c9cda94e22c7d3b39f5f8bb2dc28c78163",
+        "before": "c14dc5e040ebedd0800e6a11e3d4325e9c93b30d",
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671,
+            2674
+        ],
+        "scope": "Canonical source capability only; real macOS native acceptance pending"
+    },
+    {
+        "source": "4346f3884a1407b3b4f67005c52979113808930f",
+        "consumed_as": "ef26c4a5a2e465c65f4f35d3e4761580442b17bf",
+        "before": "4518c6c9cda94e22c7d3b39f5f8bb2dc28c78163",
+        "parentSuppliedFixedTip": "4346f3884a1407b3b4f67005c52979113808930f",
+        "relatedIssues": [
+            2671,
+            2674
+        ],
+        "scope": "Canonical source capability only; real macOS native acceptance pending"
+    }
+]

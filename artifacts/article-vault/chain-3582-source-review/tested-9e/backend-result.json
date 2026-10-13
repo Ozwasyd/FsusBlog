@@ -1,0 +1,28 @@
+{
+    "candidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "endCandidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "headChangedDuringRun": false,
+    "startedAt": "2026-10-08T06:51:36.738788+00:00",
+    "endedAt": "2026-10-08T06:53:45.274410+00:00",
+    "command": [
+        "/workspace/FsusBlog/.tmp/chain-3582/dotnet/dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "-p:RestoreLockedMode=true",
+        "--filter",
+        "FullyQualifiedName~ArticleVaultSourceAdmissionTests|FullyQualifiedName~ArticleVaultScalarMetadataMergeTests|FullyQualifiedName~ArticleVaultPathStructureTests|FullyQualifiedName~ArticleVaultConflictTests|FullyQualifiedName~ArticleVaultManifestContractTests|FullyQualifiedName~ArticleVaultSyncPlannerTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~ArticleVaultExecutionPostgresIntegrationTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~AccountSubjectHashProjectionTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageSourceByteTests|FullyQualifiedName~ArticlePackageChecksumTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticleVaultOperationProtocolTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticleVaultPropertyMetadataMergeTests",
+        "--logger",
+        "trx;LogFileName=current-integrated-original-controls.trx",
+        "--results-directory",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/frozen-9e/results"
+    ],
+    "cwd": "/workspace/FsusBlog",
+    "exitCode": 0,
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "backendCompileInputsChanged": false,
+    "scope": "Compiled original root/boundary/readers/compiler/package/property and operation controls; real isolated PostgreSQL original2; no complete operation/native/product qualification.",
+    "log": "/workspace/FsusBlog/.tmp/chain-3582-expanded/frozen-9e/backend.log"
+}

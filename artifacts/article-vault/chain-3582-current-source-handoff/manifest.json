@@ -1,0 +1,126 @@
+{
+    "schema": "fsusblog.article-vault.current-source-handoff.v1",
+    "productionSource": "8b2553209d1496c8960d5b89d76430941c42d8a0",
+    "files": [
+        {
+            "path": "README.md",
+            "sha256": "ee5469340c95c99446195af26947a0ef7eb5c8adb66c68f045a790acbdf7f865",
+            "bytes": 4057
+        },
+        {
+            "path": "authoritative-docs.log.gz",
+            "sha256": "de2b2e96c7522ee9ec8e421e0086ad6699d38f005acb5d81ada871e47f773315",
+            "bytes": 102
+        },
+        {
+            "path": "backend-result.json",
+            "sha256": "80a682d1cb02023a59d82d8f0c038bead9f71822ad580550fa27b9c372dd8173",
+            "bytes": 2963
+        },
+        {
+            "path": "backend.log.gz",
+            "sha256": "b88783ec9dfb176c84d73645d5a528ff8e994410b770b683dc93eb3aed92cb46",
+            "bytes": 11160
+        },
+        {
+            "path": "backend.trx.gz",
+            "sha256": "f22030d40890e633f069c79f4cefed7e3cfb27e09ee3d0daac2ecd1a8613bb0a",
+            "bytes": 50018
+        },
+        {
+            "path": "document-lifecycle.log.gz",
+            "sha256": "7e76f03894f03efbcf13fd8efc75d2432836f2ad77dabbe1b4de173c468de2ce",
+            "bytes": 52
+        },
+        {
+            "path": "inherited-range-failed.log.gz",
+            "sha256": "10898d07d8c9c72754ad32a01b18398afdaa4a6ea807c1b44663c109c045ee56",
+            "bytes": 118
+        },
+        {
+            "path": "inspector-result.json",
+            "sha256": "834d11af510b1ed9015306338cc88eb270c2ceeaf3c668b5f9c6570b519a4813",
+            "bytes": 1636
+        },
+        {
+            "path": "inspector.log.gz",
+            "sha256": "b5058801e17313a2153283e565f657b0373036af9d77422c5b5cd88927dc2433",
+            "bytes": 278
+        },
+        {
+            "path": "inspector.trx.gz",
+            "sha256": "662e5721a77e2564ec5c4c0776b0145d78b9290e8d159f63391e1cdc00332d3a",
+            "bytes": 3542
+        },
+        {
+            "path": "issue-accounting.json",
+            "sha256": "3126b1c9f37ff7bd236c610957c2f59c29f452198789cb5a7c0bd3c3b354ebd9",
+            "bytes": 34697
+        },
+        {
+            "path": "issue-accounting.md",
+            "sha256": "5a8e8f4c7720efe7bc986e411b09e0c38518d0741b854c0c9ecef55e61ab22d1",
+            "bytes": 6114
+        },
+        {
+            "path": "master-merge-preview.txt.gz",
+            "sha256": "622d35e3a68dcd609e232b8464f9eb17eb07c0f1e4ba6720154836ee88e8bb15",
+            "bytes": 59
+        },
+        {
+            "path": "own-master-sync-message.log.gz",
+            "sha256": "eadecbd43a4042377fa9ef0a51bed020b73ae980fdc1a5cec75dc55d72ca1b6f",
+            "bytes": 56
+        },
+        {
+            "path": "own-source-range.log.gz",
+            "sha256": "c982fb14fa1176f3765eaed446588ae89c110c708f5ced69a4b4f8f954726775",
+            "bytes": 122
+        },
+        {
+            "path": "pending-pr-body.txt",
+            "sha256": "e1094d926acfca2541ac3dd4b20fda466d6cd297940924553019c661598761a6",
+            "bytes": 11893
+        },
+        {
+            "path": "scanner.log.gz",
+            "sha256": "09bcfce2680a16eced4f9169e4baaf00bf7b174dcc3a93f63d769e603298d7d3",
+            "bytes": 1033
+        },
+        {
+            "path": "style.log.gz",
+            "sha256": "b53eac6814601ca195e6d9a7d1c7e5161954d6838a3dfcd3b053cd94f25a9ea6",
+            "bytes": 65
+        },
+        {
+            "path": "summary.json",
+            "sha256": "89b228950877cf8bb085658462170df4445db7f6acee6b703e0f694a5faa1bc7",
+            "bytes": 2057
+        },
+        {
+            "path": "supplier-input-requirements.json",
+            "sha256": "73933b5c98841d52ff628bd62e4c54e7f1e4b6d6bab71e5623591b83054e942c",
+            "bytes": 18020
+        },
+        {
+            "path": "supplier-input-requirements.md",
+            "sha256": "ee4ce1242eff0c0aa1710ce1fcd4a2cb48192afb8e7ed982de48bdad0b277a6c",
+            "bytes": 10876
+        },
+        {
+            "path": "working-internal-helper-compile-failed.log.gz",
+            "sha256": "a9638d48a8266719688981b050daed14aaa183c28048ccc48c93855ff605c4b0",
+            "bytes": 7470
+        },
+        {
+            "path": "working-scanner-entry-failed.log.gz",
+            "sha256": "fed6a9c743a9a8acc1b650329f1a00a8ca353b3f590d5022a30c81f622c6c880",
+            "bytes": 88
+        },
+        {
+            "path": "working-style-failed.log.gz",
+            "sha256": "b8f127992d041fb319ca60b31fd1c32dcbec8c8b822e0670bdec856fef844dff",
+            "bytes": 522
+        }
+    ]
+}

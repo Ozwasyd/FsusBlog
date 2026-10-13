@@ -1,0 +1,77 @@
+{
+  "source": "89b1a14c238e919069f9377b4310d86d64dae414",
+  "commands": [
+    {
+      "argv": [
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode"
+      ],
+      "exitCode": 0,
+      "started": "2026-10-09T08:27:30.950734+00:00",
+      "ended": "2026-10-09T08:27:31.789871+00:00"
+    },
+    {
+      "argv": [
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "quiet"
+      ],
+      "exitCode": 0,
+      "started": "2026-10-09T08:27:31.790235+00:00",
+      "ended": "2026-10-09T08:28:17.883921+00:00"
+    },
+    {
+      "argv": [
+        "node",
+        ".tmp/chain-3582-expanded/protected-stage-composition/preflight-and-run.mjs",
+        "frozen-89b1a14c2"
+      ],
+      "exitCode": 0,
+      "started": "2026-10-09T08:28:17.884247+00:00",
+      "ended": "2026-10-09T08:28:21.654838+00:00"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+        "--file",
+        "src/backend/Services/ArticleVault/ArticleVaultRecoveryStageComposition.cs",
+        "--file",
+        "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+        "--file",
+        "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs"
+      ],
+      "exitCode": 0,
+      "started": "2026-10-09T08:28:21.655137+00:00",
+      "ended": "2026-10-09T08:28:25.952235+00:00"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "started": "2026-10-09T08:28:25.952556+00:00",
+      "ended": "2026-10-09T08:28:26.043246+00:00"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/docs/check-authoritative-development-docs.mjs"
+      ],
+      "exitCode": 0,
+      "started": "2026-10-09T08:28:26.043570+00:00",
+      "ended": "2026-10-09T08:28:26.128164+00:00"
+    }
+  ]
+}

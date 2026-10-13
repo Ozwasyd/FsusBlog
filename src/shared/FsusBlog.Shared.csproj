@@ -19,6 +19,8 @@
                       LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-metadata-manifest.schema.json" />
     <EmbeddedResource Include="Contracts/ArticleVault/article-vault-sync-plan.schema.json"
                       LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-sync-plan.schema.json" />
+    <EmbeddedResource Include="Contracts/ArticleVault/article-vault-conflict-evidence.schema.json"
+                      LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-conflict-evidence.schema.json" />
     <EmbeddedResource Include="Contracts/Plugins/plugin-manifest.schema.json"
                       LogicalName="FsusBlog.Contracts.Plugins.plugin-manifest.schema.json" />
     <EmbeddedResource Include="Contracts/BlockLinks/block-anchor-contract.schema.json"

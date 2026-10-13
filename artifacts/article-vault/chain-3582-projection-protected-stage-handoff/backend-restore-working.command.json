@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode"
+  ],
+  "exitCode": 0,
+  "started": "2026-10-09T08:16:25.501430+00:00",
+  "ended": "2026-10-09T08:16:26.501385+00:00"
+}

@@ -1,0 +1,592 @@
+{
+  "Symbols": [
+    {
+      "Before": "fileFlags",
+      "After": "FileFlags",
+      "Kind": "Local",
+      "Owner": "lambda expression"
+    },
+    {
+      "Before": "directoryFlags",
+      "After": "DirectoryFlags",
+      "Kind": "Local",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.WithOriginalParentDirectory\u003CTResult\u003E(string, System.Threading.CancellationToken, System.Func\u003CMicrosoft.Win32.SafeHandles.SafeFileHandle, string, TResult\u003E, out FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeDirectoryIdentity[])"
+    },
+    {
+      "Before": "requiredMask",
+      "After": "RequiredMask",
+      "Kind": "Local",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.Observe(int, string, int)"
+    },
+    {
+      "Before": "Mask",
+      "After": "_mask",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "Links",
+      "After": "_links",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "Uid",
+      "After": "_uid",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "Gid",
+      "After": "_gid",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "Mode",
+      "After": "_mode",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "Inode",
+      "After": "_inode",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "Size",
+      "After": "_size",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "ChangedSeconds",
+      "After": "_changedSeconds",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "ChangedNanoseconds",
+      "After": "_changedNanoseconds",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "ModifiedSeconds",
+      "After": "_modifiedSeconds",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "ModifiedNanoseconds",
+      "After": "_modifiedNanoseconds",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    },
+    {
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor",
+      "Kind": "Field",
+      "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+    }
+  ],
+  "ChangedTokens": [
+    {
+      "Index": 208,
+      "Before": "fileFlags",
+      "After": "FileFlags"
+    },
+    {
+      "Index": 260,
+      "Before": "fileFlags",
+      "After": "FileFlags"
+    },
+    {
+      "Index": 453,
+      "Before": "directoryFlags",
+      "After": "DirectoryFlags"
+    },
+    {
+      "Index": 507,
+      "Before": "directoryFlags",
+      "After": "DirectoryFlags"
+    },
+    {
+      "Index": 564,
+      "Before": "directoryFlags",
+      "After": "DirectoryFlags"
+    },
+    {
+      "Index": 689,
+      "Before": "requiredMask",
+      "After": "RequiredMask"
+    },
+    {
+      "Index": 703,
+      "Before": "requiredMask",
+      "After": "RequiredMask"
+    },
+    {
+      "Index": 715,
+      "Before": "Mask",
+      "After": "_mask"
+    },
+    {
+      "Index": 717,
+      "Before": "requiredMask",
+      "After": "RequiredMask"
+    },
+    {
+      "Index": 720,
+      "Before": "requiredMask",
+      "After": "RequiredMask"
+    },
+    {
+      "Index": 832,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 836,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    },
+    {
+      "Index": 840,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 844,
+      "Before": "Mode",
+      "After": "_mode"
+    },
+    {
+      "Index": 862,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 866,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 870,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    },
+    {
+      "Index": 874,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    },
+    {
+      "Index": 878,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 882,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 886,
+      "Before": "Mode",
+      "After": "_mode"
+    },
+    {
+      "Index": 890,
+      "Before": "Mode",
+      "After": "_mode"
+    },
+    {
+      "Index": 894,
+      "Before": "Links",
+      "After": "_links"
+    },
+    {
+      "Index": 898,
+      "Before": "Links",
+      "After": "_links"
+    },
+    {
+      "Index": 902,
+      "Before": "Size",
+      "After": "_size"
+    },
+    {
+      "Index": 906,
+      "Before": "Size",
+      "After": "_size"
+    },
+    {
+      "Index": 910,
+      "Before": "Uid",
+      "After": "_uid"
+    },
+    {
+      "Index": 914,
+      "Before": "Uid",
+      "After": "_uid"
+    },
+    {
+      "Index": 918,
+      "Before": "Gid",
+      "After": "_gid"
+    },
+    {
+      "Index": 922,
+      "Before": "Gid",
+      "After": "_gid"
+    },
+    {
+      "Index": 926,
+      "Before": "ChangedSeconds",
+      "After": "_changedSeconds"
+    },
+    {
+      "Index": 930,
+      "Before": "ChangedSeconds",
+      "After": "_changedSeconds"
+    },
+    {
+      "Index": 934,
+      "Before": "ChangedNanoseconds",
+      "After": "_changedNanoseconds"
+    },
+    {
+      "Index": 938,
+      "Before": "ChangedNanoseconds",
+      "After": "_changedNanoseconds"
+    },
+    {
+      "Index": 942,
+      "Before": "ModifiedSeconds",
+      "After": "_modifiedSeconds"
+    },
+    {
+      "Index": 946,
+      "Before": "ModifiedSeconds",
+      "After": "_modifiedSeconds"
+    },
+    {
+      "Index": 950,
+      "Before": "ModifiedNanoseconds",
+      "After": "_modifiedNanoseconds"
+    },
+    {
+      "Index": 954,
+      "Before": "ModifiedNanoseconds",
+      "After": "_modifiedNanoseconds"
+    },
+    {
+      "Index": 1325,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 1331,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    },
+    {
+      "Index": 1337,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 1555,
+      "Before": "Mode",
+      "After": "_mode"
+    },
+    {
+      "Index": 1564,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 1570,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    },
+    {
+      "Index": 1576,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 1595,
+      "Before": "Mode",
+      "After": "_mode"
+    },
+    {
+      "Index": 1604,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 1608,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 1612,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    },
+    {
+      "Index": 1616,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    },
+    {
+      "Index": 1620,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 1624,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 1726,
+      "Before": "Mode",
+      "After": "_mode"
+    },
+    {
+      "Index": 1765,
+      "Before": "Mask",
+      "After": "_mask"
+    },
+    {
+      "Index": 1775,
+      "Before": "Links",
+      "After": "_links"
+    },
+    {
+      "Index": 1785,
+      "Before": "Uid",
+      "After": "_uid"
+    },
+    {
+      "Index": 1795,
+      "Before": "Gid",
+      "After": "_gid"
+    },
+    {
+      "Index": 1805,
+      "Before": "Mode",
+      "After": "_mode"
+    },
+    {
+      "Index": 1815,
+      "Before": "Inode",
+      "After": "_inode"
+    },
+    {
+      "Index": 1825,
+      "Before": "Size",
+      "After": "_size"
+    },
+    {
+      "Index": 1835,
+      "Before": "ChangedSeconds",
+      "After": "_changedSeconds"
+    },
+    {
+      "Index": 1845,
+      "Before": "ChangedNanoseconds",
+      "After": "_changedNanoseconds"
+    },
+    {
+      "Index": 1855,
+      "Before": "ModifiedSeconds",
+      "After": "_modifiedSeconds"
+    },
+    {
+      "Index": 1865,
+      "Before": "ModifiedNanoseconds",
+      "After": "_modifiedNanoseconds"
+    },
+    {
+      "Index": 1875,
+      "Before": "DeviceMajor",
+      "After": "_deviceMajor"
+    },
+    {
+      "Index": 1885,
+      "Before": "DeviceMinor",
+      "After": "_deviceMinor"
+    }
+  ],
+  "CompilerErrorsBefore": 0,
+  "CompilerErrorsAfter": 0,
+  "NativeAndPublicShapeUnchanged": true,
+  "NativeShape": {
+    "Imports": [
+      {
+        "Name": "OpenAt",
+        "Return": "int",
+        "Parameters": "(int directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags)",
+        "Attributes": "[DllImport(\u0022libc\u0022, EntryPoint = \u0022openat\u0022, SetLastError = true)]"
+      },
+      {
+        "Name": "Statx",
+        "Return": "int",
+        "Parameters": "(int directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags, uint mask, out NativeFileIdentity identity)",
+        "Attributes": "[DllImport(\u0022libc\u0022, EntryPoint = \u0022statx\u0022, SetLastError = true)]"
+      }
+    ],
+    "Layout": "[StructLayout(LayoutKind.Explicit, Size = 256)]",
+    "Fields": [
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(0)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(16)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(20)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(24)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "ushort",
+        "Attributes": "[FieldOffset(28)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "ulong",
+        "Attributes": "[FieldOffset(32)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "ulong",
+        "Attributes": "[FieldOffset(40)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "long",
+        "Attributes": "[FieldOffset(96)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(104)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "long",
+        "Attributes": "[FieldOffset(112)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(120)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(136)]",
+        "Modifiers": "internal"
+      },
+      {
+        "Type": "uint",
+        "Attributes": "[FieldOffset(140)]",
+        "Modifiers": "internal"
+      }
+    ],
+    "VisibleMembers": [
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.CaptureOriginalHeldRegularFileIdentity(string, Microsoft.Win32.SafeHandles.SafeFileHandle, System.Threading.CancellationToken)",
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.CaptureOriginalRegularFileIdentity(string, Microsoft.Win32.SafeHandles.SafeFileHandle, System.Threading.CancellationToken)",
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OpenOriginalRegularFile(string, System.Threading.CancellationToken)",
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity.DeviceMajor",
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity.DeviceMinor",
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity.Inode",
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.ValidateOriginalHeldRegularFileUnchanged(string, Microsoft.Win32.SafeHandles.SafeFileHandle, FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity, System.Threading.CancellationToken)",
+      "FsusBlog.Algorithms.IO.NativeRegularFileGuard.ValidateOriginalRegularFileUnchanged(string, Microsoft.Win32.SafeHandles.SafeFileHandle, FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalRegularFileIdentity, System.Threading.CancellationToken)"
+    ],
+    "LiteralTokens": [
+      "0x800",
+      "0x20000",
+      "0x80000",
+      "0x100",
+      "\u0022\u0022",
+      "0x1000",
+      "\u0022current_verify_artifact_identity_changed\u0022",
+      "\u0022current_verify_original_artifact_path_required\u0022",
+      "\u0022current_verify_native_file_owner_unavailable\u0022",
+      "0x200000",
+      "0x10000",
+      "0x20000",
+      "0x80000",
+      "\u0027/\u0027",
+      "0",
+      "\u0022current_verify_regular_artifact_required\u0022",
+      "100",
+      "\u0022/\u0022",
+      "1",
+      "1",
+      "0",
+      "\u0022current_verify_native_artifact_open_refused\u0022",
+      "0x7df",
+      "0",
+      "\u0022current_verify_native_artifact_identity_unavailable\u0022",
+      "\u0022current_verify_artifact_identity_changed\u0022",
+      "\u0022\u0022",
+      "0x1000",
+      "\u0022current_verify_artifact_identity_changed\u0022",
+      "\u0022current_verify_artifact_identity_changed\u0022",
+      "\u0022current_verify_artifact_identity_changed\u0022",
+      "\u0022current_verify_held_file_identity_changed\u0022",
+      "\u0022current_verify_held_file_identity_changed\u0022",
+      "\u0022current_verify_held_file_identity_changed\u0022",
+      "0xf000",
+      "0x8000",
+      "0xf000",
+      "0x8000",
+      "0x100",
+      "0xf000",
+      "0x8000",
+      "\u0022current_verify_regular_artifact_required\u0022",
+      "256",
+      "0",
+      "16",
+      "20",
+      "24",
+      "28",
+      "32",
+      "40",
+      "96",
+      "104",
+      "112",
+      "120",
+      "136",
+      "140",
+      "\u0022libc\u0022",
+      "\u0022openat\u0022",
+      "\u0022libc\u0022",
+      "\u0022statx\u0022"
+    ]
+  },
+  "NoNativeMethodInvoked": true
+}

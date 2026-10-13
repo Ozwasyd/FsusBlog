@@ -1,0 +1,454 @@
+{
+    "productionSource": "e1d9c841d1ccdf5e4905676c15ba5f177b731c07",
+    "metadataSource": "5361596ef644116ff99157bf79b966c83ce5c19a",
+    "at": "2026-10-08T14:33:56.434397+00:00",
+    "metadataOnlyChangedPaths": [
+        "artifacts/change-contract/article-vault-conflict-contract-external-naming.json"
+    ],
+    "files": [
+        {
+            "path": "docs/architecture/article-vault-agent-control.md",
+            "sha256": "3322fa6c45fb0d0adf456206fc3065eb47ebf55dde0d8ff35353d1c675289fe3"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultAgentControlSession.cs",
+            "sha256": "0a8e51c7a859c3ffdaedad9c9225947750cbc66a37d46ab002adffce26736043"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultAgentGrantLedger.cs",
+            "sha256": "1375cfff6b37017ccd1d692f5e6bcc71b4bcc9ac2e8fb61c8e5cfb9959b4a5d3"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultAgentLifecycleJournal.cs",
+            "sha256": "82b1f966d6f270ac162a7a49ed2e13aef8d6b0e51922637663d57ae173d61c40"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultLeaseNative.cs",
+            "sha256": "01dc598a29b9b4670893efd48b7b7c590a4968ab40b0a389fc9408c94111e2b7"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultLocalIpcEndpoint.cs",
+            "sha256": "38ae0c76d60b993dc75dedca3c3fc0e7ab47bdbc9ea058650c5bd583015f3ca1"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultWriterLeaseScope.cs",
+            "sha256": "18e7a30de8e50b337f6d5a0ec4cf73a41ed029579c2ae44b1da417658b07b3a5"
+        },
+        {
+            "path": "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+            "sha256": "bec5d504704469d0af47cc83bf694f0eb0ca8059ca95653ba071f23b88c9f278"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultAcceptedSourceAdapter.cs",
+            "sha256": "5079d581e16e099a49c43d50db438af2f06314382ccd2575b0dae37c5b4595d2"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultAgentCanonicalOperationAdapter.cs",
+            "sha256": "2a373b2aa6824aaadc2204c7205a8f9ca8cbddcf0be1cee21bff6d77a490707e"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultConflictReviewReader.cs",
+            "sha256": "2bb67ddd1d313a148ed5d773570b6ba40238561154c3a5ad734a8981315d1de2"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultCurrentSourceReader.cs",
+            "sha256": "ec26b48ce5e0c880d91e4dbaec9ebc6c6ec94891ca4978b087a4d1bc828d8a50"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultExecutionContracts.cs",
+            "sha256": "3106a87c383f48e3530c5aef73047879de267ad8ea69e07389db821ccea82996"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs",
+            "sha256": "8368dce88a79d37a748235c2d2c4de943278f5c863f88dfd765b675c547aae4b"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
+            "sha256": "dedcccdd7e31bb331e72bca4625723ca6ec13553477f4f454f538f3e56578b8d"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultPackagePropertyMetadataBridge.cs",
+            "sha256": "5769164a63bb9740f2f055b68800599aeec64f5537d2793be6e3005d37111468"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultPropertyMetadataMerge.cs",
+            "sha256": "134c4a39176ec536267a2b2872ee08a6fa7254879f0f220f8252c1eab4b9de16"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryBackupProtectionAuthority.cs",
+            "sha256": "3e58269a273c0f271ef6bbe6ce026f60bfc8c140ecac1d86947c7cc805d10aef"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryCheckpointReader.cs",
+            "sha256": "d94446009f66164cc83fdf5b0ba7de9a52f14b679c68ef725ea530f25a929e64"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryHistoryReader.cs",
+            "sha256": "4fcd41e1e6d0a1b3707de12ff5a022abe2dfe52b393f39aaecb4a46a0688f049"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryOperationCheckpointWriter.cs",
+            "sha256": "7242328929fe3e403601c612f1ed78ec26724a277eea1c9145ebd318c94bf5f2"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryStorage.cs",
+            "sha256": "ab74bf814c548776e84aa70dfbbf8e0a4ff83ff2c2383af5fcc99a83a823f897"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryStoredProposalReader.cs",
+            "sha256": "9b256a68b2df7ba0b2dd29dae1f37f6c5658bc2383052ca4d09e8049d4d27896"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultResolutionProposalStore.cs",
+            "sha256": "a21c3e78b82d995e44853f571f3f5835c2bce4c3edfa7d69e315c14ac9faebcb"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultSyncPlanExecutor.cs",
+            "sha256": "72b35a527fb42a3dc6c8ea1bfdb773137ba3c2806289f5c175f29b47a871e9f1"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetConflictDiagnostics.cs",
+            "sha256": "05b7a8c370fdda605b8eb0fe5568c3c624999da620799de43c013c7219b698c3"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetValidator.cs",
+            "sha256": "bc43fef260347b5083fb12aebdca52fd4499eec9e8a7b830ddc263c1fa3773e0"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs",
+            "sha256": "c91160498ffe5d72481789e1c97ec40a64b31a748538230936df3a59da3829f8"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+            "sha256": "f6b06558fcf73f723a6c3b563f9c69f3a273d7626b397e08512a0d8ed673aec4"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultRecoveryStorage.cs",
+            "sha256": "775cb9acab4e00684154c72153ed87f5a2cc04851f6d28b7e91cf2e8d035dccc"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultResolutionProposalStore.cs",
+            "sha256": "091ef1a2beb97e6de9f1c88cc6b74b8bcac90ed4f90ae54a6b2d859e609e3723"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentBinding.cs",
+            "sha256": "b8f7b966043e1460264a6c30e853266a4f4723abeeda919f4e08ca74a2b860cd"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentCommandReceipt.cs",
+            "sha256": "1470176eaf4dab203bbabaeb5c57a56cd4e3dc7f2f297e1e3bb22bb9f40229a4"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentDispatchScope.cs",
+            "sha256": "c0d9635012c5f3ad4a6546d6f60586e5522923cb9b429550fabd02e453c14110"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentLifecycle.cs",
+            "sha256": "3a9053a1187de72e9d1c656cb74852a213fc9b4aadb491e0939b4abda61621ec"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentLifecycleInventory.cs",
+            "sha256": "2d55f1c59c0ed505c9ec038b260b220709417d466905f4089ab47b7c5ae544c9"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentOperationInventory.cs",
+            "sha256": "26969248a8fba5b932baed3af5efb4e3080795ac56ad7cc49bb7a8bf5990f252"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentRequest.cs",
+            "sha256": "977a02f3fb17717c4e981ce7069d7d038074c15b93090e4fba1e4908650922c3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentRescanBoundary.cs",
+            "sha256": "57e93dca56d281c42a7d67fed4702cf53e565e7581f84910b0011121494eda6b"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAtomicWriteAssessment.cs",
+            "sha256": "2ea7833eccf2e0a393eaa93457042d7a784de4e4abe1f101e7601b6b6b6e387a"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs",
+            "sha256": "26317092311377815f1a06a826d4092c6ba493159f8461557fb2e754641e99de"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs",
+            "sha256": "06c343b9529c0a54a09cf42ee4b56e65cd9dfbfa504db1ed2e84ce0c0716de17"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
+            "sha256": "e0481f2769b3acad4d9b50b6df0d238f031dbcda6baa0e89717e5694e3ca6b35"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
+            "sha256": "fa5b6f268e7b62ad21be6053939b809718bfddf4c5676fee6c1b8553dc15c3be"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+            "sha256": "3b286e4a65ecc6460c9f876947c97b479d3a2079d86037ea59b1bd655fbda1c3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultLocalPreparationDigestCodec.cs",
+            "sha256": "533b561ed0c564bfc82ab1ea37445ce5cab980db60cb057a7b0c7f5bc5305397"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs",
+            "sha256": "f9e898a3f48c43e2042b9223e7476247c09044836dc9fe36706727a67a543de3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs",
+            "sha256": "66ec8bc2077388095660c39e65a1292c764e0162acf6afcfa421f43874b812d1"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultMaterializationInstruction.cs",
+            "sha256": "fe7d8efe8284fb452ed34fc4787bf5d1b7486c1a355e4b2c7818bd86798b1911"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs",
+            "sha256": "e9f6156dde8423c8aecf13abc16f012c22b38aff279d2c71d631c35751f2cacb"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultOperationContracts.cs",
+            "sha256": "eecee3e6567be6aa05a81283eb4798225c1714a93e8d7a94eba01d5196c02384"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultOperationVerifier.cs",
+            "sha256": "1f856efbd1714321c95b0e1c5db99c95709261e1ecdd69a1461425b3111ed23b"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
+            "sha256": "9a3f00b721b5f755a891ca83b65fcbf28edc6ff49b52144378a0843664eb0475"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
+            "sha256": "aa0c16ec941be9b8ab014270fe09c8d65a4d3b3d2eccb681ab5da40ced7f8b48"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryBackupEnvelope.cs",
+            "sha256": "39504cac9c02aa3f0e745a6915b3ea7737390577c9d1ac33d7767af8cdb92cd9"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryHistoryRequest.cs",
+            "sha256": "47eede914fff75d47794c92cfce66998837c8faf8dc57e9418b42afb703e8957"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+            "sha256": "e1c88147cd7ee335cfff18c78ec0cfeb3b214c50b737f4eaa5e8640e6867d569"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryStorageContracts.cs",
+            "sha256": "1b3b72c0aaef5daf8dbadab342bb78ef53f0b6c79ef4926011c469f189fafd5b"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs",
+            "sha256": "bada609b4647ab6ce1b6f0fc2f79cb19baf0c14bb210b243b7c5d01deb6ac55d"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionOperationPlan.cs",
+            "sha256": "6cbc59d6bb036e1693e85e0e6b549d4bad35476079c24ca6386cb6d5f9e421b3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+            "sha256": "c0b4251bc8277617093f5fc82cace5555e917b19a653951cd9765a2915b6cbfe"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs",
+            "sha256": "71eb0324d8fb33d076676f68f0d8e6ddb2e8d33ca44fe1f0f86eca59abeb34ee"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultSnapshotAssessment.cs",
+            "sha256": "65060663d69037ff919caa32145903e6d8e46f4d4312638378381212d4aea522"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs",
+            "sha256": "25ccf240ae36f46228fd474af37df2effa0b9a98724486455573a38a6dce6b9c"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanContracts.cs",
+            "sha256": "5bac70138224fc2975c6efd7fd19bb2498d3250ebe2ff13b5ad3f2be82f50312"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs",
+            "sha256": "75f44f5f0519535ecf7e974e0189877d70bb6a5b7af327e0bcae95f56f8eb0fd"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultWriterLease.cs",
+            "sha256": "48e10e6ed406118f357a05376c0c6fa87bbb2ad4227f2e3c78da638ea6400484"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/ArticleVaultDependencyPlanner.cs",
+            "sha256": "ab196d4de1715092f0e44e9fa272305c906a01ba8ded9727100031128590b8a7"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyCodec.cs",
+            "sha256": "c0ff128ceef5860cdc0a6ea3f9999aa1edbad9e2e5aeffabecba27159c7337ee"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyManifest.cs",
+            "sha256": "c3bf362da6e006b2897f09fa54fa9055b766c8b07a412ee89f66f18e7db6cb01"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
+            "sha256": "ebb19e16a9438366ecfe8e3b7974ed64ee93033a904e160468c544f51a2eab80"
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultAgentDispatchTests.cs",
+            "sha256": "e854e9632383995079a7e81c2e55450e00358cbd8dfa038011fa8e88c0fe566c"
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultAgentLifecycleInventoryTests.cs",
+            "sha256": "fe1018699b2541202e56b06fff9b1316a0f2b93023c31d93d10c24cdbe78ec57"
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultGitFactsTests.cs",
+            "sha256": "086d89f66070b28a88895111369b367ec0ede4d66223d1ef24c9199c4aae66ad"
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultLeaseProtocolTests.cs",
+            "sha256": "0c37d770fab2fc582d2056cd5c60bcb3a3da621cc5702b6bab8d2549b9a98bbb"
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultRecoveryJournalTests.cs",
+            "sha256": "b690d605cc2c8f3038b9202d70d9376928b814fdbf6c26ba203545e7955ee1ac"
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultResolutionPlanTests.cs",
+            "sha256": "32529b0358ae062899619a935d0378b3e030f82f8c082be6cf0634fe54db48cf"
+        },
+        {
+            "path": "tests/backend/Helpers/TestInfrastructure/ArticleVaultResolutionProposalFixture.cs",
+            "sha256": "73bcb7143fb21551acdc2ccb5f9753dbfa82724f01bc52fa35192814cc1dadea"
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultExecutionPostgresIntegrationTests.cs",
+            "sha256": "5f54b13070ee1fb183e1382058baca1375b5fe2098589b91dd12cb32db97f6f8"
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultOperationCheckpointPostgresTests.cs",
+            "sha256": "1af2f17b9c5dabe0b698d04a33ba5a64be7362f39f67025608849edd45cedd1b"
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultRecoveryCheckpointTransactionPostgresTests.cs",
+            "sha256": "26d26b951e9161e05e75c807844382d22d32a52c0231a115463088880831f8c5"
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultRecoveryStoragePostgresTests.cs",
+            "sha256": "8cb188e884aa9b3f5a6d962a9da19bea4f7c64d104ff1eea2ac22eefdaa3d36c"
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultResolutionProposalPostgresTests.cs",
+            "sha256": "07da6405bcb6f144f3629af22393bcda12ccc70663b6d37f20f17b818df2e730"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAcceptedSourceAdapterTests.cs",
+            "sha256": "e2db0c71996fe76c43487555d72337c524073e2626a68be0e9edbd9cbe834519"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAgentCanonicalOperationAdapterTests.cs",
+            "sha256": "752abf449462a8ecfca73db1cb985c655c3d6aa64346dd49be39c9d7fabff405"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAssetValidationTests.cs",
+            "sha256": "40aecf3262f41bc5539311d1da3e2ec187092a40e65148f21032ad708a25c318"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultConflictReviewReaderTests.cs",
+            "sha256": "643c20fa6bf3fc280a45cd9b8aa9e9880df07ea04f7a541053266a6d6ddd7eeb"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultConflictTests.cs",
+            "sha256": "f7ae3f5788777fb1db1a6b4e7a1747f576f66d79f6c959dddceb6b8b32765648"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultCurrentSourceReaderTests.cs",
+            "sha256": "8eae3156ac791faf969b1d4195a382292992ce91c5384655518c28b72c2c19c7"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultExecutionTests.cs",
+            "sha256": "97b1a0cc048334dbe880ced401671b9086926119afdf9c99f07fc12c1d01ba76"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultManifestContractTests.cs",
+            "sha256": "6fcc852203a428131bbb54477f34aa9a1025b2fc1b8d6161fdcd159f0430e3e4"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultMaterializationPreflightTests.cs",
+            "sha256": "701749084bc75320a0b088e707097bf6f841339d6d8733e1235e843f6be31356"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultOperationAuthorityTests.cs",
+            "sha256": "35bbf17039a9418a2089bec10795049d88fa7b1d6eaa5eb2012e84d19a746019"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultOperationProtocolTests.cs",
+            "sha256": "cee61c3576765bde19dd8178ff2b83009be0b835919a7cacc56e56f90968428a"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultPathStructureTests.cs",
+            "sha256": "41e3386b2593b852f6d9409d181c600bef0fcfa782ce511452152a6ec5dd28e1"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.cs",
+            "sha256": "04185803e9dea188cdc54b089f35ec6fc1f0921626ec52ee2b379e3969a618ae"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryAcceptedSourceTests.cs",
+            "sha256": "e1a764e5ca28c8c002135f949855a923ebf326633c2186bbdf894ae7e5440589"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryBackupProtectionAuthorityTests.cs",
+            "sha256": "78950360b74fb783a5c530b5c832cb5b880495207031e9645e090b7f98444140"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryCheckpointReaderTests.cs",
+            "sha256": "fa742c99cb2c235a65ae46a322d714b513a1b87ed150d7f66b42db8de1beec99"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryHistoryTransportTests.cs",
+            "sha256": "0e27a4b9227aa9a048376946dadbc2ae9b6a191628e3316ea603dde59fbe1202"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryJournalTests.cs",
+            "sha256": "b690d605cc2c8f3038b9202d70d9376928b814fdbf6c26ba203545e7955ee1ac"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs",
+            "sha256": "772308c77b0af3e7f8378b588e01a8117731f5e82d705e67e0a408fc3d764ede"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryStorageContractTests.cs",
+            "sha256": "c73aa6c62db04f7109a99401be2d222b8c0b46c3542b4a4597cb8650aba4210b"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryStoredProposalReaderTests.cs",
+            "sha256": "b96a62dd82282ac16787c0882df2471aa1f12028aa69998168da19188c3d323f"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultResolutionOperationPlanTests.cs",
+            "sha256": "50d01cf11c7a2f6affab91adfec275b44d926309836616dba0513287c512b939"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultResolutionProposalStorageTests.cs",
+            "sha256": "ff7a0a0cb32d71d5e8ddbfd3cdbc49e59692de3b0d6c0b06de5589bbd3463efe"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultScalarMetadataMergeTests.cs",
+            "sha256": "bf8a02d9141ca67d7291a15aad82e907fcf91e28da1d94d2e1a9cb109385a11e"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultSourceAdmissionTests.cs",
+            "sha256": "b63058833714608e3db0c6985ebfe12d317f397fb43a923759da5f08019ec181"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultSyncPlannerTests.cs",
+            "sha256": "ebdea778180337f6be3390599ac07fe670cd6256ff21fd0e8410ef47fb6f9ce5"
+        },
+        {
+            "path": "tests/governance/article-vault-agent-control.test.mjs",
+            "sha256": "f92a9ac32636e46270e6cf594a3f0ce7d71f1bdef9e8737ff29d96c43d7befa4"
+        },
+        {
+            "path": "tools/governance/check-article-vault-agent-control.mjs",
+            "sha256": "3b4ff440bfc2c99caa73ccdfd9ef3b8bc7a3b395f179c3b368ffc38fa7eefd7c"
+        }
+    ]
+}

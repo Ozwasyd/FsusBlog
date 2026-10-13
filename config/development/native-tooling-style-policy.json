@@ -65,7 +65,9 @@
         "**/pnpm-lock.yaml",
         "**/yarn.lock",
         "tests/migration/packages.lock.json",
-        "**/*.min.*"
+        "**/*.min.*",
+        "src/article-vault/macos/packages.lock.json",
+        "tests/article-vault/macos/packages.lock.json"
     ],
     "jsonWithCommentsPaths": [
         "src/backend/appsettings.json",
@@ -86,7 +88,9 @@
                 ".tmp/cmake/native-speed",
                 ".tmp/cmake/native-asan-ubsan",
                 ".tmp/cmake/native-fuzz",
-                "src/frontend/wasm/build"
+                "src/frontend/wasm/build",
+                "src/article-vault/macos/obj/Debug/macos-native",
+                "src/article-vault/macos/obj/Release/macos-native"
             ]
         },
         "cmakeFormat": {

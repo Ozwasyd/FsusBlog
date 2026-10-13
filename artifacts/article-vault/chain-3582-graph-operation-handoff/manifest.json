@@ -1,0 +1,120 @@
+{
+    "schema": "fsusblog.article-vault.chain-source-review-diagnostic.v1",
+    "qualificationClaim": false,
+    "acceptedIssues": 0,
+    "testedSourceCandidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+    "latestVerifiedMaster": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "previousEvidence": "artifacts/article-vault/chain-3582-source-review/README.md",
+    "recordedAt": "2026-10-08T07:51:12.957905+00:00",
+    "passed": {
+        "backend": 937,
+        "node": 145,
+        "rootExecution": 37,
+        "compiledBoundary": 70,
+        "metadataInspector": 18,
+        "realDisposablePostgres": 6,
+        "originalPortableGraph": 32,
+        "originalAssetBytes": 42,
+        "canonicalReaderUnit": 21,
+        "rootStyleFiles": 3,
+        "registrationStyleFiles": 6
+    },
+    "failed": [
+        "original finite matrix authority",
+        "original two convergence replacement declarations",
+        "complete supplied-owner Csharp and Node style",
+        "immutable old range contract; not rerun or rewritten this batch"
+    ],
+    "blocked": [
+        "accepted reader narrow consumption naming modify/delete conflict",
+        "trusted Vault site/server permission scope composition",
+        "complete V1 metadata/typed persisted properties/current definitions/taxonomy mapping",
+        "real Linux supported FS+mount permissions, Windows NTFS, Darwin APFS/toolchain",
+        "native writes/readback/base commit, protected lease, recovery/journal/backup/restore and product qualification"
+    ],
+    "productionAssemblies": {
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "4f416a984d3a304a10f166b9fab4b15be5b9bde91ac52d4bf3591dc3e59361a0",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "e8b60f98e11a60e65deaa583cb2176b453aec5f8f00a7eacd4020e60036902f2",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "3b4f86c0d2f709e509abc0e3c0738b0c3ec5ee142e31e4c2b10d693399ec5f01"
+    },
+    "artifacts": {
+        "README.md": "94dfc6825e668263d0d03c641b3f542b7faf93ee0a4d33fbacb0075c928eb03d",
+        "consumption.json": "6622a90954bd779fed6328f63bcf561c7cb837069d3b4704edd94147b3e65668",
+        "graph-after/after.json": "5591f4500b318667ce51b8153d1f4546cbb610b5461460e83142727082a398bf",
+        "graph-after/before.json": "83934cebc2ef8b33e8a5999d6cc52bd4e4e6d73c43bfdc21eb1222ab7db966a4",
+        "graph-after/counterexample-inputs.json": "fefae8b0d7c80cf5debb4e32e2f7548868c78d718eb5849b1595432cc4a99320",
+        "graph-after/project.csproj.txt": "28c1ead81a22b84be0efaf61cb4eb852580059dce3d52a99d57339a4eaa36865",
+        "graph-after/result.json": "42a8a9e668404576398a0b2dd8bf1b7d5d7893a53fc8ad77cba14cbf68d9fd89",
+        "graph-after/run.log.txt.gz": "7fd243598c4bb6d8aaeb42ebd200ce15781b493b3c14c6a63a2980a84698ba3c",
+        "graph-after/source.cs.txt": "ed936a0c3e06c70c952d847ffe4b0d831c968b592fd51be723d31da953ea94db",
+        "issue-accounting.json": "692f8ff3ca597477d5f9e74aa9135b10fb7b3066100ec578ab6b842d2535f7f9",
+        "issue-accounting.md": "7b73ba4b26bab677244a2a07f0ee7c8fe3af979c94d83c2261124fa2cafa64a0",
+        "pr-contract-b6.json": "f8f62a98036ebe2e7d31b23f3ac617fae7a05dc79c6d8eb17a10cdc7c5f4de0c",
+        "pr-contract-b6.log.txt": "ec9f8dff786b056d9abf026205aa278fe0b90347a1f50c219f338e630cca7b76",
+        "tested-360/backend-class-counts.json": "d879ba4e57ea208a93250d3c11e9d6939cda65e7c26bf13e9101115c0f0cd547",
+        "tested-360/backend-result.json": "b1501f6cf32ead9a68df8d2f3f744a77a760da0451bc69dd6761446eb5fa3159",
+        "tested-360/backend.log.txt.gz": "c2cc3ec0d9c3dbbcc9065714df9448e236d9ad6335e3a0af014c981f60607297",
+        "tested-360/broader-backend-result.json": "30daca8d6da8c38a0cdfd6d1d8dc78efeeda4b40487c1ec73a33918bd27c88e0",
+        "tested-360/broader-backend.log.txt.gz": "696d1ca15613abdca211d26324a31ec4a3b69693782251406d104bceb42006ca",
+        "tested-360/controls.trx.txt.gz": "71e73eb0e9e4d7582c70d51aed1c310d5a0e86a91d597d3f4c87ec21e602e313",
+        "tested-360/convergence-result.json": "a5a84bdda1e005b3b0254d1a288b34f12198319b92c2fc2972c3537ae0fbbaa7",
+        "tested-360/convergence.log.txt.gz": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+        "tested-360/matrix-result.json": "6a75461e5fc8404ef9ee20a7cd62c4023e7c98034f2ef18af0050c519b792901",
+        "tested-360/matrix.log.txt.gz": "e01d312fac78919f07f8f2af98be705db7450a8d6a4bf2a628aa51522f684e99",
+        "tested-360/owned-source-scan.json": "10e4fe237d700f76c39d4f1215927f6c1f3e45c69a77770f867669588dacc5f3",
+        "tested-360/producers-check-result.json": "0f7f319a6d90ad6c516508f8159515e3c97e21d36bb948e9ad80b788feca1232",
+        "tested-360/registration-style-result.json": "2939d3cecceb26dd2816cbcd97305cc537fa2e911596da052b2e955e09d2e8dd",
+        "tested-360/registration-style.log.txt.gz": "8efeb357b0376476e84a5324b18c6f952caf1153ef277c9fbf85c06d9ffb1c6b",
+        "tested-360/root-csharp-style-result.json": "230820a179c32f91c7fd7b560af425adc6fd9c80f8090c5a630a46ed80e5b82d",
+        "tested-360/root-csharp-style.log.txt.gz": "3222fe66e32b01429d87b9afbdf0f95fb9ba1db2fb5bbeb516cd0dda573406a2",
+        "tested-360/source-result.json": "71c6b41485743df3fc42980af83e4c2dd9fdbc1f84dbdcf4624493231016e96f",
+        "tested-360/source.log.txt.gz": "3d24fbe132dbc2ad7e37806ce5ca6afa1ae301877124db5f7cf4ede499ad33d7",
+        "tested-360/testing-doc-check-result.json": "fd71fdb377f4444169ea8a97a61682578a10d860844f1c4e50844921e641473e",
+        "tested-360/whole-csharp-style-result.json": "54f94a2a7e9a72b45bf6de1877685dffa2f53ed9b2815380812b63c283f014dd",
+        "tested-360/whole-csharp-style.log.txt.gz": "5a802b9ccf560f7c68a3c69088baeae00d43888af2cedb3787bb2d7a48399d72",
+        "tested-360/whole-node-style-result.json": "3f4038c61f50e7d76c0aafd1b19d8105027934e59def8733aa8d03008d56b944",
+        "tested-360/whole-node-style.log.txt.gz": "19f20306c32d7078c4cff43bcd1a3cc5fab4183a9e31810526da95b2a14db51c"
+    },
+    "losslessLogs": {
+        "graph-after/run.log.txt.gz": {
+            "uncompressedSha256": "eb45a2b4f7e8c835f89fcb5fc62b00e19e748a85b404e6f334c9e5e066c4f37e"
+        },
+        "tested-360/backend.log.txt.gz": {
+            "uncompressedSha256": "4f10d46b33787e4f5872901944b742dbcea00026312a8d9693a406efdac2646f"
+        },
+        "tested-360/broader-backend.log.txt.gz": {
+            "uncompressedSha256": "1a4f62018e5657f59e5d61418c6f27467cf467b126a7a10a7769ee228b1ceef5"
+        },
+        "tested-360/controls.trx.txt.gz": {
+            "uncompressedSha256": "a3441af814ee5676d4f323eeef92f57fdc9a1ce741d14b5652d049e2f9c5dc98"
+        },
+        "tested-360/convergence.log.txt.gz": {
+            "uncompressedSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+        },
+        "tested-360/matrix.log.txt.gz": {
+            "uncompressedSha256": "29a2021d090ca515c1c6b28771cc98a3ed43449ec0f916b58708774be88c5c50"
+        },
+        "tested-360/registration-style.log.txt.gz": {
+            "uncompressedSha256": "5c8f8ea1fa0c683b4580872b2f421cb0a3da4d6e45cc270eeaf11441716dd833"
+        },
+        "tested-360/root-csharp-style.log.txt.gz": {
+            "uncompressedSha256": "58217e7675dae3f3a8a6e9003bc3fe122abf5b9d6cedb3f1d71d4e1c0777e941"
+        },
+        "tested-360/source.log.txt.gz": {
+            "uncompressedSha256": "7587202ca3a020fbd9adabe65e9f4d0f44aaeb758a9c4ebe113f14b7d3e149c6"
+        },
+        "tested-360/whole-csharp-style.log.txt.gz": {
+            "uncompressedSha256": "f27f61bb3483a281f5497d26913a40d064a636351ac875c8e6baa945ccb1e911"
+        },
+        "tested-360/whole-node-style.log.txt.gz": {
+            "uncompressedSha256": "be53d38d22a92dae3794d155176f58989afcd88754262b8c3a86262b735cb1e5"
+        }
+    },
+    "actualPrMetadataContract": {
+        "head": "b6e7f62e7a7f8cc4e14fae1adcefc391c79ce918",
+        "exitCode": 0,
+        "artifact": "pr-contract-b6.json"
+    }
+}

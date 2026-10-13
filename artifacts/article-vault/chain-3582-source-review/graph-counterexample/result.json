@@ -1,0 +1,22 @@
+{
+    "OriginalPlanStatus": "Ready",
+    "Decision": "PullUpdate",
+    "SavedServerCoordinateSha256": "27cd4101b4f198f3b5be4c4913531eff5a22338d4676adb919ee712761fbf1a5",
+    "CurrentItemServerCoordinateSha256": "583627d86d67747aea70e04f4f0c90805412026a1cf75c60a82a4a414b9c3113",
+    "OldSourceSha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+    "RequiredSourceSha256": "356834a7c4aeebcef5c271b6d963a9f3b8b307a9886a873b77aafe2507fedfcd",
+    "OldGraphSha256": "bd67588718218681414870b9e706401445612d3fc55b063372cb061ac0543df3",
+    "RequiredGraphSha256": "721edf54c996a281335b53abadfed64077e1a5db0fd4fe0c2efc2011508714b6",
+    "StaleGraphBuildAccepted": true,
+    "StaleGraphBuildReason": null,
+    "StaleGraphVerifyCurrentAccepted": true,
+    "StaleGraphVerifyCurrentReason": null,
+    "MatchingCurrentPositiveAccepted": true,
+    "MatchingCurrentReason": null,
+    "ActualByteMismatchRejected": true,
+    "ByteMismatchReason": "article_vault_source_bytes_mismatch",
+    "RelationMismatchRejected": true,
+    "RelationMismatchReason": "portable_dependency_article_or_relation_drift",
+    "CounterexampleReproduced": true,
+    "Qualification": "compiled real Shared API contract counterexample only; no runtime/product/dependency-authority acceptance"
+}

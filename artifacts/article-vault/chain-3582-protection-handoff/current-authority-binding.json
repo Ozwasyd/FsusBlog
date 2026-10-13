@@ -1,0 +1,66 @@
+{
+    "candidate": "eec0a4e9fad3b9a6cc889489cead22facdcec2e8",
+    "files": [
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryBackupProtectionAuthority.cs",
+            "sha256": "3e58269a273c0f271ef6bbe6ce026f60bfc8c140ecac1d86947c7cc805d10aef"
+        },
+        {
+            "path": "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+            "sha256": "07eaa525c50448356260c62915b7d77413d3368c40635d471da94d919a36c240"
+        },
+        {
+            "path": "src/backend/Services/ArticleService.ArticleVaultObservation.cs",
+            "sha256": "56447f0450a4400ae8efeb6e92fa490573951c6b2d99fbc9559f0e961fa655d5"
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+            "sha256": "feaae169d641bde96508c8d374b57e976f84d70d553595c0fa7bab1ca4ab4915"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs",
+            "sha256": "a59b304fd2e531d867a8d516b9e0ae410f95df02b7961ac89593eb077091900b"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultExecutionContracts.cs",
+            "sha256": "3106a87c383f48e3530c5aef73047879de267ad8ea69e07389db821ccea82996"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultSyncPlanExecutor.cs",
+            "sha256": "72f7c00c3c2c3c6348ee4175f973d054b303530e8471d76f2a500c56a54fd7c8"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionOperationPlan.cs",
+            "sha256": "6cbc59d6bb036e1693e85e0e6b549d4bad35476079c24ca6386cb6d5f9e421b3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+            "sha256": "c0b4251bc8277617093f5fc82cace5555e917b19a653951cd9765a2915b6cbfe"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs",
+            "sha256": "71eb0324d8fb33d076676f68f0d8e6ddb2e8d33ca44fe1f0f86eca59abeb34ee"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs",
+            "sha256": "75f44f5f0519535ecf7e974e0189877d70bb6a5b7af327e0bcae95f56f8eb0fd"
+        }
+    ],
+    "compiledControls": {
+        "executionOwner": 37,
+        "resolutionOperationPlan": 4,
+        "backupProtection": 22,
+        "rootDI": 11,
+        "realPostgresStorage": 13,
+        "realPostgresCheckpoint": 12,
+        "canonicalJournal": 13
+    },
+    "admissionFacts": {
+        "presentArticleMetadataDigest": "Existing server observer hashes title/summary/cover-image-url/category-id/sorted-tag-ids; this is an opaque projection, not current canonical V1 metadata manifest bytes.",
+        "authorizedRevisionReader": "Existing CurrentRevision selector supplies authorized exact revision raw UTF-8 plus title/summary/cover-image-url/category-id/tag-ids, rights/release/responsibility snapshots; those APIs are present.",
+        "missingCompleteCandidateBinding": "No authoritative current V1 manifest bytes/digest, slug, portable taxonomy/property definition binding or full candidate payload is supplied by those finite fields. Current local/Git/native capture is not qualified.",
+        "planner": "Canonical operation builder preserves original observations and Blocked decisions. Only digests of expected outputs are available; no valid executable candidate payload admission exists.",
+        "rootResponsibility": "Verified-decision/executable-candidate integration remains owned unfinished work; it is not declared external completion. No Ready mutation, invented current coordinate, alternate mapper/store/writer, or SOURCE HOLD promotion was added.",
+        "backupProvider": "Canonical existing-key AES-256-GCM verification is present and tested. Actual native capture, key custody/lifecycle, operation permissions, conditional write, final readback and base admission remain separate unqualified gates."
+    }
+}

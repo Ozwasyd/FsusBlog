@@ -1,0 +1,22 @@
+import subprocess,pathlib,json,hashlib,datetime,xml.etree.ElementTree as ET
+root=pathlib.Path.cwd(); out=root/'.tmp/chain-3582-expanded/native-closure-frozen'; out.mkdir(exist_ok=True)
+git=lambda *a:subprocess.check_output(['git',*a],text=True).strip()
+sha=git('rev-parse','HEAD'); starttree=git('status','--porcelain'); assert not starttree
+filters=['ArticleVaultCurrentSourceReaderTests','ArticleVaultExecutionTests','ArticleVaultRecoveryServiceRegistrationTests','ArticleVaultAcceptedSourceAdapterTests','AuthoringRevisionComparePackageReaderTests','ArticleVaultSourceAdmissionTests','ArticleVaultResolutionOperationPlanTests','DocumentExportContractTests','AccountSubjectHashProjectionTests','ArticleVaultAgentCanonicalOperationAdapterTests']
+for name,project,names in [('backend','tests/backend/FsusBlog.Server.Tests.csproj',filters),('dispatch','tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj',['ArticleVaultAgentDispatchTests','ArticleVaultAgentLifecycleInventoryTests','ArticleVaultLeaseProtocolTests'])]:
+ command=['dotnet','test',project,'--configuration','Release','-p:RestoreLockedMode=true','--filter','|'.join('FullyQualifiedName~'+n for n in names),'--logger',f'trx;LogFileName={name}.trx','--results-directory',str(out/'results')]
+ if name == 'backend': command=command[:5]+['--no-build','--no-restore']+command[6:]
+ started=datetime.datetime.now(datetime.timezone.utc).isoformat()
+ with (out/(name+'.log')).open('w') as log: p=subprocess.run(command,stdout=log,stderr=subprocess.STDOUT)
+ result={'candidate':sha,'endCandidate':git('rev-parse','HEAD'),'workingTreeAtStart':starttree,'workingTreeAtEnd':git('status','--porcelain'),'startedAt':started,'endedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'command':command,'exitCode':p.returncode,'nativeOrProductQualified':False,'realPostgres':False}
+ trx=out/'results'/(name+'.trx')
+ if trx.exists():
+  doc=ET.parse(trx); ns={'t':'http://microsoft.com/schemas/VisualStudio/TeamTest/2010'};result['counts']=doc.find('.//t:Counters',ns).attrib;result['runId']=doc.getroot().attrib.get('id')
+  counts={}
+  for item in doc.findall('.//t:UnitTest',ns):
+   method=item.find('t:TestMethod',ns); cls=method.attrib.get('className','').split('.')[-1];counts[cls]=counts.get(cls,0)+1
+  result['classes']=counts
+ assemblies=['src/shared/bin/Release/net10.0/FsusBlog.Shared.dll','src/backend/bin/Release/net10.0/FsusBlog.Server.dll','tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll','src/article-vault/linux/bin/Release/net10.0/FsusBlog.ArticleVault.Linux.dll','tests/article-vault/linux/bin/Release/net10.0/FsusBlog.ArticleVault.Linux.Tests.dll']
+ result['assemblies']={s:hashlib.sha256((root/s).read_bytes()).hexdigest() for s in assemblies if (root/s).exists()}
+ (out/(name+'-result.json')).write_text(json.dumps(result,indent=4)+'\n');print(json.dumps({'name':name,'sha':sha,'exitCode':p.returncode,'counts':result.get('counts')},ensure_ascii=False),flush=True)
+ if p.returncode or result['endCandidate']!=sha or result['workingTreeAtEnd']: raise SystemExit(1)

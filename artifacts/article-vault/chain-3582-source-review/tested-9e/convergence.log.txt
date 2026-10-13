@@ -1,0 +1,2 @@
+[test-suite-convergence] node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88: replacement declaration does not resolve in the compact before snapshot
+[test-suite-convergence] node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30: replacement declaration does not resolve in the compact before snapshot

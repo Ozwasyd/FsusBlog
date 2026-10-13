@@ -1,0 +1,9 @@
+{
+    "supplier": "2900bbc18b074859f3c7555a10ade8c567a9a21f",
+    "path": "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetInputVerifier.cs",
+    "sha256": "7eee2a5692500e4252f976059c450248fec657172210ec4d4e7b2902da407094",
+    "copiedExact": true,
+    "scope": "sole input consistency API; no production caller with fabricated acquisition/operation/reuse facts",
+    "graphDependencies": "Existing current exact e09b5cc53 fresh-server planner retained; no singular/plural enum compatibility aliases. Supplied new test fixture depends on separate plural enum closure; not silently replayed or modified.",
+    "genuineInputGap": "Existing root current source reader supplies real sealed plan/current revision/group observations but no original AssetRecord, authorized bytes, current dependency read grant, asset source/server revision/reference ledger/reuse receipt or authenticated principal in its long-ID context."
+}

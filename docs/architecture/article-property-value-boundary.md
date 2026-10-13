@@ -1,0 +1,21 @@
+# Article property value validation boundary
+
+The existing `ArticlePropertyDefinitionContract` remains the sole eight-type catalog and definition-policy owner. Shared `ArticlePropertyTypedValue` payloads, presence, normalized entries and snapshot candidates do not introduce a second catalog or a persistence authority.
+
+`ArticlePropertyValueValidator.ValidateAsync` reads the current canonical definition store and requires its existing permission authority. It validates expected definition ID/schema revision/digest, active status, presence/default/empty policies, the exact typed payload, active option IDs, UTC dates and URL constraints. Nonempty article references require the supplied `IArticlePropertyReferenceValueAuthority` to establish current identity, site, read permission, lifecycle and self/cycle policy. The current unavailable implementation refuses these references; it never treats missing authority as an empty impact or a successful resolution.
+
+`ValidateInputsAsync` supplies the same read-only validation before a new article has a canonical identity. It supports primitive values and empty reference sets. Nonempty references, including defaults, fail with `article_property_reference_source_identity_unavailable` before invoking a reference provider. A package planner must not allocate a database identity or invent a source article ID to pass this check.
+
+Normalized entries retain `Missing`, `Null`, zero, false, empty values and definition-owned normalization. `DefaultApplied` records normalization provenance separately from the value type and participates in the value/snapshot digest. Defaults and explicit identical values therefore remain distinguishable. Inputs and collection payloads are copied before normalization/binding; entries are sorted by stable definition ID.
+
+`BindSnapshot` creates an immutable candidate from genuinely observed article/revision/property and optional draft/publication coordinates. `ValidateSnapshotCandidate` checks its closed schema, coordinate/value shapes and recomputed digests. These pure operations do not prove that coordinates were observed, persist anything, authorize a caller, produce a durable receipt or qualify a PostgreSQL transaction. The sole canonical article transaction must recheck current permissions, definitions and reference policies before a write.
+
+## Remaining integration
+
+Related to #2322, #2323, #2324 and tracking #1808. This increment supplies a zero-write API for the canonical package planner. The current value writer, persistence/CAS/reconciliation, draft/revision/publication storage, production reference authority and canonical query/index projection remain separate, unaccepted capabilities. It adds no route, wire root, database migration or production provider registration. Runtime, HTTP/session, rendered UX and full-chain scale acceptance remain open.
+
+## Finite package provenance in Vault property proposals
+
+`ArticleVaultPackagePropertyMetadataBridge` consumes the canonical finite manifest codec and immutable planner from #3663 at `f6334b35c5b420f7affb56efc20179bc38aed26e`. It reparses each base/local/server candidate, rebinds the canonical title/summary and property projections, and compares the literal portable identity, site, article/revision coordinates and exact source bytes to the original admitted Vault inputs. Canonically equivalent Markdown with different raw bytes is refused. This bridge delegates typed mapping and conflict selection to their existing owners. Overlapping definitions retain their original refusal.
+
+Candidate provenance and property digests are independently rechecked against the current inputs. These supplied inputs are not persisted observations. The finite package schema has no slug authority, so changed slugs are refused. Unknown capabilities and unsupported references remain refused by the canonical package planner. Full metadata, taxonomy, rights, lifecycle, archive intake and current store-backed permissions remain absent. Every candidate retains `SourceHold = true`, `CanExecute = false` and `CanCommitBase = false`; a valid proposal always fails execution admission with `article_vault_package_property_source_hold_and_complete_metadata_authority_missing`. No route, provider, write, import or acceptance receipt is created.

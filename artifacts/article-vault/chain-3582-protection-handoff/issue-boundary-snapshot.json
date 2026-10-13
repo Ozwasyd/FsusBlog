@@ -1,0 +1,20 @@
+[
+    {
+        "issue": 3582,
+        "state": "OPEN",
+        "title": "test(backend): bind Article Vault execution source lock to compiled behavior",
+        "bodySha256": "20e300acb265a579fb328efd3953adb24f119b86e0e82bdb0a1a4097ebe2f9c5",
+        "commentCount": 30,
+        "latestCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/3582#issuecomment-6053546505",
+        "snapshotFileSha256": "1105c2b388fbc3363c092a588d764d819f77b6cb515efa8b7a4a9ec8187c21ca"
+    },
+    {
+        "issue": 3558,
+        "state": "CLOSED",
+        "title": "test(backend): replace contract-slice source reads with compiled evidence",
+        "bodySha256": "17fadafc3c0572ac02f45f926faee99ac7b1c929874ef777a20ac236309702ea",
+        "commentCount": 5,
+        "latestCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/3558#issuecomment-6000310116",
+        "snapshotFileSha256": "8408e5ccceb7fdc534b6d376fe36b13159da7ac599e2b7f3499fb5ebf130c52d"
+    }
+]

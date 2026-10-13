@@ -1,0 +1,41 @@
+{
+    "productionSource": "eec0a4e9fad3b9a6cc889489cead22facdcec2e8",
+    "latestFetchedMaster": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+    "canonicalProtection": "b8277a23a6a721c5b0ea3f8c918fa32251d325cd",
+    "publishedIncrementalCommits": [
+        "485c8acb6f486b1adaa5de2c327d07834a488093",
+        "eec0a4e9fad3b9a6cc889489cead22facdcec2e8"
+    ],
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "backend": {
+        "passed": 112,
+        "failed": 0,
+        "skipped": 0,
+        "realPostgres": 25,
+        "exitCode": 0
+    },
+    "checks": {
+        "CSharpStyle": 0,
+        "documentLifecycle": 0,
+        "authoritativeDocs": 0,
+        "ownIncrementalRange": 0,
+        "masterMergePreview": 0
+    },
+    "notRerun": [
+        "unchanged full matrix/convergence/native/platform/browser controls",
+        "prior OpenAPI/AEDS/frontend and export70/inspector18; retain historical source identity"
+    ],
+    "remaining": [
+        "root verified-decision/executable-candidate source and admission",
+        "current V1 full metadata/candidate binding",
+        "native backup capture/key custody-lifecycle/conditional write/final readback/base",
+        "exact supplied native handoff and admitted runtime/filesystem",
+        "real authenticated browser/IPC terminal flow",
+        "required original governance/remote CI/independent qualification"
+    ],
+    "nativeOrProductQualified": false,
+    "accepted": false,
+    "contentWriteQueuePending": true,
+    "priorEvidence": "../chain-3582-historical-transport-handoff/manifest.json"
+}

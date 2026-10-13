@@ -3387,6 +3387,87 @@
             ],
             "supersedes": [],
             "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-macos-watcher.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2671,
+                2674
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/local-first-decision.md",
+            "status": "historical",
+            "owner": "backend",
+            "relatedIssues": [
+                1871
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/prototype-evidence.md",
+            "status": "historical",
+            "owner": "backend",
+            "relatedIssues": [
+                1871
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/registration-proposal.json",
+            "status": "historical",
+            "owner": "governance",
+            "relatedIssues": [
+                1871
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-property-value-boundary.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2118,
+                2322,
+                2323,
+                2324
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-dependencies.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                1912,
+                2124,
+                2125,
+                2126,
+                2127,
+                2128,
+                2129
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-agent-control.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2113,
+                2114
+            ],
+            "supersedes": [],
+            "supersededBy": null
         }
     ],
     "legacyNamingCompatibility": [

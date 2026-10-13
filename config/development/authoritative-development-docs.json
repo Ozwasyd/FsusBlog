@@ -300,7 +300,9 @@
                 "**/package-lock.json",
                 "**/pnpm-lock.yaml",
                 "**/yarn.lock",
-                "tests/migration/packages.lock.json"
+                "tests/migration/packages.lock.json",
+                "src/article-vault/macos/packages.lock.json",
+                "tests/article-vault/macos/packages.lock.json"
             ],
             "reason": "package managers own lock ordering and formatting"
         },

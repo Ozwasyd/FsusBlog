@@ -1,0 +1,463 @@
+import { describe, expect, it, vi } from 'vitest';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
+import { createMarkdownEditorProjection, createMarkdownSourceCoordinateMap } from '@ozwasyd/element-plus/markdown-runtime';
+import {
+    computeParagraphSourceMerge,
+    computeProjectedParagraphSourceMerge,
+    paragraphSourceCandidateDigest,
+    verifyParagraphSourceCandidate,
+    verifyProjectedParagraphSourceCandidate,
+    type ParagraphSourceBytes,
+    type ParagraphSourceCandidate
+} from '@/services/articleVault/paragraphSourceMerge';
+import type {
+    ThreeWaySourceByteReference,
+    ThreeWaySourceProjectionCoordinate,
+    ThreeWaySourceProjectionInput
+} from '@/services/articleVault/threeWaySourceProjectionAdapter';
+
+const encode = (text: string) => new TextEncoder().encode(text);
+const decode = (bytes: Uint8Array) => new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+const input = (base: string, local: string = base, server: string = base): ParagraphSourceBytes => ({
+    base: encode(base), local: encode(local), server: encode(server)
+});
+
+// Original Shared value seals in a pure fixture; equality never asserts verified transport or permission.
+function projectedInput(base: string, local: string = base, server: string = base): ThreeWaySourceProjectionInput
+{
+    const digest = (value: unknown) => bytesToHex(sha256(encode(JSON.stringify(value))));
+    const coordinate = (raw: string): ThreeWaySourceProjectionCoordinate =>
+    {
+        const bytes = encode(raw);
+        const text = raw.startsWith('\uFEFF') ? raw.slice(1) : raw;
+        const endings = new Set(text.match(/\r\n|\r|\n/gu) ?? []);
+        const source: ThreeWaySourceByteReference = {
+            sha256: bytesToHex(sha256(bytes)), byteLength: bytes.length, hasUtf8Bom: raw.startsWith('\uFEFF'),
+            newlineStyle: endings.size === 0 ? 'none' : endings.size === 1 && endings.has('\n') ? 'lf'
+                : endings.size === 1 && endings.has('\r\n') ? 'cr-lf' : 'mixed',
+            trailingWhitespaceLineCount: text.split(/\r\n|\r|\n/gu).filter(line => /[ \t]$/u.test(line)).length,
+            hasFinalNewline: /[\r\n]$/u.test(text)
+        };
+        const value = {
+            schema: 'fsusblog.article-vault.coordinate.v1', schemaVersion: 1, present: true, deleted: false,
+            serverRevision: 1, source, metadataManifestSha256: digest('metadata'), dependencySha256: digest('dependency'),
+            lifecycle: 'draft', permissionSha256: digest('permission'), contentSha256: ''
+        };
+        return { ...value, contentSha256: digest(value) };
+    };
+    const runtime = createMarkdownEditorProjection(base).identity;
+    const binding = {
+        portableArticleIdentity: 'root-article', operationIdentity: 'root-operation', planSha256: digest('plan'),
+        coordinates: { base: coordinate(base), local: coordinate(local), server: coordinate(server) }
+    };
+    return {
+        bytes: input(base, local, server), binding, currentInput: structuredClone(binding),
+        sourceDisposition: { type: 'source-disjoint', disposition: 'automatic' },
+        expectedRuntime: { parser: runtime.parser, parserVersion: runtime.version }
+    };
+}
+
+const projectedBase = 'Alpha middle omega.\n\nOther paragraph.\n';
+
+function projectedCandidate(value = projectedInput(projectedBase,
+    projectedBase.replace('Alpha', 'Local'), projectedBase.replace('Other', 'Third')))
+{
+    const result = computeProjectedParagraphSourceMerge(value);
+    expect(result.kind).toBe('computed');
+    if (result.kind !== 'computed') throw new Error('expected_projected_candidate');
+    return result.candidate;
+}
+
+describe('Article Vault canonical projection and original paragraph composition', () => {
+    it.each(['\n', '\r\n'])('composes disjoint canonical node changes with exact BOM emoji spaces %j bytes', newline => {
+        const base = `\uFEFFAlpha 😀 omega.  ${newline}${newline}Other paragraph.${newline}`;
+        const value = projectedInput(base, base.replace('Alpha', 'Local'), base.replace('Other', 'Third'));
+        const original = structuredClone(value.bytes);
+        const result = projectedCandidate(value);
+        expect(decode(result.paragraph.bytes)).toBe(base.replace('Alpha', 'Local').replace('Other', 'Third'));
+        expect(result.paragraph.hunks).toHaveLength(2);
+        expect(result.projection.changes[0].baseNodeIdentities).not.toEqual(result.projection.changes[1].baseNodeIdentities);
+        expect(verifyProjectedParagraphSourceCandidate(value, result)).toBe(true);
+        expect(value.bytes).toEqual(original);
+        expect(result).not.toHaveProperty('admitted');
+        expect(result).not.toHaveProperty('canExecute');
+    });
+
+    it('independently verifies no-op bytes without a final newline and repeated computation', () => {
+        const value = projectedInput('Alpha.\n\nOther.');
+        const first = projectedCandidate(value);
+        expect(first.paragraph.hunks).toEqual([]);
+        expect(first.paragraph.bytes).toEqual(value.bytes.base);
+        expect(projectedCandidate(value)).toEqual(first);
+        expect(verifyProjectedParagraphSourceCandidate(value, first)).toBe(true);
+    });
+
+    it('retains a length-changing canonical identity ambiguity as manual despite the pure paragraph candidate', () => {
+        const value = projectedInput(projectedBase, projectedBase.replace('Alpha', 'Very long local edit'));
+        expect(computeParagraphSourceMerge(value.bytes).kind).toBe('computed');
+        const result = computeProjectedParagraphSourceMerge(value);
+        expect(result.kind).toBe('manual');
+        if (result.kind === 'computed') throw new Error('unexpected_candidate');
+        expect(result.paragraph).toBeNull();
+        expect(result.projection.diagnostics.map(diagnostic => diagnostic.code)).toContain('correspondence_ambiguous');
+    });
+
+    it('retains exact same-node refs for byte-disjoint changes without an automatic candidate', () => {
+        const value = projectedInput(projectedBase, projectedBase.replace('Alpha', 'Local'), projectedBase.replace('omega', 'sigma'));
+        const result = computeProjectedParagraphSourceMerge(value);
+        expect(result.kind).toBe('manual');
+        if (result.kind === 'computed') throw new Error('unexpected_candidate');
+        expect(result.paragraph).toBeNull();
+        expect(result.projection.diagnostics.map(diagnostic => diagnostic.code)).toContain('semantic_boundary_overlap');
+        expect(result.projection.changes[0].baseByteRange.to).toBeLessThan(result.projection.changes[1].baseByteRange.from);
+    });
+
+    it.each([
+        ['# Heading\n\nBody.\n', '## Heading\n\nBody.\n'],
+        ['- One\n- Two\n', '- One\n  - Two\n'],
+        ['| A | B |\n|---|---|\n| 1 | 2 |\n', '| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n'],
+        ['```text\nBody\n```\n', '````text\nBody\n````\n'],
+        ['First.\n\nSecond.\n', 'Second.\n'],
+        ['First.\n\nSecond.\n', 'Second.\n\nFirst.\n'],
+        ['\uFEFFAlpha.  \r\n\r\nOther.\r\n', 'Alpha.\n\nOther.\n']
+    ])('keeps structural deletion movement and normalization diagnostics in composition: %j to %j', (base, local) => {
+        const result = computeProjectedParagraphSourceMerge(projectedInput(base, local));
+        expect(result.kind).toBe('manual');
+        if (result.kind === 'computed') throw new Error('unexpected_candidate');
+        expect(result.projection.diagnostics.length).toBeGreaterThan(0);
+        expect(result.paragraph).toBeNull();
+    });
+
+    it('retains the original paragraph refusal even when unchanged structural projection is available', () => {
+        const value = projectedInput('# Heading\n\nBody.\n');
+        const result = computeProjectedParagraphSourceMerge(value);
+        expect(result.kind).toBe('rejected');
+        if (result.kind === 'computed') throw new Error('unexpected_candidate');
+        expect(result.projection.kind).toBe('projected');
+        expect(result.paragraph?.kind).toBe('rejected');
+    });
+
+    it('refuses malformed source and missing base before the paragraph computation', () => {
+        const values = [projectedInput('```text\nprivate-unclosed\n'), projectedInput(projectedBase)];
+        values[1] = { ...values[1], bytes: { ...values[1].bytes, base: undefined } } as unknown as ThreeWaySourceProjectionInput;
+        for (const value of values) {
+            const result = computeProjectedParagraphSourceMerge(value);
+            expect(result.kind).toBe('rejected');
+            if (result.kind === 'computed') throw new Error('unexpected_candidate');
+            expect(result.paragraph).toBeNull();
+        }
+    });
+
+    it('invalidates the bound candidate after current identity plan parser coordinate or byte movement', () => {
+        const value = projectedInput(projectedBase, projectedBase.replace('Alpha', 'Local'));
+        const result = projectedCandidate(value);
+        const binding = { ...value.binding, portableArticleIdentity: 'other-article' };
+        const mutations: ThreeWaySourceProjectionInput[] = [
+            { ...value, binding, currentInput: binding },
+            { ...value, currentInput: { ...value.currentInput, operationIdentity: 'other-operation' } },
+            { ...value, expectedRuntime: { ...value.expectedRuntime, parserVersion: 'stale' } },
+            { ...value, binding: { ...value.binding, planSha256: 'f'.repeat(64) },
+                currentInput: { ...value.currentInput, planSha256: 'f'.repeat(64) } },
+            { ...value, currentInput: { ...value.currentInput, coordinates: { ...value.currentInput.coordinates,
+                local: { ...value.currentInput.coordinates.local, contentSha256: 'f'.repeat(64) } } } },
+            { ...value, bytes: { ...value.bytes, local: encode('Other middle omega.\n\nOther paragraph.\n') } }
+        ];
+        for (const changed of mutations) expect(verifyProjectedParagraphSourceCandidate(changed, result)).toBe(false);
+    });
+
+    it.each(['manual', 'rejected'] as const)('preserves original upstream %s disposition without candidate bytes', disposition => {
+        const value = projectedInput(projectedBase);
+        const result = computeProjectedParagraphSourceMerge({ ...value, sourceDisposition: { type: 'source-disjoint', disposition } });
+        expect(result.kind).toBe(disposition);
+        if (result.kind === 'computed') throw new Error('unexpected_candidate');
+        expect(result.paragraph).toBeNull();
+    });
+
+    it('rejects a resealed original candidate with tampered bytes hunks and provenance inside the composed candidate', () => {
+        const value = projectedInput(projectedBase, projectedBase.replace('Alpha', 'Local'), projectedBase.replace('Other', 'Third'));
+        const original = projectedCandidate(value);
+        const mutations: ParagraphSourceCandidate[] = [
+            { ...original.paragraph, bytes: encode('AI similarity or generic conflict marker winner') },
+            { ...original.paragraph, hunks: [] },
+            { ...original.paragraph, hunks: original.paragraph.hunks.map(hunk => ({ ...hunk, baseNodeIdentity: 'invented' })) },
+            { ...original.paragraph, serverSha256: original.paragraph.localSha256 }
+        ];
+        for (const changed of mutations) {
+            const paragraph = { ...changed, contentSha256: paragraphSourceCandidateDigest(changed) };
+            const contentSha256 = bytesToHex(sha256(encode(JSON.stringify([
+                original.algorithmVersion, original.projection.contentSha256, paragraph.contentSha256
+            ]))));
+            expect(verifyProjectedParagraphSourceCandidate(value, { ...original, paragraph, contentSha256 })).toBe(false);
+        }
+    });
+
+    it('refuses stale projection digests ranges identity and hidden wrapper fields', () => {
+        const value = projectedInput(projectedBase, projectedBase.replace('Alpha', 'Local'));
+        const original = projectedCandidate(value);
+        for (const altered of [
+            { ...original, algorithmVersion: 'unknown' }, { ...original, contentSha256: 'f'.repeat(64) },
+            { ...original, projection: { ...original.projection, changes: [] } },
+            { ...original, projection: { ...original.projection, identity: { ...original.projection.identity, policySha256: 'drift' } } },
+            { ...original, verified: true }, { ...original, [Symbol('unknown')]: true },
+            Object.assign(Object.create({ verified: true }), original)
+        ]) expect(verifyProjectedParagraphSourceCandidate(value, altered)).toBe(false);
+    });
+
+    it('refuses wrapper projection and paragraph getters without evaluating them', () => {
+        const value = projectedInput(projectedBase, projectedBase.replace('Alpha', 'Local'));
+        const original = projectedCandidate(value);
+        for (const field of ['projection', 'paragraph', 'contentSha256']) {
+            const altered = { ...original };
+            const getter = vi.fn(() => { throw new Error('getter_must_not_execute'); });
+            Object.defineProperty(altered, field, { get: getter, enumerable: true });
+            expect(verifyProjectedParagraphSourceCandidate(value, altered)).toBe(false);
+            expect(getter).not.toHaveBeenCalled();
+        }
+        const projection = { ...original.projection };
+        const getter = vi.fn(() => { throw new Error('projection_getter_must_not_execute'); });
+        Object.defineProperty(projection, 'identity', { get: getter, enumerable: true });
+        expect(verifyProjectedParagraphSourceCandidate(value, { ...original, projection })).toBe(false);
+        expect(getter).not.toHaveBeenCalled();
+    });
+
+    it('keeps sensitive source out of structural conflict diagnostics', () => {
+        const value = projectedInput('# private-sensitive-heading\n\nprivate-sensitive-body\n',
+            '## private-sensitive-heading\n\nprivate-sensitive-body\n');
+        const result = computeProjectedParagraphSourceMerge(value);
+        expect(result.kind).toBe('manual');
+        expect(JSON.stringify(result)).not.toContain('private-sensitive');
+    });
+});
+
+function candidate(bytes: ParagraphSourceBytes): ParagraphSourceCandidate
+{
+    const result = computeParagraphSourceMerge(bytes);
+    expect(result.kind).toBe('computed');
+    if (result.kind !== 'computed') throw new Error('expected_computed_candidate');
+    return result.candidate;
+}
+
+describe('Article Vault paragraph source computation with actual canonical parser', () => {
+    it('applies real disjoint paragraph hunks and independently rereads all three projections', () => {
+        const bytes = input('First paragraph.\n\nSecond paragraph.\n',
+            'Edited first paragraph.\n\nSecond paragraph.\n',
+            'First paragraph.\n\nEdited second paragraph.\n');
+        const result = candidate(bytes);
+        expect(decode(result.bytes)).toBe('Edited first paragraph.\n\nEdited second paragraph.\n');
+        expect(result.hunks.map(h => h.side)).toEqual(['local', 'server']);
+        expect(result.hunks[0].baseNodeIdentity).not.toBe(result.hunks[1].baseNodeIdentity);
+        expect(verifyParagraphSourceCandidate(bytes, result)).toBe(true);
+        expect(Object.keys(result)).not.toContain('verified');
+        expect(Object.keys(result)).not.toContain('plan');
+    });
+
+    it('keeps byte-disjoint edits in the same real base semantic node manual', () => {
+        const bytes = input('Alpha middle omega.\n\nOther paragraph.\n',
+            'Local middle omega.\n\nOther paragraph.\n',
+            'Alpha middle remote.\n\nOther paragraph.\n');
+        const result = computeParagraphSourceMerge(bytes);
+        expect(result.kind).toBe('manual');
+        if (result.kind === 'manual') {
+            expect(result.reasonCode).toBe('article_vault_source_same_base_node');
+            expect(result.baseNodeIdentities).toHaveLength(1);
+            expect(result.provenance.baseSha256).toBe(bytesToHex(sha256(bytes.base)));
+            expect(result.provenance.localSha256).toBe(bytesToHex(sha256(bytes.local)));
+            expect(result.provenance.serverSha256).toBe(bytesToHex(sha256(bytes.server)));
+            expect(result.conflicts).toEqual([{
+                baseNodeIdentity: result.baseNodeIdentities[0], baseByteRange: { from: 0, to: 20 },
+                local: { from: 0, to: 5, sourceSha256: bytesToHex(sha256(bytes.local)),
+                    insertSha256: bytesToHex(sha256(encode('Local'))), insertByteLength: 5 },
+                server: { from: 13, to: 18, sourceSha256: bytesToHex(sha256(bytes.server)),
+                    insertSha256: bytesToHex(sha256(encode('remote'))), insertByteLength: 6 }
+            }]);
+            expect(JSON.stringify(result)).not.toContain('Alpha middle');
+            expect(JSON.stringify(result)).not.toContain('Local middle');
+            expect(result.conflicts[0].local.to).toBeLessThan(result.conflicts[0].server.from);
+        }
+    });
+
+    it.each(['\n', '\r\n'])('preserves BOM, emoji, trailing spaces, %j and final newline exactly', newline => {
+        const base = `\uFEFFFirst 😀 paragraph.  ${newline}${newline}Second paragraph.${newline}`;
+        const local = `\uFEFFLocal 😀 paragraph.  ${newline}${newline}Second paragraph.${newline}`;
+        const server = `\uFEFFFirst 😀 paragraph.  ${newline}${newline}Remote paragraph.${newline}`;
+        const bytes = input(base, local, server);
+        const result = candidate(bytes);
+        expect(Array.from(result.bytes)).toEqual(Array.from(encode(
+            `\uFEFFLocal 😀 paragraph.  ${newline}${newline}Remote paragraph.${newline}`)));
+        expect(verifyParagraphSourceCandidate(bytes, result)).toBe(true);
+    });
+
+    it('preserves missing final newline and proves unchanged inputs as no-op', () => {
+        const bytes = input('First.\n\nSecond.');
+        const result = candidate(bytes);
+        expect(result.hunks).toEqual([]);
+        expect(Array.from(result.bytes)).toEqual(Array.from(bytes.base));
+        expect(verifyParagraphSourceCandidate(bytes, result)).toBe(true);
+    });
+
+    it.each([
+        '# Heading\n\nParagraph.\n',
+        '- Item\n- Other\n',
+        '| A | B |\n|---|---|\n| 1 | 2 |\n',
+        '```text\nContent\n```\n',
+        '```unclosed\nContent\n',
+        '---\ntitle: secret\n---\n\nParagraph.\n',
+        '<div>secret</div>\n',
+        '[Link](https://example.test)\n'
+    ])('rejects unsupported actual semantic boundaries without logging source: %j', source => {
+        const result = computeParagraphSourceMerge(input(source));
+        expect(result.kind).toBe('rejected');
+        expect(JSON.stringify(result)).not.toContain(source);
+        expect(JSON.stringify(result)).not.toContain('secret');
+    });
+
+    it.each([
+        '# Secret heading 😀\r\n',
+        '```unclosed\r\nsecret 😀\r\n',
+        '---\r\ntitle: secret\r\n---\r\n',
+        '<div>secret 😀</div>\r\n'
+    ])('reports actual parser-owned syntax refs and byte ranges without source text: %j', source => {
+        const projection = createMarkdownEditorProjection(source);
+        const coordinates = createMarkdownSourceCoordinateMap(source);
+        const bytes = input('First.\n\nSecond.\n', source);
+        const result = computeParagraphSourceMerge(bytes);
+        expect(result.kind).toBe('rejected');
+        if (result.kind !== 'rejected') throw new Error('expected_rejection');
+        expect(result.diagnostics.length).toBeGreaterThan(0);
+        for (const diagnostic of result.diagnostics) {
+            const node = projection.nodes.find(entry => entry.blockIdentity === diagnostic.nodeIdentity);
+            expect(node).toBeDefined();
+            if (!node) throw new Error('missing_actual_parser_node');
+            expect(diagnostic.source).toBe('local');
+            expect(diagnostic.sourceSha256).toBe(bytesToHex(sha256(bytes.local)));
+            expect(diagnostic.parser).toBe(projection.identity.parser);
+            expect(diagnostic.parserVersion).toBe(projection.identity.version);
+            expect(diagnostic.kind).toBe(node.kind);
+            expect(diagnostic.status).toBe(node.status);
+            expect(diagnostic.diagnosticCode).toBe(node.diagnosticCode);
+            expect(diagnostic.rawUtf16Range).toEqual({ from: node.rawRange.start, to: node.rawRange.end });
+            expect(diagnostic.rawByteRange).toEqual({
+                from: coordinates.toRawUtf8Offset(node.rawRange.start), to: coordinates.toRawUtf8Offset(node.rawRange.end)
+            });
+            expect(diagnostic.diagnostics).toEqual(projection.diagnostics
+                .filter(entry => entry.blockIdentity === node.blockIdentity).map(entry => ({
+                    code: entry.code, rawUtf16Range: { from: entry.rawRange.start, to: entry.rawRange.end },
+                    rawByteRange: { from: coordinates.toRawUtf8Offset(entry.rawRange.start), to: coordinates.toRawUtf8Offset(entry.rawRange.end) }
+                })));
+        }
+        if (source.startsWith('<div>')) {
+            expect(result.reasonCode).toBe('article_vault_source_html_boundary_unsupported');
+            expect(result.diagnostics[0].kind).toBe('paragraph');
+        }
+        if (source.startsWith('```')) {
+            expect(result.diagnostics.some(entry => entry.status === 'malformed' && entry.diagnostics.length > 0)).toBe(true);
+        }
+        expect(JSON.stringify(result)).not.toContain('secret');
+        expect(JSON.stringify(result)).not.toContain('Secret heading');
+    });
+
+    it('preserves real UTF8 base-node refs in a same-node conflict with BOM and CRLF', () => {
+        const source = '\uFEFFAlpha 😀 omega.  \r\n\r\nOther.\r\n';
+        const bytes = input(source, source.replace('Alpha', 'Local'), source.replace('omega', 'remote'));
+        const original = bytes.base.slice();
+        const result = computeParagraphSourceMerge(bytes);
+        expect(result.kind).toBe('manual');
+        if (result.kind !== 'manual') throw new Error('expected_manual');
+        const node = createMarkdownEditorProjection(source).nodes[0];
+        const coordinates = createMarkdownSourceCoordinateMap(source);
+        expect(result.conflicts[0].baseByteRange).toEqual({
+            from: coordinates.toRawUtf8Offset(node.rawRange.start), to: coordinates.toRawUtf8Offset(node.rawRange.end)
+        });
+        expect(result.conflicts[0].local.from).toBe(3);
+        expect(result.conflicts[0].local.to).toBe(8);
+        expect(result.conflicts[0].server.from).toBeGreaterThan(result.conflicts[0].local.to);
+        expect(Array.from(bytes.base)).toEqual(Array.from(original));
+        expect(JSON.stringify(result)).not.toContain('Alpha');
+    });
+
+    it('rejects unknown, hidden, symbol and inherited candidate fields even when the old digest matches', () => {
+        const bytes = input('First.\n\nSecond.\n', 'Local first.\n\nSecond.\n');
+        const original = candidate(bytes);
+        const unknown = { ...original, verified: true };
+        const hidden = { ...original };
+        Object.defineProperty(hidden, 'unrecognized', { value: true });
+        const symbol = { ...original, [Symbol('unknown')]: true };
+        const inherited: unknown = Object.assign(Object.create({ verified: true }), original);
+        for (const supplied of [unknown, hidden, symbol, inherited]) {
+            expect(verifyParagraphSourceCandidate(bytes, supplied)).toBe(false);
+        }
+        expect(verifyParagraphSourceCandidate(bytes, Object.freeze({ ...original }))).toBe(true);
+    });
+
+    it('rejects every accessor-bearing candidate field without invoking any getter', () => {
+        const bytes = input('First.\n\nSecond.\n', 'Local first.\n\nSecond.\n');
+        const original = candidate(bytes);
+        for (const field of Object.keys(original)) {
+            const supplied = { ...original };
+            const getter = vi.fn(() => { throw new Error('getter_must_not_execute'); });
+            Object.defineProperty(supplied, field, { get: getter, enumerable: true });
+            expect(verifyParagraphSourceCandidate(bytes, supplied)).toBe(false);
+            expect(getter).not.toHaveBeenCalled();
+        }
+    });
+
+    it('rejects hunk, hunk-array and byte-buffer accessors without executing them', () => {
+        const bytes = input('First.\n\nSecond.\n', 'Local first.\n\nSecond.\n');
+        const original = candidate(bytes);
+        for (const field of Object.keys(original.hunks[0])) {
+            const h = { ...original.hunks[0] };
+            const getter = vi.fn(() => { throw new Error('hunk_getter_must_not_execute'); });
+            Object.defineProperty(h, field, { get: getter, enumerable: true });
+            expect(verifyParagraphSourceCandidate(bytes, { ...original, hunks: [h] })).toBe(false);
+            expect(getter).not.toHaveBeenCalled();
+        }
+        const hunks = [...original.hunks];
+        const getter = vi.fn(() => { throw new Error('array_getter_must_not_execute'); });
+        Object.defineProperty(hunks, 0, { get: getter, enumerable: true });
+        expect(verifyParagraphSourceCandidate(bytes, { ...original, hunks })).toBe(false);
+        expect(getter).not.toHaveBeenCalled();
+        const suppliedBytes = original.bytes.slice();
+        const byteGetter = vi.fn(() => { throw new Error('byte_getter_must_not_execute'); });
+        Object.defineProperty(suppliedBytes, 'length', { get: byteGetter });
+        expect(verifyParagraphSourceCandidate(bytes, { ...original, bytes: suppliedBytes })).toBe(false);
+        expect(byteGetter).not.toHaveBeenCalled();
+    });
+
+    it('rejects missing base, invalid UTF8, deleted paragraph and paragraph move ambiguity', () => {
+        const bytes = input('First.\n\nSecond.\n');
+        expect(computeParagraphSourceMerge({ ...bytes, base: undefined } as unknown as ParagraphSourceBytes).kind).toBe('rejected');
+        expect(computeParagraphSourceMerge({ ...bytes, local: new Uint8Array([0xff]) }).kind).toBe('rejected');
+        expect(computeParagraphSourceMerge(input('First.\n\nSecond.\n', 'First.\n', 'First.\n\nEdited second.\n')).kind).toBe('rejected');
+        expect(computeParagraphSourceMerge(input('First.\n\nSecond.\n', 'Second.\n\nFirst.\n')).kind).toBe('rejected');
+    });
+
+    it('rejects format-before-diff, new paragraph boundaries and BOM changes', () => {
+        for (const bytes of [
+            input('First.\r\n\r\nSecond.\r\n', 'First.\n\nSecond.\n'),
+            input('First.\n\nSecond.\n', 'First.\n\n\nSecond.\n'),
+            input('\uFEFFFirst.\n\nSecond.\n', 'First.\n\nSecond.\n')
+        ]) expect(computeParagraphSourceMerge(bytes).kind).toBe('rejected');
+    });
+
+    it('rejects stale actual bytes, parser/policy drift and resealed byte/hunk/provenance tamper', () => {
+        const bytes = input('First.\n\nSecond.\n', 'Local first.\n\nSecond.\n', 'First.\n\nRemote second.\n');
+        const original = candidate(bytes);
+        expect(verifyParagraphSourceCandidate({ ...bytes, server: encode('Other.\n\nSecond.\n') }, original)).toBe(false);
+        const mutations: ParagraphSourceCandidate[] = [
+            { ...original, parserVersion: 'stale' },
+            { ...original, policySha256: 'unknown' },
+            { ...original, baseSha256: original.localSha256 },
+            { ...original, bytes: encode('generic winner\n') },
+            { ...original, hunks: [] },
+            { ...original, hunks: original.hunks.map((h, index) => index ? h : { ...h, extra: 'unknown-field' }) },
+            { ...original, hunks: original.hunks.map((h, index) => index ? h : { ...h, from: h.from + 1 }) },
+            { ...original, hunks: original.hunks.map((h, index) => index ? h : { ...h, baseNodeIdentity: 'invented-node' }) },
+            { ...original, hunks: original.hunks.map((h, index) => index ? h : { ...h, insert: encode('untrusted') }) }
+        ];
+        for (const altered of mutations) {
+            expect(verifyParagraphSourceCandidate(bytes,
+                { ...altered, contentSha256: paragraphSourceCandidateDigest(altered) })).toBe(false);
+        }
+    });
+});

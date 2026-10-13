@@ -1,0 +1,438 @@
+{
+  "status": "PASS",
+  "sourceCommit": "c3430ccffbd6e0d6d7e3782597b3218667a7d4c5",
+  "fsusUiCommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "counts": {
+    "Article Vault canonical projection and original paragraph composition": 21,
+    "Article Vault paragraph source computation with actual canonical parser": 24,
+    "Article Vault three-way source projection": 32
+  },
+  "methods": [
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "composes disjoint canonical node changes with exact BOM emoji spaces %j bytes",
+      "cases": 2,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > composes disjoint canonical node changes with exact BOM emoji spaces .+ bytes$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "independently verifies no-op bytes without a final newline and repeated computation",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > independently verifies no-op bytes without a final newline and repeated computation$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "retains a length-changing canonical identity ambiguity as manual despite the pure paragraph candidate",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > retains a length-changing canonical identity ambiguity as manual despite the pure paragraph candidate$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "retains exact same-node refs for byte-disjoint changes without an automatic candidate",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > retains exact same-node refs for byte-disjoint changes without an automatic candidate$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "keeps structural deletion movement and normalization diagnostics in composition: %j to %j",
+      "cases": 7,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: .+ to .+$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "retains the original paragraph refusal even when unchanged structural projection is available",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > retains the original paragraph refusal even when unchanged structural projection is available$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "refuses malformed source and missing base before the paragraph computation",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > refuses malformed source and missing base before the paragraph computation$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "invalidates the bound candidate after current identity plan parser coordinate or byte movement",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > invalidates the bound candidate after current identity plan parser coordinate or byte movement$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "preserves original upstream %s disposition without candidate bytes",
+      "cases": 2,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > preserves original upstream .+ disposition without candidate bytes$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "rejects a resealed original candidate with tampered bytes hunks and provenance inside the composed candidate",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > rejects a resealed original candidate with tampered bytes hunks and provenance inside the composed candidate$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "refuses stale projection digests ranges identity and hidden wrapper fields",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > refuses stale projection digests ranges identity and hidden wrapper fields$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "refuses wrapper projection and paragraph getters without evaluating them",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > refuses wrapper projection and paragraph getters without evaluating them$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault canonical projection and original paragraph composition",
+      "title": "keeps sensitive source out of structural conflict diagnostics",
+      "cases": 1,
+      "pattern": "^Article Vault canonical projection and original paragraph composition > keeps sensitive source out of structural conflict diagnostics$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "applies real disjoint paragraph hunks and independently rereads all three projections",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > applies real disjoint paragraph hunks and independently rereads all three projections$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "keeps byte-disjoint edits in the same real base semantic node manual",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > keeps byte-disjoint edits in the same real base semantic node manual$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "preserves BOM, emoji, trailing spaces, %j and final newline exactly",
+      "cases": 2,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > preserves BOM, emoji, trailing spaces, .+ and final newline exactly$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "preserves missing final newline and proves unchanged inputs as no-op",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > preserves missing final newline and proves unchanged inputs as no-op$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "rejects unsupported actual semantic boundaries without logging source: %j",
+      "cases": 8,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: .+$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "reports actual parser-owned syntax refs and byte ranges without source text: %j",
+      "cases": 4,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > reports actual parser-owned syntax refs and byte ranges without source text: .+$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "preserves real UTF8 base-node refs in a same-node conflict with BOM and CRLF",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > preserves real UTF8 base-node refs in a same-node conflict with BOM and CRLF$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "rejects unknown, hidden, symbol and inherited candidate fields even when the old digest matches",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > rejects unknown, hidden, symbol and inherited candidate fields even when the old digest matches$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "rejects every accessor-bearing candidate field without invoking any getter",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > rejects every accessor-bearing candidate field without invoking any getter$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "rejects hunk, hunk-array and byte-buffer accessors without executing them",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > rejects hunk, hunk-array and byte-buffer accessors without executing them$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "rejects missing base, invalid UTF8, deleted paragraph and paragraph move ambiguity",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > rejects missing base, invalid UTF8, deleted paragraph and paragraph move ambiguity$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "rejects format-before-diff, new paragraph boundaries and BOM changes",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > rejects format-before-diff, new paragraph boundaries and BOM changes$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+      "group": "Article Vault paragraph source computation with actual canonical parser",
+      "title": "rejects stale actual bytes, parser/policy drift and resealed byte/hunk/provenance tamper",
+      "cases": 1,
+      "pattern": "^Article Vault paragraph source computation with actual canonical parser > rejects stale actual bytes, parser/policy drift and resealed byte/hunk/provenance tamper$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "projects unchanged actual canonical nodes without granting admission",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > projects unchanged actual canonical nodes without granting admission$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "leaves the original disjoint paragraph computation intact",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > leaves the original disjoint paragraph computation intact$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "projects only canonical retained identities for disjoint paragraph changes",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > projects only canonical retained identities for disjoint paragraph changes$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports same semantic node for disjoint byte ranges",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports same semantic node for disjoint byte ranges$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports intersecting byte changes",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports intersecting byte changes$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports heading boundary changes with canonical ranges",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports heading boundary changes with canonical ranges$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports list boundary changes with canonical ranges",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports list boundary changes with canonical ranges$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports table boundary changes with canonical ranges",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports table boundary changes with canonical ranges$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports fence boundary changes with canonical ranges",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports fence boundary changes with canonical ranges$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports unsupported frontmatter coverage without a second parser",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports unsupported frontmatter coverage without a second parser$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports inline link semantic boundaries",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports inline link semantic boundaries$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports anchor and embed semantic boundaries",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports anchor and embed semantic boundaries$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "keeps raw HTML and angle boundaries unsupported even without changes",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > keeps raw HTML and angle boundaries unsupported even without changes$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports deletion versus edit at the original node",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports deletion versus edit at the original node$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports exact syntax movement ambiguity without retargeting",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports exact syntax movement ambiguity without retargeting$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports repeated syntax ambiguity without guessing a match",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports repeated syntax ambiguity without guessing a match$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "keeps new canonical IDs ambiguous after length-changing edits",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > keeps new canonical IDs ambiguous after length-changing edits$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects malformed unclosed fences with actual parser diagnostics",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects malformed unclosed fences with actual parser diagnostics$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects unknown parser state without exposing exception context",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects unknown parser state without exposing exception context$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects parser version drift against the actual current runtime",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects parser version drift against the actual current runtime$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "preserves BOM CRLF emoji trailing spaces and final newline byte offsets",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > preserves BOM CRLF emoji trailing spaces and final newline byte offsets$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "keeps an emoji replacement on whole UTF8 scalar boundaries",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > keeps an emoji replacement on whole UTF8 scalar boundaries$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "preserves LF missing final newline and mixed newline facts",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > preserves LF missing final newline and mixed newline facts$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "reports normalization trim and newline changes instead of hiding them",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > reports normalization trim and newline changes instead of hiding them$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects missing base rather than falling back to two-way comparison",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects missing base rather than falling back to two-way comparison$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects byte tamper and stale source reference facts",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects byte tamper and stale source reference facts$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects portable identity operation and current coordinate drift",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects portable identity operation and current coordinate drift$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects coordinate schema digest and missing snapshot drift",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects coordinate schema digest and missing snapshot drift$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "preserves upstream manual and rejected source dispositions",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > preserves upstream manual and rejected source dispositions$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "binds algorithm policy parser version inputs ranges and diagnostics against tamper",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > binds algorithm policy parser version inputs ranges and diagnostics against tamper$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "rejects invalid UTF8 actual bytes and bounds projection workload",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > rejects invalid UTF8 actual bytes and bounds projection workload$"
+    },
+    {
+      "file": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+      "group": "Article Vault three-way source projection",
+      "title": "keeps full source and hidden diagnostic context out of ordinary logs",
+      "cases": 1,
+      "pattern": "^Article Vault three-way source projection > keeps full source and hidden diagnostic context out of ordinary logs$"
+    }
+  ],
+  "selector": "^(Article Vault canonical projection and original paragraph composition|Article Vault paragraph source computation with actual canonical parser|Article Vault three-way source projection) ",
+  "hashes": {
+    "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts": "f35e820d358d3bd48122184b397538b2df68ac9fa06677689459f9a68d0ff6c9",
+    "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts": "b84f0058ede4b2b9a6410d0b82be7c18427fdd58ee27bfdbe7aee58345c4264c",
+    "src/frontend/vitest.config.ts": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "src/frontend/vitest.shared.mjs": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+    "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+    "tests/frontend/support/unit/animationFrameEnvironment.ts": "e7e5e496be89938974cc31d56c2580a8aa2b264ff5e782e492442efc016113ca",
+    "src/frontend/src/services/articleVault/paragraphSourceMerge.ts": "91426e685d89951fc3fac12200096774ab4c202a6553e577038c19c35dedb0a9",
+    "src/frontend/src/services/articleVault/threeWaySourceProjectionAdapter.ts": "f9c408761622d1fb0b5b38a35ab3fdf55b4af07f66e39b64408a0113c4ab828b"
+  },
+  "hooksInspection": {
+    "selectedFixture": "pure byte/value fixtures, real public FsusUI parser; no native writer, database, network, external resources or fixture hooks",
+    "workerAfterEach": "vi.restoreAllMocks()",
+    "rootHooks": "none; accessor spies are local vi.fn only",
+    "sharedSetup": "one HappyDOM Window, task-local animation timers; beforeAll activates local zh-CN locale graph, topology logging optional; afterAll disposes all timers; original AEDS/PoW/search mocks do not replace markdown runtime",
+    "scope": "ordinary exact original-project tests, not qualification or verified-input transport"
+  },
+  "node": "v24.19.0",
+  "vitest": "4.1.11"
+}

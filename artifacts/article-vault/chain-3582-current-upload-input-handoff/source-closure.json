@@ -1,0 +1,74 @@
+{
+  "supplier": "61d686739fca17aa3f3fad3840de315c4d35eabe",
+  "consumed": [
+    {
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "gitBlob": "e0b5cedcc75fb83a34efb2e2c3806d89f1c6b7f0",
+      "sha256": "90432920da408d5dd555f7234114c4534bc6da959c6b8ca63a6eea53e9b2b276"
+    },
+    {
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "gitBlob": "37afe9d22327903e50340b36484a07595ef6f76d",
+      "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f"
+    },
+    {
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "gitBlob": "540231e608cdf2c09c9c69fc24e6c90e34b59bb2",
+      "sha256": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab"
+    },
+    {
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "gitBlob": "5e1e1bed24b1c0f3fed435f932004d28b6c2a266",
+      "sha256": "0065c69a282b73b991fde738ba813ba3dcc1bcb30cba3d22ea273198c84a9a34"
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultUploadAssetBindingReader.cs",
+      "gitBlob": "267c95bd73dbdf61e5387ec52126b5faa08bbf49",
+      "sha256": "bdd31af38ab6826667d79fd5c8c5314320c77ca0c35feba5259e231dab2147a7"
+    },
+    {
+      "path": "src/backend/Services/Authoring/CurrentArticleUploadAssetBindingReader.cs",
+      "gitBlob": "f6195fd024201b7a1ded6a890e66c7d5da56b8df",
+      "sha256": "c0a7a1779a49c58390a294119d293ac719fc64b4e9d718b876837c520d617db0"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringArticleCurrentSourceReader.cs",
+      "gitBlob": "1b94fdea5f130c1dc528e8396b3772de9e52c084",
+      "sha256": "a9c44e200a864ae0f46d52257b58e71e5518ec33a2b45b511456fd924f3273f4"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs",
+      "gitBlob": "4df8f0f1468af83d6fc51dd8d8385603605d50ff",
+      "sha256": "27516b2ab20969a4ad8491fef57502ac68d86c275d85b29c5b0fa1fb10907517"
+    },
+    {
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "gitBlob": "000bc0b3b7fbcc84575d580b5fb18c514d091ac8",
+      "sha256": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01"
+    }
+  ],
+  "baseline": "e7f8c738fc3552441b95f4b150381be7400eadb9",
+  "fetchedMaster": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+  "guardUntouched": true,
+  "localImportBindings": [
+    {
+      "path": "src/backend/Services/Authoring/CurrentArticleUploadAssetBindingReader.cs",
+      "change": "Remove only redundant Shared.AuthoringCanvas import; original same-namespace backend contracts remain the canonical local types. No copied grammar, moved contract or compatibility alias.",
+      "sha256": "1142ce492fda223e9e11e72e81126b18ee2a9cd29219ec93cd9cc0a400c0b4bf"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringArticleCurrentSourceReader.cs",
+      "change": "Remove only redundant Shared.AuthoringCanvas import; original same-namespace backend contracts remain the canonical local types. No copied grammar, moved contract or compatibility alias.",
+      "sha256": "71272596a65c1444870dbd25603b3ed2a6030d8bc6341bcc848e7e6858cf017e"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs",
+      "change": "Remove only redundant Shared.AuthoringCanvas import; original same-namespace backend contracts remain the canonical local types. No copied grammar, moved contract or compatibility alias.",
+      "sha256": "938df700388153d580cc1f0f11d99bf3587b8090b69082a8cf348a8ffd45260f"
+    }
+  ],
+  "omittedDuplicateContracts": [
+    "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs",
+    "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs"
+  ]
+}

@@ -1,0 +1,153 @@
+{
+    "schema": "fsusblog.article-vault.chain-handoff.v1",
+    "recordedAt": "2026-10-08T08:59:24.645654+00:00",
+    "testedBackendCandidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+    "testedNativeCandidate": "5e7fd98bdefc8cbd5c0a405accc383da917dfa3a",
+    "verifiedOriginMaster": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "accepted": false,
+    "canCommitBase": false,
+    "payloads": [
+        {
+            "path": "tested-4ba/backend-result.json",
+            "sha256": "a66606616a4b3f3fd2ae399617715b3af4c65c425ff261d01fce84791bf06878"
+        },
+        {
+            "path": "tested-4ba/backend.log.txt.gz",
+            "sha256": "a9b274f9a5fe54366e5f90a830ce87895fe3a46432b61ef34f1372bcc2ccf887",
+            "uncompressedSha256": "420b386b9f67dcc2f40f959bc589645e886ccec0b60712258e223edc43d5a1be"
+        },
+        {
+            "path": "tested-4ba/source-result.json",
+            "sha256": "0fb680027f0cb2f35974cc8c47eca0e1a918744df51c7741bb47ec9cbc2f03d8"
+        },
+        {
+            "path": "tested-4ba/source.log.txt.gz",
+            "sha256": "577a1150adb423e1e79aff0ffdafcb8447f4b0adab0548f1bca71df66123c0e5",
+            "uncompressedSha256": "767e7505bf67ec58530fd56959296d38f6f2060607c753414c17816ae5e3cece"
+        },
+        {
+            "path": "tested-4ba/matrix-result.json",
+            "sha256": "84741d46041fff1a18662e8f503fa40b7fdffc77e325675ddb46b006fe89c980"
+        },
+        {
+            "path": "tested-4ba/matrix.log.txt.gz",
+            "sha256": "420efa511d9b2185e46e5ad3dd53235fa6920efd535a55247e4c4f3c5619b6db",
+            "uncompressedSha256": "e4bf0437e145f56472e445c763f6cdb3e310b4b90bef5fe880ba568cd71e1d2d"
+        },
+        {
+            "path": "tested-4ba/convergence-result.json",
+            "sha256": "7ff135873b0a9c7b3c967b77f623ccf3fd2f85c64c3bf616a9ff3279c10212b5"
+        },
+        {
+            "path": "tested-4ba/convergence.log.txt.gz",
+            "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+            "uncompressedSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+        },
+        {
+            "path": "tested-4ba/producers-check-result.json",
+            "sha256": "12103e69c59bf45c59fc312ddeab9912a4ca1cadc8090197f859eea7297d1605"
+        },
+        {
+            "path": "tested-4ba/producers-check.log.txt.gz",
+            "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "uncompressedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "tested-4ba/testing-doc-check-result.json",
+            "sha256": "fa81353004a9888c6990bc4151630c8d57294f56cd4df49ca8715010bf278785"
+        },
+        {
+            "path": "tested-4ba/testing-doc-check.log.txt.gz",
+            "sha256": "0a86aebfca85f4c3c850523f03a4c3dc2113fa250381a11d902f87f3462e0991",
+            "uncompressedSha256": "8ae1fad1509886d23d05cfabfce52483246fff10f3a0ba7352622966c7769640"
+        },
+        {
+            "path": "tested-4ba/root-api-style-result.json",
+            "sha256": "77d6a6b4e3aa263a47671a36abbee1b7a08fa0a201de139f44a047e0dba5e7b0"
+        },
+        {
+            "path": "tested-4ba/root-api-style.log.txt.gz",
+            "sha256": "1ce479cc836adb03edb6a9b3578ad41683d00387a1a42537773c11efe0f03e85",
+            "uncompressedSha256": "c0f9ff505fbc32b8d5feeef837e1851647189d603ead096534554f91783007b9"
+        },
+        {
+            "path": "tested-4ba/pr-contract-result.json",
+            "sha256": "d8468a92e282a41a2ad1f54abe0aecdf8e78f1bb7fe05e51705ec86cedd5ed4c"
+        },
+        {
+            "path": "tested-4ba/pr-contract.log.txt.gz",
+            "sha256": "f86940cd078de66215f725619c4187acc4b078ef7720a51c1b7a790f7f9bdc91",
+            "uncompressedSha256": "2289d42296ab097d6aa1d37784dce323a91ad162371f14c9d96e3598abc72571"
+        },
+        {
+            "path": "tested-4ba/root-api-style-unactivated-result.json",
+            "sha256": "cafbbb9dd22eca361eb32cd98bcdda224fa02611369d15b733ba12c0a3817818"
+        },
+        {
+            "path": "tested-4ba/root-api-style-unactivated.log.txt.gz",
+            "sha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+            "uncompressedSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+        },
+        {
+            "path": "tested-4ba/backend-class-counts.json",
+            "sha256": "f6eaf869a00540dc8a7fc10d066ce81cd76f7eacdac50081309a00a8b04cda5e"
+        },
+        {
+            "path": "tested-4ba/current-integrated-controls.trx.txt.gz",
+            "sha256": "c164e7e2cf092fac1c699707711ba8d7665a1eb500c49f37e2ceae21ecac001b",
+            "uncompressedSha256": "804b785aa0eb6654d1e6a8ea6afc754f65264ed68da93df67caaa4a050b63b01"
+        },
+        {
+            "path": "tested-5e7/root-native-result.json",
+            "sha256": "21bacebdc528ebb3d8d7b9017c5d0f145b5c87b1a2a433bcf036661116d53773"
+        },
+        {
+            "path": "tested-5e7/root-native.log.txt.gz",
+            "sha256": "138736012a609a1da635b13e3ff17c27b811319bfd74d96d702b5706ab88db0b",
+            "uncompressedSha256": "c4a70d9347912335be2b398d35e5939d3b304e35f4508457cdb15c1dfb6649bc"
+        },
+        {
+            "path": "tested-5e7/snapshot-result.json",
+            "sha256": "980a90d19ef82d15db9a651c183e205c2a0dbc937bbbe7aef0ea3cc8f9aa84e7"
+        },
+        {
+            "path": "tested-5e7/snapshot.log.txt.gz",
+            "sha256": "7aaa40283b7bf376d48c3bcff091df4566fe8ef1bae1dd6ca20c85f63931cee4",
+            "uncompressedSha256": "9a16bb79acf3833c323e69ca630aec2328a67db857743698c928be14594cd611"
+        },
+        {
+            "path": "tested-5e7/root-native.trx.txt.gz",
+            "sha256": "410ea6e90723c7aa1ac1be4d760168bb842693eb87045e15b1993cfc17aeca6b",
+            "uncompressedSha256": "65ac7c22109ec90bb09a86574ca2ef7fa20d20d3cfe7e3436410f63f20b9f7d7"
+        },
+        {
+            "path": "tested-5e7/snapshot.trx.txt.gz",
+            "sha256": "e588acbc37c8e9d3ab5bc54b7be2bf3ac086f4e0cefc469b90005180877986fa",
+            "uncompressedSha256": "aed92a0d9f362ed078f26c99db33a29987c9e3915db1be6698f4506555acef40"
+        },
+        {
+            "path": "README.md",
+            "sha256": "da34d1dde958a0080627e98064887dfc7174125dcbb084d6cd1f10d2c2942c4d"
+        },
+        {
+            "path": "issue-accounting.json",
+            "sha256": "7ec7e1534e3378d8bc06670021990dbd0f56eeda40b9b768e5bbc6dfe37a2533"
+        },
+        {
+            "path": "issue-accounting.md",
+            "sha256": "b463e112e7088bea1b81b32ecd486934f6b1fdfe8b8d4183a768484c0167be32"
+        },
+        {
+            "path": "publication-checkpoint.json",
+            "sha256": "077f351891917b9797ce2be6425b7f9432bb56a64ae0de63b8fb0edb6bae8d71"
+        }
+    ],
+    "limits": [
+        "Native results are bound only to5e7; no current4ba native/product qualification claimed.",
+        "Immutable old graph handoff archive retained; unchanged823 controls not rerun.",
+        "Actual store/schema admission, journal backup/restore, final native replacement, external writer exclusion, runtime metadata production and terminal qualification remain unavailable.",
+        "Denied protected-root-lease QA not attempted. First unactivated style invocation failed; official setup repaired invocation passes without source changes."
+    ]
+}

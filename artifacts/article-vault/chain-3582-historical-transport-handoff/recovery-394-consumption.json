@@ -1,0 +1,25 @@
+{
+    "canonical": "39459f8162c775b79747a35228cd38b3c5b5faf6",
+    "files": [
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryOperationCheckpointWriter.cs",
+            "canonicalSha256": "7242328929fe3e403601c612f1ed78ec26724a277eea1c9145ebd318c94bf5f2",
+            "previousSha256": null
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+            "canonicalSha256": "f6b06558fcf73f723a6c3b563f9c69f3a273d7626b397e08512a0d8ed673aec4",
+            "previousSha256": "01fc0cc5e3c9e0ca7db7e4401a991329cdad682cf24e0fae9b5cc72bff38f56e"
+        },
+        {
+            "path": "tests/backend/Helpers/TestInfrastructure/VaultRecoveryJournalGitTestInputs.cs",
+            "canonicalSha256": "e9111a00a80429e0b391bceeb7b5953be6161a65930b707ee73bbfaf575398dc",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultRecoveryCheckpointTransactionPostgresTests.cs",
+            "canonicalSha256": "26d26b951e9161e05e75c807844382d22d32a52c0231a115463088880831f8c5",
+            "previousSha256": null
+        }
+    ]
+}

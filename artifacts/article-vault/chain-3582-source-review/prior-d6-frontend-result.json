@@ -1,0 +1,21 @@
+{
+    "candidate": "d6a076905ba82f5a1359b1363ee049ad66a66e20",
+    "endCandidate": "d6a076905ba82f5a1359b1363ee049ad66a66e20",
+    "headChangedDuringRun": false,
+    "startedAt": "2026-10-08T06:45:40.404764+00:00",
+    "endedAt": "2026-10-08T06:46:05.124084+00:00",
+    "command": [
+        "/workspace/FsusBlog/.tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/articleVault"
+    ],
+    "cwd": "/workspace/FsusBlog/src/frontend",
+    "exitCode": 0,
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "changedInputsChanged": false,
+    "scope": "Original actual public FsusUI source-alias 141 controls; unmounted bounded presentation and paragraph candidates only; no production flow/UX/terminal acceptance."
+}

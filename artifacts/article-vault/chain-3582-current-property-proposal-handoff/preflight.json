@@ -1,0 +1,193 @@
+{
+  "sourceFiles": {
+    "src/backend/Services/ArticleVault/ArticleVaultCurrentPropertyMetadataReader.cs": "c7800f94a7998e06b2202641ac2e4a69cff38a26948d919549be9c0b6514cd38",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "f56618f561754db604c3914bcc97145488b541cbdf3ad494829f673b7c8b75d7",
+    "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.cs": "0e67976475990074bc4437afb1fc839616a3f32e787842e7ae19d95e6c015785",
+    "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.CurrentInputs.cs": "869e96cdedc84c413004e0d457b1276da2586719da8f90f6e5df71526aa7d5af",
+    "tests/backend/Unit/ArticleVaultCurrentSourceReaderTests.CurrentProperties.cs": "2361ba650bf4d08e09b1f2e97f9bfe32397a3f50a8197b01bbcc9ca09e698d7b",
+    "tests/backend/Unit/ArticleVaultCurrentSourceReaderTests.cs": "b9dc3c1a472d4d3f7faacf0ae52b7321d2aa026ba5709c3a24e5b3a1e42ac4cd",
+    "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b"
+  },
+  "expectedCaseCount": 13,
+  "expectedMethods": {
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_UsesActualServerRowsInsteadOfAssertedRows": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead": 3,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification": 3,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_HoldsOriginalBytesBeforeAwaitingAuthorizedReads": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_InterruptedActualReadCanRepeatWithoutMutationOrCachedProposal": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RejectsForeignActorBeforePropertyRead": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_PreservesOriginalBaseByteGate": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultCurrentSourceReaderTests.CurrentPropertyInputs_DiRequiresOriginalAuthorityAndExplicitSiteWithoutFallback": 1
+  },
+  "actualCaseCount": 13,
+  "actualMethods": {
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_UsesActualServerRowsInsteadOfAssertedRows": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead": 3,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification": 3,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_HoldsOriginalBytesBeforeAwaitingAuthorizedReads": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_InterruptedActualReadCanRepeatWithoutMutationOrCachedProposal": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RejectsForeignActorBeforePropertyRead": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_PreservesOriginalBaseByteGate": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultCurrentSourceReaderTests.CurrentPropertyInputs_DiRequiresOriginalAuthorityAndExplicitSiteWithoutFallback": 1
+  },
+  "selected": [
+    {
+      "id": "4e54803f-5105-d9ff-bed9-f565046cc242",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultCurrentSourceReaderTests.CurrentPropertyInputs_DiRequiresOriginalAuthorityAndExplicitSiteWithoutFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultCurrentSourceReaderTests.CurrentPropertyInputs_DiRequiresOriginalAuthorityAndExplicitSiteWithoutFallback",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Scope": [
+          "CurrentPropertyInputs"
+        ],
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "a479097a-8415-fb17-a46c-f0ca104183ce",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_UsesActualServerRowsInsteadOfAssertedRows",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_UsesActualServerRowsInsteadOfAssertedRows(badAssertion: False)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "5bda0f1f-06da-3ae8-5e45-e5b6edd59bc6",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_UsesActualServerRowsInsteadOfAssertedRows",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_UsesActualServerRowsInsteadOfAssertedRows(badAssertion: True)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "d5d3f7b6-f747-ae4e-c250-5832fc81dedf",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead(fault: \"missing\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "7231eb58-4b75-c723-d532-968e306b7110",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead(fault: \"future\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "20e03e9f-7cfe-beff-fc49-be4f2e9bb7af",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead(fault: \"digest\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "8ba1cb7d-eddc-c8c0-1505-86625b170a00",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification(fault: \"missing-head\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "96139b41-cbae-025d-504f-7d1204aa1a66",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification(fault: \"provenance\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "1bfaa4a9-bca8-b688-47b2-4d7140775b9d",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification(fault: \"definition\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "a03f4aea-1805-f0b5-b81c-041eac6e327a",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_HoldsOriginalBytesBeforeAwaitingAuthorizedReads",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_HoldsOriginalBytesBeforeAwaitingAuthorizedReads",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "08d12877-ef30-6882-0cb5-d98028c1887d",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_InterruptedActualReadCanRepeatWithoutMutationOrCachedProposal",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_InterruptedActualReadCanRepeatWithoutMutationOrCachedProposal",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "a15e6189-60fd-679e-6937-43510555d804",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RejectsForeignActorBeforePropertyRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RejectsForeignActorBeforePropertyRead",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "fa33c0d6-6120-9375-9aad-d7551e26897c",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_PreservesOriginalBaseByteGate",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_PreservesOriginalBaseByteGate",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    }
+  ],
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_UsesActualServerRowsInsteadOfAssertedRows|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RequiresOriginalCompleteMetadataBeforePropertyRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RefusesMissingHeadAndMovementAcrossProposalVerification|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_HoldsOriginalBytesBeforeAwaitingAuthorizedReads|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_InterruptedActualReadCanRepeatWithoutMutationOrCachedProposal|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_RejectsForeignActorBeforePropertyRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.CurrentInputProposal_PreservesOriginalBaseByteGate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultCurrentSourceReaderTests.CurrentPropertyInputs_DiRequiresOriginalAuthorityAndExplicitSiteWithoutFallback",
+  "discoveryHostLogSha256": "2b972a2d2da9903c9187be5d21524803d0c2421b43b7864f544c49aab0583134",
+  "fixtureReview": {
+    "newClass": "partial original ArticleVaultPropertyMetadataMergeTests, no class/collection fixture or lifecycle hooks",
+    "newSetup": "CurrentInputFixture: actual production source/property readers around NSubstitute ports; original pure metadata/plan fixture; immutable records; deterministic task clock; no database/native/HTTP/network/file/lease setup",
+    "newCleanup": "Only owned CancellationTokenSource uses disposal; owned byte arrays; no external cleanup",
+    "existingDiCase": "Existing controlled CurrentSource Fixture; ServiceProvider plus both ServiceScopes use disposal",
+    "assemblyHook": "RedisOperationFailureDiagnosticCollector.Initialize: opt-in is absent, so it returns without subscription/file/process-exit hooks",
+    "unrelatedFixtures": "No collection fixture attached to the selected classes; no assembly fixture configured"
+  },
+  "heldAudits": false,
+  "replacementHarness": false
+}

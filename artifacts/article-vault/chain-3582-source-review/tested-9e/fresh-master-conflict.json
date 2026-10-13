@@ -1,0 +1,15 @@
+{
+    "candidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "latestMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "checkedAt": "2026-10-08T06:52:15.786197+00:00",
+    "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+        "a4fa942e95b6141e1f1dec42f7cddf1daf54144d"
+    ],
+    "exitCode": 0,
+    "output": "9295380485398d69c9cadc234f17e36b64632d0c\n",
+    "scope": "Read-only conflict preview only; no branch/merge/ref updated"
+}

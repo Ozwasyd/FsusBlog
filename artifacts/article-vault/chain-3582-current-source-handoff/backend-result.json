@@ -1,0 +1,59 @@
+{
+    "candidate": "8b2553209d1496c8960d5b89d76430941c42d8a0",
+    "endCandidate": "8b2553209d1496c8960d5b89d76430941c42d8a0",
+    "latestFetchedMaster": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "startedAt": "2026-10-08T13:24:05.692292+00:00",
+    "endedAt": "2026-10-08T13:25:39.721869+00:00",
+    "command": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "-p:RestoreLockedMode=true",
+        "--filter",
+        "FullyQualifiedName~ArticleVaultCurrentSourceReaderTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~ArticleVaultRecoveryServiceRegistrationTests|FullyQualifiedName~ArticleVaultAcceptedSourceAdapterTests|FullyQualifiedName~AuthoringRevisionComparePackageReaderTests|FullyQualifiedName~ArticleVaultSourceAdmissionTests|FullyQualifiedName~ArticleVaultResolutionOperationPlanTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~CompiledProductionMetadataInspectorTests",
+        "--logger",
+        "trx;LogFileName=current-source-frozen.trx",
+        "--results-directory",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/current-source-frozen/results"
+    ],
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/chain-3582-expanded/current-source-frozen/backend.log",
+    "nativeOrProductQualified": false,
+    "counts": {
+        "total": "223",
+        "executed": "223",
+        "passed": "223",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "classCounts": {
+        "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests": 37,
+        "FsusBlog.Server.Tests.Unit.DocumentExportContractTests": 70,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultCurrentSourceReaderTests": 47,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultAcceptedSourceAdapterTests": 29,
+        "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests": 21,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultSourceAdmissionTests": 4,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests": 11,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultResolutionOperationPlanTests": 4
+    },
+    "assemblyHashes": {
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "1337bd4c9bf493ad387aad2cec9b015f38eadc4fe946e43fc5d142f17fd30bd0",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "1818bbae934ff39e5b22c611d92f8519a58d32f05165558efe8e5457518a678a",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "e75fd19f11f944c03e9c8c82383d5cdb028686fd2bdb2e2bd630c6979d4249c5"
+    }
+}

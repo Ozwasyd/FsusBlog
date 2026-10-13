@@ -1,0 +1,14 @@
+{
+    "candidate": "e1d9c841d1ccdf5e4905676c15ba5f177b731c07",
+    "sourceApi": "tools/test-convergence/audit.mjs:scanBackendSourceLocking",
+    "files": [
+        {
+            "path": "tests/backend/Unit/ArticleVaultExecutionTests.cs",
+            "violations": []
+        },
+        {
+            "path": "tests/backend/Unit/DocumentExportContractTests.cs",
+            "violations": []
+        }
+    ]
+}

@@ -144,7 +144,7 @@ public sealed class ArticleVaultSyncPlanExecutor(
             timeProvider.GetUtcNow().ToUnixTimeMilliseconds(), CancellationToken.None).ConfigureAwait(false);
     }
 
-    private static void ValidateCurrentObservations(
+    internal static void ValidateCurrentObservations(
         VaultSyncPlanGroup group,
         IReadOnlyList<ArticleVaultCurrentArticleObservation> observations)
     {
