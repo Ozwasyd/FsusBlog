@@ -1,0 +1,48 @@
+{
+    "productionSource": "8b2553209d1496c8960d5b89d76430941c42d8a0",
+    "incrementalSourceCommit": "42ece11c821dd01e9f372b66e7822f0fd0fc3864",
+    "masterConsumed": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "backend": {
+        "main": 223,
+        "sameAssemblyInspector": 18,
+        "distinctTotal": 241,
+        "failed": 0,
+        "skipped": 0,
+        "realPostgresThisRun": 0
+    },
+    "scannerSuite": {
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "exitCode": 0
+    },
+    "checks": {
+        "ownedStyle7": 0,
+        "documentLifecycle378": 0,
+        "authoritativeDocs11": 0,
+        "ownSourceCommitRange": 0,
+        "ownMasterSyncMessage": 0,
+        "masterMergePreview": 0,
+        "rangeIncludingInheritedCommits": 1
+    },
+    "inheritedRangeFailure": "7f128208dc59b408adda9089ff4e0a805ef2777d header lacks type(scope); no upstream history rewritten or gate waived",
+    "nonexecutedRequestedFilter": "CompiledProductionMetadataInspectorTests was absent and not counted in223; actual AccountSubjectHashProjectionTests supplied the original inspector18 separately using identical assemblies",
+    "historicalProtection": "../chain-3582-protection-handoff/backend-result.json at eec0a4e9fad3b9a6cc889489cead22facdcec2e8:112 controls including25 actual PostgreSQL; not added/relabelled to this241",
+    "ownership": {
+        "issues": 49,
+        "retained": 20,
+        "delegated": 29,
+        "subchains": 11,
+        "tracking": 8,
+        "accepted": 0
+    },
+    "nextReady": "Consume supplied canonical d262/0af durable dispatcher/lifecycle and integrate compatible shared transport/registration; no second dispatcher/store or denied kernel/lease QA",
+    "blockedExecutionInputs": "supplier-input-requirements.json",
+    "nativeOrProductQualified": false,
+    "contentWriteQueuePending": true,
+    "mergedPR": false,
+    "closedIssues": false,
+    "deployed": false
+}

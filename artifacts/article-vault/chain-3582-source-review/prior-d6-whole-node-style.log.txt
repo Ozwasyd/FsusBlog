@@ -1,0 +1,50 @@
+[frontend-style] tests/tools/data-scale-runtime-plan.test.mjs:8:1 eslint/import-x/order: There should be no empty line within import group
+[frontend-style] tests/tools/data-scale-runtime-plan.test.mjs:14:5 eslint/no-unused-vars: 'isForbiddenContainerName' is defined but never used.
+[frontend-style] tests/tools/data-scale-runtime-plan.test.mjs:15:5 eslint/no-unused-vars: 'validateDataScaleBackendConnection' is defined but never used.
+[frontend-style] tests/tools/data-scale-runtime-plan.test.mjs:17:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `data-scale-runtime-plan.test.mjs` to same directory as `../../tools/data-scale/runtime-plan.mjs` or consider making `../../tools/data-scale/runtime-plan.mjs` a package.
+[frontend-style] tests/tools/data-scale-runtime-plan.test.mjs:19:45 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `data-scale-runtime-plan.test.mjs` to same directory as `../../tools/test/verify-release-reliability-lifecycle-action.mjs` or consider making `../../tools/test/verify-release-reliability-lifecycle-action.mjs` a package.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:4:61 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `macos-vault-observer-source.test.mjs` to same directory as `../../tools/test/check-macos-vault-observer-source.mjs` or consider making `../../tools/test/check-macos-vault-observer-source.mjs` a package.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:8:76 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:17:44 eslint/@stylistic/comma-dangle: Unexpected trailing comma.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:18:4 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:19:103 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:25:95 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:26:69 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:32:74 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:33:98 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:40:86 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/macos-vault-observer-source.test.mjs:41:102 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/contracts/generate-locale-catalog.mjs:121:11 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tools/contracts/generate-locale-catalog.mjs:223:5 eslint/no-empty: Empty block statement.
+[frontend-style] tools/contracts/generate-locale-catalog.mjs:223:8 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tools/contracts/generate-locale-catalog.mjs:226:7 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tools/test-matrix/scheduler.mjs:22:1 eslint/parse-error: Unused eslint-disable directive (no problems were reported from 'import-x/no-relative-parent-imports').
+[frontend-style] tools/test-matrix/scheduler.mjs:26:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `scheduler.mjs` to same directory as `../test/evidence-location-contract.mjs` or consider making `../test/evidence-location-contract.mjs` a package.
+[frontend-style] tools/test-matrix/scheduler.mjs:28:1 eslint/import-x/order: `../test/current-run-evidence-locator.mjs` import should occur before import of `../test/evidence-location-contract.mjs`
+[frontend-style] tools/test/build-macos-vault-native.mjs:8:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/build-macos-vault-native.mjs:11:76 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/build-macos-vault-native.mjs:19:41 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/build-macos-vault-native.mjs:23:31 eslint/@stylistic/comma-dangle: Unexpected trailing comma.
+[frontend-style] tools/test/build-macos-vault-native.mjs:25:46 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:13:32 eslint/@stylistic/comma-dangle: Unexpected trailing comma.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:18:32 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:23:29 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:26:17 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:31:61 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:32:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:34:9 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:34:60 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:41:62 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:49:109 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:53:69 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:57:131 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:62:101 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:69:96 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:74:90 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:79:92 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:84:77 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:90:44 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:94:79 eslint/@stylistic/comma-dangle: Unexpected trailing comma.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:98:90 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:99:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/check-macos-vault-observer-source.mjs:104:41 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.

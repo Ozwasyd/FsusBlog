@@ -1,0 +1,51 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "config/development/document-lifecycle.json",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
+    ],
+    "outputs": [
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "e3a9e2f6a13c1c46dff1b6750e8c58b5e7d90176e324125dbed054b4c2bd229d"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "9e92fbb50bd1b808f4be06ede479fe22448f2336eb35fd45e60fa414d0eb8958"
+        },
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "b1dc935a3987352ab42a809030d95244203344d31681c0fd23a50e7ac7ce630b"
+        },
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "bb4497ce09b01d1fed8da16b02bf1516a55133754f9c5eaad6fe88b5efb09844"
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "9d5bd94eeccba62ab8a7f15b923d901d19770369f31d8b6d6b5156db3a5b456e"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "e7c48e5e25ae329f8d878da5606e7d1eedb448ee4c5b7c1833249484e4bf6334"
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "6c29caebce59df83ba57b788653afafe02bbd6bc0836067ff211926e7c8e2d75"
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "69e6de3ef53a0042a113a1c8da18e83bcd8015b1b6eaed1f4615df61661e2b7c"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "24ae5bc8ce726822c9e3a30b5ee6a53b102582d74eef0b6d06f0ca513287068e"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "7ecf4ec01e3703f7b28ae8d58d8444832a035c593c3a015e33ebe2a813f3bb03"
+        }
+    ]
+}

@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:3c5418c9c684ad1404f5be6ed4528a034b7fab57df767a91e47992a1a3e753e0",
+    "policyDigest": "sha256:70c88f712e57567852225c139841fb70a3abf532b099e857781d0a7480003842",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -403,6 +403,23 @@
             "producer": null
         },
         {
+            "path": "docs/architecture/article-property-value-boundary.md",
+            "title": "Article property value validation boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2118,
+                2322,
+                2323,
+                2324
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/architecture/article-revision-concurrency.md",
             "title": "Article revision concurrency",
             "kind": "markdown",
@@ -412,6 +429,83 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/local-first-decision.md",
+            "title": "Article Vault local-first decision record",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "backend",
+            "sourceOfTruth": false,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1871
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/prototype-evidence.md",
+            "title": "Article Vault prototype evidence and limits",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "backend",
+            "sourceOfTruth": false,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1871
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-1871/registration-proposal.json",
+            "title": "Registration Proposal",
+            "kind": "json",
+            "status": "historical",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1871
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-agent-control.md",
+            "title": "Article Vault agent control boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2113,
+                2114
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-dependencies.md",
+            "title": "Article Vault dependency coordinates",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1912,
+                2124,
+                2125,
+                2126,
+                2127,
+                2128,
+                2129
+            ],
             "producer": null
         },
         {
@@ -426,6 +520,21 @@
             "relatedIssues": [
                 2672,
                 2675
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-macos-watcher.md",
+            "title": "Article Vault macOS watcher boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2671,
+                2674
             ],
             "producer": null
         },

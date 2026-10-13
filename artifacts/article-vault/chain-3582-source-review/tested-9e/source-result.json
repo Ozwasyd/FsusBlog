@@ -1,0 +1,23 @@
+{
+    "candidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "endCandidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "headChangedDuringRun": false,
+    "startedAt": "2026-10-08T06:51:38.069998+00:00",
+    "endedAt": "2026-10-08T06:51:55.494846+00:00",
+    "command": [
+        "/workspace/FsusBlog/.tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/article-vault-conflict-contract.test.mjs",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+        "tests/tools/article-vault-conflict-terminal-ui.test.mjs",
+        "tests/tools/article-vault-conflict-terminal-plan.test.mjs",
+        "tests/tools/macos-vault-observer-source.test.mjs"
+    ],
+    "cwd": "/workspace/FsusBlog",
+    "exitCode": 0,
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "changedInputsChanged": false,
+    "scope": "Original source/compiled-metadata scanner and diagnostic proposal/presentation/macOS source refusal controls; no runtime/product/native acceptance."
+}

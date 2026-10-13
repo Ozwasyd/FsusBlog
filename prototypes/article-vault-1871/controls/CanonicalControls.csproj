@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <RestoreLockedMode>false</RestoreLockedMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ArticleVaultDecisionPrototype.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <Using Include="Xunit" />
+    <Compile Include="../../../tests/backend/Unit/ArticleVaultManifestContractTests.cs" Link="CanonicalControls/ArticleVaultManifestContractTests.cs" />
+    <Compile Include="../../../tests/backend/Unit/ArticleVaultSyncPlannerTests.cs" Link="CanonicalControls/ArticleVaultSyncPlannerTests.cs" />
+  </ItemGroup>
+</Project>

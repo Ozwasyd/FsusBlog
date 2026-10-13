@@ -1517,6 +1517,18 @@
             "value": 252,
             "goldenFamily": "theme-activation-response",
             "goldenOrder": 243
+        },
+        {
+            "name": "ArticleVaultRecoveryHistoryRequest",
+            "value": 253,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 244
+        },
+        {
+            "name": "ArticleVaultRecoveryHistoryResponse",
+            "value": 254,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 245
         }
     ],
     "goldenCatalog": {

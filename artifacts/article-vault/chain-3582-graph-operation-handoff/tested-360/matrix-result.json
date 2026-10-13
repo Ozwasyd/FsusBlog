@@ -1,0 +1,17 @@
+{
+    "candidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+    "endCandidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+    "headChangedDuringRun": false,
+    "startedAt": "2026-10-08T07:43:53.204952+00:00",
+    "endedAt": "2026-10-08T07:45:01.645064+00:00",
+    "command": [
+        "/workspace/FsusBlog/.tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/check-test-matrix.mjs"
+    ],
+    "cwd": "/workspace/FsusBlog",
+    "exitCode": 1,
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "changedInputsChanged": false,
+    "scope": "Original matrix acceptance; finite index and parser identity are external canonical owner gates."
+}

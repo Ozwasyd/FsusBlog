@@ -1,0 +1,61 @@
+{
+  "schema": "fsusblog.article-vault.retained-source-slice-review.v1",
+  "reviewSource": "d1e863a8060e7348e1f51314a4c5b29cba6febbc",
+  "readyUnconditionally": 0,
+  "candidates": [
+    {
+      "issue": 2117,
+      "criteria": [
+        4,
+        5,
+        7
+      ],
+      "sourceGap": "Existing paragraphSourceMerge produces per-side unsupported-node refs, but does not compare structural three-way changes/delete-vs-edit/move ambiguity for heading/list/table/fence. Per-side diagnostics and paragraph merge are already implemented and must not be duplicated.",
+      "apis": {
+        "fsusBlog": "d1e863a8060e7348e1f51314a4c5b29cba6febbc",
+        "fsusUi": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "publicExport": "@ozwasyd/element-plus/markdown-runtime",
+        "functions": [
+          "createMarkdownEditorProjection",
+          "createMarkdownSourceCoordinateMap",
+          "stabilizeMarkdownEditorProjection"
+        ],
+        "currentProbe": "projection-probe.log.gz (6 ordinary controls; not integration/acceptance)",
+        "observedLimit": "Explicit heading text edit receives new identity; old identity resolves deleted. Only unaffected identity stays stable. Never infer cross-revision edited-node alignment by ID."
+      },
+      "exclusiveNewPaths": [
+        "src/frontend/src/services/articleVault/structuredSourceConflictDiagnostics.ts",
+        "tests/frontend/unit/articleVault/structuredSourceConflictDiagnostics.test.ts"
+      ],
+      "firstAction": "Read the original private admitted-source/disposition boundaries. Parse all three supplied raw bytes with the actual public parser, map exact raw UTF16/UTF8 ranges and bind original digests/portable identity. Limit this helper to manual/rejected diagnostic refs. Use explicit edit/range evidence for changes; ambiguous alignment is refused, without text similarity or a second parser.",
+      "ordinaryFiniteControls": [
+        "heading/list/table/fence changed-node and range refs",
+        "same-node/range overlap",
+        "delete-versus-edit",
+        "move/rename ambiguity",
+        "malformed and parser/version drift",
+        "BOM/CRLF/emoji/raw bytes",
+        "secret full-text absence",
+        "tampered/missing three-way provenance"
+      ],
+      "notTransferred": [
+        "paragraphSourceMerge.ts",
+        "shared source admission and verified private transport",
+        "conflict disposition registry",
+        "automatic merge/candidate verifier",
+        "UI/Git/writer/recovery/metadata"
+      ],
+      "unpublishedEditsAtExclusivePaths": false,
+      "currentWriteClaimAtExclusivePaths": false,
+      "ownership": "#2117 remains root-3582; no tasks spawned or files reserved/transferred/implemented",
+      "prerequisiteState": {
+        "2116": "original source taxonomy exists; automatic admission and issue acceptance remain unsatisfied",
+        "1909": "tracking protocol not accepted; production/native/authority child evidence incomplete",
+        "2103": "closed original schemas available; not a blanket execution grant",
+        "2104": "closed original immutable planner available; Blocked remains Blocked"
+      },
+      "releaseStatus": "One independent source review candidate, not an unconditionally ready owned issue. Parent/root must review this exact non-admitting helper boundary before creating an implementation task; original downstream gates remain."
+    }
+  ],
+  "noAdditionalReadySlices": "Scalar and typed-property merges/finite codec bridges already exist; current property-read integration is actively owned and now implemented by this root. Slug/historical rights/lifecycle/full V1 and base/local provenance are missing original facts, not new independent mapper work. Seven qualifications remain prerequisite-blocked; eight tracking issues are accounting. Existing workers/prototype1871/package3663/file1975, held audits and RepositoryRoot are excluded."
+}

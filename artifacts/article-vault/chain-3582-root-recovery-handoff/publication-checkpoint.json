@@ -1,0 +1,44 @@
+{
+    "recordedAt": "2026-10-08T09:04:05.235900+00:00",
+    "checkedPublishedHead": "cf2d00384d04b08d9f4f1af80243974bfdfea067",
+    "frozenBackendSource": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+    "frozenNativeSource": "5e7fd98bdefc8cbd5c0a405accc383da917dfa3a",
+    "latestFetchedOriginMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "testedHistoricalMaster": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "masterAdvance": "One unrelated distribution/presentation commit;12 paths. No source/test result promoted to this master.",
+    "draft": true,
+    "prBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "prContract": {
+        "command": [
+            ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+            "tools/governance/check-change-contract.mjs",
+            "--github-event",
+            ".tmp/chain-3582-expanded/current-4ba/pr-event-final-cf2.json"
+        ],
+        "exitCode": 0,
+        "log": "[change-contract] ok pull-request files=330"
+    },
+    "mergePreview": {
+        "command": [
+            "git",
+            "merge-tree",
+            "--write-tree",
+            "HEAD",
+            "origin/master"
+        ],
+        "exitCode": 0,
+        "resultTree": "bf3d1fa2d3091b041e21ddd4d2c2a2d9bebf3c43",
+        "doesNotIncorporateMaster": true
+    },
+    "evidenceCommitRange": {
+        "command": [
+            ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+            "tools/governance/check-change-contract.mjs",
+            "--range",
+            "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc..cf2d00384d04b08d9f4f1af80243974bfdfea067"
+        ],
+        "exitCode": 0
+    },
+    "sourceHandoffPreserved": true,
+    "newEvidenceCommitMetadataRepair": "Only the just-published own evidence commit9086 was replaced bycf2 under exact force-with-lease; original source and canonical prerequisite commit identities remain intact. No prior immutable prerequisite history repaired."
+}

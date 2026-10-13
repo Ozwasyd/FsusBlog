@@ -1,0 +1,24 @@
+{
+    "candidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "endCandidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "headChangedDuringRun": false,
+    "startedAt": "2026-10-08T06:55:31.829854+00:00",
+    "endedAt": "2026-10-08T06:55:34.129685+00:00",
+    "command": [
+        "/workspace/FsusBlog/.tmp/chain-3582/dotnet/dotnet",
+        "test",
+        "tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj",
+        "-c",
+        "Release",
+        "-p:RestoreLockedMode=true",
+        "--filter",
+        "Category=MacArticleVaultRawFactContract|Category=MacArticleVaultWatcher",
+        "--logger",
+        "trx;LogFileName=mac-current-original.trx",
+        "--results-directory",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/frozen-9e/results"
+    ],
+    "exitCode": 1,
+    "sourceInputsStable": true,
+    "scope": "Actual unchanged original categories; Linux can execute managed guards but cannot establish Darwin SDK/C compilation or APFS native positive acceptance."
+}

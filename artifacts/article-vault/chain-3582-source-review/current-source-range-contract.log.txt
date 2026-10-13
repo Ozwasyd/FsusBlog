@@ -1,0 +1,46 @@
+[change-contract] 62572ec34cce0832877e35c9d194acb821cded19: commit message must contain a Refs: #1234 footer
+[change-contract] 84555c0e3e3a620006b9df8dccd60e8dffdf4ba3: commit message must contain a Refs: #1234 footer
+[change-contract] d24930ebcaf9e4f3a6b93ff7b6716fba94b27b00: commit message must contain a Refs: #1234 footer
+[change-contract] a1fe92168dbcafab522b871813e1c91312d1e0b9: commit message must contain a Refs: #1234 footer
+[change-contract] f541fe48a5ef823b482460ede14634314fd5b938: commit message must contain a Refs: #1234 footer
+[change-contract] d0a8f9debc61787a68faa474fcd923b84d504928: commit message must contain a Refs: #1234 footer
+[change-contract] 44328900fcc889c63ba18d8939957a558e710071: commit message must contain a Refs: #1234 footer
+[change-contract] 004e3327c78db56e519ca687a4d331f8c590d7be: scope must be one of: admin, aeds, api, auth, backend, build, cache, ci, cmake, contracts, core, cpp, csharp, database, deployment, docs, frontend, governance, json, markdown, operations, performance, privacy, public, release, security, shared, shell, style, test, tooling, wasm, yaml, zk
+[change-contract] 004e3327c78db56e519ca687a4d331f8c590d7be: commit message must contain a Refs: #1234 footer
+[change-contract] 66ffcf5deefb0d9cad9b6e3daa69f6fb10fdc874: commit message must contain a Refs: #1234 footer
+[change-contract] 79230f13124de81df997fb0e5254a228acc030c9: commit message must contain a Refs: #1234 footer
+[change-contract] 6d7bfa18c217a9e17f78a2011194b061741d09d3: commit message must contain a Refs: #1234 footer
+[change-contract] 13bf4eed1f15bc4a10ebb2f0b2e54ebbe06590b7: commit message must contain a Refs: #1234 footer
+[change-contract] 91a86e414768b8d294f8933b349d6f1b8c497cb6: commit message must contain a Refs: #1234 footer
+[change-contract] 6aad7ff3a7cc76b1eb45dd641f920273707c8279: commit message must contain a Refs: #1234 footer
+[change-contract] 7ef90f5a71643f265eeabab93a52a59bd0e11c1d: commit message must contain a Refs: #1234 footer
+[change-contract] 0bc690eb8a3f70738477320ccbd0816935dfed52: commit message must contain a Refs: #1234 footer
+[change-contract] 50068eb43939be73e72054f8d7a662184d2497a1: commit message must contain a Refs: #1234 footer
+[change-contract] 2457786407c693551d7f12f07a08f17ecb8d7272: commit message must contain a Refs: #1234 footer
+[change-contract] 7138ff1c5ca2cc68b4e03fac86a3841654bc379d: commit message must contain a Refs: #1234 footer
+[change-contract] 919d6de00e48ed71d008d55156ac149009ff4680: commit message must contain a Refs: #1234 footer
+[change-contract] 58835795bf4121e07d313dc3ddc38b397eb778ea: commit message must contain a Refs: #1234 footer
+[change-contract] 34c3b97e61b48479bd30382dce6a5b1d6cad8ce3: commit message must contain a Refs: #1234 footer
+[change-contract] 19fdfba64ad47a8a5f8de4901752b520700f27c6: commit message must contain a Refs: #1234 footer
+[change-contract] 36afbbd145bda49354ddc8599430a57763c1421a: commit message must contain a Refs: #1234 footer
+[change-contract] 255e0b8060bc8e32debc40754dd9654308440373: commit message must contain a Refs: #1234 footer
+[change-contract] e6cc3be21a0314db2f6c6bd600638ddaca87d360: commit message must contain a Refs: #1234 footer
+[change-contract] d7dea8197dd2bbb8f8403314a507a8d1505cc4b8: commit message must contain a Refs: #1234 footer
+[change-contract] d6cc42a7b37e4cca2206afde3301f519257f10c3: commit message must contain a Refs: #1234 footer
+[change-contract] 4f8e96ea318aa187ab1b7da1ddc689e2f1a4ada0: commit message must contain a Refs: #1234 footer
+[change-contract] c9fa49626399feae7318adc1aa70636ead57c884: commit message must contain a Refs: #1234 footer
+[change-contract] d20d1b858faca00c85b10c5d3468544a27fc0602: commit message must contain a Refs: #1234 footer
+[change-contract] ea7802ad60034765609eb2dddcf923977c7f2c1c: commit message must contain a Refs: #1234 footer
+[change-contract] d8c1f69a35224fbaf82002df6d0dcd95ad4deb0b: commit message must contain a Refs: #1234 footer
+[change-contract] e087cfe9ef70daca901d659ca9a1a236853de498: commit message must contain a Refs: #1234 footer
+[change-contract] 6de939b13d83dd9608f94fd4f40bed762bbf0ded: commit message must contain a Refs: #1234 footer
+[change-contract] 9cc1e2e91e51cf0b38a7045efb6940da56cd4643: commit message must contain a Refs: #1234 footer
+[change-contract] 9cc1e2e91e51cf0b38a7045efb6940da56cd4643: style commit requires Change-Class: format-only or naming-only
+[change-contract] c09fb8d1af056365a32925277f9669c0a019b82c: commit message must contain a Refs: #1234 footer
+[change-contract] c14dc5e040ebedd0800e6a11e3d4325e9c93b30d: commit message must contain a Refs: #1234 footer
+[change-contract] 4518c6c9cda94e22c7d3b39f5f8bb2dc28c78163: commit message must contain a Refs: #1234 footer
+[change-contract] ef26c4a5a2e465c65f4f35d3e4761580442b17bf: commit message must contain a Refs: #1234 footer
+[change-contract] d6a076905ba82f5a1359b1363ee049ad66a66e20: scope must be one of: admin, aeds, api, auth, backend, build, cache, ci, cmake, contracts, core, cpp, csharp, database, deployment, docs, frontend, governance, json, markdown, operations, performance, privacy, public, release, security, shared, shell, style, test, tooling, wasm, yaml, zk
+[change-contract] d6a076905ba82f5a1359b1363ee049ad66a66e20: commit message must contain a Refs: #1234 footer
+[change-contract] 9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b: scope must be one of: admin, aeds, api, auth, backend, build, cache, ci, cmake, contracts, core, cpp, csharp, database, deployment, docs, frontend, governance, json, markdown, operations, performance, privacy, public, release, security, shared, shell, style, test, tooling, wasm, yaml, zk
+[change-contract] 9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b: commit message must contain a Refs: #1234 footer

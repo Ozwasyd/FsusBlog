@@ -1,0 +1,128 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+string[] oldNames = ["fileFlags", "directoryFlags", "requiredMask", "Mask", "Links", "Uid", "Gid", "Mode", "Inode", "Size", "ChangedSeconds", "ChangedNanoseconds", "ModifiedSeconds", "ModifiedNanoseconds", "DeviceMajor", "DeviceMinor"];
+string[] newNames = ["FileFlags", "DirectoryFlags", "RequiredMask", "_mask", "_links", "_uid", "_gid", "_mode", "_inode", "_size", "_changedSeconds", "_changedNanoseconds", "_modifiedSeconds", "_modifiedNanoseconds", "_deviceMajor", "_deviceMinor"];
+string source = File.ReadAllText(args[1]);
+var tree = CSharpSyntaxTree.ParseText(source);
+var globals = CSharpSyntaxTree.ParseText("global using System; global using System.IO; global using System.Threading; global using System.Collections.Generic; global using System.Linq;");
+var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator).Select(p => MetadataReference.CreateFromFile(p));
+var compilation = CSharpCompilation.Create("MechanicalOnly", [tree, globals], refs, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+if (errors.Length != 0) throw new Exception(string.Join("\n", errors.Select(e => e.ToString())));
+var model = compilation.GetSemanticModel(tree);
+var root = tree.GetRoot();
+object NativeShape(SemanticModel m, SyntaxNode n) => new
+{
+    Imports = n.DescendantNodes().OfType<MethodDeclarationSyntax>().Where(x => x.Modifiers.Any(SyntaxKind.ExternKeyword)).Select(x => new { Name = x.Identifier.ValueText, Return = x.ReturnType.ToString(), Parameters = x.ParameterList.ToString(), Attributes = x.AttributeLists.ToString() }).ToArray(),
+    Layout = n.DescendantNodes().OfType<StructDeclarationSyntax>().Single(x => x.Identifier.ValueText == "NativeFileIdentity").AttributeLists.ToString(),
+    Fields = n.DescendantNodes().OfType<StructDeclarationSyntax>().Single(x => x.Identifier.ValueText == "NativeFileIdentity").Members.OfType<FieldDeclarationSyntax>().Select(x => new { Type = x.Declaration.Type.ToString(), Attributes = x.AttributeLists.ToString(), Modifiers = x.Modifiers.ToString() }).ToArray(),
+    VisibleMembers = n.DescendantNodes().Where(x => x is MethodDeclarationSyntax or PropertyDeclarationSyntax).Select(x => m.GetDeclaredSymbol(x)).Where(s => s?.DeclaredAccessibility == Accessibility.Public).Select(s => s!.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)).Order().ToArray(),
+    LiteralTokens = n.DescendantTokens().Where(t => t.IsKind(SyntaxKind.StringLiteralToken) || t.IsKind(SyntaxKind.NumericLiteralToken) || t.IsKind(SyntaxKind.CharacterLiteralToken)).Select(t => t.Text).ToArray()
+};
+var beforeShape = JsonSerializer.Serialize(NativeShape(model, root));
+if (args[0] == "inspect")
+{
+    Console.WriteLine(JsonSerializer.Serialize(new
+    {
+        CompilerErrors = 0,
+        SourceSha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(source))),
+        NativeShape = JsonSerializer.Deserialize<JsonElement>(beforeShape),
+        CandidateSymbols = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Select(n => model.GetDeclaredSymbol(n)).Where(s => s is ILocalSymbol { IsConst: true } || s is IFieldSymbol { ContainingType.Name: "NativeFileIdentity" }).Select(s => new { s!.Name, Kind = s.Kind.ToString(), Access = s.DeclaredAccessibility.ToString(), Owner = s.ContainingSymbol.ToDisplayString() }).ToArray()
+    }, new JsonSerializerOptions { WriteIndented = true }));
+    return;
+}
+if (args[0] == "rename")
+{
+    var map = new Dictionary<ISymbol, string>(SymbolEqualityComparer.Default);
+    foreach (var n in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+    {
+        var s = model.GetDeclaredSymbol(n);
+        int i = Array.IndexOf(oldNames, n.Identifier.ValueText);
+        if (i < 0)
+            continue;
+        if (i < 3 && s is not ILocalSymbol { IsConst: true })
+            throw new Exception("constant binding mismatch");
+        if (i >= 3 && s is not IFieldSymbol { ContainingType.Name: "NativeFileIdentity", DeclaredAccessibility: Accessibility.Internal })
+            throw new Exception("field binding mismatch");
+        if (i >= 3 && s.ContainingType.DeclaredAccessibility != Accessibility.Private)
+            throw new Exception("public field renaming forbidden");
+        map.Add(s!, newNames[i]);
+    }
+    if (map.Count != 16)
+        throw new Exception("expected exact16 symbols");
+    var rewriter = new BoundRename(model, map);
+    var renamed = rewriter.Visit(root)!;
+    File.WriteAllText(args[2], renamed.ToFullString());
+    var afterTree = CSharpSyntaxTree.ParseText(renamed.ToFullString());
+    var afterCompilation = compilation.ReplaceSyntaxTree(tree, afterTree);
+    var afterErrors = afterCompilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+    if (afterErrors.Length != 0)
+        throw new Exception("renamed source does not compile");
+    var afterShape = JsonSerializer.Serialize(NativeShape(afterCompilation.GetSemanticModel(afterTree), afterTree.GetRoot()));
+    if (beforeShape != afterShape)
+        throw new Exception("native or public contract changed");
+    var oldTokens = root.DescendantTokens().ToArray();
+    var newTokens = afterTree.GetRoot().DescendantTokens().ToArray();
+    if (oldTokens.Length != newTokens.Length)
+        throw new Exception("token count changed");
+    var changed = new List<object>();
+    for (int i = 0; i < oldTokens.Length; i++)
+    {
+        if (oldTokens[i].RawKind != newTokens[i].RawKind)
+            throw new Exception("token kind changed");
+        if (oldTokens[i].ValueText != newTokens[i].ValueText)
+        {
+            int at = Array.IndexOf(oldNames, oldTokens[i].ValueText);
+            if (at < 0 || newTokens[i].ValueText != newNames[at] || !rewriter.Locations.Contains(oldTokens[i].SpanStart))
+                throw new Exception("non-bound token changed");
+            changed.Add(new
+            {
+                Index = i,
+                Before = oldTokens[i].ValueText,
+                After = newTokens[i].ValueText
+            });
+        }
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new
+    {
+        Symbols = map.Select(e => new { Before = e.Key.Name, After = e.Value, Kind = e.Key.Kind.ToString(), Owner = e.Key.ContainingSymbol.ToDisplayString() }).ToArray(),
+        ChangedTokens = changed,
+        CompilerErrorsBefore = 0,
+        CompilerErrorsAfter = 0,
+        NativeAndPublicShapeUnchanged = true,
+        NativeShape = JsonSerializer.Deserialize<JsonElement>(beforeShape),
+        NoNativeMethodInvoked = true
+    }, new JsonSerializerOptions { WriteIndented = true }));
+    return;
+}
+throw new Exception("unknown mode");
+sealed class BoundRename(SemanticModel model, Dictionary<ISymbol, string> map) : CSharpSyntaxRewriter
+{
+    public HashSet<int> Locations { get; } = [];
+    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+    {
+        var s = model.GetSymbolInfo(node).Symbol;
+        if (s is not null && map.TryGetValue(s, out var name))
+        {
+            Locations.Add(node.Identifier.SpanStart);
+            return node.WithIdentifier(SyntaxFactory.Identifier(node.Identifier.LeadingTrivia, name, node.Identifier.TrailingTrivia));
+        }
+        return base.VisitIdentifierName(node);
+    }
+    public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
+    {
+        var s = model.GetDeclaredSymbol(node);
+        if (s is not null && map.TryGetValue(s, out var name))
+        {
+            Locations.Add(node.Identifier.SpanStart);
+            return ((VariableDeclaratorSyntax)base.VisitVariableDeclarator(node)!).WithIdentifier(SyntaxFactory.Identifier(node.Identifier.LeadingTrivia, name, node.Identifier.TrailingTrivia));
+        }
+        return base.VisitVariableDeclarator(node);
+    }
+}

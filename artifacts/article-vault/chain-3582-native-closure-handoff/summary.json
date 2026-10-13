@@ -1,0 +1,60 @@
+{
+    "productionSource": "e1d9c841d1ccdf5e4905676c15ba5f177b731c07",
+    "publishedMetadataHead": "5361596ef644116ff99157bf79b966c83ce5c19a",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "latestFetchedConsumedMaster": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "finalRuns": {
+        "backend": 251,
+        "pureLeaseAndDispatcher": 38,
+        "realPostgres": 2,
+        "distinctDotnetTotal": 291,
+        "failed": 0,
+        "skipped": 0,
+        "scannerAndNativeStatic": 24
+    },
+    "initialCombinedRun": {
+        "passed": 250,
+        "failed": 1,
+        "failure": "original cached metadata 2x microbenchmark: uncached11.165ms/cached13.575ms",
+        "isolatedSameAssemblyOriginalInspector18": 0,
+        "unchangedComplete251Retry": 0,
+        "sourceOrThresholdModified": false,
+        "negativeEvidence": "backend-initial-failed-result.json"
+    },
+    "checks": {
+        "canonicalSourceStyle7": 0,
+        "unchangedRootStyle3": 0,
+        "docs379": 0,
+        "authoritativeDocs11": 0,
+        "ownSourceCommitRange": 0,
+        "preparedPr642": 0,
+        "remotePrMetadata": 1,
+        "matrixStructure": 1
+    },
+    "canonicalSourceClosure": "22 exact files;20 new/updated and2 already identical. The partial-consumption missing lease APIs are resolved with the already supplied compatible sole-ownerc84 successor, not a missing upstream API.",
+    "nativeQualified": false,
+    "productQualified": false,
+    "firstExecutionQualified": false,
+    "rootVerifiedDecisionExecutableCandidateStillUnfinished": true,
+    "supplierRequirements": "../chain-3582-current-source-handoff/supplier-input-requirements.json",
+    "finiteWriterAvailable": "8472af99b53d9e63584c0d6cda0bd0bc69859f66 fetched/inspected; actual finite ZIP bytes, authority refuses. See previous supplier capability update. No fabricated frozen inputs or duplicate writer.",
+    "retained": 20,
+    "delegated": 29,
+    "subchains": 11,
+    "tracking": 8,
+    "allIssues": 49,
+    "accepted": 0,
+    "githubContentApiWriteHeld": true,
+    "mergedPR": false,
+    "closedIssue": false,
+    "deployed": false,
+    "mechanicalOwnerCoordination": {
+        "noClaimNoUnpublishedDiff": [
+            "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+            "src/shared/Algorithms/ExactDecimalLiteral.cs",
+            "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs"
+        ],
+        "noAuditStartedForCoordinationQuestion": true
+    }
+}

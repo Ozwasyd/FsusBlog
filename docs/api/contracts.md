@@ -803,6 +803,52 @@ server observations 及 caller direction/cancel policy 重新验证 membership�
 permission、schema、expiry 和 digest；drift 必须拒绝，不能自动 rebase。此 contract 不执行 server writer、DB、filesystem、
 Vault materialization、watcher 或 conflict resolution。
 
+### Article Vault conflict classifications
+
+`ArticleVaultConflictRegistry` 在既有 `src/shared/Contracts/ArticleVault/` owner
+中固定十二种 closed conflict types，以及每类唯一 disposition、owner、required fact、
+allowed actions、authority boundary 与参数化 proof-test identity。原 `ArticleVaultSyncPlan`
+V1、planner、writer 和同步决定不变；此合同没有可执行 decision、merge result 或 writer command。
+
+`ArticleVaultConflictEvidence` 使用独立版本 `fsusblog.article-vault.conflict-evidence.v1`，
+并使用原 manifest codec 的 closed JSON、kebab-case enums 和 canonical SHA-256。它绑定原 plan、
+group、operation、site/vault/device/portable/server identity、manifest/observation digest，以及
+完整 base/local/server coordinates。Items 按 closed type 排序且不重复；generic UI status 不能
+代替这些具体 items。Registry 内容、schema/version 或任一绑定变化都会使旧证据失效。
+
+`ValidateStructure` 重算 typed source ranges/semantic-node intersections，或 stable metadata
+field/entity 的三方 value digests，拒绝 overlap 被标成 disjoint、未知/重复 field/entity、
+未封存 coordinates、缺失 base，以及 action/disposition/registry drift。Lifecycle、permission
+和 dependency conflict 由三方 coordinates 的实际差异重算；bare fact digest 不能证明冲突。
+Rename 和 Git 需要尚未存在的 canonical current readers，目前分别明确拒绝为
+`article_vault_conflict_identity_observer_missing` 和 `article_vault_conflict_git_observer_missing`。
+Create-create 在 registry 中为 rejected；共同 base 缺失不能退化为 generic manual acceptance。
+旧 schema 本身无效时，沿用原 validator 的 precise fail-closed error，而不把无效 payload
+包装成可继续执行的 schema conflict。
+
+`VerifyCurrentBinding` 先调用既有 `ArticleVaultSyncPlanVerifier.VerifyCurrent`，再检查原 item 的
+exact operation/coordinate/reference identity，以及调用者显式提供的 current diagnostics。
+**该方法仅证明绑定和 typed geometry，不能证明 parser 与 bytes 的对应关系，也不能证明 metadata
+fields 来自真实 stable option/entity reader。** Current diagnostics 必须由独立 current reader
+提供；复制 evidence 自身不能构成独立资格证据。
+
+Automatic registry disposition 只声明该类未来允许的证明路径。当前不存在 #2117 byte/parser reader
+和 #2118 stable-field reader；`ValidateAutomaticEligibility` 明确返回对应 missing-reader reason，
+不会把任意合法 parser/field-registry digest、相同的 caller-supplied facts 或 source-only unit tests
+升级为可执行 automatic candidate。之后应在这些 canonical owner 的实现中接入真实 reader 与独立
+recomputation，保持本门禁与原 sync planner，而不是增加第二 planner 或 verified Boolean bypass。
+
+Source diagnostics 只携带 bounded base-byte ranges、node identity、parser/algorithm version/digests；
+metadata diagnostics 只携带 typed editable fields、stable entity IDs 和 value digests。无正文、AI score、
+mtime/size winner、global accept-local/server、shell/Git command 或 arbitrary executable payload。
+服务端 lifecycle/rights/publication/owner/permission 不属于 editable fields，不能通过本地 YAML 或
+allowed action 覆盖。所有 actions 是 future per-item plan 的输入边界，不会被此 verifier 执行。
+
+原 backend `ArticleVaultConflictTests` 覆盖 registry completeness、specific authority protection、
+range/node overlap、closed codec、unknown fields/enums、cross-identity/coordinate drift、missing base、
+current-fact/schema drift 和 source-only admission denial。这些是原项目 unit controls；实际 parser、
+provider、filesystem/Git、browser、recovery、terminal receipt 与完整 #1909 admission 仍未获得验收。
+
 ### Article embed provider contract
 
 `src/shared/Contracts/ArticleEmbeds/` 是文章嵌入 target、provider request/result 与 dependency
@@ -2891,3 +2937,298 @@ render: key-value-table
 | UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
 | VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
+
+### Article Vault scalar metadata candidate (source-stage subset)
+
+`ArticleVaultScalarMetadataMerge` reads the original closed V1 `ArticleVaultMetadataManifest` bytes for the base, local and server snapshots. The existing planner verifier first checks the original current plan inputs. The reader checks the exact operation/group identities, complete three-coordinate binding and each decoded metadata manifest content digest; unknown fields, malformed bytes and schema drift fail closed through the original codec.
+
+The source-stage scalar registry consists only of the existing closed `VaultConflictMetadataField.Title`, `Summary` and `Slug` enum members, tied by its digest to the existing metadata schema/version. A candidate records the original binding, this registry digest, the original V1 metadata model, exact applied scalar fields, recomputed typed field digests and a canonical content digest. This is an in-memory candidate and computation API: no new externally serialized candidate protocol, codec or V1 field is introduced.
+
+Different scalar fields and independently proven equivalent/no-op changes yield a candidate. Different local/server values on one field return `MetadataOverlap` with exact conflicting fields and three-value digests, without selecting a winner. The independent verifier rereads original bytes and recomputes effects and provenance; a resealed caller-supplied value, field list or facts cannot grant acceptance. Lifecycle, permission and dependency coordinate drift is rejected. The closed metadata codec rejects added lifecycle/publication/owner/category/tag/property-option fields rather than allowing local YAML to override authority. Slug effects do not alter portable/server identity or path projection.
+
+The V1 contract only supplies opaque `TaxonomySha256` and `PropertiesSha256`; it has no typed category/tag/property values, stable entity/option IDs or portable field-schema mapping. Any change to either opaque digest is rejected with `article_vault_scalar_metadata_taxonomy_mapping_missing` or `article_vault_scalar_metadata_property_mapping_missing`. This subset does not qualify the complete #2118 stable-field registry, taxonomy/property merge or server rights/publication/owner authorization. Those require the actual producer/reader protocol to expose the same stable identities, with schema/version and current authority binding; authoring labels or backend-only IDs are not substitute mappings.
+
+The canonical package owner now exposes `ArticlePackageIdentity.TryCreate` and the backend zero-write `ArticlePropertyValueValidator.ValidateInputsAsync`, `BindSnapshot` and `ValidateSnapshotCandidate` APIs. Their explicit package identities, local definition/option GUIDs and genuinely observed server coordinates remain separate domains. The scalar reader does not infer a portable mapping by prefixing a local GUID or equate a property snapshot digest with an opaque V1 Vault digest. Complete typed merge still requires the canonical package producer/reader mapping and current article authority.
+
+The existing #2116 automatic eligibility gate remains fail closed. A scalar candidate is not a resolution plan, executor command, publication request, qualification receipt or permission to write metadata. This API performs no Git, filesystem, network, server writer or local materialization operation. Runtime/provider integration, static-governance registration and complete issue acceptance remain separate gates.
+
+### Article Vault typed property proposal (source-stage subset)
+
+`ArticleVaultPropertyMetadataMerge` is a pure backend property proposal builder. It consumes the original `ArticleVaultSourceAdmissionInput` with all three actual source-byte snapshots, all three closed V1 metadata-byte snapshots, and canonical typed `ArticlePropertyValueSnapshot` candidates with explicit `ArticlePackagePropertyMappingBindings`. It reruns original sync plan/current observation verification and exact site/vault/device/article/group/operation binding. Each metadata `PropertiesSha256` must equal its actual typed snapshot digest. Typed site and numeric article identity must match the original Vault binding, and typed `ArticleRevisionId` must match that side's Vault `ServerRevision`. The actual backend observation owner uses `ArticleUpdateState.CurrentRevisionId` for that Vault field. Draft and publication context have no original Vault representation and fail closed as `snapshot_context_mapping_missing`.
+
+The builder calls the existing package mapper; it generates no portable identity, property schema or source GUID mapping. All three definition lists must match, with exact source definition identity, schema revision, definition digest and owner scope. Cross-snapshot option aliases/collisions fail closed. Presence (missing/null/present), false, zero and normalized `DefaultApplied` provenance remain in the immutable original mappings. Different scalar changes to the same property produce an explicit portable-definition overlap. Equivalent edits and one-side changes use closed provenance choices. Multi-select options support bounded, definition-scoped three-way set deltas only when schema/type/default coordinates agree; the result carries actual portable option identities, with no new stored snapshot or revision.
+
+The candidate verifier independently rereads source/metadata inputs, remaps the typed inputs, validates all three claimed mapping candidates and recomputes every choice and the proposal digest. Copied/resealed digests cannot replace an actual payload, mapping or provenance comparison. The candidate always exposes `RequiresCurrentDefinitionAndRightsAdmission = true`, and `RequireExecutionAdmission` always refuses `current_definition_rights_and_persisted_reader_missing` after these checks. No scalar automatic conflict gate, original plan, permission, lifecycle, publication, writer or filesystem authority is increased. The proposal contains actual typed property payloads and is not a content-free logging receipt.
+
+Current runtime limitation: `ArticleService.ArticleVaultObservation.BuildCurrentCoordinate` hashes title/summary/cover/category/tag as its metadata boundary, rather than producing the V1 metadata manifest with a persisted typed property snapshot digest. There is no authorized persisted snapshot/definition/right reader bridge in this computation. Self-sealed fixtures demonstrate compiled contract behavior only; runtime/product admission and #2118 full acceptance remain outstanding. Taxonomy/entity mapping is separate and an actual taxonomy digest change is refused.
+
+### Article Vault structural path analysis
+
+`ArticleVaultPathStructureValidator` analyzes exact manifest-bound relative paths and bounded path inventories without file contents, writes, watcher events or IPC. It rejects rooted/drive/UNC/traversal/encoded separators, nonportable device names, invalid Unicode, unknown artifacts, control aliases and ambiguous case/Unicode projections. Identity remains the manifest portable identity. The consumer-supplied expected scope, requested path and observations must match an independently recomputed structural analysis digest.
+
+`VaultPathStructuralAnalysis.RequiresNativeAdmission` is always true. A supplied root digest or comparison policy is structural input, not native filesystem evidence. Native root containment, realpath/link/mount/permission checks, `.fsus` ownership and platform semantics must be established by the original native verifier and rechecked when consuming a path. Windows/macOS admission and full cross-platform qualification are not supplied by this pure API.
+
+### Article Vault source admission and paragraph computation (staged subset)
+
+`ArticleVaultAdmittedSource.AdmitCurrent` verifies the original current sync plan inputs, exact operation/group and full three-coordinate `VaultConflictBinding`, and actual base/local/server source bytes with the existing `ValidateSourceBytes` owner. Missing snapshots, source digest/length/BOM/newline/trailing-space/final-newline mismatch, invalid UTF8, stale coordinate or current-plan drift fail closed. Successful admission creates a sealed process-owned proof with a private constructor and private byte copies; exported arrays are fresh copies. This is not a serializable DTO or caller-supplied verified flag. The proof only records admission at that current verification context: it does not unblock the original sync plan, qualify a parser, grant future-current status or authorize execution.
+
+The nonvisual frontend `services/articleVault/paragraphSourceMerge.ts` directly consumes the actual public FsusUI Markdown runtime projection, source-coordinate map and stable identity APIs. Its computation inputs are three actual byte snapshots. It reprojects raw UTF8 without normalizing, derives hunks in the same base paragraph/node and preserves untouched raw bytes. Candidate provenance binds the actual three byte digests, parser/version, algorithm/policy and exact base-node hunks. The independent verifier rereads the three actual projections and recomputes each original paragraph decision, hunk, candidate bytes and digest without calling the candidate builder.
+
+The independent candidate verifier reads only the exact own data fields and owns byte/hunk copies. Unknown, hidden, symbol, inherited and accessor-bearing candidate/hunk fields fail closed without invoking getters; the policy digest changes so earlier candidates cannot retain acceptance. Same-node manual conflicts expose the exact base-node byte range, both base-relative hunk ranges and insert digests, with three-source/parser/policy provenance. Rejected structural or malformed sources expose only the actual public parser node kind/status/identity and UTF16/UTF8 ranges plus diagnostic references. They contain no raw source or parser messages; frontmatter and HTML are not assigned private invented parser kinds.
+
+This initial adapter only computes eligible paragraph changes. Same base semantic node is manual even when changed byte ranges are disjoint. Unsupported/nonparagraph/malformed projection, paragraph count or delimiter change, deletion/move ambiguity, raw HTML boundary characters, BOM change and invalid UTF8 are rejected. The HTML restriction is a conservative eligibility rule, not an alternate parser: the actual public projection currently reports raw HTML as paragraph. Frontmatter, headings, lists, tables, code fences, links, anchors and embeds remain outside this initial automatic subset. No trim/format/normalization, similarity choice, AI merge, mtime/length winner, generic markers, filesystem/Git/storage operation or writer is performed.
+
+The frontend computation deliberately has no plan DTO or coordinate-admission result. There is currently no Article Vault AEDS/frontend consumer that transfers the actual Shared process-owned admission to this computation and returns the candidate for current canonical verification. That transport/candidate admission seam must be implemented through the real existing AEDS/shared owners; an asserted frontend verified flag or copied TS plan model is not a substitute. The #2116 automatic gate remains closed, and neither a process proof nor an unqualified frontend computation grants a resolution or executor capability. Full #2117 acceptance requires that seam, original compiled/frontend positive and negative controls and complete required syntax-boundary semantics; this staged subset is not full issue acceptance.
+
+### Article Vault bounded product review sources
+
+The unmounted `VaultConflictList` and `VaultResolutionStatus` compositions consume the original conflict schema and exact supplied plan, resolution and checkpoint references. They preserve input ordering and bounded disclosure, and emit scoped review intents. The privacy, plan, dependency, lease, progress and recovery compositions under `components/admin/article/vault` consume the same canonical evidence domains with actual public FsusUI controls. Privacy acknowledgements are review intent; they establish no connection or permission. Execute/resume remain unavailable where the real current command port is absent. These components do not establish authenticated current transport, change Article Write navigation, write content or infer a successful sync. Original source and Vue controls are diagnostic evidence; current rendered production flow and independent UX acceptance remain required.
+
+## Portable article-package foundation
+
+The shared `Contracts/ArticlePackages` owner supplies the foundation used by the
+single article-package schema required by #2398 and #2408. This increment exposes
+portable identities, a bounded canonical entry inventory, raw UTF-8 byte
+metadata, and a finite checksum component. It does not yet define or validate the
+complete manifest, property snapshots, version migrations, or canonical
+syntax/dependency projections.
+
+Article identities follow the existing article-embed portable identity codec.
+Asset, definition, and option identities are explicit typed portable references;
+source database coordinates remain separate. No identity is inferred from a
+title, slug, URL, filename, or array position. The canonical inventory admits only
+manifest/checksum entries and typed article/asset paths. Unknown paths, aliases,
+duplicates, nonregular entries, and exceeded count/byte budgets fail closed.
+Inventory validation consumes descriptors only; callers must independently prove
+the descriptors against real archive entries. It does not read or extract ZIPs.
+
+`ArticlePackageSourceBytes` validates strict UTF-8 and hashes the original bytes.
+Its metadata includes the original byte length, lowercase SHA-256, leading BOM,
+LF/CRLF/bare-CR counts, exact final newline, and trailing ASCII space/tab counts.
+Metadata verification recomputes every field without trimming, replacing invalid
+bytes, normalizing Unicode, or rewriting newlines. The 32 MiB Markdown byte budget
+is enforced before decoding. These checks do not parse anchors, embeds, or captions.
+
+`ArticlePackageChecksums` reads the actual `checksums.json` bytes with the closed
+`fsusblog.article-package.checksums.v1` schema, version `1`, and algorithm
+`sha256-framed-v1`. Its only document fields are `schema`, `version`, `algorithm`,
+`componentDigest`, and `files`; each file has only `path`, `byteLength`, and
+`sha256`. Unknown or duplicate fields, unsupported versions, incomplete or
+duplicate file sets, and noncanonical lowercase SHA-256 digests fail closed.
+The rows cover the manifest, Markdown, and assets exactly once. The checksum
+document has no row for itself, avoiding a circular digest; its actual bytes
+must still match the bounded inventory and pass the closed decoder.
+
+The checksum-component digest uses SHA-256 over big-endian framing: a UInt32
+byte-length-prefixed UTF-8 domain `fsusblog.article-package.checksum-component.v1`,
+UInt32 version, length-prefixed algorithm, and UInt32 row count. Rows sort by
+ordinal canonical path; each contributes a length-prefixed UTF-8 path, UInt64
+uncompressed byte length, and length-prefixed 32-byte SHA-256. ZIP order,
+compression metadata, and checksum-document formatting do not affect this
+component digest. Verification recomputes the hash of every covered file from
+caller-owned immutable bytes and validates Markdown UTF-8 without rewriting it.
+This component does not establish the complete manifest's semantics, privacy,
+provenance, canonical syntax mappings, or archive safety. It is not the full
+package semantic digest or an import receipt.
+
+The canonical `ArticlePropertyValueValidator.ValidateInputsAsync` supplies
+definition-bound, read-only primitive validation before an article ID exists.
+Nonempty article references, including defaults, fail closed without a real
+source identity. `BindSnapshot` and `ValidateSnapshotCandidate` only construct
+and validate immutable candidates; they do not prove observed coordinates,
+current authorization, persistence, or a transaction receipt. Portable package
+mappings must keep local definition, option, and article coordinates separate.
+
+`ArticlePackagePropertyMapper.TryMapCandidate` provides the bounded property
+subset for shared package consumers. It uses the existing eight typed values and
+`ValidateSnapshotCandidate`; it does not register another type catalog. The
+caller supplies immutable `ArticlePackagePropertyMappingBindings` with the exact
+source snapshot coordinates and digest, explicit definition source ID/schema
+revision/digest to portable-definition pairs, definition-scoped option pairs,
+and article-reference pairs carrying canonical `ArticleRelationTargetFacts`.
+The mapper never generates portable IDs or derives them from local GUIDs,
+labels, routes, filenames, or array positions. Exact binding closure is required:
+missing, duplicate, aliased, unused, wrong-epoch, or wrong-snapshot bindings fail.
+Reference target facts must match the explicit portable article identity, pass
+the canonical relation validator, have allowed permission, and carry neither
+deleted nor archived lifecycle. These are shape-checked caller assertions;
+they do not replace the canonical reference authority's actual observation.
+
+The immutable candidate preserves source definition/value digests, presence,
+`DefaultApplied`, and unchanged primitive values. Option/reference sets sort by
+ordinal portable identity; properties sort by ordinal portable definition.
+Missing, null, false, zero, empty text, and empty sets remain distinct. Source
+IDs and source digests are retained separately from the portable projection.
+Limits are 1,000 properties, 1,000 IDs per value, 20,000 option bindings and total
+projected identities, and 10,000 article bindings. The canonical text/URL length
+bounds also apply before source digest recomputation; exceeded limits fail
+without truncation. Projection hashing rejects malformed UTF-16 through strict
+UTF-8 encoding and performs no Unicode or content normalization.
+
+Portable value and mapping digests use separate SHA-256 domains
+`fsusblog.article-package.portable-property-value.v1` and
+`fsusblog.article-package.property-mapping-candidate.v1`. Framing uses little-endian
+Int32 counts and UTF-8 byte lengths, little-endian Int64 coordinates/ticks, and
+an Int32 presence flag before optional Int64 coordinates. Strings contain exact
+strict UTF-8 bytes. The portable value digest binds portable definition,
+presence, default provenance and a tagged projection. Primitive tags are the
+canonical type names; decimal spelling uses the canonical invariant exact
+decimal format, booleans use Int32 zero/one, and dates use UTC ticks. Option and
+article sets bind their tag, count and sorted portable IDs; absent payloads bind
+`absent-payload`. The mapping digest additionally binds version, exact source
+coordinates/snapshot digest, sorted option/source pairs, sorted reference/source
+pairs and frozen revision/lifecycle/permission facts, then sorted property rows
+including every source field, portable value digest and actual projection.
+`ValidateCandidate` recomputes that content, rejecting altered rows even when
+the claimed mapping digest was copied. Neither digest is the full package
+semantic digest or an import/authorization receipt.
+
+The remaining canonical upstream requirement is an actor/site-bound read of an
+actually persisted snapshot at exact draft/revision/publication coordinates,
+with stale/denied/unavailable failures and command/audit provenance, plus a real
+implementation of `IArticlePropertyReferenceValueAuthority.RequireAllowedAsync`
+and observed frozen relation facts. Pure self-consistent candidates cannot
+satisfy those gates. Title, summary, taxonomy, rights/responsibility and complete
+manifest/privacy/version-migration policy remain outside this property subset.
+
+Foundation verification is not complete package validation or permission to
+import. Complete schema work must consume the canonical typed-value and immutable
+snapshot contracts. Export/validation must consume actual canonical syntax and
+frozen dependency producers; execution additionally needs its original writers
+and transaction receipts. The #1724 publication/projection port is a development
+capability, with database/outbox/AOT convergence still unqualified. The #2317
+author full-text index and lifecycle rebuild contract is distinct; publication
+receipts cannot substitute for its missing atomic index writer/readback.
+
+## Vault operation and observation candidates
+
+The canonical `ArticleVaultAcceptedSourceAdapter.ReadAsync` now binds exact sealed
+plan/result references, a named operation and the receipt's actual historical
+revision ID to the existing `IRevisionComparePackageReader`. It verifies package
+seal and original byte identity and checks the canonical live permission projection
+before and after reading. Configured permission-site drift is refused. The reader's
+closed revision metadata and rights/responsibility/release snapshots do not supply
+complete V1 portable metadata or typed property/taxonomy mappings; reading these
+bytes does not authorize a local write or synchronized base.
+
+`ArticleVaultRecoveryCheckpointReader.ReadAcceptedSourceAsync` reads only the exact
+checkpoint history tip and accepted result named by the existing canonical stores,
+then consumes that same adapter. The accepted instruction must equal the original
+preflight instruction. Historical access does not execute resume/undo, establish
+native readback or admit a current resolution.
+
+`AddFsusArticleVaultPostgresRecoveryStores()` composes the sole proposal and
+checkpoint stores with a host-supplied `NpgsqlDataSource`; no replacement pool,
+migration or protection key is created. `AddFsusArticleVaultRecoveryReaders(
+trustedVaultSiteIdentity)` composes the original readers and live permission
+projection with an explicit server-owned opaque Vault site. Startup opts into both
+only when `ArticleVault:TrustedSiteIdentity` is configured; unavailable store
+resources fail composition rather than creating a fallback. Duplicate stores and
+conflicting site composition are refused. `IArticleVaultRecoveryOperationCheckpointWriter`
+resolves to the same canonical checkpoint store; its recovery append stages journal
+facts in that writer's transaction and revalidates before commit. Explicit
+`AddFsusArticleVaultRecoveryBackupProtection()` composes the actual canonical
+`ArticleVaultRecoveryBackupProtectionAuthority` with the existing application
+`IAuditRetentionEpochKeyStore` and time provider; it installs no new key store and
+reads only the exact existing `article-vault-recovery` domain key. The bounded
+AES-256-GCM envelope authenticates complete scope, policy, key and plaintext identity,
+checks TTL/cancellation before and after reading/decrypting, and clears returned key
+and plaintext buffers. Cryptographic success does not establish native snapshot
+origin or key custody/lifecycle qualification. `AddFsusArticleVaultEncryptedRecoveryStorage()`
+uses an explicitly registered trusted protection authority or composes this actual
+provider from the host's existing key facility, then exposes the sole storage through
+`IArticleVaultTransactionalRecoveryJournalStore`. Missing key ownership prevents
+automatic composition; an unavailable exact key prevents backup authentication.
+No Data Protection/key-generation fallback is registered. Transaction
+bookkeeping does not grant decision/candidate, native recovery or base admission.
+
+`POST /api/binary/author/vault/recovery/history` requires the actual authenticated
+admin session and ArticleWrite policy. It accepts AEDS v2 frame 253 only, with a
+closed UTF-8 JSON payload bounded to 16 KiB; duplicate/unknown keys and other frame
+or plain JSON inputs are rejected. Its exact proposal/operation/checkpoint references
+confer no authority. The reader binds the original sealed plan to the authenticated
+principal, configured Vault site and requested article, checks live article permission
+before/after reading and refuses changing immutable producers. Response frame 254
+contains the historical proposal/checkpoint projection with `isHistorical=true`,
+`canExecute=false`, `canCommitBase=false` and no materialization preflight or accepted
+source bytes. The existing private authoring browser transport supplies cookies,
+session/site epoch and cancellation; no new local token or IPC protocol is introduced.
+Missing trusted composition returns the existing binary ApiError with 503.
+
+`ArticleVaultOperationVerifier` binds the original plan, agent, request,
+idempotency key and deadline to an exact immutable checkpoint chain. Cancellation
+or expiry after an uncertain server commit requires recovery and retains the
+previous base. Server acceptance alone projects Applying. Synced and recovery
+resume remain refused until actual local materialization/base verification exists.
+`PostgresArticleVaultOperationCheckpointStore` names an exact history tip,
+serializes appends through a locked registered identity and checks original server
+receipts. Its migration definition is a source capability; service/migration
+registration and real persistence qualification remain separate integration work.
+The compiled execution boundary permits the exact SDK `InvalidDataException`
+validation type and still rejects every filesystem member, watcher and import
+side path, including constructor-only and mixed validation/file-access controls.
+
+`ArticleVaultSnapshotAssessor` compares bounded actual bytes and descriptor
+metadata without normalizing them. Its StableCandidate is a byte comparison,
+not native content admission or proof of editor completion. The current native
+reader must supply its own root-bound use boundary. `ArticleVaultEventNormalizer`
+keeps raw observation order, loss markers and rescan obligations;
+`ArticleVaultRescanTracker` owns bounded rescan attempts. Serialized observation
+bindings cannot construct a native watcher, grant writer authority or acknowledge
+an unverified rescan. `LinuxVaultObservationAdapter` verifies the original raw
+fact and independently supplied exact root/watch binding before conversion.
+
+`ArticleVaultAgentBinding`, `ArticleVaultAgentRequest` and the writer-lease
+protocol close the local wire and transition shapes. They do not create a
+protected native lock, authenticate a process, own an IPC endpoint or prove
+secret-token/binary-root admission.
+
+`ArticleVaultResolutionPlanner` currently seals scalar metadata proposals over
+the original plan, evidence, Git facts and explicit confirmation. It does not
+unblock the original plan or allocate a server revision. Recovery journals name
+immutable references and backup requirements; they cannot prove backup presence,
+encryption, expiry, persistence, recovery or a completed base commit.
+
+Portable dependency manifests and plan extensions are finite source candidates.
+They require exact current selected source/revision/graph coordinates and actual
+canonical dependency authority before consumption. A digest verified against a
+saved article manifest cannot substitute for a fresh server observation; current
+coordinate admission and producer integration remain unqualified.
+
+### Vault exact-current source integration
+
+`ArticleVaultCurrentSourceReader.ReadAsync` is an in-process read over an exact
+original sealed plan/group/operation reference and an authenticated document
+context. Explicit trusted-site DI reuses the sole execution store, current
+observation authority, production revision reader, live permission provider and
+time provider. The configured permission site, trusted Vault site and primary
+revision-compare scope retain their existing distinct meanings.
+
+The reader reuses the original executor's complete-group current-observation
+guard before and after reading. The production revision reader receives a
+`CurrentRevision` selector pinned to the actual revision ID, not revision number.
+The package seal, literal article/revision/source identity and complete raw-byte
+identity are checked against the original observed server coordinate. Live
+permission/session and site configuration are rechecked, and cancellation or
+expiry returns no snapshot. Rights/publication/group changes are also refused.
+Blocked plans may supply these read-only facts; their decisions, coordinates,
+operation order and execution eligibility remain unchanged.
+
+`BindServerAsync` supplies those actual server bytes to the existing
+`ArticleVaultAdmittedSource.AdmitCurrent` three-way verifier. Caller-supplied
+base/local bytes still require their original coordinate and byte checks; this
+binding does not qualify native acquisition or Git facts. Both current-source
+results explicitly deny execution and base commit. No HTTP/wire surface,
+alternate planner/package codec or writer is installed.
+
+The current package contains actual title, summary, cover image, category/tag IDs
+and revision rights/responsibility/release snapshots. It does not contain a V1
+slug or portable taxonomy mapping. Property definition `GetAsync` and permission
+validation already exist under the canonical definition owner; the missing part
+is an authorized persisted article-value/revision snapshot and its bridge to
+the exact current Vault metadata coordinate. Pure `BindSnapshot` and supplied
+package property candidates cannot establish that persistence. Complete V1
+metadata bytes and their digest must come from a legitimate original producer;
+the observer's existing opaque projection digest cannot be substituted. The
+resolution planner's decision and candidate admission remains closed pending
+those facts and the root's executable-candidate integration.

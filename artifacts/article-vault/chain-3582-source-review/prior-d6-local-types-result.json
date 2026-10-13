@@ -1,0 +1,18 @@
+{
+    "candidate": "d6a076905ba82f5a1359b1363ee049ad66a66e20",
+    "endCandidate": "d6a076905ba82f5a1359b1363ee049ad66a66e20",
+    "headChangedDuringRun": false,
+    "startedAt": "2026-10-08T06:46:05.162783+00:00",
+    "endedAt": "2026-10-08T06:46:19.376463+00:00",
+    "command": [
+        "npm",
+        "run",
+        "typecheck:local-fsusui"
+    ],
+    "cwd": "/workspace/FsusBlog/src/frontend",
+    "exitCode": 0,
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "changedInputsChanged": false,
+    "scope": "Original documented actual local FsusUI mode; no published package qualification."
+}

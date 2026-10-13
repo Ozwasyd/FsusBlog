@@ -5088,6 +5088,26 @@
             ]
         },
         {
+            "id": "article-vault-conflict-contract-source-governance",
+            "description": "The sole coordinate-bound Vault conflict registry retains exactly twelve closed types, dispositions, actions and authority owners while missing independent readers cannot grant automatic admission.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tools/governance/check-article-vault-conflicts.mjs",
+                "tests/tools/article-vault-conflict-contract.test.mjs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
+                "src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject omitted/duplicate/wildcard taxonomy and actions, additional authority owners, filesystem/Git/network/writer references, mtime/size/AI/two-way/global winner shortcuts and removed binding/refusal guards.",
+            "minimumRequirement": "The canonical Node test owner runs actual in-memory source mutations and schema controls with no alternate host. This diagnostic source gate does not replace original compiled C# behavior, independent parser/metadata readers or runtime/product qualification.",
+            "tierIds": [
+                "article-vault-conflict-contract"
+            ]
+        },
+        {
             "id": "article-embed-contract-static-governance",
             "description": "Article embed targets, provider requests and results, dependency coordinates, parser ownership, and failure taxonomy remain one closed versioned shared contract without a parallel resolver or executable UI payload.",
             "owner": "ServerContractAgent",
@@ -5414,6 +5434,57 @@
             "minimumRequirement": "The ordinary integration plan records the canonical test ID as not-selected; the dedicated producer alone records planned to executed to passed or failed and binds the source SHA, dump SHA-256, PostgreSQL image ID, server version and exact TRX result.",
             "tierIds": [
                 "legacy-20260517-real-dump"
+            ]
+        },
+        {
+            "id": "macos-vault-observer-source-governance",
+            "description": "The macOS raw observer has one read-only native boundary, bounded loss delivery and explicit unavailable rescan admission.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/article-vault/macos/FSEventsNative.cs",
+                "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+                "src/article-vault/macos/MacVaultRawFactCodec.cs",
+                "src/article-vault/macos/MacVaultRootPathScope.cs",
+                "src/article-vault/macos/MacVaultWatchContracts.cs",
+                "src/article-vault/macos/MacVaultWatcherSession.cs",
+                "src/article-vault/macos/native/MacVaultFSEvents.c",
+                "tools/test/check-macos-vault-observer-source.mjs",
+                "tools/test/build-macos-vault-native.mjs",
+                "tests/tools/macos-vault-observer-source.test.mjs",
+                "src/article-vault/macos/MacVaultObservationAdapter.cs"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject source reads outside the fixed control manifest, writer/planner/polling/log additions, omitted ordered native teardown, queue bound removal and hidden overflow.",
+            "minimumRequirement": "Run the canonical Node source mutation owner once. These checks do not qualify Darwin compilation, actual FSEvents behavior, resource release or full-agent APFS acceptance.",
+            "tierIds": [
+                "macos-vault-observer-source"
+            ]
+        },
+        {
+            "id": "article-vault-conflict-presentation-diagnostics",
+            "description": "Bounded Vault conflict evidence and exact resolution/checkpoint presentation retain source ownership and structural refusal controls.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+                "tests/tools/article-vault-conflict-terminal-ui.test.mjs",
+                "tests/tools/article-vault-conflict-terminal-plan.test.mjs",
+                "tools/governance/article-vault-conflict-terminal-ui.mjs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+                "src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json",
+                "src/frontend/src/components/article-vault/VaultConflictList.vue",
+                "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+                "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+                "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject invented current status, silent winner, filesystem/network/storage side effects, stale proposal bindings and checkpoint substitutions.",
+            "minimumRequirement": "Execute original source/contract positive and refusal controls once. This diagnostic owner does not qualify authenticated transport, runtime writes, a current product flow or independent rendered UX acceptance.",
+            "tierIds": [
+                "article-vault-conflict-presentation-diagnostics"
             ]
         }
     ]

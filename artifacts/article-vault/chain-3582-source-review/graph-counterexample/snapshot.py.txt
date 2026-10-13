@@ -1,0 +1,37 @@
+import datetime
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+
+repo = pathlib.Path('/workspace/FsusBlog')
+probe = repo / '.tmp/chain-3582-expanded/graph-coordinate-probe'
+phase = sys.argv[1]
+paths = sorted((repo / 'src/shared').rglob('*.cs'))
+paths = [p for p in paths if 'bin' not in p.parts and 'obj' not in p.parts]
+paths += [repo / 'src/shared/FsusBlog.Shared.csproj', repo / 'Directory.Build.props', probe / 'Program.cs', probe / 'GraphCoordinateProbe.csproj']
+hashes = {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
+metadata = {
+    'phase': phase,
+    'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    'candidateSha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip(),
+    'sdk': subprocess.check_output([str(repo / '.tmp/chain-3582/dotnet/dotnet'), '--version'], cwd=repo, text=True).strip(),
+    'sourceSha256': hashes,
+    'qualification': 'private diagnostic executable referencing actual Shared project; not original-test or runtime/product acceptance',
+}
+if phase == 'after':
+    metadata['exitCode'] = int(sys.argv[2])
+    metadata['logSha256'] = hashlib.sha256((probe / 'run.log').read_bytes()).hexdigest()
+    metadata['assembliesSha256'] = {
+        str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted((probe / 'build').rglob('*.dll'))
+        if p.name in ['FsusBlog.Shared.dll', 'GraphCoordinateProbe.dll']
+    }
+    before = json.loads((probe / 'before.json').read_text())
+    metadata['sharedInputsStable'] = all(
+        before['sourceSha256'].get(key) == value
+        for key, value in hashes.items() if key.startswith('src/shared/')
+    )
+    metadata['candidateStable'] = before['candidateSha'] == metadata['candidateSha']
+(probe / (phase + '.json')).write_text(json.dumps(metadata, indent=2) + '\n')

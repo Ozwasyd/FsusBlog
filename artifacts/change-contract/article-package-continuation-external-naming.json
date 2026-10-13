@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+                "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs"
+            ],
+            "reason": "Preserve the existing process-environment naming boundary mapped by the canonical registry across the exact changed C# source paths. Internal symbols retain the repository naming map; no new environment spelling or policy exception is introduced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/article-property-value-boundary.md",
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve documented caller-visible contract spellings under the existing documentation naming surface; no new selector or token is introduced."
+        }
+    ]
+}

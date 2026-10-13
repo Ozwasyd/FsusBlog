@@ -1,0 +1,32 @@
+{
+    "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+    "endCandidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+    "startedAt": "2026-10-08T08:56:32.223445+00:00",
+    "endedAt": "2026-10-08T08:56:36.532968+00:00",
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "src/article-vault/linux/LinuxVaultRootPathScope.cs",
+        "--file",
+        "src/article-vault/linux/LinuxVaultRootPathScope.Operations.cs",
+        "--file",
+        "src/article-vault/linux/LinuxVaultPathNative.cs",
+        "--file",
+        "tests/article-vault/linux/LinuxVaultRootDescriptorTests.cs",
+        "--file",
+        "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+        "--file",
+        "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs"
+    ],
+    "setup": "source /workspace/.setup/activate.sh; PATH=.tmp/chain-3582/dotnet:$PATH",
+    "exitCode": 0,
+    "sourceSha256": {
+        "src/article-vault/linux/LinuxVaultRootPathScope.cs": "825c5f611c5f175431f25022ab1dd2d708c78663828d187f2dc8f1ea0ab0cf01",
+        "src/article-vault/linux/LinuxVaultRootPathScope.Operations.cs": "d3de5ea6b14073ea61c0ef6e1e3e4260f34e965a162515f02d0dbbfb7869a100",
+        "src/article-vault/linux/LinuxVaultPathNative.cs": "4d3d2c1ad65adab00ffa3aa789f237d800885a030b2acf22d9d2ca2bc6a4ba7e",
+        "tests/article-vault/linux/LinuxVaultRootDescriptorTests.cs": "936162627984ad408ec181ce1b5db2b9e0e29db49c8138ce3b8c0756c2064ff1",
+        "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "3722ff2f4cd22c4f61f5eca429956d2ab055e9e1516789d059bbc84d198d1602",
+        "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": "cd99d5d9ad1229a64bc939c15cd506132ef2efcec4ffce66d9e1d607b1237c7c"
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "candidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "command": "canonical scanBackendSourceLocking on actual owned/boundary test source",
+    "findings": {
+        "tests/backend/Unit/ArticleVaultExecutionTests.cs": [],
+        "tests/backend/Unit/DocumentExportContractTests.cs": []
+    },
+    "qualification": "Source scanner findings only; compiled original owner and boundary controls executed separately."
+}

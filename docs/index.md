@@ -34,8 +34,12 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Versioned article mutation outbox](architecture/article-mutation-outbox-versioning.md)
 - [Article mutation side-effect boundaries](architecture/article-mutation-side-effect-boundaries.md)
 - [Article PropertyDefinition authority](architecture/article-property-definition-authority.md)
+- [Article property value validation boundary](architecture/article-property-value-boundary.md)
 - [Article revision concurrency](architecture/article-revision-concurrency.md)
+- [Article Vault agent control boundary](architecture/article-vault-agent-control.md)
+- [Article Vault dependency coordinates](architecture/article-vault-dependencies.md)
 - [Article Vault Linux watcher boundary](architecture/article-vault-linux-watcher.md)
+- [Article Vault macOS watcher boundary](architecture/article-vault-macos-watcher.md)
 - [Authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md)
 - [Authoring extension host boundary](architecture/authoring-extension-host-boundary.md)
 - [Canonical Block Anchor Contract](architecture/block-anchor-contract.md)
@@ -291,7 +295,7 @@ This index is generated from explicit metadata in `config/development/document-l
 ## Historical
 
 - `api`: 1 document
-- `architecture`: 4 documents
+- `architecture`: 7 documents
 - `history`: 1 document
 - `integrity`: 1 document
 - `releases`: 1 document

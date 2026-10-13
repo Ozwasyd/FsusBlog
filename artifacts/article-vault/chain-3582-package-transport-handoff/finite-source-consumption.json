@@ -1,0 +1,44 @@
+{
+    "canonicalCommit": "f6334b35c5b420f7affb56efc20179bc38aed26e",
+    "canonicalBranch": "codex/chain-3663-manifest-candidate",
+    "files": [
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+            "canonicalSha256": "5b76eebf7c7f9ba0f7af2bd89761e69deb3c52d82957735354b01de4cf834c00"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs",
+            "canonicalSha256": "2f47f68f8d6318e8c9e500e6966e550a724a0f1d515a9d3910ed54e9b7129d3b"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+            "canonicalSha256": "dadd02e49bb51b5a719edb38c8c14c6c90ccbe2d670bb3b5dd675b4bed31b97a"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+            "canonicalSha256": "fae3cbc8a96d92de6fee2764a0c9360633f52029bf202a61a57cc32e52277b7d"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+            "canonicalSha256": "18e5b691b6067a1760bb8bd9c26552d1aa9da6a9928588827e7bce264f3bea51"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs",
+            "canonicalSha256": "277a4e95cc3dfeeb6ed3126f959f0a5866a10dac479129780bb010ced9837c6e"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs",
+            "canonicalSha256": "7aec54442535433c2de8f48c24c91f8e06de45416ee2ff84bd38a5389f299a90"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs",
+            "canonicalSha256": "3d4c03a1e5614422c68c35a2b60e534010fef57a3dfef7039016335dfb6541e3"
+        }
+    ],
+    "deferredConflict": "docs/api/contracts.md; whole-branch incorporation paused, file unchanged",
+    "heldAuthorities": [
+        "complete metadata/schema/providers/archive",
+        "persistent expectedPlanDigest/frozen receipts/projection bytes/retention"
+    ],
+    "sourceHold": true
+}

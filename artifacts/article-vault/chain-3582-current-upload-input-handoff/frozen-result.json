@@ -1,0 +1,97 @@
+{
+  "source": "518237768fcd8c77fb0fd6aaf1d2d1f1a5feea24",
+  "baseline": "e7f8c738fc3552441b95f4b150381be7400eadb9",
+  "supplier": "61d686739fca17aa3f3fad3840de315c4d35eabe",
+  "fetchedMaster": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+  "parentVerifiedMaster": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "sourceFiles": {
+    "artifacts/change-contract/article-vault-conflict-contract-external-naming.json": "cc799e431465283c01ae8842b04d8db44f5e12a82eb4892831eec2eeb844fdbf",
+    "docs/architecture/article-vault-dependencies.md": "e6df6ec58c9d6065b3ac6817a85bd029c2dd83e64dc63f41de9129a7120c1c21",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "80c722d7af97cdc94da89bea252c3658217771bb74b8af52b39b30f0ea6059c4",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "d063679d2faf4a921699535b7d9ab3c7cf2f4c812e66212150bd9ce700006dc0",
+    "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs": "c1eeecb48b4700e794cb9acdf8d85db474e4637be2f0e9d05ee7769727b17d63",
+    "src/backend/Interfaces/IFileService.cs": "90432920da408d5dd555f7234114c4534bc6da959c6b8ca63a6eea53e9b2b276",
+    "src/backend/Interfaces/UploadAssetObservation.cs": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f",
+    "src/backend/Interfaces/UploadAssetPreview.cs": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab",
+    "src/backend/Services/ArticleVault/ArticleVaultUploadAssetBindingReader.cs": "bdd31af38ab6826667d79fd5c8c5314320c77ca0c35feba5259e231dab2147a7",
+    "src/backend/Services/ArticleVault/Assets/ArticleVaultCurrentUploadAssetInputReader.cs": "7251b62c153d8948cecf2c13741978d6f41bfb7ed2db376b1428bf731580e5b8",
+    "src/backend/Services/Authoring/AuthoringArticleCurrentSourceReader.cs": "71272596a65c1444870dbd25603b3ed2a6030d8bc6341bcc848e7e6858cf017e",
+    "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs": "938df700388153d580cc1f0f11d99bf3587b8090b69082a8cf348a8ffd45260f",
+    "src/backend/Services/Authoring/CurrentArticleUploadAssetBindingReader.cs": "1142ce492fda223e9e11e72e81126b18ee2a9cd29219ec93cd9cc0a400c0b4bf",
+    "src/backend/Services/FileService.AssetObservation.cs": "0065c69a282b73b991fde738ba813ba3dcc1bcb30cba3d22ea273198c84a9a34",
+    "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01",
+    "tests/backend/Unit/ArticleVaultCurrentUploadAssetInputReaderTests.cs": "196fe3917a08d67e281d336e78eba912a8f47b47a1566475140415b330d82dd5",
+    "tests/backend/Unit/ArticleVaultUploadAssetBindingTests.cs": "649505dc8419f61cec1b16ecc297f742aee751194e07db379dd73653d7eaaff3",
+    "tests/backend/Unit/AuthoringCanvasReferenceFactSourceTests.cs": "afaad6c993b0cf6627eac1952581de69bd6bb8a8c0b5dd01f12235a05516071f"
+  },
+  "startUtc": "2026-10-09T06:09:23.123611+00:00",
+  "scope": "exact new ordinary caller class21; explicit test doubles; no native/PG/graph audit or qualification",
+  "commands": [
+    {
+      "argv": [
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode"
+      ],
+      "exitCode": 0,
+      "log": "frozen-restore.log"
+    },
+    {
+      "argv": [
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "--no-restore"
+      ],
+      "exitCode": 0,
+      "log": "frozen-build.log"
+    },
+    {
+      "argv": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~ArticleVaultCurrentUploadAssetInputReaderTests",
+        "--logger",
+        "trx;LogFileName=caller-frozen.trx",
+        "--results-directory",
+        ".tmp/chain-3582-expanded/asset-61d6/results"
+      ],
+      "exitCode": 0,
+      "log": "frozen-caller.log"
+    }
+  ],
+  "counters": {
+    "total": "21",
+    "executed": "21",
+    "passed": "21",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "assemblies": {
+    "src/backend/bin/Release/net10.0/FsusBlog.Server.dll": "8bf6bf27781cd378c8efbd39832dff403536892113e37f767093661214e04dde",
+    "src/shared/bin/Release/net10.0/FsusBlog.Shared.dll": "a0d408e1472c02c22e95963595c3666cd826ec415e3251f2b4254fff39ec0e1b",
+    "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "83afaafa0d3e875070ed1f32e880b839e747016785bb49efc39c252bac8c1e42"
+  },
+  "sourceUnchanged": true,
+  "endUtc": "2026-10-09T06:11:03.851378+00:00"
+}

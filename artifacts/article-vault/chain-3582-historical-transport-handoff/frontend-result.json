@@ -1,0 +1,20 @@
+{
+    "candidate": "c830db41795f78b8442772f2df895c186547bb97",
+    "endCandidate": "c830db41795f78b8442772f2df895c186547bb97",
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "startedAt": "2026-10-08T11:44:28.801017+00:00",
+    "endedAt": "2026-10-08T11:44:32.963511+00:00",
+    "command": [
+        "/workspace/FsusBlog/src/frontend/node_modules/.bin/vitest",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/api/articleVault.test.ts",
+        "../../tests/frontend/unit/api/clusterOperations.test.ts",
+        "../../tests/frontend/unit/adapters/binary/index.test.ts"
+    ],
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/chain-3582-expanded/stage-394-frozen/frontend.log",
+    "nativeOrProductQualified": false
+}

@@ -1,0 +1,124 @@
+{
+    "schema": "fsusblog.article-vault.windows-watcher-package-inventory.v1",
+    "owner": "WindowsArticleVaultWatcher",
+    "issue": 2670,
+    "baseCommit": "53da546cc8ab9fd8603067395d988b7ddb650394",
+    "inspectedCapabilityCommit": "c0c32cb168fbe59125b942b5964edd7263247338",
+    "package": {
+        "project": "src/article-vault/windows/FsusBlog.ArticleVault.Windows.csproj",
+        "assembly": "FsusBlog.ArticleVault.Windows",
+        "targetFramework": "net10.0",
+        "platform": "windows",
+        "productionSources": [
+            "src/article-vault/windows/WindowsDirectoryChangesNative.cs",
+            "src/article-vault/windows/WindowsVaultFactBuffer.cs",
+            "src/article-vault/windows/WindowsVaultNotifyDecoder.cs",
+            "src/article-vault/windows/WindowsVaultRawFactCodec.cs",
+            "src/article-vault/windows/WindowsVaultTestAccess.cs",
+            "src/article-vault/windows/WindowsVaultWatchContracts.cs",
+            "src/article-vault/windows/WindowsVaultWatcherSession.cs",
+            "src/article-vault/windows/WindowsVaultRootPathNative.cs",
+            "src/article-vault/windows/WindowsVaultRootPathScope.cs"
+        ],
+        "role": "Windows platform module beside existing Linux module, not another full agent"
+    },
+    "publicSymbols": [
+        "WindowsVaultWatcherSchemas",
+        "WindowsVaultFactClass",
+        "WindowsVaultPathDisposition",
+        "WindowsVaultWatchIdentity",
+        "WindowsVaultWatcherOptions",
+        "WindowsVaultWatermark",
+        "WindowsVaultRawFact",
+        "WindowsVaultRawFactCodec",
+        "WindowsVaultWatcherSession",
+        "WindowsVaultRootPathScope"
+    ],
+    "nativeBoundary": {
+        "library": "kernel32.dll",
+        "entryPoints": [
+            "ReadDirectoryChangesW",
+            "CreateEventW",
+            "ResetEvent",
+            "GetOverlappedResult",
+            "CancelIoEx"
+        ],
+        "eventRecord": "FILE_NOTIFY_INFORMATION",
+        "directoryHandle": "canonical #2109 owner must supply admitted overlapped directory handle; no absolute-path opening API in production watcher",
+        "bufferBytesMaximum": 65536,
+        "factsMaximum": 16384
+    },
+    "tests": {
+        "project": "tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj",
+        "contractCommand": "dotnet test tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj --no-restore --filter Category=WindowsArticleVaultWatcherContract",
+        "focusedCommand": "dotnet test tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj --no-restore --filter Category=WindowsArticleVaultWatcher",
+        "sources": [
+            "tests/article-vault/windows/WindowsVaultRawFactContractTests.cs",
+            "tests/article-vault/windows/WindowsVaultWatcherNtfsTests.cs",
+            "tests/article-vault/windows/WindowsVaultNtfsFixture.cs",
+            "tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs"
+        ],
+        "rootPathCommand": "dotnet test tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj --no-restore --filter FullyQualifiedName~WindowsVaultRootPathScopeTests"
+    },
+    "admission": {
+        "productionFactory": "absent; construction assembly-private",
+        "nextCapability": "#2109 native scope now supplies owned overlap-capable root handles and revalidation callbacks; canonical observer factory integration and actual NTFS execution remain required",
+        "watermark": "always invalid; no raw digest acknowledgement",
+        "sourceContentDigest": "null; only #2110 stable snapshot owner can produce body digest",
+        "renameCookieAndFileId": "null; FILE_NOTIFY_INFORMATION has neither; old/new actions remain separate",
+        "quietRootMove": "not implemented: ReadDirectoryChangesW excludes changes to the watched root itself; needs admitted parent/ancestor watch coordinates from #2109"
+    },
+    "qualification": {
+        "issue": 2673,
+        "status": "WIP",
+        "currentEnvironment": "Linux; real Windows NTFS unavailable",
+        "fullAgentCommand": null,
+        "nextCapabilities": [
+            "real Windows NTFS host",
+            "#2110 stable snapshots/materialization",
+            "#2112 normalization/rescan",
+            "#2113 lease/closed IPC",
+            "#2114 lifecycle",
+            "#1909 complete verified protocol receipts",
+            "#1865 canonical bytes/APIs from #3560",
+            "actual #2109 NTFS root/path controls and complete control-tree ACL ownership"
+        ]
+    },
+    "documentation": "src/article-vault/windows/README.md",
+    "forbiddenDependencies": [
+        "filesystem polling",
+        "body reads",
+        "event normalization",
+        "article identity by path/file ID",
+        "sync planner/server writer",
+        "manifest/base writes",
+        "package fallback"
+    ],
+    "nativeApiReferences": [
+        "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-readdirectorychangesw",
+        "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-file_notify_information",
+        "https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex"
+    ],
+    "registrationRequests": [
+        {
+            "path": "config/development/authoritative-development-docs.json",
+            "change": "append src/article-vault/windows/packages.lock.json and tests/article-vault/windows/packages.lock.json to existing lock PackageManager patterns"
+        },
+        {
+            "path": "config/development/native-tooling-style-policy.json",
+            "change": "append the same two exact package-manager-owned lock paths to excludedPaths"
+        },
+        {
+            "path": "tests/matrix.yml",
+            "change": "integration owner must register canonical Windows project/contract and native categories; preserve real Windows/NTFS failures and full qualification obligations; no native pass-through on Linux"
+        },
+        {
+            "path": "tests/governance/test-lifecycle-registry.json",
+            "change": "none: no new Node tests"
+        },
+        {
+            "path": "coverage registry",
+            "change": "integration owner must bind this exact new Windows project and actual categories; package compilation does not establish native qualification"
+        }
+    ]
+}

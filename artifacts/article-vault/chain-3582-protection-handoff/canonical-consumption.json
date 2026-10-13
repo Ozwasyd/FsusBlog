@@ -1,0 +1,31 @@
+{
+    "canonical": "b8277a23a6a721c5b0ea3f8c918fa32251d325cd",
+    "latestFetchedMaster": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+    "files": [
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryBackupProtectionAuthority.cs",
+            "canonicalSha256": "3e58269a273c0f271ef6bbe6ce026f60bfc8c140ecac1d86947c7cc805d10aef",
+            "previousSha256": null
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryStorage.cs",
+            "canonicalSha256": "ab74bf814c548776e84aa70dfbbf8e0a4ff83ff2c2383af5fcc99a83a823f897",
+            "previousSha256": "23dbe4a8d90fb14703a1cc92fe4ffc98b1b0ffcf640a6dbdc7afc77bde18c473"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryBackupEnvelope.cs",
+            "canonicalSha256": "39504cac9c02aa3f0e745a6915b3ea7737390577c9d1ac33d7767af8cdb92cd9",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultRecoveryStoragePostgresTests.cs",
+            "canonicalSha256": "8cb188e884aa9b3f5a6d962a9da19bea4f7c64d104ff1eea2ac22eefdaa3d36c",
+            "previousSha256": "f37013f19014c84f758d03e848664257dc7a76372a257d4d6b2a8b4165a7d183"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryBackupProtectionAuthorityTests.cs",
+            "canonicalSha256": "78950360b74fb783a5c530b5c832cb5b880495207031e9645e090b7f98444140",
+            "previousSha256": null
+        }
+    ]
+}

@@ -1,0 +1,213 @@
+{
+  "source": "d1e863a8060e7348e1f51314a4c5b29cba6febbc",
+  "supplier": "3d177f17fa34bdf322447f1ea917469d2c938869",
+  "baseline": "dfc2d8754caf67507068d779608f66305d9d6c79",
+  "fetchedMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "runIdentity": "chain3582-current-properties-20261009T064616Z",
+  "startedUtc": "2026-10-09T06:46:16.243347+00:00",
+  "sourceFiles": {
+    "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs": "dbae30fed8a929bff8e579af5f67b213dd0e14218df69a2e0da8ecfeaa507c51",
+    "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs": "9d5db1241b5e34ac12fe5f176815171c80e4692bf63bb0e6dc52d148e2be1c24",
+    "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs": "461d86a7c65abc322ecfc4e7b06da2fb95f1fd1faeecbded21cf170f0ea4c326",
+    "src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs": "3b6813266081beff1238c048d1660609f74a312b0c363fd24e2581498921abf8",
+    "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs": "1447d5df03ed3062d8c54c8fbe9dbba9264436d1fbf78114904ef7410609e916",
+    "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs": "495e6b845a6495cd7c6054f4b50b305e507fde3918ac24de50b2c5389932d5d4",
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs": "cc20fcc6e67d5f309c86827a16b09471cc7a73d3f657d46e70a2837389bf2dfa",
+    "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs": "423d0632bd42e511ccde844eea4ca21af44f7952adb094a231b5ac351775c814",
+    "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs": "923842bffa8c56c9e622110ccc28c2804ea85582b586c0374e4c18367b7cfc30",
+    "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs": "2e4e73d513cd21600c7fb473ca89eda5c60bfbbf88fcc99266370a4b212725c9",
+    "src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs": "33c331cb08e868a75a4a3ab0d68ef971eb0cb5c6f5f30838900addbea2087e0b",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs": "413ad8542cf16e4a8dadda393e2c54327441e4fe62eaf809eec279c8733642cf",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs": "65fdf16486f7ec9f82f6199c018226fa5eec194533e49bfe879f5d8be0bec1f7",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs": "955ca10aff7740cca91082e0e212f4d70ab6f9c5c06fcd612b75caa442e94ae5",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs": "49958b5a81bb2b8c11200a9a5333ced401cfebc4193b761698f68361d1f32569",
+    "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs": "4dd68852a68b783bb59ee8f1fd406553a643db8eb6c93b6ad720712202dcb910",
+    "tests/backend/Unit/ArticlePropertyValueFoundationTests.cs": "c69b1cdee021b2092648aad9e4b1ea43f8d6328df3346719899b5c87e9c8992c",
+    "src/backend/Services/ArticleVault/ArticleVaultCurrentPropertyInputReader.cs": "6e26d2602e5439d2eb7b90318f95c4d4ed68933a6e4a3facf5c8e9ba6c217bd5",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "0a03758fb8bf46b249d6002acf3c56776b1a0e2249aeecec501f0c1c843ada39",
+    "tests/backend/Unit/ArticleVaultCurrentSourceReaderTests.cs": "b9dc3c1a472d4d3f7faacf0ae52b7321d2aa026ba5709c3a24e5b3a1e42ac4cd",
+    "tests/backend/Unit/ArticleVaultCurrentSourceReaderTests.CurrentProperties.cs": "2361ba650bf4d08e09b1f2e97f9bfe32397a3f50a8197b01bbcc9ca09e698d7b",
+    "docs/architecture/article-vault-dependencies.md": "d089e9b6a8641f999479946ab4d5af33c45b1bd5ad47a1992280fa95642ab04c"
+  },
+  "scope": "ordinary exact new composition12 plus canonical current-property, foundation, finite planner/codec and retained property-merge regressions; controlled read ports only",
+  "qualification": {
+    "DB": false,
+    "HTTP": false,
+    "productionProvider": false,
+    "atomicFence": false,
+    "native": false,
+    "fullV1": false,
+    "issueAccepted": false
+  },
+  "commands": [
+    {
+      "argv": [
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode"
+      ],
+      "exitCode": 0,
+      "startedUtc": "2026-10-09T06:46:16.243781+00:00",
+      "endedUtc": "2026-10-09T06:46:17.023493+00:00",
+      "log": "frozen-restore.log"
+    },
+    {
+      "argv": [
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "quiet"
+      ],
+      "exitCode": 0,
+      "startedUtc": "2026-10-09T06:46:17.023558+00:00",
+      "endedUtc": "2026-10-09T06:47:53.417737+00:00",
+      "log": "frozen-build.log"
+    },
+    {
+      "argv": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "Scope=CurrentPropertyInputs|FullyQualifiedName~ArticlePackageCurrentPropertyReaderTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticleVaultPropertyMetadataMergeTests|FullyQualifiedName~ArticleVaultPackagePropertyMetadataBridgeTests",
+        "--logger",
+        "trx;LogFileName=frozen-properties.trx",
+        "--results-directory",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/property-3d177"
+      ],
+      "exitCode": 0,
+      "startedUtc": "2026-10-09T06:47:53.417831+00:00",
+      "endedUtc": "2026-10-09T06:47:56.145080+00:00",
+      "log": "frozen-test.log"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+        "--file",
+        "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+        "--file",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs",
+        "--file",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+        "--file",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs",
+        "--file",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs",
+        "--file",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePropertyValueFoundationTests.cs",
+        "--file",
+        "src/backend/Services/ArticleVault/ArticleVaultCurrentPropertyInputReader.cs",
+        "--file",
+        "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+        "--file",
+        "tests/backend/Unit/ArticleVaultCurrentSourceReaderTests.cs",
+        "--file",
+        "tests/backend/Unit/ArticleVaultCurrentSourceReaderTests.CurrentProperties.cs"
+      ],
+      "exitCode": 0,
+      "startedUtc": "2026-10-09T06:47:56.145131+00:00",
+      "endedUtc": "2026-10-09T06:48:00.557269+00:00",
+      "log": "frozen-style.log"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "startedUtc": "2026-10-09T06:48:00.557319+00:00",
+      "endedUtc": "2026-10-09T06:48:00.648117+00:00",
+      "log": "frozen-docs.log"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/docs/check-authoritative-docs.mjs"
+      ],
+      "exitCode": 1,
+      "startedUtc": "2026-10-09T06:48:00.648183+00:00",
+      "endedUtc": "2026-10-09T06:48:00.669920+00:00",
+      "log": "frozen-authoritative-docs.log"
+    }
+  ],
+  "sdk": "10.0.302",
+  "endSource": "d1e863a8060e7348e1f51314a4c5b29cba6febbc",
+  "endStatus": "",
+  "sourceUnchanged": true,
+  "assemblyHashes": {
+    "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "8dbffb0eda67bddd9b134dd15df972f31b1bdba993040f5d36eab5a685364f64",
+    "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "0fcf6b921fc7ded64bfdeb266f0cb3a6beae5460987ddf5aab01d979e2762ddc",
+    "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "4908ab265cb469f49b82896ad0675dbae920065bee86c7da6d6808527e215078"
+  },
+  "counts": {
+    "total": "288",
+    "executed": "288",
+    "passed": "288",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "classCounts": {
+    "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests": 54,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests": 42,
+    "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests": 91,
+    "FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests": 46,
+    "FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests": 43,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultCurrentSourceReaderTests": 12
+  },
+  "endedUtc": "2026-10-09T06:48:00.772131+00:00",
+  "commandCorrection": {
+    "incorrect": "tools/docs/check-authoritative-docs.mjs (nonexistent path; original failure preserved)",
+    "correct": [
+      "node",
+      "tools/docs/check-authoritative-development-docs.mjs"
+    ],
+    "exitCode": 0,
+    "startedUtc": "2026-10-09T06:48:29.252995+00:00",
+    "endedUtc": "2026-10-09T06:48:29.337273+00:00",
+    "log": "frozen-authoritative-docs-corrected.log"
+  }
+}

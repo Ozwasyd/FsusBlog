@@ -1,0 +1,128 @@
+## Linked Issue
+
+Refs #3582
+
+
+## Scope Summary
+
+- Bind Article Vault execution ownership to compiled production methods and executable refusals, preserving canonical mutation, foreground-write and public-fence/rollback boundaries.
+- Compose the original execution/checkpoint/proposal stores, durable-cancel adapter, dispatcher, existing-key recovery protection and private historical/current readers through explicit server-owned context. First execution and native terminal authority remain unqualified.
+- Read exact current server revision bytes with complete group/live permission checks. Consume the original current upload supplier and connect actual returned asset bytes/record to the existing asset input verifier, retaining original global operation and dependency identity.
+- Require genuine current resource-specific dependency authorities and exact server-pull membership; preserve Blocked/SOURCE HOLD and all execution/materialization/upload/base refusals. No grant, accepted-reference receipt, reuse decision or writer is inferred.
+- Preserve canonical finite package/property/conflict owners and compatible private AEDS historical reads. Split Guard mechanical formatting/naming/evidence and retain its exact public/native compiled identity.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [x] Generated output
+- [x] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+`Behavior change`, `Format-only`, and `Naming-only` are mutually exclusive. `Generated output`, `Public contract change`, and `External naming exception` are supplementary.
+
+The gate reads fields only from their named section, rejects duplicate fields or headings hidden in fenced examples, and requires contract checkboxes to be checked. Record a not-applicable reason in `Notes For Reviewers` before checking that review item.
+
+## Tests Run
+
+- [ ] `./tools/test.sh fast`
+- [x] Frozen production `518237768fcd8c77fb0fd6aaf1d2d1f1a5feea24`: original SDK10.0.302 locked restore and Release backend test build exit0; allowlisted ordinary current-upload caller controls21 pass0fail0skip. Commands, UTC, source/assembly hashes and unchanged source are archived.
+- [x] Earlier original newly supplied InputRead controls7 passed on their working candidate. Their identity is separate; supplier56 and historical291/42 are not current results. Controlled authorities exercise actual production readers/verifier and do not qualify native/PG/product execution.
+- [x] Canonical9/root2/final6 style groups pass (overlapping counts are not added); lifecycle379, authoritative docs11 and own incremental commit range pass. Guard source/blame/mechanical archive are unchanged from e7f8c738; original mechanical proofs are preserved.
+- [x] Historical frozen e1d9c841 original backend251/pure38/real task PostgreSQL2 retain their original291 identity. Initial timing failure and unchanged same-assembly retry are retained. Other prior component controls retain their original SHAs.
+- [x] Initial compiler/fixture identity/seal failures and immutable-array comparison failure are retained; fixture corrections preserve exact bytes and all negative controls. No production gate/threshold is weakened.
+- [ ] Original finite authority/parser/index matrix closure, full fast/CI and independent review remain open. Held graph/lease/receipt/race/native/replacement audits, real current host startup, native/device/installer/product terminal acceptance are not run or qualified.
+
+## UI Evidence
+
+- [ ] Screenshots or video attached for UI changes
+- [ ] Mobile layout checked
+- [ ] Dark mode checked
+- [ ] Accessibility and reduced-motion impact considered
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] `.git-blame-ignore-revs` updated when applicable
+
+For a `Format-only` change, complete every field. The idempotence evidence must be one repository-relative `.json` path changed by this PR and conform to `fsusblog.format-idempotence-evidence.v1`. Use `none` for other changes.
+
+- Formatter identity: none
+- Formatter version: none
+- Formatter command: none
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. A missing manifest already named by an authoritative merged PR may instead use `fsusblog.post-merge-external-naming-evidence-repair.v1`; that strict repair binds immutable merge history, unchanged source blob/revision identity, the registered surface, and the exact missing artifact without changing the source again. Use `none` otherwise.
+
+- Exceptions manifest: artifacts/change-contract/article-vault-conflict-contract-external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+Use `none` and `Evidence path: none` unless the PR title type is `perf`. For S/M/R/C, the evidence path must be a changed repository-relative JSON manifest using `fsusblog.performance-claim-evidence.v1`; it binds the one perf commit SHA, claim level, `structural-only`/`measured` status, and each changed evidence file with its SHA-256 digest.
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: No measured performance, prototype or runtime qualification.
+
+## Release Note
+
+The matching `release-note:*` label selects the generated release category. GitHub renders the merged PR title as the release entry, so every included category requires `Summary` to exactly equal the summary portion of the PR title after `type(scope):`; `Category: none` instead requires `Summary: none`. Pure formatting, internal renames, and CI rearrangement must use `Internal/Tooling` or `none`.
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: compose current Vault reads with canonical owners
+
+## Generated Output
+
+For a checked `Generated output`, bind the output to its source through one repository-relative `.json` manifest path changed by this PR. Normal atomic source/output changes use `fsusblog.generated-output-binding.v1`. A generated-only repair for a source omission already merged into the PR base uses `fsusblog.post-merge-generated-output-repair.v1`; it must name one trusted producer and leave its source and generator unchanged. A trusted ordered multi-producer repair uses `fsusblog.post-merge-generated-output-repair-dag.v2` and its registry-owned canonical manifest path. An authenticated bot must identify itself exactly. Use `none` otherwise.
+
+- Generator source: tests/matrix.yml, config/development/document-lifecycle.json, src/shared/Contracts/Validation/aeds-protocol.json, src/shared/Contracts/Validation/aeds-endpoint-contracts.json
+- Generated outputs: docs/index.md, docs/testing.generated.md, config/testing/correctness-attempt-producers.json, config/development/document-inventory.generated.json, src/core/Algorithms/AedsFrameType.cs, src/shared/AedsFrameHeader.cs, src/frontend/wasm/aeds/include/aeds_frame.hpp, src/frontend/wasm/web/protocol/frame.ts, tests/backend/Fixtures/aeds-golden-catalog.json, src/shared/Contracts/Validation/fsusblog.openapi.json
+- Digest/evidence: artifacts/change-contract/article-vault-conflict-contract-generated-binding.json
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: Draft source review only; current acceptance and authority gates remain blocked. No deployment.
+- Rollback: Revert the affected root DI/provider consumption increments if the original controls regress; preserve the existing key owner, sync planner and sole canonical writer.
+- Deferred work: Remaining authorized V1 metadata/persisted property and portable typed taxonomy/property binding, operation-bound Git/native readers and canonical finite matrix/inventory projection from their owners, followed by original complete acceptance.
+- Known limitations: Source-only classification binding is not automatic eligibility. Full fast and product/platform qualification are not passed. Applicable exact-SHA local evidence may replace remote CI; independent source review remains mandatory. All linked issues remain open.
+
+## Notes For Reviewers
+
+Related to [#3582](https://github.com/Ozwasyd/FsusBlog/issues/3582), [#2118](https://github.com/Ozwasyd/FsusBlog/issues/2118) and the coordinated Vault chains. Completed source consumption uses each original owner, without a second store, writer, verifier, parser or permission policy.
+
+Current asset supplier:61d686739fca17aa3f3fad3840de315c4d35eabe. Production518237768 connects its original session-authorized20MiB byte/current-observation capability to ArticleVaultAssetInputVerifier, with original operation/current dependency authority and exact server-pull asset membership. Runtime composition uses the existing ArticleVault:TrustedSiteIdentity, article/revision/file/store/group/clock ports. Current backend canvas contracts remain the canonical local types; only redundant supplied imports are adapted and no second Shared grammar is copied. No endpoint, frame, private-export or resource grant is introduced by this increment.
+
+Root still owns unfinished full verified-decision/executable-candidate integration: complete current V1 source/slug/taxonomy/persisted property/metadata and genuine base/local/Git facts; original current resource-specific rights, intended-AssetId upload/reuse/accepted-reference receipts and native materialization/recovery remain incomplete. Bytes, article-read permission and observed references are not those grants. AssetVersionSha256 is not converted into a numeric server revision or operation authority. The inspected canonical frozen package writer8472af99 exists, but its full legitimate inputs remain unavailable; no duplicate writer is added.
+
+Source/run/evidence and all49 issue records: artifacts/article-vault/chain-3582-current-upload-input-handoff/.20 retained/29 delegated/8 tracking/0 accepted. Guard source/blame/artifacts are byte-identical to e7f8c738, preserving downstream1688; no Guard replay or neighboring mechanical scope is claimed. Historical scanner, backend and persistence receipts retain their exact source identities and do not qualify the current increment.
+
+Fetched master5dcd62096f97ccb2297781f2fcebf04fa8dbedd6 descends from parent-verified720d9948; this isolated branch records it without cross-chain merge/conflict resolution. Full original matrix/CI/domain acceptance, independent review and the global merge barrier remain open. No observable UI change, production migration, deployment, package publication, issue closure or PR merge occurred. This title/body is prepared locally for the parent's sole GitHub content writer queue.

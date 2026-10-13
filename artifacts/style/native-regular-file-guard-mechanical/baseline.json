@@ -1,0 +1,271 @@
+{
+    "CompilerErrors": 0,
+    "SourceSha256": "5d5e97daf6834bd9a3385461927805b8199a48a1e7120c92d2151c7a214106b1",
+    "NativeShape": {
+        "Imports": [
+            {
+                "Name": "OpenAt",
+                "Return": "int",
+                "Parameters": "(int directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags)",
+                "Attributes": "[DllImport(\"libc\", EntryPoint = \"openat\", SetLastError = true)]"
+            },
+            {
+                "Name": "Statx",
+                "Return": "int",
+                "Parameters": "(int directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags, uint mask, out NativeFileIdentity identity)",
+                "Attributes": "[DllImport(\"libc\", EntryPoint = \"statx\", SetLastError = true)]"
+            }
+        ],
+        "Layout": "[StructLayout(LayoutKind.Explicit, Size = 256)]",
+        "Fields": [
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(0)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(16)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(20)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(24)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "ushort",
+                "Attributes": "[FieldOffset(28)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "ulong",
+                "Attributes": "[FieldOffset(32)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "ulong",
+                "Attributes": "[FieldOffset(40)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "long",
+                "Attributes": "[FieldOffset(96)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(104)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "long",
+                "Attributes": "[FieldOffset(112)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(120)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(136)]",
+                "Modifiers": "internal"
+            },
+            {
+                "Type": "uint",
+                "Attributes": "[FieldOffset(140)]",
+                "Modifiers": "internal"
+            }
+        ],
+        "VisibleMembers": [
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.CaptureOriginalHeldRegularFileIdentity(string, Microsoft.Win32.SafeHandles.SafeFileHandle, System.Threading.CancellationToken)",
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.CaptureOriginalRegularFileIdentity(string, Microsoft.Win32.SafeHandles.SafeFileHandle, System.Threading.CancellationToken)",
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OpenOriginalRegularFile(string, System.Threading.CancellationToken)",
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity.DeviceMajor",
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity.DeviceMinor",
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity.Inode",
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.ValidateOriginalHeldRegularFileUnchanged(string, Microsoft.Win32.SafeHandles.SafeFileHandle, FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalHeldRegularFileIdentity, System.Threading.CancellationToken)",
+            "FsusBlog.Algorithms.IO.NativeRegularFileGuard.ValidateOriginalRegularFileUnchanged(string, Microsoft.Win32.SafeHandles.SafeFileHandle, FsusBlog.Algorithms.IO.NativeRegularFileGuard.OriginalRegularFileIdentity, System.Threading.CancellationToken)"
+        ],
+        "LiteralTokens": [
+            "0x800",
+            "0x20000",
+            "0x80000",
+            "0x100",
+            "\"\"",
+            "0x1000",
+            "\"current_verify_artifact_identity_changed\"",
+            "\"current_verify_original_artifact_path_required\"",
+            "\"current_verify_native_file_owner_unavailable\"",
+            "0x200000",
+            "0x10000",
+            "0x20000",
+            "0x80000",
+            "'/'",
+            "0",
+            "\"current_verify_regular_artifact_required\"",
+            "100",
+            "\"/\"",
+            "1",
+            "1",
+            "0",
+            "\"current_verify_native_artifact_open_refused\"",
+            "0x7df",
+            "0",
+            "\"current_verify_native_artifact_identity_unavailable\"",
+            "\"current_verify_artifact_identity_changed\"",
+            "\"\"",
+            "0x1000",
+            "\"current_verify_artifact_identity_changed\"",
+            "\"current_verify_artifact_identity_changed\"",
+            "\"current_verify_artifact_identity_changed\"",
+            "\"current_verify_held_file_identity_changed\"",
+            "\"current_verify_held_file_identity_changed\"",
+            "\"current_verify_held_file_identity_changed\"",
+            "0xf000",
+            "0x8000",
+            "0xf000",
+            "0x8000",
+            "0x100",
+            "0xf000",
+            "0x8000",
+            "\"current_verify_regular_artifact_required\"",
+            "256",
+            "0",
+            "16",
+            "20",
+            "24",
+            "28",
+            "32",
+            "40",
+            "96",
+            "104",
+            "112",
+            "120",
+            "136",
+            "140",
+            "\"libc\"",
+            "\"openat\"",
+            "\"libc\"",
+            "\"statx\""
+        ]
+    },
+    "CandidateSymbols": [
+        {
+            "Name": "fileFlags",
+            "Kind": "Local",
+            "Access": "NotApplicable",
+            "Owner": "lambda expression"
+        },
+        {
+            "Name": "directoryFlags",
+            "Kind": "Local",
+            "Access": "NotApplicable",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.WithOriginalParentDirectory<TResult>(string, System.Threading.CancellationToken, System.Func<Microsoft.Win32.SafeHandles.SafeFileHandle, string, TResult>, out FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeDirectoryIdentity[])"
+        },
+        {
+            "Name": "requiredMask",
+            "Kind": "Local",
+            "Access": "NotApplicable",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.Observe(int, string, int)"
+        },
+        {
+            "Name": "Mask",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "Links",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "Uid",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "Gid",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "Mode",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "Inode",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "Size",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "ChangedSeconds",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "ChangedNanoseconds",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "ModifiedSeconds",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "ModifiedNanoseconds",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "DeviceMajor",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        },
+        {
+            "Name": "DeviceMinor",
+            "Kind": "Field",
+            "Access": "Internal",
+            "Owner": "FsusBlog.Algorithms.IO.NativeRegularFileGuard.NativeFileIdentity"
+        }
+    ],
+    "baselineCandidate": "d2db14ec7ad20f424d9d71022d3f54325efaff81",
+    "capturedAt": "2026-10-08T14:48:29.636614+00:00",
+    "path": "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+    "reportedFormattingDiagnostics": 9,
+    "confirmedMechanicalNamingSymbols": 16,
+    "nativeMethodInvoked": false,
+    "runtimeNativeQualification": false,
+    "positiveTestAllowlist": [
+        "C# style governance accepts Microsoft-style C# through the changed-file gate",
+        "C# style governance aggregates tabs braces indentation using naming and line-ending failures",
+        "C# style governance preserves external names in mapping metadata without leaking them into C# identifiers"
+    ],
+    "excludedExecution": "held native, lease, race, receipt and Git replacement audits; no runtime test entered"
+}

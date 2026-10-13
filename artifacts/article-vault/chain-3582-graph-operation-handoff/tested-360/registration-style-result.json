@@ -1,0 +1,30 @@
+{
+    "candidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+    "endCandidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+    "headChangedDuringRun": false,
+    "startedAt": "2026-10-08T07:47:07.635117+00:00",
+    "endedAt": "2026-10-08T07:47:08.463799+00:00",
+    "command": [
+        "/workspace/FsusBlog/.tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--require-tools",
+        "--file",
+        "tests/matrix.yml",
+        "--file",
+        "tests/coverage-registry.json",
+        "--file",
+        "tests/governance/test-lifecycle-registry.json",
+        "--file",
+        "config/development/document-lifecycle.json",
+        "--file",
+        "config/development/native-tooling-style-policy.json",
+        "--file",
+        "config/development/authoritative-development-docs.json"
+    ],
+    "cwd": "/workspace/FsusBlog",
+    "exitCode": 0,
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "changedInputsChanged": false,
+    "scope": ""
+}

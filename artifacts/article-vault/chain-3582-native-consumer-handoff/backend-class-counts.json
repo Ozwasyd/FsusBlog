@@ -1,0 +1,13 @@
+{
+    "AccountSubjectHashProjectionTests": 18,
+    "ArticleVaultAcceptedSourceAdapterTests": 29,
+    "ArticleVaultExecutionPostgresIntegrationTests": 2,
+    "ArticleVaultExecutionTests": 37,
+    "ArticleVaultMaterializationPreflightTests": 12,
+    "ArticleVaultOperationCheckpointPostgresTests": 4,
+    "ArticleVaultOperationProtocolTests": 12,
+    "ArticleVaultRecoveryAcceptedSourceTests": 13,
+    "ArticleVaultRecoveryCheckpointReaderTests": 4,
+    "ArticleVaultRecoveryServiceRegistrationTests": 4,
+    "DocumentExportContractTests": 70
+}

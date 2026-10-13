@@ -435,11 +435,11 @@ public static class ArticleVaultExecutionIntegrity
         => JsonSerializer.Deserialize<T>(utf8, s_jsonOptions)
             ?? throw new ArticleVaultExecutionRejectedException("article_vault_execution_payload_invalid");
 
-    private static bool IsDigest(string? value)
+    internal static bool IsDigest(string? value)
         => value is { Length: 64 }
             && value.All(static character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
-    private static bool IsOpaque(string? value, int maximumLength)
+    internal static bool IsOpaque(string? value, int maximumLength)
         => !string.IsNullOrWhiteSpace(value)
             && value.Length <= maximumLength
             && value.All(static character => !char.IsControl(character));

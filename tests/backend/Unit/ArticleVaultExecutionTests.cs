@@ -491,7 +491,7 @@ public sealed class ArticleVaultExecutionTests
         string update = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "UpdateAsync");
         string delete = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "DeleteAsync");
 
-        AssertExecutionHasNoForbiddenSidePath(vaultExecution);
+        AssertExecutionHasNoForbiddenSidePath(vaultExecution, vaultTypes);
         Assert.DoesNotContain("VaultPathProjection", executor, StringComparison.Ordinal);
         Assert.DoesNotContain("INSERT INTO article", writerBoundary, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("UPDATE article SET", writerBoundary, StringComparison.OrdinalIgnoreCase);
@@ -517,6 +517,8 @@ public sealed class ArticleVaultExecutionTests
     [Theory]
     [InlineData(typeof(InstanceFileAccessFixture), "System.IO.")]
     [InlineData(typeof(StaticFileAccessFixture), "System.IO.")]
+    [InlineData(typeof(InstanceErrorAndFileAccessFixture), "System.IO.")]
+    [InlineData(typeof(StaticErrorAndFileAccessFixture), "System.IO.")]
     [InlineData(typeof(InstanceObservationFixture), "Watcher")]
     [InlineData(typeof(StaticObservationFixture), "Watcher")]
     [InlineData(typeof(InstanceLoadingFixture), "Import")]
@@ -531,7 +533,7 @@ public sealed class ArticleVaultExecutionTests
         string execution = DescribeExecutionTypes([fixtureType]);
 
         Xunit.Sdk.XunitException rejection = Assert.ThrowsAny<Xunit.Sdk.XunitException>(
-            () => AssertExecutionHasNoForbiddenSidePath(execution));
+            () => AssertExecutionHasNoForbiddenSidePath(execution, fixtureType));
 
         Assert.Contains(forbiddenFact, rejection.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -549,16 +551,72 @@ public sealed class ArticleVaultExecutionTests
         AssertExecutionHasNoForbiddenSidePath(execution);
     }
 
+    [Theory]
+    [InlineData(typeof(InstanceValidationErrorFixture))]
+    [InlineData(typeof(StaticValidationErrorFixture))]
+    public void ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess(Type fixtureType)
+    {
+        string execution = DescribeExecutionTypes([fixtureType]);
+        Assert.Contains(typeof(InvalidDataException).FullName!, execution, StringComparison.Ordinal);
+        Assert.Contains(RuntimeMetadataInspection.ReadMemberSites(fixtureType), static site =>
+            site.Member is System.Reflection.ConstructorInfo constructor
+            && constructor.DeclaringType == typeof(InvalidDataException));
+
+        AssertExecutionHasNoForbiddenSidePath(execution, fixtureType);
+    }
+
     private static string DescribeExecutionTypes(IEnumerable<Type> types)
         => string.Join('\n', types.Select(static type => string.Join('\n',
             RuntimeMetadataInspection.DescribeType(type),
             RuntimeMetadataInspection.DescribeConstructors(type))));
 
-    private static void AssertExecutionHasNoForbiddenSidePath(string execution)
+    private static void AssertExecutionHasNoForbiddenSidePath(string execution, params Type[] inspectedTypes)
     {
-        Assert.DoesNotContain("System.IO.", execution, StringComparison.Ordinal);
+        // The SDK validation exception performs no file access. Permit only that exact runtime
+        // type spelling; every other System.IO fact and actual compiled member stays forbidden.
+        string filesystemFacts = System.Text.RegularExpressions.Regex.Replace(
+            execution, @"\bSystem\.IO\.InvalidDataException\b", "validation-error");
+        Assert.DoesNotContain("System.IO.", filesystemFacts, StringComparison.Ordinal);
+        foreach (Type type in inspectedTypes)
+        {
+            foreach (RuntimeMetadataInspection.RuntimeMemberSite site in RuntimeMetadataInspection.ReadMemberSites(type))
+            {
+                Type? referencedType = site.Member is Type memberType ? memberType : site.Member.DeclaringType;
+                Assert.False(referencedType?.Namespace?.StartsWith("System.IO", StringComparison.Ordinal) == true
+                    && referencedType != typeof(InvalidDataException),
+                    $"Forbidden compiled filesystem member: {site.Member} at {site.Owner} IL_{site.Offset:X4}.");
+            }
+        }
         Assert.DoesNotContain("Watcher", execution, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Import", execution, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class InstanceValidationErrorFixture
+    {
+        public InstanceValidationErrorFixture() => GC.KeepAlive(new InvalidDataException("validation-rejected"));
+    }
+
+    private static class StaticValidationErrorFixture
+    {
+        static StaticValidationErrorFixture() => GC.KeepAlive(new InvalidDataException("validation-rejected"));
+    }
+
+    private sealed class InstanceErrorAndFileAccessFixture
+    {
+        public InstanceErrorAndFileAccessFixture()
+        {
+            GC.KeepAlive(new InvalidDataException("validation-rejected"));
+            GC.KeepAlive(System.IO.File.Exists("validation-fixture"));
+        }
+    }
+
+    private static class StaticErrorAndFileAccessFixture
+    {
+        static StaticErrorAndFileAccessFixture()
+        {
+            GC.KeepAlive(new InvalidDataException("validation-rejected"));
+            GC.KeepAlive(System.IO.File.Exists("validation-fixture"));
+        }
     }
 
     private sealed class InstanceFileAccessFixture

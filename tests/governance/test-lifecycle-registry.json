@@ -324,6 +324,17 @@
             }
         },
         {
+            "file": "tests/tools/article-vault-conflict-contract.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-contract",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/article-embed-contract.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -6783,21 +6794,6 @@
             }
         },
         {
-            "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ],
-            "staticGovernance": {
-                "id": "canonical-article-lifecycle-authority",
-                "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
-            }
-        },
-        {
             "file": "tests/tools/canonical-article-publication-authority.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -7641,6 +7637,50 @@
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }
+        },
+        {
+            "file": "tests/tools/macos-vault-observer-source.test.mjs",
+            "owner": "matrix-tier:macos-vault-observer-source",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-presentation-diagnostics",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-vault-conflict-terminal-ui.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-presentation-diagnostics",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-vault-conflict-terminal-plan.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-presentation-diagnostics",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
         }
     ]
 }

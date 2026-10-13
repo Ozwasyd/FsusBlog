@@ -19,6 +19,7 @@ using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Services.Telemetry;
+using FsusBlog.Shared.Contracts.ArticleVault;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -34,6 +35,13 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddGeneralDomainServices();
         services.AddCoreBridgeServices();
         services.AddHostedService<DeploymentLifecycleHostedService>();
+        // A missing explicit binding disables Vault reads while ordinary authoring stays available.
+        string? trustedVaultSiteIdentity = configuration?["ArticleVault:TrustedSiteIdentity"];
+        if (!string.IsNullOrWhiteSpace(trustedVaultSiteIdentity))
+        {
+            services.AddFsusArticleVaultPostgresRecoveryStores();
+            services.AddFsusArticleVaultRecoveryReaders(trustedVaultSiteIdentity);
+        }
 
         return services;
     }
@@ -163,6 +171,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringRevisionCompareDraftContextProvider, AuthoringRevisionCompareDraftContextProvider>();
         services.AddScoped<IAuthoringRevisionCompareDraftContextAuthority, AuthoringRevisionCompareDraftContextAuthority>();
         services.AddScoped<IRevisionComparePackageReader, AuthoringRevisionComparePackageReader>();
+        services.AddScoped<IAuthoringArticleCurrentSourceReader, AuthoringArticleCurrentSourceReader>();
         services.AddScoped<RevisionComparePlanner>();
         services.AddScoped<RevisionComparePlanVerifier>();
         services.AddSingleton<IRevisionMarkdownStructureProvider, CanonicalRevisionMarkdownStructureProvider>();

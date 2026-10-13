@@ -1,0 +1,66 @@
+{
+    "sourceCandidate": "09138ca70af4bfb0141bfe7731268161e2aae8c6",
+    "packageIncrement": "f217668ff0647d3dba621d25fa5303b18b471020",
+    "siteCompositionIncrement": "09138ca70af4bfb0141bfe7731268161e2aae8c6",
+    "latestVerifiedMaster": "cb6f4e4a174ac65735707c7e44286352803e742b",
+    "testedTree": "d977b9dac287d90b6d0332db0a254a2943903368",
+    "recordedAt": "2026-10-08T10:34:47.645716+00:00",
+    "sourceHashes": {
+        "artifacts/change-contract/article-vault-conflict-contract-external-naming.json": "37719cebde1e84613095a5a7b7363a0c8cc504353f00038c21abf81cc746ffb2",
+        "docs/architecture/article-property-value-boundary.md": "25bddc2ef532eeafa1cdb18c90924e95dd23f99211c45e4a719dbb759a9bca96",
+        "docs/architecture/article-vault-dependencies.md": "a9304df4fb3f88de34c35b3054fbdfb91ba7308235daf18f69fa7b83eee40379",
+        "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "13d2dcbf421a68176865b5497fafbc9ed89296b77f5f1d6fbb0ab1b30af83283",
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "29253e879c23eb16c99a160e02726f84ba221db82e0695cb9b08584044c1ebc5",
+        "src/backend/Services/ArticleVault/ArticleVaultConflictReviewReader.cs": "2bb67ddd1d313a148ed5d773570b6ba40238561154c3a5ad734a8981315d1de2",
+        "src/backend/Services/ArticleVault/ArticleVaultPackagePropertyMetadataBridge.cs": "5769164a63bb9740f2f055b68800599aeec64f5537d2793be6e3005d37111468",
+        "src/backend/Services/ArticleVault/ArticleVaultResolutionProposalStore.cs": "a21c3e78b82d995e44853f571f3f5835c2bce4c3edfa7d69e315c14ac9faebcb",
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs": "5b76eebf7c7f9ba0f7af2bd89761e69deb3c52d82957735354b01de4cf834c00",
+        "src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs": "2f47f68f8d6318e8c9e500e6966e550a724a0f1d515a9d3910ed54e9b7129d3b",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs": "dadd02e49bb51b5a719edb38c8c14c6c90ccbe2d670bb3b5dd675b4bed31b97a",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs": "fae3cbc8a96d92de6fee2764a0c9360633f52029bf202a61a57cc32e52277b7d",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs": "18e5b691b6067a1760bb8bd9c26552d1aa9da6a9928588827e7bce264f3bea51",
+        "tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs": "277a4e95cc3dfeeb6ed3126f959f0a5866a10dac479129780bb010ced9837c6e",
+        "tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs": "7aec54442535433c2de8f48c24c91f8e06de45416ee2ff84bd38a5389f299a90",
+        "tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs": "3d4c03a1e5614422c68c35a2b60e534010fef57a3dfef7039016335dfb6541e3",
+        "tests/backend/Unit/ArticleVaultConflictReviewReaderTests.cs": "643c20fa6bf3fc280a45cd9b8aa9e9880df07ea04f7a541053266a6d6ddd7eeb",
+        "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.cs": "04185803e9dea188cdc54b089f35ec6fc1f0921626ec52ee2b379e3969a618ae",
+        "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": "eefac935ea6439163412f088fde7db41047f48f90df18eb7d17f9de10585956c"
+    },
+    "sourceHold": true,
+    "acceptedOrClosed": false,
+    "publishedBranch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "nativeRetested": false,
+    "prototype1871Claims": {
+        "prototypes/article-vault-1871/": false,
+        "docs/architecture/article-vault-1871/": false,
+        "tests/backend/Prototypes/ArticleVaultDecisionPrototype/": false,
+        "otherPrototypeWork": false
+    },
+    "lockRepair3568": {
+        "adopted": false,
+        "reason": "Current project graph has fsusblog.server with AngleSharp [1.5.0, ); no fsusblog.server.dependencies node. Locked restore/build passes. No lock regeneration."
+    },
+    "metadataNamingHead": "7cb9bf94ab1a756093225333815526934df266f2",
+    "postTestChanges": [
+        "artifacts/change-contract/article-vault-conflict-contract-external-naming.json"
+    ],
+    "testedSourceByteEquality": {
+        "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": true,
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": true,
+        "src/backend/Services/ArticleVault/ArticleVaultConflictReviewReader.cs": true,
+        "src/backend/Services/ArticleVault/ArticleVaultPackagePropertyMetadataBridge.cs": true,
+        "src/backend/Services/ArticleVault/ArticleVaultResolutionProposalStore.cs": true,
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs": true,
+        "src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs": true,
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs": true,
+        "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs": true,
+        "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs": true,
+        "tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs": true,
+        "tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs": true,
+        "tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs": true,
+        "tests/backend/Unit/ArticleVaultConflictReviewReaderTests.cs": true,
+        "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.cs": true,
+        "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": true
+    }
+}

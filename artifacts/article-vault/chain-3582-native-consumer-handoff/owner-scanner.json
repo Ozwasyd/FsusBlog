@@ -1,0 +1,84 @@
+{
+    "candidate": "65b3904551d2a7fbc5e2c08e3e52f62dcda40cec",
+    "startedAt": "2026-10-08T09:25:59.018Z",
+    "command": [
+        "node",
+        "--input-type=module",
+        "original scanBackendSourceLocking on exact owner files + verifySourceLockingFixtures"
+    ],
+    "sourceSha256": {
+        "tests/backend/Unit/ArticleVaultExecutionTests.cs": "97b1a0cc048334dbe880ced401671b9086926119afdf9c99f07fc12c1d01ba76",
+        "tests/backend/Unit/DocumentExportContractTests.cs": "e46e0c397c0bb9fad725c98da99879ba6c919d7132c23958254d13ef9de46ee4",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt": "2e2c56e692348484e27edd487934d51b1c7e2a41b9a0b64777431f9cc02f319a",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt": "84a2479cd32ea671d0d9af172fda78bf34123b855d1b7106aa7e0ba7d7e66963",
+        "tools/test-convergence/audit.mjs": "8dee54f4c10b8e65ebd944842e524a9ca3975f500fa2f9d36ff4f25fe116e36e"
+    },
+    "results": {
+        "tests/backend/Unit/ArticleVaultExecutionTests.cs": [],
+        "tests/backend/Unit/DocumentExportContractTests.cs": []
+    },
+    "controls": {
+        "positive": [],
+        "negative": [
+            {
+                "path": "negative.fixture.cs.txt",
+                "line": 5,
+                "column": 26,
+                "rule": "production-source-read",
+                "target": "src/backend/Services/ExampleService.cs",
+                "message": "replace repository source read src/backend/Services/ExampleService.cs with behavior, serialization, persistence, or one static owner"
+            },
+            {
+                "path": "negative.fixture.cs.txt",
+                "line": 6,
+                "column": 23,
+                "rule": "documentation-source-read",
+                "target": "docs/testing.md",
+                "message": "replace repository source read docs/testing.md with behavior, serialization, persistence, or one static owner"
+            },
+            {
+                "path": "negative.fixture.cs.txt",
+                "line": 7,
+                "column": 28,
+                "rule": "test-source-read",
+                "target": "tests/backend/Unit/OtherTests.cs",
+                "message": "replace repository source read tests/backend/Unit/OtherTests.cs with behavior, serialization, persistence, or one static owner"
+            },
+            {
+                "path": "negative.fixture.cs.txt",
+                "line": 8,
+                "column": 25,
+                "rule": "source-reader-helper",
+                "target": "src/backend/Services/HiddenService.cs",
+                "message": "source-reader helper is not executable behavior evidence"
+            },
+            {
+                "path": "negative.fixture.cs.txt",
+                "line": 18,
+                "column": 29,
+                "rule": "production-source-read",
+                "target": "*.cs",
+                "message": "repository-root file reads must move to executable behavior or one static governance owner"
+            },
+            {
+                "path": "negative.fixture.cs.txt",
+                "line": 22,
+                "column": 27,
+                "rule": "source-reader-helper",
+                "target": null,
+                "message": "source-reader helper is not executable behavior evidence"
+            },
+            {
+                "path": "negative.fixture.cs.txt",
+                "line": 23,
+                "column": 12,
+                "rule": "generic-repo-source-reader",
+                "target": null,
+                "message": "generic repository source reader hides the asserted target"
+            }
+        ],
+        "errors": []
+    },
+    "scope": "Original read-only owner source scanner and fixture refusal, not product/runtime qualification.",
+    "exitCode": 0
+}

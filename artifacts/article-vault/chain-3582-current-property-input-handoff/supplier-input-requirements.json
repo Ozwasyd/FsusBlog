@@ -1,0 +1,130 @@
+{
+    "schema": "fsusblog.article-package.current-source-handoff.v1",
+    "testedComponentCommit": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+    "publishedComponentBranch": "codex/chain-3663-persisted-property-binding",
+    "latestFetchedMasterBeforeWork": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "frozenExportHeadPreserved": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+    "consumedCompanion": "d74d423c9635757455765df72be0f1c443061195",
+    "consumerTableReadOnly": "42ece11c821dd01e9f372b66e7822f0fd0fc3864",
+    "fields": [
+        {
+            "field": "Schema / SchemaVersion",
+            "actualAvailable": "Original ArticleVaultManifestCodec / ArticleVaultSchemas already available; package finite schema remains1",
+            "remainingRequiredInputOrOwnedWork": "No new Vault codec; full accepted package manifest/registry integration remains owned and unfinished. Original current/known-old/future/unknown/lossy controls and exact digests remain."
+        },
+        {
+            "field": "SiteIdentity / VaultIdentity / DeviceIdentity",
+            "actualAvailable": "Actual #3582 reader/plan scopes already bound by consumer",
+            "remainingRequiredInputOrOwnedWork": "Package SiteScope, permission site and Vault identity are distinct; need explicit legitimate mapping, no conflation."
+        },
+        {
+            "field": "PortableArticleIdentity / ServerArticleIdentity",
+            "actualAvailable": "Existing finite ArticlePackageManifestArticle.Source.ArticleId + explicit PortableArticle; title mapper/manifest planner rebind exact supplied coordinates",
+            "remainingRequiredInputOrOwnedWork": "Cross-package persistent mappings/current provenance remain absent; no label/title/slug/URL/filename mapping."
+        },
+        {
+            "field": "Title / Summary",
+            "actualAvailable": "Actual authorized revision package metadata exists. Sole package title mapper and finite article codec exist; metadata component now closed and exact",
+            "remainingRequiredInputOrOwnedWork": "Consumer still needs all three original complete V1 bytes and their observed digests, not renamed finite projection digest."
+        },
+        {
+            "field": "Slug",
+            "actualAvailable": "ArticleCanonicalInput.PublicRouteKey is a supplied canonical field; revision reader/DTO has no historical/persisted slug. No fallback introduced",
+            "remainingRequiredInputOrOwnedWork": "Need canonical persisted/native/export slug and versioned mapping policy. Package cannot infer from ID/title/URL/path. Coordinator must route actual source owner; #3735 is only value bridge owner."
+        },
+        {
+            "field": "TaxonomySha256 / portable category + tags",
+            "actualAvailable": "Sole codec TryCreate/Parse/Write/BindTaxonomyCandidate + TryCreateTaxonomySetCandidate at47da and current0c; explicit category/tag UUIDs, IDs, names/descriptions, bijections and actual-source binding",
+            "remainingRequiredInputOrOwnedWork": "Need exact persisted actor/site revision taxonomy/definition source epochs/provenance and base/local/server stable bindings. Component digest is not automatically Vault TaxonomySha256; no label mapping."
+        },
+        {
+            "field": "PropertiesSha256 / typed rows",
+            "actualAvailable": "Consumed actual IArticlePropertyValueAuthority.ReadAsync plus immutable snapshot/definition/owner/audit types and canonical persistence kernel. Own ArticlePackageCurrentPropertyReader.ReadAndMapAsync and existing finite planner ReadCurrentPropertiesAndCreateCandidatePlanAsync consume actual read results, bind selected current owner/site/article/revision/property revision/publication and snapshot digest, retain exact historical values and current definition observations separately, recheck via a second authorized read, and encode/rebind the existing soleV1 property component. No caller persisted snapshot accepted; tests use controlled ports, not DB receipts.",
+            "remainingRequiredInputOrOwnedWork": "Not absence of property APIs or an unimplemented current source bridge. Need the precise original ArticleService.ReadAsync implementation/DI/schema/audit integration source and current DB/HTTP/runtime evidence for the production provider. Need authorized draft/selected historical operation modes and actual nonempty-reference target revision/lifecycle/permission facts. Original PropertiesSha256 for the three complete V1 metadata snapshots is not automatically this finite component digest. Full accepted root/registry/privacy/source admission remains owned unfinished."
+        },
+        {
+            "field": "Definition schema/options/current rights",
+            "actualAvailable": "Real canonical GetManyAsync, default bounded delegation to GetAsync, permission authority and ValidateAsync are consumed. ReadModel.Definitions are canonical content/owner/type checked. Historical row schema/digest stays signed source provenance; current revision/digest/status observations are separate and checked for movement. Existing inactive option IDs are preserved, never converted to active/new-value grants.",
+            "remainingRequiredInputOrOwnedWork": "Production provider must bind actual actor/session/site permissions and definition observations. Historical values with an unavailable/removed definition or a changed current type still require original selected historical definition policy/provider; no inferred schema or missing head manufacture. Operation authorization and import target definition creation/reconciliation remain separate."
+        },
+        {
+            "field": "ContentSha256 / three original complete metadata snapshots",
+            "actualAvailable": "Original ArticleVaultManifestCodec.SerializeCanonical / DeserializeMetadataManifest / ComputeContentSha256 exist; no second Vault codec",
+            "remainingRequiredInputOrOwnedWork": "Base/Local/Server raw V1 manifests, all13 source fields, and original MetadataManifestSha256 coordinates still required. Component hash, current opaque projection or doc metadata digest cannot substitute."
+        },
+        {
+            "field": "Source bytes / SourceSha256",
+            "actualAvailable": "Actual server CurrentRevision read now bound by3582; package SourceBytes inspector and exact byte binders preserve raw UTF8/BOM/newlines",
+            "remainingRequiredInputOrOwnedWork": "Base/local actual native/Git-current stable snapshots remain unqualified, not reconstructed from normalized strings; #2110/#2112/#2117 consumers supply facts."
+        },
+        {
+            "field": "Cover / assets",
+            "actualAvailable": "Existing IPrivateAssetStore.OpenReadAsync + canonical AssetRecord/schema/media inspector; new actual-byte ArticlePackageAssetMetadataMapper.TryMapCandidate/ValidateCandidate at8280/current0c",
+            "remainingRequiredInputOrOwnedWork": "Need #1779/#2125 exact operation/plan/AssetId/source-revision/owner/rights/retention/ledger read and upload/reuse receipts. Public/active and OpenRead alone cannot grant export; private/deleting/SVG/unsupported media are refused. Signature/header inspection is not full image safety."
+        },
+        {
+            "field": "DependencySha256 / embeds/anchors/captions",
+            "actualAvailable": "All 23 supplied d74 whole dependency files now reside in candidate cb01 with consumed canonical formatting; managed source closure compiles strictly. Typed frozen slots/validators exist. Actual FsusUI f2 public function local built probes and 10 caption +15 anchor/embed original source controls were separately exercised.",
+            "remainingRequiredInputOrOwnedWork": "Need exact selected source/revision/authorized graph/publication/materializer providers and production registration. Local full native HTML render does not integrate caption automatically; public consumer-install/build provenance and actual Blog producer/roundtrip not accepted. No alternate parser/manifest caption payload."
+        },
+        {
+            "field": "Permission / lifecycle / writer admission",
+            "actualAvailable": "Actual complete-group/current/live-permission guards already exist in3582. Package finite components all refuse authority",
+            "remainingRequiredInputOrOwnedWork": "No mutation/publication/owner/rights grants from historical snapshot or component self-consistency. Consumer root owns verified executable candidate integration after genuine inputs; our full package admission also unfinished."
+        }
+    ],
+    "qualification": "110-whole-file actual managed source/planner proof617/617, controlled read ports only. No DB/HTTP/audit/provider/runtime/package/issue acceptance, held audit, shared lock/regeneration, broad branch import or receipt inheritance.",
+    "originalLimits": [
+        "Current original qualification held: #3568 canonical consumer locks/native SQLite audit; no shared lock regeneration or audit suppression.",
+        "Four inherited component source diagnostics repaired by consuming canonical commits; current105-file managed strict compilation passes0 warnings/errors. Whole original project/source matrix remains unqualified/HOLD.",
+        "Complete package/source/read/rights/retention/privacy/migration/runtime requirements remain. Owned full schema/wire/bind and formal consumer integration unfinished.",
+        "Existing PR4012 head569518458ad4aa27cbc885417121a2e04cb74254 remains frozen; API writes paused, no new draft PR."
+    ],
+    "scopeNote": "#3735 root owns assigned #2323; do not reinterpret #3735 issue itself as an article-property endpoint request or duplicate its implementation.",
+    "packageOnlyExactReadGaps": [
+        {
+            "field": "Historical rights CanonicalUrl",
+            "actualAvailable": "AuthoringRevisionComparePackageReader.RevisionSnapshots serializes actual ArticleRevisionRightsSnapshotResponse. That DTO has policy/content hashes and rights fields but omits CanonicalUrl. The entity/source canonical rights input has that field.",
+            "required": "Exact actor/site-selected historical CanonicalUrl or an authoritative versioned absent/null policy bound to the observed rights snapshot. Do not infer historical null from the current snapshot builder. Coordinator routes original rights/revision source owner; do not duplicate it."
+        },
+        {
+            "field": "Historical PublicRouteKey / lifecycle publication facts",
+            "actualAvailable": "RevisionMetadata returns title, summary, cover-image-url, category-id and tag-ids; it does not supply selected-revision PublicRouteKey, status, published-at or scheduled-publish-at. Draft metadata separately has its own scheduled date.",
+            "required": "Canonical selected-revision/source route and lifecycle/publication projection with exact provenance; no title/ID slug, current-state substitution or draft-to-revision assumption."
+        },
+        {
+            "field": "Full package root / version registry / plan provenance",
+            "actualAvailable": "The current sole candidate root has finite article fields. Closed rights/taxonomy/property/asset components exist and remain non-admitting; no complete full-package producer/registry acceptance exists.",
+            "required": "Owned complete root/registry/decode-bind integration remains unfinished; it must consume all original authoritative source and syntax/dependency facts plus legitimate package/source/export-plan/build/policy coordinates. No second schema, shared registry change, lossless migration claim or manufactured producer metadata."
+        }
+    ],
+    "propertyApiReadOnlyObservedSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+    "propertyApiConsumption": {
+        "supplied": [
+            "919421b73828e3d1a032f6da2048431fffbf6743",
+            "6f1f228d46687931b78c280121e8c07ea0961fbc",
+            "92859e5bc8fb900c5e472ccfceae6103e1333b0a"
+        ],
+        "reference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "all11FinalSourceBlobsExactlyMatch": true,
+        "ownSourceBinding": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+        "noBroadBranchImportOrReceiptInheritance": true
+    },
+    "exactProducerRequests": [
+        {
+            "owner": "#3735 root owning #2323 / original ArticleService owner",
+            "existingApi": "Task<ArticlePropertyValueReadModel> IArticlePropertyValueAuthority.ReadAsync(long actorAdminPrincipalId, ArticlePropertyDefinitionOwner owner, int articleId, CancellationToken cancellationToken)",
+            "request": "Supply the minimal original ArticleService.ArticlePropertyValues ReadAsync implementation, actual production binding/DI, property schema/generated producer and audit action/catalog dependency commits and current isolated DB/HTTP evidence. The supplied11-file kernel does not activate a production reader or HTTP route; do not build a second ArticleService."
+        },
+        {
+            "owner": "Original draft/property/revision owner",
+            "existingApi": "Current ReadAsync selects current revision; canonical persistence rejects nonnull DraftId/DraftServerRevision. ReadSnapshotAsync(owner, articleId, snapshotId, cancellationToken) exists but supplies no operation authorization by itself.",
+            "request": "Identify original authorized producer/signature for exact selected historical article revision/publication or draft/server revision, immutable rows/digest/snapshot/factset/audit link, bound to current actor/site and operation. Do not invent a ReadExactAsync endpoint or treat a current head as draft/historical."
+        },
+        {
+            "owner": "#1808/#2443 canonical relation/permission owner via parent",
+            "existingApi": "Task IArticlePropertyReferenceValueAuthority.RequireAllowedAsync(ArticlePropertyReferenceValueQuery query, CancellationToken cancellationToken); query includes Actor, Owner, SourceArticleId, DefinitionId, DefinitionSchemaRevision, Policy, TargetArticleIds. Current supplied default is UnavailableArticlePropertyReferenceValueAuthority.",
+            "request": "Supply actual operation-bound reference authority/current permission observations and per-target ArticleRelationTargetFacts with the exact identity/site/selected revision/lifecycle/permission/cycle facts for explicit portable bindings. The void port alone does not expose target coordinates, and current property ReadModel does not expose a permission-bearing Actor for this query. No caller-supplied allowed flag or forged Actor permissions."
+        }
+    ]
+}

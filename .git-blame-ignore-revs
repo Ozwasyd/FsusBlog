@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Native regular file guard getter whitespace; mechanical source only.
+56f49e4b49e2c10c86900bfdfefc3ffbec87342a

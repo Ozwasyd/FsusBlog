@@ -1,0 +1,27 @@
+{
+  "candidate": "09138ca70af4bfb0141bfe7731268161e2aae8c6",
+  "runIdentity": "vault-3582-package-transport-09138ca70af4",
+  "command": [
+    "/workspace/FsusBlog/.tmp/chain-3582/dotnet/dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "-c",
+    "Release",
+    "-p:RestoreLockedMode=true",
+    "--filter",
+    "FullyQualifiedName~ArticlePackageManifestCandidate|FullyQualifiedName~ArticlePackageTitleSummaryMapper|FullyQualifiedName~ArticlePackagePropertyMapper|FullyQualifiedName~ArticlePackageSourceByte|FullyQualifiedName~ArticlePropertyValueFoundation|FullyQualifiedName~ArticleVaultPropertyMetadataMerge|FullyQualifiedName~ArticleVaultScalarMetadataMerge|FullyQualifiedName~ArticleVaultSourceAdmission|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~AccountSubjectHashProjectionTests|FullyQualifiedName~ArticleVaultConflictReviewReaderTests|FullyQualifiedName~ArticleVaultRecoveryServiceRegistrationTests|FullyQualifiedName~ArticleVaultRecoveryCheckpointReaderTests|FullyQualifiedName~ArticleVaultExecutionPostgresIntegrationTests|FullyQualifiedName~ArticleVaultOperationCheckpointPostgresTests|FullyQualifiedName~ArticleVaultAcceptedSourceAdapterTests|FullyQualifiedName~ArticleVaultRecoveryAcceptedSourceTests|FullyQualifiedName~ArticleVaultMaterializationPreflightTests|FullyQualifiedName~ArticleVaultOperationProtocolTests",
+    "--logger",
+    "trx;LogFileName=final-backend.trx",
+    "--results-directory",
+    ".tmp/chain-3582-expanded/package-f633-current/results"
+  ],
+  "startedAt": "2026-10-08T10:29:59.129068+00:00",
+  "exitCode": 0,
+  "endedAt": "2026-10-08T10:31:52.661062+00:00",
+  "endCandidate": "09138ca70af4bfb0141bfe7731268161e2aae8c6",
+  "assemblies": {
+    "src/backend/bin/Release/net10.0/FsusBlog.Server.dll": "399e551b48f740589d3bb9716a4aa6c66dec2657906910a29f5e286777342417",
+    "src/shared/bin/Release/net10.0/FsusBlog.Shared.dll": "0f564742b0369e1dd3f435535b761baa7873c48a77eb2c3d943420c331ee0b1c",
+    "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "5a158298e8a991d282ffc34f49e4d23d08ebc99b9ffff25060d70943fd3a7bd7"
+  }
+}

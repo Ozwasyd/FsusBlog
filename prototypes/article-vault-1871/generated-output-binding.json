@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "prototypes/article-vault-1871/Program.cs",
+        "prototypes/article-vault-1871/ArticleVaultDecisionPrototype.csproj",
+        "prototypes/article-vault-1871/run.sh",
+        "prototypes/article-vault-1871/global.json",
+        "prototypes/article-vault-1871/canonical-sources.sha256.txt"
+    ],
+    "outputs": [
+        {
+            "path": "prototypes/article-vault-1871/scenario-report.json",
+            "sha256": "fede78dc8a05ff9892ec4154c17d9be7ff64e3ea490e06a405f5980518255d8e"
+        }
+    ]
+}

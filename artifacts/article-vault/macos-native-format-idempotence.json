@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "e63715b162459ae968525b1b37e19cd5898efd61",
+    "formatter": {
+        "identity": "clang-format",
+        "version": "19.1.7",
+        "command": "clang-format -i src/article-vault/macos/native/MacVaultFSEvents.c"
+    },
+    "paths": [
+        "src/article-vault/macos/native/MacVaultFSEvents.c"
+    ],
+    "firstPassTreeSha256": "f25efc9cb536f5255c1222b0601d9cf155dcf6fdbb2c530e567edd89e991e7aa",
+    "secondPassTreeSha256": "f25efc9cb536f5255c1222b0601d9cf155dcf6fdbb2c530e567edd89e991e7aa",
+    "idempotent": true
+}

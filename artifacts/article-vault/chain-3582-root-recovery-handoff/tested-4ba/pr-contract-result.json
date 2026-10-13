@@ -1,0 +1,15 @@
+{
+    "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+    "remoteHead": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+    "base": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "draft": true,
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--github-event",
+        ".tmp/chain-3582-expanded/current-4ba/pr-event.json"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-08T08:57:43.350432+00:00",
+    "endedAt": "2026-10-08T08:57:44.463965+00:00"
+}

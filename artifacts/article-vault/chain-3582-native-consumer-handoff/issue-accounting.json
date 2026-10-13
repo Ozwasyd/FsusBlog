@@ -1,0 +1,1582 @@
+{
+    "planningMaster": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "accountedIssues": 49,
+    "retainedRootIssues": 21,
+    "transferredImplementationIssues": 28,
+    "trackingCount": 8,
+    "acceptedOrClosed": 0,
+    "updatedAt": "2026-10-08T09:30:36.285250+00:00",
+    "issues": [
+        {
+            "issue": 3582,
+            "title": "test(backend): bind Article Vault execution source lock to compiled behavior",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "compiled-behavior-verified-governance-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "executionOwner": {
+                    "passed": 33,
+                    "skipped": 0
+                },
+                "boundaryOwners": {
+                    "documentExport": 70,
+                    "metadataInspector": 18
+                },
+                "persistence": {
+                    "passed": 2,
+                    "skipped": 0,
+                    "provider": "real disposable PostgreSQL 18",
+                    "log": "current-3582-persistence.log"
+                },
+                "testedCandidate": "74a6c95829568104a76233d038c28aff981f10c9",
+                "currentRerun": "current-acceptance/backend-result.json",
+                "currentExecutableEvidence": {
+                    "candidate": "23aa625827ab56e3340b8e273f3e8b8ef95175cc",
+                    "backend": {
+                        "passed": 208,
+                        "failed": 0,
+                        "skipped": 0,
+                        "exitCode": 0,
+                        "manifest": "current-acceptance/backend-result.json"
+                    },
+                    "source": {
+                        "passed": 26,
+                        "failed": 0,
+                        "skipped": 0,
+                        "exitCode": 0,
+                        "manifest": "current-acceptance/checks-result.json"
+                    },
+                    "prContract": {
+                        "exitCode": 0,
+                        "manifest": "2116-draft/pr-gate-metadata-result.json"
+                    },
+                    "freshMasterConflict": {
+                        "exitCode": 0,
+                        "manifest": "current-acceptance/fresh-master-conflict.json"
+                    },
+                    "matrix": {
+                        "exitCode": 1,
+                        "manifest": "current-acceptance/canonical-matrix-result.json"
+                    },
+                    "convergence": {
+                        "exitCode": 1,
+                        "log": "current-acceptance/convergence.log"
+                    },
+                    "wholeDiffStyle": {
+                        "csharp": 1,
+                        "node": 0,
+                        "manifest": "current-acceptance/whole-diff-style-result.json"
+                    }
+                }
+            },
+            "remainingGate": "At69b original root37, export70, compiled metadata inspector18, exact adapter/recovery/instruction/checkpoint controls and six real PostgreSQL pass within205 current backend controls. Original scanner17 positive/refusal controls pass; original scanner reports zero root/export findings; root style passes. Current matrix/convergence remain failed and canonical b74 footer fails commit-range. Exact published metadata PR contract passes after five new source paths are added to root aggregate. No new SDK/provider blocker or product qualification.",
+            "currentEvidence": {
+                "testedSource": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+                "backend": "checks/backend-result.json",
+                "metadataInspector": "checks/metadata-inspector-result.json",
+                "observations": "checks/observations-result.json",
+                "sourceScanner": "owner-scanner.json",
+                "sourceSuite": "checks/scanner-suite-result.json",
+                "accepted": false
+            }
+        },
+        {
+            "issue": 1871,
+            "title": "design(article-vault): 固定服务端权威与可选本地 Markdown Vault 同步边界",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "architecture-source-published-runtime-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3880",
+            "historicalEvidence": {
+                "documentationCommit": "5889013b60e26160fb3821ffc63d843c6c41d194",
+                "documentationChecks": "Original authoritative docs and original native Markdown style passed",
+                "missing": "#1865 exact package byte/identity capability, actual rename/concurrent-edit/asset-link/Git prototype and three native platform feasibility gates"
+            },
+            "remainingGate": "Exact #1865 from root #3560; actual bounded prototype+native Windows/NTFS, macOS/APFS and Linux/ext4+governance negative controls",
+            "sourceCommit": "5889013b60e26160fb3821ffc63d843c6c41d194",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2106,
+            "title": "feat(article-vault): 原子 materialize accepted server coordinates 并更新 local base",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical materialization chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-accepted-source-adapter-consumed-server-composition-verified",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2106,
+                "currentSourceCapability": "#2103 manifests, #2104 planner, #2105 server result contracts available; production local materializer/path projection/journal/base commit absent.",
+                "verification": "Not run: no original materializer suite.",
+                "smallestMissingCapabilityAndOwner": "Implement owned local materializer; request #1865 exact raw-byte round-trip handoff from #3560.",
+                "downstreamUse": "Existing immutable plans and execution result refs unblock source design; no accepted-local-base capability yet."
+            },
+            "remainingGate": "Authorized naming conflicts resolved by aggregate metadata without source overwrite. Canonical adapter sources consumed; actual scoped backend composition at4ba requires caller-trusted site and existing admitted execution store. Accepted adapter29 and registration4 controls pass. Checkpoint schema/migration, trusted production site composition, native write/readback and base remain canonical acceptance gates.",
+            "consumedCanonicalTip": "4b9b17d2fe36262ab04fcfac2d6e810d6718ca86",
+            "currentEvidence": {
+                "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+                "backend": "tested-4ba/backend-result.json",
+                "classes": "tested-4ba/backend-class-counts.json",
+                "rootNativeCandidate": null
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2107,
+            "title": "feat(article-vault): 封存 operation idempotency、cancel、resume 与 durable receipts",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical materialization chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-checkpoint-and-recovery-reader-consumed-runtime-controls-passed",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2107,
+                "currentSourceCapability": "Only manifest operation watermarks and server group/execution receipts exist; durable local operation lifecycle/checkpoints absent.",
+                "verification": "Not run: no production operation suite.",
+                "smallestMissingCapabilityAndOwner": "#2106 verified materialization receipt and local base commit capability, then owned operation implementation.",
+                "downstreamUse": "Shared plan/idempotency coordinates can be reused; no full-operation cancel/resume capability."
+            },
+            "remainingGate": "At4ba original four real PostgreSQL checkpoint controls and two execution controls pass; actual recovery checkpoint reader4 pass. Composition intentionally does not fabricate a store/schema/migration or auto-startup registration. Production admitted checkpoint store and terminal recovery/native qualification remain unaccepted.",
+            "consumedCanonicalTip": "4b9b17d2fe36262ab04fcfac2d6e810d6718ca86",
+            "currentEvidence": {
+                "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+                "backend": "tested-4ba/backend-result.json",
+                "classes": "tested-4ba/backend-class-counts.json",
+                "rootNativeCandidate": null
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2108,
+            "title": "test(article-vault): 封口唯一 planner、writer、materialization 与 operation authority",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical materialization chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-operation-authority-controls-consumed-terminal-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2108,
+                "currentSourceCapability": "Manifest/planner/server tests exist, but no full local-materialization/operation protocol gate or terminal receipt.",
+                "verification": "Not run: original full-chain gate absent; current backend compiler issue owned by #3654.",
+                "smallestMissingCapabilityAndOwner": "#2106/#2107 implementation and original fault/mutation suites.",
+                "downstreamUse": "Can prepare schema-driven fixtures/static scanner once exact production surfaces defined."
+            },
+            "remainingGate": "Three original authority rejection controls passed at360. Whole terminal/native/interrupted materialization/backup/restore/product acceptance remains unqualified.",
+            "currentEvidence": {
+                "testedCandidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+                "backend": "tested-360/broader-backend-result.json",
+                "classes": "tested-360/backend-class-counts.json",
+                "source": "tested-360/source-result.json"
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 1909,
+            "title": "tracking(article-vault): local-first 双向同步协议与唯一写入权威",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 1909,
+                "currentSourceCapability": "Tracking-only; #2103/#2104/#2105 integrated, #1871/#2106/#2107/#2108 incomplete.",
+                "verification": "Aggregated source/issue preflight; no root independent implementation/test.",
+                "smallestMissingCapabilityAndOwner": "Child criteria and exact #1865 (#3560), #1779 (#1975), #1808 (#3735) evidence.",
+                "downstreamUse": "Existing shared schemas/planner/canonical executor source reusable; full sync qualification missing."
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2109,
+            "title": "feat(article-vault): 定义 Vault root、canonical path 与 control-tree 安全边界",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "root-APIs-consumed-real-native-admission-still-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2109,
+                "currentSourceCapability": "Shared manifest safe-projection checks and Linux-private LinuxVaultRootVerifier exist; cross-platform verified root-relative API, closed artifact registry and path receipts absent.",
+                "verification": "Linux watcher suite: exit 1, 2/17 pass; root symlink rejection passed, native paths failed overlay admission.",
+                "smallestMissingCapabilityAndOwner": "Implement owned common root/path/classification contract; Windows/APFS semantics require native hosts for qualification.",
+                "downstreamUse": "Manifest binding and Linux security mechanics are reusable; cannot expose existing absolute-root request as generic #2109 verified capability."
+            },
+            "remainingGate": "Actual root APIs5e7 unchanged; canonical b74 preparer/rescan now consume them and are integrated69b. Operation bound preparation is not final conditional namespace mutation or OS external writer exclusion. Current observations69:62pass7fail0skip; all four new native cases fail root admission linux_vault_filesystem_unsupported. Prior root descriptor22 evidence remains bound5e7; no connectivity replay or native qualification.",
+            "sourceCommit": "919d6de00e48ed71d008d55156ac149009ff4680",
+            "currentEvidence": {
+                "testedSource": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+                "backend": "checks/backend-result.json",
+                "metadataInspector": "checks/metadata-inspector-result.json",
+                "observations": "checks/observations-result.json",
+                "sourceScanner": "owner-scanner.json",
+                "sourceSuite": "checks/scanner-suite-result.json",
+                "accepted": false
+            }
+        },
+        {
+            "issue": 2110,
+            "title": "feat(article-vault): 实现 stable file snapshots 与 atomic local materialization primitives",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical snapshot-rescan chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "actual-temporary-preparer-consumed-native-positive-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2110,
+                "currentSourceCapability": "StableRead and atomic materialization occur only in qualification harness marked simulated; no production primitives.",
+                "verification": "Linux qualification exit 1, 0/16 pass; fixture unsupported filesystem.",
+                "smallestMissingCapabilityAndOwner": "#2109 verified semantic paths and #2106 sealed instructions; implement owned primitives.",
+                "downstreamUse": "No production snapshot/write capability; harness is risk fixture only."
+            },
+            "remainingGate": "Actual LinuxVaultTemporarySourcePreparer.Prepare validates original bytes, uses O_EXCL operation-bound temporary, chunk writes, file/directory flush and descriptor readback. Canonical ReadBounded supports inventory budget. Current two pure preparer controls pass; new real create/update native cases compile and actually fail unsupported root filesystem, not UNRUN or passed. Final conditional source mutation, accepted metadata, permission preservation, final reopen/readback, journal/base remain missing. Source/temporary readback never grants replacement/base.",
+            "consumedCanonicalTip": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "currentEvidence": {
+                "testedSource": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+                "backend": "checks/backend-result.json",
+                "metadataInspector": "checks/metadata-inspector-result.json",
+                "observations": "checks/observations-result.json",
+                "sourceScanner": "owner-scanner.json",
+                "sourceSuite": "checks/scanner-suite-result.json",
+                "accepted": false
+            }
+        },
+        {
+            "issue": 2116,
+            "title": "feat(article-vault): 定义 three-way conflict taxonomy 与唯一 disposition registry",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "closed-conflict-contract-published-automatic-admission-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "compiledControls": {
+                    "passed": 44,
+                    "skipped": 0,
+                    "log": "2116-draft/backend-corrected-final.log"
+                },
+                "nodeControls": {
+                    "passed": 9,
+                    "skipped": 0,
+                    "log": "2116-draft/source-final.log"
+                },
+                "currentHeadPrGate": "2116-draft/pr-gate-metadata-result.json",
+                "automaticEligibility": "Denied until independent canonical readers exist; payload binding is not reader truth",
+                "policyFailure": "2116-draft/matrix-final.log",
+                "currentExecutableEvidence": {
+                    "candidate": "23aa625827ab56e3340b8e273f3e8b8ef95175cc",
+                    "backend": {
+                        "passed": 208,
+                        "failed": 0,
+                        "skipped": 0,
+                        "exitCode": 0,
+                        "manifest": "current-acceptance/backend-result.json"
+                    },
+                    "source": {
+                        "passed": 26,
+                        "failed": 0,
+                        "skipped": 0,
+                        "exitCode": 0,
+                        "manifest": "current-acceptance/checks-result.json"
+                    },
+                    "prContract": {
+                        "exitCode": 0,
+                        "manifest": "2116-draft/pr-gate-metadata-result.json"
+                    },
+                    "freshMasterConflict": {
+                        "exitCode": 0,
+                        "manifest": "current-acceptance/fresh-master-conflict.json"
+                    },
+                    "matrix": {
+                        "exitCode": 1,
+                        "manifest": "current-acceptance/canonical-matrix-result.json"
+                    },
+                    "convergence": {
+                        "exitCode": 1,
+                        "log": "current-acceptance/convergence.log"
+                    },
+                    "wholeDiffStyle": {
+                        "csharp": 1,
+                        "node": 0,
+                        "manifest": "current-acceptance/whole-diff-style-result.json"
+                    }
+                }
+            },
+            "remainingGate": "Actual current stable metadata/taxonomy/property/syntax/asset/read-authority readers and current command ports; automatic eligibility remains closed and no resolution/execution capability is fabricated.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2117,
+            "title": "feat(article-vault): 实现 byte-preserving Markdown three-way merge 与 overlap diagnostics",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "actual-public-parser-paragraph-source-published-transport-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2117,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "design-preflight-ready",
+                "neededCapability": "Verified #2116 disposition and real raw-byte/semantic-node diagnostic parser",
+                "soleOwners": "root-3582",
+                "blockedOrNotRunAcceptance": [
+                    "byte-preservation, independent recomputation and original compiled controls"
+                ],
+                "downstream": [
+                    2120
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2117.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Actual current AEDS/Shared admission seam and complete required syntax-boundary semantics; public FsusUI paragraph subset has 24 original controls, not full current product/terminal qualification.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2118,
+            "title": "feat(article-vault): 实现 typed metadata three-way merge 与 lifecycle authority gates",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "scalar-and-typed-property-proposals-published-persisted-authority-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2118,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "design-preflight-ready",
+                "neededCapability": "Verified #2116 and stable typed field/entity/option registry with authority reader",
+                "soleOwners": "root-3582",
+                "blockedOrNotRunAcceptance": [
+                    "actual metadata diffs/authority/schema tests"
+                ],
+                "downstream": [
+                    2120
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2118.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Authorized persisted property/definition/rights reader and V1 metadata producer bridge, taxonomy/entity and draft/publication mapping. 27 pure proposal +69 actual canonical mapper controls pass; execution admission explicitly refuses.",
+            "sourceCommit": "58835795bf4121e07d313dc3ddc38b397eb778ea",
+            "currentEvidence": {
+                "backend": "frozen-d6/backend-result.json: 823 full original controls include all new controls",
+                "currentMapper": "fb4d18e9342716def4dca6a73d102f7246e42846 consumed as 7138ff1c5ca2cc68b4e03fac86a3841654bc379d"
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2670,
+            "title": "feat(article-vault): 实现 Windows native filesystem watcher adapter",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical Windows-watcher chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "Windows-source-consumed-native-and-managed-negative-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2670,
+                "currentSourceCapability": "Windows adapter/project/inventory absent; only Linux package exists.",
+                "verification": "Not run: Linux host, no Windows/NTFS.",
+                "smallestMissingCapabilityAndOwner": "#2109 root/path and #2110 contracts, then owned Windows native adapter plus real Windows host.",
+                "downstreamUse": "Inventory and native-boundary source design can proceed after common API stable; Linux evidence cannot qualify."
+            },
+            "remainingGate": "Canonical owner repair for ten resealed raw-fact contradictions (test-only QA b3a1403a1e4be9acbae2a41dd689c25ae0709c51), public scope/watcher factory integration and actual NTFS cancellation/resource/qualification controls.",
+            "consumedCanonicalTip": "a69a1ea853d617048649f55e3c74661ad21a51a8",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2671,
+            "title": "feat(article-vault): 实现 macOS native filesystem watcher adapter",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical macOS-watcher chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "macOS-source-and-diagnostic-registration-consumed-real-APFS-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2671,
+                "currentSourceCapability": "macOS adapter/project/inventory absent; only Linux package exists.",
+                "verification": "Not run: Linux host, no macOS/APFS.",
+                "smallestMissingCapabilityAndOwner": "#2109/#2110 contracts, then owned FSEvents adapter and real macOS host.",
+                "downstreamUse": "Can prepare inventory/native API design after common API stable; Linux evidence cannot qualify."
+            },
+            "remainingGate": "Real Darwin SDK/C compilation and original APFS/FSEvents controls; exclusive lease and actual terminal rescan proof; native teardown/leak/loss/permission qualification. Managed27/source15 are finite diagnostic evidence only.",
+            "consumedCanonicalTip": "4346f3884a1407b3b4f67005c52979113808930f",
+            "currentEvidence": {
+                "originalNativeAndManaged": "frozen-9e/mac-original-result.json:36 executed /27 pass /9 platform failures /0 skipped /exit1",
+                "originalDarwinBuilder": "frozen-9e/darwin-native-builder-result.json:exit1 Linux requires Darwin"
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2111,
+            "title": "feat(article-vault): 实现 Windows、macOS 与 Linux native filesystem watcher adapters",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2111,
+                "currentSourceCapability": "Tracking-only: #2672 production Linux watcher exists; #2670/#2671 absent.",
+                "verification": "Boundary #2672 watcher exit 1: 2 passed/15 failed/0 skips on unsupported overlay.",
+                "smallestMissingCapabilityAndOwner": "Owned Windows/macOS children; isolated ext4 host plus permitted mount namespace for Linux boundary rerun.",
+                "downstreamUse": "Linux readonly raw-fact schema API can inform implementations; no three-platform acceptance."
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2112,
+            "title": "feat(article-vault): 归一化 filesystem events、封存 observation batches 与建立 rescan obligations",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical snapshot-rescan chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "actual-two-pass-rescan-consumed-native-terminal-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2112,
+                "currentSourceCapability": "Normalization/batch/rescan implementation exists only in simulated qualification harness; production contract absent.",
+                "verification": "Linux qualification blocked at fixture admission, 0/16 pass.",
+                "smallestMissingCapabilityAndOwner": "#2109/#2110 production contracts and raw adapter capability per platform; implement owned reducer/rescan authority.",
+                "downstreamUse": "Linux raw schema/watermark surface exists; deterministic normalization can start after semantic path/snapshot API defined."
+            },
+            "remainingGate": "Actual LinuxVaultRescanReader.Scan and strict getdents64 codec consumed69b: bounded two directory traversals, directory stamps/tree drift and64MiB observed-byte budget. Original26 event/rescan and seven directory codec controls pass. New real unknown-source and directory-bound native cases actually fail unsupported root filesystem. Unknown names/failures remain blocked; true watch-event cut, protected lease and native terminal receipt not available. CanAdmitSynchronization remains false; original Linux arbitrary-digest acknowledgement repair remains canonical watcher owner responsibility.",
+            "consumedCanonicalTip": "e1b4ffba4781bf6729e38b240df8c7647f19768e",
+            "currentEvidence": {
+                "testedSource": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+                "backend": "checks/backend-result.json",
+                "metadataInspector": "checks/metadata-inspector-result.json",
+                "observations": "checks/observations-result.json",
+                "sourceScanner": "owner-scanner.json",
+                "sourceSuite": "checks/scanner-suite-result.json",
+                "accepted": false
+            }
+        },
+        {
+            "issue": 2113,
+            "title": "feat(article-vault): 建立 single-writer Vault lease、closed IPC 与 secret boundary",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical lease-IPC chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-lease-IPC-contract-consumed-real-kernel-ports-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2113,
+                "currentSourceCapability": "O_EXCL lease/in-process closed command channel only test harness simulation; production lease/IPC/grant registry absent.",
+                "verification": "Linux qualification blocked at fixture admission, 0/16 pass.",
+                "smallestMissingCapabilityAndOwner": "#2109 root binding and #2112 observation refs; owned current-user local IPC/auth/lease implementation.",
+                "downstreamUse": "No production security capability; simulated token/lease must not be promoted."
+            },
+            "remainingGate": "Original protected lock/token/socket/process admission and backend/browser bridge; diagnostic shape controls cannot establish protected OS lease. Denied root lease/kernel concurrency QA was not substituted.",
+            "consumedCanonicalTip": "1e3da416a469ccfabd00fbcbf52a9ff333ef6483",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2114,
+            "title": "feat(article-vault): 实现 agent install、start、update、crash、reconnect 与 unlink lifecycle",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical lease-IPC chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-lease-IPC-contract-consumed-real-kernel-ports-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2114,
+                "currentSourceCapability": "Crash/update/reconnect lifecycle only qualification harness simulation; production agent lifecycle absent.",
+                "verification": "Linux qualification blocked at fixture admission, 0/16 pass.",
+                "smallestMissingCapabilityAndOwner": "#2111 adapter teardown, #2112 rescan and #2113 real lease/IPC; owned lifecycle implementation.",
+                "downstreamUse": "Existing Linux Dispose supplies readonly watch cleanup only, not install/update/recovery."
+            },
+            "remainingGate": "Original protected lock/token/socket/process admission and backend/browser bridge; diagnostic shape controls cannot establish protected OS lease. Denied root lease/kernel concurrency QA was not substituted.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2673,
+            "title": "test(article-vault): 封口 Windows filesystem agent qualification",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical Windows-watcher chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "Windows-source-consumed-native-and-managed-negative-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2673,
+                "currentSourceCapability": "Windows qualification inventory/harness/receipts absent.",
+                "verification": "Not run: no Windows host and required production capabilities absent.",
+                "smallestMissingCapabilityAndOwner": "#2670 plus production #2109/#2110/#2112/#2113/#2114 and usable #1909 contracts; Windows/NTFS host.",
+                "downstreamUse": "Evidence-only test design can reference exact future capability; cannot repair production in this issue."
+            },
+            "remainingGate": "Canonical owner repair for ten resealed raw-fact contradictions (test-only QA b3a1403a1e4be9acbae2a41dd689c25ae0709c51), public scope/watcher factory integration and actual NTFS cancellation/resource/qualification controls.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2674,
+            "title": "test(article-vault): 封口 macOS filesystem agent qualification",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical macOS-watcher chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "macOS-source-and-diagnostic-registration-consumed-real-APFS-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2674,
+                "currentSourceCapability": "macOS qualification inventory/harness/receipts absent.",
+                "verification": "Not run: no macOS host and required production capabilities absent.",
+                "smallestMissingCapabilityAndOwner": "#2671 plus production #2109/#2110/#2112/#2113/#2114 and usable #1909 contracts; macOS/APFS host.",
+                "downstreamUse": "Evidence-only design can proceed once exact APIs fixed; runtime evidence cannot be mocked."
+            },
+            "remainingGate": "Real Darwin SDK/C compilation and original APFS/FSEvents controls; exclusive lease and actual terminal rescan proof; native teardown/leak/loss/permission qualification. Managed27/source15 are finite diagnostic evidence only.",
+            "consumedCanonicalTip": "4346f3884a1407b3b4f67005c52979113808930f",
+            "currentEvidence": {
+                "originalNativeAndManaged": "frozen-9e/mac-original-result.json:36 executed /27 pass /9 platform failures /0 skipped /exit1",
+                "originalDarwinBuilder": "frozen-9e/darwin-native-builder-result.json:exit1 Linux requires Darwin"
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2115,
+            "title": "test(article-vault): 封口跨平台 filesystem agent、event、IPC 与 lifecycle 矩阵",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2115,
+                "currentSourceCapability": "Tracking-only; #2673/#2674 absent, #2675 closed inventory explicitly simulates four production layers and server writer.",
+                "verification": "Current #2675 command exit 1: 16 fixture failures; no receipt.",
+                "smallestMissingCapabilityAndOwner": "All real platform child evidence and production path/read/write/event/lease/IPC/lifecycle capability; boundary discrepancy must stay explicit.",
+                "downstreamUse": "Closed Linux historical state cannot qualify production or other platforms."
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 1910,
+            "title": "tracking(article-vault): 跨平台受控目录代理与文件事件归一化",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 1910,
+                "currentSourceCapability": "Tracking-only; Linux raw observer real; common path/read/write/normalization/lease/IPC/lifecycle layers absent outside test harness.",
+                "verification": "Aggregates watcher 2/17 and qualification 0/16 current failure; no tracking-parent implementation.",
+                "smallestMissingCapabilityAndOwner": "Required #2109–#2115 child capabilities/evidence and protocol parent accounting.",
+                "downstreamUse": "Linux raw observer source usable, but filesystem-agent completion not established."
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2119,
+            "title": "feat(article-vault): 观察 Git worktree、index 与 operation facts 并阻止 conflict markers 上传",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical Git-resolution chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-recovery-accepted-source-consumed-current-controls-passed",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2119,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "design-preflight-ready",
+                "neededCapability": "Verified #2116 and actual #1910 operation-bound normalized observations; bounded read-only Git adapter",
+                "soleOwners": "root-3582",
+                "blockedOrNotRunAcceptance": [
+                    "real no-Git/merge/rebase/markers/read-only privacy fixtures"
+                ],
+                "downstream": [
+                    2120
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2119.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Authorized canonical source recovery handoff f359 consumed without duplicate implementation. Git configuration drift/rename digest controls integrated; accepted-source29, exact recovery reads13, recovery checkpoint4 and DI4 pass at4ba. Native root/external writer exclusion, actual resolution journal persistence/backup/restore, terminal resume/undo/cleanup remain unaccepted.",
+            "consumedCanonicalTip": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+            "currentEvidence": {
+                "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+                "backend": "tested-4ba/backend-result.json",
+                "classes": "tested-4ba/backend-class-counts.json",
+                "rootNativeCandidate": null
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2120,
+            "title": "feat(article-vault): 生成 immutable conflict resolution plans 并拒绝 stale coordinates",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical Git-resolution chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-recovery-accepted-source-consumed-current-controls-passed",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2120,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "original-plan-inputs-usable",
+                "neededCapability": "Verified #2116–#2119 facts/candidates/current readers; new immutable resolution plan",
+                "soleOwners": "root-3582",
+                "blockedOrNotRunAcceptance": [
+                    "stale drift/action/history/idempotency original runtime controls"
+                ],
+                "downstream": [
+                    2121
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2120.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Actual canonical recovery reader and proposal/checkpoint guards consumed. Frozen4ba controls pass; no native writer admission, persisted resolution journal or backup/restore qualification inferred.",
+            "consumedCanonicalTip": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+            "currentEvidence": {
+                "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+                "backend": "tested-4ba/backend-result.json",
+                "classes": "tested-4ba/backend-class-counts.json",
+                "rootNativeCandidate": null
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2121,
+            "title": "feat(article-vault): 执行 conflict resolution 并建立可回滚 recovery journals",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical Git-resolution chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-recovery-accepted-source-consumed-current-controls-passed",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2121,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "canonical-server-writer-usable",
+                "neededCapability": "Verified #2120, #2106 local materializer, #2107 durable operation/resume and new recovery journal",
+                "soleOwners": "root-3582",
+                "blockedOrNotRunAcceptance": [
+                    "real process/network/Git crash, backup/TTL/rollback/provider tests"
+                ],
+                "downstream": [
+                    2122
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2121.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Actual ReadAcceptedSourceAsync is bound to original exact accepted checkpoint; thirteen new original controls pass at4ba. Authorized three-source add/add conflicts were semantically inspected and compatible source remains exact canonical f359 content. Actual terminal resume/undo, persisted encrypted journal and native/base acceptance remain blocked.",
+            "consumedCanonicalTip": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+            "currentEvidence": {
+                "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+                "backend": "tested-4ba/backend-result.json",
+                "classes": "tested-4ba/backend-class-counts.json",
+                "rootNativeCandidate": null
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2122,
+            "title": "feat(article-vault): 提供可访问的逐项 conflict resolution 与 recovery UI",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical conflict-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-conflict-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2122,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "UI-preflight-only",
+                "neededCapability": "Verified #2116–#2121 machine truth and exact #1811 diff API handoff",
+                "soleOwners": "root-3654 (#1811); root-3582 (Vault machine truth/UI)",
+                "blockedOrNotRunAcceptance": [
+                    "rendered keyboard/screen-reader/stale/recovery/reload/privacy acceptance"
+                ],
+                "downstream": [
+                    2123
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2122.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Actual current authenticated transport/canonical command ports, original production navigation/authoring integration and independently rendered terminal flows; current original source controls and Vue141 aggregate pass, not terminal acceptance.",
+            "consumedCanonicalTip": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2123,
+            "title": "test(article-vault): 封口 three-way merge、Git facts、recovery 与 conflict UI 全链",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical conflict-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-conflict-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2123,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "matrix-design-only",
+                "neededCapability": "Actual #2116–#2122 product capabilities and current real Git/filesystem/browser runtime",
+                "soleOwners": "root-3582",
+                "blockedOrNotRunAcceptance": [
+                    "terminal warnings=0 full conflict/recovery mutation/fault matrix"
+                ],
+                "downstream": [
+                    1911
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2123.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Actual current authenticated transport/canonical command ports, original production navigation/authoring integration and independently rendered terminal flows; current original source controls and Vue141 aggregate pass, not terminal acceptance.",
+            "consumedCanonicalTip": "3afe9124ac69d25fb3d740c9a315ec6e550b2a21",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 1911,
+            "title": "tracking(article-vault): three-way conflict、Git facts 与可回滚恢复",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 1911,
+                "liveState": "OPEN",
+                "commentCount": 1,
+                "trackingOnly": true,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "tracking-evidence-aggregation-ready",
+                "neededCapability": "All #2116–#2123 and #1909/#1910 child acceptance",
+                "soleOwners": "root-3582",
+                "blockedOrNotRunAcceptance": [
+                    "all child receipts plus ten umbrella negative controls"
+                ],
+                "downstream": [
+                    2124
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/1911.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2124,
+            "title": "feat(article-vault): 定义 portable content dependency manifest 与 immutable graph plans",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical dependency-graph chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-graph-fix-consumed-currentness-regressions-passed",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2124,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "source-contract-design-ready",
+                "neededCapability": "Exact #1779/#1865/#1868/#1869 ID/mapping/budget/schema handoffs and own #1911 verified capability subset",
+                "soleOwners": "root-1975 (#1779); root-3560 (#1865); root-2246 (#1868/#1869); root-3582 (#1911)",
+                "blockedOrNotRunAcceptance": [
+                    "typed Vault graph/schema/digest/permission/cycle/export parity acceptance"
+                ],
+                "downstream": [
+                    2125,
+                    2126,
+                    2127
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2124.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Exact00eeaf705 and08034e84 source fixes consumed. Original32 controls plus actual Shared consumer probe reject stale graph and independently resealed old extension; fresh graph with original saved manifest accepted. Real current dependency providers, permissions, mapping/occurrence consumers and product acceptance remain canonical owner gates.",
+            "consumedCanonicalTip": "80a2736711edff3a711ec854d55c65433a127a5f",
+            "currentEvidence": {
+                "testedCandidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+                "backend": "tested-360/broader-backend-result.json",
+                "classes": "tested-360/backend-class-counts.json",
+                "source": "tested-360/source-result.json"
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2125,
+            "title": "feat(article-vault): 物化、验证与上传 AssetId 依赖并接入唯一 ledger",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical dependency-graph chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-asset-byte-validator-consumed-upload-continuation-not-consumed",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2125,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "canonical-asset-owner-source-present",
+                "neededCapability": "Verified #2124 graph, #1910 safe stable snapshot, #1911 recovery, exact #1779/#1865 handoffs",
+                "soleOwners": "root-1975 (#1779); root-3560 (#1865); root-3582 (graph/agent/recovery)",
+                "blockedOrNotRunAcceptance": [
+                    "true asset bytes/rights/ledger/retry/local-failure integration"
+                ],
+                "downstream": [
+                    2128
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2125.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Original42 byte/schema/conflict-diagnostic controls passed at360. Parent-supplied cb648 lineage includes later committed-upload observation APIs8b1679519/0f9ec91c8; this narrow fix batch did not consume them or inherit their runtime/product receipts. Actual ledger/upload/native-materialization acceptance belongs to canonical owner.",
+            "currentEvidence": {
+                "testedCandidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+                "backend": "tested-360/broader-backend-result.json",
+                "classes": "tested-360/backend-class-counts.json",
+                "source": "tested-360/source-result.json"
+            },
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2126,
+            "title": "feat(article-vault): 解析稳定 block anchors 与 portable internal links 并生成 refactor plans",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical dependency-consumers chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "external-canonical-consumer-WIP-unconsumed-integration-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2126,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "upstream-public-source-API-usable",
+                "neededCapability": "Verified #2124 and exact #1868 portable link/#1808 rebuild handoffs",
+                "soleOwners": "root-2246 (#1868); root-3735 (#1808); root-3582 (#2124)",
+                "blockedOrNotRunAcceptance": [
+                    "real source registry/refactor/permissions/stale/anchor parser integration"
+                ],
+                "downstream": [
+                    2128
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2126.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Parent exact successor consumer source/evidence handoff and accepted graph occurrence/identity authority; actual authorized live/frozen mappings, asset transaction/rebuild/materialization/writers and >=1000 mixed terminal roundtrip remain missing. Current published owner tip cb7d81403a4893c84a065b18fb6675947af7b173 is observed in comments, not silently consumed.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2127,
+            "title": "feat(article-vault): 映射 revision-bound embeds 并保持 published frozen coordinates",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical dependency-consumers chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "external-canonical-consumer-WIP-unconsumed-integration-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2127,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "upstream-public-source-API-usable",
+                "neededCapability": "Verified #2124 and exact #1868/#1869 frozen coordinate/budget handoffs",
+                "soleOwners": "root-2246 (#1868/#1869); root-3582 (#2124)",
+                "blockedOrNotRunAcceptance": [
+                    "Vault frozen mapping/explicit refresh/privacy/no-latest integration"
+                ],
+                "downstream": [
+                    2128
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2127.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Parent exact successor consumer source/evidence handoff and accepted graph occurrence/identity authority; actual authorized live/frozen mappings, asset transaction/rebuild/materialization/writers and >=1000 mixed terminal roundtrip remain missing. Current published owner tip cb7d81403a4893c84a065b18fb6675947af7b173 is observed in comments, not silently consumed.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2128,
+            "title": "feat(article-vault): 按 dependency graph 原子执行 asset、article、relation、search 与 local materialization",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical dependency-consumers chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "external-canonical-consumer-WIP-unconsumed-integration-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2128,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "canonical-server-executor-source-usable",
+                "neededCapability": "Verified #2124–#2127 candidates, #1808 rebuild, #2106/#2107/#2121 materialization/recovery",
+                "soleOwners": "root-3735 (#1808); root-3582 (Vault dependencies/recovery)",
+                "blockedOrNotRunAcceptance": [
+                    "asset→article→relation/search/cache→local→base stage/retry/crash/provider tests"
+                ],
+                "downstream": [
+                    2129
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2128.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Parent exact successor consumer source/evidence handoff and accepted graph occurrence/identity authority; actual authorized live/frozen mappings, asset transaction/rebuild/materialization/writers and >=1000 mixed terminal roundtrip remain missing. Current published owner tip cb7d81403a4893c84a065b18fb6675947af7b173 is observed in comments, not silently consumed.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2129,
+            "title": "test(article-vault): 封口 dependency graph、scale、permission 与 export/import/Vault round-trip",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical dependency-consumers chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "external-canonical-consumer-WIP-unconsumed-integration-blocked",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2129,
+                "liveState": "OPEN",
+                "commentCount": 0,
+                "trackingOnly": false,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "terminal-matrix-design-only",
+                "neededCapability": "Actual #2124–#2128 capability plus exact #1865/#1808 portable round-trip/rebuild handoffs",
+                "soleOwners": "root-3560 (#1865); root-3735 (#1808); root-3582 (Vault graph)",
+                "blockedOrNotRunAcceptance": [
+                    "real 1000-article/large-assets/cycle/permissions/fault/round-trip terminal evidence"
+                ],
+                "downstream": [
+                    1912
+                ],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/2129.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Parent exact successor consumer source/evidence handoff and accepted graph occurrence/identity authority; actual authorized live/frozen mappings, asset transaction/rebuild/materialization/writers and >=1000 mixed terminal roundtrip remain missing. Current published owner tip cb7d81403a4893c84a065b18fb6675947af7b173 is observed in comments, not silently consumed.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 1912,
+            "title": "tracking(article-vault): assets、anchors、links 与 frozen embeds dependency sync",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 1912,
+                "liveState": "OPEN",
+                "commentCount": 1,
+                "trackingOnly": true,
+                "acceptanceStatus": "not-qualified",
+                "readyStage": "tracking-evidence-aggregation-ready",
+                "neededCapability": "All #2124–#2129, #1909/#1910/#1911, exact asset/package/link/embed authorities",
+                "soleOwners": "root-3582 tracking; root-1975/root-3560/root-2246 external authorities",
+                "blockedOrNotRunAcceptance": [
+                    "all child current qualification and ten umbrella negative controls"
+                ],
+                "downstream": [],
+                "sourceEvidence": "conflicts-dependencies-review.md",
+                "liveIssueArtifact": "issues/1912.json",
+                "implementationStatus": "dedicated owned capability absent; existing boundary source documented in review",
+                "actionsTaken": "read-only preflight; no source edits or runtime acceptance"
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2130,
+            "title": "feat(article-vault): 实现 opt-in connect、initialize、privacy disclosure 与 unlink flows",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical product-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-product-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2130,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-03T18:45:20Z",
+                "bodySha256": "4bbfaa914b0725e4296c77ea5c31c4e3a31adc6c30c602393ad42c47853c65cf",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "No opt-in/connect/privacy/unlink/delete-local-copy composition or browser Vault transport exists.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Verified #2113/#2114 IPC/lease/lifecycle commands; #2106/#2107 materialization+operation receipts; #2124–#2128 dependency plan, exposed through canonical authenticated AEDS browser transport.",
+                "canonicalOwner": "Root #3582 owns these capabilities. #1865 exact archive/sync authority handoff is root #3560.",
+                "readyWork": "Reuse current authoring workspace and binary transport; begin actual consumer composition only for supplied current machine capability. Do not invent connect/clean state.",
+                "downstreamUsableCapability": "#2131 can consume verified connection/unlink commands before full cross-platform qualification."
+            },
+            "remainingGate": "Actual current authenticated connection/lease/plan/operation/graph/checkpoint ports and independent rendered authoring production flows; execute/resume unavailable and privacy review does not connect. Exact FsusUI f2b3bb89ffe5f749da26c388f058efdbb6aee864 used in original unit/type controls.",
+            "consumedCanonicalTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2131,
+            "title": "feat(article-vault): 提供低噪声 Vault status 与 command surface",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical product-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-product-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2131,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-10-08T01:56:46Z",
+                "bodySha256": "3f4e77e1d99e69fdf8342f3f08b34893062a09a5742a63981593e2b49fd227c4",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "Current ArticleWriteCommandBar owns save state and commands; no Vault status/command consumer exists.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Current verified connection/status receipts and stable destination registration in existing command/router; exact #1814 usable surface/identity capability.",
+                "canonicalOwner": "Root #3582 for #2130/status commands; #1814 canonical root #2246.",
+                "readyWork": "Can register/dispatch current identity-bound commands with unavailable/blocked destination behavior without waiting for #2132/#2133 completion. Do not claim real navigation acceptance.",
+                "downstreamUsableCapability": "#2132 and #2133 receive true positive target navigation acceptance separately."
+            },
+            "remainingGate": "Actual current authenticated connection/lease/plan/operation/graph/checkpoint ports and independent rendered authoring production flows; execute/resume unavailable and privacy review does not connect. Exact FsusUI f2b3bb89ffe5f749da26c388f058efdbb6aee864 used in original unit/type controls.",
+            "consumedCanonicalTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2132,
+            "title": "feat(article-vault): 提供 sync plan review、direction actions 与 execution progress",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical product-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-product-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2132,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-10-08T01:56:54Z",
+                "bodySha256": "b350a1f0c07818a76c6de998e75c2026f40065fd526a369cb2755886f7417266",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "No Vault plan review/direction action/progress UI; no browser route invokes server planner/executor.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Existing single planner/executor plus current directional plans, operation receipts and status command entrypoints.",
+                "canonicalOwner": "Root #3582: #2106/#2107/#2128/#2131.",
+                "readyWork": "After canonical transport is usable, implement a single receipt consumer and direction parameter; conflict destination absence can remain explicit blocked. Do not wait for #2133 completion.",
+                "downstreamUsableCapability": "#2133 may consume plan-to-conflict/recovery refs and navigation dispatch."
+            },
+            "remainingGate": "Actual current authenticated connection/lease/plan/operation/graph/checkpoint ports and independent rendered authoring production flows; execute/resume unavailable and privacy review does not connect. Exact FsusUI f2b3bb89ffe5f749da26c388f058efdbb6aee864 used in original unit/type controls.",
+            "consumedCanonicalTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2134,
+            "title": "feat(article-vault): 提供 agent install、update、offline 与 reconnect 产品流程",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical product-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-product-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2134,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-03T18:47:18Z",
+                "bodySha256": "039e7526cb919f5d1e6601008938b0a2dfd8dc10f8c4174f9edc3653c1d9911f",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "No install/update/rollback/offline/reconnect product flow.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Verified lifecycle receipts, closed IPC/lease commands and approved package distribution/trust identity.",
+                "canonicalOwner": "Root #3582: #2113/#2114/#2130/#2131.",
+                "readyWork": "Build product consumer of exact lifecycle truth only after these source capabilities exist; missing native platform acceptance need not block source composition.",
+                "downstreamUsableCapability": "#2133 requires current offline/reconnect identity and navigation context; platform tests later consume."
+            },
+            "remainingGate": "Actual current authenticated connection/lease/plan/operation/graph/checkpoint ports and independent rendered authoring production flows; execute/resume unavailable and privacy review does not connect. Exact FsusUI f2b3bb89ffe5f749da26c388f058efdbb6aee864 used in original unit/type controls.",
+            "consumedCanonicalTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2133,
+            "title": "feat(article-vault): 将 conflict 与 recovery machine flows 接入日常 Vault 产品入口",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical product-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-product-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2133,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-10-08T01:57:00Z",
+                "bodySha256": "3f338bc1e6a01d6f125a11441d66af984d34c6b9714e68a2692e9f7c1d2b1700",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "No actual Vault conflict/recovery navigation composition.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Current #2122 conflict UI and #2121 journal actions, #2131 status and #2132 plan dispatch; actual #1811 compare/diff consumer capability.",
+                "canonicalOwner": "Root #3582 for navigation/conflict/recovery; #1811 root #3654.",
+                "readyWork": "Consume current blocker receipts and navigate through existing router; reject unresolved/missing refs. Do not wait for #2135 gate completion or implement second resolver.",
+                "downstreamUsableCapability": "#2135 consumes real blocker-to-resolution-return path and newly re-read coordinates."
+            },
+            "remainingGate": "Actual current authenticated connection/lease/plan/operation/graph/checkpoint ports and independent rendered authoring production flows; execute/resume unavailable and privacy review does not connect. Exact FsusUI f2b3bb89ffe5f749da26c388f058efdbb6aee864 used in original unit/type controls.",
+            "consumedCanonicalTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2135,
+            "title": "feat(article-vault): 将 publication gate 与 multi-device/Vault identities 接入 local-first flow",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "coordinating parent canonical product-presentation chain",
+            "rootResponsibility": "source integration and acceptance accounting only",
+            "status": "canonical-bounded-product-review-consumed-product-WIP",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2135,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-10-08T01:57:11Z",
+                "bodySha256": "99cc057e3933fcfdf7da21b787f46e530de783d0a007f18c96e121f6f506fe83",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "Existing article publication authority is present; no Vault-aware prepublish or device/Vault evidence gate integration.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Current publication authority using official server revision, dependency graph and conflict/recovery/sync receipts with revocation and lease identity.",
+                "canonicalOwner": "Root #3582: #1909/#1911/#1912/#2131/#2132/#2133.",
+                "readyWork": "Once exact machine evidence capability is supplied, gate actual UI+direct publication dispatch and prove rejection creates no success/outbox/success audit; no disabled-button substitute.",
+                "downstreamUsableCapability": "#2676/#2677/#2678 consume current product catalog and exact publication gate behavior."
+            },
+            "remainingGate": "Actual current authenticated connection/lease/plan/operation/graph/checkpoint ports and independent rendered authoring production flows; execute/resume unavailable and privacy review does not connect. Exact FsusUI f2b3bb89ffe5f749da26c388f058efdbb6aee864 used in original unit/type controls.",
+            "consumedCanonicalTip": "a8df52ee8df37de8aadd15d4030bb9d7d90aa048",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2676,
+            "title": "test(article-vault): 封口 Windows opt-in 全链 qualification",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "qualification-not-started-prerequisites-unsatisfied",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2676,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T10:27:52Z",
+                "bodySha256": "5c5280b87ec12cb995937006a900a295943b42997e65ed5df35f626a01a2b99e",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "windows-product-flow inventory/harness/receipt missing.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Real Windows+NTFS, current verified #2673 agent receipt and actual #2130–#2135 commands/catalog.",
+                "canonicalOwner": "Root #3582 for owned production/harness; parent for Windows host.",
+                "readyWork": "Evidence-only canonical inventory/enumerator implementation may start using actual product catalog; no production/assertion edits. Native acceptance needs exact real host.",
+                "downstreamUsableCapability": "#2707/#2708/#2709 need same-current verified Windows platform facts."
+            },
+            "remainingGate": "All original prerequisite stages must actually pass, then current three-platform receipts, canonical flow catalog, unchanged original thresholds and independent product qualification. Current native/runtime/command/authority sources remain incomplete; no synthetic receipt.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2677,
+            "title": "test(article-vault): 封口 macOS opt-in 全链 qualification",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "qualification-not-started-prerequisites-unsatisfied",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2677,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T10:28:06Z",
+                "bodySha256": "c91cb6e8d9504dbfad0f6fcbce167d106e5bc4e3cfe5637e0cfe3dbf18a9cd41",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "macos-product-flow inventory/harness/receipt missing.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Real macOS+APFS, current verified #2674 agent receipt and actual product commands; APFS Unicode/case facts.",
+                "canonicalOwner": "Root #3582 for owned production/harness; parent for macOS host.",
+                "readyWork": "Evidence-only inventory/enumerator may start when real product catalog exists; do not use simulator or Linux Unicode evidence.",
+                "downstreamUsableCapability": "#2707/#2708/#2709 need same-current verified macOS platform facts."
+            },
+            "remainingGate": "All original prerequisite stages must actually pass, then current three-platform receipts, canonical flow catalog, unchanged original thresholds and independent product qualification. Current native/runtime/command/authority sources remain incomplete; no synthetic receipt.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2678,
+            "title": "test(article-vault): 封口 Linux opt-in 全链 qualification",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "qualification-not-started-prerequisites-unsatisfied",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2678,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T10:28:21Z",
+                "bodySha256": "bbf632dc52ed445518a6f5f3e6c2e914ce9f876a3ed147d615a9e1caea8ffe3e",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "linux-product-flow inventory/harness/receipt missing; workspace is overlay and /tmp tmpfs.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Isolated real ext4 with kernel/mount identity, current #2675 full agent evidence and real product commands. #2675 tracked manifest declares multiple simulated layers.",
+                "canonicalOwner": "Root #3582 for #2110/#2112/#2113/#2114 product integration; parent for ext4 capability.",
+                "readyWork": "Do not promote closed #2675 or Linux watcher source to product acceptance. Provision safe task-owned real ext4 and run canonical once integrated; preserve first failure.",
+                "downstreamUsableCapability": "#2707/#2708/#2709 need same-current verified Linux platform facts."
+            },
+            "remainingGate": "All original prerequisite stages must actually pass, then current three-platform receipts, canonical flow catalog, unchanged original thresholds and independent product qualification. Current native/runtime/command/authority sources remain incomplete; no synthetic receipt.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2707,
+            "title": "evidence(article-vault): 聚合三平台产品流与协议语义 qualification",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "qualification-not-started-prerequisites-unsatisfied",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2707,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T09:15:14Z",
+                "bodySha256": "869c56e090ebefaf8c4c08f716eeb6f50a82d76d5e0122425c096c7da064edce",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "Required tests/tools/vault-cross-platform-product-flow.test.mjs and aggregator absent; required command exit1 missing file.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Canonical generated flow catalog plus three exact current verified platform receipts; same portable semantics.",
+                "canonicalOwner": "Root #3582: #2130–#2135/#2676–#2678.",
+                "readyWork": "Implement spawn-free verifier/scanner tests for missing/stale/tamper/semantic mismatch independently; positive current qualification awaits real inputs; do not handwrite second flow list.",
+                "downstreamUsableCapability": "#2679 consumes fsusblog.vault-cross-platform-product-flow.v1 verified warnings=0."
+            },
+            "remainingGate": "All original prerequisite stages must actually pass, then current three-platform receipts, canonical flow catalog, unchanged original thresholds and independent product qualification. Current native/runtime/command/authority sources remain incomplete; no synthetic receipt.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2708,
+            "title": "evidence(article-vault): 封口三平台 privacy 与 accessibility qualification",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "qualification-not-started-prerequisites-unsatisfied",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2708,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T09:15:44Z",
+                "bodySha256": "026d2c3d5b786d5bdb529a0134341169b3955fbe249a8088874b4bf1d6fefe65",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "Privacy/accessibility product verifier and receipt absent.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Three verified platform receipts plus actual current UI/telemetry/revocation evidence and browser/device/a11y tool identities.",
+                "canonicalOwner": "Root #3582: #2676–#2678, #2130–#2135.",
+                "readyWork": "Prepare read-only privacy/a11y evidence verifier and negative controls without changing product/policy/translations/assertions. Actual keyboard/screen-reader/zoom/reduced-motion evidence remains not run.",
+                "downstreamUsableCapability": "#2679 consumes fsusblog.vault-privacy-accessibility.v1 verified warnings=0."
+            },
+            "remainingGate": "All original prerequisite stages must actually pass, then current three-platform receipts, canonical flow catalog, unchanged original thresholds and independent product qualification. Current native/runtime/command/authority sources remain incomplete; no synthetic receipt.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2709,
+            "title": "evidence(article-vault): 封口三平台性能、资源与恢复预算",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "qualification-not-started-prerequisites-unsatisfied",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2709,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T09:16:18Z",
+                "bodySha256": "0785179ac79db5126ce91c073458fc94e2de294809ad7401b79e762c57f8677a",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "Performance/resources product schema/verifier and receipt absent; canonical shared budget policy not located.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Three current verified platform receipts, real comparable raw metrics, existing closed shared metric/budget policy identities.",
+                "canonicalOwner": "Root #3582 owns evidence; parent must identify/provide canonical metric/budget policy if none exists.",
+                "readyWork": "Implement validation of supplied policy/metrics and rejection of missing/not-evaluable rather than create or relax budgets in evidence-only issue.",
+                "downstreamUsableCapability": "#2679 consumes fsusblog.vault-performance-resources.v1 verified warnings=0."
+            },
+            "remainingGate": "All original prerequisite stages must actually pass, then current three-platform receipts, canonical flow catalog, unchanged original thresholds and independent product qualification. Current native/runtime/command/authority sources remain incomplete; no synthetic receipt.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2679,
+            "title": "evidence(article-vault): 全链跨平台 qualification 聚合与终态验收",
+            "trackingOnly": false,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "execution and current acceptance",
+            "status": "qualification-not-started-prerequisites-unsatisfied",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2679,
+                "stage": "execution",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T09:18:30Z",
+                "bodySha256": "f91de61002d6c7c6b94ae82058b6721c0ad4996f5d4d8996e0b8312d478ae960",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "Terminal test and tools/article-vault/check-product-governance.mjs absent; both required commands exit1.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Three same-current verified #2707/#2708/#2709 inputs, generated required flow catalog and scanner/mutation coverage.",
+                "canonicalOwner": "Root #3582: #2707–#2709/product contracts.",
+                "readyWork": "Allowed terminal scanner/mutations/verifier/tests can start now with strict missing-input negative controls. Do not spawn harness/browser/agent, rerun or repair evidence/production.",
+                "downstreamUsableCapability": "#2136 tracking aggregates terminal accepted only after all actual gates pass."
+            },
+            "remainingGate": "All original prerequisite stages must actually pass, then current three-platform receipts, canonical flow catalog, unchanged original thresholds and independent product qualification. Current native/runtime/command/authority sources remain incomplete; no synthetic receipt.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 2136,
+            "title": "test(article-vault): 封口 opt-in 产品流程与 Windows、macOS、Linux 全链 qualification",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 2136,
+                "stage": "tracking_only",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-04T09:18:58Z",
+                "bodySha256": "17ebe462e4480ce27d0f1ac3bff36ee13d2e8ebb3ebc49c3fcb74a6ad3ab1bdd",
+                "commentsCount": 0,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "All seven platform/specialist/terminal child issues remain OPEN; no current product receipts found.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Full #2676/#2677/#2678/#2707/#2708/#2709/#2679 exact evidence, no mock/simulation-only qualification.",
+                "canonicalOwner": "Root #3582 owns all children.",
+                "readyWork": "Aggregate child statuses only; no implementation, no independent harness.",
+                "downstreamUsableCapability": "#1913 aggregate remains unaccepted; source can unlock later consumer stages individually."
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        },
+        {
+            "issue": 1913,
+            "title": "tracking(article-vault): opt-in local-first 产品流程与跨平台全链验收",
+            "trackingOnly": true,
+            "currentState": "OPEN",
+            "implementationOwner": "root-3582",
+            "rootResponsibility": "evidence aggregation only",
+            "status": "tracking-evidence-aggregated-not-accepted",
+            "accepted": false,
+            "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+            "publishedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+            "historicalEvidence": {
+                "issue": 1913,
+                "stage": "tracking_only",
+                "liveState": "OPEN",
+                "updatedAt": "2026-08-03T18:49:15Z",
+                "bodySha256": "d7b1386a80400454f720b1479b79736b2fc0e210e3a7ad18b463d85bbee5c6ff",
+                "commentsCount": 1,
+                "candidateSha": "b2c68b1fd626a60a75308b9ae53b2960f0eeed85",
+                "sourceEvidence": "Six product issue compositions absent and #2136 lacks required three-platform acceptance.",
+                "acceptance": "not accepted",
+                "tests": "See checks.json for attempted required entrypoints. Actual product/native flows not run: no current implementation/input capability.",
+                "smallestMissingCapability": "Current #1909–#1912 machine capabilities, actual #2130–#2135 flows and fully verified #2136 child evidence.",
+                "canonicalOwner": "Root #3582 with external #1865/#1814/#1811 handoffs as above.",
+                "readyWork": "Aggregate current child evidence and precise missing capabilities; do not implement tracking parent or wait on unrelated issue closure.",
+                "downstreamUsableCapability": "No terminal acceptance capability yet; current authoring shell/FSusUI public APIs reusable."
+            },
+            "remainingGate": "Required child sources/runtime/platform/terminal gates are not all accepted; this root creates no independent tracking implementation or closure.",
+            "currentEvidenceLimit": "Prior issue-specific results keep their recorded candidate binding. This current narrow consumer regression grants no additional native/product/tracking/qualification acceptance."
+        }
+    ],
+    "latestVerifiedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "previousAccountingCandidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "currentAccountingCandidate": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+    "accountingCandidate": "69b340d6f9063a60c67c95eeabbea24b9ed62a54"
+}

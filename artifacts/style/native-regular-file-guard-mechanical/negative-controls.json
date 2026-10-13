@@ -1,0 +1,51 @@
+{
+    "at": "2026-10-08T14:55:32.479604+00:00",
+    "productionNamingSource": "318436fa293a1ecae3c920c54c15ee18023af96a",
+    "controls": [
+        {
+            "negative": "entry-point",
+            "original": "EntryPoint = \"statx\"",
+            "mutation": "EntryPoint = \"statx_changed\"",
+            "command": [
+                "/workspace/FsusBlog/.tmp/chain-3582/dotnet/dotnet",
+                "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-guard-style/probe/bin/Release/net10.0/Probe.dll",
+                "inspect",
+                "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-guard-style/entry-point-negative.cs.txt"
+            ],
+            "compilerExitCode": 0,
+            "compileErrors": 0,
+            "rejectedByOriginalShapeAndLiteralIdentity": true,
+            "nativeCodeInvoked": false
+        },
+        {
+            "negative": "field-offset",
+            "original": "FieldOffset(140)",
+            "mutation": "FieldOffset(144)",
+            "command": [
+                "/workspace/FsusBlog/.tmp/chain-3582/dotnet/dotnet",
+                "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-guard-style/probe/bin/Release/net10.0/Probe.dll",
+                "inspect",
+                "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-guard-style/field-offset-negative.cs.txt"
+            ],
+            "compilerExitCode": 0,
+            "compileErrors": 0,
+            "rejectedByOriginalShapeAndLiteralIdentity": true,
+            "nativeCodeInvoked": false
+        },
+        {
+            "negative": "literal-mask",
+            "original": "0x7df",
+            "mutation": "0x7ff",
+            "command": [
+                "/workspace/FsusBlog/.tmp/chain-3582/dotnet/dotnet",
+                "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-guard-style/probe/bin/Release/net10.0/Probe.dll",
+                "inspect",
+                "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-guard-style/literal-mask-negative.cs.txt"
+            ],
+            "compilerExitCode": 0,
+            "compileErrors": 0,
+            "rejectedByOriginalShapeAndLiteralIdentity": true,
+            "nativeCodeInvoked": false
+        }
+    ]
+}

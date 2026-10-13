@@ -1,0 +1,59 @@
+{
+    "ownerRepository": "Ozwasyd/FsusBlog",
+    "affectedSurfaces": [
+        "task:Vault conflict/privacy/plan/progress/recovery review"
+    ],
+    "uiDecisionClass": "bounded-composition",
+    "verificationClass": "ux-path",
+    "candidateSha": "d6a076905ba82f5a1359b1363ee049ad66a66e20",
+    "classificationEvidenceDigest": "a60e30607d0f716896e3f059f0fdb06d5a1f9acdfaeff240d0ea82db0c413f57",
+    "inScope": [
+        "Consume the exact canonical unmounted product review sources and their original controls.",
+        "Use actual public FsusUI controls; preserve the canonical shared plan/evidence/proposal ownership."
+    ],
+    "outOfScope": [
+        "Change authoring route/navigation or add substitute transport/writer/current-state authority.",
+        "Modify FsusUI internals/tokens, frozen fixtures/design authorities or sign independent UX acceptance."
+    ],
+    "status": "frozen",
+    "schema": "fsusblog-design-conformance.ui-classification-receipt.v2",
+    "domainPolicyDigest": "a0c0120751f77f81ecb32dad389fd1e8465035576a81444b8daec463fa76b82f",
+    "repository": "Ozwasyd/FsusBlog",
+    "issueId": "3582-integration-2122-2123-2130-2135",
+    "uiImpact": true,
+    "requiredDesignAuthorities": [
+        {
+            "id": "fsusblog-design-conformance",
+            "digest": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+        },
+        {
+            "id": "fsusui-design-conformance",
+            "digest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+        }
+    ],
+    "fsusUIBaseline": {
+        "schema": "fsusblog-design-conformance.fsusui-baseline-identity.v1",
+        "sourceKind": "local-source",
+        "repository": "Ozwasyd/FsusUI",
+        "absolutePath": "/workspace/FsusUI",
+        "gitHead": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "packageVersion": "1.5.1",
+        "dirty": false,
+        "dirtyFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "skillDigest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+        "contractDigests": {
+            "stagePolicy": "268dc35dc12fa2fae1ca1eb76847b9ab79bc657bfbb7a7cc5a07ca6244c4df62",
+            "classification": "91f46a2a6800bd573f26d97e2ca0b8da37a6629447cf94097e9bfbeba31547c1",
+            "adjudication": "d0c782a76f6aee82d94cff738da74f4b87ff27715ae50af547250dd20634194b",
+            "uxAcceptance": "2e90abbcec9ba37a6928154079c34f45730c1289a69e18677a3c658ac66577cc"
+        },
+        "baselineDigest": "b3e17baed7b694d6edfa66edc60bc7ca0fd90c48a3f052993bf8db84c0531e91"
+    },
+    "stateEvidenceMatrix": [
+        "empty/invalid/current/revoked/stale/missing binding and unavailable writer/transport",
+        "long and short Chinese/English product copy and exact diagnostic references",
+        "light/dark; narrow/wide; keyboard focus and native controls; touch; zoom/overflow; reduced-motion"
+    ],
+    "candidateIdentityDigest": "4a4f6bcf8fd177ec575bc02c0234d29537ae5893ccdebe0f28d07281eff7144a",
+    "receiptDigest": "c5156f635bec5dc278d9803e842347f550050a75bd30f676b948da70890f95fe"
+}

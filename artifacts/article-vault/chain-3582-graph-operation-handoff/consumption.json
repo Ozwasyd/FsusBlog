@@ -1,0 +1,165 @@
+[
+    {
+        "source": "3466db03e0421f4e90d36528b9062cdf7446abda",
+        "consumedAs": "891e546c31199b7a42d040fab8257263ea992b6c",
+        "operation": "clean non-fast-forward current accepted master merge"
+    },
+    {
+        "source": "4f0ed31055e3d8707404f9814a4f82e1fd1c3b0a",
+        "operation": "empty cherry-pick skipped; exact canonical operation implementation already present"
+    },
+    {
+        "source": "5b5d0204f4ffddbef634504ee9e659051869d79e",
+        "suppliedTip": "9cd6ae50b233eee35f291c9690d316bbfee37941",
+        "operation": "aborted on modify/delete naming conflict; adapter/tests not consumed",
+        "affectedPath": "artifacts/change-contract/article-vault-operation-external-naming.json"
+    },
+    {
+        "consumedAs": "52cfb738e319cecc390f8d950975b99cd4201dff",
+        "message": "test(release): verify current data-scale owner receipts\n\nExercise the canonical v2 owner producer through the strict lifecycle verifier. Preserve scheduler tamper rejection, cover invocation/attempt/source drift with sealed and unsealed receipts, and reject legacy lane receipts.\n\nRefs: #1950"
+    },
+    {
+        "consumedAs": "978f9af371ba5a946236baa42c6e2c13939aba9d",
+        "message": "refactor(tooling): remove unused inventory adapter parameters\n\nKeep extraction behavior and test oracles unchanged while removing unused root, file, case ID and suite context arguments from internal helpers.\n\nRefs: #3242"
+    },
+    {
+        "consumedAs": "14d22b060474ffcbe81595c86b007c4c53038e4f",
+        "message": "fix(release): align data-scale action with catalog deadline\n\nBind the measurement action to the existing 1260000 ms catalog minimum and retain the original 1320000 ms outer timeout. Reject the stale 600000 ms and just-below-minimum action values; correct the stale 11-minute test projection to 22 minutes. Runtime qualification and cleanup remain pending.\n\nRefs: #1950"
+    },
+    {
+        "consumedAs": "d4ccd8689e95f25c57d4ac9dc942d28a8c5e92ca",
+        "message": "chore(release): register data-scale deadline external names\n\nRecord the existing json-wire-key exception required by the trusted change contract for the scoped lifecycle registry correction. Preserve every external key and action identifier.\n\nRefs: #1950"
+    },
+    {
+        "consumedAs": "ef33658cd8e41476d63d1ff7ad645b07a4486b39",
+        "message": "fix(ci): register the source integration stage variable\n\nRelated to #3764. Declare the existing maintainer-controlled variable in the closed actionlint roster. Preserve the existing PR condition, qualification fallback, full/push/dispatch/release enforcement, and workflow gates. Native and full CI acceptance remain open.\n\nRefs: #3764"
+    },
+    {
+        "consumedAs": "f7b91ec812fa7e9a482c4f5d55bf656e524050a6",
+        "message": "test(release): preserve original data-scale receipt case identities\n\nRetain the two original discoverable case IDs while preserving the canonical v2 receipt fixture, identity and resealed tamper refusals, and added legacy-lane rejection. No test or runtime assertion is removed.\n\nRefs: #1950"
+    },
+    {
+        "consumedAs": "fb08b06cfb977eb0ceadf3504e5bbcc688923bfa",
+        "message": "fix(test): preserve the fixture permission counterexample\n\nExplicitly retain the invalid controlled-provider file mode under restrictive umask. Preserve the original rejection, cleanup and replay controls. Regenerate the canonical execution authority through its existing producer; bind source and output and retain JSON wire names. This bounded increment preserves the exact source delta published in d7c4152fdba1eb732af44e5e33abdde9fef26dc1, 53b5678cf6ead6674c11cbf19fb51b6bb16fc92e and 23df541d9bb40e66345affaffe63d3f6f924ffc7 without rewriting those commits. Runtime and custody qualification remain open.\n\nRefs: #3739"
+    },
+    {
+        "consumedAs": "12b78041d9c9b669be2089454d00a7eb2ccb9365",
+        "message": "test(tooling): bind governance probe to current mutation table\n\nLocate the immutable loop introduced by the intentional governance receipt table migration and reuse its existing fixture-root collection. Preserve every adapter assertion, negative control, and surrounding governance oracle.\n\nRefs: #3242"
+    },
+    {
+        "consumedAs": "cd7213c71e0a9cfc426fbbb11f07d43fd261d100",
+        "message": "chore(tooling): bind isolated adapter naming evidence\n\nBind only the adapter surface in the clean source-only review candidate. Preserve PR 3822 and its complete shared-prerequisite history separately.\n\nRefs: #3242"
+    },
+    {
+        "consumedAs": "0a993f2a51eec36ca493681df20026e5e9164346",
+        "message": "fix(tooling): isolate controlled memory unit telemetry\n\nExtract the exact owned source patches from 59ed266b69e9484586c9fd4a12d449bce615eb8d and 90e31f9016967b220fbfeed055ed8151336377bf onto freshly verified master. Reuse the existing internal sampling seams, retain real defaults and physical refusals, and mark injected scheduler checkpoints non-authoritative. Preserve fallback refusal, global serialization, independent authority rejection and production owner zero-spawn controls. Original chain runtime acceptance remains WIP.\n\nRefs: #2899"
+    },
+    {
+        "consumedAs": "88f0419196d7540cc9adcc7b8043fc8c819e37d0",
+        "message": "chore(governance): bind the narrow memory review source\n\nBind the actual changed scheduler source to its canonical execution authority output regenerated under sealed Node 24.16.0. Preserve the existing serialized and environment names. No prerequisite inventory, history authority, public CLI, physical sampler or production resource gate changes are included.\n\nRefs: #2899"
+    },
+    {
+        "consumedAs": "9b1455c00389daf6472749f78c22d4a77a37766e",
+        "message": "fix(governance): normalize bounded MSBuild intermediate separators\n\nInterpret observed MSBuild directory separators at the existing xUnit Compile projection boundary. Retain contained parent paths and reject outside roots, foreign drive roots and intermediate path aliases; preserve configuration and Compile source identity/digest refusals. Add three owning positive and negative controls without creating execution or retirement authority.\n\nRefs: #3521, #3524, #3529, #3584, #3608, #3622, #3647, #2899"
+    },
+    {
+        "consumedAs": "b080b50b9c8ed1519d47b060c3c08c065b0133b0",
+        "message": "fix(tooling): correct scheduler import diagnostics\n\nOrder the original canonical current-run locator import before the evidence contract and remove the misplaced unused parent-import directive. Preserve every imported binding, canonical dependency path, scheduler statement and physical refusal. Refresh only the scheduler digests through the original execution authority producer and bind its actual output.\n\nThe remaining canonical parent import is still rejected under the existing strict rule; no suppression, alias, dependency wrapper or checker exception is added. Source acceptance remains WIP pending the precise canonical ownership/style policy decision.\n\nRefs: #2899"
+    },
+    {
+        "consumedAs": "85580cbf5e11ca73439f4939f20b846fe06bc360",
+        "message": "fix(frontend): isolate PublicShell locale domain preparation\n\nPreserve full-app security domains while public SSR/hydration prepare only page domains. Cover all ten actual locale imports/reuse and retain the effective unknown-domain negative control.\n\nSource-Commit: 4f75b399a946421f00b512b2b9578975d953a88d\n\nRefs: #2581"
+    },
+    {
+        "consumedAs": "44b8066d56df11780c056e8553999b76a8207551",
+        "message": "build(contracts): preserve canonical locale catalog byte parity\n\nConsume the supplied canonical producer repair without changing locale data or generated projection bytes. Retain exact byte-parity and repeat-generation checks.\n\nSource-Commit: 4a66cdc8cb27f86c90da3a14cd54ff47c80c60d6\n\nRefs: #2581 #1704 #2575"
+    },
+    {
+        "consumedAs": "9cd2d808448b8fae75279a97fe6be2fe850222ff",
+        "message": "build(contracts): reuse canonical locale loader validation\n\nConsume the supplied shared-loader parser repair and preserve all exact locale/domain/import rejection controls. Retain provenance without changing published WIP history.\n\nSource-Commit: 6b52b2c5d561b7068c22d13500af0225e038b412\n\nRefs: #2581 #1704 #2575"
+    },
+    {
+        "consumedAs": "551ba15ebc4f8e8f08b96b6083ac93bd658cc66d",
+        "message": "build(test): bind the isolated locale source execution authority\n\nRun the existing pinned canonical producer and bind only the three changed source identities. Preserve execution owners, argv, parser/schema identity and all inventory history gates.\n\nRefs: #2581"
+    },
+    {
+        "consumedAs": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+        "message": "chore(governance): bind corrected scheduler authority\n\nBind the original execution authority producer output to the bounded scheduler import correction in b080b50b9c8ed1519d47b060c3c08c065b0133b0. The stable producer run passed with an unchanged index and candidate input; only scheduler content and index digests changed. The remaining canonical parent-import style rejection is preserved, not waived.\n\nRefs: #2899"
+    },
+    {
+        "consumedAs": "65ca74461666c641c47bc8793f5f60728dcef326",
+        "message": "fix(governance): classify contextual records and singular miss enums\n\nPrepare the original eight-file source increment directly on current master 0a755584aa256995fd9997ca974806e8a0e29d2e. Preserve reviewed implementation, producer, baseline refusal controls and frozen tested-8b candidate 6c49cdd7d2f18b161eb31659cd3befe825f8b1f1 without changes to broad WIP.\n\nRefs: #3650"
+    },
+    {
+        "consumedAs": "019b24e8c942f072699c74da9d7bba0747c6676d",
+        "message": "fix(tooling): initialize canonical scheduler validators\n\nLoad the unchanged canonical evidence-location-contract module after the complete static import and re-export region using const named bindings, native URL from node:url, the original literal path and import.meta.url. This owner-confirmed structure adds top-level await while preserving validator identity and the original dependency authority; it is not format-only or a source inheritance waiver.\n\nConsultation: PR #3905 comment 6052784262 from canonical #3534/#3659 owners. No prerequisite scanner patch, checker change, exception, wrapper, copied validator or suppression is introduced. Real sampler defaults and physical refusal logic are unchanged. Original producer refresh and exact-candidate source and negative controls remain required.\n\nRefs: #2899"
+    },
+    {
+        "consumedAs": "3321ab6cfef98fd4faed708f9dc382272fa818e9",
+        "message": "chore(governance): bind canonical validator initialization\n\nBind the stable source/index of 019b24e8c942f072699c74da9d7bba0747c6676d to the original authority producer output under sealed Node 24.16.0. Only scheduler content/index digests change; its complete 125 dependency identities and canonical validator content/index digest remain byte-identical. Exact-head source and negative verification follows; no physical or whole static-governance qualification is inferred.\n\nRefs: #2899"
+    },
+    {
+        "consumedAs": "847ce673b40dd11c2967c3e47eb87c1f9159c9a9",
+        "message": "build(contracts): preserve canonical locale catalog byte parity\n\nEmit the existing TypeScript projection format from the canonical producer without changing locale data, catalog digest or generated outputs. Verify byte parity and repeated generation in an isolated replay directory.\n\nRefs: #2575, #1704"
+    },
+    {
+        "consumedAs": "faa21097087d659ac90857d47f8c3ca15c30cc0f",
+        "message": "build(contracts): reuse canonical locale loader validation\n\nReplace indentation-sensitive duplicate loader parsing with the existing closed registry parser, preserving exact locale/domain/import checks. Require negative fixtures to mutate actual source and record the existing external naming surface declaration.\n\nRefs: #2575, #1704"
+    },
+    {
+        "consumedAs": "8c25accf134e276ed66fb07f0d185ae0f8c7c579",
+        "message": "chore(tooling): bind canonical locale catalog source closure\n\nReproduce normal atomic source/output metadata through the unchanged producer and original official Node v24.16.0 parser. Only the two catalog tooling source digests change; index, parser, complete roster, finite registration and history policies are preserved. No generated-history repair or policy promotion.\n\nRefs: #2575"
+    },
+    {
+        "consumedAs": "f04585d5a9e11ec243bff4a8e8794f11e8cb8b47",
+        "message": "chore(tooling): refresh catalog binding after fixture source integration\n\nPreserve the accepted master fixture-lifecycle source binding in the canonical authority. Recompute this PR's ordinary output manifest from the actual committed producer output; preserve all catalog source, test, naming and policy bytes.\n\nRefs: #2575"
+    },
+    {
+        "consumedAs": "7d30540a5f552208c39fe043728698b8db35d6f7",
+        "message": "chore(governance): bind the actual combined authority bytes\n\nUpdate only the owned generated-output binding SHA-256 after the conflict-free master integration combined the independently reviewed scheduler digest with canonical upstream locale and browser-fixture digests. Preserve all producer output entries and reviewed source/test bytes. The actual original authority checker must verify those combined bytes before SOURCE admission; no unrelated historical manifest or canonical source is changed.\n\nRefs: #2899"
+    },
+    {
+        "consumedAs": "cbc4b2bc509fd17a48fdf1b1d9a3f0b456e0ec48",
+        "message": "chore(contracts): bind combined reviewed source authority\n\nRegenerate shared execution authority through its unchanged canonical producer using pinned Node 24.16.0 and the combined independently reviewed sources. Preserve current-master metadata and each original owned binding as source provenance; add active combined binding and naming evidence for actual changed sources. All authority roster/ownership/non-digest fields remain unchanged.\n\nRefs: #3568, #3650, #2581"
+    },
+    {
+        "consumedAs": "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa",
+        "message": "fix(governance): retain locked SDK Compile support ownership\n\nKeep the selected SDK Program input in both canonical project Compile graphs while excluding it from test-case ownership. Bind shared support to the repository-contained attempt cache, selected project lock, defining target and held file identities; refuse serialized, crossed, changed and aliased observations. Preserve ordinary duplicate source and external source refusals. No SDK execution, package trust, runtime qualification or historical admission is granted.\n\nRefs: #3521, #3520, #3524"
+    },
+    {
+        "consumedAs": "3466db03e0421f4e90d36528b9062cdf7446abda",
+        "message": "fix(frontend): reject disposed document context admission\n\nRetire disposed-owner current-context admission while preserving historical snapshots and active lifecycle continuity. Runtime and full product qualification remain OPEN/WIP.\n\nRefs: #2246"
+    },
+    {
+        "consumedAs": "6abec9f308a54c0fc397dd5f0c9b8e90e32bb61c",
+        "message": "feat(contracts): validate dependency plans and asset byte observations\n\nBind current canonical edges and target scopes, reject malformed seals and closed enum drift, preserve budgets through final plan sealing, add the shared portable JSON schema and static adapter checks, and validate AssetId bytes with existing media/schema authorities. Add adversarial tests and document blocked canonical package/ledger/snapshot adapters. No business writer or direct storage operation is introduced.\n\nRefs: #2124, #2125\n(cherry picked from commit 7cea1aa1704654f306eb6aee992e936b2224c179)"
+    },
+    {
+        "consumedAs": "e09b5cc5361aeb75b22b302bd145ce8d7dfd540c",
+        "message": "fix(contracts): bind pull dependencies to the fresh server observation\n\nUse the canonical plan item server coordinate when the local article manifest retains an older server snapshot. Reject an extension that freezes stale source/dependency bytes, and retain a regression control covering both admission and rejection.\n\nRefs: #2124\n(cherry picked from commit 00eeaf705dcc03a5412b36002df0b166e7442f3a)"
+    },
+    {
+        "consumedAs": "88ef4d9946f9d071b7fed1cd8ab7f19faf748773",
+        "message": "test(contracts): reject stale server graphs during plan revalidation\n\nCover both Build and VerifyCurrent against a ready PullUpdate with a fresher canonical server coordinate. Keep the fresh positive and exact byte/relation drift negatives, including a structurally valid resealed legacy extension.\n\nRefs: #2124\n(cherry picked from commit 08034e84edfca42c6fcf14fcc629110adc20906c)"
+    },
+    {
+        "consumedAs": "930a1292c7dbf53b25170f779408efad00149043",
+        "message": "feat(contracts): bind source instructions to exact server results\n\nConsume existing sealed plan and result verification; preserve byte identities in conditional source instructions. Preflight records the actual missing accepted-coordinate, projection and native commit capabilities and cannot update base.\n\nRefs: #2106\n(cherry picked from commit 24d9a347caf14ca051291b8e5c54a3b067ddf433)"
+    },
+    {
+        "consumedAs": "a3a3612fa9af2744c05d371e366449531b945b06",
+        "message": "feat(contracts): bind source instructions to root and metadata expectations\n\nExpose the sealed root-manifest digest and exact old metadata digest for the native adapter owner without granting filesystem admission or inventing accepted server metadata.\n\nRefs: #2106\n(cherry picked from commit 5d4d6358ed57945e6e0ec5ca6ea0744b3d8e5df8)"
+    },
+    {
+        "consumedAs": "fd8907164cf8589329ff19b69fb04c5416b7d42e",
+        "message": "test(test): verify durable checkpoint replay and expiry\n\nExercise concurrent stores, exact history reads, immutable PostgreSQL receipts and canonical result admission in owned disposable databases. Enforce the current injected clock at append boundaries and retain expired-identity replay.\n\nRefs: #2107\n(cherry picked from commit 37015c5148dfadfbaefd6d605caea6826cdd236e)"
+    },
+    {
+        "consumedAs": "de511ee8f274aca39af4f70197dde281708219e1",
+        "message": "test(test): enumerate operation authority rejection cases\n\nConsume the existing closed schemas and planner enums rather than defining another protocol table. Preserve stage-order, base mismatch and missing materialization rejection; complete terminal governance remains open.\n\nRefs: #2108\n(cherry picked from commit 557cd9dfaca855e54772893c3c9a55832ce5d1e7)"
+    },
+    {
+        "consumedAs": "36023e2c1726734c74ef9e0dc21eb89d55f57e50",
+        "message": "fix(backend): preserve executor exception authority boundary\n\nUse the existing canonical Vault rejection type in new backend preflight and receipt persistence methods. Retain the original namespace-wide no-filesystem control; update owned tests to assert the exact boundary type. Original executor plus new diagnostic tests pass 64 cases.\n\nRefs: #2107\n(cherry picked from commit 583871a6fdc75cb6ad15a5d1ceced2dcbcc9d7f4)"
+    }
+]

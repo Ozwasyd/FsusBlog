@@ -1,0 +1,11 @@
+{
+  "candidate": "09138ca70af4bfb0141bfe7731268161e2aae8c6",
+  "command": [
+    ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/test-suite-convergence.test.mjs"
+  ],
+  "startedAt": "2026-10-08T10:30:32.873568+00:00",
+  "exitCode": 0,
+  "endedAt": "2026-10-08T10:30:33.740816+00:00"
+}

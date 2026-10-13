@@ -1,0 +1,43 @@
+{
+  "source": "518237768fcd8c77fb0fd6aaf1d2d1f1a5feea24",
+  "originalSupplier": "61d686739fca17aa3f3fad3840de315c4d35eabe",
+  "actualPipeline": [
+    {
+      "method": "IFileService.ReadCommittedUploadInputAsync",
+      "facts": "Original session-owned bytes up to20MiB, AssetRecord, stable asset version/reference-ledger observation; no new Vault right."
+    },
+    {
+      "method": "ArticleVaultUploadAssetBindingReader.ReadCurrentRevisionUploadInputAsync",
+      "facts": "Exact original plan/group/item/current source revision/admin, before-after source/article permission, complete Vault group and ledger/version stability."
+    },
+    {
+      "method": "ArticleVaultCurrentUploadAssetInputReader.ReadAsync",
+      "facts": "Original sealed global operation and exact server-pull asset membership; original current dependency rights verified before-after; actual record/copied bytes fed to existing ArticleVaultAssetInputVerifier.VerifyCurrent. Retains original operation/dependency seal and supplier observation; all execution/materialization/upload/base flags false."
+    }
+  ],
+  "actualHost": "Existing AddFsusRuntimeServices uses explicit ArticleVault:TrustedSiteIdentity; original scoped current source reader uses existing article/revision ports. No HTTP/AEDS endpoint, new wire frame or fallback provider.",
+  "remaining": [
+    {
+      "owner": "original #2124 current dependency/resource authority",
+      "field": "Fresh currentRequest/currentDependencies/current authority nodes/edges/relation seal and resource-specific required/granted rights/permission/authority digests. Article-read permission, raw bytes and ledger presence are not these grants."
+    },
+    {
+      "owner": "original #1779/#2258 intended-AssetId upload/reuse/reference authority",
+      "field": "Original operation/plan/item/content/source/asset-version-bound reuse decision, idempotent intended-AssetId upload and accepted-reference/retry receipts. An observed reference is not acceptance or reuse."
+    },
+    {
+      "owner": "original current asset/version authority",
+      "field": "AssetVersionSha256 is a real hash observation; no invented conversion into VaultAssetDependency.ServerRevision or generic operation authority."
+    },
+    {
+      "owner": "root verified-decision/executable candidate integration",
+      "field": "Actual complete V1 source/slug/taxonomy/persisted article property/metadata and legitimate base/local/Git facts. Root retains this unfinished work; Blocked/SOURCE HOLD and execution refusal persist."
+    },
+    {
+      "owner": "original native materialization/recovery and qualification owners",
+      "field": "Real stable local snapshot/path, admitted host/native/session/installer and original terminal acceptance. Held audits not executed."
+    }
+  ],
+  "testsNotInherited": "Supplier56 realPG/native results are not root results. Root frozen21 are ordinary controlled-authority callers; earlier working7 exercise original newly supplied read method and retain their distinct run identity. No realPG/native/current host startup or full executable authority acceptance.",
+  "guard": "All Guard source, blame and mechanical artifacts are byte-identical to e7f8c738. No rerun or scope claim for Guard, ExactDecimalLiteral or ArticleRelationContractValidator."
+}

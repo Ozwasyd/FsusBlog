@@ -1,0 +1,153 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  FsusBlog.Shared -> /workspace/FsusBlog/src/shared/bin/Release/net10.0/FsusBlog.Shared.dll
+  FsusBlog.ArticleVault.Windows -> /workspace/FsusBlog/src/article-vault/windows/bin/Release/net10.0/FsusBlog.ArticleVault.Windows.dll
+  FsusBlog.ArticleVault.Windows.Tests -> /workspace/FsusBlog/tests/article-vault/windows/bin/Release/net10.0/FsusBlog.ArticleVault.Windows.Tests.dll
+Test run for /workspace/FsusBlog/tests/article-vault/windows/bin/Release/net10.0/FsusBlog.ArticleVault.Windows.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.14]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "C:\\outside.md") [FAIL]
+[xUnit.net 00:00:00.15]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "articles%2ffirst.md") [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "articles\\first.md") [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "\\\\server\\share\\outside.md") [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "/outside.md") [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "../outside.md") [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsUseBoundaryOwnsDuplicateAndFailsAfterScopeDisposal [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsPinnedRootCannotBeReplacedOrRenamedWhileAdmitted [FAIL]
+[xUnit.net 00:00:00.16]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCaseCollisionIsStructuredAndNoWinnerIsSelected [FAIL]
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "C:\\outside.md") [2 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(String path) in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 68
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "articles%2ffirst.md") [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(String path) in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 68
+   at InvokeStub_WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "articles\\first.md") [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(String path) in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 68
+   at InvokeStub_WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "\\\\server\\share\\outside.md") [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(String path) in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 68
+   at InvokeStub_WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "/outside.md") [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(String path) in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 68
+   at InvokeStub_WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(path: "../outside.md") [2 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(String path) in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 68
+   at InvokeStub_WindowsVaultRootPathScopeTests.RealNtfsRelativeUseRejectsRootedTraversalAndEncodedAliases(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsUseBoundaryOwnsDuplicateAndFailsAfterScopeDisposal [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsUseBoundaryOwnsDuplicateAndFailsAfterScopeDisposal() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 146
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsPinnedRootCannotBeReplacedOrRenamedWhileAdmitted [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsPinnedRootCannotBeReplacedOrRenamedWhileAdmitted() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 161
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCaseCollisionIsStructuredAndNoWinnerIsSelected [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCaseCollisionIsStructuredAndNoWinnerIsSelected() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 76
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.19]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsControlTreeDoesNotEnterOrdinarySourceDiscovery [FAIL]
+[xUnit.net 00:00:00.19]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCrossSiteManifestCannotReuseExistingRoot [FAIL]
+[xUnit.net 00:00:00.19]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsConcurrentCallbacksAndDisposalNeverReuseReleasedHandles [FAIL]
+[xUnit.net 00:00:00.19]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRootSymlinkAndReparseDescendantAreRejected [FAIL]
+[xUnit.net 00:00:00.19]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsActualControlBytesAndManifestIdentityMustStayBound [FAIL]
+[xUnit.net 00:00:00.19]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCaseSensitiveDescendantIsUnsupportedRatherThanGuessed [FAIL]
+[xUnit.net 00:00:00.19]     FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsScopeClassifiesManifestPathsWithoutGrantingSourceBytes [FAIL]
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsControlTreeDoesNotEnterOrdinarySourceDiscovery [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsControlTreeDoesNotEnterOrdinarySourceDiscovery() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 89
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCrossSiteManifestCannotReuseExistingRoot [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCrossSiteManifestCannotReuseExistingRoot() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 113
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsConcurrentCallbacksAndDisposalNeverReuseReleasedHandles [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsConcurrentCallbacksAndDisposalNeverReuseReleasedHandles() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 190
+--- End of stack trace from previous location ---
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRootSymlinkAndReparseDescendantAreRejected [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsRootSymlinkAndReparseDescendantAreRejected() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 125
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsActualControlBytesAndManifestIdentityMustStayBound [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsActualControlBytesAndManifestIdentityMustStayBound() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 102
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCaseSensitiveDescendantIsUnsupportedRatherThanGuessed [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsCaseSensitiveDescendantIsUnsupportedRatherThanGuessed() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 170
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsScopeClassifiesManifestPathsWithoutGrantingSourceBytes [< 1 ms]
+  Error Message:
+   System.PlatformNotSupportedException : windows_vault_requires_real_windows_ntfs
+  Stack Trace:
+     at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RootFixture..ctor() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 229
+   at FsusBlog.ArticleVault.Windows.Tests.WindowsVaultRootPathScopeTests.RealNtfsScopeClassifiesManifestPathsWithoutGrantingSourceBytes() in /workspace/FsusBlog/tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs:line 48
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+Results File: /workspace/FsusBlog/.tmp/chain-3582-expanded/native-paths-919/results/frozen-native-paths-windows.trx
+
+Failed!  - Failed:    16, Passed:     2, Skipped:     0, Total:    18, Duration: 58 ms - FsusBlog.ArticleVault.Windows.Tests.dll (net10.0)
