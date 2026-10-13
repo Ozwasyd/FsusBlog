@@ -1802,10 +1802,20 @@ single reservation and lease. Running/cleanup-blocked, unknown returned work or
 unconfirmed cleanup is not ended; ended is only original native stack/cleanup
 proof and never full upload/network/SDK/resource settlement or readiness.
 
-This dependency record does not activate Main application-end or cohort wiring.
-Actual consumer follows in a separate source commit on original pending entries.
-SDK4288 productionb547 and its genuine native-backed cohort APIs are read-only
-pending review, not silently consumed; ordinary context/stale/rebase/replacement
-remain unchanged. c50 and accepted54e354 checkpoints stay fixed. Every runtime,
+The separate Main consumer commit reserves the actual public end handle inside
+the original applying loan, retaining it on the same pending entry before fallible
+owner reads. Inspect validates original handle/custody/reservation/lease and the
+exact publication event; only the issuer's exact observation/hasEnded proof can
+release the native application duty. Main's synchronous committed admission
+acknowledges its own cleanup only and keeps the entry while native cleanup is
+running, blocked, unsupported or unknown. Explicit retry attempts the same native
+cleanup cursor and Main duties independently without replaying publication; raw
+first/latest failures, including undefined, and failed holders remain retained.
+This does not settle SDK tasks or upload/network work.
+
+SDK4288 exact78a6b8627f56a238e55af3dba851cdbfe66c9d94, Doc blob
+adb0ca27c62fa20f971d581c61bc35b6730c09f1, is bounded source accepted per parent
+but is not consumed here. Actual cohort/anchor/File/original-lease continuity is
+a separate stage; ordinary context/stale/rebase/replacement remain unchanged. c50 and accepted54e354 checkpoints stay fixed. Every runtime,
 import/test/collection/list/discovery/native/security/privacy/receipt/race/
 backuprestore/IME and qualification hold remains.

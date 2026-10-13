@@ -43,12 +43,10 @@
     },
     "pendingSDK": {
         "PR": 4288,
-        "productionCommit": "b5472e648c4a9320edeac61c3be87fba6873c2b5",
-        "delivery": "566bad64a3a344a027717829410a111c0e9d5015",
-        "latestDocsHead": "e9309e62eace85f2c319cd55a7d7a3a1f464fd38",
-        "DocBlob": "60acc8b966e6a96e6951141279ae6d30bd076f20",
-        "sourceReview": "PENDING at intake; source NOT consumed"
+        "productionCommit": "78a6b8627f56a238e55af3dba851cdbfe66c9d94",
+        "DocBlob": "adb0ca27c62fa20f971d581c61bc35b6730c09f1",
+        "sourceReview": "Bounded source accepted per parent; NOT consumed in this application-end checkpoint"
     },
-    "consumer": "Application-end/SDK-cohort wiring separate next stages; absent/unknown capability remains blocked",
+    "consumer": "Actual UI957 application-end reserve/inspect/hasEnded/retry on the original pending entry, reservation, custody, and lease; SDK cohort consumption remains a separate stage",
     "runtime": "ALL HOLD/UNRUN; no product imports/evaluation/build/publication/authority refresh"
 }
