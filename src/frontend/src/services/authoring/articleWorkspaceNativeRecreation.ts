@@ -8,7 +8,8 @@ import type { MarkdownEditorNativeHandoverProof, MarkdownEditorSessionSnapshot }
 export interface ArticleWorkspaceNativeRecreationRootPort
 {
     reserveTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource): Promise<ArticleNativeRecreationStagingLease>;
-    readmitTarget(entry: Readonly<OpenArticleDocumentEntry>, target: ArticleNativeRecreationSource): Promise<ArticleWorkspaceMountedAuthority>;
+    readmitTarget(entry: Readonly<OpenArticleDocumentEntry>, target: ArticleNativeRecreationSource,
+        cancellation: AbortSignal): Promise<ArticleWorkspaceMountedAuthority>;
     retryCleanup(): void;
 }
 
@@ -24,13 +25,17 @@ export interface ArticleWorkspaceNativeRecreationObservation
 /** One original operation holder; no document/body/history or session index. */
 export function createArticleWorkspaceNativeRecreationDriver(
     root: ArticleWorkspaceNativeRecreationRootPort,
-    prepareSource: (entry: OpenArticleDocumentEntry, snapshot: MarkdownEditorSessionSnapshot, draftStateRef: string) => ArticleWorkspaceNativeHandoverReservation,
-    hasInstallation: () => boolean)
+    prepareSource: (entry: OpenArticleDocumentEntry, snapshot: MarkdownEditorSessionSnapshot, draftStateRef: string,
+        cancellation: AbortSignal) => ArticleWorkspaceNativeHandoverReservation,
+    hasInstallation: () => boolean,
+    inspectSourceCleanup: () => Readonly<{ pending: boolean; failed: boolean; firstCause: unknown; latestCause: unknown; }>)
 {
     interface Attempt {
+        readonly operation: AbortController;
         active: boolean;
         running: boolean;
         cleaning: boolean;
+        withdrawing: boolean;
         releasingStage: boolean;
         source: ArticleWorkspaceNativeHandoverReservation | null;
         stage: ArticleNativeRecreationStagingLease | null;
@@ -51,11 +56,87 @@ export function createArticleWorkspaceNativeRecreationDriver(
         own.failed = true;
         own.latestCause = cause;
     };
+    const withdraw = (own: Attempt, cancelStaging = true): void =>
+    {
+        own.active = false;
+        if (own.withdrawing)
+        {
+            return; // The same holder remains pending; never acknowledge reentrant cleanup.
+        }
+        own.withdrawing = true;
+        let didFail = false;
+        let first: unknown;
+        const run = (work: () => void): void =>
+        {
+            try
+            {
+                work();
+            }
+            catch (cause)
+            {
+                if (!didFail)
+                {
+                    first = cause;
+                }
+                didFail = true;
+                failure(own, cause);
+            }
+        };
+        try
+        {
+            // This same signal is in the original principal guard and actual Write operation.
+            run(() => own.operation.abort());
+            run(() =>
+            {
+                if (own.source && own.source.cancel() !== true)
+                {
+                    throw new Error('article-workspace-native-source-withdrawal-pending');
+                }
+            });
+            run(() =>
+            {
+                if (!cancelStaging)
+                {
+                    return; // Original staging is already inside its invalidation notification.
+                }
+                const releasingStage = own.releasingStage;
+                own.releasingStage = true;
+                try
+                {
+                    if (own.stage)
+                    {
+                        if (own.stage.cancel() !== true)
+                        {
+                            throw new Error('article-workspace-native-staging-withdrawal-pending');
+                        }
+                    }
+                    else
+                    {
+                        // Original Frame aborts its actual in-flight physical preparation.
+                        root.retryCleanup();
+                    }
+                }
+                finally
+                {
+                    own.releasingStage = releasingStage;
+                }
+            });
+            if (didFail)
+            {
+                throw first;
+            }
+        }
+        finally
+        {
+            own.withdrawing = false;
+        }
+    };
     const cleanup = (own: Attempt): boolean =>
     {
         own.active = false;
-        if (own.running || own.cleaning)
+        if (own.running || own.cleaning || own.withdrawing)
         {
+            withdraw(own);
             return false;
         }
         own.cleaning = true;
@@ -123,6 +204,20 @@ export function createArticleWorkspaceNativeRecreationDriver(
                 }
                 own.source = null;
             });
+            run(() =>
+            {
+                // A throwing source acquisition may retain its original factory holder.
+                // Observe that real debt; never borrow/cancel an unidentified source attempt.
+                const source = inspectSourceCleanup();
+                if (source.pending)
+                {
+                    if (source.failed)
+                    {
+                        throw source.firstCause;
+                    }
+                    throw new Error('article-workspace-native-source-cleanup-unconfirmed');
+                }
+            });
             if (didFail)
             {
                 throw first;
@@ -151,10 +246,11 @@ export function createArticleWorkspaceNativeRecreationDriver(
             {
                 throw new Error('article-workspace-native-recreation-owner-unavailable');
             }
-            const own: Attempt = { active: true, running: true, cleaning: false, releasingStage: false,
+            const own: Attempt = { operation: new AbortController(), active: true, running: true, cleaning: false,
+                withdrawing: false, releasingStage: false,
                 source: null, stage: null, target: null, stop: null, failed: false, firstCause: undefined, latestCause: undefined };
             attempt = own;
-            const current = (): boolean => own.active && attempt === own && hasInstallation();
+            const current = (): boolean => own.active && !own.operation.signal.aborted && attempt === own && hasInstallation();
             const verify = (): void =>
             {
                 if (!current() || !own.source?.hasCustody())
@@ -164,7 +260,7 @@ export function createArticleWorkspaceNativeRecreationDriver(
             };
             try
             {
-                own.source = prepareSource(entry, snapshot, draftStateRef);
+                own.source = prepareSource(entry, snapshot, draftStateRef, own.operation.signal);
                 const source = own.source;
                 verify();
                 own.stage = await root.reserveTarget(entry, { editor: source.sourceEditor,
@@ -182,9 +278,8 @@ export function createArticleWorkspaceNativeRecreationDriver(
                 {
                     if (!own.releasingStage)
                     {
-                        own.active = false;
                         // Withdraw the original principal before native transfer can continue.
-                        source.cancel();
+                        withdraw(own, false);
                     }
                 });
                 verify();
@@ -219,7 +314,7 @@ export function createArticleWorkspaceNativeRecreationDriver(
                     own.releasingStage = false;
                 }
                 verify();
-                const mounted = await root.readmitTarget(entry, target);
+                const mounted = await root.readmitTarget(entry, target, own.operation.signal);
                 verify();
                 if (mounted.nativeEditor !== target.editor || mounted.editorSessionRef !== entry.editorSessionRef
                     || !mounted.hasCustody() || target.editor.getSession(entry.editorSessionRef) !== target.session)
@@ -232,6 +327,7 @@ export function createArticleWorkspaceNativeRecreationDriver(
                 {
                     throw new Error('article-workspace-native-recreation-cleanup-pending');
                 }
+                own.operation.signal.throwIfAborted();
                 return Object.freeze({ native, mounted, fullRefsRestored: false as const, resourcesValidated: false as const });
             }
             catch (cause)
@@ -240,18 +336,37 @@ export function createArticleWorkspaceNativeRecreationDriver(
                 own.running = false;
                 try
                 {
-                    cleanup(own);
+                    withdraw(own);
                 }
                 catch
                 {
-                    // Original holders and latest raw cleanup cause remain available for retry.
+                    // Immediate withdrawal debt cannot skip eventual attempt-all cleanup.
+                }
+                try
+                {
+                    cleanup(own);
+                }
+                catch
+                { /* Original holders and latest raw cleanup cause remain available for retry. */ }
+                if (attempt !== own && own.failed)
+                {
+                    terminalFailure = Object.freeze({ failed: true, firstCause: own.firstCause, latestCause: own.latestCause });
                 }
                 throw cause;
             }
         },
         retryCleanup(): boolean
         {
-            return attempt ? cleanup(attempt) : true;
+            const own = attempt;
+            if (!own)
+            {
+                return true;
+            }
+            if (!own.running && !own.cleaning)
+            {
+                withdraw(own);
+            }
+            return cleanup(own);
         },
         inspect: () => Object.freeze({ pending: attempt !== null, running: attempt?.running ?? false,
             failed: attempt?.failed ?? terminalFailure?.failed ?? false,

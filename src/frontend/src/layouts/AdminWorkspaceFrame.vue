@@ -738,7 +738,7 @@ async function admitCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocum
 }
 
 async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal,
-                                                   preparePhysical: boolean): Promise<void>
+                                                   preparePhysical: boolean, operationSignal?: AbortSignal): Promise<void>
 {
     mountedAuthority = null;
     try
@@ -748,6 +748,7 @@ async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDo
         const verify = (): void =>
         {
             signal.throwIfAborted();
+            operationSignal?.throwIfAborted();
             if (!mounted || layoutRevoking || layoutRevoked || layoutEpoch !== epoch
                 || routeOutletInstance.value !== instance || !viewStartupPorts || viewStartupSignal !== signal
                 || readCurrentStartupPorts() !== viewStartupPorts)
@@ -793,7 +794,7 @@ async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDo
         }
         if (preparePhysical)
         {
-            await prepare.call(port, entry, signal);
+            await prepare.call(port, entry, operationSignal ?? signal);
         }
         verify();
         const current: unknown = getter.call(instance);
@@ -843,7 +844,7 @@ async function completeCurrentPrimaryMountedEditor(entry: Readonly<OpenArticleDo
         const originalHas = has as (this: unknown, candidate: unknown) => unknown;
         const hasOriginal = originalHas.bind(port);
         const privateCurrent = (): boolean => mountedAuthority === admission && mounted
-            && !layoutRevoking && !layoutRevoked && layoutEpoch === epoch
+            && !operationSignal?.aborted && !layoutRevoking && !layoutRevoked && layoutEpoch === epoch
             && viewStartupPorts === selectedPorts && viewStartupSignal === signal;
         const admission: ArticleWorkspaceMountedAuthority = Object.freeze({
             editorSessionRef: entry.editorSessionRef, nativeEditor,
@@ -1050,7 +1051,7 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
         }
         return reserveCurrentNativeRecreationTarget(entry, source, signal);
     },
-    readmitTarget: async (entry, target) =>
+    readmitTarget: async (entry, target, cancellation) =>
     {
         const signal = viewStartupSignal;
         const ports = viewStartupPorts;
@@ -1059,9 +1060,11 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
         {
             throw new Error('article-native-recreation-original-root-required');
         }
+        const operationSignal = AbortSignal.any([signal, cancellation]);
         const verify = (): void =>
         {
             signal.throwIfAborted();
+            operationSignal.throwIfAborted();
             requireStartupAdmission(ports);
             if (viewStartupSignal !== signal || viewStartupPorts !== ports || routeOutletInstance.value !== instance)
             {
@@ -1069,9 +1072,9 @@ const nativeRecreationRoot = Object.freeze<ArticleWorkspaceNativeRecreationRootP
             }
         };
         verify();
-        await prepareCurrentPrimaryMountedEditor(entry, signal);
+        await completeCurrentPrimaryMountedEditor(entry, signal, true, operationSignal);
         verify();
-        await admitCurrentPrimaryMountedEditor(entry, signal);
+        await completeCurrentPrimaryMountedEditor(entry, signal, false, operationSignal);
         verify();
         const mounted = readCurrentMountedAuthority(entry.editorSessionRef);
         if (mounted?.nativeEditor !== target.editor || !mounted.hasCustody()
