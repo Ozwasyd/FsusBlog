@@ -132,18 +132,32 @@ public static class CanonicalArticleGraphFactory
         int articleOrdinal,
         ArticleScaleVariant variant,
         ArticleScaleVariantContract contract)
+        => BuildArticleGraph(plan, articleOrdinal, variant, contract, identities: null);
+
+    public static ArticleScaleArticleGraph BuildArticleGraph(
+        ArticleScalePlan plan,
+        int articleOrdinal,
+        ArticleScaleVariant variant,
+        ArticleScaleVariantContract contract,
+        ArticleScaleGraphIdentityBindings? identities)
     {
         string prefix = plan.IdAllocation.NamespacePrefix;
         string articleSemanticId = $"{prefix}:article/{articleOrdinal:D6}";
         string bodySemanticId = $"{prefix}:article/{articleOrdinal:D6}/body";
         string rightsPolicySemanticId = $"{prefix}:article/{articleOrdinal:D6}/rights/policy";
         string authoringAdminSemanticId = $"{prefix}:principal/authoring-admin";
+        identities?.ValidateFor(plan, articleSemanticId);
+        long Identity(string role, long diagnosticIdentity)
+            => identities is null ? diagnosticIdentity : identities.Resolve(role);
+        int articleId = checked((int)Identity(articleSemanticId, articleOrdinal));
+        long policyId = Identity(rightsPolicySemanticId, articleOrdinal);
 
         IReadOnlyDictionary<string, DateTime> temporal = ResolveTemporalMap(articleOrdinal, contract);
         VariantLifecycleCoordinates lifecycle = DeriveLifecycleCoordinates(contract, temporal);
 
         string baseTitle = $"Canonical Article {articleOrdinal:D6}";
         string markdownContent = $"# Canonical Article {articleOrdinal:D6}\n\nDeterministic markdown body for article {articleOrdinal} variant {variant}.";
+        ArticleRevisionContentAddress contentAddress = ArticleRevisionContentAddress.Compute(markdownContent);
         ArticleSummaryProjectionResult summaryProj = ArticleSummaryProjection.Resolve(null, markdownContent);
         string summary = summaryProj.Text;
         string coverImageUrl = $"https://cdn.example.internal/media/cover-{articleOrdinal:D6}.webp";
@@ -160,7 +174,7 @@ public static class CanonicalArticleGraphFactory
             bodySemanticId,
             new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["ArticleId"] = articleOrdinal,
+                ["ArticleId"] = articleId,
                 ["ArticleSemanticId"] = articleSemanticId,
                 ["MarkdownContent"] = markdownContent,
                 ["UpdatedAt"] = temporal[ArticleScaleTemporalRoles.ArticleCreated].ToString("O")
@@ -173,7 +187,7 @@ public static class CanonicalArticleGraphFactory
             rightsPolicySemanticId,
             new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["ArticleId"] = articleOrdinal,
+                ["ArticleId"] = articleId,
                 ["ArticleSemanticId"] = articleSemanticId,
                 ["Enabled"] = true,
                 ["LicenseType"] = normalizedRights.LicenseType,
@@ -209,6 +223,11 @@ public static class CanonicalArticleGraphFactory
             string respSemanticId = $"{prefix}:article/{articleOrdinal:D6}/revision/{revNo}/responsibility";
             string taxonomySemanticId = $"{prefix}:article/{articleOrdinal:D6}/revision/{revNo}/taxonomy";
 
+            long revisionId = Identity(revSemanticId, (articleOrdinal * 10L) + revNo);
+            long rightsSnapshotId = Identity(rightsSnapSemanticId, (articleOrdinal * 10L) + revNo);
+            long? previousResponsibilityId = revNo == 1 ? null
+                : Identity($"{prefix}:article/{articleOrdinal:D6}/revision/1/responsibility", (articleOrdinal * 10L) + 1);
+
             revisionSemanticIds.Add(revSemanticId);
             rightsSnapshotSemanticIds.Add(rightsSnapSemanticId);
             responsibilitySnapshotSemanticIds.Add(respSemanticId);
@@ -220,10 +239,10 @@ public static class CanonicalArticleGraphFactory
             ArticleStatus revisionStatus = ResolveRevisionStatus(contract, revNo);
 
             var (rightsSnapshot, contentCanonicalHash, policyHash) = ArticleRightsSnapshotBuilder.Build(
-                articleId: articleOrdinal,
-                revisionId: (articleOrdinal * 10) + revNo,
+                articleId: articleId,
+                revisionId: revisionId,
                 revisionNo: revNo,
-                policyId: articleOrdinal,
+                policyId: policyId,
                 title: revTitle,
                 content: markdownContent,
                 summary: summary,
@@ -255,11 +274,11 @@ public static class CanonicalArticleGraphFactory
                 ExpectedVersion: revNo);
 
             var respSnapshot = ArticleResponsibilitySnapshotBuilder.Build(
-                articleId: articleOrdinal,
-                revisionId: (articleOrdinal * 10) + revNo,
+                articleId: articleId,
+                revisionId: revisionId,
                 revisionNo: revNo,
                 responsibilityVersion: 1,
-                previousSnapshotId: revNo == 1 ? null : (articleOrdinal * 10) + 1,
+                previousSnapshotId: previousResponsibilityId,
                 draft: respDraft,
                 createdAt: revCreatedAt);
 
@@ -268,7 +287,7 @@ public static class CanonicalArticleGraphFactory
                 revSemanticId,
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["ArticleId"] = articleOrdinal,
+                    ["ArticleId"] = articleId,
                     ["ArticleSemanticId"] = articleSemanticId,
                     ["RevisionNo"] = revNo,
                     ["Title"] = revTitle,
@@ -297,13 +316,13 @@ public static class CanonicalArticleGraphFactory
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["RevisionSemanticId"] = revSemanticId,
-                    ["ContentHash"] = contentCanonicalHash,
-                    ["ByteLength"] = Encoding.UTF8.GetByteCount(markdownContent),
+                    ["ContentHash"] = contentAddress.ContentHash,
+                    ["ByteLength"] = contentAddress.ByteLength,
                     ["BlockOrdinal"] = 1,
                     ["BlockType"] = "markdown",
                     ["Content"] = markdownContent,
                     ["MarkdownContent"] = markdownContent,
-                    ["CreatedAt"] = revCreatedAt.ToString("O")
+                    ["CreatedAt"] = temporal[ArticleScaleTemporalRoles.ArticleRevision].ToString("O")
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.ContentBlockToRevision, contentBlockSemanticId, revSemanticId));
 
@@ -312,13 +331,13 @@ public static class CanonicalArticleGraphFactory
                 rightsSnapSemanticId,
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["ArticleId"] = articleOrdinal,
+                    ["ArticleId"] = articleId,
                     ["ArticleSemanticId"] = articleSemanticId,
-                    ["ArticleRevisionId"] = (articleOrdinal * 10) + revNo,
+                    ["ArticleRevisionId"] = revisionId,
                     ["ArticleRevisionSemanticId"] = revSemanticId,
                     ["RevisionSemanticId"] = revSemanticId,
                     ["RevisionNo"] = revNo,
-                    ["ArticleRightsPolicyId"] = (long)articleOrdinal,
+                    ["ArticleRightsPolicyId"] = policyId,
                     ["ArticleRightsPolicySemanticId"] = rightsPolicySemanticId,
                     ["Enabled"] = true,
                     ["LicenseType"] = normalizedRights.LicenseType,
@@ -342,10 +361,10 @@ public static class CanonicalArticleGraphFactory
             PublishProofPublicationState publicationState = MapPublicationState(revisionStatus, lifecycle);
             var proofInput = new ArticleRightsProofInput(
                 ProofVersion: ArticleRightsProofCanonicalPayloadV1.ProofVersion,
-                ArticleId: articleOrdinal,
-                ArticleRevisionId: (articleOrdinal * 10) + revNo,
+                ArticleId: articleId,
+                ArticleRevisionId: revisionId,
                 RevisionNo: revNo,
-                ArticleRightsSnapshotId: (articleOrdinal * 10) + revNo,
+                ArticleRightsSnapshotId: rightsSnapshotId,
                 PublishProofId: null,
                 RightsPolicyHash: policyHash,
                 ContentCanonicalHash: contentCanonicalHash,
@@ -365,19 +384,19 @@ public static class CanonicalArticleGraphFactory
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["RightsSnapshotSemanticId"] = rightsSnapSemanticId,
-                    ["ArticleId"] = articleOrdinal,
+                    ["ArticleId"] = articleId,
                     ["ArticleSemanticId"] = articleSemanticId,
-                    ["ArticleRevisionId"] = (articleOrdinal * 10) + revNo,
+                    ["ArticleRevisionId"] = revisionId,
                     ["ArticleRevisionSemanticId"] = revSemanticId,
                     ["RevisionSemanticId"] = revSemanticId,
                     ["RevisionNo"] = revNo,
-                    ["ArticleRightsSnapshotId"] = (long)((articleOrdinal * 10) + revNo),
+                    ["ArticleRightsSnapshotId"] = rightsSnapshotId,
                     ["PublishProofId"] = null,
                     ["ProofVersion"] = ArticleRightsProofCanonicalPayloadV1.ProofVersion,
                     ["SignaturePayloadVersion"] = ArticleRightsProofCanonicalPayloadV1.SignaturePayloadVersion,
                     ["IdempotencyKey"] = ArticleRightsProofIdempotency.BuildKey(
-                        articleOrdinal,
-                        (articleOrdinal * 10) + revNo,
+                        articleId,
+                        revisionId,
                         ArticleRightsProofCanonicalPayloadV1.ProofVersion),
                     ["RightsPolicyHash"] = policyHash,
                     ["ContentCanonicalHash"] = contentCanonicalHash,
@@ -400,14 +419,14 @@ public static class CanonicalArticleGraphFactory
                 respSemanticId,
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["ArticleId"] = articleOrdinal,
+                    ["ArticleId"] = articleId,
                     ["ArticleSemanticId"] = articleSemanticId,
-                    ["ArticleRevisionId"] = (articleOrdinal * 10) + revNo,
+                    ["ArticleRevisionId"] = revisionId,
                     ["ArticleRevisionSemanticId"] = revSemanticId,
                     ["RevisionSemanticId"] = revSemanticId,
                     ["RevisionNo"] = revNo,
                     ["ResponsibilityVersion"] = 1,
-                    ["PreviousSnapshotId"] = revNo == 1 ? null : (long?)((articleOrdinal * 10) + 1),
+                    ["PreviousSnapshotId"] = previousResponsibilityId,
                     ["InheritSiteAuthor"] = false,
                     ["AuthorsJson"] = respSnapshot.AuthorsJson,
                     ["ReviewerJson"] = respSnapshot.ReviewerJson,
@@ -459,16 +478,16 @@ public static class CanonicalArticleGraphFactory
                 pubSemanticId,
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["ArticleId"] = articleOrdinal,
+                    ["ArticleId"] = articleId,
                     ["ArticleSemanticId"] = articleSemanticId,
                     ["PublicationNo"] = 1,
-                    ["ArticleRevisionId"] = (articleOrdinal * 10) + 1,
+                    ["ArticleRevisionId"] = Identity(pubRevId, (articleOrdinal * 10L) + 1),
                     ["ArticleRevisionSemanticId"] = pubRevId,
                     ["RevisionSemanticId"] = pubRevId,
                     ["RevisionNo"] = 1,
-                    ["RightsSnapshotId"] = (articleOrdinal * 10) + 1,
+                    ["RightsSnapshotId"] = Identity(pubRightsId, (articleOrdinal * 10L) + 1),
                     ["RightsSnapshotSemanticId"] = pubRightsId,
-                    ["ResponsibilitySnapshotId"] = (articleOrdinal * 10) + 1,
+                    ["ResponsibilitySnapshotId"] = Identity(pubRespId, (articleOrdinal * 10L) + 1),
                     ["ResponsibilitySnapshotSemanticId"] = pubRespId,
                     ["TransitionKind"] = lifecycle.PublicationTransitionKind,
                     ["PublishedAt"] = lifecycle.PublicationPublishedAt.Value.ToString("O"),
@@ -495,10 +514,10 @@ public static class CanonicalArticleGraphFactory
 
             DateTime occurred = temporal[transition.OccurredAtRole];
 
-            long revId = (articleOrdinal * 10) + targetRevNo;
-            long rightsId = (articleOrdinal * 10) + targetRevNo;
-            long respId = (articleOrdinal * 10) + targetRevNo;
-            long? pubId = publicationCount > 0 ? (articleOrdinal * 10) + 1 : null;
+            long revId = Identity(targetRevSemanticId, (articleOrdinal * 10L) + targetRevNo);
+            long rightsId = Identity(targetRightsSemanticId, (articleOrdinal * 10L) + targetRevNo);
+            long respId = Identity(targetRespSemanticId, (articleOrdinal * 10L) + targetRevNo);
+            long? pubId = publicationCount > 0 ? Identity(currentPubSemanticId!, (articleOrdinal * 10L) + 1) : null;
             int? pubNo = publicationCount > 0 ? 1 : null;
 
             var versionCoordinates = new ArticleVersionCoordinates(
@@ -522,7 +541,7 @@ public static class CanonicalArticleGraphFactory
                 ArticleMutationVisibility.From(afterDeleted ? ArticleStatus.Deleted : afterStatus, afterDeleted));
 
             string payloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(
-                articleId: articleOrdinal,
+                articleId: articleId,
                 eventType: transition.OutboxEventType,
                 version: versionCoordinates,
                 before: eventIndex == 0 ? null : scope,
@@ -537,7 +556,7 @@ public static class CanonicalArticleGraphFactory
                 {
                     ["EventId"] = $"evt-{articleOrdinal:D6}-{eventNo}",
                     ["AggregateType"] = "article",
-                    ["AggregateId"] = articleOrdinal,
+                    ["AggregateId"] = articleId,
                     ["AggregateSemanticId"] = articleSemanticId,
                     ["SchemaVersion"] = ArticleMutationOutboxEnvelopeCodec.CurrentSchemaVersion,
                     ["EventType"] = transition.OutboxEventType,
@@ -582,7 +601,7 @@ public static class CanonicalArticleGraphFactory
                     edgeSemanticId,
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["OutboxEventId"] = 0L,
+                        ["OutboxEventId"] = Identity(outboxSemanticId, 0L),
                         ["OutboxSemanticId"] = outboxSemanticId,
                         ["EdgeName"] = edge,
                         ["Required"] = true,
@@ -658,6 +677,51 @@ public static class CanonicalArticleGraphFactory
         };
         rows.Insert(0, new ArticleScaleRowPlan(ArticleScaleRowKind.Article, articleSemanticId, articleFields));
 
+        if (identities is not null)
+        {
+            // Bind row identities here, after all dependent builders have consumed their native
+            // coordinates, and before sealing the final graph. Logical audit/taxonomy refs and
+            // the article-keyed body do not have independent generated identities.
+            var required = new HashSet<string>(StringComparer.Ordinal);
+            foreach (ArticleScaleRowPlan row in rows)
+            {
+                if (row.Kind is ArticleScaleRowKind.ArticleBody or ArticleScaleRowKind.ArticleTaxonomyReference
+                    or ArticleScaleRowKind.ArticleAuditCoordinate)
+                {
+                    continue;
+                }
+                required.Add(row.SemanticId);
+                long id = identities.Resolve(row.SemanticId);
+                var fields = (Dictionary<string, object?>)row.Fields;
+                fields["Id"] = row.Kind == ArticleScaleRowKind.Article ? (object)checked((int)id) : id;
+            }
+            if (!required.SetEquals(identities.Ids.Keys))
+            {
+                throw new InvalidOperationException("identity_role_set_mismatch");
+            }
+            foreach (IGrouping<ArticleScaleRowKind, ArticleScaleRowPlan> kind in rows.Where(
+                row => required.Contains(row.SemanticId)).GroupBy(row => row.Kind))
+            {
+                foreach (IGrouping<long, ArticleScaleRowPlan> duplicate in kind.GroupBy(row => identities.Resolve(row.SemanticId)))
+                {
+                    if (duplicate.Count() > 1 && (kind.Key != ArticleScaleRowKind.ArticleRevisionContentBlock
+                        || duplicate.Select(row => row.Fields["ContentHash"]).Distinct().Count() != 1))
+                    {
+                        throw new InvalidOperationException("identity_duplicate_native_id");
+                    }
+                }
+            }
+            foreach (IGrouping<object?, ArticleScaleRowPlan> aliases in rows.Where(
+                row => row.Kind == ArticleScaleRowKind.ArticleRevisionContentBlock).GroupBy(row => row.Fields["ContentHash"]))
+            {
+                if (aliases.Select(row => identities.Resolve(row.SemanticId)).Distinct().Count() != 1)
+                {
+                    throw new InvalidOperationException("identity_content_alias_mismatch");
+                }
+            }
+            articleFields["CurrentRevisionId"] = currentRevSemanticId is null ? null : identities.Resolve(currentRevSemanticId);
+            articleFields["CurrentPublicationId"] = currentPubSemanticId is null ? null : identities.Resolve(currentPubSemanticId);
+        }
         string articleDigest = ComputeArticleDigest(articleSemanticId, variant, rows, relations, pointers);
 
         return new ArticleScaleArticleGraph(
