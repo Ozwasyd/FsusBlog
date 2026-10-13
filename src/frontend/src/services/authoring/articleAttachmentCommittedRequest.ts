@@ -15,6 +15,8 @@ export function requestArticleAttachmentCommittedFacts(completion: ImageUploadFi
     const controller = new AbortController();
     const failures: { cause: unknown; }[] = [];
     let cancellationPending = false;
+    let cancelling = false;
+    let cleanupReentry: { cause: unknown; } | null = null;
     let scopeCompleted = false;
     let scopeFinished = false;
     let resolveSettled!: () => void;
@@ -69,36 +71,58 @@ export function requestArticleAttachmentCommittedFacts(completion: ImageUploadFi
         cancelLocal(reason?: string): void
         {
             cancellationPending = true;
+            if (cancelling)
+            {
+                const cause = new Error('article-attachment-committed-facts-cleanup-reentrant');
+                cleanupReentry = { cause };
+                failures.push({ cause });
+                throw cause;
+            }
+            cancelling = true;
+            cleanupReentry = null;
             let failed = false;
             let firstCause: unknown;
-            for (const operation of [() => controller.abort(reason), () => completion.borrow.release()])
+            try
             {
-                try
+                for (const operation of [() => controller.abort(reason), () => completion.borrow.release()])
                 {
-                    operation();
-                }
-                catch (cause)
-                {
-                    if (!failed)
+                    try
                     {
-                        firstCause = cause;
-                        failed = true;
+                        operation();
                     }
-                    failures.push({ cause });
+                    catch (cause)
+                    {
+                        if (!failed)
+                        {
+                            firstCause = cause;
+                            failed = true;
+                        }
+                        failures.push({ cause });
+                    }
                 }
+                const reentered = cleanupReentry as { cause: unknown; } | null;
+                if (reentered && !failed)
+                {
+                    firstCause = reentered.cause;
+                    failed = true;
+                }
+                if (failed)
+                {
+                    throw firstCause;
+                }
+                cancellationPending = false;
+                if (scopeFinished)
+                {
+                    // The actual loan release retries original pending scope cleanup. Only after
+                    // callback work has ended may its successful retry confirm this provider scope.
+                    scopeCompleted = true;
+                }
+                reconsider();
             }
-            if (failed)
+            finally
             {
-                throw firstCause;
+                cancelling = false;
             }
-            cancellationPending = false;
-            if (scopeFinished)
-            {
-                // The actual loan release retries original pending scope cleanup. Only after
-                // callback work has ended may its successful retry confirm this provider scope.
-                scopeCompleted = true;
-            }
-            reconsider();
         },
         inspectLocalResources(): never
         {
