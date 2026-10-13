@@ -603,11 +603,6 @@ type SearchNavigator = Navigator & {
     };
 };
 
-type SearchIdleWindow = Window & typeof globalThis & {
-    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
-    cancelIdleCallback?: (handle: number) => void;
-};
-
 function shouldPreloadBackgroundShard(): boolean
 {
     if (typeof navigator === 'undefined')
