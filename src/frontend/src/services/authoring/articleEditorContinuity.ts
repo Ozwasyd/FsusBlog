@@ -1,4 +1,4 @@
-import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentFileConsumer, MarkdownAttachmentItemIntent, MarkdownAttachmentTerminalObservation, MarkdownAttachmentTerminalConsumer, MarkdownAttachmentTerminalRevisionIssuer, MarkdownAttachmentTerminalApplicationEndIssuer } from '@/fsusui/articleAttachments';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentFileConsumer, MarkdownAttachmentItemIntent, MarkdownAttachmentTerminalObservation, MarkdownAttachmentTerminalConsumer, MarkdownAttachmentTerminalRevisionIssuer, MarkdownAttachmentTerminalApplicationEndIssuer, MarkdownAttachmentTerminalCohortIssuer } from '@/fsusui/articleAttachments';
 import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection, MarkdownEditorSessionExpose } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringCommand } from '@/fsusui/authoringCommands';
 
@@ -56,6 +56,7 @@ export interface ArticleEditorContinuityPort
 {
     dispatchTransaction(transaction: Transaction): MarkdownEditorDispatchResult;
     getAttachmentTerminalRevisionIssuer?(): MarkdownAttachmentTerminalRevisionIssuer;
+    getAttachmentTerminalCohortIssuer?(): MarkdownAttachmentTerminalCohortIssuer;
     getAttachmentTerminalApplicationEndIssuer?(): MarkdownAttachmentTerminalApplicationEndIssuer;
     withAttachmentTerminalTransaction?(observation: MarkdownAttachmentTerminalObservation,
         consume: MarkdownAttachmentTerminalConsumer): boolean;

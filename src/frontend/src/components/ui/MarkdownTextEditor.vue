@@ -135,6 +135,7 @@ type FsusUiMarkdownEditorExpose = MarkdownEditorSessionExpose & Readonly<{
     withAttachmentFile: NonNullable<ArticleEditorContinuityPort['withAttachmentFile']>;
     withAttachmentTerminalTransaction: NonNullable<ArticleEditorContinuityPort['withAttachmentTerminalTransaction']>;
     getAttachmentTerminalRevisionIssuer?: ArticleEditorContinuityPort['getAttachmentTerminalRevisionIssuer'];
+    getAttachmentTerminalCohortIssuer?: ArticleEditorContinuityPort['getAttachmentTerminalCohortIssuer'];
     getAttachmentTerminalApplicationEndIssuer?: ArticleEditorContinuityPort['getAttachmentTerminalApplicationEndIssuer'];
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;

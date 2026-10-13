@@ -1840,3 +1840,29 @@ only exact private source publication re-notification; and retain genuine
 cleanup debt. Physical application-ended and SDK cohort source acceptance do not
 settle upload/network tasks or grant complete resource/readiness qualifications.
 All existing execution HOLD/UNRUN remains.
+
+
+## Main Original Cohort Reservation and Peer Anchors
+
+The separate consumer forwards the mounted native cohort issuer through existing
+editor ports. During the first authentic applying loan it binds the complete
+ordered original capture item/job/lease roster through the imported SDK owner,
+retaining acquisition custody before fallible reserve. Subsequent applications
+pass the same SDK cohort and original lease. The Main producer accepts the SDK's
+frozen continuation only after its actual producer-frame binding and original
+private capture/entry/custody checks; ordinary isCurrent remains strict.
+
+After actual SDK publication returns, peers map their original anchors through
+the same public position map and exact SDK event/context publication proof. Main
+keeps original File, handle, job, lease and started envelope; generic peer rebase
+cannot replace them. Foreign map/anchor readers precede the final proof and
+private entry checks. The original synchronous form watcher suppresses only the
+exact private publication frame and event/context, preserving ordinary source
+updates and recovery writes. Failed cohort withdrawal remains an independent
+original cleanup duty; successful metadata cancellation does not settle tasks.
+
+Fresh native-backed upload continuation is available on the original pending
+owner, but the existing upload runtime's ordinary envelope guards still require
+separate consumer wiring. This reservation/anchor source stage is not complete
+upload, full settlement, resource or qualification acceptance. All HOLD/UNRUN
+remains, and application-end checkpoint7bb7bb769 is inherited pending review.
