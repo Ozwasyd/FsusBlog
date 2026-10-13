@@ -2321,3 +2321,23 @@ shared producer/type declaration is changed. Canonical audit IDs, permission
 actions, request payloads and pagination owners remain unchanged. This is a
 source repair candidate; actual manual editing/rendering remains UNRUN and every
 existing execution qualification hold remains.
+
+
+## Original App And Bootstrap Source Boundary Intake
+
+A separate source group takes only the actual strict-bootstrap donor boundaries:
+the existing router current-route Ref, finite timestamp type narrowing, genuine
+awaited activation completion, fulfilled route/core settled values, non-null
+config binding inside the valid branch and actual script element verification.
+The Main ConfigProducer binding, release and application lifecycle remain.
+
+The donor's wider optional warm-source API removal is excluded because current
+callers and frozen cases still pass the argument. The original optional string
+signature is retained as an overload while the single real implementation uses
+the donor's no-argument header and unchanged body. No resource work depended on
+the removed unused literal default. This neither creates a source acknowledgment
+nor rewrites callers/tests. Original failure
+selection, timing, activation generation and terminal owners remain unchanged.
+The ordinary WIP records full current/donor source identities and exact selected
+hunks. These source corrections do not qualify runtime or release. All original
+execution holds and upload/frozen/shared UI gaps remain.

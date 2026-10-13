@@ -1,0 +1,148 @@
+{
+    "kind": "ordinary original bootstrap source group WIP; no authority/receipt/qualification",
+    "mainBase": "e6f3f35092ef989a39750d0c492dce168b8b2526",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "originalDonor": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "paths": [
+        {
+            "path": "src/frontend/src/App.vue",
+            "currentPreimage": "8f24da81a2822ae22e0ba37b59e1518fdb58c626",
+            "donorParent": "6972be62ee5888d773939e3498fd00c16c6566c8",
+            "donorPostimage": "fef36114664a755d5c3947914ed61d19ee82780e",
+            "currentPostimage": "6c4667b0cfd6edfb9f0deee232f35b561b29e503",
+            "selectedOriginalHunks": 1
+        },
+        {
+            "path": "src/frontend/src/bootstrap/bootstrapImportRecovery.ts",
+            "currentPreimage": "34cc46b49170a0bad8fcadf133e7186613772fa3",
+            "donorParent": "34cc46b49170a0bad8fcadf133e7186613772fa3",
+            "donorPostimage": "6b8efc32866803920ed6549e86a89ed9cd618da8",
+            "currentPostimage": "30b6f4dff6b387a3b2745037efb5a9a3c97fe86c",
+            "selectedOriginalHunks": 1
+        },
+        {
+            "path": "src/frontend/src/bootstrap/entry.ts",
+            "currentPreimage": "b378efc88799ec70f5b56bc1931332c9a851d1e1",
+            "donorParent": "b378efc88799ec70f5b56bc1931332c9a851d1e1",
+            "donorPostimage": "c32d08369032352c05b4766db1324061e63e1e63",
+            "currentPostimage": "c32d08369032352c05b4766db1324061e63e1e63",
+            "selectedOriginalHunks": 1
+        },
+        {
+            "path": "src/frontend/src/bootstrap/publicActivationCoordinator.ts",
+            "currentPreimage": "ce04488d6d53e765a72f817d94f33625579f62a7",
+            "donorParent": "ce04488d6d53e765a72f817d94f33625579f62a7",
+            "donorPostimage": "214c37930e76ec3f977cc33f3127d3a33aadf29f",
+            "currentPostimage": "1013a3a18699578e1688a9751e7fcee2d446c849",
+            "selectedOriginalHunks": 2
+        },
+        {
+            "path": "src/frontend/src/bootstrap/publicBootKernel.ts",
+            "currentPreimage": "10fcf73fc301e55d50598b74205e053ec652d0d0",
+            "donorParent": "10fcf73fc301e55d50598b74205e053ec652d0d0",
+            "donorPostimage": "4d6592267d417e85b06f6ddd3ba015b2c63f5319",
+            "currentPostimage": "4d6592267d417e85b06f6ddd3ba015b2c63f5319",
+            "selectedOriginalHunks": 1
+        },
+        {
+            "path": "src/frontend/src/bootstrap/publicHydrationBootstrap.ts",
+            "currentPreimage": "5df363d3d1763e58a4e43bb5791a00b6e55ae6d2",
+            "donorParent": "5df363d3d1763e58a4e43bb5791a00b6e55ae6d2",
+            "donorPostimage": "32965332188860ee99dc4394f7417bdff40a6249",
+            "currentPostimage": "defa374eee0a67d53a68a30272b8047e1db42612",
+            "selectedOriginalHunks": 1
+        }
+    ],
+    "scope": "Only actual route Ref, retry timestamp typeof number guard, awaited void activation, genuine fulfilled settled values, valid-config callback binding, real HTMLScriptElement validation; original optional warmCore argument signature retained as overload; actual donor no-argument implementation, entire original body/callers/tests unchanged. Unused literal default binding removed exactly as donor; no resource work depended on it. No whole old App, String(error) change, unrelated hydration fallback or runtime source migration.",
+    "boundary": {
+        "base": "e6f3f35092ef989a39750d0c492dce168b8b2526",
+        "AppExactlyOneRealRouteRefChange": true,
+        "actualConfigProducerBindReleaseBytePreserved": true,
+        "protectedAuthoringSourceUntouched": true,
+        "unchangedNonselectedFunctionsAndMethods": [
+            "src/frontend/src/bootstrap/bootstrapImportRecovery.ts:isRecoverableBootstrapImportError",
+            "src/frontend/src/bootstrap/bootstrapImportRecovery.ts:retryOnce",
+            "src/frontend/src/bootstrap/bootstrapImportRecovery.ts:runBootstrapImport",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:ownerForPhase",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:normalizeIntent",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:createPublicBootActivationIntent",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:failureReason",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:isAbortLike",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:preferProducerFailure",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:canTransitionPublicActivation",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:snapshot",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:transition",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:warm",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:submitIntent",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:emitPrepareTiming",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:navigateInteractive",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:fallback",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:replaced",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:recordTerminal",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:isCurrent",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:isCurrentGeneration",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:scheduleForegroundFeedback",
+            "src/frontend/src/bootstrap/publicActivationCoordinator.ts:clearFeedback",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readWindowHydrationRaw",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:writeWindowHydrationRaw",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readText",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readSidecarUrl",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:cacheHydrationPayload",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readPublicHydrationPayload",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readPublicHydrationPayloadFromUrl",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readPublicHydrationPayloadAsync",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:setServerPublicHydrationPayloadOverride",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:replacePublicHydrationPayloadSnapshot"
+        ],
+        "warmCoreArgumentCompatibility": "Original optional string signature retained as overload. Single real async implementation uses exact donor no-arg header; original full body unchanged. Callers and frozen cases unchanged; no fabricated argument read."
+    },
+    "holds": "Main ConfigProducer/release, authoring/SDK/cohort/withdraw/ended/settlement/timers and current Audit candidate retained. Other46 original business group separate. Upload8 true producer/frozen gaps, UI18templatecodegen+7enum+Analytics ref and all runtime/import/discovery/render/tests/security/privacy/receipt/native/race/backuprestore/IME qualification HOLD/UNRUN. Physical alias independent UNVERIFIED. #4312 Audit source review pending, conditional inherited chain HOLD.",
+    "failedTrial": "Initial _source rename removed TS unused diagnostic but actual original ESLint still reported unused formal; full original trial logs preserved. Replaced with compatible overload plus actual donor no-arg implementation; no lint suppression or frozen case changes.",
+    "staticChecks": {
+        "fullProgram": {
+            "before": 122,
+            "after": 99,
+            "beforeUI": 25,
+            "afterUI": 25,
+            "added": [],
+            "removed": [
+                "src/App.vue(POSITION): error TS2345: Argument of type 'RouteLocationNormalizedLoadedGeneric' is not assignable to parameter of type 'Ref<RouteLocationNormalizedLoadedGeneric, RouteLocationNormalizedLoadedGeneric>'.\n  Type 'RouteLocationNormalizedLoadedGeneric' is missing the following properties from type 'Ref<RouteLocationNormalizedLoadedGeneric, RouteLocationNormalizedLoadedGeneric>': value, [RefSymbol]",
+                "src/bootstrap/bootstrapImportRecovery.ts(POSITION): error TS18048: 'parsed.attemptedAtMs' is possibly 'undefined'.",
+                "src/bootstrap/bootstrapImportRecovery.ts(POSITION): error TS2322: Type 'number | undefined' is not assignable to type 'number'.\n  Type 'undefined' is not assignable to type 'number'.",
+                "src/bootstrap/entry.ts(POSITION): error TS2322: Type 'Promise<Router>' is not assignable to type 'Promise<void>'.\n  Type 'Router' is not assignable to type 'void'.",
+                "src/bootstrap/publicActivationCoordinator.ts(POSITION): error TS6133: 'source' is declared but its value is never read.",
+                "src/bootstrap/publicActivationCoordinator.ts(POSITION): error TS18047: 'routeResult' is possibly 'null'.",
+                "src/bootstrap/publicActivationCoordinator.ts(POSITION): error TS18047: 'routeResult' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicBootKernel.ts(POSITION): error TS18047: 'config' is possibly 'null'.",
+                "src/bootstrap/publicHydrationBootstrap.ts(POSITION): error TS2345: Argument of type 'HTMLElement' is not assignable to parameter of type 'HTMLScriptElement'.\n  Type 'HTMLElement' is missing the following properties from type 'HTMLScriptElement': async, blocking, charset, crossOrigin, and 10 more."
+            ]
+        },
+        "sameOriginalStrictFull": {
+            "before": 5,
+            "after": 3,
+            "added": [],
+            "removed": [
+                "[frontend-style] src/frontend/src/bootstrap/publicActivationCoordinator.ts:POSITION eslint/@typescript-eslint/no-unused-vars: 'source' is assigned a value but never used.",
+                "[frontend-style] src/frontend/src/bootstrap/publicActivationCoordinator.ts:POSITION eslint/prefer-const: 'prepared' is never reassigned. Use 'const' instead."
+            ]
+        },
+        "AST": "six original source TS/SFC AST zero diagnostics",
+        "docs": "7/41FAIL byte identical to fixed4312; no refresh",
+        "qualification": "source only; all runtime/render/tests/qualification HOLD/UNRUN"
+    },
+    "inheritedAudit": "Parent independently accepted #4312 e6f3f35092ef989a39750d0c492dce168b8b2526 limited SOURCE, original Audit P2 closed; all execution holds remain."
+}
