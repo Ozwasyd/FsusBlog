@@ -1,0 +1,11 @@
+{
+  "baseline": "fd68a7f135867a2134e75aa1ca1a921ffb009673",
+  "UI": "8130a71b4e30441f67fa6183c5cdfa060db87426",
+  "baselineDiagnostics": 254,
+  "candidateDiagnostics": 254,
+  "added": [],
+  "removed": [],
+  "candidateExit": 2,
+  "qualification": false,
+  "source": "4781b34ae3dbe7e64d98aeb6b395393c383aae6f"
+}

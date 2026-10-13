@@ -1,0 +1,46 @@
+{
+  "base": "fd68a7f135867a2134e75aa1ca1a921ffb009673",
+  "rows": [
+    {
+      "file": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "parseDiagnostics": 0
+    },
+    {
+      "file": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "parseDiagnostics": 0
+    },
+    {
+      "file": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "parseDiagnostics": 0
+    },
+    {
+      "file": "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
+      "parseDiagnostics": 0
+    }
+  ],
+  "comparisons": [
+    {
+      "file": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "predicates": [
+        "has",
+        "#retireLifetimeAuthority",
+        "switchDocument",
+        "updateSource",
+        "updateDraftRevision",
+        "switchDocument",
+        "#retireOwnerAuthority",
+        "#hasLifetimeAuthorityCustody"
+      ],
+      "unchanged": true
+    },
+    {
+      "file": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "predicates": [
+        "hasSealedRetainedArticleDocumentMembershipCustody"
+      ],
+      "unchanged": true
+    }
+  ],
+  "candidateModulesImported": false,
+  "qualification": false
+}

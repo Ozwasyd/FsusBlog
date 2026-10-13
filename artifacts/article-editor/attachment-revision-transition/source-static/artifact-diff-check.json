@@ -1,0 +1,10 @@
+{
+  "source": "4781b34ae3dbe7e64d98aeb6b395393c383aae6f",
+  "command": "git diff --cached --check",
+  "exit": 2,
+  "standardRawPatchContextWhitespaceWarnings": 11,
+  "aggregatePass": false,
+  "appliedProductionSourceDiffCheckExit": 0,
+  "protectedConsumerBlobsChecked": 7790,
+  "qualification": false
+}

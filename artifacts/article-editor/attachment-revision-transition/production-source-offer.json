@@ -1,0 +1,29 @@
+{
+  "schema": "fsusblog.attachment-revision-production-source-offer.v1",
+  "producer": "4781b34ae3dbe7e64d98aeb6b395393c383aae6f",
+  "consumerBase": "b336802021483468e7ae0f9b7ca21ade2f45ad9d",
+  "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+  "before": {
+    "gitBlob": "055558e540fa0a2e6b6e26f163e983e32a960bde",
+    "sha256": "25788033238581e8aa3915c6cd2034bc3d9b7ee61f4fa8f569543c0914afe1b3",
+    "bytes": 107205,
+    "mode": "100644"
+  },
+  "after": {
+    "gitBlob": "8eae29d8c97757a23402941690ce5022f989d7c8",
+    "sha256": "3a8c4549e86ef80c542433ba2cacbcd4c3e9634a103ee04aca693f0eb04a1535",
+    "bytes": 128423,
+    "mode": "100644"
+  },
+  "patchSha256": "e35a79e5c29e8be18cc2256da0f9eef61535e967ec88bdd68978f55d9c8b39b6",
+  "applyCheckExit": 0,
+  "applyExit": 0,
+  "appliedDiffCheckExit": 0,
+  "reverseCheckExit": 0,
+  "protectedConsumerBlobsChecked": 7790,
+  "protectedMismatches": [],
+  "UI": "8130a71b4e30441f67fa6183c5cdfa060db87426",
+  "generatorSha256": "b891543c9f2153efd64c6af5e5ee207ae81ef055b65028aa2bdb7da66d9d9961",
+  "candidateModulesImported": false,
+  "qualification": false
+}
