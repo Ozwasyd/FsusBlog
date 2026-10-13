@@ -95,7 +95,25 @@ and may revoke the UI token. All original scope, retirement and native guards ar
 rechecked; this API does not override them. Actual composite joins require their
 own exact source review. No implicit native application-ended wait/ACK is added.
 
-## Cancellation, failure and resource custody
+## SDK Two-P2 Source Repair
+
+The original b547 production candidate's binding query used the broad SDK
+operation flag, so a context notification subscriber could see a binding outside
+the actual producer call. A dedicated private frame now binds the exact original
+transition and producer only around reserve/hasAssociation/cancelAssociation;
+method acquisition occurs before entering and finally removes the frame on every
+return/throw. Native/context notification phases do not inherit this permission.
+
+Continuation previously performed retained admission after native inspection.
+A genuine scope reader could revoke the native token while SDK lease/context
+remained unchanged. Retained admission and its post-reader private checks now
+precede the final native inspect; only original private membership/state checks
+follow the returned proof. Ordinary stale/completion and attempt-all cleanup
+bodies, original leases/envelopes and raw failure history remain unchanged.
+
+Both counterexamples are source-reviewed and UNRUN; execution HOLD is unchanged.
+
+## Cancellation, Failure and Resource Custody
 
 Ordinary updateSource (including equal bytes), draft/switch/dispose/handover,
 cancelAll and retirement withdraw native continuation and cancel original cohort

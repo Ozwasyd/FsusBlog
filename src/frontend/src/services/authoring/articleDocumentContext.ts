@@ -1044,6 +1044,8 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     #retirementListeners = new Set<NotificationSubscriptionRecord>();
     #retirementFailures: unknown[] = [];
     #attachmentRevisionOperation = false;
+    #attachmentRevisionProducerFrame: Readonly<{ transition: ArticleDocumentAttachmentRevisionRecord;
+        producer: ArticleDocumentAttachmentRevisionProducer; }> | null = null;
     #attachmentRevisionTransition: ArticleDocumentAttachmentRevisionRecord | null = null;
     #attachmentRevisionCompletion: ArticleDocumentAttachmentRevisionRecord | null = null;
     #attachmentRevisionTokens = new WeakMap<ArticleDocumentAttachmentRevisionTransition, ArticleDocumentAttachmentRevisionRecord>();
@@ -1431,8 +1433,9 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
                 this.#withdrawAttachmentRevision(record);
                 return null;
             }
-            const association = producer.reserve(lease, custody, record.cohort
-                ? Object.freeze({ cohort: record.cohort.token, context: record.before }) : undefined);
+            const reserve = producer.reserve.bind(producer);
+            const association = this.#withAttachmentRevisionProducer(record, () => reserve(lease, custody, record.cohort
+                ? Object.freeze({ cohort: record.cohort.token, context: record.before }) : undefined));
             record.association = association;
             if (record.cohort && association && (!record.cohort.native || !record.cohort.issuer.join(record.cohort.native,
                 custody, association.reservation, lease)))
@@ -1581,7 +1584,9 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     {
         const transition = this.#attachmentRevisionTransition;
         const cohort = this.#attachmentCohort;
-        return this.#attachmentRevisionOperation && !!transition && !!cohort && transition.cohort === cohort
+        const frame = this.#attachmentRevisionProducerFrame;
+        return this.#attachmentRevisionOperation && !!transition && frame?.transition === transition
+            && frame.producer === transition.producer && !!cohort && transition.cohort === cohort
             && cohort.token === token && !cohort.closed && !cohort.failure && !transition.invalidated && !transition.failure
             && transition.lease === lease && transition.custody === custody && cohort.capture === custody.capture
             && this.#current === context && cohort.current === context
@@ -1656,6 +1661,13 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             return null;
         }
+        this.#assertRetainedAdmission();
+        if (!record.native || !this.#hasAttachmentCohortMember(record, lease, this.#current))
+        {
+            return null;
+        }
+        // Retained scope readers may revoke the native token without changing this SDK lease.
+        // This final native proof follows those external checks; only private checks follow it.
         const continuation = record.issuer.inspectContinuation(record.native, record.members.get(lease)!.native);
         if (continuation?.capture !== record.capture || continuation.beforeRevision !== record.before.sourceRevision
             || continuation.revision !== record.current.sourceRevision || continuation.publications.length !== record.publications.length
@@ -1663,7 +1675,6 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             return null; // Native application in flight or unavailable is not a completion/ended ACK.
         }
-        this.#assertRetainedAdmission();
         return this.#hasAttachmentCohortMember(record, lease, this.#current) ? record.current : null;
     }
 
@@ -2069,7 +2080,8 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
         // These are the same original Main private association and actual mounted native issuer,
         // not free callbacks or structural transaction metadata acting as a grant.
-        return record.producer.hasAssociation(association, phase, transaction) === true
+        const hasAssociation = record.producer.hasAssociation.bind(record.producer);
+        return this.#withAttachmentRevisionProducer(record, () => hasAssociation(association, phase, transaction)) === true
             && !record.invalidated && !record.failure && this.#attachmentRevisionTransition === record
             && association.issuer.hasReservation(association.reservation, record.lease, phase, transaction) === true
             && !record.invalidated && !record.failure && this.#attachmentRevisionTransition === record
@@ -2078,6 +2090,25 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
                 && (phase === 'applying' || !!record.cohort.native && !!transaction
                     && record.cohort.issuer.hasPublication(record.cohort.native, association.reservation, record.lease, phase, transaction) === true)
                 && !record.cohort.closed && !record.invalidated && !record.failure);
+    }
+
+    #withAttachmentRevisionProducer<T>(record: ArticleDocumentAttachmentRevisionRecord, invoke: () => T): T
+    {
+        if (this.#attachmentRevisionProducerFrame)
+        {
+            const cause = new Error('article-document-attachment-producer-frame-reentrant');
+            this.#failAttachmentRevision(record, cause);
+            throw cause;
+        }
+        this.#attachmentRevisionProducerFrame = Object.freeze({ transition: record, producer: record.producer });
+        try
+        {
+            return invoke();
+        }
+        finally
+        {
+            this.#attachmentRevisionProducerFrame = null;
+        }
     }
 
     #assertAttachmentRevisionTransaction(record: ArticleDocumentAttachmentRevisionRecord,
@@ -2117,9 +2148,11 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     #withdrawAttachmentRevision(record: ArticleDocumentAttachmentRevisionRecord): void
     {
         record.invalidated = true;
-        if (record.association && !record.nativeWithdrawn)
+        const association = record.association;
+        if (association && !record.nativeWithdrawn)
         {
-            if (record.producer.cancelAssociation(record.association) !== true)
+            const cancelAssociation = record.producer.cancelAssociation.bind(record.producer);
+            if (this.#withAttachmentRevisionProducer(record, () => cancelAssociation(association)) !== true)
             {
                 throw new Error('article-document-attachment-revision-withdrawal-unavailable');
             }

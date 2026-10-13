@@ -1,0 +1,21 @@
+{
+  "kind": "source-static-observations",
+  "qualification": false,
+  "base": "e9309e62eace85f2c319cd55a7d7a3a1f464fd38",
+  "ui": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+  "sourceBlob": "c4db7bc6adef3bc6ca00d26fedcb2b42c1b43190",
+  "producerFrame": "private original transition/producer around actual reserve/hasAssociation/cancelAssociation only; method acquisition before entry, finally clears",
+  "nativeProofOrder": "retained admission and private state recheck BEFORE final native inspect, then private member check only",
+  "compiler": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeDiagnostics": 231,
+    "afterDiagnostics": 231,
+    "added": [],
+    "removed": [],
+    "normalization": "header positions only; complete blocks/multiplicity"
+  },
+  "style": "original strict-full one production file exit0/0 violations",
+  "counterexamples": "source reviewed; runtime UNRUN",
+  "holds": "all tests/runtime/import/discovery/qualification HOLD"
+}
