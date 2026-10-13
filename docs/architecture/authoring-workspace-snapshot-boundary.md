@@ -2188,3 +2188,40 @@ original actual source dependency resolves it without config/cast weakening or
 frozen authority changes. All protected authoring/SDK/upload/Writer/FIFO/cohort/
 end/settlement and alias remain current; all execution/qualification HOLD/UNRUN
 and independent physical alias UNVERIFIED remain.
+
+
+## Reviewed Local Hunk Compatibility Batch
+
+An isolated successor of fixed4307 0b4e606f21ee90a9cb113ead80df3c36b76f793b
+records13 remaining original candidate paths and11 original divergent leaf/path
+observations with actual current blobs, missing prerequisites and complete
+current150FAIL diagnostic blocks. No direct diagnostic means no compatibility
+claim; frozen credentialEpoch DTO mismatch remains explicitly blocked. The
+privacy WIP statuses are marked as pre-intake observations with final5afd exact
+consumed state, preserving original failed TS2353 evidence and source untouched.
+
+The four-source compatible group consumes both original notification consecutive
+leafs: queued nextMode type followed by actual pendingInitMode getter at the
+existing post-await comparison. Each sequential full preimage and original final
+postimage is exact; early annotation-only TS2367 is never a final consumer. The
+getter is a real synchronous read, not cast/state fabrication or readiness.
+
+Three bounded adaptations transplant only original accepted hunks: storage's
+explicit runtime-medium discriminant, retaining Main recovery journal import and
+checkpoint invalidation prefix plus real cleanup/retained handlers; locale's
+first readonly registry/default/assignment-before-validation, retaining Main
+admin schema digest (complete original-options JS emit byte-exact); transport's
+string auth argument and explicit anonymous/unknown-ProtocolFailure mapping,
+retaining real Main local owner/worker/cleanup/failure/terminal implementations,
+policy callers and already-present unused generic fix. The no-longer-read private
+descriptor type binding is removed, while value imports/exports remain. All44
+nonselected transport and12 storage function/class declarations are byte-exact.
+
+Main MTA already contains the actual completion/forwarding hunk plus stronger
+reservation, authority epoch/seal and reentry/supersession safeguards; no source
+change is made there. Full old History files would remove those real Main owners
+and are not imported. Public API/ABI, actual template refs, enums/config/frozen
+authority, protected authoring/SDK/Writer/upload/cohort/end/settlement and actual
+UI957 alias remain original. Every runtime/tests/import/discovery/qualification
+HOLD/UNRUN and physical alias independent UNVERIFIED remains. Author static
+checks and source-local compatibility do not certify whole-tree or runtime state.
