@@ -2250,3 +2250,32 @@ frozenDTO/schema/authority remain original. All runtime/tests/render/import/
 discovery/browser/security/privacy/receipt/race/backuprestore/IME/qualification
 HOLD/UNRUN and physical alias independent UNVERIFIED remain. Author compiler and
 source compatibility evidence are not rendered/business/runtime qualification.
+
+
+## Reviewed Non-Authoring Business Template Batch B
+
+The second business source batch consumes the exact accepted History4261
+ModerationRegions, SecuritySimulator, PluginAdmin and page-private
+pluginConfigEnum source postimages on the preceding five-path business batch.
+The ordinary WIP records each complete original preimage and postimage.
+
+ModerationRegions passes only canonical product keys through the generic public
+DataList and resolves business fields from the existing original region objects.
+Unknown rows and mismatched keys fail instead of acquiring a fabricated region.
+SecuritySimulator preserves the real API's nullable inputs; clear events retain
+absence, invalid choices are refused, and cleared subject/action/identity cannot
+silently acquire backend defaults. Original backend and bridge owners remain.
+
+PluginAdmin renders canonical decoded JSON enum choices, including null and
+nested arrays/objects, using fieldset/radio semantics. DOM choice symbols never
+replace canonical values. The private helper validates finite JSON and compares
+object keys without imposing order while preserving array order. The actual
+original plugin save, MFA and version functions remain unchanged. The decoder's
+existing type overprecision remains outside this source batch.
+
+The parent authorized these business template bindings only. Shared FsusUI
+template/codegen mechanisms, the original eighteen template diagnostics and
+seven enum diagnostics, Blog Analytics regionChartRef, all protected authoring
+owners and frozen contracts remain unchanged. Full-program static checking is
+not rendering or keyboard acceptance. All runtime, render, tests and security,
+privacy, receipt, native, race, backup/restore and IME qualification holds remain.
