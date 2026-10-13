@@ -1,0 +1,117 @@
+{
+    "kind": "source-static-observations",
+    "qualification": false,
+    "reviewedDeliveryHead": "cb2bcf7b18e01717a28b53c8eed3a4683f4226ce",
+    "originalBase": "29051db2a80db7770dfe78a1db6e4c6998337324",
+    "repairCommits": {
+        "P2AcquisitionCancellation": "6b96ba94795d5bdc2b920df1bf1d2964068cd7e8",
+        "P2SetupCleanup": "69c1a0082dd7ee0a3967a259faf98bbfbc92702c"
+    },
+    "sourceBindings": {
+        "src/frontend/src/services/binaryTransport.ts": {
+            "gitBlob": "4f4773212d9be4598bfc0f37584523e02e98506e",
+            "sha256": "dc34c14c8d1dc2908510fba71f9dbeb4757fabf6ac9d9ac9e2410208b73991ac"
+        },
+        "src/frontend/src/contracts/binaryTransport.ts": {
+            "gitBlob": "dcee8b3fb6120e78b5cfac7983f5aa9b9f1b4294",
+            "sha256": "0c0ba60deb42fc161e412dc6855989975556de3527ce4f7539b0bc58e60063f8"
+        },
+        "src/frontend/src/workers/wasmDecode.worker.ts": {
+            "gitBlob": "641610a15281c7921e09de9eab9a49093902e1e8",
+            "sha256": "89c8df0c594badb77cbdfaa616cf8dd6ac34a9cb7085273952406566fc2d78cb"
+        },
+        "src/frontend/src/composition/binaryTransport.ts": {
+            "gitBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded",
+            "sha256": "19634006e8e2a36bd61887aec463f4799a53a56189806314823bc96c88660abf"
+        },
+        "tests/frontend/unit/services/binaryTransport.test.ts": {
+            "gitBlob": "b99678740f46552f8c35d07c83cd3d2e7cce3dfe",
+            "sha256": "6c178c2b8a7452ff8e7df5171ca243a99e45bb6629ece16701e4ee8bc7bbd336"
+        },
+        "docs/architecture/overview.md": {
+            "gitBlob": "7c2f63c334cf0bd9df30389abfb9b39d1ecee46e",
+            "sha256": "31297ad465ac92fe15918cc24032b122895f7c1c950fc1cff47076f51575e5c7"
+        }
+    },
+    "repairs": [
+        "Recheck original signal after synchronous worker acquisition before allocation/post",
+        "Only genuine once dispatch clears automatic listener custody; manual abort performs guarded original removal",
+        "Single actual removal holder lives on original decode task before registration, including unqueued direct/backpressure failure",
+        "Unposted task finishes; terminal remains unknown while its original listener holder persists; cancel retries same holder",
+        "Guard registration/setup/pump/caller-registration reentry and avoid clearing in-progress setup from cancel"
+    ],
+    "compiler": {
+        "cwd": "/workspace/FsusBlog",
+        "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "exit": 2,
+        "baselineLog": "artifacts/binary-transport-local-terminal/20261012/baseline-typecheck.log",
+        "reviewedLog": "artifacts/binary-transport-local-terminal/20261012-posted-census/candidate-typecheck.log",
+        "candidateLog": "artifacts/binary-transport-local-terminal/20261012-p2-repair/candidate-typecheck.log",
+        "comparison": {
+            "baselineDiagnostics": 162,
+            "reviewedCandidateDiagnostics": 161,
+            "finalDiagnostics": 161,
+            "addedVsBaseline": [],
+            "removedVsBaseline": [
+                "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read."
+            ],
+            "addedVsReviewed": [],
+            "removedVsReviewed": [],
+            "intermediateDiagnostics": 162,
+            "intermediateIntroducedThenRepaired": [
+                "src/services/binaryTransport.ts(POS): error TS2367: This comparison appears to be unintentional because the types '\"unknown\" | \"pending\" | \"queued\"' and '\"observed\"' have no overlap."
+            ],
+            "normalization": "Only diagnostic header positions normalized; complete continuation text and multiplicity retained"
+        },
+        "intermediate": "Uncommitted repair worktree; introduced live-state comparison narrowing error, then repaired using live state reader. Raw failed attempt retained separately, not baseline or source acceptance."
+    },
+    "lint": {
+        "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/binaryTransport.ts",
+        "exit": 1,
+        "status": "BLOCKED",
+        "reason": "Original configured ESLint/Stylelint paths missing; no install or alternate harness"
+    },
+    "syntax": {
+        "commands": [
+            "node --check src/frontend/src/services/binaryTransport.ts",
+            "node --check tests/frontend/unit/services/binaryTransport.test.ts"
+        ],
+        "exits": [
+            0,
+            0
+        ],
+        "execution": "Parse only; no product/test import/discovery/execution"
+    },
+    "diff": {
+        "command": "git diff --check cb2bcf7b18e01717a28b53c8eed3a4683f4226ce 69c1a0082dd7ee0a3967a259faf98bbfbc92702c",
+        "exit": 0
+    },
+    "controlSource": "One meaningful negative control added to the original binaryTransport.test.ts using its existing spy facility and actual native registration/removal. No worker mock/alternate runner/config. All five newly authored controls UNRUN, typecheck UNRUN (original app excludes tests).",
+    "composition": "Unchanged exact original blob380e4e934ce0ce87eeccdc10cf9be1c4c226bded; owner3735 export waits accepted producer",
+    "qualificationControlInspection": {
+        "file": "tests/frontend/checks/runtime/check-worker-contracts.mjs",
+        "unmodified": true,
+        "executed": false,
+        "sourceStillRequires": [
+            "postWorkerCancel(requestId)",
+            "resetWorker(timeoutError)"
+        ],
+        "remaining": "Old literal/timeout shared-worker termination expectation needs owner reconciliation with explicit user scope. No gate weakened or passed."
+    },
+    "unchangedUnavailable": [
+        "networkTerminal",
+        "sharedWasmInitialization"
+    ],
+    "reviewStatus": "P2 repairs pending independent re-review; no source acceptance claimed",
+    "holds": "All runtime/test discovery/list/collection/execution/product import/setup/native/browser/worker/network/security/receipt/backuprestore/qualification remain HOLD",
+    "localFsusUI": {
+        "commit": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+        "clean": true
+    },
+    "rawArtifacts": {
+        "artifacts/binary-transport-local-terminal/20261012-p2-repair/intermediate-typecheck-failure.log": "b50bbf61cd3ab6860db493d553e934ed9870523e8a4f7330cdafa9803090e980",
+        "artifacts/binary-transport-local-terminal/20261012-p2-repair/typecheck-comparison.json": "12655776034b57e4cd61d76da543522175449b07a2bc7365ff4f4a7f95c390d2",
+        "artifacts/binary-transport-local-terminal/20261012-p2-repair/configured-style.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+        "artifacts/binary-transport-local-terminal/20261012-p2-repair/candidate-typecheck.log": "0e7ec7af50d3626b0b72e283b388e2e92db14b74519f75bbce12532164d9d45e"
+    }
+}

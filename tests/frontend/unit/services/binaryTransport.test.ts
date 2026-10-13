@@ -116,6 +116,184 @@ describe('binaryTransport ApiError mapping', () => {
     expect(decodeFramePayload).toHaveBeenCalledWith(FrameType.EmptySuccess, expect.any(Uint8Array), undefined)
   })
 
+  it('reports only observed local cleanup while network terminal remains unavailable', async () => {
+    const value = { source: 'original-decoder' }
+    const transport = createBinaryTransport(() => value)
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array()))
+
+    const operation = transport.startBinaryOnly({
+      binaryUrl: '/api/binary/admin/local-terminal',
+      privateScope: 'admin',
+      frameType: FrameType.EmptySuccess
+    })
+    expect(Object.isFrozen(operation)).toBe(true)
+    expect(operation.terminal).not.toBe(operation.result)
+    expect(operation.inspectResources()).toMatchObject({ execution: 'running', lease: 'held' })
+    await expect(operation.result).resolves.toBe(value)
+    const terminal = await operation.terminal
+    expect(terminal).toMatchObject({
+      local: 'observed',
+      resources: {
+        execution: 'ended', lease: 'released', callerAbortListener: false,
+        queuedDecodes: 0, pendingDecodes: 0, decodeTimeouts: 0,
+        decodeAbortListeners: 0, abortRaceTimers: 0, workerTerminal: 'not-used',
+        networkTerminal: 'unavailable', sharedWasmInitialization: 'unavailable'
+      },
+      failures: []
+    })
+    expect(Object.isFrozen(terminal)).toBe(true)
+    expect(Object.isFrozen(terminal.resources)).toBe(true)
+  })
+
+  it('does not invent terminal when cancellation precedes the original request failure', async () => {
+    let failRequest!: (cause: unknown) => void
+    const originalRequest = new Promise<ArrayBuffer>((_resolve, reject) => { failRequest = reject })
+    let requestSignal: AbortSignal | undefined
+    mockBinaryRequest.mockImplementation((_url, options) => {
+      requestSignal = options?.signal
+      return originalRequest
+    })
+    const operation = createBinaryTransport(() => { throw new Error('unexpected-decode') }).startBinaryOnly({
+      binaryUrl: '/api/binary/admin/cancel-terminal',
+      privateScope: 'admin',
+      frameType: FrameType.EmptySuccess
+    })
+    const resultExpectation = expect(operation.result).rejects.toMatchObject({ name: 'AbortError' })
+    let terminalObserved = false
+    void operation.terminal.then(() => { terminalObserved = true })
+    const firstReason = new Error('original-cancel-reason')
+    operation.cancel(firstReason)
+    operation.cancel(new Error('later-cancel-reason'))
+    expect(requestSignal?.aborted).toBe(true)
+    expect(requestSignal?.reason).toBe(firstReason)
+    await Promise.resolve()
+    expect(terminalObserved).toBe(false)
+    expect(operation.inspectResources()).toMatchObject({ execution: 'running', lease: 'held' })
+
+    const lateFailure = new TypeError('original-late-network-failure')
+    failRequest(lateFailure)
+    await resultExpectation
+    await expect(operation.terminal).resolves.toMatchObject({
+      local: 'observed', resources: { execution: 'ended', lease: 'released', networkTerminal: 'unavailable' }
+    })
+    expect(operation.inspectFailures().find(failure => failure.stage === 'request')?.firstCause).toBe(lateFailure)
+  })
+
+  it('keeps original failure custody separate across transport reentry', async () => {
+    const transport = createBinaryTransport(() => 'next-value')
+    const originalFailure = new BinaryRequestError(403, 'original-forbidden', new ArrayBuffer(0))
+    mockBinaryRequest.mockRejectedValueOnce(originalFailure)
+    const failed = transport.startBinaryOnly({
+      binaryUrl: '/api/binary/admin/first-owner', privateScope: 'admin', frameType: FrameType.EmptySuccess
+    })
+    await expect(failed.result).rejects.toMatchObject({ name: 'BinaryTransportError', kind: 'forbidden' })
+    await failed.terminal
+    const originalCustody = failed.inspectFailures()
+    expect(originalCustody.find(failure => failure.stage === 'request')?.firstCause).toBe(originalFailure)
+    expect(Object.isFrozen(originalCustody)).toBe(true)
+
+    mockBinaryRequest.mockResolvedValueOnce(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array()))
+    const next = transport.startBinaryOnly({
+      binaryUrl: '/api/binary/admin/next-owner', privateScope: 'admin', frameType: FrameType.EmptySuccess
+    })
+    await expect(next.result).resolves.toBe('next-value')
+    await next.terminal
+    expect(next.inspectFailures()).toEqual([])
+    expect(failed.inspectFailures()).toEqual(originalCustody)
+  })
+
+  it('retains original partial caller registration cleanup until a real retry', async () => {
+    const caller = new AbortController()
+    const addOriginal = caller.signal.addEventListener.bind(caller.signal)
+    const removeOriginal = caller.signal.removeEventListener.bind(caller.signal)
+    const registrationFailure = new Error('original-partial-registration')
+    const removalFailure = new Error('original-removal-failure')
+    const addSpy = vi.spyOn(caller.signal, 'addEventListener').mockImplementationOnce((type, listener, options) => {
+      addOriginal(type, listener, options)
+      throw registrationFailure
+    })
+    const removeSpy = vi.spyOn(caller.signal, 'removeEventListener').mockImplementation(() => {
+      throw removalFailure
+    })
+    try {
+      const operation = createBinaryTransport(() => 'unused').startBinaryOnly({
+        binaryUrl: '/api/binary/admin/partial-registration', privateScope: 'admin',
+        frameType: FrameType.EmptySuccess, signal: caller.signal
+      })
+      await expect(operation.result).rejects.toBe(registrationFailure)
+      const terminal = await operation.terminal
+      expect(terminal).toMatchObject({ local: 'unknown', resources: { callerAbortListener: true, workerTerminal: 'not-used' } })
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
+      const retryFailure = new Error('original-reentrant-removal-failure')
+      removeSpy.mockImplementation(() => {
+        operation.cancel()
+        expect(operation.inspectResources().callerAbortListener).toBe(true)
+        throw retryFailure
+      })
+      const failedAttempts = removeSpy.mock.calls.length
+      operation.cancel()
+      expect(removeSpy.mock.calls.length).toBe(failedAttempts + 1)
+      expect(operation.inspectResources().callerAbortListener).toBe(true)
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.cause).toBe(retryFailure)
+      removeSpy.mockImplementation((type, listener, options) => {
+        operation.cancel()
+        expect(operation.inspectResources().callerAbortListener).toBe(true)
+        removeOriginal(type, listener, options)
+      })
+      const successfulAttempts = removeSpy.mock.calls.length
+      operation.cancel()
+      expect(removeSpy.mock.calls.length).toBe(successfulAttempts + 1)
+      expect(operation.inspectResources().callerAbortListener).toBe(false)
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(removalFailure)
+      expect(terminal.local).toBe('unknown')
+      expect(mockBinaryRequest).not.toHaveBeenCalled()
+    } finally {
+      addSpy.mockRestore()
+      removeSpy.mockRestore()
+    }
+  })
+
+  it('retains the original generation refusal on the new owning handle', async () => {
+    let finishRequest!: (value: ArrayBuffer) => void
+    mockBinaryRequest.mockImplementation(() => new Promise<ArrayBuffer>(resolve => { finishRequest = resolve }))
+    const operation = createBinaryTransport(() => 'stale-value').startBinaryOnly({
+      binaryUrl: '/api/binary/admin/generation-terminal', privateScope: 'admin', frameType: FrameType.EmptySuccess
+    })
+    const resultExpectation = expect(operation.result).rejects.toBeInstanceOf(StalePrivateResponseError)
+    privateRequestRuntime.advance('admin')
+    finishRequest(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array()))
+    await resultExpectation
+    const terminal = await operation.terminal
+    expect(terminal.resources.lease).toBe('released')
+    expect(terminal.failures.find(failure => failure.stage === 'request')?.cause).toBeInstanceOf(StalePrivateResponseError)
+  })
+
+  it('preserves a raw cleanup rejection after a successful original request', async () => {
+    const caller = new AbortController()
+    const rawCause = Object.freeze({ kind: 'original-native-removal-value' })
+    const removeSpy = vi.spyOn(caller.signal, 'removeEventListener').mockImplementation(() => {
+      throw rawCause
+    })
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array()))
+    try {
+      const operation = createBinaryTransport(() => 'original-value').startBinaryOnly({
+        binaryUrl: '/api/binary/admin/raw-cleanup-outcome', privateScope: 'admin',
+        frameType: FrameType.EmptySuccess, signal: caller.signal
+      })
+      await expect(operation.result).rejects.toBe(rawCause)
+      const terminal = await operation.terminal
+      expect(terminal.local).toBe('unknown')
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(rawCause)
+      removeSpy.mockRestore()
+      operation.cancel()
+      expect(operation.inspectResources().callerAbortListener).toBe(false)
+      expect(operation.inspectFailures().find(failure => failure.stage === 'cleanup')?.firstCause).toBe(rawCause)
+    } finally {
+      removeSpy.mockRestore()
+    }
+  })
+
   it('rejects a decoded legacy admin response from an older generation', async () => {
     let resolveResponse!: (value: ArrayBuffer) => void
     const response = new Promise<ArrayBuffer>(resolve => { resolveResponse = resolve })

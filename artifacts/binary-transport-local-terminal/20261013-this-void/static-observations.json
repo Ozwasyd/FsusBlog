@@ -1,0 +1,71 @@
+{
+    "kind": "source-static-observations",
+    "qualification": false,
+    "priorDeliveryHead": "bb9729fc7ec50834c3ba19b349dfb47a30b647dd",
+    "repairSourceCommit": "72a077d638a3743b7d69b1ac7932cc02a1f17c29",
+    "repair": "Only two public factory method declarations gain accurate explicit this:void. Both implementations are arrows capturing decoder/options; neither reads dynamic this. Removing precisely those two annotations reconstructs exact previous source bytes. No wrapper, binding, second factory, DI, lint config or runtime implementation change.",
+    "sourceBinding": {
+        "path": "src/frontend/src/services/binaryTransport.ts",
+        "gitBlob": "3e41563f91b94f20566f9640425406dadb64dc43",
+        "sha256": "dc604a38dd48621a21ef5732009eebb03bbd3b14064debbaf63ec0fa13583d8e",
+        "priorSha256": "e27ba54e482df155c5a2941f68e2c18b376be0a34288c0d67ffe96e0f1653f86"
+    },
+    "compiler": {
+        "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "cwd": "/workspace/FsusBlog",
+        "exit": 2,
+        "comparison": {
+            "priorDiagnostics": 161,
+            "candidateDiagnostics": 161,
+            "added": [],
+            "removed": [],
+            "normalization": "Header source positions only; full continuation text and multiplicity retained"
+        },
+        "priorLog": "artifacts/binary-transport-local-terminal/20261012-retry-reentry/candidate-typecheck.log",
+        "candidateLog": "artifacts/binary-transport-local-terminal/20261013-this-void/candidate-typecheck.log",
+        "reducedConfig": false
+    },
+    "syntax": {
+        "command": "node --check src/frontend/src/services/binaryTransport.ts",
+        "exit": 0,
+        "execution": "Parse only; no import/runtime"
+    },
+    "diff": {
+        "command": "git diff --check bb9729fc7ec50834c3ba19b349dfb47a30b647dd 72a077d638a3743b7d69b1ac7932cc02a1f17c29",
+        "exit": 0
+    },
+    "lint": {
+        "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/binaryTransport.ts",
+        "exit": 1,
+        "status": "BLOCKED",
+        "reason": "Configured ESLint/Stylelint paths missing; no install/alternate config",
+        "actualSharedDIUnboundCount": "UNRUN here; original consumer owner must verify with original installed linter"
+    },
+    "composition": {
+        "modified": false,
+        "gitBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded"
+    },
+    "parentReportedConsumers": [
+        "f766a9d93c7378f12e5004a2687c05a5cd6509fd",
+        "682b2c0e062382fcced7986f9dddeec35373e3ba"
+    ],
+    "sameEnvironmentReadOnlyProbe": {
+        "cwd": "/workspace/FsusBlog",
+        "gitStatusClean": true,
+        "savedHead": "72a077d638a3743b7d69b1ac7932cc02a1f17c29",
+        "gitLsRemoteConfirmed": "72a077d638a3743b7d69b1ac7932cc02a1f17c29",
+        "savedWholeCompilerLogLines": 281,
+        "conclusion": "Actual read-only filesystem/git/remote probes succeeded in original selected environment; no alternative environment or full recovery claim"
+    },
+    "holds": "All runtime/test discovery/list/collection/execution/product import/setup/native/browser/worker/network/security/receipt/backuprestore/qualification HOLD",
+    "independentReview": "Pending for this declaration-only repair",
+    "localFsusUI": {
+        "commit": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+        "clean": true
+    },
+    "rawArtifacts": {
+        "artifacts/binary-transport-local-terminal/20261013-this-void/typecheck-comparison.json": "092160a9046066334da03991e6287efbcd22914327d412ac81cb6cb858f9c4df",
+        "artifacts/binary-transport-local-terminal/20261013-this-void/configured-style.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+        "artifacts/binary-transport-local-terminal/20261013-this-void/candidate-typecheck.log": "a1192af8b0248c2f6248ae6d7a268ef5f74c4b294b30b5359e48b715105cba76"
+    }
+}
