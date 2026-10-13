@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "Preserve the existing registered serialized keys or environment boundary spelling while consuming exact supplied source changes and binding the owned admission fixture through the original producer."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the existing registered serialized keys or environment boundary spelling while consuming exact supplied source changes and binding the owned admission fixture through the original producer."
+        }
+    ]
+}

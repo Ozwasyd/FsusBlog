@@ -38,6 +38,7 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
     t.after(() => finalizeRunOwnedDirectories(directoryEnvelope));
     const environment = {
         ...directoryEnvelope.environment,
+        FSUSBLOG_TEST_RUN_ID: directoryEnvelope.fragment.runId,
         PATH: process.env.PATH,
         LANG: 'C.UTF-8',
         LC_ALL: 'C.UTF-8',
@@ -48,6 +49,7 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
         command: [process.execPath, '-e', 'process.exit(0)'],
         cwd: process.cwd(),
         directories: directoryEnvelope.fragment.directories,
+        ownedDirectoryEnvelope: directoryEnvelope,
         writableRoots: directoryEnvelope.fragment.writableRoots,
         environment,
         policy,
@@ -55,6 +57,7 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
         attemptId: 'matrix-governance'
     });
     assert.equal(prepared.privateDotnetScratch, true);
+    assert.equal(prepared.linuxOwnedPrivateTmp, directoryEnvelope.privateTmpCapability);
     assert.equal(prepared.linuxReadWritePaths.includes('/tmp'), false);
     assert.equal(prepared.linuxReadWritePaths.includes('/tmp/.dotnet/shm'), false);
     assert.equal(prepared.fragment.sandbox.filesystem.privateDotnetScratch, '/tmp/.dotnet/shm');
