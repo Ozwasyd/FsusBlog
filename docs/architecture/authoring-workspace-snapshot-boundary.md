@@ -438,3 +438,22 @@ Slot/layout admission, model/command composition, production read grants, full
 resource/UI/scale qualification and snapshot reference reconciliation remain
 open. Local fixture provenance and test admission are not production or terminal
 acceptance evidence.
+## Isolated original native attachment cohort SDK
+
+The original document adapter offers an explicit source capability for the actual
+UI955 cohort issuer and same-adapter active/pending attachment leases. Native
+capture/item/job and exact accepted/committed event identity must agree with SDK
+private custody; public batch IDs or copied contexts do not issue membership.
+Only authentic cohort publication advances its private current context while
+preserving original started envelopes. Ordinary current/stale predicates and
+task settlement remain strict and unchanged. Ordinary source/draft/switch/retire/
+cancel revokes continuation; raw failure and unconfirmed cleanup remain held.
+
+This isolated SDK source is not wired into Main. Original Main must separately
+consume its frame binding, exact-publication query and fresh continuation in
+pending anchors/form/runtime without replacing leases or copying body/history.
+The source contract and original full-entry preflight are recorded in
+`artifacts/article-editor/attachment-cohort-sdk/contract.md`. UI955 source
+acceptance is bounded; this SDK/composite remains pending independent review.
+Native cohort tokens are not application-ended, settlement, zero-resource,
+business/reference or full-ready receipts. All execution/qualification holds stay.
