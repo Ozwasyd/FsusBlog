@@ -9,6 +9,8 @@ const read = file => readFileSync(path.join(root, file), 'utf8');
 const specText = read('tools/contracts/article-inbox-capture-wire-source.json');
 const spec = JSON.parse(specText);
 if (spec.schemaVersion !== 1 || spec.family !== 'article-inbox-capture'
+    || spec.nativeErrorName !== 'ArticleInboxCapturePayloadInvalid'
+    || spec.nativeErrorReason !== 'article_inbox_capture_payload_invalid'
     || spec.maxRequestPayloadBytes !== 801568 || spec.maxResponsePayloadBytes !== 882
     || JSON.stringify(Object.keys(spec.roots)) !== JSON.stringify([
         'ArticleInboxCaptureCreateRequest', 'ArticleInboxCaptureReconcileRequest', 'ArticleInboxCaptureResponse'
@@ -37,6 +39,9 @@ const nativeHeader = read('src/frontend/wasm/aeds/include/aeds_decode.hpp');
 const nativeRegistration = nativeHeader.match(new RegExp(`\\b${spec.nativeErrorName}\\s*=\\s*([0-9]+)`));
 if (!nativeRegistration || Number(nativeRegistration[1]) < 1 || Number(nativeRegistration[1]) > 255)
     throw new Error('capture native error registration missing');
+const errorValues = [...nativeHeader.matchAll(/\b[A-Za-z][A-Za-z0-9_]*\s*=\s*([0-9]+)/gu)]
+    .filter(match => Number(match[1]) === Number(nativeRegistration[1]));
+if (errorValues.length !== 1) throw new Error('capture native error value collision');
 const nativeDispatcher = read('src/frontend/wasm/aeds/src/aeds_decode.cpp');
 if (!nativeDispatcher.includes(`ErrorCode::${spec.nativeErrorName}`) || !nativeDispatcher.includes(spec.nativeErrorReason))
     throw new Error('capture native error mapping missing');
