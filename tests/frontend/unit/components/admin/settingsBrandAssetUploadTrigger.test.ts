@@ -219,6 +219,23 @@ describe(`settings brand upload trigger contract (${fsusUiMode} FsusUI)`, () => 
     expect(uploading.state).toBe('uploading')
     expect(wrapper.get('[role="status"]').text()).toContain('正在上传')
     assertSingleActivationOwner(uploading)
+
+    await wrapper.setProps({ uploading: false, previewUrl: PREVIEW_PNG })
+    await nextTick()
+    wrapper.get('img').element.dispatchEvent(new Event('error'))
+    await nextTick()
+    expect(wrapper.get('[role="status"]').text()).toBe('预览加载失败，可重新上传')
+
+    await wrapper.setProps({ uploading: true })
+    await nextTick()
+    expect(wrapper.findAll('[role="status"]')).toHaveLength(1)
+    expect(wrapper.get('[role="status"]').text()).toBe('正在上传')
+    expect(inspectSettingsUploadSurface(surfaceOf(wrapper, 'brand:siteLogoUrl')).state).toBe('uploading')
+
+    await wrapper.setProps({ uploading: false })
+    await nextTick()
+    expect(wrapper.get('[role="status"]').text()).toBe('预览加载失败，可重新上传')
+    expect(inspectSettingsUploadSurface(surfaceOf(wrapper, 'brand:siteLogoUrl')).state).toBe('preview-failed')
     wrapper.unmount()
   })
 

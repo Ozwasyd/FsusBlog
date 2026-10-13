@@ -1,5 +1,9 @@
 {
     "type": "module",
     "private": true,
-    "packageManager": "npm@11.13.0"
+    "packageManager": "npm@11.13.0",
+    "dependencies": {
+        "@fsusblog/layout-governance": "file:../..",
+        "@fsusblog/control-legality": "file:../../tools/frontend/control-legality"
+    }
 }

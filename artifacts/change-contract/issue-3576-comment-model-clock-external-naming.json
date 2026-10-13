@@ -1,0 +1,10 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": ["tools/test/run-comment-fixture-simulated-runtime.mjs"],
+            "reason": "Preserve the existing process environment and CLI spelling of the model collector while its internal temporal context uses the current canonical contract."
+        }
+    ]
+}

@@ -1,0 +1,63 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/control-legality/admission.mjs",
+                "tools/frontend/control-legality/source.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/run-comment-fixture-simulated-runtime.mjs"
+            ],
+            "reason": "Preserve existing migration and comment-runtime environment contracts while using only their canonical supplied owners and strict current-run admission."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "Preserve canonical shell environment names while registering regressions and projecting the declared validation SDK root."
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve actual GitHub Actions workflow and action input names while synchronizing the supplied canonical execution topology."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/frontend-style-policy.json",
+                "config/frontend/control-legality.json",
+                "config/schemas/layout-aggregation-request.schema.json",
+                "config/schemas/layout-composition-contract.schema.json",
+                "config/schemas/layout-visual-adjudication.schema.json",
+                "config/schemas/test-execution-envelope-applicability.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "tests/fixtures/test-matrix/execution-dependency-contract.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/frontend/fixtures/layout-archetype-matrix.json",
+                "tests/frontend/fixtures/layout-visual-change-ledger.json",
+                "tests/frontend/fixtures/ux-viewport-matrix.json",
+                "tests/frontend/package-lock.json",
+                "tests/frontend/package.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/tools/package-lock.json",
+                "tests/tools/package.json"
+            ],
+            "reason": "Preserve exact schema, contract, fixture, package and lockfile wire keys across the complete coordinated PR source and canonical generated output set."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md",
+                "docs/frontend/layout-visual-governance.md"
+            ],
+            "reason": "Preserve documented public DOM, surface-role and token spellings shared by the layout consumer contracts and canonical producer owners."
+        }
+    ]
+}
