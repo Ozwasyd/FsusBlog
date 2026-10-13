@@ -190,17 +190,34 @@ prior static observations do not qualify the corrected candidate. Full types
 remain blocked by the prerequisite closure; an own-module zero-diagnostic
 observation is not a passing full compilation.
 
-This source slice uses type-only imports from the actual Group and Anchor
-contracts. Their canonical sources must land before the master application can
-resolve those imports. Group additionally needs the canonical Registry atomic
-ownership cell/transaction capability; the history owner cannot supply it.
-Registry's open-or-activate command and Anchor's restore command require real
-session/map/current-document inputs beyond a history intent. Future adapters
-must obtain them from those owners; a semantic intent cannot be cast into a
-mounted target or a full Anchor context. Recent restore receipt provenance also
-requires the actual recent-closed owner. This slice does not attach to Write,
-Frame, Main, SDK, routing, transport or storage and establishes no runtime,
-privacy/security, IME or full issue acceptance.
+This isolated source composition retains the original Group, ratio owner and
+atomic Registry ownership implementation as one dependency set, together with
+the original Anchor, its position-map bridge and the matching Doc owner. It does
+not take the older Group/Registry pair from the Anchor branch, which lacks the
+original startup-custody guard. Each inherited producer file remains byte-exact;
+the composition does not create another Registry, ratio owner or source context.
+
+`observeAuthoringNavigationTargetFromOwners` first checks
+`groupOwner.verifyBinding(canonicalRegistry)`, then takes one real
+`exportProjection()` and the canonical Registry snapshot. The local group
+coordinate and both Group registry coordinates come from that same projection;
+its article revision must agree with the Registry snapshot. The caller rechecks
+binding and canonical revision after constructing the observation. An article
+absent from the open Registry stays unknown. The supplied anchor observation
+remains an obligation of the actual Anchor owner; a history anchor projection
+cannot be cast into a complete `ArticleAnchorContext`, current map or mounted
+session. This caller creates no owner, activates no tab and restores no anchor.
+
+The actual local FsusUI public export required by the original position-map
+bridge, `MarkdownEditorSessionExpose`, is unavailable. The original snapshot
+source also contains parameter properties rejected by the current full local
+application's `erasableSyntaxOnly` policy. These exact source dependencies must
+be resolved by their producers; this composition does not substitute a default
+export, type cast, shim or reduced compilation surface. Complete application
+types remain failed, and a partial or own-module diagnostic count is not a pass.
+Recent restore receipt provenance remains with the actual recent-closed owner.
+This slice does not attach to Write, Frame, Main, SDK, routing, transport or
+storage and establishes no runtime, privacy/security, IME or full issue acceptance.
 
 ## Standalone document export boundary
 

@@ -2,7 +2,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 
 import type { ArticleAnchorContext } from './articleAnchorContext';
-import type { AuthoringTabGroup, AuthoringTabGroupRegistryState } from './authoringTabGroupRegistry';
+import type { AuthoringTabGroup, AuthoringTabGroupRegistry, AuthoringTabGroupRegistryState } from './authoringTabGroupRegistry';
 import type {
     ArticleDocumentContextRef,
     ArticleDocumentIdentity,
@@ -813,6 +813,52 @@ export function observeAuthoringNavigationTarget(entry: AuthoringNavigationEntry
     if (!isValidity(validity))
     {
         throw new Error('authoring-navigation-observation-invalid');
+    }
+    return validity;
+}
+
+/** Reads one real bound Group projection; anchor provenance stays with its original owner. */
+export function observeAuthoringNavigationTargetFromOwners(
+    canonicalRegistry: OpenArticleDocumentRegistry,
+    groupOwner: AuthoringTabGroupRegistry,
+    entry: AuthoringNavigationEntry,
+    observationRef: string,
+    anchorObservation: {
+        anchorStatus: 'current' | 'missing' | 'partial' | 'unknown';
+        anchorDocument: AuthoringNavigationAnchor['document'] | null;
+    }
+): AuthoringNavigationValidity
+{
+    if (!groupOwner.verifyBinding(canonicalRegistry))
+    {
+        throw new Error('authoring-navigation-group-binding-invalid');
+    }
+    const projection = groupOwner.exportProjection();
+    const registry = canonicalRegistry.exportState();
+    if (projection.state.articleRegistryRevision !== registry.revision)
+    {
+        throw new Error('authoring-navigation-owner-projection-incoherent');
+    }
+    const current = registry.entries.find(item => item.identity.articleId === entry.identity.articleId
+        && item.identity.draftId === entry.identity.draftId && item.identity.documentId === entry.identity.documentId);
+    const group = projection.state.groups.find(item => item.groupId === entry.owningGroupId);
+    const validity = observeAuthoringNavigationTarget(entry, {
+        current: current ? { identity: current.identity, documentContext: current.documentContext,
+            owningGroupId: current.owningGroupId, status: current.status } : null,
+        // Absence from the open Registry is not proof of a missing/deleted article.
+        absence: 'unknown',
+        group: group ? { groupId: group.groupId, revision: group.revision } : null,
+        groupRegistry: { revision: projection.state.revision,
+            articleRegistryRevision: projection.state.articleRegistryRevision },
+        anchorStatus: anchorObservation.anchorStatus,
+        anchorDocument: anchorObservation.anchorDocument,
+        registryRevision: registry.revision,
+        observationRef
+    });
+    // Every successful Group command also advances this canonical Registry revision.
+    if (!groupOwner.verifyBinding(canonicalRegistry) || canonicalRegistry.getRevision() !== registry.revision)
+    {
+        throw new Error('authoring-navigation-owner-observation-superseded');
     }
     return validity;
 }
