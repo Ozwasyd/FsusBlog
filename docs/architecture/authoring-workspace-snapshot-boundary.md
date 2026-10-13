@@ -2135,3 +2135,26 @@ included three postimages and batch4304 are not repeated. New composed source
 review is required; every runtime/tests/import/discovery/native/browser/security/
 privacy/receipt/race/backuprestore/IME/frozen/qualification stays HOLD/UNRUN.
 Physical alias is independently UNVERIFIED, compiler/static evidence author-only.
+
+
+## Reviewed Privacy Source Leaf Batch
+
+The next isolated source batch consumes six exact same-preimage History4261
+leaf/path postimages: actual issuer metadata credentialEpoch forwarded to ticket
+request; actual issuer expiresAtUnixMs while preserving min(root expiry, issuer
+expiry); RSA actual owned view-range SPKI snapshot used by BOTH hash and import,
+owned opening allocations and nested-finally snapshot wiping; revocation digest
+owned ArrayBuffer types; unread private prover int64 writer removal; and unused
+local notification PowParams type binding with unchanged public reexport.
+RSA allocation/runtime changes are real, not an emitted-JS equivalence claim.
+No borrow view is cast into owned memory and no crypto/privacy guard is weakened.
+
+The original notification queued-mode annotation is not taken alone: its later
+post-await read dependency was in the original divergent list and remains
+separate rather than assuming combined compatibility. All11 divergences remain
+listed and no old current-owner snapshot is imported. Protected Document/Writer/
+SDK/upload/FIFO/cohort/end/settlement, actual UI957 alias, enums/templates/config
+and frozen output remain original. All runtime/crypto/WASM/network/tests/import/
+discovery/security/privacy/receipt/race/backuprestore/IME/qualification HOLD/UNRUN
+and independent physical alias UNVERIFIED remain. Source review/author static
+evidence do not certify privacy or complete resource/settlement qualification.
