@@ -1788,3 +1788,24 @@ profile and is never substituted as this baseline. No producer settle is inferre
 from content, accepted or committed; native cohort/application-ended confirmation,
 full census/recovery/eviction/readiness and all execution/qualification holds
 remain separate unresolved original-owner capabilities.
+
+
+## UI957 Native Application-End Dependency
+
+The isolated successor of accepted Main428054e354 uses actual read-only local
+UI957903db034a14254fb162f51b9c25d3703ea20ccb5, exact original955f2cee/95698e
+parents, through the existing explicit source alias. Both public package names
+resolve the same original source index; ConfigProvider/native render feed share
+the original public hook/registry. Upstream source is not rebuilt or published.
+Its original application-end issuer reserve/inspect/hasEnded/retry binds the SAME
+single reservation and lease. Running/cleanup-blocked, unknown returned work or
+unconfirmed cleanup is not ended; ended is only original native stack/cleanup
+proof and never full upload/network/SDK/resource settlement or readiness.
+
+This dependency record does not activate Main application-end or cohort wiring.
+Actual consumer follows in a separate source commit on original pending entries.
+SDK4288 productionb547 and its genuine native-backed cohort APIs are read-only
+pending review, not silently consumed; ordinary context/stale/rebase/replacement
+remain unchanged. c50 and accepted54e354 checkpoints stay fixed. Every runtime,
+import/test/collection/list/discovery/native/security/privacy/receipt/race/
+backuprestore/IME and qualification hold remains.
