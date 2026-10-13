@@ -27,7 +27,7 @@ const productionRoots = [
     'src/frontend/src',
     'config'
 ];
-const errors = [];
+
 
 function files(directory)
 {
@@ -46,7 +46,7 @@ function files(directory)
     });
 }
 
-function inspect(relative, source)
+function inspect(relative, source, errors)
 {
     for (const [label, expression] of retired)
     {
@@ -58,11 +58,64 @@ function inspect(relative, source)
     }
 }
 
-for (const productionRoot of productionRoots)
+export function validatePerceptionCharacterRetirement(root)
 {
-    for (const file of files(path.join(root, productionRoot)))
+    const errors = [];
+    for (const productionRoot of productionRoots)
+    {
+        for (const file of files(path.join(root, productionRoot)))
+        {
+            const relative = path.relative(root, file);
+            let source;
+            try
+            {
+                source = fs.readFileSync(file, 'utf8');
+            }
+            catch
+            {
+                continue;
+            }
+            inspect(relative, source, errors);
+        }
+    }
+
+    const historyFile = path.join(root, historyRelative);
+    if (!fs.existsSync(historyFile))
+    {
+        errors.push(`${historyRelative}: historical retirement note is missing`);
+    }
+    else
+    {
+        const history = fs.readFileSync(historyFile, 'utf8');
+        const start = history.indexOf(historyStart);
+        const end = history.indexOf(historyEnd);
+        if (start < 0 || end <= start || history.indexOf(historyStart, start + historyStart.length) >= 0
+      || history.indexOf(historyEnd, end + historyEnd.length) >= 0)
+        {
+            errors.push(`${historyRelative}: exactly one bounded historical retirement note is required`);
+        }
+        else
+        {
+            const note = history.slice(start, end + historyEnd.length);
+            for (const [label, expression] of retired)
+            {
+                expression.lastIndex = 0;
+                if (!expression.test(note))
+                {
+                    errors.push(`${historyRelative}: historical note does not identify ${label}`);
+                }
+            }
+            inspect(historyRelative, `${history.slice(0, start)}${history.slice(end + historyEnd.length)}`, errors);
+        }
+    }
+
+    for (const file of files(path.join(root, 'docs')))
     {
         const relative = path.relative(root, file);
+        if (relative === historyRelative)
+        {
+            continue;
+        }
         let source;
         try
         {
@@ -72,62 +125,20 @@ for (const productionRoot of productionRoots)
         {
             continue;
         }
-        inspect(relative, source);
+        inspect(relative, source, errors);
     }
+
+    return errors;
 }
 
-const historyFile = path.join(root, historyRelative);
-if (!fs.existsSync(historyFile))
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    errors.push(`${historyRelative}: historical retirement note is missing`);
-}
-else
-{
-    const history = fs.readFileSync(historyFile, 'utf8');
-    const start = history.indexOf(historyStart);
-    const end = history.indexOf(historyEnd);
-    if (start < 0 || end <= start || history.indexOf(historyStart, start + historyStart.length) >= 0
-      || history.indexOf(historyEnd, end + historyEnd.length) >= 0)
+    const errors = validatePerceptionCharacterRetirement(root);
+    if (errors.length > 0)
     {
-        errors.push(`${historyRelative}: exactly one bounded historical retirement note is required`);
+        process.stderr.write(`[perception-character-v3-retirement] ${errors.join('; ')}\n`);
+        process.exit(1);
     }
-    else
-    {
-        const note = history.slice(start, end + historyEnd.length);
-        for (const [label, expression] of retired)
-        {
-            expression.lastIndex = 0;
-            if (!expression.test(note))
-            {
-                errors.push(`${historyRelative}: historical note does not identify ${label}`);
-            }
-        }
-        inspect(historyRelative, `${history.slice(0, start)}${history.slice(end + historyEnd.length)}`);
-    }
-}
+    process.stdout.write('[perception-character-v3-retirement] ok\n');
 
-for (const file of files(path.join(root, 'docs')))
-{
-    const relative = path.relative(root, file);
-    if (relative === historyRelative)
-    {
-        continue;
-    }
-    let source;
-    try
-    {
-        source = fs.readFileSync(file, 'utf8');
-    }
-    catch
-    {
-        continue;
-    }
-    inspect(relative, source);
 }
-
-if (errors.length > 0)
-{
-    process.stderr.write(`[perception-character-v3-retirement] ${errors.join('; ')}\n`);
-    process.exit(1);
-}
-process.stdout.write('[perception-character-v3-retirement] ok\n');

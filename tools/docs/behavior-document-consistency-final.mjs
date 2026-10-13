@@ -3358,3 +3358,27 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         process.exitCode = 1;
     }
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['ok']),
+    describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'runtimeIdentity.runId', sourceCommit: 'sourceIdentity.commit',
+            worktreeFingerprint: 'sourceIdentity.worktreeFingerprint' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt, repositoryRoot, domainInputs, context })
+    {
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        if (!domainInputs)
+        {
+            throw new Error('explicit final consistency replay inputs are required');
+        }
+        const verified = buildVerifiedFinalConsistencyReport({ ...domainInputs, root: repositoryRoot, runId: context.schedulerRunId });
+        if (verified.contentDigest !== receipt.contentDigest)
+        {
+            throw new Error('final consistency owner replay mismatch');
+        }
+        return verifiedOwnerResult({ schema: verified.schema, contentDigest: verified.contentDigest });
+    }
+});
