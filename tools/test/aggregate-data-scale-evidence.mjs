@@ -4,6 +4,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+const { compareQueryTrends } = await import(new URL('../data-scale/query-matrix.mjs', import.meta.url));
+const { failedQueryMatrix } = await import(new URL('../data-scale/run-query-matrix.mjs', import.meta.url));
+
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
 export const dataScaleEvidenceSources = Object.freeze([
@@ -143,11 +146,39 @@ export function aggregateDataScaleEvidence(rootValue = repositoryRoot)
     const root = path.resolve(rootValue);
     const sources = currentDataScaleEvidenceSources(root);
     const tiers = sources.map((source) => readSummary(root, source));
+    const queryMatrices = tiers.map((entry) => entry.summary.observed?.queryMatrix
+        ?? failedQueryMatrix(entry.tier, null, 'query matrix missing from current tier summary'));
+    try
+    {
+        const scaleRoot = path.resolve(process.env.FSUSBLOG_DATA_SCALE_ROOT ?? path.join(root, '.tmp/scale'));
+        const medium = readSummary(root, { tier: 'scale-m', path: path.relative(root, path.join(scaleRoot, 'release-summaries/scale-m.json')) });
+        queryMatrices.push(medium.summary.observed?.queryMatrix ?? failedQueryMatrix('scale-m', null, 'scale-m query matrix missing'));
+    }
+    catch
+    {
+        queryMatrices.push(failedQueryMatrix('scale-m', null, 'current scale-m tier summary unavailable'));
+    }
+    let queryTrends;
+    try
+    {
+        queryTrends = compareQueryTrends(queryMatrices);
+        const expectedCommit = String(process.env.GITHUB_SHA ?? '').trim();
+        if (expectedCommit && queryMatrices.some((matrix) => matrix.binding?.sourceCommit !== expectedCommit))
+        {
+            throw new Error('query matrix current source mismatch');
+        }
+    }
+    catch
+    {
+        queryTrends = { status: 'failed', failures: ['query matrix binding or trend inputs invalid'], results: [] };
+    }
     const summary = {
         schema: 'fsusblog.data-scale-evidence-summary.v1',
-        status: aggregateStatus(tiers),
+        status: queryTrends.status === 'ok' ? aggregateStatus(tiers) : 'failed',
         requiredTiers: sources.map((source) => source.tier),
         tiers,
+        queryMatrices,
+        queryTrends,
         generatedAt: new Date().toISOString()
     };
     const output = path.join(

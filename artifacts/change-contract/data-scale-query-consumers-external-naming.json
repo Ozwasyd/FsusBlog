@@ -1,0 +1,38 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Helpers/Initializer/SqlSugarInitializer.cs",
+                "src/backend/Infrastructure/Middlewares/RuntimeCacheEvidenceMiddleware.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs",
+                "src/backend/Infrastructure/Testing/QueryPlanCommandCapture.cs",
+                "src/backend/Infrastructure/Testing/RuntimeCacheEvidenceObservation.cs",
+                "tools/data-scale/product-backend.mjs",
+                "tools/data-scale/query-case-registry.mjs",
+                "tools/data-scale/query-expected-model.mjs",
+                "tools/data-scale/query-matrix.mjs",
+                "tools/data-scale/query-payload-decoders.mjs",
+                "tools/data-scale/query-plan-capture.mjs",
+                "tools/data-scale/run-query-matrix.mjs",
+                "tools/test/aggregate-data-scale-evidence.mjs"
+            ],
+            "reason": "The trusted registry governs tools/**/*.mjs and src/**/*.cs under environment-variable. Consumers preserve original environment/header contracts and camelCase internal bindings. The backend helper projects the two declared private capture configuration keys through standard .NET environment names and reuses the existing authenticated observation secret; no fixture, temporal or runtime authority is introduced."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/data-scale/probe.sh"
+            ],
+            "reason": "The canonical probe preserves existing FSUSBLOG shell environment spelling and command owners. New probe status variables use the repository internal naming convention; failed semantic or matrix probes remain hard failures."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "The explicitly supplied compiler candidate preserves the original NuGet lock graph, dependency names and JSON keys. The AngleSharp project-reference edge matches the existing Server dependency; no package or external field is renamed and no restore or audit gate is changed."
+        }
+    ]
+}

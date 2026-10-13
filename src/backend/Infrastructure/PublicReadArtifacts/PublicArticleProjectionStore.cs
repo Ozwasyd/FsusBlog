@@ -535,6 +535,7 @@ public sealed class PublicArticleProjectionStore(
                     CommandTimeout = dataSources.CommandTimeoutSeconds
                 };
                 command.Parameters.Add(new NpgsqlParameter<int> { TypedValue = articleId });
+                RuntimeCacheEvidenceObservation.Current?.QueryPlanCapture?.Record(command);
                 await command.PrepareAsync(cancellationToken).ConfigureAwait(false);
                 await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(
                     PublicArticleProjectionReadContract.Behavior,

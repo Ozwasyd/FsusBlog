@@ -17,6 +17,7 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
     private static readonly object s_authenticatedSecretItemKey = new();
     private static readonly object s_authenticatedObservationItemKey = new();
     private readonly string? _secret = ResolveSecret(configuration, environment);
+    private readonly QueryPlanCommandCaptureStore? _queryPlanCapture = QueryPlanCommandCaptureStore.Load(configuration, environment);
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -41,7 +42,9 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
         using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
             requestId,
             context.Request.Method,
-            $"{context.Request.Path.Value ?? "/"}{context.Request.QueryString.Value}");
+            $"{context.Request.Path.Value ?? "/"}{context.Request.QueryString.Value}",
+            queryPlanCapture: context.Request.Method == "GET" && context.Request.Path.StartsWithSegments("/api/binary")
+                ? _queryPlanCapture?.Begin(requestId) : null);
         try
         {
             await next(context);
@@ -99,7 +102,8 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
         public override long Length => throw new NotSupportedException();
         public override long Position
         {
-            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
         }
         public override void Flush() => inner.Flush();
         public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);

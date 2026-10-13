@@ -98,6 +98,7 @@ public static class SqlSugarInitializer
             // 调试日志：性能防线
             dbClient.Aop.OnLogExecuting = (sql, pars) =>
             {
+                RuntimeCacheEvidenceObservation.Current?.QueryPlanCapture?.Record(sql, pars, dbClient.CurrentConnectionConfig.ConnectionString);
                 // 必须保持此判断！这使得生产环境下的 SQL 拦截开销趋近于 0，
                 // 避免 UtilMethods.GetSqlString 产生海量的字符串装箱与拼接垃圾。
                 if (_logger.IsEnabled(LogLevel.Debug))
