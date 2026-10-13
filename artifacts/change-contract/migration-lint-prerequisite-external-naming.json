@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve existing serialized NuGet, lifecycle and producer authority keys while integrating the exact coordinator-supplied prerequisite commits"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "retain canonical execution owner and environment authority spellings in the supplied full-roster validation capability"
+        }
+    ]
+}
