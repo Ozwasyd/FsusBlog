@@ -1,0 +1,24 @@
+✔ schema contract is fail-closed and forbids self-proving fields (2.40771ms)
+✔ canonical serializer is stable and round-trips allowed fields only (2.332636ms)
+✔ rejects unknown fields and unknown claimType without scalar default (0.427645ms)
+✔ rejects approved, expectedValue, and other self-proving fields (0.405451ms)
+✔ rejects claim without body, shared body drift, and cross-heading body (0.493935ms)
+✔ rejects rationale precise unregistered quantity (0.952145ms)
+✔ parse receipt never includes lastVerifiedCommit and cannot produce pass evidence (2.16285ms)
+✔ repository gate rejects duplicate claimId and historical active behavior (4.515758ms)
+✔ historical docs may parse migration-only/retired claims without pass evidence (1.428564ms)
+✔ required counterexample: approved true and expectedValue 5 fail closed (1.685901ms)
+✔ repository checker passes on master worktree and governance scan is clean (1661.364624ms)
+✔ governance scan rejects a second protocol / compat parser surface (0.548417ms)
+✔ governance scanner distinguishes terminal ban lists from self-proving claim payloads (3.882263ms)
+✔ governance scanner distinguishes terminal ban lists from self-proving claim payloads (3.059973ms)
+✔ generated-section uses generatedSectionId and does not require prose body (0.206231ms)
+✔ fenced examples are not parsed as live claims (0.210828ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1799.918814

@@ -1,0 +1,4 @@
+[frontend-style] baseline configuration digest is stale
+[frontend-style] baseline source-state digest is stale
+[frontend-style] baseline generatedFrom does not match the current source-state digest
+[frontend-style] tests/tools/behavior-document-consistency-final.test.mjs:18:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `behavior-document-consistency-final.test.mjs` to same directory as `../../tools/docs/behavior-document-consistency-final.mjs` or consider making `../../tools/docs/behavior-document-consistency-final.mjs` a package.

@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Related to #3534: AST/token/comment-equivalent scanner regression whitespace
+9044e70088d31898ba5b961a3a88b177e235c079

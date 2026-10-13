@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "9044e70088d31898ba5b961a3a88b177e235c079",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "node artifacts/style/issue-3534-whitespace-format.mjs"
+    },
+    "paths": [
+        "tests/tools/behavior-document-consistency-final.test.mjs"
+    ],
+    "firstPassTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a",
+    "secondPassTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a",
+    "idempotent": true,
+    "originalWhitespacePasses": {
+        "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tests/tools/behavior-document-consistency-final.test.mjs"
+        ],
+        "firstPassTreeSha256": "ca7b913b335fdaf9440d1700676c9476307c9bfe1fb9a7daa88f3d36635c947b",
+        "secondPassTreeSha256": "ca7b913b335fdaf9440d1700676c9476307c9bfe1fb9a7daa88f3d36635c947b",
+        "idempotent": true
+    },
+    "verification": "Complete AST/raw-token/literal/token-anchored-comment fingerprints matched before write; independent validateFormatOnlyDiff returned zero errors.",
+    "formatRevisionTreeSha256": "7fd4ddffa8618555160bade626846a994a40db660313bbfc766544810c978ba3",
+    "candidatePasses": "Fresh actual two-pass run after authorized compatibility repairs. Original format revision, equivalence, blame registration, originalWhitespacePasses and formatRevisionTreeSha256 are unchanged; prior candidate evidence remains byte-identically archived at its original identity.",
+    "previousCandidateTreeSha256": "140966458ba9d2219c3068bcd3eeed54d65d6345436e501c1f582629becf43ee",
+    "priorCandidateEvidence": {
+        "path": "artifacts/style/issue-3534-compatibility/pre-compatibility-idempotence.json",
+        "sha256": "b412c1a60ef521866b3022dd23853422644f3a4cce6bce0cd55e0fd07fd663cb",
+        "publishedAtCommit": "b1f0fd6160289b2bab60eca55592050c42b07e83"
+    },
+    "currentCandidateRunId": "issue-3534-compatibility-20261008",
+    "sourceCommit": "b4dfcb7dab1219106deb40ee4393b447054e42b5"
+}

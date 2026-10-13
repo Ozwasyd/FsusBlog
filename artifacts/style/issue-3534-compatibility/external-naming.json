@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Retain the existing caller-visible process environment and serialized authority spellings while implementing only verified scanner import/helper bindings and consuming the canonical roster source. No environment interface or trusted exception registry is changed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve serialized keys and unique lifecycle identities while consuming lossless canonical ownership consolidation and truthful original-generator digest updates; no new serialized authority field or debt is introduced."
+        }
+    ]
+}

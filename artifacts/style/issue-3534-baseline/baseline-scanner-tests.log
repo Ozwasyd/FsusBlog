@@ -1,0 +1,678 @@
+warning: adding embedded git repository: src/vendor-behavior
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add <url> src/vendor-behavior
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached src/vendor-behavior
+hint:
+hint: See "git help submodule" for more information.
+hint: Disable this message with "git config set advice.addEmbeddedRepo false"
+✔ final consistency report deterministically closes every behavior edge (282.447956ms)
+▶ self-consistent substitute static component receipts cannot escape the admission seal
+  ✔ implementation owner from another scan (110.813908ms)
+  ✔ fact receipt with another semantic observation (99.223281ms)
+  ✔ DocClaim verification from another component bundle (103.015896ms)
+  ✔ generated receipt from another component bundle (93.822183ms)
+✔ self-consistent substitute static component receipts cannot escape the admission seal (409.375866ms)
+▶ post-runtime seal must bind the exact pre-runtime receipt and the complete class graph
+  ✔ same-run receipt from another pre-runtime qualification (96.845649ms)
+  ✔ duplicate runtime observation (54.449711ms)
+  ✔ nullable candidate identity in an ok seal (56.529045ms)
+  ✔ one class missing from a multi-class behavior (53.961715ms)
+  ✔ missing individually accepted claim (105.649012ms)
+  ✔ orphan individually accepted claim (106.541637ms)
+  ✔ legacy behavior-keyed aggregate does not replace accepted claims (102.144131ms)
+✔ post-runtime seal must bind the exact pre-runtime receipt and the complete class graph (578.983854ms)
+✔ formal terminal requires explicit files and caller run authority before publishing (1208.247249ms)
+✖ stale identities, graph cycles and legacy residue fail without repairing producers (100.355205ms)
+✔ tampered input receipt is rejected before final aggregation (52.776789ms)
+✖ zero-legacy scan covers every terminal path class and rejects root-specific residue (6.121374ms)
+✖ zero-legacy inventories tracked projections output schemas and package scripts outside source roots (26.676789ms)
+✖ zero-legacy package script selection paths cannot hide behind command file extensions (5.825449ms)
+✖ zero-legacy classifies only immutable regex bindings with exclusively rejecting uses (4.638509ms)
+✖ owned scanner fixture preserves representative input bytes and rejection rules (16.335496ms)
+✔ owned scanner fixture rejects getters aliases and parser input replacement before creating data (0.394955ms)
+✖ zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification (23.925994ms)
+✖ zero-legacy qualification-only fields retain their exact path scope (5.338085ms)
+✖ zero-legacy fixture classification requires the complete reviewed source to rejection sink (6.379142ms)
+✖ zero-legacy preserves matrix owner semantics for every scalar array entry (4.683327ms)
+✖ zero-legacy source declaration mutations cannot bypass field matching (5.329481ms)
+✖ zero-legacy source invocations and C# initializers cannot hide terminal residue (4.616847ms)
+✖ zero-legacy source identifiers follow CSharp JavaScript PowerShell and shell grammars (4.667494ms)
+✖ zero-legacy dispatches tracked module and shell extensions and scans static imports and direct CLI (4.677729ms)
+✖ zero-legacy shell and YAML hash comments do not create residue or hide active values (4.981867ms)
+✖ zero-legacy YAML blocks PowerShell comments encodings shebangs and NFKC forms are explicit (5.324984ms)
+✖ zero-legacy canonical YAML AST covers scalar indicators tags anchors aliases and sequence mappings (4.53285ms)
+✖ zero-legacy scanner excludes untracked and ignored build or runtime outputs (20.378929ms)
+✖ zero-legacy scanner never excludes tracked source by coverage or dist path names (20.976479ms)
+✖ zero-legacy selection and authority mutation corpus rejects latest history fallback and self-authority fields (4.428844ms)
+✖ zero-legacy scanner rejects legacy role surfaces but allows historical prose and skips symlinks (4.885672ms)
+✖ zero-legacy JSON not exemption requires an explicit JSON Schema dialect (4.797258ms)
+✖ zero-legacy draft 4 6 and 7 dependencies preserve schema-valued negation (4.485149ms)
+✖ zero-legacy contentSchema traversal follows only 2019-09 and 2020-12 dialects (4.895527ms)
+✖ zero-legacy schema traversal switches dialect at each embedded schema resource (4.560222ms)
+✖ zero-legacy scanner self exemptions are exact and owner names cannot suppress values (5.346056ms)
+✖ zero-legacy value scanning is bounded without truncating long commands (4.434081ms)
+✖ zero-legacy malformed machine JSON fails closed through final aggregation (5.085394ms)
+✖ zero-legacy malformed ECMAScript fails closed through final aggregation (4.992904ms)
+✖ zero-legacy parser authority rejects link mode byte and locked dependency substitution (14.648834ms)
+✖ zero-legacy Markdown machine fences recognize every JavaScript line terminator (4.740483ms)
+✖ zero-legacy Markdown machine fences follow CommonMark marker and length rules (4.083203ms)
+✖ zero-legacy Markdown machine fences scan explicit block quote containers (4.410066ms)
+✔ zero-legacy tracked gitlinks fail closed without pretending their contents were scanned (27.624447ms)
+✖ zero-legacy tracked symlinks are unsupported and expose target or worktree splits (25.98051ms)
+✖ zero-legacy tracked files fail closed when an ancestor directory redirects outside the repository (24.843246ms)
+✖ zero-legacy scans sparse and skip-worktree files from their exact index blobs (59.517005ms)
+✖ zero-legacy Git authority ignores ambient index worktree alternate and config injection (60.921322ms)
+✔ zero-legacy and source identity consistently reject non-SHA1 repositories (178.526782ms)
+✖ zero-legacy Git inventory survives symlink root spelling and excludes untracked files (37.278835ms)
+✖ zero-legacy reports worktree mode and content splits while scanning active bytes (25.738835ms)
+✖ final builder recomputes zero-legacy findings from the sealed source state (103.917503ms)
+✖ zero-legacy scan and final report schema are deterministic and structurally closed (5.174428ms)
+ℹ tests 60
+ℹ suites 0
+ℹ pass 19
+ℹ fail 41
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4683.383146
+
+✖ failing tests:
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:525:1
+✖ stale identities, graph cycles and legacy residue fail without repairing producers (100.355205ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at buildFinalConsistencyReport (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:3169:20)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:538:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:552:1
+✖ zero-legacy scan covers every terminal path class and rejects root-specific residue (6.121374ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:564:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:573:1
+✖ zero-legacy inventories tracked projections output schemas and package scripts outside source roots (26.676789ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:582:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:597:1
+✖ zero-legacy package script selection paths cannot hide behind command file extensions (5.825449ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:606:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:616:1
+✖ zero-legacy classifies only immutable regex bindings with exclusively rejecting uses (4.638509ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:642:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:647:1
+✖ owned scanner fixture preserves representative input bytes and rejection rules (16.335496ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:673:37)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:692:1
+✖ zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification (23.925994ms)
+  Error: [zero-legacy-governance] JSONC parser package lock must be canonical duplicate-free JSON
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at parseCanonicalAuthorityJson (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:208:9)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:321:18)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:714:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:727:1
+✖ zero-legacy qualification-only fields retain their exact path scope (5.338085ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:737:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:751:1
+✖ zero-legacy fixture classification requires the complete reviewed source to rejection sink (6.379142ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:800:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:806:1
+✖ zero-legacy preserves matrix owner semantics for every scalar array entry (4.683327ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:824:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:834:1
+✖ zero-legacy source declaration mutations cannot bypass field matching (5.329481ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+      at Object.loadYamlParser [as yamlParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+      at scanDocumentFences (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2097:36)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2577:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:843:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:852:1
+✖ zero-legacy source invocations and C# initializers cannot hide terminal residue (4.616847ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:895:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:913:1
+✖ zero-legacy source identifiers follow CSharp JavaScript PowerShell and shell grammars (4.667494ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:926:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:954:1
+✖ zero-legacy dispatches tracked module and shell extensions and scans static imports and direct CLI (4.677729ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:975:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1001:1
+✖ zero-legacy shell and YAML hash comments do not create residue or hide active values (4.981867ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+      at loadYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2565:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1014:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1036:1
+✖ zero-legacy YAML blocks PowerShell comments encodings shebangs and NFKC forms are explicit (5.324984ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+      at loadYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2565:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1065:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1107:1
+✖ zero-legacy canonical YAML AST covers scalar indicators tags anchors aliases and sequence mappings (4.53285ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+      at loadYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2565:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1129:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1145:1
+✖ zero-legacy scanner excludes untracked and ignored build or runtime outputs (20.378929ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1162:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1167:1
+✖ zero-legacy scanner never excludes tracked source by coverage or dist path names (20.976479ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at Object.loadJsoncParser [as jsoncParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanMachineSource (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:1976:52)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2581:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1177:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1186:1
+✖ zero-legacy selection and authority mutation corpus rejects latest history fallback and self-authority fields (4.428844ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1209:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1227:1
+✖ zero-legacy scanner rejects legacy role surfaces but allows historical prose and skips symlinks (4.885672ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1242:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1250:1
+✖ zero-legacy JSON not exemption requires an explicit JSON Schema dialect (4.797258ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1276:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1294:1
+✖ zero-legacy draft 4 6 and 7 dependencies preserve schema-valued negation (4.485149ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1311:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1318:1
+✖ zero-legacy contentSchema traversal follows only 2019-09 and 2020-12 dialects (4.895527ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1338:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1352:1
+✖ zero-legacy schema traversal switches dialect at each embedded schema resource (4.560222ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1454:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1498:1
+✖ zero-legacy scanner self exemptions are exact and owner names cannot suppress values (5.346056ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1516:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1536:1
+✖ zero-legacy value scanning is bounded without truncating long commands (4.434081ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1549:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1561:1
+✖ zero-legacy malformed machine JSON fails closed through final aggregation (5.085394ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1573:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1599:1
+✖ zero-legacy malformed ECMAScript fails closed through final aggregation (4.992904ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1605:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1619:1
+✖ zero-legacy parser authority rejects link mode byte and locked dependency substitution (14.648834ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /byte digest mismatch/u. Input:
+  
+  'Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json'
+  
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1634:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+        at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+        at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+        at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+        at loadYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+        at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2565:28)
+        at file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1634:25
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1634:12)
+        at Test.runInAsyncScope (node:async_hooks:227:14),
+    expected: /byte digest mismatch/u,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1660:1
+✖ zero-legacy Markdown machine fences recognize every JavaScript line terminator (4.740483ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+      at Object.loadYamlParser [as yamlParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+      at scanDocumentFences (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2097:36)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2577:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1668:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1677:1
+✖ zero-legacy Markdown machine fences follow CommonMark marker and length rules (4.083203ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+      at Object.loadYamlParser [as yamlParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+      at scanDocumentFences (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2097:36)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2577:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1691:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1702:1
+✖ zero-legacy Markdown machine fences scan explicit block quote containers (4.410066ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/playwright-core/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalYamlParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:285:30)
+      at Object.loadYamlParser [as yamlParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2488:32)
+      at scanDocumentFences (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2097:36)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2577:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1724:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1754:1
+✖ zero-legacy tracked symlinks are unsupported and expose target or worktree splits (25.98051ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at Object.loadJsoncParser [as jsoncParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanMachineSource (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:1976:52)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2581:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1768:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1790:1
+✖ zero-legacy tracked files fail closed when an ancestor directory redirects outside the repository (24.843246ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1803:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1808:1
+✖ zero-legacy scans sparse and skip-worktree files from their exact index blobs (59.517005ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at Object.loadJsoncParser [as jsoncParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanMachineSource (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:1976:52)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2581:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1835:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1842:1
+✖ zero-legacy Git authority ignores ambient index worktree alternate and config injection (60.921322ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at Object.loadJsoncParser [as jsoncParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanMachineSource (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:1976:52)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2581:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1872:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1901:1
+✖ zero-legacy Git inventory survives symlink root spelling and excludes untracked files (37.278835ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at Object.loadJsoncParser [as jsoncParser] (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanMachineSource (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:1976:52)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2581:13)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1912:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1919:1
+✖ zero-legacy reports worktree mode and content splits while scanning active bytes (25.738835ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1928:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1937:1
+✖ final builder recomputes zero-legacy findings from the sealed source state (103.917503ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at buildFinalConsistencyReport (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:3169:20)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1942:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:1964:1
+✖ zero-legacy scan and final report schema are deterministic and structurally closed (5.174428ms)
+  Error: [zero-legacy-governance] parser authority mode or link count is unsupported: src/frontend/node_modules/typescript/package.json
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at readCanonicalAuthorityFile (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:178:13)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:322:30)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:1973:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)

@@ -1,0 +1,59 @@
+{
+    "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+    "results": [
+        {
+            "name": "inventory",
+            "iteration": 1,
+            "command": [
+                "node",
+                "tools/test/generate-correctness-attempt-producers.mjs",
+                "--write"
+            ],
+            "exitCode": 0,
+            "output": "config/testing/correctness-attempt-producers.json",
+            "beforeSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+            "afterSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+            "byteIdentical": true
+        },
+        {
+            "name": "inventory",
+            "iteration": 2,
+            "command": [
+                "node",
+                "tools/test/generate-correctness-attempt-producers.mjs",
+                "--write"
+            ],
+            "exitCode": 0,
+            "output": "config/testing/correctness-attempt-producers.json",
+            "beforeSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+            "afterSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+            "byteIdentical": true
+        },
+        {
+            "name": "release-authority",
+            "iteration": 1,
+            "command": [
+                "node",
+                "tools/test-matrix/generate-release-final-execution-authority.mjs"
+            ],
+            "exitCode": 0,
+            "output": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "beforeSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+            "afterSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+            "byteIdentical": true
+        },
+        {
+            "name": "release-authority",
+            "iteration": 2,
+            "command": [
+                "node",
+                "tools/test-matrix/generate-release-final-execution-authority.mjs"
+            ],
+            "exitCode": 0,
+            "output": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "beforeSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+            "afterSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+            "byteIdentical": true
+        }
+    ]
+}
