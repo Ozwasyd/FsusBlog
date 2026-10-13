@@ -201,6 +201,13 @@ consumed dependency is intaken; Cache/Status/Sync and their restore/router edges
 are not introduced merely to import the repair's other paths. The composition
 does not create another Registry, ratio owner or source context.
 
+The original TabStrip Vue ref typing increment is also consumed from its exact
+producer: the callback admits `ComponentPublicInstance` as well as `Element`
+and keeps the existing `instanceof HTMLElement` filter and all runtime
+expressions. This adds no view logic or navigation authority. The source-only
+ref correction does not establish rendered acceptance or byte-identical actual
+production wrappers/scoped styles, whose identities depend on the SFC source.
+
 `observeAuthoringNavigationTargetFromOwners` first checks
 `groupOwner.verifyBinding(canonicalRegistry)`, then takes one real
 `exportProjection()` and the canonical Registry snapshot. The local group
