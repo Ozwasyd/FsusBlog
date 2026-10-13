@@ -1,0 +1,105 @@
+{
+    "kind": "ordinary exact source WIP; no authority/receipt/qualification",
+    "mainBase": "5afd859bdc1cc52c5133b3134c03b6452bf7917e",
+    "historyHead": "0f4c13b45e771037287c8d0c4ad067aedf9183b7",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "selected": [
+        {
+            "leaf": "fd792280cffe18f5fb0335c930243f5c25b2bc83",
+            "path": "src/frontend/src/adapters/binary/fontThemeAdminAdapter.ts",
+            "preimage": "f625508ba348de59f88a964214b1341f9137fb51",
+            "postimage": "ba763c297718f30939dcfadafe3d8084ca367a23",
+            "main": "f625508ba348de59f88a964214b1341f9137fb51",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        },
+        {
+            "leaf": "fd792280cffe18f5fb0335c930243f5c25b2bc83",
+            "path": "src/frontend/src/services/themeAssetRuntime.ts",
+            "preimage": "5cdea90fe798916406aea4c001c35779d08a81d5",
+            "postimage": "e1a55d5a8253efcddbfa13d3f9cd35983d86ecef",
+            "main": "5cdea90fe798916406aea4c001c35779d08a81d5",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        },
+        {
+            "leaf": "7fe6b378084336685c25f2ac962f82d289e5a8de",
+            "path": "src/frontend/src/composables/useAdminTaxonomyManage.ts",
+            "preimage": "ff0addbf2bbbd3cd2008dd6ad0f5d82c3e843c61",
+            "postimage": "fdde20e8a67015d5dedb414bb971f5e950849d88",
+            "main": "ff0addbf2bbbd3cd2008dd6ad0f5d82c3e843c61",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        },
+        {
+            "leaf": "2a71807fc2ce67c52c91b8365bd308de823af75f",
+            "path": "src/frontend/src/views/admin/Assets.vue",
+            "preimage": "70d8790d7137af6908a3de3ce5dedc4f33edd3b3",
+            "postimage": "b86534c7fff6e2c38259350ddc710003d743621e",
+            "main": "70d8790d7137af6908a3de3ce5dedc4f33edd3b3",
+            "status": "exact-preimage-not-consumed",
+            "protectedOwnerOrFrozenSurface": false
+        }
+    ],
+    "scope": "Exact same-preimage two private parameter-property field declarations/initialization, public taxonomy FormRules/validator type projection, public existing TableV2 columns/sort constants; no enum declaration conversion and actual Assets template/styles unchanged",
+    "exclusions": "Divergent recovery journal not taken, all other11 divergence/protected authoring/SDK/Writer/upload/FIFO/cohort/end/settlement, actual UI957alias, held templates, enum declarations, config/frozen sources unchanged",
+    "qualification": "ALL runtime/tests/import/discovery/frozen/qualification HOLD/UNRUN, physical alias independently UNVERIFIED",
+    "publicBridgeDependency": {
+        "path": "src/frontend/src/fsusui/tableV2.ts",
+        "originCommit": "b8e8f8565e2e591f99c370034645efa4203d7160",
+        "acceptedHistory": "0f4c13b45e771037287c8d0c4ad067aedf9183b7",
+        "preimage": null,
+        "postimage": "8eb9a4e797b87503880867a7a3221240e3d44cd3",
+        "source": "Exact original public reexports only; actual UI957 table-v2 index FixedDir/SortOrder/Column/SortState exports verified, no local interface or enum invented"
+    },
+    "initialMissingBridgeDiagnosticRun": {
+        "originalFullSameUI957CompleteDiagnosticBlocks": {
+            "before": 156,
+            "after": 151,
+            "added": [
+                "src/views/admin/Assets.vue(POSITION): error TS2307: Cannot find module '@/fsusui/tableV2' or its corresponding type declarations."
+            ],
+            "removedByPath": {
+                "src/adapters/binary/fontThemeAdminAdapter.ts": 2,
+                "src/components/admin/AdminTaxonomyManageView.vue": 1,
+                "src/services/themeAssetRuntime.ts": 1,
+                "src/views/admin/Assets.vue": 2
+            }
+        },
+        "originalStrictFull4SourceStyle": {
+            "before": 1,
+            "after": 9,
+            "added": [
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.",
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .RIGHT on a type that cannot be resolved.",
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access [assetSortBy.value.key] on a type that cannot be resolved.",
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-return: Unsafe return of a value of type error.",
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .ASC on a type that cannot be resolved.",
+                "[frontend-style] src/frontend/src/views/admin/Assets.vue:POSITION eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .ASC on a type that cannot be resolved."
+            ],
+            "removed": 0
+        },
+        "AST": "All4 exact postimages AST0; two complete original-options field-module JS emits BYTE EXACT; Assets template/styles byte exact",
+        "physicalAlias": "Author only; independently UNVERIFIED",
+        "qualification": "ALL HOLD/UNRUN"
+    },
+    "authorEvidence": {
+        "originalFullSameUI957CompleteDiagnosticBlocks": {
+            "before": 156,
+            "after": 150,
+            "added": [],
+            "removedByPath": {
+                "src/adapters/binary/fontThemeAdminAdapter.ts": 2,
+                "src/components/admin/AdminTaxonomyManageView.vue": 1,
+                "src/services/themeAssetRuntime.ts": 1,
+                "src/views/admin/Assets.vue": 2
+            }
+        },
+        "originalStrictFull5Sources": "Before4 original changed sources1FAIL, final5 including new real bridge1FAIL; same finding, added0 removed0; old initial unbound import diagnostics retained separately",
+        "AST": "All5 source AST0; two complete original-options emits BYTE EXACT and Assets template/styles byte exact",
+        "physicalAlias": "Author only; independently UNVERIFIED",
+        "qualification": "ALL HOLD/UNRUN"
+    }
+}

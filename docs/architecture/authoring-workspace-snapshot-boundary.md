@@ -2167,3 +2167,24 @@ leaf and failed diagnostic evidence stay in ordinary WIP as a real dependency
 blocker, not a compatible-intake claim. Only an original canonical contract/
 producer dependency may resolve it; no local cast/DTO/config/schema/frozen refresh
 is introduced. All original fail-closed guards and execution holds stay intact.
+
+
+## Reviewed Field and Public Model Source Batch
+
+The next independent batch applies exact same-preimage accepted font-theme
+WireReader/BlobCursor and theme error explicit readonly fields with original
+initialization order; complete two-module original-options static JS emits are
+byte-exact. The divergent recovery journal part of that donor is not taken.
+Taxonomy uses actual public FormRules/FormItemRule and finite rules Pick, keeping
+real validation body. Assets uses actual existing public TableV2 columns/sort
+constants, with template/styles byte-exact; no enum declaration is converted.
+
+The original Assets leaf requires the original public fsusui/tableV2 reexport
+bridge, absent in Main. Exact History accepted bridge from original b8e8f8565 is
+intaken independently as a five-source dependency set; actual UI957 original
+index still exports all names. No local table interface/enum/implementation is
+created. The initial missing-module diagnostic is retained in ordinary WIP;
+original actual source dependency resolves it without config/cast weakening or
+frozen authority changes. All protected authoring/SDK/upload/Writer/FIFO/cohort/
+end/settlement and alias remain current; all execution/qualification HOLD/UNRUN
+and independent physical alias UNVERIFIED remain.
