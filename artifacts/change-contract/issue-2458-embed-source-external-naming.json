@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs",
+                "tools/governance/check-article-embed-authoring.mjs",
+                "tools/governance/check-article-embed-relations.mjs"
+            ],
+            "reason": "Preserve the existing serialized embed contract identifiers and dependency receipt names while rejecting unmapped payloads, verifying attribution and projecting frozen facts; no environment names or accesses are introduced or renamed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Consume the canonical3654 lock source exactly from f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd while preserving all existing NuGet lock JSON fields; no independent dependency selection or lock schema changes are introduced."
+        }
+    ]
+}

@@ -929,6 +929,12 @@ stable target article/heading/block identity、target revision/lifecycle/permiss
 published/allowed target 与 anonymous-public context，draft/private/unknown facts fail closed。
 `ArticleRelationSet` 拒绝 orphan、duplicate 或 tampered records。
 
+Block target 的 `BlockAnchorIdentity` 接受 #2440 `BlockAnchorId` 的 canonical raw spelling。
+既有 `block:` / `anchor:` wire identity 保留精确前缀和 digest bytes，其 suffix 同样交由
+`BlockAnchorId` 校验；既有 prefixed stable-identity rejection 条件继续有效。不做大小写转换、
+suffix 生成、prefix stripping 或 raw/prefixed identity 合并。该 admission 修复不实现 route
+resolution、anchor inventory、index producer 或 query。
+
 unlinked mention 只产生可解释的 `ArticleRelationUnlinkedMentionCandidate`：它携带 matched range、
 候选 stable identities、match rule/reason、confidence、ambiguity 与可选 ignore-decision reference，
 并且 `IsAuthoritative` 永远为 `false`。`ArticleRelationLifecycleEvent` 为 create/edit/publish/schedule/

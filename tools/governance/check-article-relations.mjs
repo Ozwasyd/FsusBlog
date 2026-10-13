@@ -391,6 +391,11 @@ export function checkArticleRelationCatalog(catalog, schema)
     {
         violations.push('target identity schema must not define URL/slug/title/heading-text fields');
     }
+    if (schema?.$defs?.targetIdentity?.properties?.blockAnchorIdentity?.oneOf?.[0]?.pattern
+        !== '^(?:(?:block|anchor):)?[a-z][a-z0-9-]{0,63}$')
+    {
+        violations.push('block target schema must accept canonical raw anchors and preserve only canonical prefixed suffixes');
+    }
     if (schema?.$defs?.mentionCandidate?.properties?.isAuthoritative?.const !== false)
     {
         violations.push('unlinked mention candidate schema must be explicitly non-authoritative');
