@@ -113,6 +113,21 @@ bodies, original leases/envelopes and raw failure history remain unchanged.
 
 Both counterexamples are source-reviewed and UNRUN; execution HOLD is unchanged.
 
+### Nested Original Subscription Retry Follow-up
+
+Parent independently SOURCE accepts the final-native-proof P2 repair in 2f883136;
+the producer-frame candidate still needed notification exclusion. The actual
+producer may call an original failed subscription.retry(), whose existing busy
+predicate does not treat SDK operation as notification activity. It can enter
+the original context notifier while the real producer frame remains on stack.
+The binding now also requires zero original context notification depth, no
+original adapter retirement, and inactive original retained-owner notification/
+retry guards. Those existing guards cover retained listener, retirement and
+authority retirement frames. After notification finally restores depth, an
+otherwise valid actual producer retains its normal permission. Public retry,
+notifier and subscription semantics are unchanged. Source-review cases are in
+notification-source-cases.json; all are UNRUN and confer no execution authority.
+
 ## Cancellation, Failure and Resource Custody
 
 Ordinary updateSource (including equal bytes), draft/switch/dispose/handover,

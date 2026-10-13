@@ -1585,7 +1585,10 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         const transition = this.#attachmentRevisionTransition;
         const cohort = this.#attachmentCohort;
         const frame = this.#attachmentRevisionProducerFrame;
-        return this.#attachmentRevisionOperation && !!transition && frame?.transition === transition
+        return this.#attachmentRevisionOperation && this.#contextNotificationDepth === 0 && !this.#retirementPending
+            && retainedAdapterGuards.get(this)?.notificationActive() !== true
+            && retainedAdapterGuards.get(this)?.retryActive() !== true
+            && !!transition && frame?.transition === transition
             && frame.producer === transition.producer && !!cohort && transition.cohort === cohort
             && cohort.token === token && !cohort.closed && !cohort.failure && !transition.invalidated && !transition.failure
             && transition.lease === lease && transition.custody === custody && cohort.capture === custody.capture

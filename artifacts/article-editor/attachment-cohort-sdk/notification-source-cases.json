@@ -1,0 +1,39 @@
+{
+    "kind": "source-review-cases",
+    "qualification": false,
+    "execution": "UNRUN; original runtime/tests/import/discovery/qualification HOLD",
+    "base": "2f88313642b9d5b3f3fb53254b7c19986962ec45",
+    "acceptedScope": "Parent source accepts P2 final native proof ordering; whole candidate pending",
+    "cases": [
+        {
+            "name": "producer-original-context-subscription-retry",
+            "source": "A genuine SDK-invoked producer calls the original failed context subscription retry. Busy permits retry, the original notifier raises contextNotificationDepth and the subscriber uses the same valid token/lease/custody/current-context.",
+            "expected": "Binding false in the subscriber; notification finally restores depth and normal authentic producer binding may resume. No public subscription behavior is changed."
+        },
+        {
+            "name": "ordinary-context-notification-entry",
+            "source": "Original publish/update/draft/switch/dispose context publication and subscription retries all enter the same original notifier.",
+            "expected": "Every listener runs with positive contextNotificationDepth, so binding refuses regardless of the preserved producer frame."
+        },
+        {
+            "name": "retained-lifetime-listener-and-retry",
+            "source": "Original retained-owner notification and lifetime subscription retry use listenerNotificationDepth.",
+            "expected": "The original retained notificationActive guard refuses binding during every listener."
+        },
+        {
+            "name": "original-retirement-notifications",
+            "source": "Original adapter pre-retirement and retained owner/authority retirement subscriber paths use retirementPending, retirementActivityDepth and ownerRetirementDepth.",
+            "expected": "Adapter retirement and original retained notification/retry activity guards refuse binding."
+        },
+        {
+            "name": "normal-producer-after-notification-finally",
+            "source": "Original notification finally releases its activity depth; the same actual SDK producer frame/transition remains valid and no source/lease/scope invalidation occurred.",
+            "expected": "Normal producer binding true; outside the original producer frame false."
+        },
+        {
+            "name": "throw-undefined-or-caught-reentry",
+            "source": "Original subscriber/producer throws undefined or catches nested control failure during retry.",
+            "expected": "Original finally clears frame/depth and existing cleanup/failure carriers preserve actual raw first/latest cause and unfinished obligations. No lease or envelope replacement."
+        }
+    ]
+}
