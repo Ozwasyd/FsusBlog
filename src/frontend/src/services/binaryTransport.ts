@@ -1497,8 +1497,8 @@ function riskChallengeHandoffFromResponse(status: number, headers: Headers): Ris
 }
 
 export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDecoder): {
-    requestBinaryOnly<T>(options: BinaryTransportRequest): Promise<T>;
-    startBinaryOnly<T>(options: BinaryTransportRequest): BinaryTransportOperation<T>;
+    requestBinaryOnly<T>(this: void, options: BinaryTransportRequest): Promise<T>;
+    startBinaryOnly<T>(this: void, options: BinaryTransportRequest): BinaryTransportOperation<T>;
 }
 {
     return {
