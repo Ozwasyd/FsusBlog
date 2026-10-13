@@ -10,8 +10,9 @@
             "preimage": "fca90b568068b727ce17375128cf882857787181",
             "postimage": "6942bd76d74e4aa01ded3bdcc33d460cf121b8eb",
             "main": "fca90b568068b727ce17375128cf882857787181",
-            "status": "exact-preimage-not-consumed",
-            "protectedOwnerOrFrozenSurface": false
+            "protectedOwnerOrFrozenSurface": false,
+            "intakeStatusAtFinal5afd": "consumed-exact-original-postimage; bounded source accepted per parent",
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed"
         },
         {
             "leaf": "336343ef3b3706bb0c8652d41f24b637041e5ecc",
@@ -19,8 +20,9 @@
             "preimage": "e124581eb9f2bd3dd7081ca8e16dc95717a417f6",
             "postimage": "5f5b751875649d92ad4060372351478310d7ec63",
             "main": "e124581eb9f2bd3dd7081ca8e16dc95717a417f6",
-            "status": "exact-preimage-not-consumed",
-            "protectedOwnerOrFrozenSurface": false
+            "protectedOwnerOrFrozenSurface": false,
+            "intakeStatusAtFinal5afd": "consumed-exact-original-postimage; bounded source accepted per parent",
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed"
         },
         {
             "leaf": "18ae325709b42c74658ef50b3c5e3cb5c0240f98",
@@ -28,8 +30,9 @@
             "preimage": "d0f21a9a213733dbe6bf3c856b91acd62702b0d1",
             "postimage": "242584eb1a690c4e03eed0337f07f8f9dbf8efa1",
             "main": "d0f21a9a213733dbe6bf3c856b91acd62702b0d1",
-            "status": "exact-preimage-not-consumed",
-            "protectedOwnerOrFrozenSurface": false
+            "protectedOwnerOrFrozenSurface": false,
+            "intakeStatusAtFinal5afd": "consumed-exact-original-postimage; bounded source accepted per parent",
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed"
         },
         {
             "leaf": "179276555633f69f09a04c7c5931464ed3ad5466",
@@ -37,8 +40,9 @@
             "preimage": "8969474fea1d0dfc681b98e28352abbd5571c2e1",
             "postimage": "ec2a2f225d333763a5c1567fa764e927588053eb",
             "main": "8969474fea1d0dfc681b98e28352abbd5571c2e1",
-            "status": "exact-preimage-not-consumed",
-            "protectedOwnerOrFrozenSurface": false
+            "protectedOwnerOrFrozenSurface": false,
+            "intakeStatusAtFinal5afd": "consumed-exact-original-postimage; bounded source accepted per parent",
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed"
         },
         {
             "leaf": "0f4c13b45e771037287c8d0c4ad067aedf9183b7",
@@ -46,8 +50,9 @@
             "preimage": "bd7a55d504f4d129a0eb97e587643877331599b7",
             "postimage": "9fea55b9035ad50e6d2fd0240fc20c0eb61b983f",
             "main": "bd7a55d504f4d129a0eb97e587643877331599b7",
-            "status": "exact-preimage-not-consumed",
-            "protectedOwnerOrFrozenSurface": false
+            "protectedOwnerOrFrozenSurface": false,
+            "intakeStatusAtFinal5afd": "consumed-exact-original-postimage; bounded source accepted per parent",
+            "statusObservedBeforeIntake": "exact-preimage-not-consumed"
         }
     ],
     "allocationDisclosure": "RSA changes actual owned view-range snapshot/allocation and cleanup; no emitted-JS identity claim. Revocation digest owned buffer annotations do not cast unowned memory.",
@@ -106,5 +111,6 @@
         "style": "Same6-source before13FAIL after10FAIL, added0 removed3; unchanged blocked adapter remains included in scoped lint comparison",
         "physicalAlias": "Author only; independently UNVERIFIED",
         "qualification": "ALL HOLD/UNRUN"
-    }
+    },
+    "selectedStatusesContext": "Each exact-preimage-not-consumed status is an observation at base880 before that batch; final fixed5afd consumed the following five exact original postimages, not current unconsumed status."
 }

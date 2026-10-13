@@ -425,7 +425,7 @@ export async function clearRegisteredPrivateState(options: {
         {
             items.push(await clearCacheStorageEntry(entry, cacheStorage));
         }
-        else
+        else if (entry.medium === 'runtime')
         {
             items.push(await clearRuntimeEntry(entry, options.trigger));
         }

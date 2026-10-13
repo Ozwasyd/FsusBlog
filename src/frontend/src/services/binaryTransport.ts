@@ -28,8 +28,7 @@ import type { AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import {
     buildFsusBinaryRoute,
     fsusBinaryRouteDescriptors,
-    type FsusBinaryOperationId,
-    type FsusBinaryRouteDescriptor
+    type FsusBinaryOperationId
 } from '@/generated/fsusBinaryRoutes';
 import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime';
 import { privateRequestRuntime } from '@/services/privateRequestRuntime';
@@ -1586,7 +1585,7 @@ function resolveBinaryRequest(options: {
     throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
 }
 
-function binaryRoutePolicy(auth: FsusBinaryRouteDescriptor['auth'] | 'optional'): {
+function binaryRoutePolicy(auth: string): {
     routeClass: BinaryFailureRouteClass;
     privateScope: PrivateRequestScope;
     abortOnGenerationChange: boolean;
@@ -1610,7 +1609,11 @@ function binaryRouteClass(auth: string): BinaryFailureRouteClass
     {
         return 'account';
     }
-    return 'public';
+    if (auth === 'anonymous')
+    {
+        return 'public';
+    }
+    throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_invalid');
 }
 
 function shouldRetryPublicReadWithPow<T>(
