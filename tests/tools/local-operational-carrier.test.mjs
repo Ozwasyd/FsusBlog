@@ -1,21 +1,26 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
-import { identity, sha256 } from '../../tools/operations/local-task-plan.mjs';
-import { holdImageCustody, inspectAncestry, readOnlyBlockArguments, runObserved, requireParentClosure, expectedChildClosure, main as carrierMain } from '../../tools/operations/recover-failed-run-carrier.mjs';
-import { buildCaptures, buildSshArguments, quoteShell } from '../../tools/operations/export-failed-run-evidence.mjs';
-import { buildOriginalCall, validateInputMounts } from '../../tools/operations/guest-preparation-caller.mjs';
+
+const { identity, sha256 } = await import(new URL('../../tools/operations/local-task-plan.mjs', import.meta.url));
+const { holdImageCustody, inspectAncestry, readOnlyBlockArguments, runObserved, requireParentClosure, expectedChildClosure, main: carrierMain } = await import(new URL('../../tools/operations/recover-failed-run-carrier.mjs', import.meta.url));
+const { buildCaptures, buildSshArguments, quoteShell } = await import(new URL('../../tools/operations/export-failed-run-evidence.mjs', import.meta.url));
+const { buildOriginalCall, validateInputMounts } = await import(new URL('../../tools/operations/guest-preparation-caller.mjs', import.meta.url));
 
 const repo = fileURLToPath(new URL('../..', import.meta.url));
 const tempParent = process.env.FSUSBLOG_OPERATIONS_FIXTURE_ROOT ?? os.tmpdir();
-if (!tempParent || !path.isAbsolute(tempParent) || !fs.statSync(tempParent).isDirectory()) throw new Error('explicit owned fixture parent required');
+if (!tempParent || !path.isAbsolute(tempParent) || !fs.statSync(tempParent).isDirectory())
+{
+    throw new Error('explicit owned fixture parent required');
+}
 const root = fs.mkdtempSync(path.join(tempParent, 'carrier-controls-'));
 process.on('exit', () => fs.rmSync(root, { recursive: true, force: true }));
-function image(name, backing = null, parent = null) {
+function image(name, backing = null, parent = null)
+{
     const file = path.join(root, `${name}.qcow2`);
     const bytes = Buffer.alloc(256);
     bytes.writeUInt32BE(0x514649fb, 0);
@@ -23,12 +28,16 @@ function image(name, backing = null, parent = null) {
     bytes.writeBigUInt64BE(128n, 8);
     bytes.writeUInt32BE(backing?.length ?? 0, 16);
     bytes.writeBigUInt64BE(4096n, 24);
-    if (backing) bytes.write(backing, 128);
+    if (backing)
+    {
+        bytes.write(backing, 128);
+    }
     fs.writeFileSync(file, bytes, { flag: 'wx' });
     return { name, file, sha256: sha256(bytes), identity: identity(fs.statSync(file, { bigint: true })), backing, parent };
 }
 
-function currentFixtureClosure(images, inputs, aliases, directories, boot, shares = []) {
+function currentFixtureClosure(images, inputs, aliases, directories, boot, shares = [])
+{
     const records = inputs.map(item => ({ ...item, identity: identity(fs.statSync(item.file, { bigint: true })) }));
     return {
         images: images.map(item => ({ ...item, virtualSize: '4096' })),
@@ -42,7 +51,8 @@ function currentFixtureClosure(images, inputs, aliases, directories, boot, share
         shares
     };
 }
-function failedReceipt(closure, changes = {}) {
+function failedReceipt(closure, changes = {})
+{
     return {
         schema: 'fsusblog.failed-run-carrier.v2', mode: 'inspect', planSha256: 'a'.repeat(64), runRoot: null,
         beforeClosure: structuredClone(closure), afterClosure: structuredClone(closure),
@@ -50,7 +60,8 @@ function failedReceipt(closure, changes = {}) {
         firstFailure: { message: 'controlled original failure', resourceObservation: null, verificationFailure: null }, originalCliTerminal: 'UNKNOWN', failedCheckpointResume: false, autoSdkExecution: false, guestCommandsObservedByLauncher: false, partialPreparationQualified: false, qualificationEligible: false, custodyScope: 'Controlled fixture only', ...changes
     };
 }
-function simpleClosure() {
+function simpleClosure()
+{
     const fixture = fs.mkdtempSync(path.join(root, 'closure-'));
     const base = image(`base-${path.basename(fixture).toLowerCase()}`);
     const boot = {};
@@ -160,16 +171,22 @@ test('read-only exporter retains old-boot raw/log/descriptor scopes and rejects 
     assert.notEqual(result.status, 0);
 });
 
-test('original caller builds one original owner argv with current explicit guest environment', () => {
+test('original caller builds one original owner argv with current explicit guest environment', () =>
+{
     const plan = { runId: 'owned-run', source: { repository: '/task/source', head: 'a'.repeat(40), tree: 'b'.repeat(40), filesystem: 'ext4' }, tool: { node: '/task/node', nodeSha256: 'c'.repeat(64), moduleSha256: 'd'.repeat(64), sdk: '/task/sdk', feed: '/task/feed', feedDigest: 'e'.repeat(64) }, guest: { uid: 1234, gid: 5678, user: 'guest', home: '/guest', runtimeDirectory: '/run/user/1234', userBus: '/run/user/1234/bus' }, limits: { logBytes: 128, deadlineMs: 3000, killGraceMs: 50, pollIntervalMs: 10 } };
     const call = buildOriginalCall(plan);
     assert.equal(call.args[0], '/task/source/tools/docs/prepare-behavior-doc-nuget.mjs');
     assert.equal(call.env.HOME, '/guest');
     assert.equal(call.env.DBUS_SESSION_BUS_ADDRESS, 'unix:path=/run/user/1234/bus');
     assert.deepEqual(call.args.slice(1), ['--run-id', 'owned-run', '--out', '/task/source/.tmp/behavior-doc-nuget-preparation/owned-run.json', '--feed-root', '/task/feed', '--feed-digest', 'e'.repeat(64)]);
+    const matrix = buildOriginalCall({ ...plan, tool: { ...plan.tool, purpose: 'matrix-native' } });
+    assert.deepEqual(matrix.args.slice(-2), ['--purpose', 'matrix-native']);
+    assert.equal(matrix.env.FSUSBLOG_CONTENT_FIELD_DOTNET, '/task/sdk/dotnet');
+    assert.throws(() => buildOriginalCall({ ...plan, tool: { ...plan.tool, purpose: 'foreign' } }), /Unknown/u);
 });
 
-test('carrier default inspect holds current closure without any execution or disk effects; helper drift refuses', async () => {
+test('carrier default inspect holds current closure without any execution or disk effects; helper drift refuses', async () =>
+{
     const fixture = fs.mkdtempSync(path.join(root, 'inspect-'));
     const move = item => {
         const file = path.join(fixture, path.basename(item.file));
@@ -204,19 +221,29 @@ test('carrier default inspect holds current closure without any execution or dis
     const originalLog = console.log;
     const messages = [];
     console.log = value => messages.push(JSON.parse(value));
-    try {
+    try
+    {
         assert.equal(await carrierMain(['--plan', planFile, '--plan-sha256', sha256(fs.readFileSync(planFile))]), 0);
         assert.deepEqual(messages[0].executions, []);
         assert.equal(messages[0].runRoot, null);
         assert.deepEqual(fs.readdirSync(fixture).sort(), before);
         const originalOpen = fs.openSync;
-        fs.openSync = (file, flags, ...rest) => {
-            if (file === plan.boot.seed && flags === (fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)) throw new Error('controlled seed custody failure');
+        fs.openSync = (file, flags, ...rest) =>
+        {
+            if (file === plan.boot.seed && flags === (fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW))
+            {
+                throw new Error('controlled seed custody failure');
+            }
             return originalOpen(file, flags, ...rest);
         };
-        try {
+        try
+        {
             assert.equal(await carrierMain(['--plan', planFile, '--plan-sha256', sha256(fs.readFileSync(planFile))]), 1);
-        } finally { fs.openSync = originalOpen; }
+        }
+        finally
+        {
+            fs.openSync = originalOpen;
+        }
         const produced = messages.at(-1);
         assert.equal(produced.firstFailure.message, 'controlled seed custody failure');
         assert.equal(produced.schema, 'fsusblog.failed-run-carrier.v2');
@@ -226,10 +253,23 @@ test('carrier default inspect holds current closure without any execution or dis
         requireParentClosure(consumed, produced.afterClosure, fixture);
         const goodParent = JSON.parse(fs.readFileSync(receipt));
         for (const altered of [
-            value => { value.beforeClosure.images = []; value.afterClosure.images = []; },
-            value => { value.beforeClosure.seed.sha256 = 'f'.repeat(64); value.afterClosure.seed.sha256 = 'f'.repeat(64); },
-            value => { value.beforeClosure.toolchain.inputs[0].sha256 = 'f'.repeat(64); value.afterClosure.toolchain.inputs[0].sha256 = 'f'.repeat(64); }
-        ]) {
+            value =>
+            {
+                value.beforeClosure.images = [];
+                value.afterClosure.images = [];
+            },
+            value =>
+            {
+                value.beforeClosure.seed.sha256 = 'f'.repeat(64);
+                value.afterClosure.seed.sha256 = 'f'.repeat(64);
+            },
+            value =>
+            {
+                value.beforeClosure.toolchain.inputs[0].sha256 = 'f'.repeat(64);
+                value.afterClosure.toolchain.inputs[0].sha256 = 'f'.repeat(64);
+            }
+        ])
+        {
             const substituted = structuredClone(goodParent);
             altered(substituted);
             fs.writeFileSync(receipt, JSON.stringify(substituted));
@@ -244,7 +284,11 @@ test('carrier default inspect holds current closure without any execution or dis
         plan.sourceInputs[0].sha256 = '0'.repeat(64);
         fs.writeFileSync(planFile, JSON.stringify(plan));
         await assert.rejects(carrierMain(['--plan', planFile, '--plan-sha256', sha256(fs.readFileSync(planFile))]), /source helper SHA drift/);
-    } finally { console.log = originalLog; }
+    }
+    finally
+    {
+        console.log = originalLog;
+    }
 });
 
 test('exclusive raw log setup refuses an existing symlink and closes earlier descriptor', async () => {

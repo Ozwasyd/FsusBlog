@@ -160,6 +160,33 @@ The end-to-end test selects `png-alpha` from MediaShapeCatalog, obtains verified
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.
 
+## Offline native dependency preparation
+
+The original `tools/docs/prepare-behavior-doc-nuget.mjs` has two distinct dependency
+preparation purposes. The default remains BehaviorDoc; `--purpose matrix-native`
+binds the actual extractor/backend projects declared by
+`tools/testing/content-shape-catalog.mjs` through `FsusBlog.MatrixNativeRestore.slnx`.
+Its closure includes every referenced project lock and source, the solution, the
+native caller owner, and the Dockerfile SDK/runtime pins. It also observes the
+complete canonical SDK/compiler/runtime input bytes without launching the SDK.
+`DOTNET_ROOT`, `PATH` and `FSUSBLOG_CONTENT_FIELD_DOTNET` must select that same
+single pinned SDK. The guest caller's frozen `tool.purpose` selects this purpose
+and retains its existing exact source, readonly mounts, task lock and raw terminal
+observation checks.
+
+Both purposes use the original independent per-transfer capacity reservation,
+candidate lease, owned directories, sealed finite archive feed, ordered locked
+offline restore, private temporary directory and protected physical execution.
+The `matrix-governance` and `validate-matrix` callers require an explicit
+`FSUSBLOG_MATRIX_NATIVE_NUGET_PREPARATION` descriptor. Their original deterministic
+runner checks it through the strict matrix reader before seeding the current
+attempt's private NuGet cache. BehaviorDoc descriptors and historical transfers
+cannot qualify this ingress, even when the package rosters overlap. Missing or
+cross-purpose preparation refuses before native launch. Dependency transfer
+remains nonqualifying; the actual native restore/rebuild and complete applicable
+CI controls retain their original owners and acceptance requirements. Downloaded
+archives or SDK inventory alone do not establish an admitted offline transfer.
+
 ## Fixture mutation and exact-recovery qualification
 
 `tools/test-fixtures/mutation-recovery/` is the only test-only semantic observation, mutation and same-profile recovery authority. It consumes the verified current `fsusblog.fixture-receipt.v2`, the sealed producer plan and `config/testing/fixture-mutation-envelope-catalog.json`; it never copies expected fixture values from producer source. A snapshot request binds run/source/profile, catalog and receipt digests, temporal context, provider, service generation and the observed backend/database/Redis runtime identity. The observer streams receipt-owned entities, relations, outbox rows, exact Redis TTL/generation, media byte digests and API/service projections together with explicitly catalogued nonowned sentinels into content-addressed bounded shards. The observer must stream records in canonical semantic-key order; duplicate or out-of-order input fails instead of being accumulated and resorted in memory.
@@ -1110,6 +1137,13 @@ inventory entries from this same owner, retaining first-failure blocking and zer
 retry policy. Registration and source-order checks are not actual compiler/SQL
 qualification; successful native scheduler MySQL allocation and canonical locked dependencies
 remain prerequisites.
+
+Correctness attempt migration validates the complete current producer inventory
+against its canonical matrix, physical and reliability authorities before checking
+execution-envelope ownership. Its cardinality follows that exact roster rather
+than a historical fixed count. Missing, extra, duplicate or crossed-authority
+entries remain failures even when their enclosing digest is recomputed. A freshly
+generated inventory refresh is source evidence, not a qualification receipt.
 
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or
