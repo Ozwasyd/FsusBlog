@@ -175,8 +175,12 @@
                         "binary-api-aeds-contract.response-non-nullable",
                         "binary-api-aeds-contract.response-result-placement"
                     ],
-                    "sectionIds": ["api.operations"],
-                    "proofIds": ["binary-api-aeds-contract"]
+                    "sectionIds": [
+                        "api.operations"
+                    ],
+                    "proofIds": [
+                        "binary-api-aeds-contract"
+                    ]
                 },
                 {
                     "path": "docs/api/aeds-only-policy.md",
@@ -192,23 +196,37 @@
                         "api.protocol",
                         "api.protocol-states"
                     ],
-                    "proofIds": ["binary-api-aeds-contract"]
+                    "proofIds": [
+                        "binary-api-aeds-contract"
+                    ]
                 },
                 {
                     "path": "docs/api/contracts.md",
                     "owner": "backend",
                     "anchor": "protocol.aeds-contract",
-                    "claimIds": ["binary-api-aeds-contract.aeds-version"],
-                    "sectionIds": ["api.aeds-version"],
-                    "proofIds": ["binary-api-aeds-contract"]
+                    "claimIds": [
+                        "binary-api-aeds-contract.aeds-version"
+                    ],
+                    "sectionIds": [
+                        "api.aeds-version"
+                    ],
+                    "proofIds": [
+                        "binary-api-aeds-contract"
+                    ]
                 },
                 {
                     "path": "docs/api/quick-reference.md",
                     "owner": "backend",
                     "anchor": "protocol.operation-keys",
-                    "claimIds": ["binary-api-aeds-contract.operation-keys"],
-                    "sectionIds": ["api.operation-keys"],
-                    "proofIds": ["binary-api-aeds-contract"]
+                    "claimIds": [
+                        "binary-api-aeds-contract.operation-keys"
+                    ],
+                    "sectionIds": [
+                        "api.operation-keys"
+                    ],
+                    "proofIds": [
+                        "binary-api-aeds-contract"
+                    ]
                 },
                 {
                     "path": "docs/api/schemas-and-errors.md",
@@ -224,15 +242,23 @@
                         "api.error-authority-reference",
                         "api.operation-count"
                     ],
-                    "proofIds": ["binary-api-aeds-contract"]
+                    "proofIds": [
+                        "binary-api-aeds-contract"
+                    ]
                 },
                 {
                     "path": "docs/api/stability.md",
                     "owner": "backend",
                     "anchor": "protocol.observation-identity",
-                    "claimIds": ["binary-api-aeds-contract.observation-digest"],
-                    "sectionIds": ["api.observation-digest"],
-                    "proofIds": ["binary-api-aeds-contract"]
+                    "claimIds": [
+                        "binary-api-aeds-contract.observation-digest"
+                    ],
+                    "sectionIds": [
+                        "api.observation-digest"
+                    ],
+                    "proofIds": [
+                        "binary-api-aeds-contract"
+                    ]
                 }
             ],
             "crossDomainReferences": [
@@ -240,7 +266,10 @@
                     "domain": "security",
                     "behaviorId": "configuration-error-security-policy",
                     "documentPath": "docs/api/schemas-and-errors.md",
-                    "factIds": ["facts.error-codes.domain.active", "facts.error-codes.transport-mapping"]
+                    "factIds": [
+                        "facts.error-codes.domain.active",
+                        "facts.error-codes.transport-mapping"
+                    ]
                 }
             ],
             "mutationPolicy": {
@@ -296,30 +325,57 @@
             "implementationOwnerCardinality": "one",
             "allowedImplementationOwnerRoles": [],
             "factExtractorId": "test-matrix-fact-extractor",
-            "requiredTestKinds": ["positive", "negative"],
+            "requiredTestKinds": [
+                "positive",
+                "negative"
+            ],
             "documentationPolicy": "required",
             "documentationRationale": "Current release documentation states the aggregate-only finalizer and current-run evidence contract.",
-            "allowedClaimTypes": ["operational", "safety"],
+            "allowedClaimTypes": [
+                "operational",
+                "safety"
+            ],
             "releaseQualification": true,
             "evidenceStage": "pre-runtime",
-            "coverageIds": ["release-final-publish-credential"],
-            "documents": ["docs/testing.md", "docs/releases/release-identity.md"],
+            "coverageIds": [
+                "release-final-publish-credential"
+            ],
+            "documents": [
+                "docs/testing.md",
+                "docs/releases/release-identity.md"
+            ],
             "documentAuthorities": [
                 {
                     "path": "docs/testing.md",
                     "owner": "release",
                     "anchor": "release.finalizer-contract",
-                    "claimIds": ["release-final-aggregate-contract.finalizer"],
-                    "sectionIds": ["release.finalizer-contract"],
-                    "proofIds": ["release-final-coverage-thresholds", "release-final-shard-completeness"]
+                    "claimIds": [
+                        "release-final-aggregate-contract.finalizer-authority"
+                    ],
+                    "sectionIds": [
+                        "release.finalizer-authority"
+                    ],
+                    "proofIds": [
+                        "release-final-coverage-thresholds",
+                        "release-final-shard-completeness"
+                    ]
                 },
                 {
                     "path": "docs/releases/release-identity.md",
                     "owner": "release",
                     "anchor": "release.current-run-identity",
-                    "claimIds": ["release-final-aggregate-contract.current-run-binding"],
-                    "sectionIds": ["release.current-run-binding"],
-                    "proofIds": ["immutable-release-identity", "release-final-publish-credential"]
+                    "claimIds": [
+                        "release-final-aggregate-contract.aggregate-only",
+                        "release-final-aggregate-contract.aggregate-artifact-only",
+                        "release-final-aggregate-contract.aggregate-contract"
+                    ],
+                    "sectionIds": [
+                        "release.aggregate-contract"
+                    ],
+                    "proofIds": [
+                        "immutable-release-identity",
+                        "release-final-publish-credential"
+                    ]
                 }
             ]
         },
@@ -331,30 +387,59 @@
             "implementationOwnerCardinality": "one",
             "allowedImplementationOwnerRoles": [],
             "factExtractorId": "test-matrix-fact-extractor",
-            "requiredTestKinds": ["positive", "negative", "concurrency"],
+            "requiredTestKinds": [
+                "positive",
+                "negative",
+                "concurrency"
+            ],
             "documentationPolicy": "required",
             "documentationRationale": "Current deployment documentation states blue-green active-release protection and runtime-role composition.",
-            "allowedClaimTypes": ["operational", "safety"],
+            "allowedClaimTypes": [
+                "operational",
+                "safety"
+            ],
             "releaseQualification": true,
             "evidenceStage": "pre-runtime",
-            "coverageIds": ["blue-green-slot-orchestration", "deployment-runtime-lifecycle"],
-            "documents": ["docs/releases/blue-green-deployment-runbook.md", "docs/architecture/monolithic-distributed-boundary.md"],
+            "coverageIds": [
+                "blue-green-slot-orchestration",
+                "deployment-runtime-lifecycle"
+            ],
+            "documents": [
+                "docs/releases/blue-green-deployment-runbook.md",
+                "docs/architecture/monolithic-distributed-boundary.md"
+            ],
             "documentAuthorities": [
                 {
                     "path": "docs/releases/blue-green-deployment-runbook.md",
                     "owner": "release",
                     "anchor": "deployment.blue-green-contract",
-                    "claimIds": ["deployment-blue-green-runtime-role.blue-green"],
-                    "sectionIds": ["deployment.blue-green-contract"],
-                    "proofIds": ["blue-green-slot-orchestration", "blue-green-release-storage-lifecycle"]
+                    "claimIds": [
+                        "deployment-blue-green-runtime-role.claims-blocked-until-authority-verified",
+                        "deployment-blue-green-runtime-role.blue-green-contract"
+                    ],
+                    "sectionIds": [
+                        "deployment.blue-green-contract"
+                    ],
+                    "proofIds": [
+                        "blue-green-slot-orchestration",
+                        "blue-green-release-storage-lifecycle"
+                    ]
                 },
                 {
                     "path": "docs/architecture/monolithic-distributed-boundary.md",
                     "owner": "backend",
                     "anchor": "deployment.runtime-role-contract",
-                    "claimIds": ["deployment-blue-green-runtime-role.runtime-role"],
-                    "sectionIds": ["deployment.runtime-role-contract"],
-                    "proofIds": ["deployment-runtime-lifecycle"]
+                    "claimIds": [
+                        "deployment-blue-green-runtime-role.distributed-issue-rationale",
+                        "deployment-blue-green-runtime-role.monolithic-distributed-rationale",
+                        "deployment-blue-green-runtime-role.runtime-roles"
+                    ],
+                    "sectionIds": [
+                        "deployment.runtime-roles"
+                    ],
+                    "proofIds": [
+                        "deployment-runtime-lifecycle"
+                    ]
                 }
             ]
         },

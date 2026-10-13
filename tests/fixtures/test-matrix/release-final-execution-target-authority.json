@@ -2120,8 +2120,8 @@
         },
         {
             "path": "tests/tools/native-tooling-style.test.mjs",
-            "contentDigest": "sha256:fa0ad3f836d8496f92449ef1a515e95f32b54bd4820b610d90c3914e9ca59bfd",
-            "indexDigest": "sha256:fa0ad3f836d8496f92449ef1a515e95f32b54bd4820b610d90c3914e9ca59bfd"
+            "contentDigest": "sha256:f6096a9ce45b80a80a511d8e40461b234b10cfb5be5d38bd4e4286d46a2e7890",
+            "indexDigest": "sha256:f6096a9ce45b80a80a511d8e40461b234b10cfb5be5d38bd4e4286d46a2e7890"
         },
         {
             "path": "tests/tools/no-global-dotnet-build-server-shutdown.test.mjs",
@@ -2875,13 +2875,13 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267",
-            "indexDigest": "sha256:87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267"
+            "contentDigest": "sha256:560231b76d440a3caa849c9b9565800123b4e85628e9f272264ee8be1a97f364",
+            "indexDigest": "sha256:560231b76d440a3caa849c9b9565800123b4e85628e9f272264ee8be1a97f364"
         },
         {
             "path": "tools/docs/check-document-claim-migration-ledger.mjs",
-            "contentDigest": "sha256:a1e178cd75c88a290beb9af27d222b39448ebc3b73c70462425013e093ad72f8",
-            "indexDigest": "sha256:a1e178cd75c88a290beb9af27d222b39448ebc3b73c70462425013e093ad72f8"
+            "contentDigest": "sha256:90c434af365922f57d7b9c05e5d6f1ada67bd51e4eac83e1daf76c35fef494f1",
+            "indexDigest": "sha256:90c434af365922f57d7b9c05e5d6f1ada67bd51e4eac83e1daf76c35fef494f1"
         },
         {
             "path": "tools/docs/check-github-label-governance.mjs",
@@ -2960,13 +2960,13 @@
         },
         {
             "path": "tools/docs/generated-fact-sections/renderers.mjs",
-            "contentDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37",
-            "indexDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37"
+            "contentDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff",
+            "indexDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff"
         },
         {
             "path": "tools/docs/global-claim-exactness-final.mjs",
-            "contentDigest": "sha256:5be40e110c6185af8d140fa42b6fbcf3267ad158794f5dd26605e9b89da3baca",
-            "indexDigest": "sha256:5be40e110c6185af8d140fa42b6fbcf3267ad158794f5dd26605e9b89da3baca"
+            "contentDigest": "sha256:4474a928443244a7bda34420530e31757c8fbd5a761fbd95b4572b1bef27baf4",
+            "indexDigest": "sha256:4474a928443244a7bda34420530e31757c8fbd5a761fbd95b4572b1bef27baf4"
         },
         {
             "path": "tools/docs/lib/matrix.mjs",
@@ -2975,8 +2975,8 @@
         },
         {
             "path": "tools/docs/post-runtime-accepted-claims.mjs",
-            "contentDigest": "sha256:5c49247b856cffec41e3109b4204abe1e328cc14b2e0d8387fb92db631f6f5b6",
-            "indexDigest": "sha256:5c49247b856cffec41e3109b4204abe1e328cc14b2e0d8387fb92db631f6f5b6"
+            "contentDigest": "sha256:5f5b1337ae80d25157a191d4571dcf6a3830cbfd1888f3f09ca6e7dd8a59d929",
+            "indexDigest": "sha256:5f5b1337ae80d25157a191d4571dcf6a3830cbfd1888f3f09ca6e7dd8a59d929"
         },
         {
             "path": "tools/docs/prose-claim-verifier/errors.mjs",
@@ -4375,8 +4375,8 @@
         },
         {
             "path": "tools/test-matrix/post-runtime-producer-registry.mjs",
-            "contentDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89",
-            "indexDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89"
+            "contentDigest": "sha256:2b455d02e08fc9261982284be7121dc171b5e1e5671b3133aa720e166886ea81",
+            "indexDigest": "sha256:2b455d02e08fc9261982284be7121dc171b5e1e5671b3133aa720e166886ea81"
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
@@ -4900,8 +4900,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
+            "indexDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",

@@ -210,6 +210,19 @@ function parseCanonicalAuthorityJson(content, indentation, label)
     return document;
 }
 
+function parseAuthorityLockJson(content, parser, label)
+{
+    try
+    {
+        const source = new TextDecoder('utf-8', { fatal: true }).decode(content);
+        return parseMachineJson(source, yamlParserAuthority.lockPath, parser);
+    }
+    catch (error)
+    {
+        zeroLegacyFail(`${label} must be strict duplicate-free JSON: ${error.message}`);
+    }
+}
+
 function admittedInventoryAuthority(repositoryRoot, inventory, relative, options = {})
 {
     const entry = inventory.files.find((candidate) => candidate.file === relative);
@@ -281,7 +294,8 @@ function canonicalYamlParser(repositoryRoot, inventory)
     const consumer = parseCanonicalAuthorityJson(consumerAuthority.content, 4, 'YAML parser consumer');
     const lockAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.lockPath,
         { expectedModes: [0o600, 0o644, 0o664] });
-    const lock = parseCanonicalAuthorityJson(lockAuthority.content, 2, 'YAML parser package lock');
+    const lock = parseAuthorityLockJson(lockAuthority.content,
+        canonicalJsoncParser(repositoryRoot, inventory), 'YAML parser package lock');
     const packageAuthority = readCanonicalAuthorityFile(repositoryRoot, yamlParserAuthority.packagePath, {
         expectedDigest: yamlParserAuthority.packageSha256,
         expectedModes: [0o644, 0o664]
@@ -318,7 +332,6 @@ function canonicalJsoncParser(repositoryRoot, inventory)
     const consumer = parseCanonicalAuthorityJson(consumerAuthority.content, 4, 'JSONC parser consumer');
     const lockAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.lockPath,
         { expectedModes: [0o600, 0o644, 0o664] });
-    const lock = parseCanonicalAuthorityJson(lockAuthority.content, 2, 'JSONC parser package lock');
     const packageAuthority = readCanonicalAuthorityFile(repositoryRoot, jsoncParserAuthority.packagePath, {
         expectedDigest: jsoncParserAuthority.packageSha256,
         expectedModes: [0o644, 0o664]
@@ -328,6 +341,12 @@ function canonicalJsoncParser(repositoryRoot, inventory)
         expectedDigest: jsoncParserAuthority.bundleSha256,
         expectedModes: [0o644, 0o664]
     });
+    const parser = executeSealedCommonJs(bundleAuthority, path.resolve(repositoryRoot, jsoncParserAuthority.bundlePath));
+    if (typeof parser?.parseJsonText !== 'function')
+    {
+        zeroLegacyFail('sealed JSONC parser export is invalid');
+    }
+    const lock = parseAuthorityLockJson(lockAuthority.content, parser, 'JSONC parser package lock');
     const consumerVersion = consumer.devDependencies?.[jsoncParserAuthority.dependencyName];
     const lockedConsumerVersion = lock.packages?.['']?.devDependencies?.[jsoncParserAuthority.dependencyName];
     const lockedPackage = lock.packages?.['node_modules/typescript'];
@@ -338,11 +357,6 @@ function canonicalJsoncParser(repositoryRoot, inventory)
         || !lockedPackage.integrity.startsWith('sha512-'))
     {
         zeroLegacyFail('JSONC parser consumer and package-lock chain is not exact');
-    }
-    const parser = executeSealedCommonJs(bundleAuthority, path.resolve(repositoryRoot, jsoncParserAuthority.bundlePath));
-    if (typeof parser?.parseJsonText !== 'function')
-    {
-        zeroLegacyFail('sealed JSONC parser export is invalid');
     }
     return parser;
 }

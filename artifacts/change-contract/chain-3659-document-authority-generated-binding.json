@@ -1,0 +1,52 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/contracts/behavior-contracts.json",
+        "tools/docs/check-document-claim-migration-ledger.mjs",
+        "tools/docs/global-claim-exactness-final.mjs",
+        "tools/docs/post-runtime-accepted-claims.mjs",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/test-matrix/post-runtime-producer-registry.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "docs/development/behavior-contracts.generated.md",
+            "sha256": "70e60fc64371a8d37041a33829095f7aca3537ecce44f826b1c7d7526b18b972"
+        },
+        {
+            "path": "src/frontend/src/contracts/behaviorContractCatalog.ts",
+            "sha256": "a84c2cbd318dbf832af777911e5d074715f93526f06871b316a77839ef326087"
+        },
+        {
+            "path": "src/shared/Contracts/Governance/BehaviorContractCatalog.g.cs",
+            "sha256": "06b2d466660849fd1cfccc45f3cfb0ceee8bc9e314c7c4e2ab4c3815e2f42d27"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "84feee48e161bb73ed9cee0689afab85e7f0326a810e4923981da6f787e7f965"
+        },
+        {
+            "path": "docs/api.md",
+            "sha256": "f46980c91ebedd1a3e937edb21252442ecf053b423c214d586027ded047c28f3"
+        },
+        {
+            "path": "docs/api/aeds-only-policy.md",
+            "sha256": "122283a1e3b68230dba31fc8ecf1a1d16e6cfdd47638d5f561d2b7284610cdd6"
+        },
+        {
+            "path": "docs/api/quick-reference.md",
+            "sha256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000"
+        },
+        {
+            "path": "docs/api/schemas-and-errors.md",
+            "sha256": "8dc95c928f7da8180415cf5cc763931047e09dc7da519369d169a2edbffa3194"
+        },
+        {
+            "path": "docs/api/stability.md",
+            "sha256": "ab50e4d4783383c40ff6b96895d7f416e14dd7838ed63c3dc2d8ae4a230b1bf2"
+        }
+    ]
+}

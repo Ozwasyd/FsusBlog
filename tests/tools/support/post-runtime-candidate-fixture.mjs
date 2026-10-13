@@ -16,6 +16,7 @@ import {
   loadPostRuntimeProducerRegistry,
   root
 } from '../../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { loadGlobalDocumentAuthority } from '../../../tools/docs/global-claim-exactness-final.mjs'
 import { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication }
   from '../../../tools/test/current-run-evidence-publication.mjs'
 
@@ -49,17 +50,11 @@ export function createPostRuntimeCandidateFixture(context, {
   const commit = resolveSourceCommit(root)
   const worktreeFingerprint = resolveWorktreeFingerprint(root)
   const sourceState = { commit, worktreeFingerprint }
-  const ledger = JSON.parse(fs.readFileSync(
-    path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
-  const claimAcceptance = ledger.scopes.flatMap((scope) => scope.entries.flatMap((entry) =>
-    entry.claimIds.map((claimId, index) => ({
-      claimId, behaviorId: BehaviorId(entry.behaviorId), scopeId: scope.scopeId,
-      documentPath: entry.documentPath,
-      claimType: entry.generatedSectionIds[index] ? 'generated-section' : 'prose',
-      generatedSectionId: entry.generatedSectionIds[index] ?? null,
-      claimDigest: `sha256:${digestValue({ claimId })}`
-    })))).sort((left, right) => left.claimId.localeCompare(right.claimId))
-  const generatedClaimCount = claimAcceptance.filter((claim) => claim.claimType === 'generated-section').length
+  const documentAuthority = loadGlobalDocumentAuthority(root)
+  const claimAcceptance = documentAuthority.claimAcceptance
+  const summary = documentAuthority.ledgerSummary
+  const generatedClaimCount = summary.generatedClaimCount
+  // Synthetic consumer envelope; this is not a compiled-observation acceptance receipt.
   const terminal = globalSeal({
     schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
     scopeId: 'global-document-claim-exactness',
@@ -67,16 +62,14 @@ export function createPostRuntimeCandidateFixture(context, {
     source: {
       sourceCommit: commit,
       worktreeFingerprint,
-      catalogDigest: '1'.repeat(64),
-      migrationLedgerDigest: digestValue(ledger),
-      sectionCatalogDigest: '2'.repeat(64),
+      ...documentAuthority.documentAuthorityDigests,
       observationDigests: {}
     },
     authorityDigests: [],
     counts: {
-      requiredBehaviors: 10, scopes: 6, ledgerEntries: 10,
-      generatedClaimCount, proseClaimCount: claimAcceptance.length - generatedClaimCount, proseTotal: 1, proseVerified: 1,
-      generatedSectionsVerified: 1, generatedSectionDrifts: 0, missing: 0, extra: 0,
+      requiredBehaviors: summary.requiredBehaviorCount, scopes: summary.scopeCount, ledgerEntries: summary.entryCount,
+      generatedClaimCount, proseClaimCount: claimAcceptance.length - generatedClaimCount, proseTotal: summary.proseClaimCount, proseVerified: summary.proseClaimCount,
+      generatedSectionsVerified: generatedClaimCount, generatedSectionDrifts: 0, missing: 0, extra: 0,
       residue: 0, mutationKilled: 1, mutationTotal: 1, warnings: 0
     },
     mutationAggregate: { killed: 1, total: 1 },

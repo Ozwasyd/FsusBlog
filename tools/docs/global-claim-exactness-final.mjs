@@ -23,11 +23,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const { BehaviorId, digestCatalog, loadCatalog } = await import(new URL('../contracts/behavior-contract-catalog.mjs', import.meta.url));
+const { BehaviorId, digestCatalog, digestDocumentOwnership, loadCatalog, validateCatalog } = await import(new URL('../contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { digestValue } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
 const { readFactObservationReceipt } = await import(new URL('../fact-extractors/reader.mjs', import.meta.url));
 import { scanApiProtocolDocResidue, runApiProtocolDocMutationCases } from './api-protocol-doc-exactness.mjs';
-import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
+import { validateMigrationLedgerData } from './check-document-claim-migration-ledger.mjs';
 import { scanContentResidues } from './content-doc-exactness.mjs';
 import { parseRepositoryClaims } from './doc-claim.mjs';
 import { renderSectionFromReceipt } from './generated-fact-sections/generator.mjs';
@@ -122,13 +122,42 @@ export function runGlobalMutationAggregate()
     });
 }
 
-export async function loadGlobalExactnessInputs(repositoryRoot, observationReceiptPaths)
+export function loadGlobalDocumentAuthority(repositoryRoot = root)
 {
     const catalog = loadCatalog(path.join(repositoryRoot, 'config/contracts/behavior-contracts.json'));
     const lifecycle = readJson(repositoryRoot, 'config/development/document-lifecycle.json');
     const migrationLedger = readJson(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json');
     const sectionCatalog = readJson(repositoryRoot, 'config/contracts/generated-fact-sections.json');
     const claimReceipt = parseRepositoryClaims(repositoryRoot, { catalog });
+    validateCatalog(catalog, repositoryRoot);
+    const ledgerSummary = validateMigrationLedgerData({
+        ledger: migrationLedger, catalog, lifecycle, claims: claimReceipt.claims, sectionCatalog
+    });
+    const claimOwners = new Map(migrationLedger.scopes.flatMap((scope) => scope.entries.flatMap((entry) =>
+        entry.claimIds.map((claimId) => [claimId, { scopeId: scope.scopeId }]))));
+    const claimAcceptance = claimReceipt.claims.map((claim) => ({
+        claimId: claim.declaration.claimId,
+        behaviorId: BehaviorId(claim.declaration.behaviorId),
+        scopeId: claimOwners.get(claim.declaration.claimId).scopeId,
+        documentPath: claim.location.documentPath,
+        claimType: claim.declaration.claimType,
+        generatedSectionId: claim.declaration.claimType === 'generated-section' ? claim.declaration.generatedSectionId : null,
+        claimDigest: `sha256:${digestValue({ declaration: claim.declaration, location: claim.location })}`
+    })).sort((left, right) => left.claimId.localeCompare(right.claimId));
+    const documentAuthorityDigests = {
+        catalogDigest: digestCatalog(catalog),
+        documentOwnershipDigest: digestDocumentOwnership(catalog, lifecycle),
+        migrationLedgerDigest: digestValue(migrationLedger),
+        claimsDigest: digestValue(claimReceipt.claims),
+        sectionCatalogDigest: digestValue(sectionCatalog)
+    };
+    return { catalog, lifecycle, migrationLedger, sectionCatalog, claimReceipt, ledgerSummary,
+        claimAcceptance, documentAuthorityDigests };
+}
+
+export async function loadGlobalExactnessInputs(repositoryRoot, observationReceiptPaths)
+{
+    const authority = loadGlobalDocumentAuthority(repositoryRoot);
     const receipts = observationReceiptPaths.map((entry) =>
     {
         const raw = typeof entry === 'string'
@@ -136,7 +165,7 @@ export async function loadGlobalExactnessInputs(repositoryRoot, observationRecei
             : structuredClone(entry);
         return { raw, view: readFactObservationReceipt(raw) };
     });
-    return { catalog, lifecycle, migrationLedger, sectionCatalog, claimReceipt, receipts };
+    return { ...authority, receipts };
 }
 
 export async function buildGlobalClaimExactnessReceipt({
@@ -157,7 +186,7 @@ export async function buildGlobalClaimExactnessReceipt({
         && contract.documentationPolicy === 'required');
     const requiredById = new Map(required.map((entry) => [entry.id, entry]));
 
-    const ledgerSummary = validateRepositoryMigrationLedger(repositoryRoot);
+    const ledgerSummary = inputs.ledgerSummary;
     if (ledgerSummary.requiredBehaviorCount !== required.length)
     {
         failureReasons.push(`migration ledger covers ${ledgerSummary.requiredBehaviorCount} behaviors but catalog requires ${required.length}`);
@@ -203,86 +232,7 @@ export async function buildGlobalClaimExactnessReceipt({
         claimsByBehavior.set(claim.declaration.behaviorId, list);
     }
 
-    const claimOwners = new Map();
-    for (const scope of inputs.migrationLedger.scopes ?? [])
-    {
-        for (const entry of scope.entries ?? [])
-        {
-            for (const claimId of entry.claimIds ?? [])
-            {
-                if (claimOwners.has(claimId))
-                {
-                    failureReasons.push(`duplicate migration-ledger owner for claim ${claimId}`);
-                    continue;
-                }
-                claimOwners.set(claimId, {
-                    behaviorId: BehaviorId(entry.behaviorId),
-                    scopeId: scope.scopeId,
-                    documentPath: entry.documentPath,
-                    entryKey: `${scope.scopeId}\u0000${entry.behaviorId}\u0000${entry.documentPath}`,
-                    generatedSectionIds: [...(entry.generatedSectionIds ?? [])].sort()
-                });
-            }
-        }
-    }
-    const claimAcceptance = inputs.claimReceipt.claims.map((claim) =>
-    {
-        const declaration = claim.declaration;
-        const owner = claimOwners.get(declaration.claimId);
-        if (!owner || owner.behaviorId !== declaration.behaviorId
-            || owner.documentPath !== claim.location.documentPath)
-        {
-            failureReasons.push(`claim ${declaration.claimId} has no exact migration-ledger owner`);
-        }
-        const generatedSectionId = declaration.claimType === 'generated-section'
-            ? declaration.generatedSectionId
-            : null;
-        if (owner && generatedSectionId !== null
-            && !owner.generatedSectionIds.includes(generatedSectionId))
-        {
-            failureReasons.push(`claim ${declaration.claimId} generated-section ownership mismatch`);
-        }
-        const identity = {
-            claimId: declaration.claimId,
-            behaviorId: BehaviorId(declaration.behaviorId),
-            scopeId: owner?.scopeId ?? 'unowned',
-            documentPath: claim.location.documentPath,
-            claimType: declaration.claimType,
-            generatedSectionId
-        };
-        return {
-            ...identity,
-            claimDigest: `sha256:${digestValue({
-                declaration: claim.declaration,
-                location: claim.location
-            })}`
-        };
-    }).sort((left, right) => left.claimId.localeCompare(right.claimId));
-    if (new Set(claimAcceptance.map((entry) => entry.claimId)).size !== claimAcceptance.length)
-    {
-        failureReasons.push('global claim acceptance contains duplicate claim IDs');
-    }
-    if (claimAcceptance.length !== claimOwners.size)
-    {
-        failureReasons.push('global claim acceptance does not exact-match migration-ledger claim IDs');
-    }
-    const ledgerEntries = new Map();
-    for (const owner of claimOwners.values())
-    {
-        ledgerEntries.set(owner.entryKey, owner);
-    }
-    for (const owner of ledgerEntries.values())
-    {
-        const actualSections = claimAcceptance
-            .filter((entry) => claimOwners.get(entry.claimId)?.entryKey === owner.entryKey)
-            .map((entry) => entry.generatedSectionId)
-            .filter((sectionId) => sectionId !== null)
-            .sort();
-        if (JSON.stringify(actualSections) !== JSON.stringify(owner.generatedSectionIds))
-        {
-            failureReasons.push(`migration-ledger generated sections mismatch for ${owner.documentPath}`);
-        }
-    }
+    const claimAcceptance = inputs.claimAcceptance;
 
     let proseTotal = 0;
     const proseClaims = [];
@@ -381,9 +331,7 @@ export async function buildGlobalClaimExactnessReceipt({
         source: {
             sourceCommit,
             worktreeFingerprint,
-            catalogDigest: digestCatalog(inputs.catalog),
-            migrationLedgerDigest: digestValue(inputs.migrationLedger),
-            sectionCatalogDigest: digestValue(inputs.sectionCatalog),
+            ...inputs.documentAuthorityDigests,
             observationDigests: Object.fromEntries(inputs.receipts.map((entry) =>
                 [entry.view.extractorId, digestValue(entry.raw)]))
         },
@@ -414,9 +362,9 @@ export async function buildGlobalClaimExactnessReceipt({
     });
 }
 
-export function validateGlobalClaimExactnessReceipt(receipt, { expectedRunId = null } = {})
+export function validateGlobalClaimExactnessReceipt(receipt, { expectedRunId = null, repositoryRoot = root } = {})
 {
-    if (receipt?.schema !== globalExactnessSchema)
+    if (receipt?.schema !== globalExactnessSchema || receipt.scopeId !== globalExactnessScopeId)
     {
         throw new Error('unexpected global exactness schema');
     }
@@ -439,6 +387,14 @@ export function validateGlobalClaimExactnessReceipt(receipt, { expectedRunId = n
     if (receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
     {
         throw new Error('global exactness contentDigest mismatch');
+    }
+    if (!receipt.counts || Object.keys(receipt.counts).sort().join('\0') !== [
+        'requiredBehaviors', 'scopes', 'ledgerEntries', 'generatedClaimCount', 'proseClaimCount',
+        'proseTotal', 'proseVerified', 'generatedSectionsVerified', 'generatedSectionDrifts',
+        'missing', 'extra', 'residue', 'mutationKilled', 'mutationTotal', 'warnings'
+    ].sort().join('\0'))
+    {
+        throw new Error('global exactness coverage fields are not sealed');
     }
     if (!Array.isArray(receipt.claimAcceptance)
         || new Set(receipt.claimAcceptance.map((entry) => entry?.claimId)).size
@@ -464,6 +420,34 @@ export function validateGlobalClaimExactnessReceipt(receipt, { expectedRunId = n
         || receipt.mutationAggregate.killed !== receipt.mutationAggregate.total)
     {
         throw new Error(`global exactness failed: ${receipt.failureReasons.join('; ')}`);
+    }
+    const authority = loadGlobalDocumentAuthority(repositoryRoot);
+    const sourceKeys = ['sourceCommit', 'worktreeFingerprint', 'observationDigests', ...Object.keys(authority.documentAuthorityDigests)];
+    if (!receipt.source || Object.keys(receipt.source).sort().join('\0') !== sourceKeys.sort().join('\0'))
+    {
+        throw new Error('global exactness source identity fields are not sealed');
+    }
+    for (const [key, digest] of Object.entries(authority.documentAuthorityDigests))
+    {
+        if (receipt.source[key] !== digest) throw new Error(`global exactness current document authority mismatch: ${key}`);
+    }
+    if (digestValue(receipt.claimAcceptance) !== digestValue(authority.claimAcceptance))
+    {
+        throw new Error('global exactness current claim acceptance mismatch');
+    }
+    const expectedCounts = {
+        requiredBehaviors: authority.ledgerSummary.requiredBehaviorCount,
+        scopes: authority.ledgerSummary.scopeCount,
+        ledgerEntries: authority.ledgerSummary.entryCount,
+        generatedClaimCount: authority.ledgerSummary.generatedClaimCount,
+        proseClaimCount: authority.ledgerSummary.proseClaimCount,
+        proseTotal: authority.ledgerSummary.proseClaimCount,
+        proseVerified: authority.ledgerSummary.proseClaimCount,
+        generatedSectionsVerified: authority.ledgerSummary.generatedClaimCount
+    };
+    for (const [key, count] of Object.entries(expectedCounts))
+    {
+        if (receipt.counts[key] !== count) throw new Error(`global exactness current coverage mismatch: ${key}`);
     }
     return receipt;
 }

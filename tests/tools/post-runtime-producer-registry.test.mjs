@@ -8,6 +8,7 @@ import test from 'node:test';
 
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const { loadGlobalDocumentAuthority } = await import(new URL('../../tools/docs/global-claim-exactness-final.mjs', import.meta.url));
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { createBrowserTemporalFixture } = await import(new URL('./support/browser-temporal-fixture.mjs', import.meta.url));
 const { deriveBrowserObservedRawFacts } = await import(new URL('../../tools/test-evidence/browser-contract-observed-facts.mjs', import.meta.url));
@@ -2205,6 +2206,8 @@ function acceptedClaimsFixture(context)
     fs.copyFileSync(
         path.join(root, 'config/schemas/post-runtime-accepted-claims.schema.json'),
         path.join(repositoryRoot, 'config/schemas/post-runtime-accepted-claims.schema.json'));
+    fs.copyFileSync(path.join(root, 'config/schemas/doc-claim.schema.json'),
+        path.join(repositoryRoot, 'config/schemas/doc-claim.schema.json'));
     const terminalRelative = `artifacts/current-run/${schedulerRunId}/${attemptId}/global-claim-exactness-final.terminal.json`;
     const referenceRelative = `artifacts/current-run/${schedulerRunId}/${attemptId}/global-claim-exactness-final.reference.json`;
     const terminalPath = path.join(repositoryRoot, terminalRelative);
@@ -2227,22 +2230,11 @@ function acceptedClaimsFixture(context)
             }
         }
     }
-    const claimAcceptance = [...owners.values()].map((owner) => ({
-        claimId: owner.claimId,
-        behaviorId: BehaviorId(owner.behaviorId),
-        scopeId: owner.scopeId,
-        documentPath: owner.documentPath,
-        claimType: owner.generatedSectionId === null ? 'prose' : 'generated-section',
-        generatedSectionId: owner.generatedSectionId,
-        claimDigest: `sha256:${digestValue({
-            claimId: owner.claimId,
-            behaviorId: BehaviorId(owner.behaviorId),
-            documentPath: owner.documentPath
-        })}`
-    })).sort((left, right) => left.claimId.localeCompare(right.claimId));
-    const generatedClaimCount = claimAcceptance
-        .filter((claim) => claim.claimType === 'generated-section').length;
-    const proseClaimCount = claimAcceptance.length - generatedClaimCount;
+    const documentAuthority = loadGlobalDocumentAuthority(root);
+    const claimAcceptance = documentAuthority.claimAcceptance;
+    const generatedClaimCount = documentAuthority.ledgerSummary.generatedClaimCount;
+    const proseClaimCount = documentAuthority.ledgerSummary.proseClaimCount;
+    // Synthetic consumer envelope; not compiled-observation terminal acceptance.
     const terminal = {
         schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
         scopeId: 'global-document-claim-exactness',
@@ -2250,9 +2242,7 @@ function acceptedClaimsFixture(context)
         source: {
             sourceCommit: 'a'.repeat(40),
             worktreeFingerprint: 'b'.repeat(64),
-            catalogDigest: 'c'.repeat(64),
-            migrationLedgerDigest: digestValue(migrationLedger),
-            sectionCatalogDigest: 'd'.repeat(64),
+            ...documentAuthority.documentAuthorityDigests,
             observationDigests: { test: 'e'.repeat(64) }
         },
         authorityDigests: ['test'],
@@ -2430,6 +2420,27 @@ test('accepted claims replay one exact #2205 terminal path, digest, identity and
     }
 });
 
+test('accepted terminal preserves canonical DocClaim types and refuses aliases or section contradictions', (context) =>
+{
+    const producerId = registry.producers[0].producerId;
+    for (const mutation of ['unknown', 'prose', 'generated-null', 'rationale-with-section'])
+    {
+        const fixture = acceptedClaimsFixture(context);
+        const terminal = structuredClone(fixture.terminal);
+        assert.ok(terminal.claimAcceptance.some((claim) => claim.claimType === 'rationale'));
+        const claim = terminal.claimAcceptance.find((entry) => entry.claimType === 'generated-section');
+        if (mutation === 'unknown') claim.claimType = 'opaque-compatible-type';
+        if (mutation === 'prose') claim.claimType = 'prose';
+        if (mutation === 'generated-null') claim.generatedSectionId = null;
+        if (mutation === 'rationale-with-section') claim.claimType = 'rationale';
+        terminal.contentDigest = digestValue({ ...terminal, contentDigest: null });
+        const receipt = fixture.bindTerminal(terminal);
+        assert.throws(() => validateAcceptedClaimsReceiptAgainstRegistry({
+            registry, producerId, receipt, repositoryRoot: fixture.repositoryRoot, migrationLedger
+        }), /terminal claim acceptance is invalid/u, mutation);
+    }
+});
+
 test('accepted claims reject terminal file/content/identity and re-sealed claim mutations', (context) =>
 {
     const fixture = acceptedClaimsFixture(context);
@@ -2522,9 +2533,9 @@ test('accepted claims replay the terminal exact claim inventory rather than reco
         (terminal) =>
         {
             const removed = terminal.claimAcceptance.pop();
-            terminal.counts[removed.claimType === 'prose'
-                ? 'proseClaimCount'
-                : 'generatedClaimCount'] -= 1;
+            terminal.counts[removed.claimType === 'generated-section'
+                ? 'generatedClaimCount'
+                : 'proseClaimCount'] -= 1;
         },
         (terminal) =>
         {

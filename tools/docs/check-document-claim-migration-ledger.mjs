@@ -17,11 +17,99 @@ function sameSet(left, right)
     return JSON.stringify(sorted(left)) === JSON.stringify(sorted(right));
 }
 
+function exactFields(value, keys, label)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || !sameSet(Object.keys(value), keys))
+    {
+        throw new Error(`${label} has unsupported or missing fields`);
+    }
+}
+
+function exactIds(actual, expected, label)
+{
+    if (!Array.isArray(actual) || actual.some((id) => typeof id !== 'string')
+        || new Set(actual).size !== actual.length || !sameSet(actual, expected))
+    {
+        throw new Error(`${label} are not exact`);
+    }
+}
+
+export function validateCatalogDocumentAuthoritiesData({ ledger, catalog, lifecycle, claims, sectionCatalog })
+{
+    const required = catalog.contracts.filter((contract) => contract.status === 'active'
+        && contract.documentationPolicy === 'required' && (Object.hasOwn(contract, 'documentAuthorities')
+            || ['protocol', 'release', 'deployment'].includes(contract.domain)));
+    const entries = ledger.scopes.flatMap((scope) => scope.entries);
+    const ownedClaims = new Set();
+    const ownedSections = new Set();
+    let authorityCount = 0;
+    for (const contract of required)
+    {
+        if (!Array.isArray(contract.documentAuthorities))
+        {
+            throw new Error(`${contract.id} document authorities are invalid`);
+        }
+        exactIds(contract.documentAuthorities.map((authority) => authority.path), contract.documents,
+            `${contract.id} document authority paths`);
+        for (const authority of contract.documentAuthorities)
+        {
+            exactFields(authority, ['path', 'owner', 'anchor', 'claimIds', 'sectionIds', 'proofIds'],
+                `${contract.id} document authority`);
+            const current = lifecycle.documents.filter((document) => document.path === authority.path);
+            if (current.length !== 1 || current[0].status !== 'current' || current[0].owner !== authority.owner
+                || lifecycle.pathMigrations?.some((migration) => migration.from === authority.path))
+            {
+                throw new Error(`${contract.id} document authority ${authority.path} conflicts with current lifecycle owner`);
+            }
+            const bound = entries.filter((entry) => entry.behaviorId === contract.id && entry.documentPath === authority.path);
+            if (bound.length !== 1)
+            {
+                throw new Error(`${contract.id} ${authority.path} requires exactly one ledger authority`);
+            }
+            const entry = bound[0];
+            const parsedIds = claims.filter((claim) => claim.declaration.behaviorId === contract.id
+                && claim.location.documentPath === authority.path && claim.location.documentStatus === 'current')
+                .map((claim) => claim.declaration.claimId);
+            const sectionIds = sectionCatalog.sections.filter((section) => section.behaviorId === contract.id
+                && section.documentPath === authority.path).map((section) => section.sectionId);
+            exactIds(authority.claimIds, entry.claimIds, `${contract.id} ${authority.path} catalog/ledger claim IDs`);
+            exactIds(authority.claimIds, parsedIds, `${contract.id} ${authority.path} catalog/DocClaim IDs`);
+            exactIds(authority.sectionIds, entry.generatedSectionIds, `${contract.id} ${authority.path} catalog/ledger section IDs`);
+            exactIds(authority.sectionIds, sectionIds, `${contract.id} ${authority.path} catalog/generated section IDs`);
+            for (const [ids, seen, label] of [[authority.claimIds, ownedClaims, 'claim'], [authority.sectionIds, ownedSections, 'section']])
+            {
+                for (const id of ids)
+                {
+                    if (seen.has(id)) throw new Error(`duplicate catalog ${label} owner ${id}`);
+                    seen.add(id);
+                }
+            }
+            authorityCount += 1;
+        }
+    }
+    const behaviorIds = new Set(required.map((contract) => contract.id));
+    exactIds([...ownedClaims], entries.filter((entry) => behaviorIds.has(entry.behaviorId)).flatMap((entry) => entry.claimIds),
+        'reverse ledger/catalog claim IDs');
+    exactIds([...ownedSections], entries.filter((entry) => behaviorIds.has(entry.behaviorId)).flatMap((entry) => entry.generatedSectionIds),
+        'reverse ledger/catalog section IDs');
+    return { authorityCount, claimCount: ownedClaims.size, sectionCount: ownedSections.size };
+}
+
 export function validateMigrationLedgerData({ ledger, catalog, lifecycle, claims, sectionCatalog })
 {
     if (ledger?.schema !== 'fsusblog.document-claim-migration-ledger.v1' || !Array.isArray(ledger.scopes))
     {
         throw new Error('migration ledger schema is invalid');
+    }
+    exactFields(ledger, ['schema', 'scopes'], 'migration ledger');
+    for (const scope of ledger.scopes)
+    {
+        exactFields(scope, ['scopeId', 'behaviorIds', 'entries'], 'migration scope');
+        for (const entry of scope.entries)
+        {
+            exactFields(entry, ['behaviorId', 'documentPath', 'claimIds', 'generatedSectionIds'], 'migration entry');
+        }
     }
     const currentDocuments = new Set(lifecycle.documents.filter((entry) => entry.status === 'current').map((entry) => entry.path));
     const contracts = new Map(catalog.contracts.map((contract) => [contract.id, contract]));
@@ -155,6 +243,7 @@ export function validateMigrationLedgerData({ ledger, catalog, lifecycle, claims
     {
         throw new Error('migration ledger generated sections are not bidirectionally exact');
     }
+    validateCatalogDocumentAuthoritiesData({ ledger, catalog, lifecycle, claims, sectionCatalog });
     return {
         scopeCount: ledger.scopes.length,
         entryCount: ledger.scopes.reduce((sum, scope) => sum + scope.entries.length, 0),

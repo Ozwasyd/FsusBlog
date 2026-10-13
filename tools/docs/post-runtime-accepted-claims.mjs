@@ -3,8 +3,8 @@
 /**
  * Publishes the claim subset accepted by the #2205 terminal authority for one
  * post-runtime producer. The publisher derives every claim from the canonical
- * migration ledger and registry; it does not parse Markdown or execute runtime
- * evidence.
+ * migration ledger and registry, after replaying the terminal document mapping
+ * against current authorities. It does not execute runtime evidence.
  */
 
 import { createHash } from 'node:crypto'
@@ -167,11 +167,12 @@ function assertExpectedRunId(runId)
     return runId
 }
 
-function readAcceptedTerminal(terminalBytes, expectedRunId)
+function readAcceptedTerminal(terminalBytes, expectedRunId, repositoryRoot)
 {
     const terminal = JSON.parse(terminalBytes.toString('utf8'))
     validateGlobalClaimExactnessReceipt(terminal, {
-        expectedRunId: assertExpectedRunId(expectedRunId)
+        expectedRunId: assertExpectedRunId(expectedRunId),
+        repositoryRoot
     })
     return terminal
 }
@@ -211,7 +212,7 @@ export function buildPostRuntimeAcceptedClaimsReceipt({
     const payloadPath = resolveCurrentJsonPath(repositoryRoot, reference.payload?.path,
         'terminal payload', { mustExist: true })
     const terminalBytes = fs.readFileSync(payloadPath.absolute)
-    const terminal = readAcceptedTerminal(terminalBytes, expectedRunId)
+    const terminal = readAcceptedTerminal(terminalBytes, expectedRunId, repositoryRoot)
 
     const sourceState = {
         commit: terminal.source?.sourceCommit,
@@ -302,7 +303,7 @@ export function validatePostRuntimeAcceptedClaimsValue({
         repositoryRoot,
         migrationLedger
     })
-    readAcceptedTerminal(fs.readFileSync(terminalPath.absolute), expectedRunId)
+    readAcceptedTerminal(fs.readFileSync(terminalPath.absolute), expectedRunId, repositoryRoot)
     return receipt
 }
 
