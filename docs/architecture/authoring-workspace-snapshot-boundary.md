@@ -1561,3 +1561,14 @@ a later Root failure. Full reference/resource validation/readiness/recovery and
 native/IME/receipt/runtime qualification remain false/unrun. This newly composed
 source is independently reviewable; real execution and all authority refresh
 remain held. Same-lease attachment transition is a separate SDK lane.
+
+
+### Original attachment revision association producer
+
+The original Writer forwards getAttachmentTerminalRevisionIssuer from its actual bound mounted editor. Its existing ArticleAttachmentContextAdapter owns one stable getNativeRevisionProducer capability; this is a producer seam for the original Doc SDK, not a new document/task authority. reserve(lease, custody) uses the same private accepted-capture registry, original PendingInput and exact entry.lease/nativeCompletion references inside the authentic applying loan. It lazily calls the actual mounted native issuer and retains its opaque reservation with those same references. The SDK must bind this producer through the original trusted Writer/attachment/Doc composition and independently prove its own private lease/slot; structural objects, arbitrary true callbacks and metadata are insufficient.
+
+The producer verifies its own private association plus the actual native issuer's applying/accepted/committed phase and same transaction event. Original entry/lease abort withdraws the native association. Failed cancellation retains its real holder and first/latest raw cause, including undefined, for attempt-all retry; successful cleanup withdraws debt without deleting failure history or restoring authority. inspectCleanup reports only this producer's cancellation obligations, never a full editor resource census or readiness grant.
+
+An unavailable `accepted` publication response retains the SAME nativeCompletion and ownedOperations until the original native owner's final `refused` observation. That final observation records its actual raw cause and uses the original pending entry finish path to cancel the SAME lease and release its actual File before clearing custody. Intermediate accepted refusal cannot discard the deferred original input-release obligation.
+
+No original SDK controlled same-lease transition consumer is installed by this source stage. The producer is available but reserve is not called automatically. The existing Main observer explicitly refuses an armed accepted phase until that original SDK publication API exists. Ordinary updateSource/accept/isCurrent, task settlement, native generic-complete refusal and taskCompletion unavailable remain. Accepted native content cannot confer business/reference/full-resource/recovery/eviction authority. The isolated native issuer source dependency is separate from the accepted native/retry composite; source availability is not runtime qualification.

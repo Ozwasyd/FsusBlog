@@ -13,6 +13,7 @@ import {
     type MarkdownAttachmentTerminalCustody,
     type MarkdownAttachmentTerminalObservation,
     type MarkdownAttachmentTerminalConsumer,
+    type MarkdownAttachmentTerminalRevisionIssuer,
     type MarkdownAttachmentItemIntent,
     type MarkdownAttachmentInputFile,
     type MarkdownAttachmentJob,
@@ -21,7 +22,7 @@ import {
     type MarkdownClipboardTransfer,
     type MarkdownEditorTransaction
 } from '@/fsusui/articleAttachments';
-import type { MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
+import type { MarkdownEditorDispatchResult, MarkdownEditorTransactionEvent } from '@/fsusui/articlePositionMaps';
 
 import {
     validateArticleAnchorContext,
@@ -39,6 +40,8 @@ import {
     type ArticleDocumentTaskLease
 } from './articleDocumentContext';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
+
+import type { ArticleAttachmentNativeRevisionAssociation, ArticleAttachmentNativeRevisionProducer } from './articleAttachmentNativeRevision';
 
 
 export const articleAttachmentIntentSchema = 'fsusblog.article-attachment-intent.v1' as const;
@@ -132,6 +135,7 @@ export type ArticleAttachmentCapture = {
 
 /** An authentic native terminal loan; absent port remains unavailable. */
 export interface ArticleAttachmentTerminalPort {
+    getAttachmentTerminalRevisionIssuer?(): MarkdownAttachmentTerminalRevisionIssuer | null;
     withAttachmentTerminalTransaction(observation: MarkdownAttachmentTerminalObservation,
         consume: MarkdownAttachmentTerminalConsumer): boolean;
 }
@@ -173,8 +177,19 @@ interface PendingInput {
     nativeInputReleaseObserved?: boolean;
     nativeTerminal?: ArticleAttachmentNativeTerminalObservation;
     nativeFailure?: { readonly firstCause: unknown; latestCause: unknown; };
+    nativeRevisionAssociation?: NativeRevisionAssociation;
+    reservingNativeRevision?: boolean;
     file?: File;
     releaseFile?: () => void;
+}
+
+interface NativeRevisionAssociation
+{
+    readonly association: ArticleAttachmentNativeRevisionAssociation;
+    readonly entry: PendingInput;
+    active: boolean;
+    pendingCleanup: boolean;
+    readonly revoke: () => void;
 }
 
 const lifecycleKeys = ['schema', 'intent', 'anchor', 'task', 'predecessorTaskRef', 'state', 'attempt', 'reason', 'transactionRef', 'providerResultDigest', 'contentDigest'];
@@ -266,9 +281,13 @@ export class ArticleAttachmentContextAdapter
     private readonly ownedOperations = new Set<string>();
     private readonly lifecycleLog: ArticleAttachmentLifecycleSnapshot[] = [];
     private readonly unsubscribe: () => void;
+    private readonly nativeRevisionAssociations = new WeakMap<ArticleAttachmentNativeRevisionAssociation, NativeRevisionAssociation>();
+    private readonly nativeRevisionCleanup = new Set<NativeRevisionAssociation>();
+    private nativeRevisionFailure: { readonly firstCause: unknown; latestCause: unknown; } | null = null;
+    private readonly nativeRevisionProducer: ArticleAttachmentNativeRevisionProducer;
 
     public constructor(owner: ArticleDocumentContextAdapter, provider: string, providerVersion: string,
-        anchors?: ArticleAnchorContextAdapter)
+        anchors?: ArticleAnchorContextAdapter, readNativeIssuer?: () => MarkdownAttachmentTerminalRevisionIssuer | null)
     {
         this.anchors = anchors;
         if (![provider, providerVersion].every(value => /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u.test(value)))
@@ -278,6 +297,168 @@ export class ArticleAttachmentContextAdapter
         this.owner = owner;
         this.provider = provider;
         this.providerVersion = providerVersion;
+        const retainFailure = (cause: unknown): void =>
+        {
+            this.nativeRevisionFailure ??= { firstCause: cause, latestCause: cause };
+            this.nativeRevisionFailure.latestCause = cause;
+        };
+        const originalEntry = (lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody): PendingInput | null =>
+        {
+            const record = this.captured.get(custody.capture);
+            if (this.disposed || !record || !('stage' in record) || record.stage !== 'accepted')
+            {
+                return null;
+            }
+            const entry = record.entries.find(candidate => candidate.nativeInput?.capture === custody.capture
+                && candidate.nativeInput.item === custody.item);
+            return entry?.lease === lease && entry.nativeCompletion === custody
+                && this.pending.get(entry.intent.task.taskRef) === entry && this.ownedOperations.has(entry.intent.task.taskRef)
+                && !entry.controller.signal.aborted && !lease.signal.aborted ? entry : null;
+        };
+        const cancel = (record: NativeRevisionAssociation): boolean =>
+        {
+            record.active = false;
+            record.pendingCleanup = true;
+            this.nativeRevisionCleanup.add(record);
+            try
+            {
+                if (record.association.issuer.cancelReservation(record.association.reservation, record.association.lease) !== true)
+                {
+                    throw new Error('attachment-native-revision-cancellation-unavailable');
+                }
+                record.entry.controller.signal.removeEventListener('abort', record.revoke);
+                record.association.lease.signal.removeEventListener('abort', record.revoke);
+                record.pendingCleanup = false;
+                this.nativeRevisionCleanup.delete(record);
+                return true;
+            }
+            catch (cause)
+            {
+                retainFailure(cause);
+                throw cause;
+            }
+        };
+        this.nativeRevisionProducer = Object.freeze({
+            reserve: (lease: ArticleDocumentTaskLease, custody: MarkdownAttachmentTerminalCustody) =>
+            {
+                const entry = originalEntry(lease, custody);
+                if (!entry || entry.nativeRevisionAssociation || entry.reservingNativeRevision || !lease.isCurrent())
+                {
+                    return null;
+                }
+                entry.reservingNativeRevision = true;
+                let record: NativeRevisionAssociation | null = null;
+                try
+                {
+                    const issuer = readNativeIssuer?.();
+                    if (!issuer || originalEntry(lease, custody) !== entry || !lease.isCurrent()
+                        || !this.owner.isCurrentContext(entry.snapshot.anchor.document)
+                        || this.owner.context.sourceRevision !== custody.beforeRevision)
+                    {
+                        return null;
+                    }
+                    const reservation = issuer.reserve(custody, lease);
+                    if (!reservation)
+                    {
+                        return null;
+                    }
+                    const association = Object.freeze({ issuer, reservation, lease, custody });
+                    const revoke = (): void =>
+                    {
+                        try
+                        {
+                            if (record)
+                            {
+                                cancel(record);
+                            }
+                        }
+                        catch
+                        {
+                            // Actual raw failure and holder remain available to inspect/retry.
+                        }
+                    };
+                    record = { association, entry, active: true, pendingCleanup: false, revoke };
+                    entry.nativeRevisionAssociation = record;
+                    this.nativeRevisionAssociations.set(association, record);
+                    entry.controller.signal.addEventListener('abort', revoke, { once: true });
+                    lease.signal.addEventListener('abort', revoke, { once: true });
+                    if (originalEntry(lease, custody) !== entry || readNativeIssuer?.() !== issuer || !lease.isCurrent()
+                        || !issuer.hasReservation(reservation, lease, 'applying') || originalEntry(lease, custody) !== entry)
+                    {
+                        cancel(record);
+                        return null;
+                    }
+                    return association;
+                }
+                catch (cause)
+                {
+                    retainFailure(cause);
+                    if (record?.active)
+                    {
+                        try
+                        {
+                            cancel(record);
+                        }
+                        catch
+                        {
+                            // Keep the primary raw cause; cleanup cause/holder are retained separately.
+                        }
+                    }
+                    throw cause;
+                }
+                finally
+                {
+                    entry.reservingNativeRevision = false;
+                }
+            },
+            hasAssociation: (association: ArticleAttachmentNativeRevisionAssociation,
+                phase: 'applying' | 'accepted' | 'committed', transaction?: MarkdownEditorTransactionEvent): boolean =>
+            {
+                const record = this.nativeRevisionAssociations.get(association);
+                const current = (): boolean => !!record && record.active && !record.pendingCleanup
+                    && record.entry.nativeRevisionAssociation === record
+                    && originalEntry(association.lease, association.custody) === record.entry;
+                if (!current() || readNativeIssuer?.() !== association.issuer || !current())
+                {
+                    return false;
+                }
+                return association.issuer.hasReservation(association.reservation, association.lease, phase, transaction)
+                    && current() && readNativeIssuer?.() === association.issuer && current();
+            },
+            cancelAssociation: (association: ArticleAttachmentNativeRevisionAssociation): boolean =>
+            {
+                const record = this.nativeRevisionAssociations.get(association);
+                return !!record && cancel(record);
+            },
+            inspectCleanup: () => Object.freeze({ pending: this.nativeRevisionCleanup.size,
+                failed: this.nativeRevisionFailure !== null, firstCause: this.nativeRevisionFailure?.firstCause,
+                latestCause: this.nativeRevisionFailure?.latestCause }),
+            retryCleanup: (): boolean =>
+            {
+                let failed = false;
+                let first: unknown;
+                for (const record of Array.from(this.nativeRevisionCleanup))
+                {
+                    try
+                    {
+                        cancel(record);
+                    }
+                    catch (cause)
+                    {
+                        if (!failed)
+                        {
+                            first = cause;
+                        }
+                        failed = true;
+                    }
+                }
+                if (failed)
+                {
+                    throw first;
+                }
+                return this.nativeRevisionCleanup.size === 0;
+            }
+        });
         this.captureDocumentId = owner.context.documentId;
         this.unsubscribe = owner.subscribeContext(context =>
         {
@@ -774,6 +955,12 @@ export class ArticleAttachmentContextAdapter
         return this.pendingHandles.get(handle)?.nativeTerminal ?? null;
     }
 
+    /** The original SDK binds this producer through the existing owned composition. */
+    public getNativeRevisionProducer(): ArticleAttachmentNativeRevisionProducer
+    {
+        return this.nativeRevisionProducer;
+    }
+
     public readNativeTerminalFailure(handle: ArticleAttachmentPendingHandle): Readonly<{ firstCause: unknown; latestCause: unknown; }> | null
     {
         const failure = this.pendingHandles.get(handle)?.nativeFailure;
@@ -846,6 +1033,11 @@ export class ArticleAttachmentContextAdapter
                     }
                     return false;
                 }
+                if (original.phase === 'accepted')
+                {
+                    // No controlled same-lease SDK publication is installed in this source stage.
+                    return false;
+                }
                 const transaction = original.transaction;
                 if (this.pending.get(entry.intent.task.taskRef) !== entry || entry.controller.signal.aborted
                     || !custody.hasCustody() || !transaction.accepted || !transaction.positionMap
@@ -873,7 +1065,9 @@ export class ArticleAttachmentContextAdapter
             }
             finally
             {
-                if (original.phase !== 'applying')
+                // accepted is intermediate: the original native owner still emits refused
+                // after our unavailable publication response, with this SAME custody.
+                if (original.phase === 'committed' || original.phase === 'refused')
                 {
                     this.ownedOperations.delete(entry.intent.task.taskRef);
                     entry.nativeCompletion = undefined;
