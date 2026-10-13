@@ -51,7 +51,7 @@ export function createBlindRsaCredentialSuite(
 
             let message: Uint8Array | null = null;
             let randomizer: Uint8Array | null = null;
-            let preparedMessage: Uint8Array | null = null;
+            let preparedMessage: Uint8Array<ArrayBuffer> | null = null;
             let salt: Uint8Array | null = null;
             let encodedMessage: Uint8Array | null = null;
             try
@@ -365,9 +365,16 @@ function decodeOpening(bytes: Uint8Array): BlindOpening | null
         return null;
     }
     const inverse = os2ip(bytes.subarray(inverseStart));
-    return inverse > 0n
-        ? { preparedMessage: bytes.slice(preparedStart, inverseStart), inverse }
-        : null;
+    if (inverse <= 0n)
+    {
+        return null;
+    }
+    const preparedMessage = new Uint8Array(preparedLength);
+    for (let offset = 0; offset < preparedLength; offset += 1)
+    {
+        preparedMessage[offset] = bytes[preparedStart + offset];
+    }
+    return { preparedMessage, inverse };
 }
 
 function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint
@@ -496,7 +503,7 @@ function int64(value: number): Uint8Array
     return output;
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array
+function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer>
 {
     const output = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
     let offset = 0;
