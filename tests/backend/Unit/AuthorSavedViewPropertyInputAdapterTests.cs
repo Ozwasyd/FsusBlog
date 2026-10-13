@@ -285,18 +285,115 @@ public sealed class AuthorSavedViewPropertyInputAdapterTests
     [Fact]
     public async Task ClosedArityAndPropertyKindAreCheckedBeforeTypedBinding()
     {
-        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("property.equals", []));
-        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("property.equals", ["0", "1"]));
-        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("property.any-of", []));
-        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => CreateAsync("value.is-missing", ["0"]));
+        BindingFixture valid = await CreateAsync("property.equals", ["0"]);
+        ArticlePropertyDefinition definition = Definition(ArticlePropertyValueType.Number);
+        foreach ((string operation, string[] values) in new (string, string[])[]
+        {
+            ("property.equals", []),
+            ("property.equals", ["0", "1"]),
+            ("property.any-of", []),
+            ("value.is-missing", ["0"]),
+            ("value.is-present", ["0"])
+        })
+        {
+            BindingFixture malformed = WithConsistentCondition(valid, operation, values);
+            Assert.Equal("saved_view_operator_cardinality_invalid",
+                Assert.Throws<AuthorSavedViewValidationException>(() => Bind(malformed, definition)).Code);
+            Assert.Equal("saved_view_operator_cardinality_invalid",
+                Assert.Throws<AuthorSavedViewValidationException>(() => AuthorSavedViewPropertyInputAdapter.PrepareOperand(
+                    malformed.Plan, malformed.Source, malformed.Validation, 25, 0,
+                    definition, "number.equals", [new ArticlePropertyNumberValue(0)])).Code);
+        }
         BindingFixture category = await CreateAsync("identity.equals", ["category:7"],
             new(AuthorSavedViewFieldKind.Category, "category:7"));
         Assert.Equal("saved_view_property_condition_kind_invalid",
             Assert.Throws<AuthorSavedViewValidationException>(() => Bind(category, Definition(ArticlePropertyValueType.Number))).Code);
     }
 
+    [Fact]
+    public async Task RehashedNonDateConditionsCannotCarryAValidTimezone()
+    {
+        BindingFixture valid = await CreateAsync("property.equals", ["0"]);
+        ArticlePropertyDefinition definition = Definition(ArticlePropertyValueType.Number);
+        foreach ((string operation, string[] values) in new (string, string[])[]
+        {
+            ("property.equals", ["0"]),
+            ("property.any-of", ["0"]),
+            ("value.is-missing", []),
+            ("value.is-present", [])
+        })
+        {
+            BindingFixture malformed = WithConsistentCondition(valid, operation, values, "UTC");
+            Assert.Equal("saved_view_timezone_not_applicable",
+                Assert.Throws<AuthorSavedViewValidationException>(() => Bind(malformed, definition)).Code);
+            Assert.Equal("saved_view_timezone_not_applicable",
+                Assert.Throws<AuthorSavedViewValidationException>(() => AuthorSavedViewPropertyInputAdapter.PrepareOperand(
+                    malformed.Plan, malformed.Source, malformed.Validation, 25, 0,
+                    definition, "number.equals", [new ArticlePropertyNumberValue(0)])).Code);
+        }
+    }
+
     private static AuthorSavedViewCanonicalPropertyOperandCandidate Bind(BindingFixture fixture, ArticlePropertyDefinition definition)
         => AuthorSavedViewPropertyInputAdapter.PrepareCanonicalOperand(fixture.Plan, fixture.Source, fixture.Validation, 25, 0, definition);
+
+    private static BindingFixture WithConsistentCondition(
+        BindingFixture fixture, string operation, string[] values, string? timeZoneId = null)
+    {
+        AuthorSavedViewCondition condition = fixture.Plan.Query.Conditions[0] with
+        {
+            OperatorId = operation,
+            Values = Array.AsReadOnly(values.ToArray()),
+            TimeZoneId = timeZoneId
+        };
+        AuthorSavedViewQuery query = fixture.Plan.Query with
+        {
+            Conditions = [condition]
+        };
+        AuthorSavedViewDependencyResolution[] dependencies =
+        [
+            fixture.Validation.Resolutions[0] with
+            {
+                OperatorId = operation,
+                Operator = AuthorSavedViewContract.FindBuiltInOperator(operation)!,
+                CanonicalValues = condition.Values
+            },
+            .. fixture.Validation.Resolutions.Skip(1)
+        ];
+        AuthorSavedViewQueryValidationResult validation = fixture.Validation with
+        {
+            Query = query,
+            QueryDigest = AuthorSavedViewContract.ComputeQueryDigest(query),
+            DependencyDigest = AuthorSavedViewContract.ComputeDependencyDigest(dependencies),
+            Resolutions = dependencies
+        };
+        AuthorSavedView source = fixture.Source with
+        {
+            Query = query,
+            QueryDigest = validation.QueryDigest,
+            DependencyDigest = validation.DependencyDigest
+        };
+        source = source with
+        {
+            ContentDigest = AuthorSavedViewStorageContract.ComputeViewDigest(source.Owner, source.Id, source.Revision,
+                source.Name, source.QueryDigest, source.DependencyDigest, source.Pinned, source.OrderKey, source.LifecycleState)
+        };
+        AuthorSavedViewResolvedPlan plan = fixture.Plan with
+        {
+            Query = query,
+            QueryDigest = validation.QueryDigest,
+            DependencyDigest = validation.DependencyDigest,
+            ViewContentDigest = source.ContentDigest,
+            Dependencies = dependencies
+        };
+        plan = plan with
+        {
+            ContentDigest = AuthorSavedViewExecutionPreparationVerifier.ComputePlanDigest(plan)
+        };
+        // Deliberately bypass semantic validation, not hash/source/dependency verification.
+        // The direct adapter call must reject a plan that this existing verifier accepts.
+        Assert.True(AuthorSavedViewExecutionPreparationVerifier.VerifyResolvedPlan(plan, source, validation, 25).Valid);
+        return new(plan, source, validation);
+    }
 
     private static async Task<BindingFixture> CreateAsync(
         string operation, string[] values, AuthorSavedViewFieldReference? field = null)

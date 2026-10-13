@@ -64,6 +64,7 @@ public static class AuthorSavedViewPropertyInputAdapter
                 .Take(AuthorSavedViewContract.MaxValuesPerCondition + 1).ToArray())
         };
         AuthorSavedViewContract.ValidateConditionShape(condition);
+        ValidatePropertyConditionSemantics(condition);
         ArgumentNullException.ThrowIfNull(definition);
         ArticlePropertyDefinitionContract.ValidateDefinition(definition);
         if (definition.Owner.SiteScope != plan.Owner.SiteScope)
@@ -95,7 +96,36 @@ public static class AuthorSavedViewPropertyInputAdapter
         {
             throw new AuthorSavedViewValidationException("saved_view_property_condition_kind_invalid");
         }
+        ValidatePropertyConditionSemantics(condition);
         return condition;
+    }
+
+    private static void ValidatePropertyConditionSemantics(AuthorSavedViewCondition condition)
+    {
+        // A consistent preparation digest does not prove the original query validator ran.
+        // Consume the unique registered descriptor before indexing/converting any payload.
+        AuthorSavedViewOperatorDescriptor descriptor = AuthorSavedViewContract.FindBuiltInOperator(condition.OperatorId)
+            ?? throw new AuthorSavedViewValidationException("saved_view_operator_unknown");
+        bool validCount = descriptor.Cardinality switch
+        {
+            AuthorSavedViewOperatorCardinality.None => condition.Values.Count == 0,
+            AuthorSavedViewOperatorCardinality.Single => condition.Values.Count == 1,
+            AuthorSavedViewOperatorCardinality.OrderedPair => condition.Values.Count == 2,
+            AuthorSavedViewOperatorCardinality.MultipleSet => condition.Values.Count > 0,
+            _ => throw new AuthorSavedViewValidationException("saved_view_operator_cardinality_unknown")
+        };
+        if (!validCount)
+        {
+            throw new AuthorSavedViewValidationException("saved_view_operator_cardinality_invalid");
+        }
+        if (descriptor.ValueKind == AuthorSavedViewValueKind.LocalDate && condition.TimeZoneId is null)
+        {
+            throw new AuthorSavedViewValidationException("saved_view_date_timezone_required");
+        }
+        if (descriptor.ValueKind != AuthorSavedViewValueKind.LocalDate && condition.TimeZoneId is not null)
+        {
+            throw new AuthorSavedViewValidationException("saved_view_timezone_not_applicable");
+        }
     }
 
     private static AuthorSavedViewPropertyOperandCandidate CreateOperandCandidate(
