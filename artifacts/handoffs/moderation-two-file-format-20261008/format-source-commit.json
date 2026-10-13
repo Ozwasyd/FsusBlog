@@ -1,0 +1,9 @@
+{
+  "sha": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+  "parent": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "onlySourcePaths": [
+    "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+    "src/backend/Services/Fixtures/CommentModerationFixturePort.cs"
+  ],
+  "blameMetadataReserved": false
+}

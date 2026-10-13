@@ -1,0 +1,40 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
+var root = args[0];
+var evidence = args[1];
+var paths = args.Skip(2).ToArray();
+var results = new List<object>();
+var success = true;
+foreach (var path in paths)
+{
+    var before = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(evidence, "preimage", path))).GetRoot();
+    var after = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, path))).GetRoot();
+    static string[] Tokens(SyntaxNode node) => node.DescendantTokens(descendIntoTrivia: true)
+        .Select(token => JsonSerializer.Serialize(new { token.RawKind, token.Text, token.ValueText, token.IsMissing })).ToArray();
+    static string[] SignificantTrivia(SyntaxNode node) => node.DescendantTrivia(descendIntoTrivia: false)
+        .Where(trivia => !trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+        .Select(trivia => JsonSerializer.Serialize(new { trivia.RawKind, Text = trivia.ToFullString() })).ToArray();
+    var beforeTokens = Tokens(before);
+    var afterTokens = Tokens(after);
+    var beforeTrivia = SignificantTrivia(before);
+    var afterTrivia = SignificantTrivia(after);
+    var equivalent = SyntaxFactory.AreEquivalent(before, after, topLevel: false);
+    var tokensEqual = beforeTokens.SequenceEqual(afterTokens);
+    var triviaEqual = beforeTrivia.SequenceEqual(afterTrivia);
+    var beforeErrors = before.GetDiagnostics().Count(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    var afterErrors = after.GetDiagnostics().Count(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    success &= equivalent && tokensEqual && triviaEqual && beforeErrors == 0 && afterErrors == 0;
+    static string Digest(string[] entries) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(entries)))).ToLowerInvariant();
+    results.Add(new { path, equivalent, tokensEqual, triviaEqual, beforeErrors, afterErrors,
+        tokenCount = beforeTokens.Length, significantTriviaCount = beforeTrivia.Length,
+        beforeTokenSha256 = Digest(beforeTokens), afterTokenSha256 = Digest(afterTokens),
+        beforeTriviaSha256 = Digest(beforeTrivia), afterTriviaSha256 = Digest(afterTrivia) });
+}
+var json = JsonSerializer.Serialize(new { checkedFilePairs = paths.Length, success, results }, new JsonSerializerOptions { WriteIndented = true });
+File.WriteAllText(Path.Combine(evidence, "roslyn-equivalence.json"), json + "\n");
+Console.WriteLine(json);
+return success ? 0 : 1;

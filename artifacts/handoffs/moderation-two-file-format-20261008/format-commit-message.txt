@@ -1,0 +1,10 @@
+style(csharp): format canonical moderation fixture properties
+
+Apply official whitespace formatting only to the two reserved source files.
+Roslyn token, literal, comment and directive identities are unchanged.
+No test assertion or functional source is modified.
+
+Change-Class: format-only
+Formatter: dotnet-format@10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6 :: /workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet format whitespace /workspace/FsusBlog-moderation-format-only --folder --include src/backend/Interfaces/IModerationRuntimeStateService.cs src/backend/Services/Fixtures/CommentModerationFixturePort.cs --verbosity diagnostic
+Idempotence-Evidence: artifacts/style/moderation-two-file-format-idempotence-20261008.json
+Refs: #3576, #2685

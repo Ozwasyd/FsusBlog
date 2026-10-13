@@ -1,0 +1,29 @@
+{
+  "sourceSha": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+  "baseSha": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "artifactHashes": {
+    "baseline.json": "44c350006f067eec1e3c39dd773562d2cc3901c7f8d0fc61be33484b9e164c3f",
+    "baseline.log": "6a14551d06470c71404dd04b078dc35f728e85802c411c54d7b6193bc8372870",
+    "format-commit-message.txt": "8d165ac90e5f991c0cb02771bb8ef28220137c3d1a158f608ae5388bba29e145",
+    "format-equivalence-command.json": "2f487cb469f938bc61aedda6f6c53f93ccb6167b39fb2ac5e1bad487d217e9ad",
+    "format-equivalence.log": "4d7fb62d182e64d98296af95ffed7ef7a9b9c8c815c7466ac9fc4d953c021063",
+    "format-source-commit.json": "8fabae7ce09cd0d8b1b2b120fd5e86c9507ad4f0645c8bbe038d3d72e8cec016",
+    "formatter-version.txt": "f379d799485925ec4fffc6f19a3f5dc7535f73037d51c4619548e26047ea9b90",
+    "pass1.json": "c89ba423ff66b3889ddf5246470281c0508efad164691c25f11d59c229916e34",
+    "pass1.log": "9a2d82a69bf5683942b07055aec2308f4d3cafb6802659222795ded014b4b148",
+    "pass2.json": "1576f3e063da6884868d90161b4aed72fa0be2c110c1f8268fee9fdf89113e93",
+    "pass2.log": "67eb5b920af494714dd94d85f8a63191a72ff36a860b663a7ed2e57437c573c5",
+    "roslyn-command.json": "d2fa6c92ecea86aa9b0e43ad168d68e5d1b5cceb0644c0b51744a00dc041265c",
+    "roslyn-equivalence-program.cs.txt": "ad1a4d5f36d4c2c990ceb02054388cbc12da2ac2652ffe9192f0cad3fb6e2875",
+    "roslyn-equivalence-project.csproj.txt": "9741fb2fa05f58854f6aec882730d8544e9e0f34733bf14e559e15e6a96ef653",
+    "roslyn-equivalence.json": "544b69ccdf4ea4beb83c00daa0ea7a575a3cb97c2fc2dc8a8827f040a0c8afa3",
+    "roslyn-equivalence.log": "2b52823614cf0e0376c9dded7c1e27491e5befc9d4156dcb03b87613616219b5",
+    "toolchain-identity.json": "687716bb31c7b8b2e9aa7812220dd2d34469fc70968e975729165d8082548c66",
+    "verification-allowlist.json": "3f0135cf461186db9382a8eea2838861fc6013ace19d4d1f0c6373fbb8736553",
+    "verify.json": "7723d50ed651179b746b45501ccde2d500c2275391af0fd07798e8b3a3aedde1",
+    "verify.log": "f2ab1edf18b69434a5f8bbb61af89a6906838aeb36af55fe548054d8e6d51a0c"
+  },
+  "trackedTestAssertionsChanged": false,
+  "backendTestsExecuted": 0,
+  "excludedControlsExecuted": []
+}

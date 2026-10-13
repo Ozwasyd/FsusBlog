@@ -1,0 +1,24 @@
+Formatting code files in workspace '/workspace/FsusBlog-moderation-format-only'.
+Loading workspace.
+Project C#.csproj is using configuration from '/workspace/FsusBlog-moderation-format-only/.editorconfig'.
+Complete in 947ms.
+Determining formattable files.
+Complete in 339ms.
+Running formatters.
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(53,34): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(53,36): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(53,41): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(54,52): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(54,54): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(54,59): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,54): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,56): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs(55,61): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,29): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,31): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+/workspace/FsusBlog-moderation-format-only/src/backend/Services/Fixtures/CommentModerationFixturePort.cs(44,42): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s'. [/workspace/FsusBlog-moderation-format-only]
+Complete in 442ms.
+Formatted code file '/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs'.
+Formatted code file '/workspace/FsusBlog-moderation-format-only/src/backend/Services/Fixtures/CommentModerationFixturePort.cs'.
+Formatted 2 of 2 files.
+Format complete in 1729ms.

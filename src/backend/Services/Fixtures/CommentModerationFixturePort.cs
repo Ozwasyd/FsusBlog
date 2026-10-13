@@ -41,7 +41,10 @@ public sealed record CommentModerationRuntimeLease(
     // Only the in-process port can attach native runtime custody. JSON receipts
     // remain observations and cannot be imported as restoration authority.
     [System.Text.Json.Serialization.JsonIgnore]
-    internal object? Custody { get; init; }
+    internal object? Custody
+    {
+        get; init;
+    }
 }
 
 /// <summary>Preserves the acquisition cause and an independent failed release.</summary>

@@ -1,0 +1,46 @@
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(4,1): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(32,20): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(32,22): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(32,28): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(32,40): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(32,53): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(32,66): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(32,80): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(33,42): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(34,50): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(35,51): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Program.cs(35,91): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj]
+{
+  "checkedFilePairs": 2,
+  "success": true,
+  "results": [
+    {
+      "path": "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+      "equivalent": true,
+      "tokensEqual": true,
+      "triviaEqual": true,
+      "beforeErrors": 0,
+      "afterErrors": 0,
+      "tokenCount": 328,
+      "significantTriviaCount": 3,
+      "beforeTokenSha256": "796c0ee21d36a726e7c647766ea63c57e3e3077df43530073ed82bc23110bc79",
+      "afterTokenSha256": "796c0ee21d36a726e7c647766ea63c57e3e3077df43530073ed82bc23110bc79",
+      "beforeTriviaSha256": "0d3d644968241af36f3e3eaa54ff86b5e35f34e924dd9793c4c38deb7cbf9fb1",
+      "afterTriviaSha256": "0d3d644968241af36f3e3eaa54ff86b5e35f34e924dd9793c4c38deb7cbf9fb1"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+      "equivalent": true,
+      "tokensEqual": true,
+      "triviaEqual": true,
+      "beforeErrors": 0,
+      "afterErrors": 0,
+      "tokenCount": 7192,
+      "significantTriviaCount": 31,
+      "beforeTokenSha256": "875c6c15e787e4fba02e50f27373a7d71c368633468c781e8689b47421aee6a4",
+      "afterTokenSha256": "875c6c15e787e4fba02e50f27373a7d71c368633468c781e8689b47421aee6a4",
+      "beforeTriviaSha256": "48ebd11ecc5369101e2423ba7f9085eb07fd4d2c5829ac672b204ef94ab3b907",
+      "afterTriviaSha256": "48ebd11ecc5369101e2423ba7f9085eb07fd4d2c5829ac672b204ef94ab3b907"
+    }
+  ]
+}
