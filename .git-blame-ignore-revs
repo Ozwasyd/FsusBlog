@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Exact decimal literal whitespace formatting for #3654 and #1688.
+09f69c4636b06d3a65452f4502d6a3ed98d72c20
