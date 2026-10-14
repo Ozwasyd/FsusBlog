@@ -1,0 +1,266 @@
+{
+    "kind": "ordinary reviewed upload source composition WIP; no frozen authority or runtime receipt",
+    "compositionParent": "759383052ff0865d464782e2587d48bfc5ce8920",
+    "admission": "Only parent-supplied independently source-reviewed #4322 seven-path and #4323 eight-path increments. No master ancestry, later donor commits or whole donor source tree replacement.",
+    "donors": [
+        {
+            "PR": 4322,
+            "base": "eb402d8f541abb96f19f0da2dcb9b1dc5314b12a",
+            "head": "2538551d305a7ab41e66ac539d52a64f88c8ff3d",
+            "paths": [
+                "docs/architecture/article-asset-reference-lifecycle.md",
+                "src/backend/Interfaces/IFileService.cs",
+                "src/backend/Interfaces/UploadAssetObservation.cs",
+                "src/backend/Interfaces/UploadAssetPreview.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+                "src/backend/Services/FileService.AssetObservation.cs",
+                "src/frontend/src/contracts/binaryApi.ts"
+            ]
+        },
+        {
+            "PR": 4323,
+            "base": "2538551d305a7ab41e66ac539d52a64f88c8ff3d",
+            "head": "ed43ce1aaa143d7305745ec36f600a00dc64221c",
+            "paths": [
+                "artifacts/change-contract/issue-3735-upload-facts-payload-external-naming.json",
+                "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+                "src/frontend/src/contracts/binaryApi.ts",
+                "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+                "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+                "src/shared/Contracts/Outputs/UploadAssetFacts.md",
+                "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+                "tests/backend/Unit/UploadAssetFactsPayloadSourceTests.cs"
+            ]
+        }
+    ],
+    "admittedUniquePathCount": 14,
+    "ownOrdinaryMetadataPaths": [
+        "artifacts/article-editor/issue-2295-reviewed-upload-source-composition.json",
+        "docs/architecture/authoring-workspace-snapshot-boundary.md",
+        "artifacts/change-contract/issue-2295-ui957-native-end-external-naming.json"
+    ],
+    "exactPostimages": [
+        {
+            "path": "artifacts/change-contract/issue-3735-upload-facts-payload-external-naming.json",
+            "MainPreimage": null,
+            "reviewedDonorPostimage": "3c168e11d06862bd944c53898f78db719259ad0c",
+            "actualPostimage": "3c168e11d06862bd944c53898f78db719259ad0c",
+            "byteIdentical": true
+        },
+        {
+            "path": "docs/architecture/article-asset-reference-lifecycle.md",
+            "MainPreimage": "388009f6375e8deffeaca23caee6ed6e2002fceb",
+            "reviewedDonorPostimage": "a5a6b4c1ee527b6b6ca9ecce362927d519d9ee7a",
+            "actualPostimage": "a5a6b4c1ee527b6b6ca9ecce362927d519d9ee7a",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/backend/Interfaces/IFileService.cs",
+            "MainPreimage": "254587dc73fc0c6d43b3dcb2f116edf68a264e05",
+            "reviewedDonorPostimage": "633219159538ab98df5fefb6498b7134b8ae6f89",
+            "actualPostimage": "633219159538ab98df5fefb6498b7134b8ae6f89",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+            "MainPreimage": null,
+            "reviewedDonorPostimage": "37afe9d22327903e50340b36484a07595ef6f76d",
+            "actualPostimage": "37afe9d22327903e50340b36484a07595ef6f76d",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+            "MainPreimage": null,
+            "reviewedDonorPostimage": "540231e608cdf2c09c9c69fc24e6c90e34b59bb2",
+            "actualPostimage": "540231e608cdf2c09c9c69fc24e6c90e34b59bb2",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+            "MainPreimage": "9070d076b8b3c5d94051c436497f5eb5f63d003f",
+            "reviewedDonorPostimage": "353164a50e6a84359859f68d0b4a005072a4f637",
+            "actualPostimage": "353164a50e6a84359859f68d0b4a005072a4f637",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/backend/Services/FileService.AssetObservation.cs",
+            "MainPreimage": null,
+            "reviewedDonorPostimage": "774605661429fda2f062a5b52340e75d19490141",
+            "actualPostimage": "774605661429fda2f062a5b52340e75d19490141",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+            "MainPreimage": "8c0c0e5b3b9f89afff706d9bb4c11c1aa5557c26",
+            "reviewedDonorPostimage": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+            "actualPostimage": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/frontend/src/contracts/binaryApi.ts",
+            "MainPreimage": "ccde3a7d19ee2ed7683e8a79b8c6962663d9eb98",
+            "reviewedDonorPostimage": "aa6eabb8a349c917c7f276693a42b76dd743e6fa",
+            "actualPostimage": "aa6eabb8a349c917c7f276693a42b76dd743e6fa",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+            "MainPreimage": "6c68f7759cd8efabff25b5d2d685db3dc9507d55",
+            "reviewedDonorPostimage": "a6509a2a151c45077b510d2c3cbe277d84901462",
+            "actualPostimage": "a6509a2a151c45077b510d2c3cbe277d84901462",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+            "MainPreimage": "50f1b80af5aa6c9ed2fdd7c106257fc50217911d",
+            "reviewedDonorPostimage": "4a7eb4723971bc8b2fddeee084b7baba70fa66dc",
+            "actualPostimage": "4a7eb4723971bc8b2fddeee084b7baba70fa66dc",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/Outputs/UploadAssetFacts.md",
+            "MainPreimage": null,
+            "reviewedDonorPostimage": "9e6017849e4e76b670707e49bd40f9bdfffe4b68",
+            "actualPostimage": "9e6017849e4e76b670707e49bd40f9bdfffe4b68",
+            "byteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+            "MainPreimage": null,
+            "reviewedDonorPostimage": "03344a7af4536ee2c783cc396cab4cb751e13dcb",
+            "actualPostimage": "03344a7af4536ee2c783cc396cab4cb751e13dcb",
+            "byteIdentical": true
+        },
+        {
+            "path": "tests/backend/Unit/UploadAssetFactsPayloadSourceTests.cs",
+            "MainPreimage": null,
+            "reviewedDonorPostimage": "c25e2e64c6ec4282844ed3dc744f09c0a82d9fee",
+            "actualPostimage": "c25e2e64c6ec4282844ed3dc744f09c0a82d9fee",
+            "byteIdentical": true
+        }
+    ],
+    "otherMainSourceAndStyleRepairs": "All tracked Main leaves outside fourteen admitted paths byte unchanged before ordinary composition metadata. All #4318/#4319/#4320/#4321 source repairs preserved.",
+    "managedInputs": {
+        "reviewedDonor": "ed43ce1aaa143d7305745ec36f600a00dc64221c",
+        "roots": [
+            "src/backend",
+            "src/core",
+            "src/shared",
+            "tools/architecture",
+            "Directory.Build.props",
+            "Directory.Packages.props"
+        ],
+        "trackedSourceProjectLockInputsCompared": 1274,
+        "allActualFileBlobsByteIdentical": true,
+        "excluded": "No test projects built; this comparison includes production roots and real project/lock/analyzer sources, not emitted artifacts."
+    },
+    "localAlias": {
+        "actualUi": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+        "sourceRoots": [
+            "/workspace/session-2295-blog-template-style-residuals/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+            "/workspace/session-2295-blog-reviewed-upload-source-composition/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+        ],
+        "generatedOriginalFullConfigByteIdentical": true,
+        "configurationSHA256": "633e6b25f6c4df1ca2778953262adc3ac1542f7a74de7ceaed9ccbc2e64a4ef3",
+        "publicEntries": {
+            "@ozwasyd/element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ],
+            "element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ]
+        },
+        "physicalIndependentQualification": "UNVERIFIED"
+    },
+    "fullOriginalTypecheck": {
+        "before": 34,
+        "after": 29,
+        "added": [],
+        "removed": [
+            "src/adapters/binary/uploadAdapter.ts(POSITION): error TS2305: Module '\"@/contracts/binaryApi\"' has no exported member 'UploadAssetPreviewViewModel'.",
+            "src/adapters/binary/uploadAdapter.ts(POSITION): error TS2724: '\"@/contracts/binaryApi\"' has no exported member named 'UploadAssetFactsViewModel'. Did you mean 'UploadStatusViewModel'?",
+            "src/api/upload.ts(POSITION): error TS2305: Module '\"@/contracts/binaryApi\"' has no exported member 'UploadAssetPreviewViewModel'.",
+            "src/api/upload.ts(POSITION): error TS2305: Module '\"@/contracts/binaryApi\"' has no exported member 'UploadAssetPreviewViewModel'.",
+            "src/api/uploadFacts.ts(POSITION): error TS2724: '\"@/contracts/binaryApi\"' has no exported member named 'UploadAssetFactsViewModel'. Did you mean 'UploadStatusViewModel'?"
+        ]
+    },
+    "staticChecks": {
+        "frontendStrictFull": "PASS one real neutral contract, violations0/new0",
+        "TSAST": "PASS original neutral contract AST0",
+        "nativeSyntax": "PASS real unchanged donor header under existing c++14.2.0 C++20 -Wall -Wextra -Werror -include original header -x c++ -fsyntax-only /dev/null; static_asserts checked, no execution",
+        "CSharpStrictFull": "PASS original selected9 source checks, lexical/folder/workspace whitespace/style, violations0/new0; no test build/run",
+        "CSharpInitialFailure": "FAIL original command SDK missing from PATH: Cannot read properties of undefined (reading trim). Raw failure preserved; rerun with existing SDK10.0.401 PATH, no checker/config/analyzer suppression.",
+        "backendLockedRestore": "PASS exit0 original Server.csproj --locked-mode with default project refs/config, SDK10.0.401 and task-local DOTNET_CLI_HOME; no config/lock/package source edits.",
+        "backendFullBuild": "PASS exit0 original complete Server.csproj --no-restore --nologo -v:minimal, SDK10.0.401 default analyzers/project references/actual config,330 warnings0 errors; original OpenApiGenerateDocumentsOnBuild=false unchanged. No test project build or server/product startup.",
+        "docs": {
+            "lifecycle": {
+                "beforeLines": 7,
+                "afterLines": 7,
+                "byteIdentical": true,
+                "added": [],
+                "removed": []
+            },
+            "authoritative": {
+                "beforeLines": 41,
+                "afterLines": 41,
+                "byteIdentical": true,
+                "added": [],
+                "removed": []
+            }
+        }
+    },
+    "remainingTypeGates": "29 FAIL = Blog4/UI25: canonical preview operation ID, facts operation ID, current facts frame member, Analytics regionChartRef. Payload/DTO/type availability does not supply active frame/endpoint/canonical projection.",
+    "remainingStyleGates": "Five known original scoped style findings remain unchanged (raw rejection3, dynamic JSON/widget model1, legitimate Tailwind reference1); not whole-project style total.",
+    "remainingOwners": [
+        "Original canonical API projection session must produce genuine compiled endpoint observation/OpenAPI/endpoint/routes only after actual hold release. No check-openapi-sync execution even check mode.",
+        "Original current Facts allocator/shared transport owners must supply actual ID/value/golden order/complete roster/parity/dispatch; historical285 never imported.",
+        "Original upload owner later maps genuine observation to Facts response after current allocation/projection; this composition adds no Facts handler.",
+        "Original public editor resources still need actual complete network/timer/subscription control, native loan settlement, worker shutdown and recovery coordination suspension acknowledgements. No ready/zero/paused/resource success fabrication."
+    ],
+    "donorCheckpointText": "Donor docs/source comments preserved exactly; earlier pending-review words describe their historical checkpoint, not a new unreviewed implementation or a runtime receipt. Parent supplied current limited source review admission.",
+    "holds": "All runtime/product import/evaluation/tests/collection/list/discovery/native execution/browser/render/security/privacy/receipt/race/backuprestore/IME/qualification and frozen authority HOLD/UNRUN. New original ordinary control source copied exactly but no test project build/run. Independent physical alias qualification UNVERIFIED. No publication/package/merge/close/master history integration.",
+    "staticCheckEvidence": {
+        "/workspace/session-evidence-2295/blog-reviewed-upload-source-boundary.json": {
+            "sha256": "4d544f23a818cc85fb979a01da05f31e9189dc912e0332767d992353afe36fcd"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-managed-inputs.json": {
+            "sha256": "a923e266bd6aa9e4dc923e9b245192b719e232c9332ea84c72e043bd8c27dbca"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-alias-source.json": {
+            "sha256": "728f48382d03c12159c201505bc31fddfeb478b2b53d32911f7310b9974c526d"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-type-delta.json": {
+            "sha256": "3b94ec96eaa94e03bdc862c3e92b69a7d066dd9213e17afcb837ceac14ed49e0"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-doc-delta.json": {
+            "sha256": "338bd73219260657872fa068c345c922f75a41c60f985d06d2811683afd5578d"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-base-types.txt": {
+            "sha256": "04e0456e9c7bf44dbe344697865ea482da4adfeb1f85b2f564bc43cb759866b4"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-style.txt": {
+            "sha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-ast.txt": {
+            "sha256": "ddb723660ebf4c1ac635b495cb420315b6f02dba7b146382b19c64ab43c3bc30"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-native-syntax.txt": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-csharp-style.txt": {
+            "sha256": "c93ada17ecc92b3187ac57017c73fc55bea9eca4a514beabb1c58f6a6033d4b3"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-csharp-style-initial-PATH-failure.txt": {
+            "sha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-backend-restore.txt": {
+            "sha256": "d9fb9b227f2eb60e2ac6a7488400ed125c14a3c086ebc50ec1164cc9a75ce636"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-upload-backend-build.txt": {
+            "sha256": "1dc9ae6c6ac0b6e4a2647711b444f08434f1492caa3a8650abce423a40e598a9"
+        }
+    }
+}

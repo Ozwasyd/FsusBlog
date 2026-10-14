@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+                "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+                "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs"
+            ],
+            "reason": "Preserve the original managed fixed payload/schema/field identifiers in these three ordinary source paths. Facts metadata codec is frame-independent and does not allocate an ID, activate transport, change upload authority or refresh any frozen manifest/golden/route/receipt/OpenAPI surface."
+        }
+    ]
+}

@@ -4,7 +4,10 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
-/// <summary>760-byte packed header followed by exactly SizeBytes original image bytes.</summary>
+/// <summary>
+/// Original 760-byte packed asset metadata header. Preview appends exactly SizeBytes
+/// original image bytes; facts-v1 is this fixed metadata payload only, with its own schema.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadAssetPreviewPod
 {
