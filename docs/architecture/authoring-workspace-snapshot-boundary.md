@@ -2417,3 +2417,14 @@ The ordinary WIP preserves the earlier style failures, current full-program
 diagnostics and bounded source comparison. Two-file style PASS does not qualify
 whole-project style, recovery behavior, runtime or resource readiness. All
 original execution, frozen authority and independent physical alias holds remain.
+
+
+## Original Scheduler Unread Catch Binding
+
+A separate one-line source group removes only the genuinely unread native-yield
+catch formal. The original complete catch body, abort check, fallback path and
+native-failure classification remain. All actual timer and raw rejection calls
+stay untouched. Three existing raw-reason style findings therefore remain
+explicitly failed rather than wrapping or replacing original reasons. The
+ordinary WIP records the actual one-finding removal and current full-program
+diagnostics. This source repair does not grant runtime or qualification.
