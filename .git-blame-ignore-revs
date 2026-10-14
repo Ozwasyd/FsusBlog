@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Original dotnet whitespace formatter, four ordinary observer conditionals (#2295).
+d9f9377bbba210628fa5df193f1b8f266fc18308

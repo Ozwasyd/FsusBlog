@@ -1,0 +1,274 @@
+{
+    "kind": "ordinary pure-format source WIP; no runtime/frozen/physical qualification authority",
+    "base": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+    "sourceProof": {
+        "base": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+        "path": "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+        "ownership": "ordinary handwritten src/shared/Algorithms product source; not generated/fixture/authority path",
+        "preimage": "d64e5b1c6721acd9456ff9ddcedab7b7cdafd939",
+        "postimageFirstPass": "9aaace2bedeb5cce4546e43255d8db00da26f926",
+        "firstPassTreeSHA256": "80223ad3b1e43f6b026fe28691bd1d261a318c1d5b15ab979f5d28cd4182159f",
+        "exactOnlyFourReplacements": true,
+        "replacements": [
+            {
+                "before": "            if (tableScope is not null && tableName != tableScope) continue;",
+                "after": "            if (tableScope is not null && tableName != tableScope)\n                continue;"
+            },
+            {
+                "before": "                if (Convert.ToBoolean(row[\"is_primary\"])) primaryIndexes.Add(tableName + \".\" + indexName);",
+                "after": "                if (Convert.ToBoolean(row[\"is_primary\"]))\n                    primaryIndexes.Add(tableName + \".\" + indexName);"
+            },
+            {
+                "before": "            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName) continue;",
+                "after": "            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)\n                continue;"
+            },
+            {
+                "before": "                if (primaryIndexes.Contains(tableName + \".\" + index.Name)) continue;",
+                "after": "                if (primaryIndexes.Contains(tableName + \".\" + index.Name))\n                    continue;"
+            }
+        ],
+        "allOtherBytesIncludingRawSQLStringsAndComments": "exactly unchanged; verified complete expected bytes, not whitespace-stripped comparison",
+        "allOtherMainBlobs": "unchanged before ordinary metadata",
+        "secondPassTreeSHA256": "80223ad3b1e43f6b026fe28691bd1d261a318c1d5b15ab979f5d28cd4182159f",
+        "idempotent": true,
+        "postimageSecondPass": "9aaace2bedeb5cce4546e43255d8db00da26f926",
+        "mechanicalSourceCommit": "d9f9377bbba210628fa5df193f1b8f266fc18308",
+        "originalTrustedFormatOnlyDiffCheckerErrors": []
+    },
+    "formatEvidencePath": "artifacts/style/issue-2295-catalog-observer-format-idempotence.json",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace /workspace/session-2295-blog-catalog-observer-whitespace --folder --include /workspace/session-2295-blog-catalog-observer-whitespace/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs --verbosity quiet"
+    },
+    "CSharpStrict": "Original same7 admitted files strict4FAIL\u21920PASS, violations0/new0. Four exact newline-indent transformations; no rule/source-set/config/diagnostic suppression.",
+    "fullOriginalFrontend": {
+        "before": 29,
+        "after": 29,
+        "added": [],
+        "removed": [],
+        "normalization": "only source positions, complete continuation text/multiplicity retained"
+    },
+    "fullOriginalManaged": {
+        "backend": {
+            "before": {
+                "Warning": 330,
+                "Error": 0
+            },
+            "after": {
+                "Warning": 326,
+                "Error": 0
+            },
+            "normalization": "only actual worktree root and source positions; complete compiler diagnostic multiplicity retained",
+            "added": [],
+            "removed": [
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]"
+            ]
+        },
+        "migration": {
+            "before": {
+                "Warning": 931,
+                "Error": 0
+            },
+            "after": {
+                "Warning": 927,
+                "Error": 0
+            },
+            "normalization": "only actual worktree root and source positions; complete compiler diagnostic multiplicity retained",
+            "added": [],
+            "removed": [
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]",
+                "<WORKTREE>/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(POSITION): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [<WORKTREE>/src/shared/FsusBlog.Shared.csproj]"
+            ]
+        }
+    },
+    "docs": "Original7/41FAIL byte-identical; no producer/output refresh.",
+    "readonlyAliasFactsPath": "artifacts/article-editor/issue-2295-ui957-author-input-facts.json",
+    "readonlyAliasFacts": {
+        "kind": "author environment read-only alias input facts; independently mounted physical identity remains UNVERIFIED",
+        "BlogBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+        "BlogWorktree": "/workspace/session-2295-blog-catalog-observer-whitespace",
+        "UIOverride": "/workspace/session-2295-ui957-local-dependency",
+        "UIRealpath": "/workspace/session-2295-ui957-local-dependency",
+        "UIHead": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+        "UIStatusPorcelainAllUntracked": "",
+        "UIGitCommonDir": "/workspace/FsusUI/.git",
+        "UIPackage": "1.5.1",
+        "env": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/session-2295-ui957-local-dependency"
+        },
+        "originalFullConfigPath": "/workspace/session-2295-blog-catalog-observer-whitespace/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+        "originalFullConfigSHA256": "633e6b25f6c4df1ca2778953262adc3ac1542f7a74de7ceaed9ccbc2e64a4ef3",
+        "originalFullConfig": {
+            "compilerOptions": {
+                "composite": false,
+                "jsx": "preserve",
+                "jsxImportSource": "vue",
+                "paths": {
+                    "@/*": [
+                        "./src/*"
+                    ],
+                    "@wasm/*": [
+                        "./wasm/web/*"
+                    ],
+                    "vue": [
+                        "./node_modules/vue"
+                    ],
+                    "@vue/*": [
+                        "./node_modules/@vue/*"
+                    ],
+                    "@ozwasyd/element-plus": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+                    ],
+                    "element-plus": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+                    ],
+                    "@ozwasyd/element-plus/icons-vue": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/icons-vue.ts"
+                    ],
+                    "@ozwasyd/element-plus/markdown-runtime": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/markdown-runtime.ts"
+                    ],
+                    "@ozwasyd/element-plus/motion": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/motion.ts"
+                    ],
+                    "@ozwasyd/element-plus/perception-challenge": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/perception-challenge.ts"
+                    ],
+                    "@ozwasyd/element-plus/render-pipeline": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/render-pipeline.ts"
+                    ],
+                    "@ozwasyd/element-plus/result": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/result.ts"
+                    ],
+                    "@ozwasyd/element-plus/theme": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/theme.ts"
+                    ],
+                    "@ozwasyd/element-plus/wasm": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/wasm.ts"
+                    ],
+                    "@element-plus/icons-vue": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/icons-vue/src/index.ts"
+                    ],
+                    "@element-plus/icons-vue/*": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/icons-vue/src/*"
+                    ],
+                    "@element-plus/theme-chalk/src": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/theme-chalk/src"
+                    ],
+                    "@element-plus/theme-chalk/src/*": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/theme-chalk/src/*"
+                    ],
+                    "@element-plus/wasm": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/wasm/index.ts"
+                    ],
+                    "@element-plus/wasm/*": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/wasm/*"
+                    ],
+                    "@element-plus/*": [
+                        "../../../session-2295-ui957-local-dependency/vue/packages/*"
+                    ]
+                },
+                "tsBuildInfoFile": "./tsconfig.fsusui-local.app.generated.tsbuildinfo",
+                "types": [
+                    "vite/client",
+                    "node"
+                ]
+            },
+            "extends": "../../tsconfig.app.json",
+            "files": [
+                "../../../../../session-2295-ui957-local-dependency/vue/global.d.ts",
+                "../../../../../session-2295-ui957-local-dependency/vue/typings/components.d.ts",
+                "../../../../../session-2295-ui957-local-dependency/vue/typings/env.d.ts"
+            ]
+        },
+        "sourceEntries": {
+            "@ozwasyd/element-plus": {
+                "relativeConfigPath": "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts",
+                "realpath": "/workspace/session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts",
+                "GitBlob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687",
+                "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa"
+            },
+            "element-plus": {
+                "relativeConfigPath": "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts",
+                "realpath": "/workspace/session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts",
+                "GitBlob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687",
+                "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa"
+            }
+        }
+    },
+    "scope": "One ordinary handwritten product source plus five required ordinary formatting/naming/WIP/input-fact/blame metadata paths. Source style commit changes only1 file; later metadata registers exactly that actual reachable mechanical SHA after author complete-diff and original trusted format-only review. It is not independent source/physical/runtime acceptance. All other product blobs untouched.",
+    "toolFailureHistory": "Initial formatter-version subprocess lacked task-local DOTNET_CLI_HOME and failed read-only /home/agent/.dotnet; subsequent message-check ENOENT because no message file was produced. Corrected same original tool in existing task-local home, no escalation/config/permission override. Source unchanged before normal style commit.",
+    "sourceSemanticBoundary": "Every complete source byte unchanged except four exact outside-string newline/indent replacements. Conditions/statements/raw SQL/comments/transaction/catalog/expression-index/error/data behavior preserved by complete expected-byte comparison; no broad whitespace-strip proof. Twice-run original formatter has matching candidate tree digest.",
+    "remaining": "Full frontend29FAIL Blog4/UI25, known3 raw-rejection scoped style debt, docs7/41FAIL. CSS full output and independent physical alias remain UNVERIFIED. #4334 remains legacy-only, missing columns refuse/non-idempotent and Native-Core/PgLegacyNonArticlePreparation uncovered. Public editor resource/restore/native settlement ACK gaps remain.",
+    "holds": "All runtime/product/helper/program/test/discovery/DB/drop/native/liveauth/preflight/catalog/receipt/fixture/frozen authority generation/security/privacy/IME/backuprestore/race/render/physical qualification HOLD/UNRUN. Only original permitted static compilers/formatter/checkers and readonly Git/filesystem input inspection. No UI961 alias/source adoption; no merge/Ready/close/publication.",
+    "evidence": {
+        "/workspace/session-evidence-2295/catalog-format-source-proof.json": {
+            "sha256": "7ff03c9d600f32d6598dd4f1d63c7f0e50e4a9f50afbcc498963f158c2c8f422"
+        },
+        "/workspace/session-evidence-2295/catalog-format-first-pass.json": {
+            "sha256": "b754487251664cb7e0603e51c4fc7a588f82a534729d21ae2d84ac62c99ffc24"
+        },
+        "/workspace/session-evidence-2295/catalog-format-second-pass.txt": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "/workspace/session-evidence-2295/catalog-format-formatter.json": {
+            "sha256": "2db80efbdc740adf23d80ea6107122033e644eda585fc5f9338177e775259647"
+        },
+        "/workspace/session-evidence-2295/catalog-format-ui957-readonly-facts.json": {
+            "sha256": "6297c420fb3d59f80e8b95c81a614f6e3b6bb7a7d6e0c8578bfa1098d80d5f97"
+        },
+        "/workspace/session-evidence-2295/catalog-format-full-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/catalog-format-types-delta.json": {
+            "sha256": "28e760b58c92d455f7998d38af898d75a4ec8648e673c910283fd3fcb1cd7123"
+        },
+        "/workspace/session-evidence-2295/catalog-format-backend-restore.txt": {
+            "sha256": "dca6571e2b92e45dfaa9599f95d71c4695ab39de8cebb3d261098e814ac8aa88"
+        },
+        "/workspace/session-evidence-2295/catalog-format-backend-build.txt": {
+            "sha256": "da34751bc71230e79499b4322d6e1fcb68e9a0834c993a28debfcf0d72b0422c"
+        },
+        "/workspace/session-evidence-2295/catalog-format-migration-restore.txt": {
+            "sha256": "c06cbe723ab6b8c71637eaa2dde88f6401785081a1f8d4a27d870ea477f7860c"
+        },
+        "/workspace/session-evidence-2295/catalog-format-migration-build.txt": {
+            "sha256": "4e58843b8650a4600e81b8e88f01b42c33b90e42362918fa380d7133a066cb84"
+        },
+        "/workspace/session-evidence-2295/catalog-format-migration-initial-parallel-build.txt": {
+            "sha256": "896bf02f01fb4d1c75c52ae3e3a1899a609e2c070e50cd0c9d5622a793192f47"
+        },
+        "/workspace/session-evidence-2295/catalog-format-managed-initial-parallel-delta.json": {
+            "sha256": "aa76179a1a1ddc78adc073812cca00b29a44e1cb2ba3bce5b84cb93a8b624fa4"
+        },
+        "/workspace/session-evidence-2295/catalog-format-csharp-style.txt": {
+            "sha256": "0a80fae55379dee59ade51d0769beef0eeccbef0b901837f893a4cbb3b607f68"
+        },
+        "/workspace/session-evidence-2295/catalog-format-initial-home-query-failure.txt": {
+            "sha256": "6bb1e0209edeb19481a4feb9191ddb440738bc661e3ac49a9f2accc0c4beba07"
+        },
+        "/workspace/session-evidence-2295/catalog-format-managed-delta.json": {
+            "sha256": "8a0736d355aca0b451a88686c00b9691f618585043fedb4c11c1821cedda9082"
+        }
+    },
+    "managedRerun": "Initial migration parallel build PASS0 retained original MSB3026 retry1 plus normal formatting removals. After both projects finished, reran original Migration.csproj --no-restore --no-incremental --nologo -v:minimal alone: PASS0 warnings927/errors0, new0, only original fourIDE0055 removed. No flag/config/diagnostic suppression; --no-incremental recomputes full source. Initial build/raw delta preserved.",
+    "rawOriginalCSharpStyleBefore": "[csharp-style] dotnet format whitespace rejected selected files: /workspace/session-2295-blog-seven-reviewed-source-composition/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(64,67): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'. [/workspace/session-2295-blog-seven-reviewed-source-composition]\n/workspace/session-2295-blog-seven-reviewed-source-composition/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(308,58): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'. [/workspace/session-2295-blog-seven-reviewed-source-composition]\n/workspace/session-2295-blog-seven-reviewed-source-composition/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(454,78): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'. [/workspace/session-2295-blog-seven-reviewed-source-composition]\n/workspace/session-2295-blog-seven-reviewed-source-composition/src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs(458,75): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'. [/workspace/session-2295-blog-seven-reviewed-source-composition]\n",
+    "rawOriginalCSharpStyleAfter": "[csharp-style] ok files=7 violations=0 new=0\n",
+    "rawOriginalCompleteFrontendCheckLog": "[fsusui-typecheck] local root: /workspace/session-2295-ui957-local-dependency\nsrc/api/upload.ts(226,24): error TS2820: Type '\"binary_post_upload_uploadId_preview\"' is not assignable to type '\"binary_delete_admin_article_id_int\" | \"binary_delete_admin_article_permanent_id_int\" | \"binary_delete_admin_article_trash\" | \"binary_delete_admin_security_anti_crawler_allowlist_id\" | ... 286 more ... | \"binary_put_upload_uploadId_part\"'. Did you mean '\"binary_post_upload_uploadId_complete\"'?\nsrc/api/uploadFacts.ts(20,24): error TS2820: Type '\"binary_post_upload_uploadId_facts\"' is not assignable to type '\"binary_delete_admin_article_id_int\" | \"binary_delete_admin_article_permanent_id_int\" | \"binary_delete_admin_article_trash\" | \"binary_delete_admin_security_anti_crawler_allowlist_id\" | ... 286 more ... | \"binary_put_upload_uploadId_part\"'. Did you mean '\"binary_put_upload_uploadId_part\"'?\nsrc/api/uploadFacts.ts(21,53): error TS2551: Property 'UploadAssetFacts' does not exist on type '{ readonly Unknown: 0; readonly ArticleList: 1; readonly ArticleDetail: 2; readonly ArticleHot: 3; readonly ArticleSearch: 4; readonly CommentArticleCursor: 5; readonly CommentUserCursor: 6; ... 265 more ...; readonly DocumentExportPageResponse: 281; }'. Did you mean 'UploadStatus'?\nsrc/views/admin/Analytics.vue(99,33): error TS6133: 'regionChartRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/breadcrumb/src/breadcrumb.vue(25,7): error TS6133: 'breadcrumb' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/carousel/src/carousel-item.vue(41,3): error TS6133: 'carouselItemRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/carousel/src/carousel.vue(96,3): error TS6133: 'root' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/date-picker/src/date-picker-com/basic-date-table.vue(64,3): error TS6133: 'tbodyRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/input/src/input.vue(251,9): error TS6133: 'wrapperRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/perception-challenge/src/localization-challenge.vue(71,7): error TS6133: 'targetRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/radio/src/radio-button.vue(50,9): error TS6133: 'radioRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/radio/src/radio.vue(56,9): error TS6133: 'radioRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/responsive-collection/src/responsive-collection.vue(129,7): error TS6133: 'getItemKey' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/slider/src/button.vue(65,3): error TS6133: 'button' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/slider/src/button.vue(66,3): error TS6133: 'tooltip' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/slider/src/slider.vue(131,3): error TS6133: 'slider' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/slider/src/slider.vue(132,3): error TS6133: 'firstButton' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/slider/src/slider.vue(133,3): error TS6133: 'secondButton' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/slider/src/slider.vue(242,7): error TS6133: 'sliderWrapper' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/switch/src/switch.vue(147,7): error TS6133: 'core' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/table-v2/src/constants.ts(1,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n../../../session-2295-ui957-local-dependency/vue/packages/components/table-v2/src/constants.ts(6,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n../../../session-2295-ui957-local-dependency/vue/packages/components/table-v2/src/constants.ts(11,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n../../../session-2295-ui957-local-dependency/vue/packages/components/tooltip-v2/src/arrow.vue(22,7): error TS6133: 'arrowRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/tooltip-v2/src/common.ts(14,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n../../../session-2295-ui957-local-dependency/vue/packages/components/tooltip-v2/src/content.vue(42,23): error TS6133: 'contentRef' is declared but its value is never read.\n../../../session-2295-ui957-local-dependency/vue/packages/components/tree-v2/src/virtual-tree.ts(29,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n../../../session-2295-ui957-local-dependency/vue/packages/components/tree-v2/src/virtual-tree.ts(36,19): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n../../../session-2295-ui957-local-dependency/vue/packages/utils/vue/vnode.ts(22,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n",
+    "sourceFormatDiffChecker": "Original trusted validateFormatOnlyDiff(parent, actualmechanicalSHA) PASS0 errors[]; second original formatter pass byte-idempotent. Ordinary later blame metadata records only mechanically reviewed source SHA, not independent source/physical/runtime acceptance."
+}
