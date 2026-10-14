@@ -48,12 +48,12 @@ public static class PgCurrentSchemaCatalogObserver
             SELECT relation.relname AS table_name, relation.relkind::text AS relation_kind,
                 relation.relpersistence::text AS persistence, relation.relispartition AS is_partition,
                 relation.relrowsecurity AS row_security, relation.relforcerowsecurity AS force_row_security,
-                EXISTS (SELECT 1 FROM pg_inherits inheritance
+                EXISTS (SELECT 1 FROM pg_catalog.pg_inherits inheritance
                     WHERE inheritance.inhrelid = relation.oid OR inheritance.inhparent = relation.oid) AS has_inheritance,
-                EXISTS (SELECT 1 FROM pg_rewrite rule WHERE rule.ev_class = relation.oid) AS has_rules,
-                EXISTS (SELECT 1 FROM pg_trigger trigger WHERE trigger.tgrelid = relation.oid) AS has_triggers
-            FROM pg_class relation
-            JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+                EXISTS (SELECT 1 FROM pg_catalog.pg_rewrite rule WHERE rule.ev_class = relation.oid) AS has_rules,
+                EXISTS (SELECT 1 FROM pg_catalog.pg_trigger trigger WHERE trigger.tgrelid = relation.oid) AS has_triggers
+            FROM pg_catalog.pg_class relation
+            JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
             WHERE namespace.nspname = 'public' AND relation.relkind IN ('r', 'p', 'v', 'm', 'f');
             """, cancellationToken, tableScope).ConfigureAwait(false);
 

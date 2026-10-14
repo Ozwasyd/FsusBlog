@@ -57,10 +57,10 @@ internal static class MessageRawSessionRetirementPreflight
 
             // Both exact counts are observed before deciding; no raw value leaves either table.
             long conversationCount = await CountAsync(connection, transaction, """
-                SELECT COUNT(*) FROM public.msg_conversation WHERE createdbyadminsessionid IS NOT NULL;
+                SELECT pg_catalog.count(*) FROM public.msg_conversation WHERE createdbyadminsessionid IS NOT NULL;
                 """, cancellationToken).ConfigureAwait(false);
             long messageCount = await CountAsync(connection, transaction, """
-                SELECT COUNT(*) FROM public.msg_message WHERE senderadminsessionid IS NOT NULL;
+                SELECT pg_catalog.count(*) FROM public.msg_message WHERE senderadminsessionid IS NOT NULL;
                 """, cancellationToken).ConfigureAwait(false);
             if (conversationCount != 0 || messageCount != 0)
             {
