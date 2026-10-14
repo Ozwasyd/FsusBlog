@@ -4,12 +4,9 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/architecture.md",
-                "docs/architecture/authoring-workspace-snapshot-boundary.md",
-                "docs/database-migration.md",
-                "docs/message-schema-field-matrix.md"
+                "docs/architecture/authoring-workspace-snapshot-boundary.md"
             ],
-            "reason": "Preserve external CSS-like and contract spelling in all four changed current documents while recording bounded reviewed source prerequisites and unchanged runtime/frozen qualification holds."
+            "reason": "Preserve external CSS-like contract spelling in the changed nested current Main document registered by the original registry. Three top-level donor documents are outside that registered glob and stay exact composed source; no naming authority or rule changed."
         },
         {
             "id": "environment-variable",

@@ -567,5 +567,17 @@
         "/workspace/session-evidence-2295/main-seven-ast.txt": {
             "sha256": "ec9525f0b8184b5d58db68e2797a359dfc9fcbb8b859bbdb5a1ee9b1aa2cbc40"
         }
+    },
+    "productionSourceCheckpoint": "9db1b9ce96f5ba3095e99294b27a57ead6430621",
+    "initialActualPRMetadataFailure": {
+        "status": "FAIL1",
+        "reasons": [
+            "fix cannot use release note category Changed",
+            "External naming path is outside registered exception css-like-contract: docs/architecture.md",
+            "External naming path is outside registered exception css-like-contract: docs/database-migration.md",
+            "External naming path is outside registered exception css-like-contract: docs/message-schema-field-matrix.md",
+            "External naming manifest paths must exactly match all changed registered naming surfaces"
+        ],
+        "metadataOnlyCorrection": "Use supported Fixed release category/label. Original css-like glob does not match these top-level docs; select only nested Main doc plus all7 registered managed sources. No source or registry change; preserve original failure and exact production source checkpoint."
     }
 }
