@@ -6,7 +6,7 @@ checkpoint `39bafb645a1a98d0e0358e37854d1752b6b45bc9`. The later, explicitly
 authorized source repair is recorded at the end; its new consumer review and
 all runtime/UI qualification remain pending.
 
-## Fixed source and actual checks
+## Historical fixed-source investigation and actual checks
 
 - Fixed product base: `759383052ff0865d464782e2587d48bfc5ce8920` (#4321).
 - Source-only investigation branch: `codex/plugin4321-json-widget-boundary`.
@@ -53,7 +53,7 @@ Consequently authoring.ts146's `value: Record<string, unknown>` and the page's
 `ref<Record<string, any>>` cannot be treated as unconditional producer facts.
 This is not a reason to change the decoder or the global request layer.
 
-## Source counterexamples (not executed tests)
+## Historical source counterexamples (not executed tests)
 
 Assume an otherwise valid plugin package. This is an admitted schema document:
 
