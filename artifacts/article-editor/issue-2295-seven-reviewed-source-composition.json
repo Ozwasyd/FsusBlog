@@ -1,0 +1,571 @@
+{
+    "kind": "ordinary seven reviewed source batch Main composition WIP; not runtime/frozen schema/catalog/receipt authority",
+    "sourceBoundary": {
+        "MainBase": "4f7954ebcad5d333dfa0c4d330be38bdcaed3518",
+        "donors": [
+            {
+                "PR": 4328,
+                "base": "29051db2a80db7770dfe78a1db6e4c6998337324",
+                "head": "c8a7002ce125a1d5e267f19ffbc476954b032b19",
+                "paths": [
+                    {
+                        "path": "artifacts/change-contract/message-raw-session-orm-external-naming.json",
+                        "donorPreimage": null,
+                        "donorPostimage": "4c09e0327c1749ae60cf9b23d600e0f00afb915a",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "docs/message-schema-field-matrix.md",
+                        "donorPreimage": "ac7f5f5e3ec6f769f70d84fbc4d785a58482ee9f",
+                        "donorPostimage": "6cc6abbc08cd7fe844d6e3a6f78d04caf3609f9c",
+                        "MainPreimage": "ac7f5f5e3ec6f769f70d84fbc4d785a58482ee9f",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Entities/Message.cs",
+                        "donorPreimage": "b10ee42701e3bf3943c4360825e796ed7f700889",
+                        "donorPostimage": "5c823f853b23197b10478bdaf0547e8ed5b9f1f0",
+                        "MainPreimage": "b10ee42701e3bf3943c4360825e796ed7f700889",
+                        "MainMatchesDonorBase": true
+                    }
+                ]
+            },
+            {
+                "PR": 4329,
+                "base": "4f7954ebcad5d333dfa0c4d330be38bdcaed3518",
+                "head": "576688afe22d6fa8ae45bb9ab63236f68915932d",
+                "paths": [
+                    {
+                        "path": "artifacts/work-in-progress/authoring-canvas-generated-route-source.md",
+                        "donorPreimage": null,
+                        "donorPostimage": "8ee9f45fed9a645bd9b1149d42386ce597dc4da2",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/frontend/src/api/authoringCanvas.ts",
+                        "donorPreimage": "b1e239a3e99af933cacbb83b7e557e57c44e6040",
+                        "donorPostimage": "71115a6122f6f46bd4987fc35031f27f51f79516",
+                        "MainPreimage": "b1e239a3e99af933cacbb83b7e557e57c44e6040",
+                        "MainMatchesDonorBase": true
+                    }
+                ]
+            },
+            {
+                "PR": 4330,
+                "base": "4f7954ebcad5d333dfa0c4d330be38bdcaed3518",
+                "head": "12da03e0f1fb08594ad7163fff60d4bcb2f6f903",
+                "paths": [
+                    {
+                        "path": "src/frontend/src/services/authoringCanvasPackage.ts",
+                        "donorPreimage": "1f0518fe114dcc52fc800037c78a2cdd4328bb9f",
+                        "donorPostimage": "d6fe4926ad55f78ac776361007b6070511284d9f",
+                        "MainPreimage": "1f0518fe114dcc52fc800037c78a2cdd4328bb9f",
+                        "MainMatchesDonorBase": true
+                    }
+                ]
+            },
+            {
+                "PR": 4331,
+                "base": "4f7954ebcad5d333dfa0c4d330be38bdcaed3518",
+                "head": "115d4c762898f8ad88b75d0ec487a911c15480d8",
+                "paths": [
+                    {
+                        "path": "artifacts/auth/issue-4234-session-validation-facts-wip.md",
+                        "donorPreimage": null,
+                        "donorPostimage": "a88fc2cabd76346d4c4df8a79a0ea28ef275d549",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "artifacts/change-contract/issue-4234-session-facts-external-naming.json",
+                        "donorPreimage": null,
+                        "donorPostimage": "5a2a17f87c3ec7273ac778e8673535a696b90597",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "docs/architecture.md",
+                        "donorPreimage": "5a9ce7528784279ee61032f6d2ed601af71f24a1",
+                        "donorPostimage": "36abb917d1d228b9f67427fc9cb170c2558c5935",
+                        "MainPreimage": "5a9ce7528784279ee61032f6d2ed601af71f24a1",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Infrastructure/Auth/AdminSessionRequestValidation.cs",
+                        "donorPreimage": null,
+                        "donorPostimage": "03684c9b249ded500aa7b14972304cbd919b2d51",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                        "donorPreimage": "05a0168f146b499720a22ea94f1b798896faa7e2",
+                        "donorPostimage": "898557a076c443f46c83b52eceb04372d2e51f7f",
+                        "MainPreimage": "05a0168f146b499720a22ea94f1b798896faa7e2",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Security/AdminSessionValidationService.cs",
+                        "donorPreimage": "d2ae2011ff9232589de34249d89e988c5be6e548",
+                        "donorPostimage": "ea60e98507478005fefe777b94f6cd445d3aad40",
+                        "MainPreimage": "d2ae2011ff9232589de34249d89e988c5be6e548",
+                        "MainMatchesDonorBase": true
+                    }
+                ]
+            },
+            {
+                "PR": 4332,
+                "base": "29051db2a80db7770dfe78a1db6e4c6998337324",
+                "head": "691ccea5366ca02c30a34ad6f074eb5293913af5",
+                "paths": [
+                    {
+                        "path": "src/frontend/src/components/admin/saved-views/savedViewDeepLink.ts",
+                        "donorPreimage": "d92cb2fb6da22b556970d3904cd34d5178630fff",
+                        "donorPostimage": "f9a27b4e4bdab6f454bd5073fee771452a7d9e18",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": false
+                    }
+                ]
+            },
+            {
+                "PR": 4333,
+                "base": "576688afe22d6fa8ae45bb9ab63236f68915932d",
+                "head": "4691c22bf747c47ee20fe3bfa589bea0840e062a",
+                "paths": [
+                    {
+                        "path": "artifacts/work-in-progress/article-canvas-link-generated-route-source.md",
+                        "donorPreimage": null,
+                        "donorPostimage": "23950f6b7e89fe9cab97cb9361e5539046af393d",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "artifacts/work-in-progress/authoring-canvas-generated-route-source.md",
+                        "donorPreimage": "8ee9f45fed9a645bd9b1149d42386ce597dc4da2",
+                        "donorPostimage": "3fe469fe486d4966cf80285c9fad6d8450d58f0f",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": false
+                    },
+                    {
+                        "path": "src/frontend/src/api/articleCanvasLinks.ts",
+                        "donorPreimage": "2039b0f769720ea05271b701f536b87ea693b155",
+                        "donorPostimage": "3cbf2c14fc631ec3ec818175bbea84a31ae537d7",
+                        "MainPreimage": "2039b0f769720ea05271b701f536b87ea693b155",
+                        "MainMatchesDonorBase": true
+                    }
+                ]
+            },
+            {
+                "PR": 4334,
+                "base": "29051db2a80db7770dfe78a1db6e4c6998337324",
+                "head": "aa30fe5928ce4cd4281cc5ab89a8ef62e7d59430",
+                "paths": [
+                    {
+                        "path": "artifacts/change-contract/message-raw-session-guard-external-naming.json",
+                        "donorPreimage": null,
+                        "donorPostimage": "02c349c316dc08ba64d26db0cbd3fc32a8883b9f",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "docs/database-migration.md",
+                        "donorPreimage": "83fca7d9b6bf8aa497e2dde1efebd9944d9428bd",
+                        "donorPostimage": "5b0fb71968d59f674a0f2fb07e76510f7ba1297b",
+                        "MainPreimage": "854f323904b8479ee940736ced7038ac8ac1a95f",
+                        "MainMatchesDonorBase": false
+                    },
+                    {
+                        "path": "src/migration/MessageRawSessionRetirementPreflight.cs",
+                        "donorPreimage": null,
+                        "donorPostimage": "c6d70aa82c35576b699d0c403e9df713958b0ab2",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/migration/SchemaMigrationExecution.cs",
+                        "donorPreimage": "f8f5a6b36d2ee117dc8ec63d3c04fa6647dad1d9",
+                        "donorPostimage": "057f7e3e6a311ea449ea348d982798634907604b",
+                        "MainPreimage": "f8f5a6b36d2ee117dc8ec63d3c04fa6647dad1d9",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+                        "donorPreimage": "6478ddb3477e86681642d650e742d84cde4906e6",
+                        "donorPostimage": "ed2975ebc50df533c1f61c33e9f19d36ba9c9e99",
+                        "MainPreimage": "e142c3631b479bdbcc6c09f4acfd3bea00787a3a",
+                        "MainMatchesDonorBase": false
+                    }
+                ]
+            }
+        ],
+        "application": [
+            {
+                "PR": 4328,
+                "method": "Own patch cleanly applied; no conflict or whole-file overlay."
+            },
+            {
+                "PR": 4329,
+                "method": "Own patch cleanly applied; no conflict or whole-file overlay."
+            },
+            {
+                "PR": 4330,
+                "method": "Own patch cleanly applied; no conflict or whole-file overlay."
+            },
+            {
+                "PR": 4331,
+                "method": "Own patch cleanly applied; no conflict or whole-file overlay."
+            },
+            {
+                "PR": 4332,
+                "method": "New unconnected admitted leaf absent in Main, whole accepted final55-line module only; no other donor-base/history files."
+            },
+            {
+                "PR": 4333,
+                "method": "Own patch cleanly applied; no conflict or whole-file overlay."
+            },
+            {
+                "PR": 4334,
+                "method": "Own patch cleanly applied; no conflict or whole-file overlay."
+            }
+        ],
+        "uniqueAdmittedPaths": 20,
+        "finalFiles": [
+            {
+                "path": "artifacts/auth/issue-4234-session-validation-facts-wip.md",
+                "lastDonorPR": 4331,
+                "lastDonorHead": "115d4c762898f8ad88b75d0ec487a911c15480d8",
+                "reviewedDonorPostimage": "a88fc2cabd76346d4c4df8a79a0ea28ef275d549",
+                "finalPostimage": "a88fc2cabd76346d4c4df8a79a0ea28ef275d549",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "artifacts/change-contract/issue-4234-session-facts-external-naming.json",
+                "lastDonorPR": 4331,
+                "lastDonorHead": "115d4c762898f8ad88b75d0ec487a911c15480d8",
+                "reviewedDonorPostimage": "5a2a17f87c3ec7273ac778e8673535a696b90597",
+                "finalPostimage": "5a2a17f87c3ec7273ac778e8673535a696b90597",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "artifacts/change-contract/message-raw-session-guard-external-naming.json",
+                "lastDonorPR": 4334,
+                "lastDonorHead": "aa30fe5928ce4cd4281cc5ab89a8ef62e7d59430",
+                "reviewedDonorPostimage": "02c349c316dc08ba64d26db0cbd3fc32a8883b9f",
+                "finalPostimage": "02c349c316dc08ba64d26db0cbd3fc32a8883b9f",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "artifacts/change-contract/message-raw-session-orm-external-naming.json",
+                "lastDonorPR": 4328,
+                "lastDonorHead": "c8a7002ce125a1d5e267f19ffbc476954b032b19",
+                "reviewedDonorPostimage": "4c09e0327c1749ae60cf9b23d600e0f00afb915a",
+                "finalPostimage": "4c09e0327c1749ae60cf9b23d600e0f00afb915a",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "artifacts/work-in-progress/article-canvas-link-generated-route-source.md",
+                "lastDonorPR": 4333,
+                "lastDonorHead": "4691c22bf747c47ee20fe3bfa589bea0840e062a",
+                "reviewedDonorPostimage": "23950f6b7e89fe9cab97cb9361e5539046af393d",
+                "finalPostimage": "23950f6b7e89fe9cab97cb9361e5539046af393d",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "artifacts/work-in-progress/authoring-canvas-generated-route-source.md",
+                "lastDonorPR": 4333,
+                "lastDonorHead": "4691c22bf747c47ee20fe3bfa589bea0840e062a",
+                "reviewedDonorPostimage": "3fe469fe486d4966cf80285c9fad6d8450d58f0f",
+                "finalPostimage": "3fe469fe486d4966cf80285c9fad6d8450d58f0f",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "docs/architecture.md",
+                "lastDonorPR": 4331,
+                "lastDonorHead": "115d4c762898f8ad88b75d0ec487a911c15480d8",
+                "reviewedDonorPostimage": "36abb917d1d228b9f67427fc9cb170c2558c5935",
+                "finalPostimage": "36abb917d1d228b9f67427fc9cb170c2558c5935",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "docs/database-migration.md",
+                "lastDonorPR": 4334,
+                "lastDonorHead": "aa30fe5928ce4cd4281cc5ab89a8ef62e7d59430",
+                "reviewedDonorPostimage": "5b0fb71968d59f674a0f2fb07e76510f7ba1297b",
+                "finalPostimage": "e1f0c2bfcab88100091cae26502df56d3ec9d682",
+                "wholeDonorByteIdentical": false
+            },
+            {
+                "path": "docs/message-schema-field-matrix.md",
+                "lastDonorPR": 4328,
+                "lastDonorHead": "c8a7002ce125a1d5e267f19ffbc476954b032b19",
+                "reviewedDonorPostimage": "6cc6abbc08cd7fe844d6e3a6f78d04caf3609f9c",
+                "finalPostimage": "6cc6abbc08cd7fe844d6e3a6f78d04caf3609f9c",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/backend/Entities/Message.cs",
+                "lastDonorPR": 4328,
+                "lastDonorHead": "c8a7002ce125a1d5e267f19ffbc476954b032b19",
+                "reviewedDonorPostimage": "5c823f853b23197b10478bdaf0547e8ed5b9f1f0",
+                "finalPostimage": "5c823f853b23197b10478bdaf0547e8ed5b9f1f0",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/backend/Infrastructure/Auth/AdminSessionRequestValidation.cs",
+                "lastDonorPR": 4331,
+                "lastDonorHead": "115d4c762898f8ad88b75d0ec487a911c15480d8",
+                "reviewedDonorPostimage": "03684c9b249ded500aa7b14972304cbd919b2d51",
+                "finalPostimage": "03684c9b249ded500aa7b14972304cbd919b2d51",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "lastDonorPR": 4331,
+                "lastDonorHead": "115d4c762898f8ad88b75d0ec487a911c15480d8",
+                "reviewedDonorPostimage": "898557a076c443f46c83b52eceb04372d2e51f7f",
+                "finalPostimage": "898557a076c443f46c83b52eceb04372d2e51f7f",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Security/AdminSessionValidationService.cs",
+                "lastDonorPR": 4331,
+                "lastDonorHead": "115d4c762898f8ad88b75d0ec487a911c15480d8",
+                "reviewedDonorPostimage": "ea60e98507478005fefe777b94f6cd445d3aad40",
+                "finalPostimage": "ea60e98507478005fefe777b94f6cd445d3aad40",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/api/articleCanvasLinks.ts",
+                "lastDonorPR": 4333,
+                "lastDonorHead": "4691c22bf747c47ee20fe3bfa589bea0840e062a",
+                "reviewedDonorPostimage": "3cbf2c14fc631ec3ec818175bbea84a31ae537d7",
+                "finalPostimage": "3cbf2c14fc631ec3ec818175bbea84a31ae537d7",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/api/authoringCanvas.ts",
+                "lastDonorPR": 4329,
+                "lastDonorHead": "576688afe22d6fa8ae45bb9ab63236f68915932d",
+                "reviewedDonorPostimage": "71115a6122f6f46bd4987fc35031f27f51f79516",
+                "finalPostimage": "71115a6122f6f46bd4987fc35031f27f51f79516",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/components/admin/saved-views/savedViewDeepLink.ts",
+                "lastDonorPR": 4332,
+                "lastDonorHead": "691ccea5366ca02c30a34ad6f074eb5293913af5",
+                "reviewedDonorPostimage": "f9a27b4e4bdab6f454bd5073fee771452a7d9e18",
+                "finalPostimage": "f9a27b4e4bdab6f454bd5073fee771452a7d9e18",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/services/authoringCanvasPackage.ts",
+                "lastDonorPR": 4330,
+                "lastDonorHead": "12da03e0f1fb08594ad7163fff60d4bcb2f6f903",
+                "reviewedDonorPostimage": "d6fe4926ad55f78ac776361007b6070511284d9f",
+                "finalPostimage": "d6fe4926ad55f78ac776361007b6070511284d9f",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/migration/MessageRawSessionRetirementPreflight.cs",
+                "lastDonorPR": 4334,
+                "lastDonorHead": "aa30fe5928ce4cd4281cc5ab89a8ef62e7d59430",
+                "reviewedDonorPostimage": "c6d70aa82c35576b699d0c403e9df713958b0ab2",
+                "finalPostimage": "c6d70aa82c35576b699d0c403e9df713958b0ab2",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/migration/SchemaMigrationExecution.cs",
+                "lastDonorPR": 4334,
+                "lastDonorHead": "aa30fe5928ce4cd4281cc5ab89a8ef62e7d59430",
+                "reviewedDonorPostimage": "057f7e3e6a311ea449ea348d982798634907604b",
+                "finalPostimage": "057f7e3e6a311ea449ea348d982798634907604b",
+                "wholeDonorByteIdentical": true
+            },
+            {
+                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+                "lastDonorPR": 4334,
+                "lastDonorHead": "aa30fe5928ce4cd4281cc5ab89a8ef62e7d59430",
+                "reviewedDonorPostimage": "ed2975ebc50df533c1f61c33e9f19d36ba9c9e99",
+                "finalPostimage": "d64e5b1c6721acd9456ff9ddcedab7b7cdafd939",
+                "wholeDonorByteIdentical": false
+            }
+        ],
+        "compositeFiles": "Only DB migration document and PG observer preserve extra current Main hunks; donor-own patch applies without conflicts. Inverse proof to verify before commit.",
+        "allOtherMainTrackedLeaves": "Byte unchanged before ordinary composition metadata",
+        "inverseWholeFileProof": {
+            "allTwentyWholeFilesReturnToExactMainPreimages": true,
+            "savedHelperAdmission": "Absent Main leaf copied as exact accepted final file; removed again only inside private inverse verification copy. No other prerequisites imported.",
+            "privateVerificationRoot": "/tmp/seven-intake-inverse-_8ehcj1k",
+            "MainExpressionIndexAndDocumentHunksPreserved": true
+        }
+    },
+    "admission": "Parent-supplied limited independent source acceptance of exact4328..4334 heads;4330 final12da03 P2 closure. New combination requires exact-source review. No source acceptance means running safety.",
+    "scope": "20 unique donor-owned paths +3 ordinary Main composition WIP/current doc/naming records =23 paths. Saved helper absent in Main admitted as exact accepted final unconnected leaf; PG observer and DB document preserve additional Main expression-index/document hunks, inverse whole-file proof verifies all20 return to original Main.",
+    "fullOriginalFrontend": {
+        "before": 29,
+        "after": 29,
+        "added": [],
+        "removed": [],
+        "normalization": "only positions; all diagnostic continuation text/multiplicity retained"
+    },
+    "fullOriginalManaged": {
+        "backend": {
+            "summary": {
+                "base": {
+                    "Warning": 330,
+                    "Error": 0
+                },
+                "candidate": {
+                    "Warning": 330,
+                    "Error": 0
+                }
+            },
+            "fullDiagnosticLineMultiplicityRetained": true,
+            "normalization": "actual worktree root and source positions only",
+            "added": [],
+            "removed": []
+        },
+        "migration": {
+            "summary": {
+                "base": {
+                    "Warning": 931,
+                    "Error": 0
+                },
+                "candidate": {
+                    "Warning": 931,
+                    "Error": 0
+                }
+            },
+            "fullDiagnosticLineMultiplicityRetained": true,
+            "normalization": "actual worktree root and source positions only",
+            "added": [],
+            "removed": []
+        }
+    },
+    "originalCSharpStrictStyle": {
+        "baseStatus": "FAIL1",
+        "candidateStatus": "FAIL1",
+        "byteIdenticalAfterOnlyRootAndPositionNormalization": true,
+        "normalization": "only actual worktree root and source positions, full tool failure text retained",
+        "baseWHITESPACE": 4,
+        "candidateWHITESPACE": 4,
+        "added": [],
+        "removed": []
+    },
+    "frontendStyle": "Original strict selected3 baselinePASS0 \u2192selected4 candidatePASS0, zero diagnostics including newly admitted helper; same actual policy/config/deps/UI957. No full-project style claim.",
+    "AST": "four real TS leaves AST0; no product/helper execution",
+    "docs": {
+        "lifecycle": {
+            "before": 7,
+            "after": 7,
+            "byteIdentical": true,
+            "added": [],
+            "removed": []
+        },
+        "authoritative": {
+            "before": 41,
+            "after": 41,
+            "byteIdentical": true,
+            "added": [],
+            "removed": []
+        }
+    },
+    "actualLocalAlias": {
+        "UI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+        "configsByteIdentical": true,
+        "configSHA256": "633e6b25f6c4df1ca2778953262adc3ac1542f7a74de7ceaed9ccbc2e64a4ef3",
+        "aliases": {
+            "@ozwasyd/element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ],
+            "element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ]
+        },
+        "physicalQualification": "UNVERIFIED"
+    },
+    "sourceContracts": {
+        "4328": "Retires two obsolete raw ORM properties only, retains principal/audit producers. Breaking entity-derived target/source change, not physical columns/data retirement. No activation until original atomic migration/current schema qualification.",
+        "4329": "Uses existing11 descriptors only for URL arguments; original transport/typed readers/one admin wrapper/non-URL arguments unchanged. Cursor equivalence only valid typed string cursor fields or null whole cursor, not arbitrary-JS values.",
+        "4330": "Own explicit closed unresolved choice; exact returned article ID type/value and unique exact anchor matching after permission denial. Preview/auxiliary helpers only; no production import wiring, portable identity/grant/receipt/atomic graph write.",
+        "4331": "Internal authentication-time projection/version/generation/deadline facts tied to original request/principal. No fresh clock/validation/revocation/lease/live grant; boolean-only compatibility/copies do not carry trusted facts.",
+        "4332": "Unconnected complete saved-link helper admitted because Main leaf absent. Builder upper bound999999999 aligns original reader; typed URLSearchParams accepted grammar unchanged. Newline-vulnerability assertion withdrawn; UUID-length check defensive only. No route/UI/server resolution wiring.",
+        "4333": "Only own three paths relative576688 accepted4329. Two existing article link descriptors change URL initializers only, original positive-int32 synchronous guard/transport/frame/PoW/body/leases unchanged; prior cursor limitation disclosure retained.",
+        "4334": "Actual ordinary catalog relation inventory/refusal and selected legacy descriptor prewrite guard source only. Original Main expression-index observer preserved. Missing raw columns refuse (including both absent), non-idempotent final-shape boundary; no physical retirement. Does NOT cover Native-Core Apply/PgLegacyNonArticlePreparation, arbitrary SQL or later descriptor safety. Counts/locks/catalog/source observations UNRUN."
+    },
+    "preservation": "All other original Main including Plugin/upload/facts/Settings/editor/host/router/resources unchanged; generated endpoints/routes/frames/decoderRegistry/SQL definitions/checksums/expected target/OfflineMigrationSourceObserver/offline executor frozen products untouched. No whole master/donor histories, UI958/959/960, new tests/fixtures/receipt/catalog outputs.",
+    "classification": "Behavior change; public source/entity-derived target breaking under4328. No actual schema/wire migration performed; no runtime activation.",
+    "remaining": "Full frontend29FAIL Blog4/UI25; original three known scoped raw-reason style findings and actual four PG observer whitespace style failures retained. Docs7/41FAIL unchanged. Complete Settings CSS output and independent physical alias qualification remain UNVERIFIED. Original public editor resources/native loan/worker shutdown/recovery coordination/disposed restoration authority remains incomplete, no ready/zero/paused/settled ACK fabrication.",
+    "holds": "All runtime/product/module/helper execution/tests/help/list/discovery/DB/drop/SQL/preflight/catalog/live authentication/native/application startup/build activation/frozen authority/receipt/catalog/fixture generation/security/privacy/IME/race/backuprestore/render/qualification HOLD/UNRUN. Only original permitted complete managed/TS static compiler/lint/AST/doc/governance tools used. No merge/Ready/close/package publication.",
+    "evidence": {
+        "/workspace/session-evidence-2295/main-seven-reviewed-admission.json": {
+            "sha256": "70c960e5a13075626b1a1f8a037aa7d2e655051deb0fd31ef5df1b34c0e9024f"
+        },
+        "/workspace/session-evidence-2295/main-seven-reviewed-source-boundary.json": {
+            "sha256": "ef32c3e9223e2e4624f59eb505f18a4080129828aa1f91b11ced57ea1972a454"
+        },
+        "/workspace/session-evidence-2295/main-seven-types-delta.json": {
+            "sha256": "c89119542f2d66b76967d49f98a5e24cfc0f4a58d64547f97b1b9306d6c3da66"
+        },
+        "/workspace/session-evidence-2295/main-seven-managed-diagnostic-delta.json": {
+            "sha256": "4716835925c5ec4c9efac038c39749273115e8e671eb6528420642a96a62287d"
+        },
+        "/workspace/session-evidence-2295/main-seven-csharp-style-delta.json": {
+            "sha256": "7eb88f40fbd057191503ef440740b85b924316aef6040c6a692e8064ada0c6c3"
+        },
+        "/workspace/session-evidence-2295/main-seven-doc-delta.json": {
+            "sha256": "8d24fd17996fc1b97fa3f42524e6010dd376e82a311d919a81c66668fc84cf14"
+        },
+        "/workspace/session-evidence-2295/main-seven-alias-source.json": {
+            "sha256": "284f05b32f9190688a3631b1c2cb2efa45b8ba6327f17bf7d048c192243052a2"
+        },
+        "/workspace/session-evidence-2295/main-seven-base-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/main-seven-candidate-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/main-seven-base-backend-restore.txt": {
+            "sha256": "24d6ca38455d401e51937d79d6f89e0de50a8c31255828d649aaedfff97c2c97"
+        },
+        "/workspace/session-evidence-2295/main-seven-candidate-backend-restore.txt": {
+            "sha256": "9f92bb961e275d50e801671b0b75093c054370c1adee2d9123567a6dd1101f61"
+        },
+        "/workspace/session-evidence-2295/main-seven-base-backend-build.txt": {
+            "sha256": "063366ffa917d760066d7312e27da6cc5e193d9418075d14839d778a26e0a143"
+        },
+        "/workspace/session-evidence-2295/main-seven-candidate-backend-build.txt": {
+            "sha256": "14e28dd81eea5b712d42f72ec8c1ad99aa2379747f29095cb81569d43eee4ead"
+        },
+        "/workspace/session-evidence-2295/main-seven-base-migration-restore.txt": {
+            "sha256": "81537ec1f950c883e6e80c3600796c8bd9a8cfac5e9b4d1e4930b856ee0b1b77"
+        },
+        "/workspace/session-evidence-2295/main-seven-candidate-migration-restore.txt": {
+            "sha256": "a53810d696511f7f7adb33ee8d107ca3bdeb018e736f8a4fa24b2ac0917176b7"
+        },
+        "/workspace/session-evidence-2295/main-seven-base-migration-build.txt": {
+            "sha256": "41b2e0b987e200a70a093225c1c710970f5f7e458546a2473b6fd6d392a1b7f3"
+        },
+        "/workspace/session-evidence-2295/main-seven-candidate-migration-build.txt": {
+            "sha256": "06f35840fc7a95e816bdba64b0c15bb58418b032897d14fc97a37294b2dbadf1"
+        },
+        "/workspace/session-evidence-2295/main-seven-base-style.txt": {
+            "sha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7"
+        },
+        "/workspace/session-evidence-2295/main-seven-candidate-style.txt": {
+            "sha256": "243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11"
+        },
+        "/workspace/session-evidence-2295/main-seven-base-csharp-style.txt": {
+            "sha256": "e1e174c7d4f1a9c1b84136d73175ae96d94f50753cf931349a5292e5d3ee79b6"
+        },
+        "/workspace/session-evidence-2295/main-seven-csharp-style.txt": {
+            "sha256": "f76c44f22997699c1e59dd65cd2c00d9d39574b1d6768190e63cea4a9acc6bdc"
+        },
+        "/workspace/session-evidence-2295/main-seven-ast.txt": {
+            "sha256": "ec9525f0b8184b5d58db68e2797a359dfc9fcbb8b859bbdb5a1ee9b1aa2cbc40"
+        }
+    }
+}

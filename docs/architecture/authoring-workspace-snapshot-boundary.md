@@ -2540,3 +2540,33 @@ complete CSS output remains UNVERIFIED with the same missing UI957 CSS assets.
 All original transport/frame, resource-lifecycle/restore/native settlement,
 security/privacy/IME and qualification holds remain. Ordinary composition WIP
 binds exact source identities and actual static evidence for separate review.
+
+
+## Seven Reviewed Ordinary Source Prerequisites
+
+A bounded Main successor admits only the own files of reviewed4328 through
+4334, ordering the article-link route increment after its4329 dependency.
+Twenty unique source/documentary paths retain exact provenance; eighteen match
+final donor blobs, while the PG observer and migration document preserve extra
+Main content. Inverse application restores every whole file to the original
+Main. The previously absent saved-link helper is the exact accepted unconnected
+leaf, not production route wiring. All earlier Main/plugin/upload/facts/Settings
+and public editor source remains.
+
+Message raw ORM mapping retirement is a staged breaking entity-derived target
+change, not physical retirement. Internal session facts describe only original
+authentication-time observation, never live grant. Package helpers require
+explicit choices and exact returned article/anchor identities, still auxiliary.
+Existing Canvas/article-link descriptors change URL construction only; typed
+cursor limits and original transport/lease owners remain. The saved-link
+builder range aligns its reader; no newline vulnerability is asserted.
+
+The observer/preflight source covers selected legacy descriptor admission only.
+Missing columns, including both absent, refuse; this is not idempotent final
+retirement. Native-Core Apply and PgLegacyNonArticlePreparation are separate
+uncovered owners. No actual catalog/DB/drop/lock/count/observer or application
+executes. Frozen SQL/schema targets, catalogs, frames, receipts and fixtures
+remain untouched. Full static29FAIL and original style/doc failures remain
+explicit in ordinary WIP; compilation and source review cannot grant running
+safety, schema activation, resource readiness or qualification. UI957 is fixed;
+complete CSS output and independent physical alias remain UNVERIFIED.

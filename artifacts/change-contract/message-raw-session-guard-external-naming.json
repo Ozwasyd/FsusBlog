@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+                "src/migration/SchemaMigrationExecution.cs",
+                "src/migration/MessageRawSessionRetirementPreflight.cs"
+            ],
+            "reason": "The trusted registry includes all src/**/*.cs in its environment-variable surface. This ordinary catalog/preflight source preserves external database names and introduces no process environment key or environment admission. This manifest records that registered source scope only, not native schema, raw-session data or physical retirement qualification."
+        }
+    ]
+}

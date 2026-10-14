@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Entities/Message.cs"
+            ],
+            "reason": "The trusted registry includes all src/**/*.cs in its environment-variable surface. This entity deletion introduces or renames no process environment key; existing external spellings remain unchanged and retained entity members use the C# naming convention. This manifest records only that registered source scope, not schema or runtime qualification."
+        }
+    ]
+}

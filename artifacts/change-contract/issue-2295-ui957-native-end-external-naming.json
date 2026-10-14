@@ -4,9 +4,25 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/architecture/authoring-workspace-snapshot-boundary.md"
+                "docs/architecture.md",
+                "docs/architecture/authoring-workspace-snapshot-boundary.md",
+                "docs/database-migration.md",
+                "docs/message-schema-field-matrix.md"
             ],
-            "reason": "Preserve external CSS-like directive and contract spelling while documenting only the reviewed Plugin config ownership composition, unchanged Settings CSS UNVERIFIED status and all original qualification holds."
+            "reason": "Preserve external CSS-like and contract spelling in all four changed current documents while recording bounded reviewed source prerequisites and unchanged runtime/frozen qualification holds."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Entities/Message.cs",
+                "src/backend/Infrastructure/Auth/AdminSessionRequestValidation.cs",
+                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "src/backend/Services/Security/AdminSessionValidationService.cs",
+                "src/migration/MessageRawSessionRetirementPreflight.cs",
+                "src/migration/SchemaMigrationExecution.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs"
+            ],
+            "reason": "The original broad naming registry includes all src managed files. Preserve surviving process/schema/wire identifiers across these seven admitted managed source surfaces; explicitly document retired raw ORM source mappings without physical column retirement or any process environment key change."
         }
     ]
 }
