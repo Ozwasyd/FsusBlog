@@ -704,7 +704,9 @@ function beginJsonEdit(field: ConfigField | null): void
     {
         return;
     }
-    const value = field === null ? sourceDraft : object?.[field.name];
+    const value = field === null
+        ? sourceDraft
+        : object !== null && Object.hasOwn(object, field.name) ? object[field.name] : undefined;
     const text = pluginConfigJsonText(toRaw(value));
     jsonEditor.value = {
         field,

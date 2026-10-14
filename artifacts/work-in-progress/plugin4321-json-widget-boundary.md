@@ -199,3 +199,54 @@ Final ordinary static records: `/tmp/plugin4325-source-static-result.json`,
 `/tmp/plugin4325-final-current-full-types.log`/`.exit`. These are source observations,
 not frozen qualification receipts. No package publication, merge, issue closure,
 runtime/render/keyboard/security/privacy/native or other qualification.
+
+## Independent P2 review: own-property editor reads
+
+The independent review identified a concrete discrepancy at the preceding head
+`2d39aba1539f1869e6e8ab7c76a7d678c03613f0`: widget presentation used
+`Object.hasOwn(object, field.name)`, but beginJsonEdit read
+`object?.[field.name]`. For the legal schema
+`{"type":"object","properties":{"__proto__":{"type":"object"}}}`
+and a loaded empty object without a default, presentation showed unset while
+the editor could read the inherited Object.prototype and display its JSON
+representation. An explicit Apply could then introduce an own field that had
+no original value. This is a source-derived counterexample, not a runtime test.
+
+The editor now reads a field only when the root is an object and
+`Object.hasOwn(object, field.name)` is true; otherwise its value is undefined.
+Missing fields therefore retain the existing empty text / explicit-input message,
+instead of serializing an inherited value as an apparent current value. Actual
+own values, including null or an own __proto__ field, still reach the existing
+representation path. Root editing still reads sourceDraft. No legal key is
+forbidden; successful explicit Apply still uses the unchanged safe computed
+property spread, and opening the editor never changes configDraft.
+
+Only this initializer changes in product source. Tooling-only TS/SFC AST and
+exact source comparison against the preceding head establish the root/own/missing
+branches and preserve every other page statement/template/style and all other
+product files. The original ten load/action/save/MFA/version functions, parser
+catch boundaries, enum predicate/equality, and complete API emitted JS remain
+unchanged. Page/new model AnyKeyword0 and added cast/non-null assertions0.
+
+The original complete static command was rerun with the same genuine clean
+UI957 `903db034a14254fb162f51b9c25d3703ea20ccb5`:
+
+```sh
+FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-main4311-ui957 node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application
+```
+
+Actual exit2/FAIL34/22 remains. Every complete diagnostic block is byte-identical
+to both the preceding implementation and the original fixed-source baseline;
+zero added/removed. The original strict-full style command was retried for the
+four product paths: exit1/BLOCKED because the configured ESLint/Stylelint tools
+are absent. No install, alternate rules, or lint PASS claim. Diff check passes.
+
+Ordinary source evidence is in `/tmp/plugin4325-own-property-source-static.cjs`,
+`/tmp/plugin4325-own-property-source-static-result.json`,
+`/tmp/plugin4325-own-property-type-delta.json`,
+`/tmp/plugin4325-own-property-full-types.log`/`.exit` and
+`/tmp/plugin4325-own-property-style.log`/`.exit`. These records are source-only;
+no product import/helper/parser/widget/test or rendered interaction was executed.
+All runtime/tests/discovery/native/security/privacy/receipt/backuprestore/IME/
+frozen qualification remain HOLD/UNRUN. Draft/source review continues; no merge,
+close, Ready transition, or package publication.
