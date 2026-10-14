@@ -321,6 +321,9 @@ public static class JwtServiceExtensions
                 },
                 OnTokenValidated = async context =>
                 {
+                    AdminSessionRequestValidation requestValidation = AdminSessionRequestValidation.Begin(
+                        context.HttpContext,
+                        context.Principal);
                     if (context.Principal?.IsAdminPrincipal() == true)
                     {
                         string accessToken = context.SecurityToken switch
@@ -345,6 +348,10 @@ public static class JwtServiceExtensions
                         {
                             context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>().ClearAdminSessionCookies(context.HttpContext);
                             context.Fail(adminResult.Reason);
+                        }
+                        else
+                        {
+                            requestValidation.Complete(adminResult);
                         }
                         return;
                     }

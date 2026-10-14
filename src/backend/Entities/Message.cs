@@ -96,14 +96,6 @@ public sealed class MessageConversation
         get; set;
     }
 
-    [Obsolete("Migration-only compatibility column; raw admin sessions must remain null.", true)]
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-    [SugarColumn(ColumnName = "createdbyadminsessionid", IsNullable = true, Length = 64)]
-    public string? LegacyRawAdminSessionStorageMustRemainNull
-    {
-        get; set;
-    }
-
     [SugarColumn(IsNullable = true)]
     public DateTime? ContentRedactedAt
     {
@@ -209,14 +201,6 @@ public sealed class ConversationMessage
 
     [SugarColumn(IsNullable = true, Length = 64)]
     public string? SenderAdminSessionAuditReference
-    {
-        get; set;
-    }
-
-    [Obsolete("Migration-only compatibility column; raw admin sessions must remain null.", true)]
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-    [SugarColumn(ColumnName = "senderadminsessionid", IsNullable = true, Length = 64)]
-    public string? LegacyRawAdminSessionStorageMustRemainNull
     {
         get; set;
     }
