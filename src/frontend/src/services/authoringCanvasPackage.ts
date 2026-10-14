@@ -253,7 +253,7 @@ export function validateAndParseCanvasPackage(jsonStr: string): {
     return { valid: true, package: pkg };
 }
 /**
- * Provider-metadata preview only: heading/block matches require one exact anchor.
+ * Provider-metadata preview only: returned IDs and heading/block anchors must match exactly.
  * These statuses do not attest canonical package admission, permission or pinned coordinates.
  */
 export async function planCanvasPackageImport(pkg: AuthoringCanvasPackage, articleProvider: TargetArticleProvider, options: {
@@ -287,7 +287,9 @@ export async function planCanvasPackageImport(pkg: AuthoringCanvasPackage, artic
             {
                 status = 'unresolved_permission_denied';
             }
-            else if (article.isArchived)
+            else if (article.isArchived
+                || (typeof article.id !== 'number' && typeof article.id !== 'string')
+                || article.id !== ref.sourceArticleId)
             {
                 status = 'unresolved_missing';
             }
