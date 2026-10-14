@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Auth/AdminSessionRequestValidation.cs",
+                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "src/backend/Services/Security/AdminSessionValidationService.cs"
+            ],
+            "reason": "Preserve the existing registered source environment surface; this internal observation handoff adds no environment key and retains all caller-visible spellings."
+        }
+    ]
+}
