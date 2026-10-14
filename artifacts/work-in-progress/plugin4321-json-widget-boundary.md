@@ -250,3 +250,95 @@ no product import/helper/parser/widget/test or rendered interaction was executed
 All runtime/tests/discovery/native/security/privacy/receipt/backuprestore/IME/
 frozen qualification remain HOLD/UNRUN. Draft/source review continues; no merge,
 close, Ready transition, or package publication.
+
+## Independent P2 review: selection and async request ownership
+
+The first own-property correction at
+`f01ada8eebb92e0f5fe8505a5ebbb183521700b4` was independently reviewed. A second
+source review found that detail/draft/schema identity alone did not cover time
+spent awaiting MFA, save responses, or a new selection's detail load. Apply could
+consume editor text during an outstanding save, then the old save response could
+replace the newly applied draft. A changed selectedId also left the previous
+detail/editor eligible until getPlugin completed. The caller explicitly authorized
+fixing the actual selection/save/load ownership, including their original bugs.
+
+Every selectPlugin call now creates a fresh selection record and request identity,
+even for the same plugin ID. The loaded detail is associated with that selection
+only after its current getPlugin request completes. Configuration edits require
+that actual association, matching selectedId/pluginId and a finished current load.
+The editor captures selection, request and draft revision alongside the existing
+detail/draft/schema field. Tokens are local ownership records, not auth grants,
+server versions, cancellation receipts or transport cancellation.
+
+saveConfig captures the actual plugin, detail/version, draft and draft revision
+before awaiting MFA. A current pending-save record prevents duplicate Save entry.
+The original MFA call and proof token still precede mutatePlugin; current source
+ownership is checked both after MFA and after the mutation response. Only a still
+current response can replace the captured detail/draft or show the success toast.
+Scalar/enum writes may update the current local draft while a save awaits; they
+create a fresh draft revision, so an earlier response cannot overwrite that edit.
+JSON Apply instead refuses any current pending save before parsing, and keeps the
+editor's exact text. A later Apply also requires the captured request/revision and
+selection. There is no automatic rebinding/application or repair of a stale editor.
+
+loadOverview has its own latest-request identity and captures the selection,
+config request and draft revision. A stale list response cannot trigger a new
+selection or overwrite local ownership after a newer selection/request/edit.
+The empty-list transition invalidates detail/request/save ownership without
+inventing a configuration object. Selection/load/save finally blocks release only
+their own still-current loading/pending records. Old save completion cannot clear
+a newer save's pending record; it never closes or updates a JSON editor.
+
+The following are source-derived schedules, not executed test cases:
+
+| Schedule | Source disposition |
+| --- | --- |
+| Save starts, then Apply | Pending-save guard returns before parsing; config and editor text retained |
+| MFA awaits, then selection or draft changes | Source guards return before mutatePlugin; no token or version substitution |
+| Save sent, then a scalar/enum draft changes | Response source/revision guard returns before replacing detail/draft |
+| Select A, B, A; first A responds last | Fresh selection identity rejects first A despite matching plugin ID |
+| Two same-ID loads complete out of order | Only current selection/request can install detail or clear detailLoading |
+| Repeated Save while pending | Early return avoids another MFA/mutation request |
+| Close/reopen editor while a request awaits | Explicit close/reopen owns editor replacement; async handlers never mutate editor text or clear it |
+| Parse failure or stale Apply | Existing parser catch / stale guard retains text and original draft |
+| Earlier overview responds after selection/save/edit | Captured selection/request/revision mismatch prevents its reload transition |
+
+An already dispatched server mutation may still complete. Ignoring its stale
+local response does not undo that server write or invent a new version; subsequent
+server version/schema/reload rejection retains the original authority. This change
+does not qualify unrelated install/action/permission concurrency or server behavior.
+Their original methods remain byte-identical. loadOverview, selectPlugin and
+saveConfig intentionally change; their raw catch bodies are byte-identical, with
+the same error object passed to the original showErrorToast calls. Existing parser
+catch, safe computed-key spread and own-property correction remain intact. No
+config coercion/default, key ban, auth grant or backend/API/decoder/UI change.
+
+Static TS/SFC AST/source comparison verifies the pre-write guards, current-request
+finally ownership, captured MFA/version payload, own-property read and unchanged
+template/styles. The other thirteen page functions are text-byte-identical to the
+first P2 source, including the original seven install/action/permission/display
+functions. Other product files and complete emitted API JS remain unchanged;
+page/new model AnyKeyword0 and added cast/non-null assertions0.
+
+The same original full command above was rerun against real clean UI957
+`903db034a14254fb162f51b9c25d3703ea20ccb5`. Final actual exit2/FAIL34/22;
+all complete diagnostic blocks byte-identical to both the first P2 source and the
+fixed baseline, zero added/removed. An initial candidate produced two additional
+type errors from Vue's generic shallowRef<object | null> overload. The pending
+record is used only by script ownership checks, so it was changed to an ordinary
+nullable variable and the final complete command rerun. The initial 36/23 log is
+retained separately; it is not the final result. No assertion or compiler/config
+weakening. The original scoped strict-full style attempt on final source remains
+exit1/BLOCKED because configured ESLint/Stylelint are absent. Diff check passes.
+
+Ordinary source evidence: `/tmp/plugin4325-lifecycle-source-static.cjs`,
+`/tmp/plugin4325-lifecycle-source-static-result.json`,
+`/tmp/plugin4325-lifecycle-type-delta.json`,
+`/tmp/plugin4325-lifecycle-full-types.log`/`.exit` and
+`/tmp/plugin4325-lifecycle-style.log`/`.exit`. Initial failed compiler evidence is
+`/tmp/plugin4325-lifecycle-initial-full-types.log`/`.exit` and
+`/tmp/plugin4325-lifecycle-initial-type-delta.json`. No product helper, parser,
+widget, MFA/server flow, rendered interaction or test was executed. All runtime/
+tests/discovery/native/security/privacy/receipt/backuprestore/IME/frozen
+qualification remains HOLD/UNRUN. Independent reviewer 01a12c4a is to review the
+new exact source commit; no merge, close, Ready transition or package publication.

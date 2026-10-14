@@ -599,10 +599,17 @@ interface ConfigWidgetEntry {
 
 interface ConfigJsonEditor {
     readonly field: ConfigField | null;
+    readonly sourceSelection: ConfigSelection;
+    readonly sourceRequest: object;
     readonly sourceDetail: PluginAdminDetail;
     readonly sourceDraft: unknown;
+    readonly sourceDraftRevision: object;
     readonly text: string;
     readonly error: string | null;
+}
+
+interface ConfigSelection {
+    readonly pluginId: string;
 }
 
 const loading = ref(false);
@@ -617,6 +624,12 @@ const detail = shallowRef<PluginAdminDetail | null>(null);
 const configDraft = ref<unknown>();
 const configInputId = useId();
 const jsonEditor = shallowRef<ConfigJsonEditor | null>(null);
+let pendingConfigSave: object | null = null;
+let configSelection: ConfigSelection | null = null;
+let configDetailSelection: ConfigSelection | null = null;
+let configRequest: object = {};
+let configDraftRevision: object = {};
+let overviewRequest: object | null = null;
 const configObject = computed(() => isPluginConfigObject(configDraft.value) ? configDraft.value : null);
 
 const configFields = computed<ConfigField[]>(() =>
@@ -657,14 +670,27 @@ function displayJsonValue(value: unknown): string
     return pluginConfigJsonText(toRaw(value)) ?? '当前值无法表示为有限 JSON；原值未更改。';
 }
 
+function isConfigSelectionCurrent(selection: ConfigSelection): boolean
+{
+    return configSelection === selection && selectedId.value === selection.pluginId;
+}
+
+function canEditConfig(): boolean
+{
+    return configSelection !== null && configDetailSelection === configSelection
+        && isConfigSelectionCurrent(configSelection) && !detailLoading.value
+        && detail.value?.summary.pluginId === configSelection.pluginId;
+}
+
 function writeWidgetField(entry: ConfigWidgetEntry, value: unknown): void
 {
     const object = configObject.value;
-    if (object === null || !configWidgetFields.value.includes(entry))
+    if (!canEditConfig() || object === null || !configWidgetFields.value.includes(entry))
     {
         return;
     }
     configDraft.value = { ...object, [entry.field.name]: value };
+    configDraftRevision = {};
 }
 
 function updateBooleanField(entry: ConfigWidgetEntry, value: boolean | string | number): void
@@ -694,7 +720,9 @@ function updateTextField(entry: ConfigWidgetEntry, value: string): void
 function beginJsonEdit(field: ConfigField | null): void
 {
     const sourceDetail = detail.value;
-    if (sourceDetail === null || field !== null && !configFields.value.includes(field))
+    const sourceSelection = configSelection;
+    if (!canEditConfig() || sourceSelection === null || sourceDetail === null
+        || field !== null && !configFields.value.includes(field))
     {
         return;
     }
@@ -710,8 +738,11 @@ function beginJsonEdit(field: ConfigField | null): void
     const text = pluginConfigJsonText(toRaw(value));
     jsonEditor.value = {
         field,
+        sourceSelection,
+        sourceRequest: configRequest,
         sourceDetail,
         sourceDraft,
+        sourceDraftRevision: configDraftRevision,
         text: text ?? '',
         error: text === null ? '当前值没有可用的 JSON 文本，请显式输入；原值仍保留。' : null
     };
@@ -733,10 +764,17 @@ function applyJsonEdit(): void
     {
         return;
     }
-    if (detail.value !== editor.sourceDetail || configDraft.value !== editor.sourceDraft
+    if (pendingConfigSave !== null)
+    {
+        jsonEditor.value = { ...editor, error: '保存请求尚未完成；原值和输入均已保留。' };
+        return;
+    }
+    if (!canEditConfig() || !isConfigSelectionCurrent(editor.sourceSelection)
+        || configRequest !== editor.sourceRequest || configDraftRevision !== editor.sourceDraftRevision
+        || detail.value !== editor.sourceDetail || configDraft.value !== editor.sourceDraft
         || editor.field !== null && !configFields.value.includes(editor.field))
     {
-        jsonEditor.value = { ...editor, error: '配置或 Schema 已变更；输入已保留，请重新打开当前值的编辑器。' };
+        jsonEditor.value = { ...editor, error: '选择、请求、配置或 Schema 已变更；输入已保留，请重新打开当前值的编辑器。' };
         return;
     }
     let value: unknown;
@@ -756,6 +794,7 @@ function applyJsonEdit(): void
         return;
     }
     configDraft.value = editor.field === null ? value : { ...object, [editor.field.name]: value };
+    configDraftRevision = {};
     jsonEditor.value = null;
 }
 
@@ -775,20 +814,32 @@ function selectedEnumOption(field: ConfigField): PluginConfigEnumOption | null
 function selectEnumOption(field: ConfigField, option: PluginConfigEnumOption): void
 {
     const object = configObject.value;
-    if (object === null || !configFields.value.includes(field) || !field.enumOptions.includes(option))
+    if (!canEditConfig() || object === null || !configFields.value.includes(field) || !field.enumOptions.includes(option))
     {
         return;
     }
     // Keep the canonical value itself, including null and nested objects/arrays.
     configDraft.value = { ...object, [field.name]: option.value };
+    configDraftRevision = {};
 }
 
 async function loadOverview(): Promise<void>
 {
+    const request = {};
+    const sourceSelection = configSelection;
+    const sourceRequest = configRequest;
+    const sourceDraftRevision = configDraftRevision;
+    overviewRequest = request;
     loading.value = true;
     try
     {
-        overview.value = await listPlugins();
+        const result = await listPlugins();
+        if (overviewRequest !== request || configSelection !== sourceSelection
+            || configRequest !== sourceRequest || configDraftRevision !== sourceDraftRevision)
+        {
+            return;
+        }
+        overview.value = result;
         const nextId = overview.value.plugins.some((item) => item.pluginId === selectedId.value)
             ? selectedId.value
             : overview.value.plugins[0]?.pluginId ?? '';
@@ -798,6 +849,11 @@ async function loadOverview(): Promise<void>
         }
         else
         {
+            configSelection = null;
+            configDetailSelection = null;
+            configRequest = {};
+            pendingConfigSave = null;
+            detailLoading.value = false;
             selectedId.value = '';
             detail.value = null;
         }
@@ -808,18 +864,39 @@ async function loadOverview(): Promise<void>
     }
     finally
     {
-        loading.value = false;
+        if (overviewRequest === request)
+        {
+            loading.value = false;
+        }
     }
 }
 
 async function selectPlugin(pluginId: string): Promise<void>
 {
+    const selection = { pluginId };
+    const request = {};
+    configSelection = selection;
+    configDetailSelection = null;
+    configRequest = request;
+    pendingConfigSave = null;
+    if (actionLoading.value === 'update-config')
+    {
+        actionLoading.value = '';
+    }
     selectedId.value = pluginId;
     detailLoading.value = true;
     try
     {
-        detail.value = await getPlugin(pluginId);
-        configDraft.value = structuredClone(detail.value.config.value);
+        const result = await getPlugin(pluginId);
+        if (!isConfigSelectionCurrent(selection) || configRequest !== request
+            || result.summary.pluginId !== pluginId)
+        {
+            return;
+        }
+        detail.value = result;
+        configDraft.value = structuredClone(result.config.value);
+        configDraftRevision = {};
+        configDetailSelection = selection;
     }
     catch (error)
     {
@@ -827,7 +904,10 @@ async function selectPlugin(pluginId: string): Promise<void>
     }
     finally
     {
-        detailLoading.value = false;
+        if (isConfigSelectionCurrent(selection) && configRequest === request)
+        {
+            detailLoading.value = false;
+        }
     }
 }
 
@@ -992,27 +1072,47 @@ async function togglePermission(name: string, granted: boolean): Promise<void>
 
 async function saveConfig(): Promise<void>
 {
-    if (!detail.value)
+    const sourceDetail = detail.value;
+    const sourceSelection = configSelection;
+    if (!canEditConfig() || sourceDetail === null || sourceSelection === null || pendingConfigSave !== null)
     {
         return;
     }
+    const request = {};
+    const sourceDraft = configDraft.value;
+    const sourceDraftRevision = configDraftRevision;
+    configRequest = request;
+    pendingConfigSave = request;
     actionLoading.value = 'update-config';
     try
     {
         const mfaProofToken = await ensureAdminSensitiveProof();
+        if (!isConfigSelectionCurrent(sourceSelection) || configRequest !== request
+            || configDetailSelection !== sourceSelection || detail.value !== sourceDetail
+            || configDraft.value !== sourceDraft || configDraftRevision !== sourceDraftRevision)
+        {
+            return;
+        }
         const result = await mutatePlugin(
-            detail.value.summary.pluginId,
+            sourceSelection.pluginId,
             {
                 action: 'update-config',
-                config: configDraft.value,
-                expectedConfigVersion: detail.value.config.version
+                config: sourceDraft,
+                expectedConfigVersion: sourceDetail.config.version
             },
             { mfaProofToken }
         );
+        if (!isConfigSelectionCurrent(sourceSelection) || configRequest !== request
+            || configDetailSelection !== sourceSelection || detail.value !== sourceDetail
+            || configDraft.value !== sourceDraft || configDraftRevision !== sourceDraftRevision)
+        {
+            return;
+        }
         if (result)
         {
             detail.value = result;
             configDraft.value = structuredClone(result.config.value);
+            configDraftRevision = {};
         }
         toast.success('插件配置已校验并保存');
     }
@@ -1022,7 +1122,14 @@ async function saveConfig(): Promise<void>
     }
     finally
     {
-        actionLoading.value = '';
+        if (pendingConfigSave === request)
+        {
+            pendingConfigSave = null;
+            if (actionLoading.value === 'update-config')
+            {
+                actionLoading.value = '';
+            }
+        }
     }
 }
 
