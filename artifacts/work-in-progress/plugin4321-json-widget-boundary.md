@@ -1,7 +1,10 @@
 # Plugin4321 JSON/widget source investigation
 
-Ordinary documentary WIP, not an authority, test, receipt, runtime result or
-completed implementation. The explicit-any at `PluginAdmin.vue:545` remains.
+Ordinary WIP, not an authority, test, receipt or runtime acceptance. The source
+investigation below describes fixed #4321 and the preserved documentary
+checkpoint `39bafb645a1a98d0e0358e37854d1752b6b45bc9`. The later, explicitly
+authorized source repair is recorded at the end; its new consumer review and
+all runtime/UI qualification remain pending.
 
 ## Fixed source and actual checks
 
@@ -106,7 +109,7 @@ normalize the entire configuration, replace unsupported fields/defaults, or
 reinterpret schema type as proof of a value type merely to satisfy TypeScript.
 Decoder overprecision and unrelated Main upload/Facts work are outside scope.
 
-## Precise implementation blocker and minimum decision
+## Historical implementation blocker and minimum decision
 
 There is no honest behavior-preserving replacement for the remaining any
 under the current constraints: unknown is a truthful receiver type, but cannot
@@ -144,3 +147,55 @@ implemented and is not permission to redesign the whole configuration editor.
 Raw original commands/logs/exits remain in
 `/tmp/plugin4321-widget-baseline-*`; summary
 `/tmp/plugin4321-widget-source-investigation-summary.json`.
+
+## Authorized JSON/widget source repair
+
+The caller subsequently authorized preserving non-object roots and mismatched
+fields with visible errors, plus explicit type-preserving JSON editing/application.
+The source now implements that behavior within this page, without changing the
+package reader, decoder, config store, upload/Facts paths or frozen authorities.
+
+- API config response and mutation value are unknown, matching actual JsonElement
+  and default semantics. Only those two type declarations change; complete
+  original-options API JS24539 bytes is byte-identical.
+- The draft begins unset, not as an invented object. Loaded values still use the
+  original structuredClone calls. Non-object roots are retained/displayed with
+  an error and an explicit root JSON repair action; fields are not dereferenced.
+- Each field's real current value is inspected. Boolean/string controls receive
+  only actual matching values or a genuinely absent input. Numbers must be finite,
+  satisfy integer/range requirements and valid bounds before the original number
+  control is mounted. No invalid value reaches a control's automatic coercion or
+  clamp path. Mismatches and non-enum structured/null values retain their value
+  and receive explicit JSON editing. Unset and own null remain distinct.
+- Number clear preserves the actual null/undefined payload, never zero. All widget
+  writes retain the actual emitted value and refuse stale field/view records.
+- The existing enum JSON predicate is exported/reused, not copied. Original enum
+  predicate/equality bodies and canonical value choices remain unchanged; guards
+  now require the real root object before own-property access or assignment.
+- JSON text is separate from configuration. Only an explicit Apply invokes the
+  native parser and changes the targeted local root/field. Syntax/unsupported
+  numeric parse failure retains both old value and text, displaying its error.
+  Non-finite or unsafe integral edited numbers are rejected instead of silently
+  accepting their lossy representation. Original decoded number-precision gaps
+  remain unresolved; there is no raw-decimal/E2E precision claim.
+- Editor capture binds the current detail, draft identity and actual schema field;
+  replacing any of them refuses an old application without losing its text.
+  Applying JSON does not call save or move schema validation into the loader.
+- Original ten functions (loadOverview, selectPlugin, handleInstall, runAction,
+  runDangerousAction, togglePermission, saveConfig and three display helpers) are
+  source-text byte-identical. MFA, expected version, server schema validation,
+  success/failed save and reload rejection retain the original chain. The only
+  new catch handles this local parser; it does not wrap existing raw rejections.
+
+Actual same original UI957/full project before34/22FAIL and final34/22FAIL;
+all complete diagnostic blocks byte-identical, zero added/removed. Source AST/SFC
+parse0, page/new model AnyKeyword0 and added cast/non-null assertions0. Original
+configured style attempts remain exit1/BLOCKED with missing tools; no lint PASS.
+No helper/parser/widget/product/test function was executed. Template/runtime
+behavior intentionally changes; no whole-page JS/render identity claim.
+
+Final ordinary static records: `/tmp/plugin4325-source-static-result.json`,
+`/tmp/plugin4325-final-current-type-delta.json` and
+`/tmp/plugin4325-final-current-full-types.log`/`.exit`. These are source observations,
+not frozen qualification receipts. No package publication, merge, issue closure,
+runtime/render/keyboard/security/privacy/native or other qualification.
