@@ -45,17 +45,16 @@ public static class PgCurrentSchemaCatalogObserver
             throw new InvalidOperationException("current_schema_native_catalog_transaction_mismatch");
         }
         DataTable tableRows = await QueryAsync(connection, transaction, """
-            SELECT tables.table_name, relation.relkind::text AS relation_kind,
+            SELECT relation.relname AS table_name, relation.relkind::text AS relation_kind,
                 relation.relpersistence::text AS persistence, relation.relispartition AS is_partition,
                 relation.relrowsecurity AS row_security, relation.relforcerowsecurity AS force_row_security,
                 EXISTS (SELECT 1 FROM pg_inherits inheritance
                     WHERE inheritance.inhrelid = relation.oid OR inheritance.inhparent = relation.oid) AS has_inheritance,
                 EXISTS (SELECT 1 FROM pg_rewrite rule WHERE rule.ev_class = relation.oid) AS has_rules,
                 EXISTS (SELECT 1 FROM pg_trigger trigger WHERE trigger.tgrelid = relation.oid) AS has_triggers
-            FROM information_schema.tables tables
-            JOIN pg_namespace namespace ON namespace.nspname = tables.table_schema
-            JOIN pg_class relation ON relation.relnamespace = namespace.oid AND relation.relname = tables.table_name
-            WHERE tables.table_schema = 'public' AND tables.table_type = 'BASE TABLE';
+            FROM pg_class relation
+            JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname = 'public' AND relation.relkind IN ('r', 'p', 'v', 'm', 'f');
             """, cancellationToken, tableScope).ConfigureAwait(false);
 
         var tables = new Dictionary<string, SchemaTableModel>(StringComparer.Ordinal);
@@ -63,6 +62,11 @@ public static class PgCurrentSchemaCatalogObserver
         {
             string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
             if (tableScope is not null && tableName != tableScope) continue;
+            // Unsupported relations must not disappear through BASE TABLE or privilege filtering.
+            if (Convert.ToString(row["relation_kind"]) is not ("r" or "p"))
+            {
+                throw new InvalidOperationException("current_schema_public_relation_kind_unsupported");
+            }
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
             {
                 CurrentSchemaControlTableFacts control = CurrentSchemaControlShape.DescribeApplyJournalFacts();
@@ -179,7 +183,7 @@ public static class PgCurrentSchemaCatalogObserver
             string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
             if (!tables.TryGetValue(tableName, out SchemaTableModel? table))
             {
-                continue;
+                throw new InvalidOperationException("current_schema_column_relation_unobserved");
             }
 
             string dataType = Convert.ToString(row["semantic_data_type"]) ?? string.Empty;
