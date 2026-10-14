@@ -2468,3 +2468,28 @@ require real owner contracts or toolchain integration, not reason wrapping,
 false primitive types, value coercion, directive removal or rule ignores.
 Original full application/doc failures and every execution, independent alias
 and qualification hold remain; static evidence does not grant UX acceptance.
+
+
+## Reviewed Upload Source Prerequisite Composition
+
+A bounded successor to the original Main/style source admits only the seven
+reviewed upload observer/preview producer paths from 4322 and the eight reviewed
+frame-independent facts payload paths from 4323. Their shared neutral contract
+path yields fourteen unique exact donor postimages. All other original Main
+source and style repairs remain. This does not integrate master ancestry or
+replace the original editor/host/router/writer/resource owners. Donor documents
+retain their earlier checkpoint wording; current admission is the parent's
+limited independent source review, not a new qualification receipt.
+
+Actual local UI957 aliases and the unchanged complete application configuration
+produce 34 to 29 compiler failures, with no new diagnostics. Five genuine
+preview/facts type exports become available. Canonical preview/facts operation
+projections and the current facts frame remain absent; ordinary payload methods
+do not allocate historical285 or activate a facts response/dispatch. Native
+syntax and static source checks are not native execution or cross-stack parity.
+
+No compiled endpoint fact-observer/check-openapi-sync workflow, frozen frame,
+golden, route, matrix or receipt producer runs. All original security/privacy,
+resource lifecycle/restore/settlement, runtime/test/render/IME and qualification
+holds remain. The ordinary WIP records exact source postimages, complete static
+results and original failures; physical alias qualification stays UNVERIFIED.

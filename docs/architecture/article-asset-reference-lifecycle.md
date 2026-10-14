@@ -58,3 +58,34 @@ render: enum-set
 - `licenseType`
 - `rightsSnapshotId`
 <!-- FSUSBLOG-GENERATED:END content.article.rights-fields -->
+
+## Completed-upload observation and bounded preview
+
+The ordinary upload service exposes `ObserveCommittedUploadAsync` and
+`ReadCommittedUploadPreviewAsync` through `IFileService`. Both use the original
+upload-session access: authenticated admin owner, original upload token, unexpired
+completed session and expected SHA-256. Under the existing AssetId advisory lock,
+the service reads the current active asset and sole reference ledger, validates
+the original native regular-file identity, exact bytes/hash/media/dimensions and
+returns the same observation. It never resolves identity from a display URL or
+creates an article, Vault, reference-operation or cleanup grant.
+
+The existing ArticleWrite/PoW upload group registers
+`POST /api/binary/upload/{uploadId}/preview`. It consumes the original
+`UploadCompleteRequest` frame and its 64-byte SHA payload, retains private/no-store
+responses and uses the existing `UploadAssetPreview` frame 275 and strict POD
+codec. Preview refuses before opening/allocating oversized image bytes: the
+760-byte POD plus 16-byte AEDS header and complete bytes must fit the existing
+8 MiB frame limit. It returns no truncated or converted preview. The ordinary
+`UploadAssetPreviewViewModel` declaration reflects those actual shared fields;
+the existing caller's token/hash/bytes validation remains unchanged.
+
+This source restoration does not update canonical OpenAPI, endpoint manifests,
+generated route constants, frame rosters or qualification evidence. The generated
+preview operation projection remains absent until the original API/protocol owner
+uses the existing observed-endpoint workflow. Current facts have only the real
+service observation; a facts wire endpoint requires its canonical DTO/POD/codec,
+allocated frame and operation projection. Historical facts frame 285 is not a
+current allocation and preview frame 275 cannot substitute for it. Runtime,
+security/native/backup-restore qualification and business receiver acceptance
+remain separate gates.
