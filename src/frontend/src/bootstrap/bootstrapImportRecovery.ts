@@ -26,7 +26,7 @@ export interface BootstrapImportRecoveryOptions {
 
 export function isRecoverableBootstrapImportError(error: unknown): boolean
 {
-    const message = error instanceof Error ? error.message : String(error ?? '');
+    const message = error instanceof Error ? error.message : String(error);
     return message.includes('Failed to fetch dynamically imported module')
     || message.includes('Importing a module script failed')
     || message.includes('error loading dynamically imported module');

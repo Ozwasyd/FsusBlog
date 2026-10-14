@@ -2402,3 +2402,18 @@ All existing public editor/host/router, document, ConfigProducer, snapshot/reset
 timer and actual native producer lifecycle owners remain the accepted Main
 source. Upload/frozen projection gaps and all runtime, rendering, tests and
 qualification holds remain; physical alias independent verification is unchanged.
+
+
+## Original Bootstrap Style Residual Source Batch
+
+A separate successor consumes the remaining two actual strict-bootstrap donor
+source hunks. Recoverability still returns the same boolean for Error messages,
+non-nullish native String inputs and absent causes; no rejection reason changes.
+The sidecar reader retains native string marker precedence, including whitespace
+and empty/absent marker fallback, and the same trim/URL and script validation.
+Both complete source files now match the original owning donor postimages.
+
+The ordinary WIP preserves the earlier style failures, current full-program
+diagnostics and bounded source comparison. Two-file style PASS does not qualify
+whole-project style, recovery behavior, runtime or resource readiness. All
+original execution, frozen authority and independent physical alias holds remain.

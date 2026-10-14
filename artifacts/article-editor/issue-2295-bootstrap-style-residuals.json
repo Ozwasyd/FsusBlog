@@ -1,0 +1,58 @@
+{
+    "kind": "ordinary independently reviewable bootstrap style source WIP; no authority/receipt/qualification",
+    "base": "eb402d8f541abb96f19f0da2dcb9b1dc5314b12a",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "donor": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "exactSourcePostimages": [
+        {
+            "path": "src/frontend/src/bootstrap/bootstrapImportRecovery.ts",
+            "before": "30b6f4dff6b387a3b2745037efb5a9a3c97fe86c",
+            "after": "6b8efc32866803920ed6549e86a89ed9cd618da8",
+            "exactDonorFinalPostimage": "6b8efc32866803920ed6549e86a89ed9cd618da8"
+        },
+        {
+            "path": "src/frontend/src/bootstrap/publicHydrationBootstrap.ts",
+            "before": "defa374eee0a67d53a68a30272b8047e1db42612",
+            "after": "32965332188860ee99dc4394f7417bdff40a6249",
+            "exactDonorFinalPostimage": "32965332188860ee99dc4394f7417bdff40a6249"
+        }
+    ],
+    "sourceBoundary": {
+        "base": "eb402d8f541abb96f19f0da2dcb9b1dc5314b12a",
+        "nonselectedFunctionsByteIdentical": [
+            "src/frontend/src/bootstrap/bootstrapImportRecovery.ts:createBootstrapImportRecovery",
+            "src/frontend/src/bootstrap/bootstrapImportRecovery.ts:runBootstrapImport",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readWindowHydrationRaw",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:writeWindowHydrationRaw",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readText",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:cacheHydrationPayload",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readPublicHydrationPayload",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readPublicHydrationPayloadFromUrl",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:readPublicHydrationPayloadAsync",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:setServerPublicHydrationPayloadOverride",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:replacePublicHydrationPayloadSnapshot",
+            "src/frontend/src/bootstrap/publicHydrationBootstrap.ts:replacePublicHydrationPayloadBinary"
+        ],
+        "semantics": "Recoverability returns boolean only. Error.message and native String conversion for every non-nullish value unchanged; null/undefined native strings both exclude all three fixed recovery substrings, preservingfalse. No raw error/reject value changed. Hydration retains exact native string dataset precedence: nonempty including whitespace uses marker; empty/absent marker falls back to src attribute; both absent empty; sametrim/URLvalidation and original typed script guard. No defaultURL/string object assertions.",
+        "runtime": "Not evaluated; allruntime/HOLD/UNRUN"
+    },
+    "fullOriginalTypecheck": {
+        "before": 34,
+        "after": 34,
+        "added": [],
+        "removed": []
+    },
+    "sameOriginalStrictFullTwoFiles": {
+        "before": 3,
+        "after": 0,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/bootstrap/bootstrapImportRecovery.ts:POSITION eslint/@typescript-eslint/no-base-to-string: 'error ?? ''' will use Object's default stringification format ('[object Object]') when stringified.",
+            "[frontend-style] src/frontend/src/bootstrap/publicHydrationBootstrap.ts:POSITION eslint/@typescript-eslint/prefer-nullish-coalescing: Prefer using nullish coalescing operator (`??`) instead of a logical or (`||`), as it is a safer operator.",
+            "[frontend-style] src/frontend/src/bootstrap/publicHydrationBootstrap.ts:POSITION eslint/@typescript-eslint/prefer-nullish-coalescing: Prefer using nullish coalescing operator (`??`) instead of a logical or (`||`), as it is a safer operator."
+        ]
+    },
+    "AST": "2 TS AST0",
+    "existingFailureHistory": "Original #4317 WIP14 known scoped residuals retained unchanged as historical base. This batch clears bootstrap3 only; remaining known11 are not a full-project total. Existing full34FAIL and docs7/41FAIL remain.",
+    "holds": "No raw reject reason, recovery TTL/reload/state, script/payload type validation, producer/session/SDK/resource/receipt/source-ref semantics changed. Upload and FsusUI writer scopes untouched; no configs/fixtures/frozen/authority/package publication. All runtime/tests/render/list/discovery/qualification HOLD/UNRUN and physical alias independent UNVERIFIED."
+}
