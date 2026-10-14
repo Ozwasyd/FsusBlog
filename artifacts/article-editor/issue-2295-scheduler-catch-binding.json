@@ -1,0 +1,31 @@
+{
+    "kind": "ordinary original scheduler unread catch binding source WIP; no authority/receipt/qualification",
+    "base": "6d3d8a1b009db54b7a13d9bac34167e912931ef5",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "sourceBoundary": {
+        "base": "6d3d8a1b009db54b7a13d9bac34167e912931ef5",
+        "path": "src/frontend/src/performance/browserTaskScheduler.ts",
+        "preimage": "ae9d503d851aa4240d279d22c9c5ca08f0bf7677",
+        "postimage": "508969c3f7a27c4c4a46dc980a72e2794d5eaa18",
+        "onlyChange": "Remove genuinely unread catch formal at native rejection fallback; original entire catch body identical. All three reject call expressions and raw signal/error reasons, all timer/clear/fallback/native failure paths and1same scheduler owner untouched. No fake reading/cast/error wrapper.",
+        "remainingBlockedSource": "Three prefer-promise-reject-errors findings reflect real rawunknown reasons; cannot coerce/wrap them without changing original identity. Original producer/policy owner must resolve actual contract, no rule ignore/config edits."
+    },
+    "fullOriginalTypecheck": {
+        "before": 34,
+        "after": 34,
+        "added": [],
+        "removed": []
+    },
+    "sameOriginalStrictFullOneFile": {
+        "before": 4,
+        "after": 3,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/performance/browserTaskScheduler.ts:POSITION eslint/@typescript-eslint/no-unused-vars: 'error' is defined but never used."
+        ]
+    },
+    "AST": "1 TS AST0",
+    "residualStyle": "Same3 raw-reject lint findings remain verbatim. Unknown/undefined/original error identity cannot be converted to Error just to satisfy lint. Genuine contract/policy discrepancy delegated to original owner; no config/rule ignore or raw-reason change.",
+    "remainingScope": "Bootstrap3 cleared in predecessor; this clears1 genuinely unused binding.10 known original scoped residuals remain; no full-project style pass/ceiling claimed.",
+    "holds": "All native/editor/session/SDK/cohort/withdraw/end/settlement/timer/create/clear/raw reject and restore paths, uploads and FsusUI source preserved. All runtime/tests/render/list/discovery/qualification/frozen authority holds remain; physical alias independent UNVERIFIED."
+}
