@@ -37,6 +37,14 @@ then cursorId. Limits remain list100/nodes256/edges256; absent cursors omit both
 query fields through the existing null/undefined omission rule. Typed cursor
 values remain strings and are serialized by the same URLSearchParams semantics.
 
+Equivalence is limited to valid typed cursors: `AuthoringCanvasPageCursor`
+requires string `order` and `id`, or the whole cursor is null. Arbitrary JavaScript
+objects are not covered. For an invalid cursor with a null/undefined field, the
+old `URLSearchParams.set` stringified that field as `"null"`/`"undefined"`, whereas
+the existing generated helper omits it. This is a real out-of-contract behavioral
+difference, not arbitrary-JavaScript equivalence or a new validation guarantee.
+The limited source acceptance of #4329 does not establish runtime qualification.
+
 | API method | Existing operation ID |
 | --- | --- |
 | list | binary_author_canvas_list |
