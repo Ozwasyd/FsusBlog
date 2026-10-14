@@ -12,6 +12,17 @@ public static partial class PodBinaryCodec
     /// <summary>Writes a closed header plus the original observed bytes; rejects truncation and noncanonical fields.</summary>
     public static void WriteUploadAssetPreview(UploadAssetPreviewDto value, IBufferWriter<byte> target)
     {
+        byte[] header = CreateUploadAssetHeader(value, UploadAssetPreviewDto.SchemaName, UploadAssetPreviewDto.MaxPreviewBytes);
+        if (value.Bytes.Length != value.SizeBytes)
+        {
+            throw new ArgumentException("upload_asset_preview_invalid", nameof(value));
+        }
+        target.Write(header);
+        target.Write(value.Bytes.Span);
+    }
+
+    private static byte[] CreateUploadAssetHeader(UploadAssetPreviewDto value, string schema, long maximumSize)
+    {
         byte[] header = new byte[UploadAssetPreviewDto.HeaderBytes];
         WritePreviewAscii(header, 0, 64, value.Schema);
         WritePreviewAscii(header, 64, 64, value.UploadId);
@@ -26,12 +37,11 @@ public static partial class PodBinaryCodec
         WritePreviewAscii(header, 624, 64, value.AssetVersionSha256);
         WritePreviewAscii(header, 688, 64, value.ReferenceLedgerSha256);
         BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(752), value.ReferenceRowCount);
-        if (!TryReadPreviewHeader(header, out _) || value.Bytes.Length != value.SizeBytes)
+        if (!TryReadPreviewHeader(header, out _, schema, maximumSize))
         {
             throw new ArgumentException("upload_asset_preview_invalid", nameof(value));
         }
-        target.Write(header);
-        target.Write(value.Bytes.Span);
+        return header;
     }
 
     /// <summary>Encodes one bounded current preview without an AEDS frame header.</summary>
@@ -55,7 +65,8 @@ public static partial class PodBinaryCodec
         return true;
     }
 
-    private static bool TryReadPreviewHeader(ReadOnlySpan<byte> source, out UploadAssetPreviewDto value)
+    private static bool TryReadPreviewHeader(ReadOnlySpan<byte> source, out UploadAssetPreviewDto value,
+        string schema = UploadAssetPreviewDto.SchemaName, long maximumSize = UploadAssetPreviewDto.MaxPreviewBytes)
     {
         value = null!;
         int[] offsets = [0, 64, 128, 192, 448, 512, 560, 624, 688];
@@ -87,11 +98,11 @@ public static partial class PodBinaryCodec
             ".ico" => "image/x-icon",
             _ => null
         };
-        if (fields[0] != UploadAssetPreviewDto.SchemaName || !PreviewHex(fields[1], 32)
+        if (fields[0] != schema || !PreviewHex(fields[1], 32)
             || !Guid.TryParseExact(fields[2], "D", out Guid id) || id.ToString("N") != fields[1]
             || id.ToString("D") != fields[2] || expectedMime is null || expectedMime != fields[4]
             || fields[3] != "/uploads/illustration/" + fields[1] + fields[5]
-            || size <= 0 || size > UploadAssetPreviewDto.MaxPreviewBytes || width < 0 || height < 0
+            || size <= 0 || size > maximumSize || width < 0 || height < 0
             || (width == 0) != (height == 0) || count < 0 || count > 1024
             || BinaryPrimitives.ReadInt32LittleEndian(source[756..]) != 0
             || !PreviewHex(fields[6], 64) || !PreviewHex(fields[7], 64) || !PreviewHex(fields[8], 64))
@@ -111,6 +122,59 @@ public static partial class PodBinaryCodec
             AssetVersionSha256 = fields[7],
             ReferenceLedgerSha256 = fields[8],
             ReferenceRowCount = count
+        };
+        return true;
+    }
+
+    /// <summary>Writes only the common fixed header from real committed facts; never appends image bytes.</summary>
+    public static void WriteUploadAssetFacts(UploadAssetFactsDto value, IBufferWriter<byte> target)
+    {
+        var header = new UploadAssetPreviewDto
+        {
+            Schema = value.Schema,
+            UploadId = value.UploadId,
+            AssetId = value.AssetId,
+            PublicUrl = value.PublicUrl,
+            MimeType = value.MimeType,
+            Extension = value.Extension,
+            SizeBytes = value.SizeBytes,
+            Width = value.Width,
+            Height = value.Height,
+            Sha256 = value.Sha256,
+            AssetVersionSha256 = value.AssetVersionSha256,
+            ReferenceLedgerSha256 = value.ReferenceLedgerSha256,
+            ReferenceRowCount = value.ReferenceRowCount,
+        };
+        target.Write(CreateUploadAssetHeader(header, UploadAssetFactsDto.SchemaName, UploadAssetFactsDto.MaxAssetBytes));
+    }
+
+    /// <summary>Encodes exactly the fixed facts payload.</summary>
+    public static byte[] EncodeUploadAssetFacts(UploadAssetFactsDto value)
+        => EncodeToArray(UploadAssetFactsDto.PayloadBytes, writer => WriteUploadAssetFacts(value, writer));
+
+    /// <summary>Rejects preview bytes, trailing data and every noncanonical shared header field.</summary>
+    public static bool TryDecodeUploadAssetFacts(ReadOnlyMemory<byte> source, out UploadAssetFactsDto value)
+    {
+        value = null!;
+        if (source.Length != UploadAssetFactsDto.PayloadBytes
+            || !TryReadPreviewHeader(source.Span, out var header, UploadAssetFactsDto.SchemaName, UploadAssetFactsDto.MaxAssetBytes))
+        {
+            return false;
+        }
+        value = new UploadAssetFactsDto
+        {
+            UploadId = header.UploadId,
+            AssetId = header.AssetId,
+            PublicUrl = header.PublicUrl,
+            MimeType = header.MimeType,
+            Extension = header.Extension,
+            SizeBytes = header.SizeBytes,
+            Width = header.Width,
+            Height = header.Height,
+            Sha256 = header.Sha256,
+            AssetVersionSha256 = header.AssetVersionSha256,
+            ReferenceLedgerSha256 = header.ReferenceLedgerSha256,
+            ReferenceRowCount = header.ReferenceRowCount,
         };
         return true;
     }
