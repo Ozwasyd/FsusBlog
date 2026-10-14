@@ -1,0 +1,373 @@
+{
+    "kind": "ordinary one-line Settings Tailwind reference import candidate WIP; no runtime/frozen/qualification authority",
+    "base": "2eac317e00f970853bd38eb402b3d3fadac9a733",
+    "sourceBoundary": {
+        "base": "2eac317e00f970853bd38eb402b3d3fadac9a733",
+        "path": "src/frontend/src/views/admin/Settings.vue",
+        "preimage": "eb6cc5d678b7fbc14cb56942cf51cf035375714d",
+        "postimage": "3f526c7b4e1ab392d9dd9ef1d3100d4ca84b97fe",
+        "onlySourceDelta": "@reference \"@/assets/main.css\"; \u2192 @import \"@/assets/main.css\" reference;",
+        "allOtherMainTrackedLeaves": "byte unchanged before ordinary batch metadata",
+        "allOriginalApplyStatementsPreserved": true,
+        "notUsed": "No theme(reference), no deleted CSS imports/dependencies, no emitted-empty fallback, config/rule/lock/ignore change."
+    },
+    "actualLockedProducer": [
+        {
+            "package": "tailwindcss",
+            "lockedVersion": "4.2.4",
+            "registryTarball": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.2.4.tgz",
+            "tarballIntegrityVerified": "sha512-HhKppgO81FQof5m6TEnuBWCZGgfRAWbaeOaGT00KOy/Pf/j6oUihdvBpA7ltCeAvZpFhW3j0PTclkxsd4IXYDA==",
+            "actualInstalledAllPackageFilesByteIdentical": true,
+            "fileCount": 34,
+            "archive": "/workspace/session-evidence-2295/settings-reference-tailwindcss-4.2.4.tgz"
+        },
+        {
+            "package": "@tailwindcss/node",
+            "lockedVersion": "4.2.4",
+            "registryTarball": "https://registry.npmjs.org/@tailwindcss/node/-/node-4.2.4.tgz",
+            "tarballIntegrityVerified": "sha512-Ai7+yQPxz3ddrDQzFfBKdHEVBg0w3Zl83jnjuwxnZOsnH9pGn93QHQtpU0p/8rYWxvbFZHneni6p1BSLK4DkGA==",
+            "actualInstalledAllPackageFilesByteIdentical": true,
+            "fileCount": 11,
+            "archive": "/workspace/session-evidence-2295/settings-reference-tailwindcss-node-4.2.4.tgz"
+        }
+    ],
+    "originalSourceContract": {
+        "atImport": "https://github.com/tailwindlabs/tailwindcss/blob/v4.2.4/packages/tailwindcss/src/at-import.ts#L26-L36",
+        "referenceContext": "https://github.com/tailwindlabs/tailwindcss/blob/v4.2.4/packages/tailwindcss/src/index.ts#L521-L524",
+        "originalTestReadOnly": "https://github.com/tailwindlabs/tailwindcss/blob/v4.2.4/packages/tailwindcss/src/at-import.test.ts#L571-L603",
+        "finding": "The actual same locked producer normalizes reference shorthand to import media reference and then wraps entire import context reference:true. Original test source documents equivalence including ordinary component CSS, read but never executed. theme(reference) was not used; full main.css/component CSS imports kept."
+    },
+    "originalStrictFullOneFile": {
+        "before": 1,
+        "after": 0,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/views/admin/Settings.vue:POSITION stylelint/scss/at-rule-no-unknown: Unexpected unknown at-rule \"@reference\" (scss/at-rule-no-unknown)"
+        ]
+    },
+    "SFCSourceProof": {
+        "scriptContentByteIdentical": true,
+        "compiledScriptTSByteIdentical": true,
+        "templateContentByteIdentical": true,
+        "compiledTemplateJSByteIdentical": true,
+        "scriptSHA256": "f8e843da6f198aa9ccbb47ca26f9623e4737cbe1d7847f9ab417ac518924d6c0",
+        "templateSHA256": "b2f3e565e973bc970d5de245c3479e57b6cdaf2552796a4376fc48c926ece5cc",
+        "styleAttrsPreserved": true,
+        "CSSCompleteOutputEquivalence": "UNVERIFIED; actual full CSS compile blocked by original missing UI957 CSS dependencies"
+    },
+    "CSSCompilerAttempt": {
+        "kind": "standalone actual locked Tailwind CSS compile comparison; no Vite/application build or product import",
+        "localUI": "/workspace/session-2295-ui957-local-dependency",
+        "originalAliasGuardRequiredAssets": [
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/index.css",
+                "exists": false,
+                "originalRequiredMotionContractSatisfied": false
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/el-public-shell-critical.css",
+                "exists": false,
+                "originalRequiredMotionContractSatisfied": false
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/el-fsus-theme.css",
+                "exists": false,
+                "originalRequiredMotionContractSatisfied": false
+            }
+        ],
+        "originalAliasGuardSatisfied": false,
+        "fullOutputByteEquivalence": "UNVERIFIED",
+        "outputs": [
+            {
+                "name": "before",
+                "status": "BLOCKED",
+                "error": {
+                    "name": "Error",
+                    "message": "ENOENT: no such file or directory, open '/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/index.css'",
+                    "code": "ENOENT"
+                },
+                "dependencies": [
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/main.css",
+                        "sha256": "5bd3966bece278abd1e4afee848977ff6325bf20ab1742fee2ed4ff17f6f1a9d"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/tailwind.css",
+                        "sha256": "36661344cf155a2a87e044b4d26b33dfe344e629db7c7816755df444fefab7dc"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-shell-foundation.css",
+                        "sha256": "48423c1aca3bcdc62d15a24f3ce352daf08317f99fd6a197c2c87d0e337f0665"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/motion.css",
+                        "sha256": "bcfa374d241d6600b6e65f0056b43f4d9e243c41d7d9b6bf5049c188d84ea01f"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/reading-layout.css",
+                        "sha256": "9a4bd48db4fdd20c0e97084afb27b480bfb912f07a06b7313fdad91e4264a8a4"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/markdown.css",
+                        "sha256": "2af8abd83a7f1ac984a255575247657ed35b673f790c430ee46755b20dfdb38c"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-page.css",
+                        "sha256": "4dbf57737ac6bf4d074bb6b2c103dc9ec0c0c78c80bd20b77ff536f406cff661"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-shell-base.css",
+                        "sha256": "6ea2ab31fa5cce4c5a5f55aed54b65dc8391a91f90cb37203b067ab3002015ac"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-identity.css",
+                        "sha256": "64eb51169efa28a5ffba55affecf97aefdcb29d72422e1f9f694d95b7fa7d48d"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin-workspace.css",
+                        "sha256": "f27951fb3d526bdafa8acdd657b4ebe468d3ca9844c45591f1aa082e80284414"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin/taxonomy.css",
+                        "sha256": "5c9d9153addfd3e42b19267839ddb8e742cea90bff5927b7678bea4ae3cf883d"
+                    },
+                    {
+                        "path": "/workspace/FsusBlog/src/frontend/node_modules/tailwindcss/index.css",
+                        "sha256": "415a5f01208fe877d36ee8421b2135a766f258374f817a8a0a41c478c4009391"
+                    },
+                    {
+                        "path": "/workspace/FsusBlog/src/frontend/node_modules/katex/dist/katex.min.css",
+                        "sha256": "23aefa0850248a16478b9f55d6b67028f74cc0b46b82b24dc22af068acaa4170"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/tailwind.css",
+                        "sha256": "36661344cf155a2a87e044b4d26b33dfe344e629db7c7816755df444fefab7dc"
+                    }
+                ],
+                "aliases": [
+                    {
+                        "id": "@/assets/main.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/main.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/tailwind.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/tailwind.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@ozwasyd/element-plus/dist/index.css",
+                        "path": "/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/index.css",
+                        "exists": false
+                    },
+                    {
+                        "id": "@/assets/public-shell-foundation.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-shell-foundation.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/motion.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/motion.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/reading-layout.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/reading-layout.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/markdown.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/markdown.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/public-page.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-page.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/account-shell-base.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-shell-base.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/account-identity.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-identity.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/admin-workspace.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin-workspace.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/admin/taxonomy.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin/taxonomy.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@ozwasyd/element-plus/dist/el-fsus-theme.css",
+                        "path": "/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/el-fsus-theme.css",
+                        "exists": false
+                    }
+                ],
+                "completeCSS": null,
+                "completeScopedCSS": null
+            },
+            {
+                "name": "candidate",
+                "status": "BLOCKED",
+                "error": {
+                    "name": "Error",
+                    "message": "ENOENT: no such file or directory, open '/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/index.css'",
+                    "code": "ENOENT"
+                },
+                "dependencies": [
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/main.css",
+                        "sha256": "5bd3966bece278abd1e4afee848977ff6325bf20ab1742fee2ed4ff17f6f1a9d"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/tailwind.css",
+                        "sha256": "36661344cf155a2a87e044b4d26b33dfe344e629db7c7816755df444fefab7dc"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-shell-foundation.css",
+                        "sha256": "48423c1aca3bcdc62d15a24f3ce352daf08317f99fd6a197c2c87d0e337f0665"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/motion.css",
+                        "sha256": "bcfa374d241d6600b6e65f0056b43f4d9e243c41d7d9b6bf5049c188d84ea01f"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/reading-layout.css",
+                        "sha256": "9a4bd48db4fdd20c0e97084afb27b480bfb912f07a06b7313fdad91e4264a8a4"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/markdown.css",
+                        "sha256": "2af8abd83a7f1ac984a255575247657ed35b673f790c430ee46755b20dfdb38c"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-page.css",
+                        "sha256": "4dbf57737ac6bf4d074bb6b2c103dc9ec0c0c78c80bd20b77ff536f406cff661"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-shell-base.css",
+                        "sha256": "6ea2ab31fa5cce4c5a5f55aed54b65dc8391a91f90cb37203b067ab3002015ac"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-identity.css",
+                        "sha256": "64eb51169efa28a5ffba55affecf97aefdcb29d72422e1f9f694d95b7fa7d48d"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin-workspace.css",
+                        "sha256": "f27951fb3d526bdafa8acdd657b4ebe468d3ca9844c45591f1aa082e80284414"
+                    },
+                    {
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin/taxonomy.css",
+                        "sha256": "5c9d9153addfd3e42b19267839ddb8e742cea90bff5927b7678bea4ae3cf883d"
+                    }
+                ],
+                "aliases": [
+                    {
+                        "id": "@/assets/main.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/main.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/tailwind.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/tailwind.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@ozwasyd/element-plus/dist/index.css",
+                        "path": "/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/index.css",
+                        "exists": false
+                    },
+                    {
+                        "id": "@/assets/public-shell-foundation.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-shell-foundation.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/motion.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/motion.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/reading-layout.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/reading-layout.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/markdown.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/markdown.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/public-page.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/public-page.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/account-shell-base.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-shell-base.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/account-identity.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/account-identity.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/admin-workspace.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin-workspace.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@/assets/admin/taxonomy.css",
+                        "path": "/workspace/session-2295-blog-settings-reference-import/src/frontend/src/assets/admin/taxonomy.css",
+                        "exists": true
+                    },
+                    {
+                        "id": "@ozwasyd/element-plus/dist/el-fsus-theme.css",
+                        "path": "/workspace/session-2295-ui957-local-dependency/vue/packages/theme-chalk/dist/el-fsus-theme.css",
+                        "exists": false
+                    }
+                ],
+                "completeCSS": null,
+                "completeScopedCSS": null
+            }
+        ]
+    },
+    "fullCSSOutputEquivalence": "UNVERIFIED: both original and actual candidate compile fail ENOENT on actual local UI957 dist/index.css; no CSS outputs available to compare, no fallback/stub/reduced input/empty CSS success. Original alias also requires missing index.css/el-public-shell-critical.css/el-fsus-theme.css and motion contracts.",
+    "scope": "Four paths: sole production source Settings.vue + ordinary WIP/current Main doc/naming manifest. PluginAdmin/History and all other Main/combined upload/style source untouched; no config/rule/lock/ignore/source generation changes.",
+    "remaining": "Original known scoped style findings reduced by1; four inherited known scoped findings remain, not whole-project total or acceptance. Latest inherited full types29FAIL not rerun here; script/template and original program/config sources unchanged. Original docs7/41FAIL preserved.",
+    "holds": "All runtime/product imports/evaluation/application builds/tests/collection/list/discovery/render/security/privacy/native product execution/receipt/race/backuprestore/IME/frozen authority/qualification HOLD/UNRUN. Only explicitly authorized standalone locked CSS compiler and original static lint/SFC tools used; no product JS modules/config/plugins imported. UI957 source clean and independent physical alias qualification UNVERIFIED. Missing full CSS assets require original owner and actual hold release; no theme/package build run. No merge/close/package/publication.",
+    "evidence": {
+        "/workspace/session-evidence-2295/blog-settings-reference-source-boundary.json": {
+            "sha256": "afa2a8e17be88a73336d518bbd1c2638eb7ac876da5204f37cb08f9e37a049f1"
+        },
+        "/workspace/session-evidence-2295/blog-settings-reference-locked-producer.json": {
+            "sha256": "866261dc64a4752f30999a22be0e930adfad9e55821e2d4fbd8f2a79bea0fcb7"
+        },
+        "/workspace/session-evidence-2295/blog-settings-reference-sfc-proof.json": {
+            "sha256": "694be2574ac5cbe242c8ba5e18c5f6d5a7b0c343bddaa259caba3ba86e00b238"
+        },
+        "/workspace/session-evidence-2295/blog-settings-reference-css-comparison.json": {
+            "sha256": "71f5b9a24d4772c8e876fc1db5c1a8ea8a2a6de2ead5d8bab849bffd9eb517fb"
+        },
+        "/workspace/session-evidence-2295/blog-settings-reference-css-compare.txt": {
+            "sha256": "0ac0613a38badbdd89ab23e4d2f5e4e99a906823a21817d57412f65dc8a29171"
+        },
+        "/workspace/session-evidence-2295/blog-settings-reference-base-style.txt": {
+            "sha256": "034c3e48e7a7048ba2c11083033ede97db9588c28a6c81735e186841eec4d60c"
+        },
+        "/workspace/session-evidence-2295/blog-settings-reference-style.txt": {
+            "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577"
+        },
+        "/workspace/session-evidence-2295/blog-settings-reference-ast.txt": {
+            "sha256": "087728fd3ef9f4bc1be4ffcf9f879ccd6b536000e4becd640ae4ced1028a5b09"
+        }
+    }
+}

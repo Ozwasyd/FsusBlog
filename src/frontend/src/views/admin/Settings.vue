@@ -1084,7 +1084,7 @@ const confirmPageRefresh = async (): Promise<void> =>
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
+@import "@/assets/main.css" reference;
 
 .section-title
  {
