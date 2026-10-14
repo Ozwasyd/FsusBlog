@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs"
+            ],
+            "reason": "Original naming registry covers this ordinary managed source. Four newline/indent changes preserve every existing environment, catalog, SQL, schema, property and wire spelling. No live catalog or database execution/authority change."
+        }
+    ]
+}
