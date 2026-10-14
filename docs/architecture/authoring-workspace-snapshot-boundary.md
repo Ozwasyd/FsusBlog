@@ -2493,3 +2493,24 @@ golden, route, matrix or receipt producer runs. All original security/privacy,
 resource lifecycle/restore/settlement, runtime/test/render/IME and qualification
 holds remain. The ordinary WIP records exact source postimages, complete static
 results and original failures; physical alias qualification stays UNVERIFIED.
+
+
+## Settings Locked Tailwind Reference Input Candidate
+
+The plain scoped Settings style uses the locked Tailwind4.2.4 supported
+`@import "@/assets/main.css" reference` input in place of its reference shorthand.
+The actual locked importer maps both inputs to the same reference context for
+the complete imported sheet; theme(reference) would have different component
+CSS behavior and is not used. Every original import, apply statement, selector,
+script/template and scoped attribute remains. Original strict lint clears its
+one reference directive finding without rule/config/lock/ignore changes.
+
+Complete CSS output preservation remains UNVERIFIED. Both real original and
+candidate static compiler inputs fail on the missing actual local UI957 theme
+index CSS; original alias requirements also include missing critical/theme CSS
+and public-shell motion contracts. No missing import is deleted, stubbed or
+replaced by empty CSS, and no theme/application/package producer runs. The
+ordinary WIP binds source/tarball integrity, unchanged SFC script/template,
+actual lint and both CSS failures. It is a bounded source candidate, not output
+or rendered acceptance. PluginAdmin/History and all original execution/frozen
+authority/qualification holds remain outside this batch.
