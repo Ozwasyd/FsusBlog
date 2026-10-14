@@ -2446,3 +2446,25 @@ still requires an actual typed widget/fallback contract; it is not resolved by
 a cast or an invented primitive promise. Full application and documentation
 failures, independent physical alias verification and all execution and
 qualification holds remain explicit in the ordinary source WIP.
+
+
+## Original Template Memo And Component Name Residuals
+
+The comments island removes only the invalid nested reply memo directive. The
+actual compiler generated a component cache slot shared by inner list calls;
+plain keyed replies now render when the existing parent memo permits rendering.
+The original parent dependencies, reply identity/content/target, script and
+styles remain. Template cache behavior changes; no performance or complete
+component JavaScript equivalence is claimed. Settings adds the explicit
+AdminSettings component name while retaining its file, ManageSettings route,
+template/styles, composable and save/permission paths. Metadata name changes
+are disclosed separately from unchanged user-facing composition.
+
+Five known original scoped style findings remain, not a whole-project total:
+three genuine raw rejection reasons; the dynamic JSON/public scalar widget
+model boundary; and the original Tailwind/stylelint reference syntax gap. The
+actual Tailwind producer recognizes the retained reference directive. These
+require real owner contracts or toolchain integration, not reason wrapping,
+false primitive types, value coercion, directive removal or rule ignores.
+Original full application/doc failures and every execution, independent alias
+and qualification hold remain; static evidence does not grant UX acceptance.

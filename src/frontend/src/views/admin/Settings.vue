@@ -852,6 +852,8 @@ import { confirmWarning, toast } from '@/fsusui/feedback';
 import { Delete, Plus, Warning } from '@/fsusui/icons';
 import { cspStyleDirective } from '@/services/cspStyleRuntime';
 
+defineOptions({ name: 'AdminSettings' });
+
 const vCspStyle = cspStyleDirective;
 
 const {
