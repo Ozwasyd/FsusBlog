@@ -13,6 +13,7 @@ import { FSUS_HEADERS } from './contracts';
 
 
 import type { ArticleMutationResponse, ArticleRightsRequest } from './article';
+import type { PluginConfigSchema } from './pluginConfigSchema';
 import type { ApiRequestConfig } from './requestConfig';
 
 export interface ServerDraftSaveRequest {
@@ -141,7 +142,7 @@ export interface PluginAdminDetail {
     permissions: PluginAdminCapability[];
     config: {
         version: number;
-        schema: Record<string, unknown>;
+        schema: PluginConfigSchema;
         value: Record<string, unknown>;
         updatedAtUtc: string;
         reloadState: string;
