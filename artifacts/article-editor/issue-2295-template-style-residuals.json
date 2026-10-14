@@ -1,0 +1,92 @@
+{
+    "kind": "ordinary original template memo/component name source WIP; no authority/receipt/qualification",
+    "base": "1a5baaa3f94bf19550ff908ce0df8b2126712aa3",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "sourceBoundaries": [
+        {
+            "path": "src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue",
+            "preimage": "69d42cc15fea2d9a2da4607eb240ceca57cdd0c7",
+            "postimage": "f8b33f2bcac2bc8b47f565c5c36528f0c67018e5"
+        },
+        {
+            "path": "src/frontend/src/views/admin/Settings.vue",
+            "preimage": "8e225ae17f403cbae295b69d3256cf90aa75280b",
+            "postimage": "eb6cc5d678b7fbc14cb56942cf51cf035375714d"
+        }
+    ],
+    "staticSourceProof": {
+        "base": "1a5baaa3f94bf19550ff908ce0df8b2126712aa3",
+        "compiler": "6.0.3",
+        "files": [
+            {
+                "path": "src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue",
+                "onlySourceDelta": "delete inner reply v-memo attribute; same outer memo, keys/content/refs",
+                "stylesByteIdentical": true,
+                "scriptJavaScriptBeforeSHA256": "15d16982a5fb6792bb77a88698765972f9a02d6af68892b982b857284de3c137",
+                "scriptJavaScriptAfterSHA256": "15d16982a5fb6792bb77a88698765972f9a02d6af68892b982b857284de3c137",
+                "scriptJavaScriptByteIdentical": true,
+                "templateBeforeSHA256": "23e75183b7dfcbaea4092786abda4a7a3b5e8c7b7bc3f953e225a3e9a80a9700",
+                "templateAfterSHA256": "726eeafef1346aedebae06a3c2e1a3c6be15fccbad5cfecd7dcf8743316729c0",
+                "templateCodeByteIdentical": false
+            },
+            {
+                "path": "src/frontend/src/views/admin/Settings.vue",
+                "onlySourceDelta": "add explicit AdminSettings component name; original path/ManageSettings route unchanged",
+                "stylesByteIdentical": true,
+                "scriptJavaScriptBeforeSHA256": "069e9c1130becd77e0e6443b5f403f25e98d8f81a7a892bbe20bee81d82c0408",
+                "scriptJavaScriptAfterSHA256": "818a854c20bb545f353472e0e7a2537f0d7af679a14d11e8c828ef18e2f24eb8",
+                "scriptJavaScriptByteIdentical": false,
+                "templateBeforeSHA256": "b2f3e565e973bc970d5de245c3479e57b6cdaf2552796a4376fc48c926ece5cc",
+                "templateAfterSHA256": "b2f3e565e973bc970d5de245c3479e57b6cdaf2552796a4376fc48c926ece5cc",
+                "templateCodeByteIdentical": true
+            }
+        ]
+    },
+    "fullOriginalTypecheck": {
+        "before": 34,
+        "after": 34,
+        "added": [],
+        "removed": []
+    },
+    "sameOriginalStrictFullScope": {
+        "before": 3,
+        "after": 1,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue:POSITION eslint/vue/valid-v-memo: 'v-memo' directive does not work inside 'v-for'.",
+            "[frontend-style] src/frontend/src/views/admin/Settings.vue:POSITION eslint/vue/multi-word-component-names: Component name \"Settings\" should always be multi-word."
+        ]
+    },
+    "AST": "two SFC scripts and templates zero diagnostics",
+    "docs": "7/41 FAIL byte identical to predecessor",
+    "commentBehavior": "Original valid-v-memo rejects inner directive. Actual compiler generated nested renderList(...,_cache,0); actual renderList reads/writes cache[index], shared across outer comment iterations. Remove only inner memo, retain keyed child rendering and all original content/replyToAuthor/parent memo. Template JavaScript intentionally differs; no full component byte identity or performance/readiness claim. Outer memo keeps original parent dependencies; no claim to repair all parent memo invalidation.",
+    "settingsBehavior": "Explicit defineOptions name AdminSettings. Actual emitted script diff is one name spread only; template/styles/route ManageSettings/path/save/composable/ref/permissions unchanged. Component metadata/devtools name changes; no current source name consumers found, external name consumption and rendered acceptance UNRUN.",
+    "remainingScope": "Original known14 scoped findings: bootstrap3, scheduler binding1, schema metadata3, memo1, name1 now cleared. Remaining5 known scoped findings (not full-project total). Original historical records preserved.",
+    "remainingBoundaries": [
+        {
+            "owner": "browserTaskScheduler raw rejection contract / original lint policy",
+            "paths": "src/frontend/src/performance/browserTaskScheduler.ts",
+            "gap": "Three prefer-promise-reject-errors findings: abortReason(signal), original rejected task error, abortReason(signal!). Arbitrary/undefined rejection identity is real; Error wrapping or fake types violates preserved reason contract."
+        },
+        {
+            "owner": "PluginAdmin dynamic JSON-to-public-widget model boundary",
+            "paths": "src/frontend/src/views/admin/PluginAdmin.vue:545,271,275,281; api/authoring.ts config.value; actual UI switch/input-number/input model props",
+            "gap": "Record<string, unknown> payload permits arbitrary JSON, while widgets declare scalar model types. Existing fallback covers object/array/null fields too. Need genuine reviewed field/model/fallback adapters preserving raw arbitrary enum values and invalid/absent semantics; no false primitive promises/casts/defaults."
+        },
+        {
+            "owner": "original Tailwind/stylelint syntax integration",
+            "paths": "src/frontend/src/views/admin/Settings.vue:1087; original style toolchain scss/at-rule-no-unknown",
+            "gap": "Actual installed Tailwind4.2.4 producer recognizes @reference and reference-only imported theme for @apply. Removing required directive or ignoring rule/changing config is outside this source repair scope; source directive retained and failing lint disclosed."
+        }
+    ],
+    "uiClassification": {
+        "owner": "FsusBlog product composition",
+        "profiles": [
+            "reading (comments)",
+            "task (settings)"
+        ],
+        "scope": "Remove only invalid inner memo; add only explicit component name. Same hierarchy/content/actions/themes/locales/viewports/focus/overflow/reduced-motion source; template cache and metadata semantics explicitly changed.",
+        "acceptance": "static source only; runtime/rendered UI/independent UX qualification HOLD/UNRUN by current user instruction"
+    },
+    "holds": "All runtime/product imports/evaluation/tests/collection/list/discovery/render/native/security/privacy/receipt/race/backuprestore/IME/qualification/frozen authority HOLD/UNRUN; independent physical alias UNVERIFIED. No upload or FsusUI owner edits."
+}
