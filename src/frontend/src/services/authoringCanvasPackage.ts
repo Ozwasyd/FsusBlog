@@ -252,6 +252,10 @@ export function validateAndParseCanvasPackage(jsonStr: string): {
     }
     return { valid: true, package: pkg };
 }
+/**
+ * Provider-metadata preview only: heading/block matches require one exact anchor.
+ * These statuses do not attest canonical package admission, permission or pinned coordinates.
+ */
 export async function planCanvasPackageImport(pkg: AuthoringCanvasPackage, articleProvider: TargetArticleProvider, options: {
     targetCanvasId?: string;
     expectedRevision?: number;
@@ -289,8 +293,24 @@ export async function planCanvasPackageImport(pkg: AuthoringCanvasPackage, artic
             }
             else
             {
-                status = 'resolved';
-                matchedTitle = article.title;
+                const anchorMatches = ref.nodeType === 'heading-reference'
+                    ? (article.headings?.filter(heading => heading.id === ref.headingId).length ?? 0)
+                    : ref.nodeType === 'block-reference'
+                        ? (article.blocks?.filter(block => block.id === ref.blockId).length ?? 0)
+                        : 1;
+                if (anchorMatches === 0)
+                {
+                    status = 'unresolved_missing';
+                }
+                else if (anchorMatches > 1)
+                {
+                    status = 'unresolved_ambiguous';
+                }
+                else
+                {
+                    status = 'resolved';
+                    matchedTitle = article.title;
+                }
             }
         }
         if (status === 'resolved')
@@ -321,6 +341,10 @@ export async function planCanvasPackageImport(pkg: AuthoringCanvasPackage, artic
         canDirectlyExecute: unresolvedCount === 0
     };
 }
+/**
+ * Requires explicit closed choices for every unresolved preview row before storage writes.
+ * This legacy helper does not make the mutable preview plan an execution authority.
+ */
 export async function executeCanvasPackageImport(plan: AuthoringCanvasImportPlan, decisions: Record<string, UnresolvedDecision> = {}, context: {
     userId: string;
     siteId: string;
@@ -332,14 +356,33 @@ export async function executeCanvasPackageImport(plan: AuthoringCanvasImportPlan
     {
         throw new Error(validated.error);
     }
+    if (!decisions || typeof decisions !== 'object' || Array.isArray(decisions))
+    {
+        throw new Error('canvas_package_unresolved_decision_invalid');
+    }
     const workingDoc: AuthoringCanvasDocument = cloneCanvasDocumentJson(pkg.document);
     // Handle unresolved reference decisions
     for (const item of plan.reResolutionItems)
     {
         if (item.status !== 'resolved')
         {
-            const decision = decisions[item.nodeId] || { action: 'leave-broken' };
-            if (decision.action === 'remove-node')
+            const decision = Object.hasOwn(decisions, item.nodeId) ? decisions[item.nodeId] : undefined;
+            if (!decision || typeof decision !== 'object' || Array.isArray(decision)
+                || !Object.hasOwn(decision, 'action')
+                || Object.keys(decision).some(key => !['action', 'remappedArticleId'].includes(key)))
+            {
+                throw new Error('canvas_package_unresolved_decision_required');
+            }
+            const { action, remappedArticleId } = decision;
+            if ((action !== 'leave-broken' && action !== 'remove-node' && action !== 'remap')
+                || (action === 'remap' && (!Object.hasOwn(decision, 'remappedArticleId')
+                    || (typeof remappedArticleId === 'string'
+                        ? !remappedArticleId.trim()
+                        : typeof remappedArticleId !== 'number' || !Number.isSafeInteger(remappedArticleId) || remappedArticleId <= 0))))
+            {
+                throw new Error('canvas_package_unresolved_decision_invalid');
+            }
+            if (action === 'remove-node')
             {
                 for (const node of Object.values(workingDoc.nodes))
                 {
@@ -361,12 +404,12 @@ export async function executeCanvasPackageImport(plan: AuthoringCanvasImportPlan
                     }
                 }
             }
-            else if (decision.action === 'remap' && decision.remappedArticleId)
+            else if (action === 'remap' && remappedArticleId)
             {
                 const node = workingDoc.nodes[item.nodeId];
                 if (node && (node.type === 'article-reference' || node.type === 'heading-reference' || node.type === 'block-reference'))
                 {
-                    node.targetArticleId = decision.remappedArticleId;
+                    node.targetArticleId = remappedArticleId;
                 }
             }
         }
