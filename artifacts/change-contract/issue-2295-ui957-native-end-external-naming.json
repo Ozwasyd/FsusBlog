@@ -4,9 +4,24 @@
         {
             "id": "css-like-contract",
             "paths": [
+                "docs/architecture/article-asset-reference-lifecycle.md",
                 "docs/architecture/authoring-workspace-snapshot-boundary.md"
             ],
-            "reason": "Preserve external CSS-like names while documenting only the reviewed upload source prerequisite composition and original Main/editor/qualification holds."
+            "reason": "Preserve external CSS-like names in both changed current documents while recording only the reviewed upload composition and original Main/editor/qualification holds."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Interfaces/IFileService.cs",
+                "src/backend/Interfaces/UploadAssetObservation.cs",
+                "src/backend/Interfaces/UploadAssetPreview.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+                "src/backend/Services/FileService.AssetObservation.cs",
+                "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+                "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+                "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs"
+            ],
+            "reason": "Preserve original external process, schema and field identifiers across all eight restored ordinary managed source surfaces registered by the original broad source naming policy. No environment names, active Facts allocation, wire layout or frozen authority changes; exact reviewed donor source bytes remain."
         }
     ]
 }

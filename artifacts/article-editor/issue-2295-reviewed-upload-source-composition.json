@@ -262,5 +262,11 @@
         "/workspace/session-evidence-2295/blog-reviewed-upload-backend-build.txt": {
             "sha256": "1dc9ae6c6ac0b6e4a2647711b444f08434f1492caa3a8650abce423a40e598a9"
         }
+    },
+    "productionSourceCommit": "cd1006b931ea7821edd2ebd67f7e6ab45e2fd37f",
+    "initialActualPRMetadataFailure": {
+        "status": "FAIL exit1",
+        "reason": "External naming manifest paths must exactly match all changed registered naming surfaces",
+        "repair": "Metadata-only forward increment combines Main documentation plus all eight source naming surfaces in the original Main manifest. Donor source/manifest paths remain byte identical. Original production source SHA preserved; gate must be read back on final metadata head."
     }
 }
