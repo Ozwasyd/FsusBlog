@@ -4,7 +4,7 @@ export interface PluginConfigEnumOption {
     readonly label: string;
 }
 
-function isJsonValue(value: unknown, ancestors = new Set<object>()): boolean
+export function isPluginConfigJsonValue(value: unknown, ancestors = new Set<object>()): boolean
 {
     if (value === null || typeof value === 'string' || typeof value === 'boolean')
     {
@@ -26,7 +26,7 @@ function isJsonValue(value: unknown, ancestors = new Set<object>()): boolean
     ancestors.add(value);
     try
     {
-        return Object.values(value).every((child: unknown) => isJsonValue(child, ancestors));
+        return Object.values(value).every((child: unknown) => isPluginConfigJsonValue(child, ancestors));
     }
     finally
     {
@@ -38,7 +38,7 @@ export function createPluginConfigEnumOptions(values: readonly unknown[]): reado
 {
     return values.map((value) =>
     {
-        if (!isJsonValue(value))
+        if (!isPluginConfigJsonValue(value))
         {
             throw new TypeError('plugin_config_enum_value_not_json');
         }
@@ -78,5 +78,5 @@ function equalJsonValues(left: unknown, right: unknown): boolean
 /** Compare decoded JSON values; object order is irrelevant and array order is retained. */
 export function pluginConfigJsonValuesEqual(left: unknown, right: unknown): boolean
 {
-    return isJsonValue(left) && isJsonValue(right) && equalJsonValues(left, right);
+    return isPluginConfigJsonValue(left) && isPluginConfigJsonValue(right) && equalJsonValues(left, right);
 }
