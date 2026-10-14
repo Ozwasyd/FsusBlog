@@ -1,7 +1,7 @@
 # Plugin4321 JSON/widget source investigation
 
 Ordinary documentary WIP, not an authority, test, receipt, runtime result or
-completed implementation. The explicit-any at `PluginAdmin.vue:546` remains.
+completed implementation. The explicit-any at `PluginAdmin.vue:545` remains.
 
 ## Fixed source and actual checks
 
@@ -92,7 +92,7 @@ the original object/array, after which the backend can reject the mismatch.
 
 ## Save and rejection authority must remain intact
 
-saveConfig (PluginAdmin.vue797–828) obtains ensureAdminSensitiveProof, submits
+saveConfig (PluginAdmin.vue795–826) obtains ensureAdminSensitiveProof, submits
 the actual draft with the original plugin ID and expectedConfigVersion, and
 preserves original success/catch/finally behavior. authoring.ts1798–1818 builds
 the existing mutation request. Endpoint655–660 passes a JsonElement and the
