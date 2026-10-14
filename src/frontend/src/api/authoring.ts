@@ -143,7 +143,7 @@ export interface PluginAdminDetail {
     config: {
         version: number;
         schema: PluginConfigSchema;
-        value: Record<string, unknown>;
+        value: unknown;
         updatedAtUtc: string;
         reloadState: string;
     };
@@ -170,7 +170,7 @@ export interface PluginAdminMutation {
     capabilities?: string[];
     confirmed?: boolean;
     expectedConfigVersion?: number;
-    config?: Record<string, unknown>;
+    config?: unknown;
 }
 
 export interface ServerDraftResponse {
