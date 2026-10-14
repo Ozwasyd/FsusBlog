@@ -1,0 +1,146 @@
+# Plugin4321 JSON/widget source investigation
+
+Ordinary documentary WIP, not an authority, test, receipt, runtime result or
+completed implementation. The explicit-any at `PluginAdmin.vue:546` remains.
+
+## Fixed source and actual checks
+
+- Fixed product base: `759383052ff0865d464782e2587d48bfc5ce8920` (#4321).
+- Source-only investigation branch: `codex/plugin4321-json-widget-boundary`.
+- Genuine clean local UI957: `903db034a14254fb162f51b9c25d3703ea20ccb5`,
+  `/workspace/FsusUI-main4311-ui957`.
+- Original full application baseline actually completed exit2/FAIL,
+  **34 diagnostics /22 files (Blog9/UI25)**. Command:
+  `FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-main4311-ui957 node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application`.
+- Original scoped strict-full style attempt exit1/BLOCKED: configured ESLint
+  and Stylelint executables absent. No current lint PASS or any removal claim.
+- Product sources/config/manifest/lock are unchanged. No after-source compiler
+  run is claimed for a documentation-only increment.
+- All product imports/runtime/render/picker/widgets/tests/discovery/native/
+  security/privacy/qualification remain HOLD/UNRUN. No combination task request,
+  package publication, merge or issue closure.
+
+## Schema validation does not validate the current value
+
+The #4320 recursive schema fact remains correct. PluginPackageReader admits an
+object-root schema and recursively checks its supported type/metadata nodes.
+It allows `default` (line38), supports array/boolean/integer/null/number/object/
+string (41–49), and its node validator (368–467) does not validate a default
+instance against the declared type. This investigation does not weaken or
+replace that validator.
+
+PluginAdminService.cs establishes a different instance-value chain:
+
+1. `PluginAdminConfigStore.GetOrCreate`,19–30, calls CreateDefault.
+2. `CreateDefault`,101–125, returns `schema.default.Clone()` immediately when
+   present. Otherwise it copies individual property defaults into an object;
+   those values are not instance-validated either.
+3. `GetAsync`,300–305 and336–341, passes `config.Value` into the success DTO.
+4. Shared PluginAdminConfigDto (ServerResponseContracts.cs1692–1697) carries a
+   JsonElement, not an object-only dictionary.
+5. Frontend frame233 uses mapAuthoringJsonFromPayload
+   (binaryDecoderRegistry.ts348), whose JSON.parse is a generic decode, not
+   a schema/value check. `getPlugin` (authoring.ts1764–1773) is generic request
+   plumbing, not another value validator.
+6. `selectPlugin`, PluginAdmin.vue617–633, assigns the result and performs
+   `structuredClone(detail.value.config.value)` without a root-shape guard.
+   `runAction` similarly resets the draft from the actual response.
+
+Consequently authoring.ts146's `value: Record<string, unknown>` and the page's
+`ref<Record<string, any>>` cannot be treated as unconditional producer facts.
+This is not a reason to change the decoder or the global request layer.
+
+## Source counterexamples (not executed tests)
+
+Assume an otherwise valid plugin package. This is an admitted schema document:
+
+```json
+{"type":"object","properties":{"enabled":{"type":"boolean"}},"default":null}
+```
+
+By the source chain above, CreateDefault returns null and the successful detail
+can carry it to the draft. The boolean branch's `configDraft[field.name]`
+(PluginAdmin.vue269–271) dereferences null. With an enum field, Object.hasOwn
+and selectedEnumOption (564–575) also require a usable receiver. Replacing
+null with `{}` or rejecting the load would change output/error behavior, not
+provide a type-only repair. Arrays/primitive roots also cannot simply be
+asserted to dictionaries: existing spreads and save submission have different
+observable behavior for them.
+
+An object root alone is still insufficient. A schema can provide a boolean
+property default array or a numeric property default string:
+
+```json
+{"type":"object","properties":{"enabled":{"type":"boolean","default":[]},"count":{"type":"number","default":"7"}}}
+```
+
+The property-default copy preserves those exact JSON values. UI957 Switch
+switch.vue201–205 emits inactiveValue on setup when the current value is neither
+active nor inactive; the page's v-model writes that emission into the draft.
+InputNumber327–332 calls Number(modelValue) on mounting a nonnumber, non-null
+value and emits the conversion. Its immediate verifyValue path also enforces
+bounds and can emit changes (208–238,294–304). Therefore supplying a invented
+false/0/empty model or copying those normalizers into an adapter would conceal
+real draft mutation. This is a source-path deduction, not observed mounting.
+
+There is also a valid-value case beyond malformed defaults: a non-enum object,
+array or null field is a supported schema kind. It falls into the page's text
+ElInput branch (279–283). That public prop declares string/number/null/undefined
+(input.ts35–41); input.vue298–300 displays String(value) or empty for nil.
+Nested JSON is not a typed text model. Editing returns a string rather than
+the original object/array, after which the backend can reject the mismatch.
+
+## Save and rejection authority must remain intact
+
+saveConfig (PluginAdmin.vue797–828) obtains ensureAdminSensitiveProof, submits
+the actual draft with the original plugin ID and expectedConfigVersion, and
+preserves original success/catch/finally behavior. authoring.ts1798–1818 builds
+the existing mutation request. Endpoint655–660 passes a JsonElement and the
+expected version into UpdateConfigAsync. The config store Update34–58 first
+validates against the schema, then checks the version and clones the accepted
+value. Type rejection, enum rejection, MFA/version and reload failures remain
+with their original owners.
+
+Do not wrap raw rejects, reject all non-object responses at the load boundary,
+normalize the entire configuration, replace unsupported fields/defaults, or
+reinterpret schema type as proof of a value type merely to satisfy TypeScript.
+Decoder overprecision and unrelated Main upload/Facts work are outside scope.
+
+## Precise implementation blocker and minimum decision
+
+There is no honest behavior-preserving replacement for the remaining any
+under the current constraints: unknown is a truthful receiver type, but cannot
+be passed to all declared widget model domains, and schema validation does not
+prove a current value belongs to those domains. A partial type-only widening
+would introduce compiler errors while leaving the real boundary unresolved.
+
+Before a safe complete implementation, the product/source owner must define:
+
+1. How a non-object root default is presented and explicitly repaired without
+   silently changing it or moving existing server rejection into the loader.
+2. How supported non-enum nested object/array/null fields are edited, and how
+   scalar mismatches remain visible without automatic widget coercion.
+
+Minimum prospective repair: retain raw configuration as unknown; construct
+field view models only after real root/value guards; pass real supported values
+through without defaults; preserve own-property/unset/null distinctions and
+original enum identity/stale-option checks; require deliberate repair for
+unsupported values. This needs explicit behavior decisions. It is not yet
+implemented and is not permission to redesign the whole configuration editor.
+
+## Exact source fingerprints
+
+| Repository/path | Pinned blob |
+| --- | --- |
+| Blog views/admin/PluginAdmin.vue | `4e318bc00768c52d388a6e07c669242e4e0f6f90` |
+| Blog api/authoring.ts | `edb96315255a815d36c593de8da6794d1cbdd988` |
+| Blog backend/Infrastructure/Plugins/PluginAdminService.cs | `b78a83f533961b457c3895040a920c003a8a558b` |
+| Blog backend/Infrastructure/Plugins/PluginPackageReader.cs | `263ee6b6133a042af4bf4077f313c357c36d540c` |
+| UI957 switch/src/switch.vue | `5ed6989873d2e5c1c41365baca578376e0b5a6be` |
+| UI957 input-number/src/input-number.vue | `4f4065dcb05dacddb157704a31cedeeccd7c4649` |
+| UI957 input/src/input.vue | `2f4a613e4036e2aaa0d9f2dcf95d98682ee6be65` |
+| UI957 input/src/input.ts | `81d2886a99c0a7e61a7256b53354266d797eafe8` |
+
+Raw original commands/logs/exits remain in
+`/tmp/plugin4321-widget-baseline-*`; summary
+`/tmp/plugin4321-widget-source-investigation-summary.json`.
