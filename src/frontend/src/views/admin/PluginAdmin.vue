@@ -552,7 +552,7 @@ const configFields = computed<ConfigField[]>(() =>
     {
         return [];
     }
-    return Object.entries(properties as Record<string, Record<string, unknown>>).map(([name, schema]) => ({
+    return Object.entries(properties).map(([name, schema]) => ({
         name,
         title: String(schema.title ?? name),
         description: String(schema.description ?? ''),

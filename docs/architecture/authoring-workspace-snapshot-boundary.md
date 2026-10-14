@@ -2428,3 +2428,21 @@ stay untouched. Three existing raw-reason style findings therefore remain
 explicitly failed rather than wrapping or replacing original reasons. The
 ordinary WIP records the actual one-finding removal and current full-program
 diagnostics. This source repair does not grant runtime or qualification.
+
+
+## Validated Plugin Schema Metadata Types
+
+The actual plugin detail producer reads the registered package through
+PluginPackageReader before returning the cloned config schema. Its existing
+recursive validator requires a supported string type for each node, object
+root, and string title/description where present. The frontend schema type now
+reflects these guarantees and removes the broader properties assertion. Enum,
+default and config values retain arbitrary unknown JSON; no runtime validator,
+value coercion or wire contract changes. The complete JavaScript output of the
+existing API module and component script remains byte identical.
+
+This clears three metadata style findings only. The dynamic draft model boundary
+still requires an actual typed widget/fallback contract; it is not resolved by
+a cast or an invented primitive promise. Full application and documentation
+failures, independent physical alias verification and all execution and
+qualification holds remain explicit in the ordinary source WIP.

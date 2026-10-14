@@ -1,0 +1,66 @@
+{
+    "kind": "ordinary validated plugin schema metadata source WIP; no authority/receipt/qualification",
+    "base": "0edefa89fa943483f02219e0f37f1bc9a0c88d41",
+    "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+    "sourceBoundaries": [
+        {
+            "path": "src/frontend/src/api/authoring.ts",
+            "preimage": "efd294dc989bb7eacb4e6db5fc941d6215674614",
+            "postimage": "edb96315255a815d36c593de8da6794d1cbdd988"
+        },
+        {
+            "path": "src/frontend/src/api/pluginConfigSchema.ts",
+            "preimage": null,
+            "postimage": "9b2ce87f633d3d0f5fd0759d87f31d553ecf9961"
+        },
+        {
+            "path": "src/frontend/src/views/admin/PluginAdmin.vue",
+            "preimage": "ef7fe8141b44c07cc3bb9d08360a3cb24f2043df",
+            "postimage": "4e318bc00768c52d388a6e07c669242e4e0f6f90"
+        }
+    ],
+    "producerProof": [
+        "PluginAdminService.GetAsync reads actual entry package via ReadPackageAsync before returning package.ConfigSchema.Document.Clone().",
+        "PluginPackageReader.ReadAsync validates manifest/config schema; ValidateConfigSchemaNode requires object root and recursive supported string type, validates title/description strings, properties/items recursively, bounds/keyword types.",
+        "Frontend type-only schema reflects this existing genuine producer; enum/default/config.value retain unknown arbitrary JSON. No new validator or backend change."
+    ],
+    "completeEmit": {
+        "compilerVersion": "6.0.3",
+        "originalFullConfig": "/workspace/session-2295-blog-plugin-schema-metadata/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+        "files": [
+            {
+                "path": "src/frontend/src/api/authoring.ts",
+                "beforeSHA256": "1bde0abadf92240a1fae1dc1a07152069eb91265b1c3373ccb308cdc5bc03a16",
+                "afterSHA256": "1bde0abadf92240a1fae1dc1a07152069eb91265b1c3373ccb308cdc5bc03a16",
+                "completeJavaScriptByteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/views/admin/PluginAdmin.vue",
+                "beforeSHA256": "01ff25e7fe48405fff8b105c5e1763015fa1df1b2fc51c7cae5cd902262652e2",
+                "afterSHA256": "01ff25e7fe48405fff8b105c5e1763015fa1df1b2fc51c7cae5cd902262652e2",
+                "completeJavaScriptByteIdentical": true
+            }
+        ]
+    },
+    "fullOriginalTypecheck": {
+        "before": 34,
+        "after": 34,
+        "added": [],
+        "removed": []
+    },
+    "sameOriginalStrictFullScope": {
+        "before": 4,
+        "after": 1,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/views/admin/PluginAdmin.vue:POSITION eslint/@typescript-eslint/no-base-to-string: 'schema.title ?? name' will use Object's default stringification format ('[object Object]') when stringified.",
+            "[frontend-style] src/frontend/src/views/admin/PluginAdmin.vue:POSITION eslint/@typescript-eslint/no-base-to-string: 'schema.description ?? ''' will use Object's default stringification format ('[object Object]') when stringified.",
+            "[frontend-style] src/frontend/src/views/admin/PluginAdmin.vue:POSITION eslint/@typescript-eslint/no-base-to-string: 'schema.type ?? 'string'' will use Object's default stringification format ('[object Object]') when stringified."
+        ]
+    },
+    "AST": "three TS/SFC sources zero diagnostics",
+    "docs": "7/41 FAIL byte identical to predecessor",
+    "remainingScope": "Original known14: bootstrap3 and scheduler unused1 cleared previously, this group clears metadata3. Remaining7 known scoped findings (not whole-project total): scheduler raw-reason3; Plugin draft any1; nested memo1; Settings name1 and legitimate Tailwind reference1.",
+    "remainingDraftBoundary": "config.value remains actual Record<string, unknown>; enum values remain arbitrary JSON. Existing widget bindings include boolean/number/string public models and fallback fields of object/array/null schema types. Blind unknown model conversion, casts/defaults or false primitive type promises would change or conceal current value semantics. Original typed widget model adapters need a reviewed invalid-value/fallback contract; no source readiness claim.",
+    "holds": "All runtime/import/product evaluation/test/collection/list/discovery/render/native/security/privacy/receipt/race/backuprestore/IME/qualification/frozen authority HOLD/UNRUN; physical alias independently UNVERIFIED. No upload or FsusUI owner edits."
+}
