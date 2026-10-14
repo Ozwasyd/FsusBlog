@@ -229,58 +229,86 @@
                                 title="配置 Schema"
                                 id="plugin-config"
                             >
-                                <div class="plugin-config-form">
+                                <div
+                                    v-if="configObject === null"
+                                    class="plugin-config-json"
+                                >
+                                    <p role="alert">当前根配置不是对象，原值已保留。请显式编辑 JSON；不会自动替换为对象。</p>
+                                    <pre>{{ displayJsonValue(configDraft) }}</pre>
+                                    <ElButton @click="beginJsonEdit(null)">编辑根 JSON</ElButton>
+                                </div>
+                                <div
+                                    v-else
+                                    class="plugin-config-form"
+                                >
                                     <component
-                                        :is="field.enumOptions.length ? 'fieldset' : 'label'"
-                                        v-for="field in configFields"
-                                        :key="field.name"
+                                        :is="entry.field.enumOptions.length ? 'fieldset' : 'label'"
+                                        v-for="entry in configWidgetFields"
+                                        :key="entry.field.name"
                                         class="plugin-config-field"
-                                        :class="{ 'plugin-config-field--enum': field.enumOptions.length > 0 }"
+                                        :class="{ 'plugin-config-field--enum': entry.field.enumOptions.length > 0 }"
                                     >
-                                        <legend v-if="field.enumOptions.length">{{ field.title }}</legend>
-                                        <span v-else>{{ field.title }}</span>
-                                        <small>{{ field.description }}</small>
+                                        <legend v-if="entry.field.enumOptions.length">{{ entry.field.title }}</legend>
+                                        <span v-else>{{ entry.field.title }}</span>
+                                        <small>
+                                            {{ entry.field.description }}
+                                            <span v-if="!entry.present"> · 未设置（控件显示不会写入默认值）</span>
+                                        </small>
                                         <div
-                                            v-if="field.enumOptions.length"
+                                            v-if="entry.field.enumOptions.length"
                                             class="plugin-config-enum"
                                         >
                                             <label
-                                                v-for="option in field.enumOptions"
+                                                v-for="option in entry.field.enumOptions"
                                                 :key="option.key"
                                                 class="plugin-config-enum-option"
                                             >
                                                 <input
                                                     type="radio"
-                                                    :name="`${configInputId}:${field.name}`"
-                                                    :checked="selectedEnumOption(field) === option"
-                                                    @change="selectEnumOption(field, option)"
+                                                    :name="`${configInputId}:${entry.field.name}`"
+                                                    :checked="selectedEnumOption(entry.field) === option"
+                                                    @change="selectEnumOption(entry.field, option)"
                                                 >
                                                 <span>{{ option.label }}</span>
                                             </label>
                                             <p
-                                                v-if="!Object.hasOwn(configDraft, field.name)"
+                                                v-if="!entry.present"
                                                 class="plugin-config-enum-status"
                                             >未设置</p>
                                             <p
-                                                v-else-if="!selectedEnumOption(field)"
+                                                v-else-if="!selectedEnumOption(entry.field)"
                                                 class="plugin-config-enum-status"
                                             >当前配置值不在选项中，请选择一个合法值。</p>
                                         </div>
                                         <ElSwitch
-                                            v-else-if="field.type === 'boolean'"
-                                            v-model="configDraft[field.name]"
+                                            v-else-if="entry.model.kind === 'boolean'"
+                                            :model-value="entry.model.value"
+                                            @update:model-value="updateBooleanField(entry, $event)"
                                         />
                                         <ElInputNumber
-                                            v-else-if="field.type === 'integer' || field.type === 'number'"
-                                            v-model="configDraft[field.name]"
-                                            :min="field.minimum"
-                                            :max="field.maximum"
+                                            v-else-if="entry.model.kind === 'number'"
+                                            :model-value="entry.model.value"
+                                            :min="entry.field.minimum"
+                                            :max="entry.field.maximum"
+                                            @update:model-value="updateNumberField(entry, $event)"
                                         />
                                         <ElInput
-                                            v-else
-                                            v-model="configDraft[field.name]"
-                                            :placeholder="field.title"
+                                            v-else-if="entry.model.kind === 'text'"
+                                            :model-value="entry.model.value"
+                                            :placeholder="entry.field.title"
+                                            @update:model-value="updateTextField(entry, $event)"
                                         />
+                                        <div
+                                            v-else
+                                            class="plugin-config-json"
+                                        >
+                                            <p
+                                                v-if="entry.model.error"
+                                                role="alert"
+                                            >{{ entry.model.error }}</p>
+                                            <pre>{{ entry.present ? displayJsonValue(entry.value) : '未设置' }}</pre>
+                                            <ElButton @click="beginJsonEdit(entry.field)">编辑字段 JSON</ElButton>
+                                        </div>
                                     </component>
                                     <p
                                         v-if="configFields.length === 0"
@@ -288,6 +316,28 @@
                                     >
                                         此插件没有可编辑的顶层配置字段。
                                     </p>
+                                </div>
+                                <div
+                                    v-if="jsonEditor"
+                                    class="plugin-config-json-editor"
+                                >
+                                    <h3>{{ jsonEditor.field ? jsonEditor.field.title : '根配置' }} · JSON 编辑</h3>
+                                    <p>应用只更新本地配置。解析失败保留原值和输入；保存仍需单独确认。</p>
+                                    <ElInput
+                                        type="textarea"
+                                        :rows="6"
+                                        :model-value="jsonEditor.text"
+                                        :aria-label="`${jsonEditor.field ? jsonEditor.field.title : '根配置'} JSON`"
+                                        @update:model-value="updateJsonText"
+                                    />
+                                    <p
+                                        v-if="jsonEditor.error"
+                                        role="alert"
+                                    >{{ jsonEditor.error }}</p>
+                                    <div class="plugin-config-json-actions">
+                                        <ElButton @click="applyJsonEdit">应用 JSON</ElButton>
+                                        <ElButton @click="jsonEditor = null">关闭编辑</ElButton>
+                                    </div>
                                 </div>
                                 <template #footer>
                                     <div class="plugin-config-footer">
@@ -522,6 +572,13 @@ import { confirmDanger, confirmWarning, toast } from '@/fsusui/feedback';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 import { createPluginConfigEnumOptions, pluginConfigJsonValuesEqual, type PluginConfigEnumOption } from './pluginConfigEnum';
+import {
+    getPluginConfigWidgetModel,
+    isPluginConfigObject,
+    parsePluginConfigJson,
+    pluginConfigJsonText,
+    type PluginConfigWidgetModel
+} from './pluginConfigModel';
 
 interface ConfigField {
     name: string;
@@ -533,6 +590,28 @@ interface ConfigField {
     maximum?: number;
 }
 
+interface ConfigWidgetEntry {
+    readonly field: ConfigField;
+    readonly present: boolean;
+    readonly value: unknown;
+    readonly model: PluginConfigWidgetModel;
+}
+
+interface ConfigJsonEditor {
+    readonly field: ConfigField | null;
+    readonly sourceSelection: ConfigSelection;
+    readonly sourceRequest: object;
+    readonly sourceDetail: PluginAdminDetail;
+    readonly sourceDraft: unknown;
+    readonly sourceDraftRevision: object;
+    readonly text: string;
+    readonly error: string | null;
+}
+
+interface ConfigSelection {
+    readonly pluginId: string;
+}
+
 const loading = ref(false);
 const detailLoading = ref(false);
 const installing = ref(false);
@@ -542,8 +621,16 @@ const selectedId = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const overview = shallowRef<PluginAdminOverview | null>(null);
 const detail = shallowRef<PluginAdminDetail | null>(null);
-const configDraft = ref<Record<string, any>>({});
+const configDraft = ref<unknown>();
 const configInputId = useId();
+const jsonEditor = shallowRef<ConfigJsonEditor | null>(null);
+let pendingConfigSave: object | null = null;
+let configSelection: ConfigSelection | null = null;
+let configDetailSelection: ConfigSelection | null = null;
+let configRequest: object = {};
+let configDraftRevision: object = {};
+let overviewRequest: object | null = null;
+const configObject = computed(() => isPluginConfigObject(configDraft.value) ? configDraft.value : null);
 
 const configFields = computed<ConfigField[]>(() =>
 {
@@ -563,13 +650,162 @@ const configFields = computed<ConfigField[]>(() =>
     }));
 });
 
+const configWidgetFields = computed<readonly ConfigWidgetEntry[]>(() =>
+{
+    const object = configObject.value;
+    if (object === null)
+    {
+        return [];
+    }
+    return configFields.value.map((field) =>
+    {
+        const present = Object.hasOwn(object, field.name);
+        const value = present ? object[field.name] : undefined;
+        return { field, present, value, model: getPluginConfigWidgetModel(field, value, present) };
+    });
+});
+
+function displayJsonValue(value: unknown): string
+{
+    return pluginConfigJsonText(toRaw(value)) ?? '当前值无法表示为有限 JSON；原值未更改。';
+}
+
+function isConfigSelectionCurrent(selection: ConfigSelection): boolean
+{
+    return configSelection === selection && selectedId.value === selection.pluginId;
+}
+
+function canEditConfig(): boolean
+{
+    return configSelection !== null && configDetailSelection === configSelection
+        && isConfigSelectionCurrent(configSelection) && !detailLoading.value
+        && detail.value?.summary.pluginId === configSelection.pluginId;
+}
+
+function writeWidgetField(entry: ConfigWidgetEntry, value: unknown): void
+{
+    const object = configObject.value;
+    if (!canEditConfig() || object === null || !configWidgetFields.value.includes(entry))
+    {
+        return;
+    }
+    configDraft.value = { ...object, [entry.field.name]: value };
+    configDraftRevision = {};
+}
+
+function updateBooleanField(entry: ConfigWidgetEntry, value: boolean | string | number): void
+{
+    if (entry.model.kind === 'boolean' && typeof value === 'boolean')
+    {
+        writeWidgetField(entry, value);
+    }
+}
+
+function updateNumberField(entry: ConfigWidgetEntry, value: number | null | undefined): void
+{
+    if (entry.model.kind === 'number' && (value === null || value === undefined || Number.isFinite(value)))
+    {
+        writeWidgetField(entry, value);
+    }
+}
+
+function updateTextField(entry: ConfigWidgetEntry, value: string): void
+{
+    if (entry.model.kind === 'text')
+    {
+        writeWidgetField(entry, value);
+    }
+}
+
+function beginJsonEdit(field: ConfigField | null): void
+{
+    const sourceDetail = detail.value;
+    const sourceSelection = configSelection;
+    if (!canEditConfig() || sourceSelection === null || sourceDetail === null
+        || field !== null && !configFields.value.includes(field))
+    {
+        return;
+    }
+    const sourceDraft = configDraft.value;
+    const object = configObject.value;
+    if (field !== null && object === null)
+    {
+        return;
+    }
+    const value = field === null
+        ? sourceDraft
+        : object !== null && Object.hasOwn(object, field.name) ? object[field.name] : undefined;
+    const text = pluginConfigJsonText(toRaw(value));
+    jsonEditor.value = {
+        field,
+        sourceSelection,
+        sourceRequest: configRequest,
+        sourceDetail,
+        sourceDraft,
+        sourceDraftRevision: configDraftRevision,
+        text: text ?? '',
+        error: text === null ? '当前值没有可用的 JSON 文本，请显式输入；原值仍保留。' : null
+    };
+}
+
+function updateJsonText(text: string): void
+{
+    const editor = jsonEditor.value;
+    if (editor !== null)
+    {
+        jsonEditor.value = { ...editor, text, error: null };
+    }
+}
+
+function applyJsonEdit(): void
+{
+    const editor = jsonEditor.value;
+    if (editor === null)
+    {
+        return;
+    }
+    if (pendingConfigSave !== null)
+    {
+        jsonEditor.value = { ...editor, error: '保存请求尚未完成；原值和输入均已保留。' };
+        return;
+    }
+    if (!canEditConfig() || !isConfigSelectionCurrent(editor.sourceSelection)
+        || configRequest !== editor.sourceRequest || configDraftRevision !== editor.sourceDraftRevision
+        || detail.value !== editor.sourceDetail || configDraft.value !== editor.sourceDraft
+        || editor.field !== null && !configFields.value.includes(editor.field))
+    {
+        jsonEditor.value = { ...editor, error: '选择、请求、配置或 Schema 已变更；输入已保留，请重新打开当前值的编辑器。' };
+        return;
+    }
+    let value: unknown;
+    try
+    {
+        value = parsePluginConfigJson(editor.text);
+    }
+    catch (error)
+    {
+        jsonEditor.value = { ...editor, error: error instanceof Error ? error.message : 'JSON 解析失败；原值和输入均已保留。' };
+        return;
+    }
+    const object = configObject.value;
+    if (editor.field !== null && object === null)
+    {
+        jsonEditor.value = { ...editor, error: '根配置不是对象；原值和输入均已保留。' };
+        return;
+    }
+    configDraft.value = editor.field === null ? value : { ...object, [editor.field.name]: value };
+    configDraftRevision = {};
+    jsonEditor.value = null;
+}
+
 function selectedEnumOption(field: ConfigField): PluginConfigEnumOption | null
 {
-    if (!Object.hasOwn(configDraft.value, field.name))
+    const object = configObject.value;
+    if (object === null || !Object.hasOwn(object, field.name))
     {
         return null;
     }
-    const value: unknown = toRaw(configDraft.value[field.name]);
+    const value = toRaw(object[field.name]);
     return field.enumOptions.find((option) => option.value === value)
         ?? field.enumOptions.find((option) => pluginConfigJsonValuesEqual(option.value, value))
         ?? null;
@@ -577,20 +813,33 @@ function selectedEnumOption(field: ConfigField): PluginConfigEnumOption | null
 
 function selectEnumOption(field: ConfigField, option: PluginConfigEnumOption): void
 {
-    if (!configFields.value.includes(field) || !field.enumOptions.includes(option))
+    const object = configObject.value;
+    if (!canEditConfig() || object === null || !configFields.value.includes(field) || !field.enumOptions.includes(option))
     {
         return;
     }
     // Keep the canonical value itself, including null and nested objects/arrays.
-    configDraft.value = { ...configDraft.value, [field.name]: option.value };
+    configDraft.value = { ...object, [field.name]: option.value };
+    configDraftRevision = {};
 }
 
 async function loadOverview(): Promise<void>
 {
+    const request = {};
+    const sourceSelection = configSelection;
+    const sourceRequest = configRequest;
+    const sourceDraftRevision = configDraftRevision;
+    overviewRequest = request;
     loading.value = true;
     try
     {
-        overview.value = await listPlugins();
+        const result = await listPlugins();
+        if (overviewRequest !== request || configSelection !== sourceSelection
+            || configRequest !== sourceRequest || configDraftRevision !== sourceDraftRevision)
+        {
+            return;
+        }
+        overview.value = result;
         const nextId = overview.value.plugins.some((item) => item.pluginId === selectedId.value)
             ? selectedId.value
             : overview.value.plugins[0]?.pluginId ?? '';
@@ -600,6 +849,11 @@ async function loadOverview(): Promise<void>
         }
         else
         {
+            configSelection = null;
+            configDetailSelection = null;
+            configRequest = {};
+            pendingConfigSave = null;
+            detailLoading.value = false;
             selectedId.value = '';
             detail.value = null;
         }
@@ -610,18 +864,39 @@ async function loadOverview(): Promise<void>
     }
     finally
     {
-        loading.value = false;
+        if (overviewRequest === request)
+        {
+            loading.value = false;
+        }
     }
 }
 
 async function selectPlugin(pluginId: string): Promise<void>
 {
+    const selection = { pluginId };
+    const request = {};
+    configSelection = selection;
+    configDetailSelection = null;
+    configRequest = request;
+    pendingConfigSave = null;
+    if (actionLoading.value === 'update-config')
+    {
+        actionLoading.value = '';
+    }
     selectedId.value = pluginId;
     detailLoading.value = true;
     try
     {
-        detail.value = await getPlugin(pluginId);
-        configDraft.value = structuredClone(detail.value.config.value);
+        const result = await getPlugin(pluginId);
+        if (!isConfigSelectionCurrent(selection) || configRequest !== request
+            || result.summary.pluginId !== pluginId)
+        {
+            return;
+        }
+        detail.value = result;
+        configDraft.value = structuredClone(result.config.value);
+        configDraftRevision = {};
+        configDetailSelection = selection;
     }
     catch (error)
     {
@@ -629,7 +904,10 @@ async function selectPlugin(pluginId: string): Promise<void>
     }
     finally
     {
-        detailLoading.value = false;
+        if (isConfigSelectionCurrent(selection) && configRequest === request)
+        {
+            detailLoading.value = false;
+        }
     }
 }
 
@@ -794,27 +1072,47 @@ async function togglePermission(name: string, granted: boolean): Promise<void>
 
 async function saveConfig(): Promise<void>
 {
-    if (!detail.value)
+    const sourceDetail = detail.value;
+    const sourceSelection = configSelection;
+    if (!canEditConfig() || sourceDetail === null || sourceSelection === null || pendingConfigSave !== null)
     {
         return;
     }
+    const request = {};
+    const sourceDraft = configDraft.value;
+    const sourceDraftRevision = configDraftRevision;
+    configRequest = request;
+    pendingConfigSave = request;
     actionLoading.value = 'update-config';
     try
     {
         const mfaProofToken = await ensureAdminSensitiveProof();
+        if (!isConfigSelectionCurrent(sourceSelection) || configRequest !== request
+            || configDetailSelection !== sourceSelection || detail.value !== sourceDetail
+            || configDraft.value !== sourceDraft || configDraftRevision !== sourceDraftRevision)
+        {
+            return;
+        }
         const result = await mutatePlugin(
-            detail.value.summary.pluginId,
+            sourceSelection.pluginId,
             {
                 action: 'update-config',
-                config: configDraft.value,
-                expectedConfigVersion: detail.value.config.version
+                config: sourceDraft,
+                expectedConfigVersion: sourceDetail.config.version
             },
             { mfaProofToken }
         );
+        if (!isConfigSelectionCurrent(sourceSelection) || configRequest !== request
+            || configDetailSelection !== sourceSelection || detail.value !== sourceDetail
+            || configDraft.value !== sourceDraft || configDraftRevision !== sourceDraftRevision)
+        {
+            return;
+        }
         if (result)
         {
             detail.value = result;
             configDraft.value = structuredClone(result.config.value);
+            configDraftRevision = {};
         }
         toast.success('插件配置已校验并保存');
     }
@@ -824,7 +1122,14 @@ async function saveConfig(): Promise<void>
     }
     finally
     {
-        actionLoading.value = '';
+        if (pendingConfigSave === request)
+        {
+            pendingConfigSave = null;
+            if (actionLoading.value === 'update-config')
+            {
+                actionLoading.value = '';
+            }
+        }
     }
 }
 
@@ -1053,6 +1358,33 @@ onMounted(loadOverview);
  {
     margin: 0;
     color: var(--fsusblog-text-secondary);
+}
+
+.plugin-config-json,
+.plugin-config-json-editor
+ {
+    display: grid;
+    gap: var(--fsus-space-2);
+    min-width: 0;
+}
+
+.plugin-config-json pre
+ {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.plugin-config-json-editor
+ {
+    grid-column: 1 / -1;
+}
+
+.plugin-config-json-actions
+ {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--fsus-space-2);
 }
 
 .plugin-config-footer

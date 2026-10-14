@@ -1,0 +1,203 @@
+{
+    "kind": "ordinary reviewed Plugin config ownership source composition WIP; no runtime/frozen/qualification authority",
+    "sourceBoundary": {
+        "base": "5598f3e82bbcf841a6dc891866fb9d539fd8fe0a",
+        "donorBase": "759383052ff0865d464782e2587d48bfc5ce8920",
+        "donorHead": "31dc3e43edba3e41de3147f7a6ee1efee65d62b7",
+        "donorOwnPaths": [
+            "artifacts/work-in-progress/plugin4321-json-widget-boundary.md",
+            "src/frontend/src/api/authoring.ts",
+            "src/frontend/src/views/admin/PluginAdmin.vue",
+            "src/frontend/src/views/admin/pluginConfigEnum.ts",
+            "src/frontend/src/views/admin/pluginConfigModel.ts"
+        ],
+        "exactFinalFiles": [
+            {
+                "path": "artifacts/work-in-progress/plugin4321-json-widget-boundary.md",
+                "MainPreimage": null,
+                "reviewedPostimage": "1a7020e599bde9f91b4461016a4cf08ffe0aa828",
+                "actualPostimage": "1a7020e599bde9f91b4461016a4cf08ffe0aa828",
+                "byteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/api/authoring.ts",
+                "MainPreimage": "edb96315255a815d36c593de8da6794d1cbdd988",
+                "reviewedPostimage": "4dd37220f9887ae40753e3ac120cf67cd0822852",
+                "actualPostimage": "4dd37220f9887ae40753e3ac120cf67cd0822852",
+                "byteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/views/admin/PluginAdmin.vue",
+                "MainPreimage": "4e318bc00768c52d388a6e07c669242e4e0f6f90",
+                "reviewedPostimage": "dd6e1b77ad63b376179e07e23e2f784c74b40d2a",
+                "actualPostimage": "dd6e1b77ad63b376179e07e23e2f784c74b40d2a",
+                "byteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/views/admin/pluginConfigEnum.ts",
+                "MainPreimage": "e9a2ad2ba51b8987c474f74b999b2413da2070a3",
+                "reviewedPostimage": "7a8b4bd2aced1de24471ac5eb52b9e13a09292f5",
+                "actualPostimage": "7a8b4bd2aced1de24471ac5eb52b9e13a09292f5",
+                "byteIdentical": true
+            },
+            {
+                "path": "src/frontend/src/views/admin/pluginConfigModel.ts",
+                "MainPreimage": null,
+                "reviewedPostimage": "066e51e6265709550e565bcc909360e4bdbbf151",
+                "actualPostimage": "066e51e6265709550e565bcc909360e4bdbbf151",
+                "byteIdentical": true
+            }
+        ],
+        "allOtherMainTrackedLeaves": "byte unchanged before ordinary composition metadata",
+        "conflicts": 0,
+        "intake": "Only fixed-base own five-path patch, no donor ancestry or master/history imported. Original reviewer01a12c4a limited SOURCE closes own-property/lifecycle P2 by parent confirmation; no runtime qualification."
+    },
+    "admission": "Parent confirms original reviewer01a12c4a limited SOURCE re-review of31dc3e43 closed own-property P2 and asynchronous lifecycle P2, no new P1/P2. This new Main combination requires separate exact-source review; no runtime/render/security acceptance inferred.",
+    "paths": "Eight own paths: four exact Plugin implementation files + original donor ordinary WIP + three ordinary Main composition WIP/current doc/naming records.",
+    "fullOriginalTypecheck": {
+        "before": 29,
+        "after": 29,
+        "added": [],
+        "removed": [],
+        "normalization": "source positions only; full continuation text/multiplicity retained"
+    },
+    "oldAuthorCountSeparation": "Original donor34 diagnostics/22 files is a historical older fixed759 baseline/profile. Fresh actual current5598 Main baseline29 and combined29 independently measured with same actual deps/config/UI957; no count mixing or borrowed qualification.",
+    "originalStrictLint": {
+        "before": 1,
+        "after": 0,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/views/admin/PluginAdmin.vue:POSITION eslint/@typescript-eslint/no-explicit-any: Unexpected any. Specify a different type."
+        ],
+        "baselineExistingFiles": 3,
+        "candidateFilesIncludingNewModule": 4
+    },
+    "fullSourceASTAndEmit": {
+        "originalFullConfig": "/workspace/session-2295-blog-reviewed-plugin-source-composition/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+        "TS": "6.0.3",
+        "APICompleteRuntimeJSByteIdentical": true,
+        "APIRuntimeJSSHA256": "1bde0abadf92240a1fae1dc1a07152069eb91265b1c3373ccb308cdc5bc03a16",
+        "fullSFCBefore": {
+            "AnyKeyword": 1,
+            "assertions": 1
+        },
+        "fullSFCAfter": {
+            "AnyKeyword": 0,
+            "assertions": 1
+        },
+        "newModel": {
+            "AnyKeyword": 0,
+            "assertions": 0
+        },
+        "scope": "Whole final files equal accepted donor; existing single event.target assertion remains, no new assertions/any; no product/helpers/parser/MFA/widget execution"
+    },
+    "localAlias": {
+        "actualUI": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+        "originalCompleteGeneratedConfigByteIdentical": true,
+        "configs": [
+            "/workspace/session-2295-blog-settings-reference-import/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+            "/workspace/session-2295-blog-reviewed-plugin-source-composition/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+        ],
+        "configSHA256": "633e6b25f6c4df1ca2778953262adc3ac1542f7a74de7ceaed9ccbc2e64a4ef3",
+        "publicAliases": {
+            "@ozwasyd/element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ],
+            "element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ]
+        },
+        "independentPhysicalQualification": "UNVERIFIED"
+    },
+    "docs": {
+        "lifecycle": {
+            "before": 7,
+            "after": 7,
+            "byteIdentical": true
+        },
+        "authoritative": {
+            "before": 41,
+            "after": 41,
+            "byteIdentical": true
+        }
+    },
+    "sourceBehavior": "Real unknown root/draft values retained; own field reads/unset/null and canonical enum domains preserved; explicit local JSON editing and scalar domain discrimination. Exact reviewed fresh selection/request/draft ownership and after-MFA/response guards retained, stale Apply retains text and refuses before parsing, duplicate pending Save guard. Local object identities are not grants/versions/cancellation/rollback or receipts; already sent server writes may complete. Original raw catch errors/MFA/version owners retained; unrelated action/permission/install concurrency unqualified. No new source implementation beyond exact donor intake.",
+    "inputPreservation": "All original upload/facts/Settings source and other Main/style/editor/host/router/writer/resource files byte unchanged. API runtime complete emitted JS unchanged; no config/rule/lock/fixture/authority edits.",
+    "remainingTypeGates": "Blog4: canonical Preview operation, Facts operation, current Facts frame, Analytics regionChartRef; UI25 original refs/enums. No active route/frame fabricated.",
+    "remainingStyle": "Three known scoped raw rejection findings remain; no whole-project style total/green claim. Old ordinary failure records remain; Plugin any source finding genuinely cleared by reviewed actual model boundary.",
+    "CSSCompleteOutput": "UNVERIFIED unchanged from4326: real local UI957 full/critical/theme CSS absent; no theme or application build, CSS output equivalence or rendered acceptance claimed.",
+    "skillsAndDesignContext": {
+        "BlogSkill": {
+            "path": "/workspace/session-2295-blog-reviewed-plugin-source-composition/.agents/skills/fsusblog-design-conformance/SKILL.md",
+            "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+        },
+        "upstream": [
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/.agents/skills/fsusui-design-conformance/SKILL.md",
+                "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/docs/index.md",
+                "sha256": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18"
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/docs/design.md",
+                "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/docs/design/governance.md",
+                "sha256": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/docs/design/change-classification.md",
+                "sha256": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/docs/workflows/visual-change.md",
+                "sha256": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+            },
+            {
+                "path": "/workspace/session-2295-ui957-local-dependency/docs/consumers/design-integration.md",
+                "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+            }
+        ],
+        "owner": "FsusBlog task/plugin form workflow, real existing public FsusUI controls; no private selector/token/primitive modifications or new design decision.",
+        "stage": "Source/static integration only; frozen classification/UX/runtime acceptance not created/refreshed under current explicit user HOLD."
+    },
+    "holds": "All runtime/product/helper/parser/widget/MFA/server imports/evaluation/tests/collection/list/discovery/native/security/privacy/receipt/race/backuprestore/IME/browser/render/qualification and frozen authority HOLD/UNRUN. Original public editor complete resources/native-loan/worker-shutdown/recovery-coordination/disposed-restoration authority remains incomplete; no false paused/ready/end/receipt ACK. Physical alias independent UNVERIFIED. No master ancestry integration, merge/close/Ready/package publication.",
+    "evidence": {
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-source-boundary.json": {
+            "sha256": "aff8d6473582beb79da1b9b67e38af23b22cb279a76309e0b3f2711b49c355db"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-base-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-type-delta.json": {
+            "sha256": "2213026341187eb2708394187835a15df005df00969569ab34cfc46b734babf7"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-base-style.txt": {
+            "sha256": "23c7a3c8bd78e439bb3b4b52d36c7a311f1594dd489aaa85d0953eff441c8b4d"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-style.txt": {
+            "sha256": "cd1f01067a81dd18e9315081d644111caa45ac1130d35dd3e0ce817835530e09"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-style-delta.json": {
+            "sha256": "ba31e58be5ab9b37b62316326839df7f741c3ffd056433b50d6d64f8fef899fa"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-ast.txt": {
+            "sha256": "d4f73b4e1dca815aa90339140515838a66d70ab68a46b6efa29ac1206cd537e8"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-static-source-proof.json": {
+            "sha256": "9fd87c36ed3383ee448200e025198be22ae775d1ed68b9aa96353f93744fa0b0"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-alias-source.json": {
+            "sha256": "08e33b6d2d933c4149649c5c1622174d28a49e46fbca983450e1726e317265ad"
+        },
+        "/workspace/session-evidence-2295/blog-reviewed-plugin-doc-delta.json": {
+            "sha256": "d8360efbb485a700a23de71dfa388d21cf4b6bd24c2ab9869a2d69d4890628dd"
+        }
+    }
+}
