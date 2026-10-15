@@ -531,11 +531,9 @@ export class ArticleSourceCompareSession
 
     private withdraw(): void
     {
-        for (const operation of this.operations)
-        {
-            this.revokeOperation(operation, 'compare-closed');
-        }
-        this.unsubscribe?.();
+        const unsubscribe = this.unsubscribe;
+        const operations = [...this.operations];
+        // Close session admission before abort callbacks can reenter; the original operation records stay retained.
         this.unsubscribe = null;
         this.activeOperation = null;
         this.opening = null;
@@ -543,5 +541,10 @@ export class ArticleSourceCompareSession
         this.identity = null;
         this.syncEnabled = false;
         this.anchors.setSynchronization(false);
+        for (const operation of operations)
+        {
+            this.revokeOperation(operation, 'compare-closed');
+        }
+        unsubscribe?.();
     }
 }
