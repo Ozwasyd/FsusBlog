@@ -9,7 +9,8 @@ Related issues: #2404 and #2413. Neither issue is complete or closed.
 - Branch: `codex/article-package-resolution-preparation`.
 - Original saved checkout remains `/workspace/FsusBlog`, clean `work` at
   `29051db2a80db7770dfe78a1db6e4c6998337324`.
-- Only three new ordinary C# source files are authored. No existing source is
+- Only three new ordinary C# source files are authored, with this WIP and one
+  required static external-naming manifest. No existing source is
   overwritten, no frontend/CanvasPackage/FsusUI file is changed, and no donor
   source, runtime observation, frozen receipt, catalog or fixture is admitted.
 - Final delivery HEAD is the GitHub PR head (includes this ordinary WIP document).
@@ -157,7 +158,7 @@ activation, tests/discovery/import execution, frozen generation, grants, merge,
 Ready transition, issue closure, package publication or deployment is authorized
 or performed. This source leaf remains unconnected and non-admitting.
 
-Rollback: omit or revert only the three source leaves and this WIP document. No
+Rollback: omit or revert only the three source leaves, this WIP document and the static naming manifest. No
 existing source, live data, native resource or physical schema was modified.
 
 ## Local raw static logs
@@ -176,3 +177,14 @@ completed final checks:
 - `clean-base-restore.log`: `d82e579c181cd147e8f9a41c6c8b7cdf06bc228bb66d0eb420376625a215fda9`
 - `clean-base-build.log`: `7e92a54adf2e1954afe9d9645458eaf19182190583895a55c752322b8650a646`
 - `final-docs.log`: `7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403`
+
+## Metadata-only forward repair
+
+The first actual REST PR metadata check at delivery `796c0b1fad21e7d9ce9abab900cd2418c4dc9cb2`
+failed because the trusted base broad `environment-variable` naming registry covers
+all three new managed source files. A separate static naming manifest now binds
+exactly those three paths under the existing registered ID. No registry, rule,
+source checkpoint, authority or product behavior is changed. The PR body declares
+the supplementary External naming exception classification and links this manifest.
+The initial failure is retained in `/tmp/article-resolution-checks/actual-pr-metadata.log`.
+This ordinary metadata declaration is not a qualification receipt or new authority.

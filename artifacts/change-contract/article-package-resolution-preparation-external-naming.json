@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageImportResolutionPreparation.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportResolutionContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportResolutionPlanner.cs"
+            ],
+            "reason": "The trusted base broad environment-variable registry covers all src managed files. Preserve existing owner-defined wire, identity, reason and digest-domain spellings consumed by these three new ordinary preparation leaves; introduce no process environment key or naming rule. Internal C# members follow the repository mother-style mapping. This static naming declaration grants no runtime or execution authority."
+        }
+    ]
+}
