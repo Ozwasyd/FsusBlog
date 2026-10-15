@@ -1,0 +1,20 @@
+{
+    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "baseRegularEntries": 7964,
+    "protectedBaseEntriesUnchanged": 7963,
+    "onlyModifiedBasePath": "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
+    "baseEntry": [
+        "100644",
+        "8393e632287260a6ce9220a0b42f821e9779e696"
+    ],
+    "candidateEntry": [
+        "100644",
+        "4716a11b72c148be96db83270a87f2715c24ced6"
+    ],
+    "newPathsLimitedToOwnOrdinaryWipAndEvidence": true,
+    "otherTaskBranchStatus": {
+        "Blog": "work at 29051db2a80db7770dfe78a1db6e4c6998337324, clean",
+        "UI": "work at 8db0ac8f, clean"
+    },
+    "baseAncestry": "166 missing exact commit objects reconstructed from authorized GitHub metadata and verified by Git hash; no parent rewrite, replacement refs, shallow workaround or policy changes. Initial range failure retained; recovered original checker passes."
+}

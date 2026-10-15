@@ -1,0 +1,175 @@
+[
+    {
+        "name": "strict",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "strict-full",
+            "--file",
+            "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 0,
+        "seconds": 8.351543664932251,
+        "log": "candidate-strict.log",
+        "bytes": 68,
+        "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577"
+    },
+    {
+        "name": "types",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+            "--application"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 2,
+        "seconds": 38.85041403770447,
+        "log": "candidate-types.log",
+        "bytes": 4992,
+        "sha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f"
+    },
+    {
+        "name": "node-types",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "src/frontend/node_modules/typescript/bin/tsc",
+            "--noEmit",
+            "-p",
+            "src/frontend/tsconfig.node.json"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 2,
+        "seconds": 0.9475042819976807,
+        "log": "candidate-node-types.log",
+        "bytes": 236,
+        "sha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e"
+    },
+    {
+        "name": "full-style",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "full"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 1,
+        "seconds": 117.65871405601501,
+        "log": "candidate-full-style.log",
+        "bytes": 11861610,
+        "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+    },
+    {
+        "name": "boundary",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 1,
+        "seconds": 0.18381071090698242,
+        "log": "candidate-boundary.log",
+        "bytes": 2805,
+        "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    {
+        "name": "binary",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 1,
+        "seconds": 0.10394001007080078,
+        "log": "candidate-binary.log",
+        "bytes": 866,
+        "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    {
+        "name": "intent",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "tools/governance/check-code-intent.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 1,
+        "seconds": 11.067513942718506,
+        "log": "candidate-intent.log",
+        "bytes": 353,
+        "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+    },
+    {
+        "name": "lifecycle",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "tools/docs/generate-document-lifecycle.mjs",
+            "--check"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 1,
+        "seconds": 0.17751669883728027,
+        "log": "candidate-lifecycle.log",
+        "bytes": 762,
+        "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    {
+        "name": "authoritative",
+        "cwd": "/workspace/intake4377/FsusBlog",
+        "command": [
+            "node",
+            "tools/docs/check-authoritative-development-docs.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4377/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "exit": 1,
+        "seconds": 0.1612720489501953,
+        "log": "candidate-authoritative.log",
+        "bytes": 6771,
+        "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    }
+]
