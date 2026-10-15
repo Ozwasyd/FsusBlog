@@ -1,0 +1,295 @@
+{
+  "sourceCommit": "20e3db62b100b7944594ad7fa3156a01b4994d95",
+  "sourceTree": "8fbdd19dd95b80eee0af8826939e6e7dc65d2b23",
+  "uiCommit": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "uiTree": "ea3ee662610db877ce0d17f8fc5fae2b2106136f",
+  "uiTrackedDirty": "",
+  "originalConfig": {
+    "compilerOptions": {
+      "composite": false,
+      "jsx": "preserve",
+      "jsxImportSource": "vue",
+      "paths": {
+        "@/*": [
+          "./src/*"
+        ],
+        "@wasm/*": [
+          "./wasm/web/*"
+        ],
+        "vue": [
+          "./node_modules/vue"
+        ],
+        "@vue/*": [
+          "./node_modules/@vue/*"
+        ],
+        "@ozwasyd/element-plus": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts"
+        ],
+        "element-plus": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts"
+        ],
+        "@ozwasyd/element-plus/icons-vue": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/icons-vue.ts"
+        ],
+        "@ozwasyd/element-plus/markdown-runtime": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/markdown-runtime.ts"
+        ],
+        "@ozwasyd/element-plus/motion": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/motion.ts"
+        ],
+        "@ozwasyd/element-plus/perception-challenge": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/perception-challenge.ts"
+        ],
+        "@ozwasyd/element-plus/render-pipeline": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/render-pipeline.ts"
+        ],
+        "@ozwasyd/element-plus/result": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/result.ts"
+        ],
+        "@ozwasyd/element-plus/theme": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/theme.ts"
+        ],
+        "@ozwasyd/element-plus/wasm": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/wasm.ts"
+        ],
+        "@element-plus/icons-vue": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/icons-vue/src/index.ts"
+        ],
+        "@element-plus/icons-vue/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/icons-vue/src/*"
+        ],
+        "@element-plus/theme-chalk/src": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/theme-chalk/src"
+        ],
+        "@element-plus/theme-chalk/src/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/theme-chalk/src/*"
+        ],
+        "@element-plus/wasm": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/wasm/index.ts"
+        ],
+        "@element-plus/wasm/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/wasm/*"
+        ],
+        "@element-plus/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/*"
+        ]
+      },
+      "tsBuildInfoFile": "./tsconfig.fsusui-local.app.generated.tsbuildinfo",
+      "types": [
+        "vite/client",
+        "node"
+      ]
+    },
+    "extends": "../../tsconfig.app.json",
+    "files": [
+      "../../../../../FsusUI-ui973-storage-conflict-4395/vue/global.d.ts",
+      "../../../../../FsusUI-ui973-storage-conflict-4395/vue/typings/components.d.ts",
+      "../../../../../FsusUI-ui973-storage-conflict-4395/vue/typings/env.d.ts"
+    ]
+  },
+  "aliases": {
+    "@ozwasyd/element-plus": {
+      "configuredPath": "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts",
+      "realPath": "/workspace/FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts",
+      "blob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687",
+      "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa"
+    },
+    "element-plus": {
+      "configuredPath": "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts",
+      "realPath": "/workspace/FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts",
+      "blob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687",
+      "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa"
+    }
+  },
+  "onlySourceDelta": "A\tsrc/frontend/src/components/article-vault/VaultConflictList.vue\nA\tsrc/frontend/src/components/article-vault/VaultResolutionStatus.vue\nA\tsrc/frontend/src/components/article-vault/VaultStoredConflictReview.vue\nA\tsrc/frontend/src/components/article-vault/conflictEvidencePresentation.ts\nA\tsrc/frontend/src/components/article-vault/resolutionStatusPresentation.ts\nA\tsrc/frontend/src/components/article-vault/storedConflictReviewPresentation.ts\n",
+  "singleParentIsExactBase": true,
+  "baseRecordsPreserved": true,
+  "baseRawEvidence": [
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/base-app-config.snapshot.json",
+      "bytes": 3082,
+      "sha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+      "baseBlob": "f886380eb448ece1cdb0f573574a40c7a201b386"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/candidate-app-config.snapshot.json",
+      "bytes": 3082,
+      "sha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+      "baseBlob": "f886380eb448ece1cdb0f573574a40c7a201b386"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/delivery-map.json",
+      "bytes": 15910,
+      "sha256": "c8e3128e9193c17304526c2bdf40aa0a28c2ab4e178eeb080d2013b5d65421f8",
+      "baseBlob": "adda96c6176fd3e0e696f8ca3d330f8d6326b4e8"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-authoritative.txt",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "baseBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-boundary.txt",
+      "bytes": 2805,
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "baseBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-code-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-code-intent.txt",
+      "bytes": 353,
+      "sha256": "d5df170354cfe959f89a40783c3632452040b2d7afd0c1914eb0bb817ef4cba9",
+      "baseBlob": "5f2a3bba62c68671841c10140a4754979cf3cbc4"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.txt",
+      "bytes": 11861610,
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "baseBlob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-lifecycle.txt",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "baseBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-types.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "baseBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-types.txt",
+      "bytes": 5735,
+      "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b",
+      "baseBlob": "22563da8e4728cb7fb00f7c5697139834a3a3a30"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-ast.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "baseBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-ast.txt",
+      "bytes": 458,
+      "sha256": "458ac8fb0f82edf8c0c6cb7d57fde98db95cdeacd37e5beb6fd9aed4374aa002",
+      "baseBlob": "906b62e4b6ef42501a4bb9d5b328bccdb1135f8c"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-authoritative.txt",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "baseBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-boundary.txt",
+      "bytes": 2805,
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "baseBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-code-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-code-intent.txt",
+      "bytes": 353,
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "baseBlob": "193370d74f86868232a6d59cb2c41fb0545cb621"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.txt",
+      "bytes": 11861610,
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "baseBlob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "baseBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-lifecycle.txt",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "baseBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-strict-five.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "baseBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-strict-five.txt",
+      "bytes": 68,
+      "sha256": "6a300504efe54bec9078e875eabb0087c6d59dec6a6b7fa3c66cc9782cfda02e",
+      "baseBlob": "58e5d4671b631212653a1dde7e964d30e8c59bf9"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-types.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "baseBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+    },
+    {
+      "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-types.txt",
+      "bytes": 5735,
+      "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b",
+      "baseBlob": "22563da8e4728cb7fb00f7c5697139834a3a3a30"
+    }
+  ]
+}

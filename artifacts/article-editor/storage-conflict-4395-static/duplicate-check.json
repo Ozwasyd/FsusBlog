@@ -1,0 +1,35 @@
+{
+  "repository": "Ozwasyd/FsusBlog",
+  "queries": [
+    "4395",
+    "\"8ea2ef029ab320674321884202e9e163a50abff2\"",
+    "base:codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+    "\"storage\" \"intake\"",
+    "\"StorageConflict\""
+  ],
+  "baseQueryResultNumbers": [
+    4404,
+    4403,
+    4402,
+    4401,
+    4400,
+    4399,
+    4398,
+    4397,
+    4396,
+    4394,
+    4393
+  ],
+  "sameSourceSHAResultNumbers": [
+    4395
+  ],
+  "existing4395": {
+    "base": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+    "head": "8ea2ef029ab320674321884202e9e163a50abff2",
+    "state": "open",
+    "draft": true
+  },
+  "sameLeafAndTargetBaseFound": false,
+  "targetBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "source": "successful authorized GitHub connector searches and fetch_pr readback; searched all states"
+}
