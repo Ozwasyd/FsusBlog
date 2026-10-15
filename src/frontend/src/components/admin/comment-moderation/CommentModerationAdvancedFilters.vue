@@ -165,13 +165,13 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue';
 
-import type { ButtonInstance } from '@ozwasyd/element-plus';
-
 import type {
     CommentModerationFilterKey,
     CommentModerationFilters
 } from '@/composables/useCommentModerationQueue';
 import { FsusUiButton } from '@/fsusui/button';
+
+import type { ComponentPublicInstance } from 'vue';
 
 type FilterOption = Readonly<{ value: string; label: string; }>;
 const advancedKeys = new Set<CommentModerationFilterKey>([
@@ -205,7 +205,7 @@ const emit = defineEmits<{
     'update:dateRange': [value: [string, string] | null];
 }>();
 const visible = ref(false);
-const triggerRef = ref<ButtonInstance | null>(null);
+const triggerRef = ref<ComponentPublicInstance | null>(null);
 const panelRef = ref<HTMLElement | null>(null);
 const advancedFilters = computed(() => props.activeFilters.filter(({ key }) => advancedKeys.has(key)));
 const activeCount = computed(() => advancedFilters.value.length);
@@ -228,7 +228,11 @@ function focusPanel(): void
 
 function restoreTriggerFocus(): void
 {
-    triggerRef.value?.ref?.focus();
+    const trigger = triggerRef.value;
+    if (trigger !== null && 'ref' in trigger && trigger.ref instanceof HTMLButtonElement)
+    {
+        trigger.ref.focus();
+    }
 }
 
 function apply(): void
