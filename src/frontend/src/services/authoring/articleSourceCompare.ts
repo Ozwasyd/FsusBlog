@@ -9,7 +9,7 @@ import type { ArticleDocumentContext, ArticleDocumentContextAdapter, ArticleDocu
 import type { ArticleEditorContinuityAdapter, ArticleEditorContinuityReceipt } from './articleEditorContinuity';
 import type { ArticleEditorRuntimeBinding } from './articleEditorRuntimeBinding';
 import type { ArticleEditorSurface } from './articleEditorSurface';
-import type { ArticleRenderIdentity, ArticleRenderState } from './articleRenderCache';
+import type { ArticleRenderIdentity, ArticleRenderReceipt, ArticleRenderRefreshWork, ArticleRenderState } from './articleRenderCache';
 
 export const articleSourceCompareRequestSchema = 'fsusblog.article-source-compare-request.v1' as const;
 
@@ -35,6 +35,30 @@ export interface ArticleSourceCompareRequest
 
 type LifecycleArguments = Parameters<ArticleEditorContinuityAdapter['toolLifecycle']>;
 type SynchronizeArguments = Parameters<ArticleAnchorContextAdapter['synchronize']>;
+
+interface CompareOperation
+{
+    readonly document: ArticleDocumentContext;
+    readonly opening: ArticleEditorContinuityReceipt;
+    readonly identity: ArticleRenderIdentity;
+    invocation: ReturnType<ArticleEditorRuntimeBinding['autoRefresh']> | null;
+    candidates: readonly ArticleRenderRefreshWork[];
+    work: ArticleRenderRefreshWork | null;
+    workReceipt: Promise<ArticleRenderReceipt> | null;
+    terminal: Promise<void> | null;
+    lease: ArticleDocumentTaskLease | null;
+    request: ArticleSourceCompareRequest | null;
+    associated: boolean;
+    revoked: boolean;
+    localEnded: boolean;
+    terminalState: 'missing' | 'pending' | 'fulfilled' | 'rejected';
+    settleAttempted: boolean;
+    failures: readonly unknown[];
+}
+
+/** Read-only custody inspection; all futures and work objects belong to the original invocation. */
+export type ArticleSourceCompareOperation = Readonly<CompareOperation>;
+
 const requestKeys = ['schema', 'document', 'taskRef', 'requestId', 'identity', 'anchorDigest', 'continuityRef', 'originalSurface', 'contentDigest'];
 const identityKeys = ['rendererVersion', 'projectionVersion', 'featureConfigurationDigest', 'themeDigest', 'locale'];
 const hash = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
@@ -85,8 +109,9 @@ export class ArticleSourceCompareSession
 {
     private opening: ArticleEditorContinuityReceipt | null = null;
     private sourceTransitionRef: string | null = null;
-    private currentRequest: ArticleSourceCompareRequest | null = null;
-    private lease: ArticleDocumentTaskLease | null = null;
+    private activeOperation: CompareOperation | null = null;
+    private readonly operations = new Set<CompareOperation>();
+    private readonly abortListeners = new WeakMap<CompareOperation, () => void>();
     private identity: ArticleRenderIdentity | null = null;
     private syncEnabled = false;
     private unsubscribe: (() => void) | null = null;
@@ -124,7 +149,7 @@ export class ArticleSourceCompareSession
         restore: LifecycleArguments[3]
     ): { tool: ArticleEditorContinuityReceipt; source: ArticleEditorContinuityReceipt | null; }
     {
-        if (this.opening !== null || !isArticleSourceCompareAvailable(viewport) || !validIdentity(identity))
+        if (this.opening !== null || this.hold || !isArticleSourceCompareAvailable(viewport) || !validIdentity(identity))
         {
             throw new Error('article-source-compare-open-invalid');
         }
@@ -146,8 +171,17 @@ export class ArticleSourceCompareSession
             {
                 this.withdraw();
             }
+            else
+            {
+                for (const operation of this.operations)
+                {
+                    if (operation.document.contextDigest !== current.contextDigest)
+                    {
+                        this.revokeOperation(operation, 'compare-context-changed');
+                    }
+                }
+            }
         });
-        this.createRequest(tool.before.anchor.contentDigest);
         return { tool, source };
     }
 
@@ -155,17 +189,16 @@ export class ArticleSourceCompareSession
         open: boolean;
         sourceReady: boolean;
         synchronization: boolean;
+        hold: boolean;
         request: ArticleSourceCompareRequest | null;
         render: ArticleRenderState | null;
     }
     {
-        const currentTask = this.lease?.isCurrent() === true;
-        // Revision cancellation expires the request, while the same tool keeps its retained pane and can request a fresh lease.
-        const revisionInvalidated = this.lease !== null && this.lease.signal.aborted
-            && (this.lease.envelope.abortReason === 'source-revision-changed' || this.lease.envelope.abortReason === 'draft-revision-changed')
-            && this.owner.isCurrentContext(this.owner.context);
-        const available = currentTask || revisionInvalidated;
-        const sourceReady = this.opening !== null && available && (this.sourceTransitionRef === null
+        const operation = this.activeOperation;
+        const currentTask = operation !== null && !operation.revoked && operation.lease?.isCurrent() === true;
+        // Session readiness and the retained pane do not require a running refresh admission lease.
+        const available = this.opening !== null && this.owner.isCurrentContext(this.owner.context);
+        const sourceReady = available && !this.hold && (this.sourceTransitionRef === null
             || this.continuity.receipts.some(receipt => receipt.requestRef === this.sourceTransitionRef && receipt.status === 'restored'));
         const render = this.opening === null || !available ? null : this.runtime.renderState;
         const valid = render?.content === null || render === null || validateArticleRenderCacheEntry(render.content)
@@ -180,14 +213,26 @@ export class ArticleSourceCompareSession
             open: this.opening !== null,
             sourceReady,
             synchronization: this.syncEnabled,
-            request: currentTask ? this.currentRequest : null,
+            hold: this.hold,
+            request: currentTask ? operation.request : null,
             render: valid ? render : null
         };
     }
 
     public get signal(): AbortSignal | null
     {
-        return this.lease?.signal ?? null;
+        return this.activeOperation?.lease?.signal ?? null;
+    }
+
+    public get pendingOperations(): readonly ArticleSourceCompareOperation[]
+    {
+        return Object.freeze([...this.operations].map(operation => Object.freeze({ ...operation,
+            candidates: Object.freeze([...operation.candidates]), failures: Object.freeze([...operation.failures]) })));
+    }
+
+    private get hold(): boolean
+    {
+        return [...this.operations].some(operation => operation.failures.length > 0);
     }
 
     /** The sole producer's retained payload; the host must not start another renderer for this tool. */
@@ -212,24 +257,113 @@ export class ArticleSourceCompareSession
         {
             return 'invalid';
         }
-        this.createRequest(current.anchor.contentDigest);
-        const lease = this.lease!;
-        const request = this.currentRequest!;
-        const receipt = await this.runtime.autoRefresh();
-        if (!this.owner.isCurrentContext(request.document) || lease.signal.aborted || this.currentRequest !== request)
+        const opening = this.opening;
+        const identity = this.identity;
+        this.revokeActive('compare-superseded');
+        if (opening === null || identity === null || this.opening !== opening || this.activeOperation !== null
+            || !this.owner.isCurrentContext(current.document))
         {
             return 'stale';
         }
-        if (receipt?.status !== 'committed' || receipt.task.context.contextDigest !== request.document.contextDigest
-            || digest(receipt.identity) !== digest(request.identity) || receipt.result?.resultRef === null || !receipt.result?.resultDigest)
+        if (this.hold)
         {
             return 'invalid';
         }
-        // The canonical producer/cache verifies the actual result; continuity supplies tool admission only.
-        return this.continuity.inspectToolResult(lease, {
-            tool: 'source-compare', taskRef: lease.taskRef, contextDigest: request.document.contextDigest,
-            resultRef: receipt.result.resultRef, resultDigest: receipt.result.resultDigest
-        });
+        const operation: CompareOperation = {
+            document: current.document, opening, identity,
+            invocation: null, candidates: [], work: null, workReceipt: null, terminal: null, lease: null, request: null,
+            associated: false, revoked: false, localEnded: false, terminalState: 'missing', settleAttempted: false, failures: []
+        };
+        this.operations.add(operation);
+        this.activeOperation = operation;
+        try
+        {
+            const previous = new Set(this.runtime.pendingRefreshWork);
+            operation.invocation = this.runtime.autoRefresh();
+            // Canonical autoRefresh registers its work synchronously. Preserve the whole difference before the first await.
+            operation.candidates = this.runtime.pendingRefreshWork.filter(work => !previous.has(work));
+            if (operation.candidates.length !== 1)
+            {
+                throw new Error('article-source-compare-work-unconfirmed');
+            }
+            const work = operation.candidates[0];
+            operation.work = work;
+            operation.workReceipt = work.receipt;
+            operation.terminal = work.terminal;
+            if (!Object.isFrozen(work) || !(operation.workReceipt instanceof Promise) || !(operation.terminal instanceof Promise))
+            {
+                throw new Error('article-source-compare-terminal-unconfirmed');
+            }
+            operation.terminalState = 'pending';
+            // Observe the original terminal; never replace it with a receipt/cancellation or an inferred completion.
+            void operation.terminal.then(() =>
+            {
+                operation.terminalState = 'fulfilled';
+                this.trySettle(operation);
+            }, (cause: unknown) =>
+            {
+                operation.terminalState = 'rejected';
+                this.recordFailure(operation, cause);
+            });
+            if (!operation.revoked && this.activeOperation === operation && this.opening === operation.opening
+                && this.owner.isCurrentContext(operation.document))
+            {
+                this.createRequest(operation, current.anchor.contentDigest);
+            }
+            else
+            {
+                this.recordFailure(operation, new Error('article-source-compare-admission-unavailable'));
+            }
+        }
+        catch (cause)
+        {
+            this.recordFailure(operation, cause);
+        }
+        let result: 'eligible' | 'stale' | 'invalid' = 'invalid';
+        try
+        {
+            // Even a failed lookup must observe and retain the original invocation.
+            const receipt = operation.invocation === null ? null : await operation.invocation;
+            const work = operation.work;
+            if (work !== null && operation.workReceipt !== null && receipt !== null && work.taskRef === receipt.task.taskRef
+                && await operation.workReceipt === receipt && work.receipt === operation.workReceipt && work.terminal === operation.terminal)
+            {
+                operation.associated = true;
+            }
+            else
+            {
+                this.recordFailure(operation, new Error('article-source-compare-receipt-unconfirmed'));
+            }
+            const lease = operation.lease;
+            const request = operation.request;
+            if (operation.associated && operation.failures.length === 0)
+            {
+                if (operation.revoked || lease === null || request === null || lease.signal.aborted
+                    || !this.owner.isCurrentContext(operation.document) || this.activeOperation !== operation
+                    || this.opening !== operation.opening)
+                {
+                    result = 'stale';
+                }
+                else if (receipt?.status === 'committed' && receipt.task.context.contextDigest === request.document.contextDigest
+                    && digest(receipt.identity) === digest(request.identity) && receipt.result?.resultRef && receipt.result.resultDigest)
+                {
+                    // Actual result verification remains with the producer/cache; continuity supplies tool admission only.
+                    result = this.continuity.inspectToolResult(lease, {
+                        tool: 'source-compare', taskRef: lease.taskRef, contextDigest: request.document.contextDigest,
+                        resultRef: receipt.result.resultRef, resultDigest: receipt.result.resultDigest
+                    });
+                }
+            }
+        }
+        catch (cause)
+        {
+            this.recordFailure(operation, cause);
+            operation.localEnded = true;
+            throw cause;
+        }
+        operation.localEnded = true;
+        this.trySettle(operation);
+        return result;
     }
 
     public setSynchronization(enabled: boolean): void
@@ -275,34 +409,133 @@ export class ArticleSourceCompareSession
             throw new Error('article-source-compare-close-required');
         }
         this.withdraw();
+        if (this.operations.size > 0)
+        {
+            throw new Error('article-source-compare-work-pending');
+        }
     }
 
-    private createRequest(anchorDigest: string): void
+    private createRequest(operation: CompareOperation, anchorDigest: string): void
     {
-        this.lease?.cancel('compare-superseded');
-        this.lease = this.runtime.beginToolTask('source-compare');
+        const lease = this.runtime.beginToolTask('source-compare');
+        operation.lease = lease;
+        const onAbort = (): void =>
+        {
+            operation.revoked = true;
+            this.trySettle(operation);
+        };
+        this.abortListeners.set(operation, onAbort);
+        lease.signal.addEventListener('abort', onAbort, { once: true });
+        if (lease.signal.aborted)
+        {
+            onAbort();
+        }
+        if (operation.revoked || this.activeOperation !== operation || this.opening !== operation.opening
+            || !lease.isCurrent() || lease.envelope.context.contextDigest !== operation.document.contextDigest)
+        {
+            this.revokeOperation(operation, 'compare-request-stale');
+            return;
+        }
         const value = {
             schema: articleSourceCompareRequestSchema,
-            document: this.owner.context,
-            taskRef: this.lease.taskRef,
-            requestId: this.lease.envelope.requestId,
-            identity: this.identity!,
+            document: operation.document,
+            taskRef: lease.taskRef,
+            requestId: lease.envelope.requestId,
+            identity: operation.identity,
             anchorDigest,
-            continuityRef: this.opening!.requestRef,
-            originalSurface: this.opening!.before.anchor.surface
+            continuityRef: operation.opening.requestRef,
+            originalSurface: operation.opening.before.anchor.surface
         };
-        this.currentRequest = Object.freeze({ ...value, contentDigest: digest(value) });
+        operation.request = Object.freeze({ ...value, contentDigest: digest(value) });
+    }
+
+    private recordFailure(operation: CompareOperation, cause: unknown): void
+    {
+        operation.failures = [...operation.failures, cause];
+        operation.revoked = true;
+        try
+        {
+            operation.lease?.cancel('compare-operation-failed');
+        }
+        catch (failure)
+        {
+            operation.failures = [...operation.failures, failure];
+        }
+    }
+
+    private revokeActive(reason: string): void
+    {
+        const operation = this.activeOperation;
+        this.activeOperation = null;
+        if (operation !== null)
+        {
+            this.revokeOperation(operation, reason);
+        }
+    }
+
+    private revokeOperation(operation: CompareOperation, reason: string): void
+    {
+        operation.revoked = true;
+        try
+        {
+            operation.lease?.cancel(reason);
+        }
+        catch (cause)
+        {
+            this.recordFailure(operation, cause);
+        }
+        this.trySettle(operation);
+    }
+
+    private trySettle(operation: CompareOperation): void
+    {
+        if (!operation.localEnded || !operation.revoked || !operation.associated || operation.terminalState !== 'fulfilled'
+            || operation.failures.length > 0 || operation.settleAttempted || operation.lease === null || operation.work === null)
+        {
+            return;
+        }
+        try
+        {
+            const lease = operation.lease;
+            if (!lease.signal.aborted || lease.envelope.status === 'running')
+            {
+                return;
+            }
+            if (operation.work.terminal !== operation.terminal || operation.work.receipt !== operation.workReceipt)
+            {
+                throw new Error('article-source-compare-work-binding-changed');
+            }
+            operation.settleAttempted = true;
+            lease.settle();
+            const onAbort = this.abortListeners.get(operation);
+            if (onAbort)
+            {
+                lease.signal.removeEventListener('abort', onAbort);
+            }
+            this.abortListeners.delete(operation);
+            this.operations.delete(operation);
+            if (this.activeOperation === operation)
+            {
+                this.activeOperation = null;
+            }
+        }
+        catch (cause)
+        {
+            this.recordFailure(operation, cause);
+        }
     }
 
     private withdraw(): void
     {
+        for (const operation of this.operations)
+        {
+            this.revokeOperation(operation, 'compare-closed');
+        }
         this.unsubscribe?.();
         this.unsubscribe = null;
-        this.lease?.cancel('compare-closed');
-        this.lease = null;
+        this.activeOperation = null;
         this.opening = null;
         this.sourceTransitionRef = null;
-        this.currentRequest = null;
         this.identity = null;
         this.syncEnabled = false;
         this.anchors.setSynchronization(false);
