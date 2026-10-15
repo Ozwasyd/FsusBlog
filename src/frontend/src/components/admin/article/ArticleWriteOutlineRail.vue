@@ -1,8 +1,8 @@
 <template>
-    <button
+    <FsusUiButton
         v-if="!isOpen"
         ref="launcherRef"
-        type="button"
+        native-type="button"
         class="article-write-outline-launcher"
         aria-label="打开文章大纲"
         :aria-controls="resolvedPanelId"
@@ -14,7 +14,7 @@
             <List />
         </ElIcon>
         <span class="article-write-outline-visually-hidden">打开文章大纲</span>
-    </button>
+    </FsusUiButton>
 
     <component
         v-if="isCompact || isOpen"
@@ -86,8 +86,9 @@ import {
     flattenArticleOutlineTree
 } from '@/composables/useArticleOutline';
 import { useMediaQuery } from '@/composables/useMediaQuery';
+import { FsusUiButton } from '@/fsusui/button';
 import { Close, List } from '@/fsusui/icons';
-import type { MarkdownEditorOutlineItem, MarkdownOutlineTreeNode } from '@ozwasyd/element-plus';
+import type { ButtonInstance, MarkdownEditorOutlineItem, MarkdownOutlineTreeNode } from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteOutlineRail' });
 
@@ -139,8 +140,9 @@ const OutlinePanelContent = defineComponent({
         });
 
         const registerNodeButton = (nodeId: string, element: unknown): void => {
-            if (element instanceof HTMLButtonElement) {
-                nodeButtons.set(nodeId, element);
+            const button = (element as ButtonInstance | null)?.ref;
+            if (button instanceof HTMLButtonElement) {
+                nodeButtons.set(nodeId, button);
                 return;
             }
             nodeButtons.delete(nodeId);
@@ -224,12 +226,12 @@ const OutlinePanelContent = defineComponent({
         }, [
             h('header', { class: 'article-write-outline-header' }, [
                 h('h2', { id: props.titleId, class: 'article-write-outline-title' }, '文章大纲'),
-                h('button', {
-                    type: 'button',
+                h(FsusUiButton, {
+                    nativeType: 'button',
                     class: 'article-write-outline-close',
                     'aria-label': '关闭文章大纲',
                     onClick: () => emit('close')
-                }, [h(resolveComponent('ElIcon'), { 'aria-hidden': 'true' }, () => [h(Close)])])
+                }, () => [h(resolveComponent('ElIcon'), { 'aria-hidden': 'true' }, () => [h(Close)])])
             ]),
             status.value === 'stale'
                 ? h('p', { class: 'article-write-outline-message', role: 'status' }, '文章大纲正在同步。')
@@ -249,9 +251,9 @@ const OutlinePanelContent = defineComponent({
                         class: 'article-write-outline-node',
                         'data-outline-node': node.nodeId
                     }, [
-                        h('button', {
+                        h(FsusUiButton, {
                             ref: (element) => registerNodeButton(node.nodeId, element),
-                            type: 'button',
+                            nativeType: 'button',
                             class: [
                                 'article-write-outline-item',
                                 { 'is-active': props.activeHeadingId === node.nodeId }
@@ -268,7 +270,7 @@ const OutlinePanelContent = defineComponent({
                             'data-outline-node-id': node.nodeId,
                             style: { '--article-outline-depth': String(Math.max(0, node.depth - 1)) },
                             onClick: () => emit('reveal-heading', node)
-                        }, [
+                        }, () => [
                             node.children.length > 0
                                 ? h('span', {
                                     class: 'article-write-outline-disclosure',
@@ -286,13 +288,13 @@ const OutlinePanelContent = defineComponent({
                                 class: 'article-write-outline-diagnostics',
                                 role: 'group',
                                 'aria-label': '大纲诊断'
-                            }, node.diagnostics.map((diagnostic) => h('button', {
+                            }, node.diagnostics.map((diagnostic) => h(FsusUiButton, {
                                 key: `${node.nodeId}:${diagnostic.code}`,
-                                type: 'button',
+                                nativeType: 'button',
                                 class: 'article-write-outline-diagnostic',
                                 'data-outline-diagnostic': diagnostic.code,
                                 onClick: () => emit('reveal-range', node)
-                            }, diagnosticLabels[diagnostic.code] ?? diagnostic.code)))
+                            }, () => diagnosticLabels[diagnostic.code] ?? diagnostic.code)))
                             : null
                     ]))),
             ])
@@ -321,7 +323,7 @@ const emit = defineEmits<{
 const isCompact = useMediaQuery('(max-width: 1023px)', false);
 const publicDrawer = resolveComponent('ElDrawer');
 const isOpen = ref(false);
-const launcherRef = ref<HTMLButtonElement | null>(null);
+const launcherRef = ref<ButtonInstance | null>(null);
 const expandedNodeIds = ref<ReadonlySet<string>>(new Set());
 let focusReturnPending = false;
 let mounted = false;
@@ -415,14 +417,14 @@ const focusLauncher = (): void => {
     focusReturnPending = false;
     void nextTick(() => {
         if (!isCompact.value) {
-            launcherRef.value?.focus({ preventScroll: true });
+            launcherRef.value?.ref?.focus({ preventScroll: true });
             return;
         }
         if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-            launcherRef.value?.focus({ preventScroll: true });
+            launcherRef.value?.ref?.focus({ preventScroll: true });
             return;
         }
-        window.requestAnimationFrame(() => launcherRef.value?.focus({ preventScroll: true }));
+        window.requestAnimationFrame(() => launcherRef.value?.ref?.focus({ preventScroll: true }));
     });
 };
 
