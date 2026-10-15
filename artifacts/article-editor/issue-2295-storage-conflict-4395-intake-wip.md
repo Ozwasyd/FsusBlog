@@ -181,3 +181,25 @@ Completed-file bytes/SHA-256 and raw delivery paths:
 `storage-conflict-4395-static/delivery-map.json`. Full final branch/PR diff and
 metadata readback belong to the delivery response and PR body; no success is
 inferred from an unverified push or an empty remote check list.
+
+## Actual draft delivery checkpoint
+
+Actual draft: https://github.com/Ozwasyd/FsusBlog/pull/4407, OPEN/draft.
+Initial remote/readback head `d86aa14df538439b1fbeffcb80bf172a73d88fe6`,
+exact target4385 base. All75 changed paths/statuses/blob SHAs matched the
+local Git tree; all67 original ordinary delivery files passed exact bytes and
+SHA-256 readback. Final branch head after this evidence-only successor belongs
+in the PR and final response. No production source was changed.
+
+Actual REST-backed original PR contract check FAIL1 solely for the unchecked
+`Formatter/linter run` item; this is intentional truthful incompleteness, not
+a passing metadata gate. Initial missing-event ENOENT is retained separately.
+The old gh CLI refused unsupported --slurp; corrected single-page100 read
+returned all75 files matching authoritative changed_files, without source
+filtering. Completed checkpoint logs and exact hash map are under
+`storage-conflict-4395-static/delivery-checkpoint/`. Source/aggregate whitespace
+and commit range PASS0 at initial remote head. Its PR workflow/status lists
+are empty, not successful checks. No workflow dispatch or credential refresh.
+
+Lint installation permission remains unanswered; setup remains HOLD. New
+boundary warning and all source/global/UX/physical blockers remain explicit.
