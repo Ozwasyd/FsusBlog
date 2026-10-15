@@ -832,12 +832,14 @@ relation、article package 与 document export 必须直接复用
 ### Article embed authoring resolution contract
 
 `src/shared/Contracts/ArticleEmbeds/Authoring/` 是 authoring scope embed resolution 的唯一
-authority。`ArticleEmbedAuthoringResolver.Resolve` 只接受 sealed #2454 authoring requests 与
+authority。`ArticleEmbedAuthoringResolver.Resolve` 只投影当前目标，不展开 nested directives；它只接受
+sealed #2454 authoring requests 与
 caller-verified `ArticleEmbedAuthoritySnapshot`（绑定 host article/document epoch、source
 revision/digest、actor/site/permission context、provider runtime 与 material locale/theme）；
 它不解析 Markdown、不读 rendered output、不修改 target 或 host source，也不把 memo state 保留到
 resolution 之外。任何 host/source/actor/runtime/authority-generation drift 或 abort signal 都让
-结果以 closed stale error 失败，而不是静默沿用旧状态。
+结果以 closed stale error 失败，而不是静默沿用旧状态。`ArticleEmbedAuthoringPipeline.Evaluate`
+复用该 resolver，再由 `ArticleEmbedDependencyGraphPlanner.Expand` 显式展开依赖并派生 relation。
 
 article mode 返回整个 target body projection；heading mode 只返回 exact heading subtree；block
 mode 只返回 #289 canonical anchor target。missing/duplicate/invalid coordinate 一律 fail closed，
@@ -851,8 +853,9 @@ authority message budget 逐 request/graph 累计并封闭上限。局部 embed 
 
 每次 resolution 产出 sealed `ArticleEmbedAuthoringReceipt`：只记录 host/target identities、
 permission/lifecycle、graph/budget/cache fact、status、timing 与 content digest，绝不记录无权
-content。`ArticleEmbedAuthoringVerifier` 独立重算每个节点的 expected outcome、cycle/budget
-legitimacy、memoization exactness 与全部 digest；任何 tamper 都 fail closed。本 slice 不执行
+content。`ArticleEmbedAuthoringVerifier` 独立验证 projection stage，
+`ArticleEmbedDependencyGraphVerifier` 独立重算 graph 的 expected outcome、cycle/budget legitimacy、
+memoization exactness 与全部 digest；任何 tamper 都 fail closed。本 slice 不执行
 publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
 
 `ArticleEmbedRefreshPlanner` / `ArticleEmbedRefreshPreparation` 是 #2467 的普通非执行源码候选，
@@ -865,8 +868,8 @@ desired coordinate 漂移返回 `Stale`；无变化返回 `NoChange`；缺失/�
 返回 `Blocked`，取消不返回部分计划。只消费既有 authoring pipeline/refresh policy，不重新解析或
 动态刷新到 latest，也不复制 target content。
 
-该候选的 `CanExecute` 恒为 false；选中子图不是完整 host persisted graph 的提交资格。当前组合
-基线尚缺 Policy/Pipeline/Graph 前置源码闭包，因此本批编译仍阻塞；缺少真实 host dependency read、
+该候选的 `CanExecute` 恒为 false；选中子图不是完整 host persisted graph 的提交资格。
+Policy/Pipeline/Graph 源码组合不提供执行能力；缺少真实 host dependency read、
 current permission/whole-host graph revalidation、expected revision CAS/idempotency 和 canonical
 no-source-change revision/outbox/audit commit 时不得启用。计划不修改 source bytes/token、target、
 existing publication 或 publication receipts，也不代表 #2467 已完成。
@@ -905,7 +908,7 @@ invalidation、publication write、AOT 或 UI。
 
 `src/shared/Contracts/ArticleEmbeds/Relations/` 定义 #1808 relation authority 持久化的 embed 边的唯一
 canonical shape。`ArticleEmbedRelationDeriver` 是纯投影：每个入口先独立 re-verify 其来源（#2455
-`ArticleEmbedAuthoringVerifier` / #2456 `ArticleEmbedPublicationVerifier`），未通过或 blocked 来源只
+`ArticleEmbedDependencyGraphVerifier` / #2456 `ArticleEmbedPublicationVerifier`），未通过或 blocked 来源只
 产出 closed rejection，绝不产生 edge。它不解析 source、不扫描 rendered output、不读 store/cache、不
 改写 host 或 target 内容。
 

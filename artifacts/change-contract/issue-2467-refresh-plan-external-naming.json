@@ -5,10 +5,18 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Services/Authoring/ArticleEmbedRefreshPreparation.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanContracts.cs",
-                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanner.cs"
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs"
             ],
-            "reason": "The existing registry selects all src managed files. These three additive refresh source files preserve the existing provider and canonical serialized identifiers, introduce no environment access or process configuration, and retain the repository internal C# naming map."
+            "reason": "The existing registry selects all src managed files. These three additive refresh source files and eight explicitly admitted canonical prerequisites preserve provider and canonical serialized identifiers, introduce no process configuration or environment access, and retain the repository internal C# naming map."
         },
         {
             "id": "css-like-contract",
