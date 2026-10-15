@@ -63,22 +63,12 @@
                         {{ anonymousQuotaHint }}删除或审核拒绝不会返还额度；凭据更新后按新周期重新计算。
                     </p>
                 </div>
-                <label
-                    class="comment-identity-toggle"
-                    :class="{ 'is-disabled': publicIdentityDisabled }"
+                <ElCheckbox
+                    v-model="publicIdentityModel"
+                    :disabled="publicIdentityDisabled"
                 >
-                    <input
-                        v-model="publicIdentityModel"
-                        class="comment-identity-toggle__input"
-                        type="checkbox"
-                        :disabled="publicIdentityDisabled"
-                    />
-                    <span
-                        class="comment-identity-toggle__box"
-                        aria-hidden="true"
-                    />
-                    <span class="comment-identity-toggle__label">公开显示我的名称</span>
-                </label>
+                    公开显示我的名称
+                </ElCheckbox>
             </div>
         </div>
 
@@ -92,15 +82,15 @@
             </span>
             <span v-else>已恢复公开草稿{{ draftSavedAtText ? ` ${draftSavedAtText}` : '' }}</span>
             <span class="comment-composer-draft__actions">
-                <button
+                <ElButton
                     v-if="draftNeedsReview"
-                    type="button"
+                    link
                     @click="reviewCommentDraft"
-                >审查草稿</button>
-                <button
-                    type="button"
+                >审查草稿</ElButton>
+                <ElButton
+                    link
                     @click="discardCommentDraft"
-                >丢弃</button>
+                >丢弃</ElButton>
             </span>
         </div>
 
@@ -114,24 +104,51 @@
 
         <div class="comment-composer-editor">
             <div class="comment-composer-toolbar">
-                <div
-                    class="comment-composer-mode"
-                    role="tablist"
+                <ElTabs
+                    class="comment-composer-tabs"
+                    :model-value="`inline-${commentComposerMode}`"
                     aria-label="评论编辑模式"
+                    @update:model-value="commentComposerMode = $event === 'inline-preview' ? 'preview' : 'write'"
                 >
-                    <button
-                        v-for="option in commentComposerModeOptions"
-                        :key="option.value"
-                        type="button"
-                        class="comment-composer-mode__item"
-                        :class="{ 'is-active': commentComposerMode === option.value }"
-                        role="tab"
-                        :aria-selected="commentComposerMode === option.value"
-                        @click="commentComposerMode = option.value"
+                    <ElTabPane
+                        :name="`inline-${commentComposerModeOptions[0].value}`"
+                        :label="commentComposerModeOptions[0].label"
                     >
-                        {{ option.label }}
-                    </button>
-                </div>
+                        <ElInput
+                            v-if="commentComposerMode === 'write'"
+                            ref="editorInputRef"
+                            v-model="contentModel"
+                            :csp-safe="true"
+                            type="textarea"
+                            :rows="3"
+                            :autosize="{ minRows: 3, maxRows: 8 }"
+                            resize="none"
+                            aria-label="发表评论"
+                            :placeholder="placeholderText"
+                            :disabled="composerInputDisabled"
+                            @focus="notifyPrivacyIntent"
+                            @keydown.ctrl.enter="requestSubmit"
+                            @keydown.meta.enter="requestSubmit"
+                        />
+                    </ElTabPane>
+                    <ElTabPane
+                        :name="`inline-${commentComposerModeOptions[1].value}`"
+                        :label="commentComposerModeOptions[1].label"
+                    >
+                        <div
+                            v-if="commentComposerMode === 'preview'"
+                            class="comment-composer-preview"
+                            :class="{ 'is-empty': !contentModel.trim() }"
+                        >
+                            <CommentMarkdownRenderer
+                                v-if="contentModel.trim()"
+                                :content="contentModel"
+                                :collapsible="false"
+                            />
+                            <span v-else>暂无内容</span>
+                        </div>
+                    </ElTabPane>
+                </ElTabs>
                 <ElButton
                     class="comment-composer-focus"
                     text
@@ -140,36 +157,6 @@
                 >
                     扩展编辑
                 </ElButton>
-            </div>
-
-            <ElInput
-                v-if="commentComposerMode === 'write'"
-                ref="editorInputRef"
-                v-model="contentModel"
-                :csp-safe="true"
-                type="textarea"
-                :rows="3"
-                :autosize="{ minRows: 3, maxRows: 8 }"
-                resize="none"
-                aria-label="发表评论"
-                :placeholder="placeholderText"
-                :disabled="composerInputDisabled"
-                @focus="notifyPrivacyIntent"
-                @keydown.ctrl.enter="requestSubmit"
-                @keydown.meta.enter="requestSubmit"
-            />
-
-            <div
-                v-else
-                class="comment-composer-preview"
-                :class="{ 'is-empty': !contentModel.trim() }"
-            >
-                <CommentMarkdownRenderer
-                    v-if="contentModel.trim()"
-                    :content="contentModel"
-                    :collapsible="false"
-                />
-                <span v-else>暂无内容</span>
             </div>
 
             <p
@@ -208,49 +195,50 @@
         >
             <div class="comment-composer-focus__body">
                 <div class="comment-composer-toolbar">
-                    <div
-                        class="comment-composer-mode"
-                        role="tablist"
+                    <ElTabs
+                        class="comment-composer-tabs"
+                        :model-value="`focus-${commentComposerMode}`"
                         aria-label="扩展编辑模式"
+                        @update:model-value="commentComposerMode = $event === 'focus-preview' ? 'preview' : 'write'"
                     >
-                        <button
-                            v-for="option in commentComposerModeOptions"
-                            :key="option.value"
-                            type="button"
-                            class="comment-composer-mode__item"
-                            :class="{ 'is-active': commentComposerMode === option.value }"
-                            role="tab"
-                            :aria-selected="commentComposerMode === option.value"
-                            @click="commentComposerMode = option.value"
+                        <ElTabPane
+                            :name="`focus-${commentComposerModeOptions[0].value}`"
+                            :label="commentComposerModeOptions[0].label"
                         >
-                            {{ option.label }}
-                        </button>
-                    </div>
-                </div>
-                <textarea
-                    v-if="commentComposerMode === 'write'"
-                    ref="focusEditorInputRef"
-                    v-model="contentModel"
-                    class="comment-composer-focus__textarea"
-                    rows="12"
-                    aria-label="专注撰写评论"
-                    :placeholder="placeholderText"
-                    :disabled="composerInputDisabled"
-                    @focus="notifyPrivacyIntent"
-                    @keydown.ctrl.enter="requestSubmit"
-                    @keydown.meta.enter="requestSubmit"
-                />
-                <div
-                    v-else
-                    class="comment-composer-preview comment-composer-focus__preview"
-                    :class="{ 'is-empty': !contentModel.trim() }"
-                >
-                    <CommentMarkdownRenderer
-                        v-if="contentModel.trim()"
-                        :content="contentModel"
-                        :collapsible="false"
-                    />
-                    <span v-else>暂无内容</span>
+                            <ElInput
+                                v-if="commentComposerMode === 'write'"
+                                ref="focusEditorInputRef"
+                                v-model="contentModel"
+                                :csp-safe="true"
+                                type="textarea"
+                                :rows="12"
+                                resize="none"
+                                aria-label="专注撰写评论"
+                                :placeholder="placeholderText"
+                                :disabled="composerInputDisabled"
+                                @focus="notifyPrivacyIntent"
+                                @keydown.ctrl.enter="requestSubmit"
+                                @keydown.meta.enter="requestSubmit"
+                            />
+                        </ElTabPane>
+                        <ElTabPane
+                            :name="`focus-${commentComposerModeOptions[1].value}`"
+                            :label="commentComposerModeOptions[1].label"
+                        >
+                            <div
+                                v-if="commentComposerMode === 'preview'"
+                                class="comment-composer-preview comment-composer-focus__preview"
+                                :class="{ 'is-empty': !contentModel.trim() }"
+                            >
+                                <CommentMarkdownRenderer
+                                    v-if="contentModel.trim()"
+                                    :content="contentModel"
+                                    :collapsible="false"
+                                />
+                                <span v-else>暂无内容</span>
+                            </div>
+                        </ElTabPane>
+                    </ElTabs>
                 </div>
             </div>
             <template #footer>
@@ -1127,97 +1115,6 @@ function createCommentMutationId(): string
     line-height: 1.5;
 }
 
-.comment-identity-toggle
- {
-    flex: 0 0 auto;
-    position: relative;
-    display: inline-flex;
-    min-height: 1.75rem;
-    align-items: center;
-    gap: 0.5rem;
-    margin-right: -0.125rem;
-    color: var(--fsusblog-text-tertiary);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.35;
-}
-
-.comment-identity-toggle.is-disabled
- {
-    color: color-mix(in srgb, var(--fsusblog-text-muted) 88%, transparent);
-    cursor: not-allowed;
-}
-
-.comment-identity-toggle__label
- {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.25rem;
-}
-
-.comment-identity-toggle__input
- {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.comment-identity-toggle__box
- {
-    position: relative;
-    display: inline-flex;
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--fsusblog-panel-border-strong);
-    border-radius: var(--fsus-radius-control-small, 4px);
-    background: var(--fsusblog-panel-bg);
-    transition:
-        background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        box-shadow var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.comment-identity-toggle__box::after
- {
-    content: "";
-    width: 0.35rem;
-    height: 0.6rem;
-    border: solid var(--fsusblog-panel-bg);
-    border-width: 0 2px 2px 0;
-    opacity: 0;
-    transform: translateY(-0.05rem) rotate(45deg) scale(0.82);
-    transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.comment-identity-toggle__input:checked + .comment-identity-toggle__box
- {
-    border-color: var(--fsusblog-color-primary);
-    background: var(--fsusblog-color-primary);
-}
-
-.comment-identity-toggle__input:checked + .comment-identity-toggle__box::after
- {
-    opacity: 1;
-}
-
-.comment-identity-toggle__input:focus-visible + .comment-identity-toggle__box
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-}
-
-.comment-identity-toggle__input:disabled + .comment-identity-toggle__box
- {
-    border-color: color-mix(in srgb, var(--fsusblog-text-muted) 28%, transparent);
-    background: var(--fsusblog-panel-bg-soft);
-}
-
 .comment-composer-editor
  {
     display: grid;
@@ -1240,16 +1137,6 @@ function createCommentMutationId(): string
     font-weight: 700;
 }
 
-.comment-composer-draft button
- {
-    border: 0;
-    background: transparent;
-    color: var(--fsusblog-color-primary);
-    cursor: pointer;
-    font: inherit;
-    padding: 0;
-}
-
 .comment-composer-draft__actions
  {
     display: inline-flex;
@@ -1260,57 +1147,21 @@ function createCommentMutationId(): string
 
 .comment-composer-toolbar
  {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
 }
 
-.comment-composer-mode
+.comment-composer-tabs,
+.comment-composer-focus
  {
-    display: inline-flex;
-    width: max-content;
-    max-width: 100%;
-    align-items: center;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsusblog-radius-control, 6px);
-    background: color-mix(in srgb, var(--fsusblog-panel-bg) 92%, transparent);
-    padding: 0.1875rem;
-}
-
-.comment-composer-mode__item
- {
-    min-height: 1.875rem;
-    border: 0;
-    border-radius: var(--fsusblog-radius-control, 6px);
-    background: transparent;
-    color: var(--fsusblog-text-muted);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0 0.6875rem;
-}
-
-.comment-composer-mode__item.is-active
- {
-    background: var(--fsusblog-page-bg);
-    color: var(--fsusblog-text-primary);
-    box-shadow: 0 1px 4px color-mix(in srgb, #000 8%, transparent);
-}
-
-.comment-composer-mode__item:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
+    grid-area: 1 / 1;
 }
 
 .comment-composer-focus
  {
-    flex: 0 0 auto;
+    place-self: start end;
     min-height: 1.875rem;
-    align-self: center;
     font-size: 14px;
     font-weight: 700;
     line-height: 1;
@@ -1367,43 +1218,6 @@ function createCommentMutationId(): string
     gap: 0.75rem;
 }
 
-.comment-composer-focus__textarea
- {
-    width: 100%;
-    min-height: min(52vh, 26rem);
-    box-sizing: border-box;
-    resize: none;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsusblog-radius-control, 6px);
-    background: var(--fsusblog-panel-bg);
-    color: var(--fsusblog-text-primary);
-    font: inherit;
-    line-height: 1.6;
-    outline: none;
-    padding: 0.875rem 1rem;
-    transition:
-        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        box-shadow var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.comment-composer-focus__textarea::placeholder
- {
-    color: var(--fsusblog-text-muted);
-}
-
-.comment-composer-focus__textarea:focus
- {
-    border-color: color-mix(in srgb, var(--fsusblog-color-primary) 42%, var(--fsusblog-panel-border));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fsusblog-color-primary) 34%, transparent);
-}
-
-.comment-composer-focus__textarea:disabled
- {
-    background: var(--fsusblog-panel-bg-soft);
-    color: var(--fsusblog-text-muted);
-    cursor: not-allowed;
-}
-
 .comment-composer-focus__preview
  {
     min-height: min(52vh, 26rem);
@@ -1457,22 +1271,11 @@ function createCommentMutationId(): string
         gap: 0.5rem;
     }
 
-    .comment-identity-toggle
- {
-        margin-right: 0;
-    }
-
     .comment-composer-focus__footer
  {
         align-items: stretch;
         flex-direction: column;
         gap: 0.75rem;
-    }
-
-    .comment-composer-toolbar
- {
-        align-items: center;
-        flex-direction: row;
     }
 
     .comment-composer-focus__footer .comment-composer-metrics
