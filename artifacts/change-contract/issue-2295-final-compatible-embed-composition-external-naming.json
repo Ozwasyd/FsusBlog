@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleEmbedRefreshPreparation.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.Projection.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.Projection.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs"
+            ],
+            "reason": "Preserve the exact reviewed thirteen managed source leaves and existing owner-defined contract/digest/reason spellings. The trusted broad environment-variable registry covers src managed files; this complete current roster replaces no rule or source naming and introduces no process key, grant, runtime or qualification authority."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve existing public contract, package and CSS-like spellings while documenting the explicit recursive/projection/graph entry contracts from the exact reviewed final donor. No CSS selector/token or naming rule introduced."
+        }
+    ]
+}

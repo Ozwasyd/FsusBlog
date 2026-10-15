@@ -1,4 +1,5 @@
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Publication;
 
 namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
@@ -17,10 +18,27 @@ public static class ArticleEmbedRelationVerifier
         ArticleEmbedResolutionBudgetLimits? budgets,
         ArticleEmbedAuthoringResolution? resolution,
         ArticleEmbedRelationDerivation? candidate)
+        => VerifyAuthoringCore(requests, snapshot, resolution, candidate,
+            ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, resolution));
+
+    /// <summary>Verifies relation edges under the explicit graph contract, with no recursive-verifier fallback.</summary>
+    public static ArticleEmbedRelationVerification VerifyFromGraph(
+        IReadOnlyList<ArticleEmbedProviderRequest>? requests,
+        ArticleEmbedAuthoritySnapshot? snapshot,
+        ArticleEmbedResolutionBudgetLimits? budgets,
+        ArticleEmbedAuthoringResolution? resolution,
+        ArticleEmbedRelationDerivation? candidate)
+        => VerifyAuthoringCore(requests, snapshot, resolution, candidate,
+            ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, resolution));
+
+    private static ArticleEmbedRelationVerification VerifyAuthoringCore(
+        IReadOnlyList<ArticleEmbedProviderRequest>? requests,
+        ArticleEmbedAuthoritySnapshot? snapshot,
+        ArticleEmbedAuthoringResolution? resolution,
+        ArticleEmbedRelationDerivation? candidate,
+        ArticleEmbedAuthoringVerification sourceCheck)
     {
         var reasons = new List<string>();
-        ArticleEmbedAuthoringVerification sourceCheck =
-            ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, resolution);
         bool expectAccept = sourceCheck.Valid
             && resolution is not null
             && resolution.Status == ArticleEmbedAuthoringResolutionStatus.Completed;
