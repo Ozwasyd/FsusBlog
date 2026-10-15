@@ -1,0 +1,246 @@
+{
+  "donor": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4392",
+    "number": 4392,
+    "state": "open",
+    "merged": false,
+    "mergeable": true,
+    "draft": true,
+    "body": "## Linked Issue\n\nRefs #1895\n\nRelated: [locale menu cutover #1891](https://github.com/Ozwasyd/FsusBlog/issues/1891) remains open. This is the explicitly selected partial raw-button increment; it does not meet that issue's menu-kernel acceptance criteria.\n\n## Scope Summary\n\nDelegate the existing locale trigger, both retry occurrences, and dynamic no-href menu-item button branch to the existing public FsusUiButton adapter. Resolve focus through public ButtonInstance.ref. Product-owned content rows inside the public default slots restore trigger/retry spacing and the no-href item copy/status separation and top alignment. A one-track product grid lets the button slot fill the row, and the product menu/item class explicitly clears adjacent Button margins. The product-owned menu-button class uses content-driven height while the existing 44px minimum target is retained for multiline native/English copy. The href anchor retains its direct content children. Preserve the href anchor, original select/retry/open-change payloads, locale presentation source, and all existing menu, keyboard, outside-pointer and controlled-open handlers.\n\nReview only the owned production file and ordinary source WIP. The PR targets a dedicated branch fixed at the requested d5773ef97f55176a1eab67e677790f3e13352a7b source base. It does not target master: that branch has diverged and would include unrelated source composition. UI961 local source is c77281165226ffd84223c4c8d43805c5deb2b1b3.\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [ ] Generated output\n- [ ] Public contract change\n- [ ] External naming exception\n- Contract impact: compatible\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests\n- [x] Targeted frontend checks: original complete application local-alias typecheck and full lint, compared before/after; actual failures are recorded below and in the ordinary WIP.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [x] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: original repository ESLint/Stylelint owner\n- Formatter version: repository lockfile\n- Formatter command: npm --prefix src/frontend run lint:full\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: none\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] Cross-language coding conventions reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: performance, menu algorithm migration, locale API/store/navigation cutover, acceptance or release qualification\n\n## Release Note\n\n- Audience: none\n- Category: none\n- Summary: none\n\n## Generated Output\n\n- Generator source: none\n- Generated outputs: none\n- Digest/evidence: none\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, Ready transition, release, publishing or deployment.\n- Rollback: omit or revert this bounded source increment if public root/ref/event forwarding or locale interaction continuity regresses.\n- Deferred work: complete Dropdown/menu migration, genuine published-package parity, browser/keyboard/ARIA/visual acceptance and canonical control-legality qualification.\n- Known limitations: all baseline failures and existing issue HOLDs remain failures/HOLDs. No tests, discovery, product-module execution, browser, native, DB or qualification runs. No frozen artifacts, authority, fixtures, assertions, policies, baselines, generated outputs or dependency locks changed.\n\n## Notes For Reviewers\n\nPublic API documentation, document lifecycle registry, AEDS/ABI/database/security authority, TODO and blame-ignore changes are not applicable: no such contract changes or mechanical commit are made. The new ordinary WIP records source progress only, with no qualification authority. Product-owned slot markup, zero row margins and content-driven menu-button height address the reviewed layout P2s; the existing 44px minimum target is retained. The script, public refs, event/ARIA bindings and locale projection are unchanged by that repair. Shared coarse-focus work remains with its separate UI author. Rendered layout/focus/ARIA are not runtime-verified here. Retry explicitly retains its original absence of aria-disabled through public attribute fallthrough. No private DOM queries, selectors, new controller behavior or compatibility fallback are introduced. No complete-issue, runtime-equivalence, visual-conformance or independent-acceptance claim is made.\n\nFinal static comparison after the content-driven height repair (real clean UI961 `c77281165226ffd84223c4c8d43805c5deb2b1b3`, unchanged original full configurations):\n\n- Full application `typecheck:local-fsusui -- --application`: exit 2, the original 29 TypeScript diagnostics (Blog 4 / UI 25), identical to both the original base and initial draft.\n- Canonical `lint:full`: exit 1, the original 83,667 diagnostic lines, identical to both previous sources; the complete raw log is byte-identical to the original-base log.\n- Neither full check reports the owned component. All baseline failures and stale reports remain failures. `git diff --check`: exit 0.\n- No tests, discovery, product runtime, browser, native, DB, qualification or frozen-artifact operation was run. The reviewed layout P2s have source repairs only; visual and runtime acceptance remain HOLD. No protected handler, public ref, locale calculation, canonical projection, event/ARIA binding or shared coarse-focus source is changed by this follow-up.\n\nOrdinary WIP: `artifacts/control-migration/r22-locale-button-source-wip.md`. Current local raw logs and complete diagnostic comparisons: `/tmp/r22-locale-height/`; previous slot/margin repair logs remain in `/tmp/r22-locale-layout/`. Earlier logs bound to the initial draft and original base remain in `/tmp/r22-locale-button/`. Static equality does not establish UI acceptance or complete either issue.\n\nUI975 remains a separate dependency. This follow-up keeps the recorded clean UI961 alias, changes only the product menu-button height declaration and ordinary WIP, and does not alter shared UI/focus source. The previously accepted slot and margin repairs are retained. The existing product item rule continues to provide `min-height: 44px` while `.locale-selector__item--button` supplies `height: auto`.\n\nExact current review range: base `d5773ef97f55176a1eab67e677790f3e13352a7b` → head `1920bb8bcd9bcc16317c745473a95abe0f2ceb18` (three commits). The height repair is the direct child of accepted slot/margin source `e790387795b050ea1f20c8ac9b96efe1c0219b55`. This follow-up adds exactly one production declaration, `height: auto`, plus the ordinary WIP update. The aggregate PR still changes only the owned component and WIP. Current component blob: `e7a69205123a67e7b8414a0b78b56f6f73762339`.\n",
+    "title": "refactor(frontend): delegate locale buttons to FsusUI",
+    "base": "codex/r22-locale-button-base-d5773ef9",
+    "base_sha": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+    "head": "codex/r22-locale-button-primitives",
+    "head_sha": "1920bb8bcd9bcc16317c745473a95abe0f2ceb18",
+    "head_repo_id": 1161859061,
+    "head_repo_full_name": "Ozwasyd/FsusBlog",
+    "merge_commit_sha": "ddde8f7a9172520b162bc0cce0efed4d672d8873",
+    "user": {
+      "login": "Ozwasyd",
+      "name": "Ozwasyd",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/262509976?v=4",
+      "id": 262509976
+    },
+    "requested_reviewers": null,
+    "requested_team_reviewers": null,
+    "created_at": "2026-10-15T06:24:23Z",
+    "updated_at": "2026-10-15T07:03:24Z",
+    "closed_at": null,
+    "merged_at": null,
+    "commits": 3,
+    "changed_files": 2,
+    "additions": 259,
+    "deletions": 79,
+    "display_url": "https://github.com/Ozwasyd/FsusBlog/pull/4392",
+    "display_title": "refactor(frontend): delegate locale buttons to FsusUI"
+  },
+  "commonBase": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4385",
+    "number": 4385,
+    "state": "open",
+    "merged": false,
+    "mergeable": true,
+    "draft": true,
+    "body": "## Linked Issue\n\nRefs #2295\n\nSource work #2467; combine accepted #4349 with final reviewed #4350/#4351. Original #2246/#2458 acceptance remains incomplete.\n\n## Scope Summary\n\nExact accepted4358 base e9077a98f0ee2d6e7df663240c1a36e14c96131f. Compose only accepted4360 458487b9d4b26d71ff529bea71f63e606d9cb5bf own3paths and4361 11e40156e33d4775eda2967b8ea8a359588b9ac2 own2paths. Both are siblings of4352 0c96259e00f9d39d41824110f63c3cc260a2cbf3, neither is the other's parent. Their exact source and ordinary WIP blobs are preserved; all4358 History/Recovery source and metadata unchanged. No donor history or unrelated paths.\n\nFive donor paths add3unmountedsourcefiles+2ordinaryWIPs. New own checkpoint WIP plus ordinary static delivery accompany them: original4358 all27 retained evidence files verified against its original WIP SHA, two retained config snapshots, and actual current complete logs/exit/config files. Raw bytes are plain repository-relative regular files with delivery maps, readable in a review checkout without /workspace/session-evidence-2295. No historical log/config regenerated, no old WIP path rewritten, no original timestamp invented. Config snapshots retain their original cwd/path meaning and are not executable configs at delivery locations.\n\nNavigation stays semantic current-session model, Recovery borrows sole original journal/coordinator, first request binding beforeawait and unknown outcome never absence. Preview remains caller-owned presentation/canonical optional action, no Router/resolver/currentpermission/selection. Reveal remains read-only command availability, never focus/viewport success ACK. Actual cleanUI961c772 local alias remains; UI969/Metadata4359 come later, not included here. Export oldboundaryfailureversion, QuickCapture underreview, query4353missingregistry and WritingAidsUI970pending remain outside this checkpoint.\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [ ] Generated output\n- [ ] Public contract change\n- [ ] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests: HOLD/UNRUN\n- [ ] Targeted frontend checks: runtime/render/tests HOLD/UNRUN\n- [x] Other: fresh original complete actualUI961 app29FAIL2 ->29FAIL2, Blog4/UI25, complete blocks/multiplicity positions-only added0removed0. Same original generated config/publicaliases/dependencies, no source-set/ref/enum/config/rule/lock relaxation.\n- [x] Other: fresh original fullfrontend styleFAIL1 both83667lines raw byte-identical; source-onlyboundary20FAIL1 same raw; code-intent same2errors checked5744->5747, lifecycle7/authoritative41FAIL raw unchanged. Strict all5sourcefilesPASS0, AST sourceonlyPASS0. No waiver or authority/baseline refresh.\n- [x] Other: original4358 all27evidence SHA matches and raw files copied unchanged, both retained configs match originalWIP SHA; fresh28log/exit files plus2config snapshots copied only after completion. All delivery entries independently hashed/readback; exact5donorpostimages/protected4358owners/sourceparents confirmed; Git whitespace/message/range/actualREST gates. No product/helper execution, tests/list/discovery/native/browser/storage or qualification.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNo UI change or browser execution.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: none\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no performance, running safety, live authorization or qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: compose history preview and reveal sources\n\n## Generated Output\n\n- Generator source: none\n- Generated outputs: none\n- Digest/evidence: none\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: new independent ordinary source-combination draft on4358 only; no production actions, mounts, port/authority installation or runtime acceptance.\n- Rollback: omit/revert only added5donorpaths and this checkpoint ordinaryWIP/delivery to exact4358. No live state changed, old branches/records preserved.\n- Deferred work: independent currentcombination review and actual host/scope/coordinator/transport/site/historyreceipt/permission/selection/focus/native/security/privacy/runtime/UX qualification. NextUI969/Metadata/Vault are separate future intakes.\n- Known limitations: full app29FAIL, style83667lineFAIL, boundary20FAIL, code-intent2errors/docs7/41FAIL remain. Static source acceptance is not runtime/UX/physical qualification. Original resource loan/worker/recovery/disposedrestoreACK gaps,4336aggregateFAIL, CSSoutput/independentphysicalaliasUNVERIFIED unchanged.\n\n## Notes For Reviewers\n\nCurrent composition WIP: artifacts/article-editor/issue-2295-history-preview-reveal-checkpoint.json. Exact original4358 evidence delivery map: artifacts/article-editor/history-preview-reveal-static/original-4358/delivery-map.json. Current completed comparison map: artifacts/article-editor/history-preview-reveal-static/current-checkpoint/delivery-map.json. All mapped delivery files are real regular files in this draft, not external-only pointers or new qualification receipts.\n\nParent relation is explicit:4358 is actual new base;4360 and4361 both originally base4352. Own3+2file deltas apply without conflict. Preserve their exact metadata as original independent checkpoint records; current WIP binds this combined scope and does not reinterpret them as stacked heads or inherit runtime acceptance. Both sibling source/WIPs and all4358 base files are byte-preserved outside admitted source additions. No Export/QuickCapture/metadata4359/QueryCoordinator/WritingAids files or unrelated donor history.\n\nOriginal4358 evidence is recovered raw, all27 hashes match its unchanged WIP; two existing generated config files match its recorded SHA and are copied as ordinary read-only snapshots. Original relative paths/cwd retained, no historical config rewrite or new run used to fill history. Fresh current logs are separate and copied only after original entry exits; one delivery hash per actual file. No stale in-progress empty digest or generated/frozen qualification artifact. Current/old full failures remain failures.\n\nUnique journal/checkpoint custody/router/host/editor/registry/group owners preserved. Navigation model receipts are structural only, not actual history authority or editor undo state. Recovery never turns unknown server outcome into absence; Preview host owns actual resolver/currentpermission/selection/focus, Reveal ready means command availability. All new presentation leaves unmounted, no activation, receipt issuer or fake success/zero-resource/paused ACK. Real local public package aliases point at actualUI961 source, not a package-version guess or stubs. UI969 accepted but alias/Metadata4359 capability intake deferred to next separate stage; Save remains disabled when that future source is admitted.\n\nPublic wire/API/DTO/AEDS/schema/securitypolicy/generated/perf/naming/format/blame n/a for this internal unmounted composition and ordinary diagnostics delivery; inline source contracts reviewed. Existing FsusUI/Blog skills and design input context retained; no rendered state inspected, no formal frozen classification/UX/authority refreshed. All original runtime/product/helper/parser module imports/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixture/race/backuprestore/IME/qualification HOLD/UNRUN. No merge/Ready/close/package/publication.4336aggregateFAIL unchanged.\n",
+    "title": "feat(frontend): compose history preview and reveal sources",
+    "base": "codex/issue-2295-navigation-capture-leaves-20261015",
+    "base_sha": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+    "head": "codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+    "head_sha": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "head_repo_id": 1161859061,
+    "head_repo_full_name": "Ozwasyd/FsusBlog",
+    "merge_commit_sha": "fe6bf91732c30211219974586c5d490baf0f664c",
+    "user": {
+      "login": "Ozwasyd",
+      "name": "Ozwasyd",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/262509976?v=4",
+      "id": 262509976
+    },
+    "requested_reviewers": null,
+    "requested_team_reviewers": null,
+    "created_at": "2026-10-15T06:13:38Z",
+    "updated_at": "2026-10-15T06:13:40Z",
+    "closed_at": null,
+    "merged_at": null,
+    "commits": 1,
+    "changed_files": 67,
+    "additions": 336725,
+    "deletions": 0,
+    "display_url": "https://github.com/Ozwasyd/FsusBlog/pull/4385",
+    "display_title": "feat(frontend): compose history preview and reveal sources"
+  },
+  "ui": {
+    "url": "https://github.com/Ozwasyd/FsusUI/pull/981",
+    "number": 981,
+    "state": "open",
+    "merged": false,
+    "mergeable": true,
+    "draft": true,
+    "body": "## WIP independent button source intake\n\nReceive independently finite SOURCE-accepted #975 after exact parent draft#980. All related issues remain open. The receiving increment requires independent review; accepted donor source and static invariance do not establish runtime/UX qualification.\n\n- Exact parent: `8b8217a3aca591e331b3068b8977c6b2c7f1c9e1`.\n- Actual delivered connector commit: `2e0e059f193407170d8e23bcc40d59f1af3291f6`; sole parent is the exact parent above.\n- Selected donor: `51ee067b561388d6a6eb40213892b6912c43351c`, original source base `c77281165226ffd84223c4c8d43805c5deb2b1b3`.\n- Locally checked normal-hook commit: `4a57469760fc4d21983100f03035ed2d5588affe`. Actual delivered tree `c6364151c13b0f39ebfcbeb4c977a9519b0c1233` exactly equals its checked source tree. GitHub-created author/time metadata may differ; no source difference is hidden by that distinction.\n- Every selected original preimage matches the receiving parent; every final blob/mode equals the selected accepted donor. All4797 other parent entries are unchanged. No donor history replay, other-owner overwrite, frozen artifact or consumer product source edit.\n\nIn the existing coarse-pointer hover checkpoint, only add :not(:focus-visible) to the enabled hover selector, retaining the non-keyboard focus rule. After existing resets, enabled danger-link Button color reads the original public text/hover-link/active variables. Other types, disabled styling and keyboard rings remain unchanged. No new tokens, API, authority or consumer overrides.\n\nExact paths:\n\n- `.changeset/button-coarse-pointer-focus-ring.md` (`100644`, blob `02f660549fa0cf1021a1771a39c2689d8a58f516`)\n- `.changeset/button-danger-link-colors.md` (`100644`, blob `3c7468ed946380b17969eac542bb89e8e22a0bed`)\n- `vue/packages/theme-chalk/src/fsus-theme.scss` (`100644`, blob `842cf20ef632f82ded987d99c9bcbb4fcac2327c`)\n\nOriginal normal local pre-commit hook executed before full validation. This SCSS/changeset-only increment has no matching JS/TS/Vue files for the lint-staged ESLint task, so no scoped ESLint run or PASS is inferred. The actual hook log is retained; full UI lint separately ran and still fails below. Source postimages were rechecked after the hook. GitHub connector creates the commit from that checked tree; it does not rerun a shell hook. No bypass flags, dependency install/replacement/vendor patch, genuine-reference deletion, enum rewrite, checker suppression or weakened config.\n\n## Actual original complete static comparisons\n\nFresh baseline/head checks used the same isolated real source path, all ten original installed UI dependency locations and unchanged original complete configurations. No test-discovery wrappers were invoked; the complete underlying compiler/linter projects were retained. Vitest project means compiler-only, not test execution.\n\n| Full original static check | Base / head exit | TS diagnostics each | Complete raw output |\n| --- | --- | --- | --- |\n| web | 2 / 2 | 1023 | byte-identical |\n| node | 0 / 0 | 0 | byte-identical |\n| vite-config | 0 / 0 | 0 | byte-identical |\n| vitest-types | 2 / 2 | 1052 | byte-identical |\n| full-eslint | 1 / 1 | 0 | byte-identical |\n| documentation | 0 / 0 | 0 | byte-identical |\n| viewport-source | 0 / 0 | 0 | byte-identical |\n| design-drift | 0 / 0 | 0 | byte-identical |\n| blog4352-full-alias | 2 / 2 | 29 | byte-identical |\n| blog-node | 2 / 2 | 1 | byte-identical |\n| blog-full-style | 1 / 1 | 0 | byte-identical |\n\nInherited full UI lint remains1error/1warning (MarkdownEditor no-unsafe-finally1958; attachment/embed prefer-const836). Blog node retains TS7016 for vite-watch-policy.mjs. Blog full style exits1 before analysis because configured ESLint/Stylelint executables are missing. All remain failures, not PASS. Own whitespace exits0. Exact selected-path Prettier exit1; nonconforming paths: `vue/packages/theme-chalk/src/fsus-theme.scss`. Baseline/accepted-donor attribution is retained; no reformat changes were mixed into source intake.\n\nOriginal UI commands, both sides:\n\n```sh\nnode --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p vue/tsconfig.web.json --composite false\nnode --max-old-space-size=8192 node_modules/typescript/bin/tsc --noEmit -p vue/tsconfig.node.json\nnode --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p vue/tsconfig.vite-config.json --composite false\nnode --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p vue/tsconfig.vitest.json --composite false\nnode --max-old-space-size=8192 node_modules/eslint/bin/eslint.js . --config vue/eslint.config.mjs --max-warnings 0 --cache\nnode scripts/check-documentation-architecture.mjs\nnode scripts/check-viewport-safe-area-contract.mjs\nnode scripts/check-design-source-drift.mjs\n```\n\n## Complete source Sass and real Blog alias\n\nAll130 original theme-chalk/src/*.scss entries compiled on baseline/head with the same installed Dart Sass legacy API and the original gulp silenceDeprecations options. Both sides130PASS/0FAIL. Compiled entry hashes changed only for fsus-theme.scss, fsus.scss; the remaining128 entry hashes are identical. CSS remained in memory for sizes/hashes; no dist/product build, autoprefix/minify, product CSS output or generated authority. Sass source compilation is not selector cascade, contrast, browser hit-area or runtime proof.\n\nActual detached Blog4352 `0c96259e00f9d39d41824110f63c3cc260a2cbf3` retains original frontend source, installed dependencies and exact two existing ignored declaration bytes, with no declaration generator or consumer cutover. From its frontend, both baseline/head ran:\n\n```sh\nNODE_OPTIONS=--max-old-space-size=8192 FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-980-button-20261015 node ./scripts/run-local-fsusui-typecheck.mjs --application\nnode --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.node.json\n```\n\nFrom Blog root with the same local-source environment: `NODE_OPTIONS=--max-old-space-size=8192 node tools/frontend/check-frontend-style.mjs --mode full`.\n\nThe original static-infrastructure producer writes only ordinary temporary checker JSON, then invokes full application vue-tsc. Effective configuration retains766 app root files; strict/noUnusedLocals/noUnusedParameters/erasableSyntaxOnly alltrue, both public package aliases resolve the actual same source index. Configuration bytes identical before/after, SHA256`edb0dbf83eb192762fde63cfefb258796e73e8d32cf02936d24418992c0369ec`. Actual full application alias remains **FAIL2/29 diagnostics, Blog4/UI25**, complete raw byte-identical SHA256`cd14f35f1479a15069d367d38b1b2be9de62ce7b722236acbb0c0d2cb04870fb`. Genuine18 references and7 enum compatibility diagnostics remain; no focused-export substitute, published fallback or primary alias move.\n\n## Authorized delivery channel and independent handoff\n\nDelivery uses the already-connected GitHub connector, authenticated as Ozwasyd; repository push/maintain permissions were read and confirmed. The saved shell GH_TOKEN still has its historical401 and was not repaired, replaced, refreshed or claimed restored. The delegating controller explicitly corrected the earlier all-channel stop and authorized this existing same-user connector. No repository/network/security or credential settings changed.\n\nOnly the locally checked source tree is delivered. Connector tree creation must equal the exact checked tree SHA, with original modes and sole exact parent. A fresh issue-scoped branch starts at that parent, then update_ref uses expected_sha equal to the parent and force=false. Commit/tree/ref are read back and compared before/after draft creation. All prior source branches/checkpoints remain untouched. No source API write is justified by changing owners or bypassing a permission rejection; an actual connector denial would stop that step.\n\n- [x] Bounded accepted owning source and ordinary patch changeset(s), exact donor blobs/modes and preserved parent tree.\n- [x] Original complete static failures and130-entry Sass comparison recorded; no diagnostic delta or all-green gate claim.\n- [ ] Independent review of this exact receiving increment.\n- [ ] Runtime/browser/native/accessibility/UX/physical-budget and release qualification.\n\nAll runtime/tests/test-list/discovery/product/helper/parser module execution, browser/native/IME/security/privacy, actual ARIA updates/focus/theme/geometry/SSR/CSS cascade behavior, demo/package/product builds, frozen authority/baseline/fixture/receipt/catalog/product-codegen generation and qualification remain HOLD/UNRUN. No rendered acceptance or qualification receipt. UI974 loading and UI979 Segmented are outside this fixed checkpoint. Their independently SOURCE-accepted versions are queued for separate receiving commits; neither is part of this source tree. No merge/Ready/close/package publication/deployment. [skip ci] preserves execution HOLD; absent/skipped remote checks are not PASS. Roll back this sole receiving commit to restore the exact parent. Full logs, exits, configs, source/tree/mode and connector readback evidence remain task-local, not frozen authority.\n",
+    "title": "WIP: receive reviewed public Button theme after UI980",
+    "base": "codex/ui978-tabs-source-intake-20261015",
+    "base_sha": "8b8217a3aca591e331b3068b8977c6b2c7f1c9e1",
+    "head": "codex/ui980-button-theme-source-intake-20261015",
+    "head_sha": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+    "head_repo_id": 1201058176,
+    "head_repo_full_name": "Ozwasyd/FsusUI",
+    "merge_commit_sha": "3e33cfdf7f5fcc6631423e4d977e40a62bba9639",
+    "user": {
+      "login": "Ozwasyd",
+      "name": "Ozwasyd",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/262509976?v=4",
+      "id": 262509976
+    },
+    "requested_reviewers": null,
+    "requested_team_reviewers": null,
+    "created_at": "2026-10-15T06:56:10Z",
+    "updated_at": "2026-10-15T07:02:42Z",
+    "closed_at": null,
+    "merged_at": null,
+    "commits": 1,
+    "changed_files": 3,
+    "additions": 30,
+    "deletions": 1,
+    "display_url": "https://github.com/Ozwasyd/FsusUI/pull/981",
+    "display_title": "WIP: receive reviewed public Button theme after UI980"
+  },
+  "dedup": {
+    "queries": [
+      "\"4392\"",
+      "\"1920bb8bcd9bcc16317c745473a95abe0f2ceb18\"",
+      "\"4385\"",
+      "\"locale\" \"4385\""
+    ],
+    "results": [
+      [
+        {
+          "number": 4392,
+          "title": "refactor(frontend): delegate locale buttons to FsusUI",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4392",
+          "mentionsLeaf": true,
+          "mentionsCommonBase": false
+        }
+      ],
+      [
+        {
+          "number": 4392,
+          "title": "refactor(frontend): delegate locale buttons to FsusUI",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4392",
+          "mentionsLeaf": true,
+          "mentionsCommonBase": false
+        }
+      ],
+      [
+        {
+          "number": 4385,
+          "title": "feat(frontend): compose history preview and reveal sources",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4385",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": false
+        },
+        {
+          "number": 4394,
+          "title": "feat(frontend): admit vault plan presentation sources",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4394",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4393,
+          "title": "feat(frontend): admit metadata leaves with real ui969 controls",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4393",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4397,
+          "title": "feat(frontend): admit final quick capture presentation sources",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4397",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4396,
+          "title": "feat(frontend): admit final export presentation sources",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4396",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4398,
+          "title": "feat(frontend): admit writing aid sources with real ui973 options",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4398",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4402,
+          "title": "feat(frontend): admit relation graph controls source",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4402",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4400,
+          "title": "feat(frontend): admit ops health controls source",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4400",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4399,
+          "title": "feat(frontend): admit source compare custody source",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4399",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4404,
+          "title": "feat(frontend): admit security dashboard controls source",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4404",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4403,
+          "title": "feat(frontend): admit toc controls source",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4403",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        },
+        {
+          "number": 4401,
+          "title": "feat(frontend): admit advanced filter controls source",
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4401",
+          "mentionsLeaf": false,
+          "mentionsCommonBase": true
+        }
+      ]
+    ],
+    "localeBase": {
+      "issues": [
+        {
+          "url": "https://github.com/Ozwasyd/FsusBlog/pull/4385",
+          "title": "feat(frontend): compose history preview and reveal sources",
+          "issue_number": 4385,
+          "body": "## Linked Issue\n\nRefs #2295\n\nSource work #2467; combine accepted #4349 with final reviewed #4350/#4351. Original #2246/#2458 acceptance remains incomplete.\n\n## Scope Summary\n\nExact accepted4358 base e9077a98f0ee2d6e7df663240c1a36e14c96131f. Compose only accepted4360 458487b9d4b26d71ff529bea71f63e606d9cb5bf own3paths and4361 11e40156e33d4775eda2967b8ea8a359588b9ac2 own2paths. Both are siblings of4352 0c96259e00f9d39d41824110f63c3cc260a2cbf3, neither is the other's parent. Their exact source and ordinary WIP blobs are preserved; all4358 History/Recovery source and metadata unchanged. No donor history or unrelated paths.\n\nFive donor paths add3unmountedsourcefiles+2ordinaryWIPs. New own checkpoint WIP plus ordinary static delivery accompany them: original4358 all27 retained evidence files verified against its original WIP SHA, two retained config snapshots, and actual current complete logs/exit/config files. Raw bytes are plain repository-relative regular files with delivery maps, readable in a review checkout without /workspace/session-evidence-2295. No historical log/config regenerated, no old WIP path rewritten, no original timestamp invented. Config snapshots retain their original cwd/path meaning and are not executable configs at delivery locations.\n\nNavigation stays semantic current-session model, Recovery borrows sole original journal/coordinator, first request binding beforeawait and unknown outcome never absence. Preview remains caller-owned presentation/canonical optional action, no Router/resolver/currentpermission/selection. Reveal remains read-only command availability, never focus/viewport success ACK. Actual cleanUI961c772 local alias remains; UI969/Metadata4359 come later, not included here. Export oldboundaryfailureversion, QuickCapture underreview, query4353missingregistry and WritingAidsUI970pending remain outside this checkpoint.\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [ ] Generated output\n- [ ] Public contract change\n- [ ] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests: HOLD/UNRUN\n- [ ] Targeted frontend checks: runtime/render/tests HOLD/UNRUN\n- [x] Other: fresh original complete actualUI961 app29FAIL2 ->29FAIL2, Blog4/UI25, complete blocks/multiplicity positions-only added0removed0. Same original generated config/publicaliases/dependencies, no source-set/ref/enum/config/rule/lock relaxation.\n- [x] Other: fresh original fullfrontend styleFAIL1 both83667lines raw byte-identical; source-onlyboundary20FAIL1 same raw; code-intent same2errors checked5744->5747, lifecycle7/authoritative41FAIL raw unchanged. Strict all5sourcefilesPASS0, AST sourceonlyPASS0. No waiver or authority/baseline refresh.\n- [x] Other: original4358 all27evidence SHA matches and raw files copied unchanged, both retained configs match originalWIP SHA; fresh28log/exit files plus2config snapshots copied only after completion. All delivery entries independently hashed/readback; exact5donorpostimages/protected4358owners/sourceparents confirmed; Git whitespace/message/range/actualREST gates. No product/helper execution, tests/list/discovery/native/browser/storage or qualification.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNo UI change or browser execution.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: none\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no performance, running safety, live authorization or qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: compose history preview and reveal sources\n\n## Generated Output\n\n- Generator source: none\n- Generated outputs: none\n- Digest/evidence: none\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: new independent ordinary source-combination draft on4358 only; no production actions, mounts, port/authority installation or runtime acceptance.\n- Rollback: omit/revert only added5donorpaths and this checkpoint ordinaryWIP/delivery to exact4358. No live state changed, old branches/records preserved.\n- Deferred work: independent currentcombination review and actual host/scope/coordinator/transport/site/historyreceipt/permission/selection/focus/native/security/privacy/runtime/UX qualification. NextUI969/Metadata/Vault are separate future intakes.\n- Known limitations: full app29FAIL, style83667lineFAIL, boundary20FAIL, code-intent2errors/docs7/41FAIL remain. Static source acceptance is not runtime/UX/physical qualification. Original resource loan/worker/recovery/disposedrestoreACK gaps,4336aggregateFAIL, CSSoutput/independentphysicalaliasUNVERIFIED unchanged.\n\n## Notes For Reviewers\n\nCurrent composition WIP: artifacts/article-editor/issue-2295-history-preview-reveal-checkpoint.json. Exact original4358 evidence delivery map: artifacts/article-editor/history-preview-reveal-static/original-4358/delivery-map.json. Current completed comparison map: artifacts/article-editor/history-preview-reveal-static/current-checkpoint/delivery-map.json. All mapped delivery files are real regular files in this draft, not external-only pointers or new qualification receipts.\n\nParent relation is explicit:4358 is actual new base;4360 and4361 both originally base4352. Own3+2file deltas apply without conflict. Preserve their exact metadata as original independent checkpoint records; current WIP binds this combined scope and does not reinterpret them as stacked heads or inherit runtime acceptance. Both sibling source/WIPs and all4358 base files are byte-preserved outside admitted source additions. No Export/QuickCapture/metadata4359/QueryCoordinator/WritingAids files or unrelated donor history.\n\nOriginal4358 evidence is recovered raw, all27 hashes match its unchanged WIP; two existing generated config files match its recorded SHA and are copied as ordinary read-only snapshots. Original relative paths/cwd retained, no historical config rewrite or new run used to fill history. Fresh current logs are separate and copied only after original entry exits; one delivery hash per actual file. No stale in-progress empty digest or generated/frozen qualification artifact. Current/old full failures remain failures.\n\nUnique journal/checkpoint custody/router/host/editor/registry/group owners preserved. Navigation model receipts are structural only, not actual history authority or editor undo state. Recovery never turns unknown server outcome into absence; Preview host owns actual resolver/currentpermission/selection/focus, Reveal ready means command availability. All new presentation leaves unmounted, no activation, receipt issuer or fake success/zero-resource/paused ACK. Real local public package aliases point at actualUI961 source, not a package-version guess or stubs. UI969 accepted but alias/Metadata4359 capability intake deferred to next separate stage; Save remains disabled when that future source is admitted.\n\nPublic wire/API/DTO/AEDS/schema/securitypolicy/generated/perf/naming/format/blame n/a for this internal unmounted composition and ordinary diagnostics delivery; inline source contracts reviewed. Existing FsusUI/Blog skills and design input context retained; no rendered state inspected, no formal frozen classification/UX/authority refreshed. All original runtime/product/helper/parser module imports/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixture/race/backuprestore/IME/qualification HOLD/UNRUN. No merge/Ready/close/package/publication.4336aggregateFAIL unchanged.\n",
+          "state": null,
+          "user": null,
+          "assignees": null,
+          "labels": null,
+          "milestone": null,
+          "state_reason": null,
+          "comments": null,
+          "created_at": null,
+          "updated_at": null,
+          "closed_at": null,
+          "display_url": "https://github.com/Ozwasyd/FsusBlog/pull/4385",
+          "display_title": "feat(frontend): compose history preview and reveal sources"
+        }
+      ]
+    }
+  }
+}

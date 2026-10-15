@@ -1,0 +1,15 @@
+{
+  "productionPath": "src/frontend/src/components/ui/LocaleSelector.vue",
+  "preimageEqual": true,
+  "postimageEqual": true,
+  "productionBlob": "e7a69205123a67e7b8414a0b78b56f6f73762339",
+  "productionSha256": "93d16fc68cc9023a80e2393cfdc30ddb526097bf488a66ebcc90731bec12a90b",
+  "appliedPatchCheckExit": 0,
+  "manualConflictResolution": "not required: identical exact preimage; git apply --check and apply succeeded",
+  "changedPathsBeforeEvidence": [
+    "src/frontend/src/components/ui/LocaleSelector.vue"
+  ],
+  "uiStatus": "",
+  "uiSourceTree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+  "themeBlob": "842cf20ef632f82ded987d99c9bcbb4fcac2327c"
+}
