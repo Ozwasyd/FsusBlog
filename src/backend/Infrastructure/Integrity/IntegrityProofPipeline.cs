@@ -176,11 +176,12 @@ public sealed class IntegrityProofScheduler(
         IReadOnlySet<string> completedEdges,
         CancellationToken cancellationToken = default)
     {
-        ArticleRevision? revision = await LoadLatestRevisionAsync(articleId, cancellationToken).ConfigureAwait(false);
-        if (revision is null)
+        var loadedRevision = await LoadLatestRevisionAsync(articleId, cancellationToken).ConfigureAwait(false);
+        if (loadedRevision is null)
         {
             return new IntegrityProofScheduleResult(false, PublishProofStatus.Pending, "revision-required", true);
         }
+        ArticleRevision revision = loadedRevision.Value.Revision;
 
         Article? article = await db.Queryable<Article>().ClearFilter().InSingleAsync(articleId);
         PublishProofPublicationState publicationState = ResolvePublicationState(eventType, article);
@@ -199,7 +200,7 @@ public sealed class IntegrityProofScheduler(
             return new IntegrityProofScheduleResult(false, plan.Status, plan.FailureCode, plan.ShouldRetry);
         }
 
-        PublishProofInput proof = BuildProofInput(articleId, revision, article, plan, artifacts);
+        PublishProofInput proof = BuildProofInput(articleId, revision, loadedRevision.Value.Content, article, plan, artifacts);
         long proofId = await UpsertProofAsync(proof, plan.FailureCode, cancellationToken).ConfigureAwait(false);
         await transparencyLog.AppendPublishProofAsync(proofId, cancellationToken).ConfigureAwait(false);
         await ScheduleArticleRightsProofFromOutboxAsync(articleId, eventType, completedEdges, cancellationToken)
@@ -224,11 +225,12 @@ public sealed class IntegrityProofScheduler(
             return new IntegrityProofScheduleResult(false, PublishProofStatus.Pending, "required-edges-incomplete", true);
         }
 
-        ArticleRevision? revision = await LoadLatestRevisionAsync(articleId, cancellationToken).ConfigureAwait(false);
-        if (revision is null)
+        var loadedRevision = await LoadLatestRevisionAsync(articleId, cancellationToken).ConfigureAwait(false);
+        if (loadedRevision is null)
         {
             return new IntegrityProofScheduleResult(false, PublishProofStatus.Pending, "revision-required", true);
         }
+        ArticleRevision revision = loadedRevision.Value.Revision;
 
         Article? article = await db.Queryable<Article>().ClearFilter().InSingleAsync(articleId);
         PublishProofPublicationState publicationState = ResolvePublicationState(eventType, article);
@@ -339,22 +341,25 @@ public sealed class IntegrityProofScheduler(
             cancellationToken);
     }
 
-    private async Task<ArticleRevision?> LoadLatestRevisionAsync(int articleId, CancellationToken cancellationToken)
+    private async Task<(ArticleRevision Revision, string Content)?> LoadLatestRevisionAsync(
+        int articleId,
+        CancellationToken cancellationToken)
     {
         ArticleRevision? revision = await db.Queryable<ArticleRevision>()
             .Where(revision => revision.ArticleId == articleId)
             .OrderByDescending(revision => revision.RevisionNo)
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (revision?.ContentBlockId > 0)
+        if (revision is null)
         {
-            revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
-                db,
-                revision.ContentBlockId,
-                cancellationToken).ConfigureAwait(false);
+            return null;
         }
 
-        return revision;
+        string content = await ArticleRevisionContentBlockStore.LoadAsync(
+            db,
+            revision.ContentBlockId,
+            cancellationToken).ConfigureAwait(false);
+        return (revision, content);
     }
 
     private async Task<ArtifactDigestEntry[]> BuildArtifactEntriesAsync(
@@ -421,6 +426,7 @@ public sealed class IntegrityProofScheduler(
     private static PublishProofInput BuildProofInput(
         int articleId,
         ArticleRevision revision,
+        string content,
         Article? article,
         IntegrityProofOutboxPlan plan,
         IReadOnlyList<ArtifactDigestEntry> artifacts)
@@ -438,7 +444,7 @@ public sealed class IntegrityProofScheduler(
             Status: article is null ? (int)ArticleStatus.Deleted : (int)article.Status,
             PublishedAt: article?.PublishedAt,
             ScheduledPublishAt: article?.ScheduledPublishAt,
-            MarkdownContent: revision.MarkdownContent));
+            MarkdownContent: content));
         return new PublishProofInput(
             ProofVersion: PublishProofCanonicalPayloadV1.ProofVersion,
             ArticleId: articleId,

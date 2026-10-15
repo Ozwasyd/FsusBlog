@@ -321,13 +321,10 @@ public sealed class AuthoringDraftLifecycleService(
         {
             return null;
         }
-        if (revision.ContentBlockId > 0)
-        {
-            revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
-                db,
-                revision.ContentBlockId,
-                cancellationToken).ConfigureAwait(false);
-        }
+        string content = await ArticleRevisionContentBlockStore.LoadAsync(
+            db,
+            revision.ContentBlockId,
+            cancellationToken).ConfigureAwait(false);
 
         ArticleRightsSnapshot? rights = await db.Queryable<ArticleRightsSnapshot>()
             .Where(it => it.ArticleId == articleId && it.ArticleRevisionId == revisionId)
@@ -341,7 +338,7 @@ public sealed class AuthoringDraftLifecycleService(
             .WhereIF(release?.ResponsibilitySnapshotId is not null, it => it.Id == release!.ResponsibilitySnapshotId!.Value)
             .OrderByDescending(it => it.ResponsibilityVersion)
             .FirstAsync(cancellationToken);
-        return ToRevisionDetailResponse(revision, rights, responsibility, release);
+        return ToRevisionDetailResponse(revision, content, rights, responsibility, release);
     }
 
     public async Task<Result<ArticleMutationResult>> RollbackRevisionAsync(
@@ -374,13 +371,10 @@ public sealed class AuthoringDraftLifecycleService(
         {
             return Result<ArticleMutationResult>.Failure(ErrorCode.NotFound, "revision_not_found");
         }
-        if (revision.ContentBlockId > 0)
-        {
-            revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
-                db,
-                revision.ContentBlockId,
-                cancellationToken).ConfigureAwait(false);
-        }
+        string content = await ArticleRevisionContentBlockStore.LoadAsync(
+            db,
+            revision.ContentBlockId,
+            cancellationToken).ConfigureAwait(false);
 
         string? summary = ArticleSummaryProjection.WasAutomaticallyGenerated(revision.DiffSummary)
             ? null
@@ -389,7 +383,7 @@ public sealed class AuthoringDraftLifecycleService(
             articleId,
             new FsusBlog.Core.Mapping.Models.ArticleWriteRequestCoreModel(
                 revision.Title,
-                revision.MarkdownContent,
+                content,
                 summary,
                 revision.CoverImageUrl,
                 revision.CategoryId,
@@ -581,6 +575,7 @@ public sealed class AuthoringDraftLifecycleService(
 
     private static ArticleRevisionDetailResponse ToRevisionDetailResponse(
         ArticleRevision revision,
+        string content,
         ArticleRightsSnapshot? rights,
         ArticleResponsibilitySnapshot? responsibility,
         ArticlePublicationRecord? release)
@@ -589,7 +584,7 @@ public sealed class AuthoringDraftLifecycleService(
             revision.ArticleId,
             revision.RevisionNo,
             revision.Title,
-            revision.MarkdownContent,
+            content,
             revision.Summary,
             revision.CoverImageUrl,
             revision.CategoryId,

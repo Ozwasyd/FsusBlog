@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs",
+                "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+                "src/backend/Services/ArticleMutationSideEffects.cs",
+                "src/backend/Services/Articles/ArticleRevisionContentBlockStore.cs",
+                "src/backend/Services/Authoring/AuthoringContentTransferService.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+                "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs",
+                "src/backend/Services/SearchIndexService.RuntimePersistence.cs"
+            ],
+            "reason": "The original broad naming registry covers all managed src files. Preserve existing process, wire, SQL column and parameter identifiers in these nine source paths. Runtime content is carried separately from the retained legacy ORM property; no environment key or database identifier is renamed and physical retirement remains on hold."
+        }
+    ]
+}
