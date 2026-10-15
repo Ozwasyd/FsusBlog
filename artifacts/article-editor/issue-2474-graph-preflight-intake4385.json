@@ -1,0 +1,221 @@
+{
+    "kind": "ordinary independent intake WIP and static facts; not a receipt, authority, waiver or qualification",
+    "status": "DRAFT WIP; awaiting independent intake source review; all runtime and consumer acceptance incomplete",
+    "issue": "https://github.com/Ozwasyd/FsusBlog/issues/2474",
+    "base": {
+        "PR": 4385,
+        "sha": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "branch": "codex/issue-2295-history-preview-reveal-checkpoint-20261015"
+    },
+    "donor": {
+        "PR": 4366,
+        "head": "432019fcb1a4fbd4ebdbd1f2617190d8185a5990",
+        "trueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+        "sourceAcceptance": "User supplied independent finite SOURCE acceptance only; no runtime acceptance inherited"
+    },
+    "candidate": {
+        "branch": "codex/issue-2474-graph-preflight-intake4385-20261015",
+        "verifiedSourceHead": "fa2057c6d3d6893ac7588b849669957d703aa8a8",
+        "sourceBlob": "437c64dc14105a0d0c4d3be37d7bb376fc47d369",
+        "sourceSha256": "804d54baef832fbf2d7b541389ede9e98c1bd3f13fbb6f33acd8768366628da3",
+        "finalDeliveryIdentity": "Final evidence-only commit and remote PR identity are read back after publication in the PR body and delivery response. No self-referential commit SHA is invented."
+    },
+    "duplicateCheck": {
+        "allStates": true,
+        "queries": [
+            "4366",
+            "exact donor head",
+            "base:codex/issue-2295-history-preview-reveal-checkpoint-20261015"
+        ],
+        "matchingExistingIntakes": [],
+        "otherGraphPR": "#4402 is a distinct RelationGraph frontend leaf and excluded",
+        "rawQueryEvidence": "graph-preflight-intake4385-static/search_base_codex_issue_2295_history_preview_reveal_checkpoint_20261015.json"
+    },
+    "scope": {
+        "productionPaths": [
+            "src/backend/Services/Authoring/ArticleGraphQueryService.cs"
+        ],
+        "productionDelta": "59 additions, 7 deletions; exact donor diff and final postimage",
+        "requiredUnchangedDonorNamingDeclaration": "artifacts/change-contract/issue-2474-bounded-memory-external-naming.json",
+        "ownWip": "artifacts/article-editor/issue-2474-graph-preflight-intake4385.json",
+        "ordinaryEvidenceDirectory": "artifacts/article-editor/graph-preflight-intake4385-static",
+        "noDonorHistoryOrWip": true,
+        "noParallelBranchMutation": true,
+        "conflicts": "none; exact donor production preimage equals target4385 production blob",
+        "allOtherBaseSourceAndMetadata": "unchanged; checked by Git tree/diff and source-preservation.json"
+    },
+    "actualUI": {
+        "root": "/workspace/fsusblog-4366-ui973",
+        "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+        "trackedStatus": "clean",
+        "publicAliases": [
+            "element-plus",
+            "@ozwasyd/element-plus"
+        ],
+        "actualPublicIndex": "/workspace/fsusblog-4366-ui973/vue/packages/element-plus/index.ts",
+        "identityFiles": [
+            "input-identities.json",
+            "actual-alias-identities.json",
+            "toolchain-and-config-identities.json",
+            "ui-dependency-identities.json"
+        ],
+        "installedDependencies": "Existing actual /workspace/FsusUI/node_modules used identically by both static candidates. Its root package/lock differ from UI973 (added test-only happy-dom, associated test dependency snapshots and registry deprecation metadata); exact diff and all digests retained. Public component package identity matches. No dependency substitute or new UI install/qualification; runtime/tests remain held.",
+        "themeCSS": "incomplete; rendered output and consumer acceptance unverified"
+    },
+    "checks": {
+        "build": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "baseLines": 676,
+            "candidateLines": 676,
+            "rawByteIdentical": false,
+            "baseSha256": "13cfde6320329edf09493a2a4c6f1fb59fc1c5f22dac4891b96dee09c17e97a6",
+            "candidateSha256": "e17c21f7a0342d89daeda9a6576ba9cccab97b950c532ee12b945a7d2e983e7a",
+            "warningsEach": 330,
+            "errorsEach": 0,
+            "emittedDiagnosticLinesEach": 660,
+            "uniqueDiagnosticsEach": 330,
+            "introduced": 0,
+            "removed": 0,
+            "comparison": "complete emitted diagnostic multiset and multiplicity equal after absolute checkout-root replacement only; complete rows in build-diagnostic-comparison.json and untouched raw logs"
+        },
+        "types": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseLines": 30,
+            "candidateLines": 30,
+            "rawByteIdentical": true,
+            "baseSha256": "5f62e5c80087ffd6a2812fedc20d3da83a365688a3534f7b29145e4341776d2f",
+            "candidateSha256": "5f62e5c80087ffd6a2812fedc20d3da83a365688a3534f7b29145e4341776d2f",
+            "diagnosticsEach": 29,
+            "BlogEach": 4,
+            "UIEach": 25,
+            "comparison": "whole raw output identical; no filtering, normalization, sorting or deduplication"
+        },
+        "full-csharp": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 552,
+            "candidateLines": 552,
+            "rawByteIdentical": true,
+            "baseSha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0",
+            "candidateSha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0"
+        },
+        "full-style": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 83667,
+            "candidateLines": 83667,
+            "rawByteIdentical": true,
+            "baseSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "candidateSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 21,
+            "candidateLines": 21,
+            "rawByteIdentical": true,
+            "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+        },
+        "binary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 7,
+            "candidateLines": 7,
+            "rawByteIdentical": true,
+            "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+        },
+        "intent": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 3,
+            "candidateLines": 3,
+            "rawByteIdentical": true,
+            "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+        },
+        "lifecycle": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 7,
+            "candidateLines": 7,
+            "rawByteIdentical": true,
+            "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "authoritative": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 41,
+            "candidateLines": 41,
+            "rawByteIdentical": true,
+            "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "graph-factory": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "baseLines": 1,
+            "candidateLines": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "23105fd675ff738da7ecf9f5f6ca7e13bc346bda87ca9db0ea2c112ebd8e4b2f",
+            "candidateSha256": "23105fd675ff738da7ecf9f5f6ca7e13bc346bda87ca9db0ea2c112ebd8e4b2f"
+        },
+        "strict-csharp": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "baseLines": 1,
+            "candidateLines": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580",
+            "candidateSha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+        }
+    },
+    "ASTAndCheckOnly": "Real original Server C# compiler parses/typechecks complete production closure; original strict C# checker invokes dotnet format whitespace and solution style with --verify-no-changes and original diagnostics. No custom AST harness or product execution.",
+    "evidence": {
+        "map": "artifacts/article-editor/graph-preflight-intake4385-static/delivery-map.json",
+        "files": 97,
+        "allCopiedAfterCompletion": true,
+        "mapDigestsReadBack": true,
+        "baseInheritedEvidence": "All4385 original WIPs/logs/config snapshots preserved as exact base bytes; no historical log regenerated or replaced"
+    },
+    "preservedSemantics": [
+        "Graph leaf is preflight only, no provider runtime implementation or activation",
+        "Original relation port and default Unavailable remain; no scanner or fabricated relation facts",
+        "Original Empty and cancellation catch and every shared contract unchanged",
+        "Unknown does not equal zero; cancel does not equal settled",
+        "No host, command or authorization binding invented for display leaves",
+        "StorageConflict cancel/restore remains disabled; no other base source changed",
+        "No frozen authority rewrite, configuration/source-set reduction, fake data, private package stub or credential refresh"
+    ],
+    "limits": [
+        "No linearizable same-count race guarantee; arbitrary caller Count/indexer callbacks may block or allocate internally",
+        "Existing app29, C#552-line, fullstyle83667-line, UIboundary20-finding, binary6-finding, code-intent2-error and lifecycle/authoritative failures retained without waiver",
+        "Independent current intake source review pending",
+        "No remote CI pass inferred; remote check state must be read back",
+        "Real relation API, permission-before-expansion integration and provider/runtime qualification remain incomplete",
+        "Product theme CSS and consumer acceptance incomplete"
+    ],
+    "holds": [
+        "runtime",
+        "tests",
+        "test collection/list/discovery",
+        "product/helper/parser module import or execution",
+        "setup/mount/browser/native/worker/kernel",
+        "DB",
+        "network-security/privacy",
+        "receipt/race/backup restore/IME",
+        "frozen/qualification"
+    ],
+    "deliveryRestrictions": [
+        "draft only",
+        "no Ready",
+        "no merge",
+        "no issue closure",
+        "no publication or package release"
+    ],
+    "rollback": "Omit/revert only the one production-path intake, its required naming declaration and this own ordinary WIP/evidence to exact4385. No live data or production state changed."
+}

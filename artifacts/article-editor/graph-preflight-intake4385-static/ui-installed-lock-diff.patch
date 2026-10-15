@@ -1,0 +1,191 @@
+diff --git a/package.json b/package.json
+index ef3be6ae..8dbbb2bc 100644
+--- a/package.json
++++ b/package.json
+@@ -322,6 +322,7 @@
+     "expect-type": "1.3.0",
+     "fast-glob": "3.3.3",
+     "gulp": "5.0.1",
++    "happy-dom": "20.9.0",
+     "husky": "9.1.7",
+     "jsdom": "29.0.1",
+     "lint-staged": "15.5.2",
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 4995327f..2f7f781e 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -168,6 +168,9 @@ importers:
+       gulp:
+         specifier: 5.0.1
+         version: 5.0.1
++      happy-dom:
++        specifier: 20.9.0
++        version: 20.9.0
+       husky:
+         specifier: 9.1.7
+         version: 9.1.7
+@@ -218,7 +221,7 @@ importers:
+         version: 7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3)
+       vitest:
+         specifier: 4.1.5
+-        version: 4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3))
++        version: 4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(happy-dom@20.9.0)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3))
+       vue:
+         specifier: 3.5.32
+         version: 3.5.32(typescript@6.0.2)
+@@ -930,7 +933,7 @@ packages:
+ 
+   '@esbuild-kit/cjs-loader@2.4.4':
+     resolution: {integrity: sha512-NfsJX4PdzhwSkfJukczyUiZGc7zNNWZcEAyqeISpDnn0PTfzMJR1aR8xAIPskBejIxBJbIgCCMzbaYa9SXepIg==}
+-    deprecated: 'Merged into tsx: https://tsx.is'
++    deprecated: 'Merged into tsx: https://tsx.hirok.io'
+ 
+   '@esbuild-kit/core-utils@3.3.2':
+     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
+@@ -1806,6 +1809,7 @@ packages:
+ 
+   '@octokit/webhooks-types@6.11.0':
+     resolution: {integrity: sha512-AanzbulOHljrku1NGfafxdpTCfw2ENaWzH01N2vqQM+cUFbk868Cgh0xylz0JIM9BoKbfI++bdD6EYX0Q/UTEw==}
++    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+ 
+   '@octokit/webhooks@10.9.2':
+     resolution: {integrity: sha512-hFVF/szz4l/Y/GQdKxNmQjUke0XJXK986p+ucIlubTGVPVtVtup5G1jarQfvCMBs9Fvlf9dvH8K83E4lefmofQ==}
+@@ -2910,6 +2914,12 @@ packages:
+   '@types/web-bluetooth@0.0.21':
+     resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
+ 
++  '@types/whatwg-mimetype@3.0.2':
++    resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
++
++  '@types/ws@8.18.2':
++    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
++
+   '@typescript-eslint/eslint-plugin@8.58.0':
+     resolution: {integrity: sha512-RLkVSiNuUP1C2ROIWfqX+YcUfLaSnxGE/8M+Y57lopVwg9VTYYfhuz15Yf1IzCKgZj6/rIbYTmJCUSqr76r0Wg==}
+     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+@@ -4998,6 +5008,10 @@ packages:
+   hachure-fill@0.5.2:
+     resolution: {integrity: sha512-3GKBOn+m2LX9iq+JC1064cSFprJY4jL1jCXTcpnfER5HYE2l/4EfWSGzkPa/ZDBmYI0ZOEj5VHV/eKnPGkHuOg==}
+ 
++  happy-dom@20.9.0:
++    resolution: {integrity: sha512-GZZ9mKe8r646NUAf/zemnGbjYh4Bt8/MqASJY+pSm5ZDtc3YQox+4gsLI7yi1hba6o+eCsGxpHn5+iEVn31/FQ==}
++    engines: {node: '>=20.0.0'}
++
+   has-bigints@1.1.0:
+     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
+     engines: {node: '>= 0.4'}
+@@ -7853,6 +7867,10 @@ packages:
+   webpack-virtual-modules@0.6.2:
+     resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
+ 
++  whatwg-mimetype@3.0.0:
++    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
++    engines: {node: '>=12'}
++
+   whatwg-mimetype@5.0.0:
+     resolution: {integrity: sha512-sXcNcHOC51uPGF0P/D4NVtrkjSU2fNsm9iog4ZvZJsL3rjoDAzXZhkm2MWt1y+PUdggKAYVoMAIYcs78wJ51Cw==}
+     engines: {node: '>=20'}
+@@ -7936,6 +7954,18 @@ packages:
+     resolution: {integrity: sha512-LwyucHy0uhWqbrOkh9cBluZBeNVxzHjDaE9mwepZG3n3ZlbM4v3ndrFw51zW/NXYFFqP+QWZ72ihtLWTh05e4Q==}
+     engines: {node: '>=10.13'}
+ 
++  ws@8.22.0:
++    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
++    engines: {node: '>=10.0.0'}
++    peerDependencies:
++      bufferutil: ^4.0.1
++      utf-8-validate: '>=5.0.2'
++    peerDependenciesMeta:
++      bufferutil:
++        optional: true
++      utf-8-validate:
++        optional: true
++
+   xml-name-validator@4.0.0:
+     resolution: {integrity: sha512-ICP2e+jsHvAj2E2lIHxa5tjXRlKDJo4IdvPvCXbXQGdzSfmSpNVyIKMvoZHjDY9DP0zV17iI85o90vRFXNccRw==}
+     engines: {node: '>=12'}
+@@ -10477,6 +10507,12 @@ snapshots:
+   '@types/web-bluetooth@0.0.21':
+     optional: true
+ 
++  '@types/whatwg-mimetype@3.0.2': {}
++
++  '@types/ws@8.18.2':
++    dependencies:
++      '@types/node': 25.5.2
++
+   '@typescript-eslint/eslint-plugin@8.58.0(@typescript-eslint/parser@8.58.0(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2))(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)':
+     dependencies:
+       '@eslint-community/regexpp': 4.12.2
+@@ -10605,7 +10641,7 @@ snapshots:
+       obug: 2.1.1
+       std-env: 4.0.0
+       tinyrainbow: 3.1.0
+-      vitest: 4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3))
++      vitest: 4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(happy-dom@20.9.0)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3))
+ 
+   '@vitest/expect@4.1.5':
+     dependencies:
+@@ -10651,7 +10687,7 @@ snapshots:
+       sirv: 3.0.2
+       tinyglobby: 0.2.15
+       tinyrainbow: 3.1.0
+-      vitest: 4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3))
++      vitest: 4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(happy-dom@20.9.0)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3))
+ 
+   '@vitest/utils@4.1.5':
+     dependencies:
+@@ -13141,6 +13177,18 @@ snapshots:
+ 
+   hachure-fill@0.5.2: {}
+ 
++  happy-dom@20.9.0:
++    dependencies:
++      '@types/node': 25.5.2
++      '@types/whatwg-mimetype': 3.0.2
++      '@types/ws': 8.18.2
++      entities: 7.0.1
++      whatwg-mimetype: 3.0.0
++      ws: 8.22.0
++    transitivePeerDependencies:
++      - bufferutil
++      - utf-8-validate
++
+   has-bigints@1.1.0: {}
+ 
+   has-flag@3.0.0: {}
+@@ -16059,7 +16107,7 @@ snapshots:
+       tsx: 4.21.0
+       yaml: 2.8.3
+ 
+-  vitest@4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3)):
++  vitest@4.1.5(@types/node@25.5.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(happy-dom@20.9.0)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3)):
+     dependencies:
+       '@vitest/expect': 4.1.5
+       '@vitest/mocker': 4.1.5(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(sass@1.99.0)(tsx@4.21.0)(yaml@2.8.3))
+@@ -16085,6 +16133,7 @@ snapshots:
+       '@types/node': 25.5.2
+       '@vitest/coverage-v8': 4.1.5(vitest@4.1.5)
+       '@vitest/ui': 4.1.5(vitest@4.1.5)
++      happy-dom: 20.9.0
+       jsdom: 29.0.1
+     transitivePeerDependencies:
+       - msw
+@@ -16141,6 +16190,8 @@ snapshots:
+ 
+   webpack-virtual-modules@0.6.2: {}
+ 
++  whatwg-mimetype@3.0.0: {}
++
+   whatwg-mimetype@5.0.0: {}
+ 
+   whatwg-url@16.0.1:
+@@ -16261,6 +16312,8 @@ snapshots:
+       js-yaml: 4.1.1
+       write-file-atomic: 3.0.3
+ 
++  ws@8.22.0: {}
++
+   xml-name-validator@4.0.0: {}
+ 
+   xml-name-validator@5.0.0: {}
