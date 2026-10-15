@@ -1,0 +1,12 @@
+[
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+    "head": "9364798d6ed522099c426e26a795632448635eef",
+    "blob": "a0065289220319020a336660884dcab60489985a"
+  },
+  {
+    "path": "src/frontend/src/fsusui/form.ts",
+    "head": "9364798d6ed522099c426e26a795632448635eef",
+    "blob": "cc4aeca30aa8842baea17df52f8153c9554f3dad"
+  }
+]

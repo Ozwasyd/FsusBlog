@@ -1,0 +1,53 @@
+{
+  "oldUI961ToActualUI969": {
+    "baseErrors": 29,
+    "candidateErrors": 29,
+    "added": 0,
+    "removed": 0,
+    "comparison": "whole raw output after exact UI-root and source-position replacement only; no diagnostic filtering or deduplication"
+  },
+  "actualUI969ToSourceCandidate": {
+    "baseErrors": 29,
+    "candidateErrors": 29,
+    "added": 0,
+    "removed": 0,
+    "comparison": "whole raw output after exact UI-root and source-position replacement only; no diagnostic filtering or deduplication"
+  },
+  "full-style": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 83667
+  },
+  "boundary": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 21
+  },
+  "binary-boundary": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 7
+  },
+  "lifecycle": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 7
+  },
+  "authoritative": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 41
+  },
+  "codeIntent": {
+    "status": "FAIL1 both",
+    "errors": 2,
+    "baseChecked": 5747,
+    "candidateChecked": 5753,
+    "sameDiagnosticRows": true
+  },
+  "strict": {
+    "exit": 0,
+    "rawResult": "[frontend-style] ok files=6 eslint=6 stylelint=2 violations=0 new=0"
+  },
+  "AST": "PASS0 SFC/script/TS parsing only; no product module import/evaluation"
+}

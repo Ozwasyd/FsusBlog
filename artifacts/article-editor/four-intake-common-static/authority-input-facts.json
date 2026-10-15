@@ -1,0 +1,82 @@
+{
+  "kind": "ordinary context identity facts only; no classification/UX/authority receipt or refresh",
+  "actualUI": "/workspace/session-2295-ui973-local-dependency",
+  "UIhead": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "UItrackedTree": "ea3ee662610db877ce0d17f8fc5fae2b2106136f",
+  "UIdirty": false,
+  "context": "Reuse previously read unchanged authority/component inputs, both skills reread for current limitedSOURCE composition. User runtime/frozen/qualificationHOLD prevails; no formal receipts or runtime/parser execution.",
+  "inputs": {
+    "/workspace/session-2295-blog-four-intake-common/AGENTS.md": {
+      "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d",
+      "gitBlob": "1445755f3eceb7c05fec62ae9feea4badd7b30fc"
+    },
+    "/workspace/session-2295-blog-four-intake-common/.agents/skills/fsusblog-design-conformance/SKILL.md": {
+      "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+      "gitBlob": "9afff0c7bc3464b4e33f4275a463d8dc18351f45"
+    },
+    "/workspace/session-2295-blog-four-intake-common/docs/design/governance.md": {
+      "sha256": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+      "gitBlob": "4d56fb080c566664ca508f2412de53836d318335"
+    },
+    "/workspace/session-2295-blog-four-intake-common/docs/design/surface-profiles.md": {
+      "sha256": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243",
+      "gitBlob": "a1a89cfec64a35313c715395436f9c16de25e0f8"
+    },
+    "/workspace/session-2295-ui973-local-dependency/AGENTS.md": {
+      "sha256": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89",
+      "gitBlob": "b603f1cc2cbe9245cfd5f3d4cb6b54582bc557ff"
+    },
+    "/workspace/session-2295-ui973-local-dependency/.agents/skills/fsusui-design-conformance/SKILL.md": {
+      "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+      "gitBlob": "51b62cd6d254ac107a4441dac17ba65bd61a5d66"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/index.md": {
+      "sha256": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+      "gitBlob": "701de5752c57dee4a260bb20cb8ee6f91905a67b"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/design.md": {
+      "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+      "gitBlob": "cb6d8a77e4aa51dc8ae3ac651c141f2fb1eedc5a"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/design/governance.md": {
+      "sha256": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+      "gitBlob": "ac7b66daeaf4baa921d3821acd1d732c681d63a3"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/design/change-classification.md": {
+      "sha256": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+      "gitBlob": "fb963463f7af74dfdf3721ee41bb8baf7c9aab64"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/workflows/visual-change.md": {
+      "sha256": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+      "gitBlob": "df2b4905104965b007804d9e79e51a89329a90a0"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/consumers/design-integration.md": {
+      "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+      "gitBlob": "8584a03356eca99807559a44939b1475c0a31b7a"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/select-v2.md": {
+      "sha256": "534572b1abfee192ed530948a0f823857f24665e75e3a2d84664ade666dc22c0",
+      "gitBlob": "2ea2ac6ee46309a49dcf33e248d4f7b9e276d5af"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/input.md": {
+      "sha256": "eb264aa04632eba01f036cd354cad6bf4b2bd6b10b6a48a4df043f1664174175",
+      "gitBlob": "9fbda69be1c5719668550aaf028d9cf42c879e84"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/switch.md": {
+      "sha256": "6571a7349be1a3c4a0bdda55f852791f52260729791e85ed97c658a7479f3104",
+      "gitBlob": "2c63a3203e81fdfbc1ec259a91097680b1b8f377"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/form.md": {
+      "sha256": "2625ed210d920d82cd2b83befe5224486fc66380fe2407089fb491838ab9ed88",
+      "gitBlob": "86961011ed5f682c0ee6bd0fb268061c27b73fa6"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/table-v2.md": {
+      "sha256": "bede833414c915ff82a5a9183849d4cee37747aac5b3a8604564c19442f3b3c3",
+      "gitBlob": "94ab470d966cdc0d7cdeac39d01ba95c07b24918"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/drawer.md": {
+      "sha256": "7f7da0f07e5025513742bbefb6f9a1589abdd8619e3974bc58599fb6498fbb49",
+      "gitBlob": "c1a84ff67cf21f2e10ae7c3d76c63dfcfd6ffcd5"
+    }
+  }
+}
