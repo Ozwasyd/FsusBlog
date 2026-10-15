@@ -1,0 +1,12 @@
+{
+  "cwd": "/workspace/fsusblog-4366-base",
+  "command": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+  "setup": "source /workspace/.setup/activate.sh",
+  "envOverrides": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+  },
+  "started": "2026-10-15T10:50:29.977766+00:00",
+  "finished": "2026-10-15T10:50:30.212669+00:00",
+  "exit": 1
+}

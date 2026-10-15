@@ -1,0 +1,16 @@
+{
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+  "donorHead": "432019fcb1a4fbd4ebdbd1f2617190d8185a5990",
+  "path": "src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+  "baseBlob": "2600ffd78a9316be7ce50868df6667291d8d85be",
+  "donorPreimage": "2600ffd78a9316be7ce50868df6667291d8d85be",
+  "donorPostimage": "437c64dc14105a0d0c4d3be37d7bb376fc47d369",
+  "actualPostimage": "437c64dc14105a0d0c4d3be37d7bb376fc47d369",
+  "uiHead": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "uiStatus": "",
+  "productionSha256": "804d54baef832fbf2d7b541389ede9e98c1bd3f13fbb6f33acd8768366628da3",
+  "conflict": "none; exact donor preimage equals target base blob",
+  "dependencies": "existing actual installed frontend/UI dependency directories linked into task-owned ignored locations; no package substitute",
+  "uiPath": "/workspace/fsusblog-4366-ui973"
+}

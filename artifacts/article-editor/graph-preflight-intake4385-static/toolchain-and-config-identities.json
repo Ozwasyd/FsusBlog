@@ -1,0 +1,74 @@
+{
+  "toolVersions": {
+    "typescript": "6.0.3",
+    "vue-tsc": "3.2.7",
+    "vue": "3.5.33",
+    "@vue/compiler-sfc": "3.5.33",
+    "eslint": "10.8.0",
+    "stylelint": "17.14.1",
+    "typescript-eslint": "8.65.0"
+  },
+  "configInputs": [
+    {
+      "path": "src/frontend/package.json",
+      "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "src/frontend/package-lock.json",
+      "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "src/frontend/tsconfig.json",
+      "sha256": "f8f8b77d34a1641383539c260f8d83c817d93e6a99294ca071cd6c080eb6f167",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "src/frontend/tsconfig.app.json",
+      "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package.json",
+      "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/frontend/check-frontend-style.mjs",
+      "sha256": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "sha256": "172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1",
+      "unchangedFromBase": true
+    },
+    {
+      "path": ".editorconfig",
+      "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "Directory.Build.props",
+      "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+      "unchangedFromBase": true
+    }
+  ],
+  "frontendLockSameAsExistingInstalledRoot": true,
+  "uiNodeModules": "/workspace/FsusUI/node_modules",
+  "frontendNodeModules": "/workspace/FsusBlog/src/frontend/node_modules",
+  "noTrackedConfigurationOrSourceSetChange": true,
+  "installCommand": "npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/fsusblog-4366-npm-cache --prefix tools/frontend/style-toolchain",
+  "styleDependenciesForBase": "unchanged exact locked candidate toolchain copied physically to task-owned base ignored location"
+}
