@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleEmbedRefreshPreparation.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanner.cs"
+            ],
+            "reason": "The existing registry selects all src managed files. These three additive refresh source files preserve the existing provider and canonical serialized identifiers, introduce no environment access or process configuration, and retain the repository internal C# naming map."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "The original registry includes this maintained nested API document. Preserve existing external parser and serialized contract names while documenting the unconnected non-executing source candidate; no token or selector contract is changed."
+        }
+    ]
+}

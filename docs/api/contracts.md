@@ -855,6 +855,22 @@ content。`ArticleEmbedAuthoringVerifier` 独立重算每个节点的 expected o
 legitimacy、memoization exactness 与全部 digest；任何 tamper 都 fail closed。本 slice 不执行
 publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
 
+`ArticleEmbedRefreshPlanner` / `ArticleEmbedRefreshPreparation` 是 #2467 的普通非执行源码候选，
+尚未接入路由或 DI。输入必须由 canonical caller 提供真实 current host draft observation：
+actor/site/edit permission、draft key/server expected revision、document epoch、source revision/digest
+及有界完整 dependency occurrence roster；摘要只绑定结构，不能证明 reader、权限或 roster 完整性。
+显式 selection 最多 256 项，冻结 parser directive identity/range/token/mode、旧/desired exact
+coordinate、目标 source digest、permission/lifecycle 和选中子图/budget。期望 host、authority 或
+desired coordinate 漂移返回 `Stale`；无变化返回 `NoChange`；缺失/无权/结构或 graph/budget 不合法
+返回 `Blocked`，取消不返回部分计划。只消费既有 authoring pipeline/refresh policy，不重新解析或
+动态刷新到 latest，也不复制 target content。
+
+该候选的 `CanExecute` 恒为 false；选中子图不是完整 host persisted graph 的提交资格。当前组合
+基线尚缺 Policy/Pipeline/Graph 前置源码闭包，因此本批编译仍阻塞；缺少真实 host dependency read、
+current permission/whole-host graph revalidation、expected revision CAS/idempotency 和 canonical
+no-source-change revision/outbox/audit commit 时不得启用。计划不修改 source bytes/token、target、
+existing publication 或 publication receipts，也不代表 #2467 已完成。
+
 ### Article embed publication freeze contract
 
 `src/shared/Contracts/ArticleEmbeds/Publication/` 是 publication-plan scope embed freezing 的唯一
