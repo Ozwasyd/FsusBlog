@@ -95,16 +95,16 @@
                 </ElForm>
 
                 <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
-                    <button
+                    <FsusUiButton
                         v-for="preset in presets"
                         :key="preset.label"
-                        type="button"
+                        native-type="button"
                         class="flex w-full items-center justify-between border-b border-[var(--fsusblog-panel-border)] px-5 py-4 text-left transition hover:bg-[var(--fsusblog-page-bg-soft)]"
                         @click="applyPreset(preset)"
                     >
                         <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ preset.label }}</span>
                         <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)] tabular-nums">{{ preset.riskScore }}</span>
-                    </button>
+                    </FsusUiButton>
                 </div>
             </div>
         </FsusUiSettingsSection>
@@ -165,6 +165,7 @@ import { computed, reactive, shallowRef } from 'vue';
 import { simulateRiskControl, type RiskControlSimulationRequest, type RiskControlSimulationResponse } from '@/api/security';
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue';
 import { FsusUiSettingsSection } from '@/fsusui';
+import { FsusUiButton } from '@/fsusui/button';
 import { Refresh } from '@/fsusui/icons';
 import { showErrorToast } from '@/utils/errorPresentation';
 
