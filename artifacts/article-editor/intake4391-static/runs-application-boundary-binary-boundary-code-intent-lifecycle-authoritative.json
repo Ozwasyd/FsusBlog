@@ -1,0 +1,198 @@
+[
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+            "--application"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:07.255833+00:00",
+        "completed": "2026-10-15T10:45:44.032968+00:00",
+        "exitCode": 2,
+        "log": "base-application.log"
+    },
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:44.033002+00:00",
+        "completed": "2026-10-15T10:45:44.204307+00:00",
+        "exitCode": 1,
+        "log": "base-boundary.log"
+    },
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:44.204351+00:00",
+        "completed": "2026-10-15T10:45:44.276746+00:00",
+        "exitCode": 1,
+        "log": "base-binary-boundary.log"
+    },
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/governance/check-code-intent.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:44.276778+00:00",
+        "completed": "2026-10-15T10:45:54.025145+00:00",
+        "exitCode": 1,
+        "log": "base-code-intent.log"
+    },
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/docs/generate-document-lifecycle.mjs",
+            "--check"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:54.025195+00:00",
+        "completed": "2026-10-15T10:45:54.173640+00:00",
+        "exitCode": 1,
+        "log": "base-lifecycle.log"
+    },
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/docs/check-authoritative-development-docs.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:54.173991+00:00",
+        "completed": "2026-10-15T10:45:54.289703+00:00",
+        "exitCode": 1,
+        "log": "base-authoritative.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+            "--application"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:54.289954+00:00",
+        "completed": "2026-10-15T10:46:31.665290+00:00",
+        "exitCode": 2,
+        "log": "candidate-application.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:46:31.665338+00:00",
+        "completed": "2026-10-15T10:46:31.806863+00:00",
+        "exitCode": 1,
+        "log": "candidate-boundary.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:46:31.806905+00:00",
+        "completed": "2026-10-15T10:46:31.876256+00:00",
+        "exitCode": 1,
+        "log": "candidate-binary-boundary.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "tools/governance/check-code-intent.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:46:31.876296+00:00",
+        "completed": "2026-10-15T10:46:41.940642+00:00",
+        "exitCode": 1,
+        "log": "candidate-code-intent.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "tools/docs/generate-document-lifecycle.mjs",
+            "--check"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:46:41.940682+00:00",
+        "completed": "2026-10-15T10:46:42.069201+00:00",
+        "exitCode": 1,
+        "log": "candidate-lifecycle.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "tools/docs/check-authoritative-development-docs.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:46:42.069241+00:00",
+        "completed": "2026-10-15T10:46:42.179853+00:00",
+        "exitCode": 1,
+        "log": "candidate-authoritative.log"
+    }
+]

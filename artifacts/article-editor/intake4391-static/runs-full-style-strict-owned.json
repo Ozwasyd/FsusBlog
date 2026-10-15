@@ -1,0 +1,82 @@
+[
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "full"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:13.276608+00:00",
+        "completed": "2026-10-15T10:45:16.551119+00:00",
+        "exitCode": 1,
+        "log": "base-full-style.log"
+    },
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "strict-full",
+            "--file",
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts",
+            "--file",
+            "src/frontend/src/assets/markdown.css"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:16.551177+00:00",
+        "completed": "2026-10-15T10:45:19.550198+00:00",
+        "exitCode": 1,
+        "log": "base-strict-owned.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "full"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:45:19.550667+00:00",
+        "completed": "2026-10-15T10:47:21.224472+00:00",
+        "exitCode": 1,
+        "log": "candidate-full-style.log"
+    },
+    {
+        "stage": "candidate",
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "strict-full",
+            "--file",
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts",
+            "--file",
+            "src/frontend/src/assets/markdown.css"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:47:21.224515+00:00",
+        "completed": "2026-10-15T10:47:30.795944+00:00",
+        "exitCode": 1,
+        "log": "candidate-strict-owned.log"
+    }
+]

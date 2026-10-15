@@ -1,0 +1,88 @@
+{
+    "application": {
+        "baseExit": 2,
+        "candidateExit": 2,
+        "baseLines": 30,
+        "candidateLines": 30,
+        "rawByteIdentical": true,
+        "added": [],
+        "removed": [],
+        "normalization": "none; complete raw lines/multiplicity",
+        "baseDiagnostics": 29,
+        "candidateDiagnostics": 29
+    },
+    "full-style": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 83667,
+        "candidateLines": 83666,
+        "rawByteIdentical": false,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/composables/article/useCodeBlockCopy.ts:98:46 eslint/@typescript-eslint/no-misused-promises: Promise returned in function argument where a void return was expected."
+        ],
+        "normalization": "none; complete raw lines/multiplicity"
+    },
+    "strict-owned": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 2,
+        "candidateLines": 1,
+        "rawByteIdentical": false,
+        "added": [],
+        "removed": [
+            "[frontend-style] src/frontend/src/composables/article/useCodeBlockCopy.ts:98:46 eslint/@typescript-eslint/no-misused-promises: Promise returned in function argument where a void return was expected."
+        ],
+        "normalization": "none; complete raw lines/multiplicity"
+    },
+    "boundary": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 21,
+        "candidateLines": 21,
+        "rawByteIdentical": true,
+        "added": [],
+        "removed": [],
+        "normalization": "none; complete raw lines/multiplicity"
+    },
+    "binary-boundary": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 7,
+        "candidateLines": 7,
+        "rawByteIdentical": true,
+        "added": [],
+        "removed": [],
+        "normalization": "none; complete raw lines/multiplicity"
+    },
+    "code-intent": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 3,
+        "candidateLines": 3,
+        "rawByteIdentical": true,
+        "added": [],
+        "removed": [],
+        "normalization": "none; complete raw lines/multiplicity"
+    },
+    "lifecycle": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 7,
+        "candidateLines": 7,
+        "rawByteIdentical": true,
+        "added": [],
+        "removed": [],
+        "normalization": "none; complete raw lines/multiplicity"
+    },
+    "authoritative": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 41,
+        "candidateLines": 41,
+        "rawByteIdentical": true,
+        "added": [],
+        "removed": [],
+        "normalization": "none; complete raw lines/multiplicity"
+    }
+}
