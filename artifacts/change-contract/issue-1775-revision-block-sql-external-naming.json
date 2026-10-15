@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Operations/AdminIntegrityOperations.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs",
+                "src/backend/Services/ArticleService.AuthoringCanvasLink.cs",
+                "src/backend/Services/ArticleService.Mutations.cs",
+                "src/backend/Services/ArticleService.cs",
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+                "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+                "src/backend/Services/Authoring/PostgresAuthoringCanvasCoordinateAuthority.cs",
+                "src/backend/Services/Background/ArticleBodyRepairWorker.cs"
+            ],
+            "reason": "The original broad registry includes every managed src file. Preserve existing process/wire/database column, alias and parameter names across the nine scoped sources while removing references to the old revision column. No registry, environment identifier, DTO, validation policy or physical schema identity is renamed."
+        }
+    ]
+}

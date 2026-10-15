@@ -564,29 +564,48 @@ public partial class ArticleService
                    a.scheduled_publish_at,
                    a.published_at,
                    a.current_revision_id,
+                   revision.id AS resolved_revision_id,
                    revision.revision_no,
                    revision.created_at AS revision_updated_at,
-                   COALESCE(content_block.markdown_content, revision.markdown_content) AS markdown_content,
+                   revision.content_block_id,
+                   content_block.id AS resolved_content_block_id,
+                   content_block.markdown_content AS markdown_content,
                    COALESCE(
                        array_agg(at.tagid ORDER BY at.tagid)
                            FILTER (WHERE at.tagid IS NOT NULL),
                        ARRAY[]::integer[]
                    ) AS tag_ids
             FROM article a
-            JOIN article_revision revision ON revision.id = a.current_revision_id
+            LEFT JOIN article_revision revision
+                ON revision.id = a.current_revision_id AND revision.article_id = a.id
             LEFT JOIN article_revision_content_block content_block ON content_block.id = revision.content_block_id
             LEFT JOIN article_tag at ON at.articleid = a.id
             WHERE a.id = @ArticleId
               AND a.isdeleted = false
             GROUP BY a.id, a.title, a.summary, a.coverimageurl, a.categoryid, a.xmin,
                      a.status, a.scheduled_publish_at, a.published_at,
-                     a.current_revision_id, revision.revision_no, revision.created_at,
-                     content_block.markdown_content, revision.markdown_content;
+                     a.current_revision_id, revision.id, revision.revision_no, revision.created_at,
+                     revision.content_block_id, content_block.id, content_block.markdown_content;
             """,
             new SugarParameter("@ArticleId", articleId));
         if (!await reader.ReadAsync(Ct))
         {
             return null;
+        }
+
+        long revisionId = reader.IsNull("current_revision_id") ? 0 : reader.ReadInt64("current_revision_id");
+        long contentBlockId = reader.IsNull("content_block_id") ? 0 : reader.ReadInt64("content_block_id");
+        if (revisionId <= 0
+            || reader.IsNull("resolved_revision_id")
+            || reader.ReadInt64("resolved_revision_id") != revisionId
+            || reader.IsNull("revision_no")
+            || reader.ReadInt32("revision_no") <= 0
+            || contentBlockId <= 0
+            || reader.IsNull("resolved_content_block_id")
+            || reader.ReadInt64("resolved_content_block_id") != contentBlockId
+            || reader.IsNull("markdown_content"))
+        {
+            throw new InvalidOperationException($"article_revision_content_block_missing:{revisionId}:{contentBlockId}");
         }
 
         int categoryId = reader.ReadInt32("categoryid");

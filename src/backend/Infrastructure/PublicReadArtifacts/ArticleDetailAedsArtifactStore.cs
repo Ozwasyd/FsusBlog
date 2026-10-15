@@ -606,7 +606,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
                     revision.cover_image_url,
                     revision.categoryid,
                     revision.tag_ids,
-                    revision.markdown_content,
+                    revision.content_block_id,
                     revision.created_at
                 FROM article_revision revision
                 ORDER BY revision.article_id, revision.revision_no DESC, revision.created_at DESC, revision.id DESC
@@ -618,7 +618,9 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
                 COALESCE(revision.cover_image_url, a.coverimageurl) AS "CoverImageUrl",
                 COALESCE(revision.categoryid, a.categoryid) AS "CategoryId",
                 COALESCE(revision.tag_ids, '') AS "TagIds",
-                COALESCE(revision.markdown_content, body.markdown_content, '') AS "MarkdownContent",
+                revision.content_block_id AS "ContentBlockId",
+                block.id AS "ResolvedContentBlockId",
+                block.markdown_content AS "MarkdownContent",
                 a.status AS "Status",
                 a.published_at AS "PublishedAt",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
@@ -642,7 +644,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
                 snapshot.content_canonical_hash AS "ContentCanonicalHash"
             FROM article a
             JOIN latest_revision revision ON revision.article_id = a.id
-            LEFT JOIN article_body body ON body.article_id = a.id
+            LEFT JOIN article_revision_content_block block ON block.id = revision.content_block_id
             LEFT JOIN article_rights_policy policy ON policy.article_id = a.id
             LEFT JOIN article_rights_snapshot snapshot
                 ON snapshot.article_id = a.id
@@ -666,6 +668,16 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
 
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
+            long revisionId = reader.GetInt64(reader.GetOrdinal("ArticleRevisionId"));
+            long contentBlockId = ReadNullableInt64(reader, "ContentBlockId") ?? 0;
+            if (revisionId <= 0
+                || contentBlockId <= 0
+                || ReadNullableInt64(reader, "ResolvedContentBlockId") != contentBlockId
+                || reader.IsDBNull(reader.GetOrdinal("MarkdownContent")))
+            {
+                throw new InvalidOperationException($"article_revision_content_block_missing:{revisionId}:{contentBlockId}");
+            }
+
             rows.Add(ReadRightsRecomputeCandidate(reader));
         }
 
@@ -830,7 +842,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
             CoverImageUrl: ReadNullableString(reader, "CoverImageUrl"),
             CategoryId: reader.GetInt32(reader.GetOrdinal("CategoryId")),
             TagIds: ReadStringOrDefault(reader, "TagIds", string.Empty),
-            MarkdownContent: ReadStringOrDefault(reader, "MarkdownContent", string.Empty),
+            MarkdownContent: reader.GetString(reader.GetOrdinal("MarkdownContent")),
             Status: reader.GetInt32(reader.GetOrdinal("Status")),
             PublishedAt: ReadNullableDateTime(reader, "PublishedAt"),
             ScheduledPublishAt: ReadNullableDateTime(reader, "ScheduledPublishAt"),
