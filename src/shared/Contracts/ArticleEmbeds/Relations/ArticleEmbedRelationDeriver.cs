@@ -1,4 +1,5 @@
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Publication;
 
 namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
@@ -21,7 +22,7 @@ public static class ArticleEmbedRelationDeriver
         ArticleEmbedAuthoringResolution? resolution)
     {
         ArticleEmbedAuthoringVerification verification =
-            ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, resolution);
+            ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, resolution);
         if (!verification.Valid)
         {
             return Rejected("article_embed_relation_source_unverified");
