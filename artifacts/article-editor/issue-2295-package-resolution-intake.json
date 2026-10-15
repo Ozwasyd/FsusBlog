@@ -1,0 +1,178 @@
+{
+    "kind": "ordinary exact reviewed package source intake; no execution authority",
+    "parentMain": "004a1627eef27c367aab79ea068f1bff160a2f67",
+    "donorPR": 4342,
+    "donorTrueBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+    "donorHead": "646609ced7bff8de601f48e699be7bee333cea6a",
+    "exactFinalFiles": [
+        {
+            "path": "artifacts/article-packages/resolution-preparation-source/WIP.md",
+            "donorFinalBlob": "7ee7044c9a8ee423fedcd92cc177e47c848fa8dc",
+            "sha256": "fc9054127bf1c2041f55aa3a2fea544b1a43d3b01a400c26d5ae9a1a5693507a",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "artifacts/change-contract/article-package-resolution-preparation-external-naming.json",
+            "donorFinalBlob": "15401d3cfc4ff807d56beb96d6238e2d9a328acb",
+            "sha256": "cfe0942805466d86ccd1f3e1dcd0d64740e7b7234c7ccd67de623ff00a2bc7fe",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+            "donorFinalBlob": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+            "sha256": "c5b90c4bee8e7dfaacbbb5345dde4f6cd146278af28821c71049ddbeba246799",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageImportResolutionPreparation.cs",
+            "donorFinalBlob": "6ba3c5a6fc610b1d168e5ca9151c9b0dae48d470",
+            "sha256": "5e3567e8a2c5bbf05a6a9b6e5b7b0678e88e749ad6c9b5cb506912cc25937f74",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs",
+            "donorFinalBlob": "9ecc32ddfc6b80c8dba53d1e681759a28b9eaef1",
+            "sha256": "8f113d8042f096d219496407b306033a55593b032d3b5fe97fb5b1e001cb4d9b",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+            "donorFinalBlob": "5efd320607c42e54edf6183257b3b8be60d9014b",
+            "sha256": "90ae25aa5f712fb98a5b88f041dc609bbc8d54c847e097aae4f53f5a2779683e",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+            "donorFinalBlob": "fffd88b4664604fadedf7897e98ee92bbdea18c3",
+            "sha256": "0fe36244e5fb47cbbdc67c022a3b881e16722980869d8e6743d00967076e2826",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+            "donorFinalBlob": "0349b601d66fed31483639b11f716e6fd8e9ee78",
+            "sha256": "f3e0fea81b2a4926202ed19fa236794fac2a511d729377ccb45c5988b63caecc",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+            "donorFinalBlob": "703501fe781def4f7818bff75fb7943b24ae2406",
+            "sha256": "2280792b9e35d4e1e96be5afc8d7060473ec826fd04485c8bb496e152e3e1604",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+            "donorFinalBlob": "e36842251889f60ca1d59b26d566444ca5b245d3",
+            "sha256": "4f36f0c335d3125b65e52f322d03e848de225c2d188c09773b6d9c9ef6d0d062",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportResolutionContracts.cs",
+            "donorFinalBlob": "e8ea5cdfa51dab1436ed7071c3935ad1fb69b1b2",
+            "sha256": "f7f9ae247b1df9b0ba660a3747fdad0a220b9fd11b1a17b9a22197d0e36491f8",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportResolutionPlanner.cs",
+            "donorFinalBlob": "41c82a4ecd10fed50fcd5d7bd34237c3c775176b",
+            "sha256": "b530dcdbc0fcebca1cfc9ca2cd16250e73487e6d89c0cbb19556698ba24175f5",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+            "donorFinalBlob": "33855d7e02f825aaab609530327cd586346162ea",
+            "sha256": "d68ab160127912c8675ab211616bf113a0bd0bbf2e6aaa68ea552ac49aa623f3",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+            "donorFinalBlob": "c7cc09a894ea454beb7304bd03b0b9197e1d45f6",
+            "sha256": "908a108caf94d1bfc1f07b1121fbd27ca2490a4fa404e60aa1053b11a0e00841",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+            "donorFinalBlob": "56cb3abdac3dbf68abff92dbf79edff41a0fcc89",
+            "sha256": "040df41eddd5c6fc751a8c8e7064e71658c8ebc3466cb31fbee9eedb6934c4d6",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestVersionRegistry.cs",
+            "donorFinalBlob": "6722da44ef71c8550a5e42d2c18e138488b8771e",
+            "sha256": "c1968a6da626f248e82f9b3c3d8770ae84fb288b14c2f979e51fa56d196a7f42",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+            "donorFinalBlob": "d364b5e587bb7545ae7784258e2e3798a2c67aea",
+            "sha256": "bec4ec1bd472480f6cc8e3e130fac51488fc1b3e44d0d37b16eff220cc0ec9a5",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+            "donorFinalBlob": "b983c751c710118d88642a3a69c0e1a54cabc6e7",
+            "sha256": "b15687dfc98d664ee267c9056fe7f3c008eddab1b8f6a3dc8081eab21f99697d",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+            "donorFinalBlob": "dbfdbb966493224fae21e1f4c192bcd9f5f48674",
+            "sha256": "18e5b691b6067a1760bb8bd9c26552d1aa9da6a9928588827e7bce264f3bea51",
+            "wholeFileByteIdentical": true
+        }
+    ],
+    "sourceScope": "17 added C# leaves and two donor ordinary records, plus this intake WIP; original three preparation leaves unchanged, 14 fixed necessary whole-file inputs retained. No existing Main source/config/route/DI modified. #2404/#2413 incomplete.",
+    "excludedTypesAbsentAndUnreferenced": [
+        "ArticlePackageCandidateReviewReadContracts",
+        "ArticlePackageCandidateReviewWireValidation",
+        "ArticlePackageImportZipCandidateReader",
+        "ArticlePackageImportZipDirectory",
+        "ArticlePackageManifestAssetCollection",
+        "ArticlePackageManifestAssetMetadata",
+        "ArticlePackageManifestMetadataCodec",
+        "ArticlePackageManifestMetadataContracts",
+        "ArticlePackageManifestPropertyCodec",
+        "ArticlePackageManifestTaxonomyCodec",
+        "ArticlePackageManifestTaxonomyContracts"
+    ],
+    "authorityBoundary": "All 11 RequiredAuthorities preserved; unconditional RequireExecutionAuthority refusal; ExecuteDisabled=true; HasObservedResolution=false. No issuer, reader, executor, grant, route or production activation.",
+    "static": {
+        "fullApplication": "29FAIL ->29FAIL; complete diagnostics/multiplicity positions-only added0 removed0",
+        "completeServer": "locked restore PASS0; original full no-incremental build PASS0,330 warnings0errors; complete660 diagnostic lines root/position-only added0removed0",
+        "strictCSharp": "17 files PASS0 violations0",
+        "globalCSharp": "552 lines FAIL unchanged byte-for-byte",
+        "codeIntent": "same2 existing diagnostic rows; checked files5716->5733; FAIL retained",
+        "docs": "Original lifecycle7FAIL/authoritative41FAIL, full raw outputs byte-identical to exact parent profile."
+    },
+    "alias": "Unchanged actual clean UI957903db034a14254fb162f51b9c25d3703ea20ccb5; UI961 not adopted in this batch.",
+    "holds": "Runtime/tests/discovery/helper/product imports/calls/DB/native/browser/receipts/catalog/fixtures/security/privacy/backuprestore/IME/qualification HOLD/UNRUN. No merge/Ready/close/publication. #4340 excluded; #4336 aggregate FAIL retained.",
+    "rollback": "Omit/revert only this intake added paths; no live data or physical schema changed.",
+    "evidence": {
+        "/workspace/session-evidence-2295/package-intake-candidate-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/package-intake-code-intent.txt": {
+            "sha256": "3a9446a1e590b4ff7bed628749b526f56eee198932e6b03010d15c6b2c3531d1"
+        },
+        "/workspace/session-evidence-2295/package-intake-csharp-full.txt": {
+            "sha256": "65c17a5db8bbbb36d9ef7b29fe9cb4a43143d75d0eabdbde72b6324380c139b1"
+        },
+        "/workspace/session-evidence-2295/package-intake-csharp-strict.txt": {
+            "sha256": "f918f62a9fbd5c15c545333f4fc80c78a98158edd194aacd6ac4c17127369cc3"
+        },
+        "/workspace/session-evidence-2295/package-intake-base-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/package-intake-backend-restore.txt": {
+            "sha256": "ec4a2211a35bdd7342c42e50a6cd781f92e5ccc880c2f63ac931472394555eb0"
+        },
+        "/workspace/session-evidence-2295/package-intake-backend-build.txt": {
+            "sha256": "3672f7b603c3d58b8f4228382fdd2c204b1a6e1904a322b1e06d55e8a3e91612"
+        },
+        "/workspace/session-evidence-2295/package-intake-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/package-intake-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        }
+    }
+}
