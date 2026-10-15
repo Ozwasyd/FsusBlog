@@ -88,9 +88,15 @@ import {
 import { useMediaQuery } from '@/composables/useMediaQuery';
 import { FsusUiButton } from '@/fsusui/button';
 import { Close, List } from '@/fsusui/icons';
-import type { ButtonInstance, MarkdownEditorOutlineItem, MarkdownOutlineTreeNode } from '@ozwasyd/element-plus';
+import type { MarkdownEditorOutlineItem, MarkdownOutlineTreeNode } from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteOutlineRail' });
+
+/** Only ButtonInstance.ref's documented native button is consumed. */
+interface OutlineButtonHandle
+{
+    readonly ref?: HTMLButtonElement;
+}
 
 const RAIL_OPEN_STORAGE_KEY = 'fsusblog.article-outline.rail-open.v1';
 
@@ -140,7 +146,7 @@ const OutlinePanelContent = defineComponent({
         });
 
         const registerNodeButton = (nodeId: string, element: unknown): void => {
-            const button = (element as ButtonInstance | null)?.ref;
+            const button = (element as OutlineButtonHandle | null)?.ref;
             if (button instanceof HTMLButtonElement) {
                 nodeButtons.set(nodeId, button);
                 return;
@@ -323,7 +329,7 @@ const emit = defineEmits<{
 const isCompact = useMediaQuery('(max-width: 1023px)', false);
 const publicDrawer = resolveComponent('ElDrawer');
 const isOpen = ref(false);
-const launcherRef = ref<ButtonInstance | null>(null);
+const launcherRef = ref<OutlineButtonHandle | null>(null);
 const expandedNodeIds = ref<ReadonlySet<string>>(new Set());
 let focusReturnPending = false;
 let mounted = false;
