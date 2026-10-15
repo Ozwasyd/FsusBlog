@@ -53,6 +53,7 @@
                 <FsusUiButton
                     native-type="button"
                     text
+                    class="article-write-inspector-pane__close"
                     aria-label="关闭文章检查器"
                     @click="requestClose"
                 >
@@ -281,6 +282,12 @@ onUnmounted(() =>
     font-size: var(--fsus-typography-heading-sm-size);
     font-weight: 700;
     line-height: 1.35;
+}
+
+.article-write-inspector-pane__close
+ {
+    min-width: var(--fsus-control-height);
+    min-height: var(--fsus-control-height);
 }
 
 .article-write-inspector-launcher
