@@ -99,11 +99,13 @@
                         v-for="preset in presets"
                         :key="preset.label"
                         native-type="button"
-                        class="flex w-full items-center justify-between border-b border-[var(--fsusblog-panel-border)] px-5 py-4 text-left transition hover:bg-[var(--fsusblog-page-bg-soft)]"
+                        class="security-simulator-preset w-full border-b border-[var(--fsusblog-panel-border)] px-5 py-4 text-left transition hover:bg-[var(--fsusblog-page-bg-soft)]"
                         @click="applyPreset(preset)"
                     >
-                        <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ preset.label }}</span>
-                        <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)] tabular-nums">{{ preset.riskScore }}</span>
+                        <span class="flex w-full items-center justify-between">
+                            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ preset.label }}</span>
+                            <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)] tabular-nums">{{ preset.riskScore }}</span>
+                        </span>
                     </FsusUiButton>
                 </div>
             </div>
@@ -404,6 +406,17 @@ const runSimulation = async (): Promise<void> =>
 </script>
 
 <style scoped>
+.security-simulator-preset
+ {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.security-simulator-preset + .security-simulator-preset
+ {
+    margin-left: 0;
+}
+
 .risk-score-scale
  {
     display: flex;
