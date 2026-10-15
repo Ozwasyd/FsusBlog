@@ -1,0 +1,33 @@
+{
+  "kind": "ordinary static source-intent review, not an acceptance receipt",
+  "source": "962fa5ba18d7a4c6438417cddf147750a16d0663",
+  "productionBlob": "666dd6bf8a169293d00e941ec158b35ae3569105",
+  "actualUI": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "facts": {
+    "imports": [
+      "Vue computed/ref/useId/watch",
+      "public FsusUI ElButton/ElCheckbox"
+    ],
+    "scopeInputs": [
+      "siteIdentity: string|null",
+      "vaultIdentity: string|null",
+      "selectedRootPath: string|null"
+    ],
+    "localGuard": "All three inputs must be nonempty strings before checkbox/continue become available; this is display validation only, not verified host/scope/permission identity.",
+    "ackReset": "watch resets local acknowledgment on scope change, flush sync",
+    "reviewEvent": "reviewInitialPlan emits no payload and only after local scope/ack guard; navigation intent only, no actual command binding.",
+    "cancelEvent": "clears local acknowledgment and emits navigation intent; does not establish settled/canceled resource lifecycle or restore ACK.",
+    "integration": "No route/mount/registration/transport/service/receipt/authority added. No real host or authorization binding invented.",
+    "missingDependencies": "Only the actual public Vue/FsusUI imports are needed for this source; no VaultStatusUnavailable or donor closure admitted.",
+    "styles": "No style block; existing utility classes retained byte-for-byte. Product theme CSS incomplete; no rendered consumer acceptance."
+  },
+  "boundaryBlocker": "Original strict FsusUI boundary rejects this leaf public runtime import. Actual count 20 -> 21, exit1 -> exit1. Preserve exact source; no wrapper or allowlist/config relaxation. Requires separate owner disposition and independent combination review.",
+  "protectedSemantics": [
+    "unknown outcome is not zero/absence",
+    "cancel is not settled",
+    "Graph leaves remain preflight only; no provider runtime authority",
+    "StorageConflict cancel and restore disabled remain untouched",
+    "sole original journal/coordinator/host/editor/registry/group owners unchanged"
+  ],
+  "unverified": "All runtime/behavior/security/privacy/UX/physical/qualification facts remain unknown or HOLD; source intent is not runtime proof."
+}

@@ -1,0 +1,26 @@
+{
+  "Blog": {
+    "src/frontend/package.json": {
+      "originalSha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "taskSha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "equal": true
+    },
+    "src/frontend/package-lock.json": {
+      "originalSha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "taskSha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "equal": true
+    }
+  },
+  "UI": {
+    "package.json": {
+      "originalSha256": "4e6502bacf6c8edfe52fd20f7d59bd5df9a05f8f627546e62fb889f6e5c50ace",
+      "taskSha256": "3c94a82459e759aef22d33f0909ec44d5ab4a03a776a44c48427a62be4924d43",
+      "equal": false
+    },
+    "pnpm-lock.yaml": {
+      "originalSha256": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
+      "taskSha256": "faf72e9bf46044be7e407783119c6fbe1945858855471ff3b6bc3e20155f19a2",
+      "equal": false
+    }
+  }
+}

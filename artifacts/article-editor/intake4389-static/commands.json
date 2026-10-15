@@ -1,0 +1,37 @@
+{
+  "kind": "ordinary exact command inventory; final exits/log hashes are in delivery-map.json after process completion",
+  "cwd": "/workspace/privacy4389-intake/FsusBlog",
+  "sharedEnvironment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/privacy4389-intake/FsusUI"
+  },
+  "heapEnvironmentForApplicationAndLint": {
+    "NODE_OPTIONS": "--max-old-space-size=8192"
+  },
+  "sameCwdBeforeAndAfter": "Base ran before exact patch application. Candidate ran after application; base and source identities are in production-provenance.json.",
+  "baseAndCandidateCommands": {
+    "app": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+    "full-lint": "node tools/frontend/check-frontend-style.mjs --mode full",
+    "boundary": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+    "binary-boundary": "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+    "code-intent": "node tools/governance/check-code-intent.mjs",
+    "lifecycle": "node tools/docs/generate-document-lifecycle.mjs --check",
+    "authoritative": "node tools/docs/check-authoritative-development-docs.mjs"
+  },
+  "candidateSupplemental": {
+    "strict": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+    "ast": "node /workspace/privacy4389-intake/evidence/parse-leaf.mjs"
+  },
+  "diffAndApply": {
+    "preflight": "git apply --check /workspace/privacy4389-intake/evidence/source4389.patch",
+    "apply": "git apply /workspace/privacy4389-intake/evidence/source4389.patch",
+    "sourceWhitespace": "git diff --cached --check"
+  },
+  "preparation": {
+    "BlogDependencies": "cp -a --reflink=auto /workspace/FsusBlog/src/frontend/node_modules /workspace/privacy4389-intake/FsusBlog/src/frontend/node_modules",
+    "UIDependencies": "cp -a --reflink=auto unchanged root and nine original vue/**/node_modules directories from /workspace/FsusUI to the corresponding isolated UI973 paths; no lifecycle execution",
+    "declarations": "cp unchanged original frontend auto-imports.d.ts and components.d.ts; no generator execution",
+    "styleInstall": "npm ci --ignore-scripts --no-audit --no-fund --prefix tools/frontend/style-toolchain --cache /tmp/privacy4389-npm-cache"
+  },
+  "prohibited": "No product/helper module imported or evaluated, no test runner/collection/discovery/list, no substitute runtime harness, no config/include/exclude/rule/lock/reference/enum relaxation, no fake package or data, no frozen/credential refresh. AST loads compiler tooling only."
+}

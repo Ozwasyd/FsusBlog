@@ -1,0 +1,67 @@
+{
+  "kind": "ordinary static input identity; no runtime or qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "sourcePR": 4389,
+  "source": "962fa5ba18d7a4c6438417cddf147750a16d0663",
+  "sourceParent": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+  "UI_PR": 973,
+  "UI_head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "UI_path": "/workspace/privacy4389-intake/FsusUI",
+  "UI_status": "",
+  "Blog_status": "",
+  "publicAliases": {
+    "element-plus": "/workspace/privacy4389-intake/FsusUI/vue/packages/element-plus/index.ts",
+    "@ozwasyd/element-plus": "/workspace/privacy4389-intake/FsusUI/vue/packages/element-plus/index.ts"
+  },
+  "environment": {
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "bash": "GNU bash, version 5.2.37(1)-release (x86_64-pc-linux-gnu)",
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "tools": {
+      "vue": "3.5.33",
+      "typescript": "6.0.3",
+      "vue-tsc": "3.2.7",
+      "@vue/compiler-sfc": "3.5.33",
+      "eslint": "10.8.0",
+      "stylelint": "17.14.1"
+    }
+  },
+  "BlogInputs": {
+    "AGENTS.md": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d",
+    ".agents/skills/fsusblog-design-conformance/SKILL.md": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+    "docs/design/governance.md": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+    "docs/development/change-contract.md": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586",
+    "docs/development/document-lifecycle.md": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d",
+    "docs/development/coding-conventions.md": "df6e2035db85dac6f630fe61aedb55de59e6bb4f2c19971345e5030c388867ba",
+    "docs/architecture/repository-layout.md": "05457336f4d585f692ec15bbf12fc6c0eacb75eb12dc1bf1bdda105120bee193",
+    "src/frontend/scripts/fsusui-root.mjs": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+    "src/frontend/tsconfig.app.json": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+    "src/frontend/auto-imports.d.ts": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac",
+    "src/frontend/components.d.ts": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76",
+    "eslint.config.mjs": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+    "stylelint.config.mjs": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
+    "tools/frontend/check-frontend-style.mjs": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+    "tools/frontend/style-toolchain/package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+  },
+  "UIInputs": {
+    "AGENTS.md": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89",
+    ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "docs/index.md": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+    "docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+    "docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+    "docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+    "docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+    "docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+    "docs/components/button.md": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76",
+    "docs/components/checkbox.md": "35abcce3dbcf122bec9e5a045b34ed12880250359a22d7fe1118bd1b753cd584",
+    "vue/packages/element-plus/index.ts": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+    "vue/packages/components/index.ts": "56ac867b683553b7734b902710b879307075935ad0c028f981a4ee5719f26d02",
+    "vue/packages/components/button/index.ts": "b3dc158977a6724e547893979e7188a443361a67516f713768bf976eca902538",
+    "vue/packages/components/checkbox/index.ts": "867025a817b9b1fef4f816b55026a4ef6eaecd199c66717f53755a5ac57997fb"
+  },
+  "declarations": "Copied unchanged from original saved environment; no codegen executed.",
+  "dependencyLimitation": "Blog manifest/lock match saved environment. UI973 manifest/lock differ from saved UI; all ten original preinstalled dependency directories copied unchanged without lifecycle execution. No exact-lock fresh UI install claimed."
+}

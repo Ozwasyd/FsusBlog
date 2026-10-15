@@ -1,0 +1,124 @@
+{
+  "app": {
+    "baseExit": 2,
+    "candidateExit": 2,
+    "baseBytes": 5000,
+    "candidateBytes": 5000,
+    "baseLines": 30,
+    "candidateLines": 30,
+    "rawByteIdentical": true,
+    "baseSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+    "candidateSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+    "allOutputLineMultisetAdded": [],
+    "allOutputLineMultisetRemoved": [],
+    "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication.",
+    "baseDiagnostics": 29,
+    "candidateDiagnostics": 29,
+    "candidateBlogDiagnostics": 4,
+    "candidateUIDiagnostics": 25
+  },
+  "full-lint": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseBytes": 11861610,
+    "candidateBytes": 11861610,
+    "baseLines": 83667,
+    "candidateLines": 83667,
+    "rawByteIdentical": true,
+    "baseSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+    "candidateSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+    "allOutputLineMultisetAdded": [],
+    "allOutputLineMultisetRemoved": [],
+    "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+  },
+  "boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseBytes": 2805,
+    "candidateBytes": 2965,
+    "baseLines": 21,
+    "candidateLines": 22,
+    "rawByteIdentical": false,
+    "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+    "candidateSha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
+    "allOutputLineMultisetAdded": [
+      "[fsusui-boundary] warnings=21 strict=true",
+      "- src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus"
+    ],
+    "allOutputLineMultisetRemoved": [
+      "[fsusui-boundary] warnings=20 strict=true"
+    ],
+    "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication.",
+    "interpretation": "New blocker: original strict boundary rejects exact donor public package runtime import; warnings20 -> 21. Preserve source, no wrapper or allowlist relaxation."
+  },
+  "binary-boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseBytes": 866,
+    "candidateBytes": 866,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+    "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+    "allOutputLineMultisetAdded": [],
+    "allOutputLineMultisetRemoved": [],
+    "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+  },
+  "code-intent": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseBytes": 353,
+    "candidateBytes": 353,
+    "baseLines": 3,
+    "candidateLines": 3,
+    "rawByteIdentical": false,
+    "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+    "candidateSha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
+    "allOutputLineMultisetAdded": [
+      "[code-intent] 2 error(s) across 5748 checked file(s):"
+    ],
+    "allOutputLineMultisetRemoved": [
+      "[code-intent] 2 error(s) across 5747 checked file(s):"
+    ],
+    "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication.",
+    "interpretation": "Same two diagnostics; scanner file count5747 -> 5748 because one admitted source file."
+  },
+  "lifecycle": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseBytes": 762,
+    "candidateBytes": 762,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "allOutputLineMultisetAdded": [],
+    "allOutputLineMultisetRemoved": [],
+    "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+  },
+  "authoritative": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseBytes": 6771,
+    "candidateBytes": 6771,
+    "baseLines": 41,
+    "candidateLines": 41,
+    "rawByteIdentical": true,
+    "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "allOutputLineMultisetAdded": [],
+    "allOutputLineMultisetRemoved": [],
+    "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+  },
+  "strict": {
+    "exit": 0,
+    "meaning": "Supplemental single-file original strict lint; not a substitute for original complete lint."
+  },
+  "AST": {
+    "exit": 0,
+    "meaning": "Compiler-only SFC/template/TS parsing; no product imports/evaluation."
+  },
+  "overall": "FAIL; original full static failures plus one new FsusUI boundary diagnostic. No combination SOURCE/UX/runtime acceptance claimed."
+}
