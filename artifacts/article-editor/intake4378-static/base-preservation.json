@@ -1,0 +1,10 @@
+{
+  "kind": "ordinary full tracked base blob preservation inspection",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "trackedBaseEntries": 7964,
+  "baseTrackedChangedPaths": [
+    "src/frontend/src/components/article/ArticleCommentTreeNode.vue"
+  ],
+  "allOtherBaseTrackedBlobsUnchanged": true,
+  "donorHistoryNotImported": true
+}

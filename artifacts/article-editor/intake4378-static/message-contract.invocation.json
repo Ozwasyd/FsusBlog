@@ -1,0 +1,10 @@
+{
+  "cwd": "/workspace/intake4378-candidate",
+  "argv": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--message-file",
+    "/workspace/intake4378-evidence/commit-message.txt"
+  ],
+  "exit": 0
+}
