@@ -1,0 +1,1 @@
+[change-contract] ok commit-range=b302f58a9aaee9f2399d9274157a478f3c2f78fb..51af0fe1bb642c9a3f78a0974e85451efb4473c7
