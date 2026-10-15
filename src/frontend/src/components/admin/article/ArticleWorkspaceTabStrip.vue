@@ -203,10 +203,14 @@ import type {
     ArticleWorkspaceNavigationPort
 } from '@/services/authoring/articleWorkspaceTabRouter';
 
-import type { ButtonInstance } from '@ozwasyd/element-plus';
 import type { ComponentPublicInstance } from 'vue';
 
 defineOptions({ name: 'ArticleWorkspaceTabStrip' });
+
+/** Only ButtonInstance's documented native ref is needed by the existing focus paths. */
+interface WorkspaceButtonHandle {
+    readonly ref?: HTMLButtonElement;
+}
 
 const props = defineProps<{
     coordinator?: ArticleWorkspaceTabRouter;
@@ -216,7 +220,7 @@ const props = defineProps<{
 const isCompact = useMediaQuery('(max-width: 1023px)', false);
 const overflowOpen = ref(false);
 const tabListRef = ref<HTMLElement | null>(null);
-const overflowTriggerRef = ref<ButtonInstance | null>(null);
+const overflowTriggerRef = ref<WorkspaceButtonHandle | null>(null);
 const tabElements = new Map<string, HTMLElement>();
 const {
     tabs,
@@ -250,7 +254,7 @@ const tabButtonId = (tabId: string): string => `article-workspace-tab-${tabId}`;
 
 const registerTabElement = (tabId: string, element: Element | ComponentPublicInstance | null): void =>
 {
-    const buttonElement = (element as ButtonInstance | null)?.ref;
+    const buttonElement = (element as WorkspaceButtonHandle | null)?.ref;
     if (buttonElement instanceof HTMLElement)
     {
         tabElements.set(tabId, buttonElement);
