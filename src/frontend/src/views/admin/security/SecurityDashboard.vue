@@ -14,11 +14,12 @@
     >
         <strong>{{ errorMessage ? '安全状态暂不可用' : '正在读取安全状态' }}</strong>
         <span>{{ errorMessage || '正在汇总待处理任务、异常、趋势和最近策略变化。' }}</span>
-        <button
+        <FsusUiButton
             v-if="errorMessage"
-            type="button"
+            class="security-dashboard-loading__retry"
+            native-type="button"
             @click="loadOverview"
-        >重新检查</button>
+        >重新检查</FsusUiButton>
     </section>
 </template>
 
@@ -27,6 +28,7 @@ import { computed, onMounted, shallowRef } from 'vue';
 
 import { getSecurityOverview, type SecurityOverviewResponse } from '@/api/security';
 import SecurityDashboardWorkbench from '@/components/admin/SecurityDashboardWorkbench.vue';
+import { FsusUiButton } from '@/fsusui/button';
 import { createSecurityDashboardModel } from '@/view-contracts/securityDashboard';
 
 const errorMessage = shallowRef('');
@@ -77,14 +79,8 @@ onMounted(() =>
     font-size: 18px;
 }
 
-.security-dashboard-loading button
+.security-dashboard-loading__retry
  {
     width: fit-content;
-    min-height: 44px;
-    padding-inline: var(--fsus-space-3);
-    border: 1px solid var(--fsusblog-panel-border-strong);
-    color: var(--fsusblog-text-primary);
-    background: transparent;
-    font-weight: 700;
 }
 </style>

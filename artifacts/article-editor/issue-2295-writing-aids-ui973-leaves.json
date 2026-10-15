@@ -1,0 +1,172 @@
+{
+  "kind": "ordinary source intake WIP, no qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4355,
+  "donorPRBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+  "donorFinalHead": "fdc1091c57dbb7e47807fd0d57159dec0f780993",
+  "exactSourceInputs": [
+    {
+      "path": "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+      "head": "fdc1091c57dbb7e47807fd0d57159dec0f780993",
+      "blob": "ef1c0532813a1dde15dee1f5e5175ed0b2b73068"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleWritingAidRuntime.ts",
+      "head": "fdc1091c57dbb7e47807fd0d57159dec0f780993",
+      "blob": "a463f664036895e931df75228fc0c8ab50a0b0a3"
+    }
+  ],
+  "sourceTopology": "4355 is a sibling originally based on4352 source d577; only its two final production paths copied onto4385. No donor history/metadata.",
+  "scope": "Exact two accepted4355 production postimages. Policy projects caller preference/active pane/document currentness/readonly/capability/overlay/composition/selection/assistive/manual intent into public sole-editor props. Runtime consumer reads original binding/context/anchors and delegates resume to original intent owner. No editor/history/observer/task/scroll loop/preference owner created; no existing caller import/mount/activation. Actual UI973 fixes reactive options on the same controller/store; source evidence only.",
+  "sourceProtection": "Only admitted new production paths and own ordinary WIP/static delivery added. Every base4385 tracked file unchanged, including host/router/editor/journal/registry/group/typography and metadata. No donor history, tests, authority/frozen/config/lock/schema changes. Source consumer search only, no helper called.",
+  "actualUI": {
+    "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "path": "/workspace/session-2295-ui973-local-dependency",
+    "parentUI969": "075e71c60b6a116aea8f2a7f448c5747b00c481b",
+    "bothRealPublicAliasesSameIndex": true,
+    "fullAppConfigSha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+    "physicalIndependence": "UNVERIFIED",
+    "CSSOutput": "UNVERIFIED"
+  },
+  "static": {
+    "UI969ToUI973AliasOnly": {
+      "base": 29,
+      "candidate": 29,
+      "exit": 2,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+    },
+    "sourceCandidate": {
+      "base": 29,
+      "candidate": 29,
+      "exit": 2,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+    },
+    "full-style": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 83667
+    },
+    "boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 21
+    },
+    "binary-boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "lifecycle": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "authoritative": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 41
+    },
+    "codeIntent": {
+      "status": "FAIL1 both",
+      "same2DiagnosticRows": true,
+      "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+      "candidateSummary": "[code-intent] 2 error(s) across 5749 checked file(s):"
+    },
+    "priorUI969AliasEvidence": {
+      "immutablePR": 4393,
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "map": "artifacts/article-editor/metadata-ui969-static/delivery-map.json",
+      "meaning": "prior UI969 alias-only raw files preserved in immutable sibling commit; no receipt inheritance"
+    },
+    "UI969ToUI973NonCompilerChecks": "full style/boundary/binary/code-intent/lifecycle/authoritative raw byte-identical; failures retained",
+    "strict": {
+      "exit": 0,
+      "rawResult": "[frontend-style] ok files=2 eslint=2 stylelint=0 violations=0 new=0"
+    },
+    "AST": "PASS0 SFC/script/TS parse only; no product module import/evaluation",
+    "initialFullStyleExecutionFailure": {
+      "exit": 1,
+      "lines": 48,
+      "rawLog": "writing-ui973-full-style.txt",
+      "diagnostic": "eslint execution failed with exit null; original raw failure retained, not a completed ESLint comparison",
+      "retry": "same original CLI, separate sequential retry1; full raw83667line output matches baseline, still FAIL1; no rule/config/scope changes"
+    }
+  },
+  "readableEvidence": "artifacts/article-editor/writing-ui973-static/delivery-map.json",
+  "originalStaticPreflight": {
+    "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+    "cwd": "/workspace/session-2295-blog-writing-aids-ui973-leaves",
+    "actualUI": "/workspace/session-2295-ui973-local-dependency",
+    "commands": {
+      "types": [
+        "node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "full-style": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "full"
+      ],
+      "boundary": [
+        "node",
+        "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+      ],
+      "binary-boundary": [
+        "node",
+        "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+      ],
+      "code-intent": [
+        "node",
+        "tools/governance/check-code-intent.mjs"
+      ],
+      "lifecycle": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "authoritative": [
+        "node",
+        "tools/docs/check-authoritative-development-docs.mjs"
+      ],
+      "strict": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+        "--file",
+        "src/frontend/src/services/authoring/articleWritingAidRuntime.ts"
+      ],
+      "ast": [
+        "node",
+        "/workspace/session-evidence-2295/static-source.cjs",
+        "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+        "src/frontend/src/services/authoring/articleWritingAidRuntime.ts"
+      ]
+    },
+    "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+    "mode": "all"
+  },
+  "remaining": "Independent source combination review and actual host/adapter/native/security/privacy/runtime/UX/physical qualification. Native resource loan/worker shutdown/recovery coordination/disposed-restoration ACK owner interfaces incomplete; no fake resources/pause/ready/ACK.",
+  "holds": "All runtime/product/helper/parser module imports/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/qualification HOLD/UNRUN. Source parsers only. No authority/frozen producer/refresh, merge/Ready/close/package/publication.4336 aggregate FAIL untouched.",
+  "rollback": "Omit/revert only this source increment and ordinary WIP/static delivery to exact4385, no live state changed.",
+  "gitWhitespace": {
+    "aggregateExit": 2,
+    "status": "FAIL preserved ordinary raw log only",
+    "path": "artifacts/article-editor/writing-ui973-static/writing-ui973-full-style.txt",
+    "line": 1,
+    "reason": "Original ESLint exit-null failure diagnostic ends in one space. Raw evidence bytes deliberately preserved; no rule/attribute change or log trim. Exact admitted product sources separately checked and PASS0."
+  }
+}
