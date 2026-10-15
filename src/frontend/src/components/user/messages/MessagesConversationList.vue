@@ -97,47 +97,50 @@
                             class="messages-conversation-entry"
                             v-memo="[item.conversationId, item.subject, item.lastMessageAtText, item.unreadCount, item.status, rowClassKey(item)]"
                         >
-                            <button
-                                type="button"
+                            <FsusUiButton
+                                native-type="button"
+                                text
                                 class="messages-conversation-item"
                                 :class="conversationRowClass(item)"
                                 :aria-current="item.conversationId === selectedConversationId ? 'true' : undefined"
                                 :aria-label="item.ariaLabel"
                                 @click="emit('select', item.conversationId)"
                             >
-                                <div class="messages-conversation-top">
-                                    <span
-                                        class="messages-conversation-subject"
+                                <div class="messages-conversation-content">
+                                    <div class="messages-conversation-top">
+                                        <span
+                                            class="messages-conversation-subject"
+                                            data-visual-dynamic
+                                        >{{ item.subject }}</span>
+                                        <div class="messages-conversation-tags">
+                                            <ElTag
+                                                v-if="item.isSystemSource"
+                                                size="small"
+                                            >{{ conversationListCopy.systemTag }}</ElTag>
+                                            <ElTag
+                                                size="small"
+                                                :type="statusType(item.status)"
+                                            >{{ statusLabel(item.status) }}</ElTag>
+                                        </div>
+                                    </div>
+                                    <p
+                                        class="messages-conversation-preview"
                                         data-visual-dynamic
-                                    >{{ item.subject }}</span>
-                                    <div class="messages-conversation-tags">
-                                        <ElTag
-                                            v-if="item.isSystemSource"
-                                            size="small"
-                                        >{{ conversationListCopy.systemTag }}</ElTag>
-                                        <ElTag
-                                            size="small"
-                                            :type="statusType(item.status)"
-                                        >{{ statusLabel(item.status) }}</ElTag>
+                                    >
+                                        {{ item.lastMessage?.bodyPreview || (isAdminMode ? conversationListCopy.noContentAdmin : conversationListCopy.noContentAccount) }}
+                                    </p>
+                                    <div class="messages-conversation-meta">
+                                        <time
+                                            :datetime="item.lastMessageAt"
+                                            data-visual-dynamic
+                                        >{{ item.lastMessageAtText }}</time>
+                                        <ElBadge
+                                            v-if="item.unreadCount > 0"
+                                            :value="item.unreadCount"
+                                        />
                                     </div>
                                 </div>
-                                <p
-                                    class="messages-conversation-preview"
-                                    data-visual-dynamic
-                                >
-                                    {{ item.lastMessage?.bodyPreview || (isAdminMode ? conversationListCopy.noContentAdmin : conversationListCopy.noContentAccount) }}
-                                </p>
-                                <div class="messages-conversation-meta">
-                                    <time
-                                        :datetime="item.lastMessageAt"
-                                        data-visual-dynamic
-                                    >{{ item.lastMessageAtText }}</time>
-                                    <ElBadge
-                                        v-if="item.unreadCount > 0"
-                                        :value="item.unreadCount"
-                                    />
-                                </div>
-                            </button>
+                            </FsusUiButton>
                         </li>
                     </ul>
                     <ElButton
@@ -163,6 +166,7 @@ import { computed, ref } from 'vue';
 
 import type { ConversationFilter, ConversationListItemResponse } from '@/api/message';
 import { useI18nText } from '@/composables/useI18nText';
+import { FsusUiButton } from '@/fsusui/button';
 
 import MessagesEmptyState from './MessagesEmptyState.vue';
 
@@ -388,16 +392,17 @@ defineExpose({
 
 .messages-conversation-item
  {
+    display: grid;
     width: 100%;
     min-width: 0;
     max-width: 100%;
+    height: auto;
     border-bottom: 1px solid var(--fsusblog-panel-border);
     background: transparent;
     padding: 1.25rem 0;
+    font: inherit;
     text-align: left;
-    transition: background-color var(--fsus-motion-control) var(--fsus-motion-standard),
-        border-color var(--fsus-motion-control) var(--fsus-motion-standard),
-        color var(--fsus-motion-control) var(--fsus-motion-standard);
+    white-space: normal;
 }
 
 .messages-conversation-item:last-child
@@ -405,9 +410,11 @@ defineExpose({
     border-bottom: none;
 }
 
-.messages-conversation-item:hover
+.messages-conversation-content
  {
-    @apply opacity-70;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .messages-conversation-item.active
