@@ -122,6 +122,7 @@
                 <span>最近变更读取失败；任务区仍可继续使用。</span>
                 <FsusUiButton
                     native-type="button"
+                    class="dashboard-inline-action"
                     link
                     inline-action
                     @click="$emit('refresh-recent-changes')"
@@ -160,6 +161,7 @@
                 <FsusUiButton
                     v-if="!recentChangesLoaded"
                     native-type="button"
+                    class="dashboard-inline-action"
                     link
                     inline-action
                     @click="$emit('refresh-recent-changes')"
@@ -225,6 +227,7 @@
                 <span>站点摘要读取失败；系统状态不受影响。</span>
                 <FsusUiButton
                     native-type="button"
+                    class="dashboard-inline-action"
                     link
                     inline-action
                     @click="$emit('refresh-summary')"
@@ -264,6 +267,7 @@
                 <span>站点摘要尚未检查。</span>
                 <FsusUiButton
                     native-type="button"
+                    class="dashboard-inline-action"
                     link
                     inline-action
                     @click="$emit('refresh-summary')"
@@ -611,6 +615,12 @@ const formatChangeTime = (value: string): string =>
     display: flex;
     align-items: center;
     gap: var(--fsus-space-2);
+}
+
+.dashboard-inline-state .dashboard-inline-action
+ {
+    min-height: 2.5rem;
+    font-weight: 700;
 }
 
 .dashboard-summary__details
