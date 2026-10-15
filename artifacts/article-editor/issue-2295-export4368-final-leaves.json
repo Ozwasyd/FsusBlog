@@ -1,0 +1,182 @@
+{
+  "kind": "ordinary source intake WIP, no qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4368,
+  "donorPRBase": "d256fd42d250e360573ab8b563cbe0cd651359e1",
+  "donorFinalHead": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+  "exactSourceInputs": [
+    {
+      "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+      "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+      "blob": "5e82b53f5b8fea926c98965e486212d326cbb62d"
+    },
+    {
+      "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+      "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+      "blob": "259211926b8b031e32c424b4772b50adec1867e6"
+    },
+    {
+      "path": "src/frontend/src/composables/useDocumentExport.ts",
+      "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+      "blob": "69bd7213296ea746d6b33f619ca5669954f6d2b3"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/ExportCenter.vue",
+      "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+      "blob": "a4ab84b41d440fa3aee73016eb39724def1f620f"
+    },
+    {
+      "path": "src/frontend/src/fsusui/documentExportControls.ts",
+      "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+      "blob": "76c4ad673491ec0288a7d12f6ecb772e9756b03d"
+    }
+  ],
+  "sourceTopology": "4368 own2path fix sits on old4362 d256, whose source increment was4files on4352 0c9. Extract union of5 FINAL production postimages directly from fd08; do not import old4362 failed version/history/WIP. Donor original raw failure evidence remains untouched on old branch.",
+  "scope": "Five exact final production postimages: four original export leaves plus documentExportControls direct named public reexports. Final4368 ExportCenter uses that real facade, no import boundary workaround. Export view and transient bounded call/poll state consume caller-supplied canonical port; uncertainty is never server confirmation, retries retain admitted identity, stale responses/permission loss clear or invalidate transient state, download uses abort signal. No existing host/router caller mount or actual Jobs/AEDS/authenticated SiteScope/current rights adapter. No backend/schema/browser/download activation or fabricated receipt.",
+  "sourceProtection": "Only admitted new production paths and own ordinary WIP/static delivery added. Every base4385 tracked file unchanged, including host/router/editor/journal/registry/group/typography and metadata. No donor history, tests, authority/frozen/config/lock/schema changes. Source consumer search only, no helper called.",
+  "actualUI": {
+    "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "path": "/workspace/session-2295-ui973-local-dependency",
+    "parentUI969": "075e71c60b6a116aea8f2a7f448c5747b00c481b",
+    "bothRealPublicAliasesSameIndex": true,
+    "fullAppConfigSha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+    "physicalIndependence": "UNVERIFIED",
+    "CSSOutput": "UNVERIFIED"
+  },
+  "static": {
+    "UI969ToUI973AliasOnly": {
+      "base": 29,
+      "candidate": 29,
+      "exit": 2,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+    },
+    "sourceCandidate": {
+      "base": 29,
+      "candidate": 29,
+      "exit": 2,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+    },
+    "full-style": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 83667
+    },
+    "boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 21
+    },
+    "binary-boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "lifecycle": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "authoritative": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 41
+    },
+    "codeIntent": {
+      "status": "FAIL1 both",
+      "same2DiagnosticRows": true,
+      "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+      "candidateSummary": "[code-intent] 2 error(s) across 5752 checked file(s):"
+    },
+    "priorUI969AliasEvidence": {
+      "immutablePR": 4393,
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "map": "artifacts/article-editor/metadata-ui969-static/delivery-map.json",
+      "meaning": "prior UI969 alias-only raw files preserved in immutable sibling commit; no receipt inheritance"
+    },
+    "UI969ToUI973NonCompilerChecks": "full style/boundary/binary/code-intent/lifecycle/authoritative raw byte-identical; failures retained",
+    "strict": {
+      "exit": 0,
+      "rawResult": "[frontend-style] ok files=5 eslint=5 stylelint=1 violations=0 new=0"
+    },
+    "AST": "PASS0 SFC/script/TS parse only; no product module import/evaluation"
+  },
+  "readableEvidence": "artifacts/article-editor/export4368-static/delivery-map.json",
+  "originalStaticPreflight": {
+    "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+    "cwd": "/workspace/session-2295-blog-export4368-final-leaves",
+    "actualUI": "/workspace/session-2295-ui973-local-dependency",
+    "commands": {
+      "types": [
+        "node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "full-style": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "full"
+      ],
+      "boundary": [
+        "node",
+        "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+      ],
+      "binary-boundary": [
+        "node",
+        "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+      ],
+      "code-intent": [
+        "node",
+        "tools/governance/check-code-intent.mjs"
+      ],
+      "lifecycle": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "authoritative": [
+        "node",
+        "tools/docs/check-authoritative-development-docs.mjs"
+      ],
+      "strict": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/components/document-export/documentExportCall.ts",
+        "--file",
+        "src/frontend/src/components/document-export/documentExportUiPort.ts",
+        "--file",
+        "src/frontend/src/composables/useDocumentExport.ts",
+        "--file",
+        "src/frontend/src/views/admin/article/ExportCenter.vue",
+        "--file",
+        "src/frontend/src/fsusui/documentExportControls.ts"
+      ],
+      "ast": [
+        "node",
+        "/workspace/session-evidence-2295/static-source.cjs",
+        "src/frontend/src/components/document-export/documentExportCall.ts",
+        "src/frontend/src/components/document-export/documentExportUiPort.ts",
+        "src/frontend/src/composables/useDocumentExport.ts",
+        "src/frontend/src/views/admin/article/ExportCenter.vue",
+        "src/frontend/src/fsusui/documentExportControls.ts"
+      ]
+    },
+    "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+    "mode": "all"
+  },
+  "remaining": "Independent source combination review and actual host/adapter/native/security/privacy/runtime/UX/physical qualification. Native resource loan/worker shutdown/recovery coordination/disposed-restoration ACK owner interfaces incomplete; no fake resources/pause/ready/ACK.",
+  "holds": "All runtime/product/helper/parser module imports/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/qualification HOLD/UNRUN. Source parsers only. No authority/frozen producer/refresh, merge/Ready/close/package/publication.4336 aggregate FAIL untouched.",
+  "rollback": "Omit/revert only this source increment and ordinary WIP/static delivery to exact4385, no live state changed."
+}
