@@ -316,7 +316,7 @@ export class ArticleSourceCompareSession
             }
             else
             {
-                this.recordFailure(operation, new Error('article-source-compare-admission-unavailable'));
+                operation.revoked = true;
             }
         }
         catch (cause)
@@ -494,27 +494,31 @@ export class ArticleSourceCompareSession
     private trySettle(operation: CompareOperation): void
     {
         if (!operation.localEnded || !operation.revoked || !operation.associated || operation.terminalState !== 'fulfilled'
-            || operation.failures.length > 0 || operation.settleAttempted || operation.lease === null || operation.work === null)
+            || operation.failures.length > 0 || operation.settleAttempted || operation.work === null)
         {
             return;
         }
         try
         {
-            const lease = operation.lease;
-            if (!lease.signal.aborted || lease.envelope.status === 'running')
-            {
-                return;
-            }
             if (operation.work.terminal !== operation.terminal || operation.work.receipt !== operation.workReceipt)
             {
                 throw new Error('article-source-compare-work-binding-changed');
             }
-            operation.settleAttempted = true;
-            lease.settle();
-            const onAbort = this.abortListeners.get(operation);
-            if (onAbort)
+            // The lease is assigned once and never cleared: null means this operation never borrowed one.
+            const lease = operation.lease;
+            if (lease !== null)
             {
-                lease.signal.removeEventListener('abort', onAbort);
+                if (!lease.signal.aborted || lease.envelope.status === 'running')
+                {
+                    return;
+                }
+                operation.settleAttempted = true;
+                lease.settle();
+                const onAbort = this.abortListeners.get(operation);
+                if (onAbort)
+                {
+                    lease.signal.removeEventListener('abort', onAbort);
+                }
             }
             this.abortListeners.delete(operation);
             this.operations.delete(operation);
