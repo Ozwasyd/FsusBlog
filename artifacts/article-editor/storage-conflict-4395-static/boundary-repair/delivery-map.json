@@ -1,0 +1,312 @@
+{
+  "kind": "ordinary completed static boundary repair observations, no authority or acceptance receipt",
+  "repairParent": "13764fc16e482e7b18c07532f4de36a57e523dd0",
+  "fixedBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "candidateBinding": "containing draft HEAD plus exact old/new production blobs in source-proof.json; no self-referential commit identity",
+  "workingDirectory": "/workspace/FsusBlog-storage-conflict-4395",
+  "actualUI": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "files": [
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.command.json",
+      "bytes": 431,
+      "sha256": "b7539de301e609088526993dc9d06c0f0bb05217d61b36d8d8c04f6f4a56e5b7"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.txt",
+      "bytes": 5709,
+      "sha256": "ab50fa7b99938e3b1dd043c9b24c2d9e3a4cb275ef2e4647f834dd69d1b41055"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.command.json",
+      "bytes": 278,
+      "sha256": "7a2acf1cf768c1c915daf67b1984ac77f7421b92c1de24f9253691b2e02a697d"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.txt",
+      "bytes": 672,
+      "sha256": "8bbc9e419dbfea34421269c28324a6ac81cfeb722a8e31d2afc1e1874480cfd1"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.command.json",
+      "bytes": 410,
+      "sha256": "b45a386a1a7d59fa313102762629b70a27d9dfff5757560ee94f748203748c89"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.txt",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.command.json",
+      "bytes": 422,
+      "sha256": "228fa9bc96a3d9f2fb5996021fde84765e84e2b0a77540f693371af76c9f2071"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.txt",
+      "bytes": 866,
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.command.json",
+      "bytes": 413,
+      "sha256": "1d284111a3fca87e6757cd6f694ecd8e4943be8abbdca4683f4169ef54f08778"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.txt",
+      "bytes": 2805,
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.command.json",
+      "bytes": 397,
+      "sha256": "bc0d94d812ade746905349a8e28aa38d3ca1ec7bd35ce8f6409cfda569522fda"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.txt",
+      "bytes": 353,
+      "sha256": "b940d2bf07a85914f2b85735441c639685ae839f92f0b01dfe3b44d93812fbb8"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.command.json",
+      "bytes": 424,
+      "sha256": "60fedbfebb2e0c0b39b064e3232740fd9e15c405ec9928c72bff6f1fd182b781"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.txt",
+      "bytes": 227,
+      "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.command.json",
+      "bytes": 416,
+      "sha256": "20b4d6d92375791d0cced81df08bbb4af94e455b8ba10e8b870813ded61b6165"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.txt",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.command.json",
+      "bytes": 1046,
+      "sha256": "fb0030418169c008dd0bf87f6027c0a7a85f89e8a626c3e201b0a65532741206"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.txt",
+      "bytes": 227,
+      "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.command.json",
+      "bytes": 431,
+      "sha256": "b56c829cc2e72467f05568dc41a2fa8ac1f8867bdda16cba52a8a126dd144c81"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.txt",
+      "bytes": 5709,
+      "sha256": "ab50fa7b99938e3b1dd043c9b24c2d9e3a4cb275ef2e4647f834dd69d1b41055"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.command.json",
+      "bytes": 410,
+      "sha256": "f1aef278df0a015ef6ae028d08dc7c254a0a0573482be4c609694edce7d85f8e"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.txt",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.command.json",
+      "bytes": 422,
+      "sha256": "8bdc6081a9418d3948d06224d4b292ed3b8159280d48de0cfdff71e6c7f362e9"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.txt",
+      "bytes": 866,
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.command.json",
+      "bytes": 413,
+      "sha256": "398ba195b945108dfba0a0d21a698d32d371ead1fb5c00819ee125febe1a71e4"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.txt",
+      "bytes": 2948,
+      "sha256": "9b6fe30b3ee87056bee02394a7cb2a3367cf248c8680010458e7853af3cf12b2"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.command.json",
+      "bytes": 397,
+      "sha256": "30b66e1a826eb30ef6b4cc0b67c0608d81826bde87ef258b768989206a400ff1"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.txt",
+      "bytes": 353,
+      "sha256": "881d7117018040bdded425ef329c0e6ab243568cd2d697f1a485e8f9b2c4a63b"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.command.json",
+      "bytes": 424,
+      "sha256": "937abdf799208f437019391dbb111666398210e20593942dc43f68a07ba29859"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.txt",
+      "bytes": 227,
+      "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.command.json",
+      "bytes": 416,
+      "sha256": "f652d875af1fab2761f90ece2270d311e979d71aca8a7546914f1c26f7002fa4"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.txt",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.command.json",
+      "bytes": 258,
+      "sha256": "b7ab037a31120def75dfdd38724e6741aa2fcf5e7cd8704e322f9632351ba931"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.txt",
+      "bytes": 36,
+      "sha256": "d0f4f591aee85999e4bd6eea79833551a1710eccee9d1bced11e3ae6f07759ba"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message.txt",
+      "bytes": 261,
+      "sha256": "a25caf5cbb237b9e9112ee773a93743f6f07de56b3483674a84b849dfcb789b6"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/comparison.json",
+      "bytes": 2355,
+      "sha256": "fddee8d24c21102854e4cce82b129fb3aa308793a67235161070f9921b249924"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/generated-config-snapshot.json",
+      "bytes": 3062,
+      "sha256": "1c3500b0a925c95c2fa8ebf5490a0eb4a45df6b7243c9ffe2b016eec93cfb5c4"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/parse-source.cjs.txt",
+      "bytes": 1567,
+      "sha256": "eeb649625f63087626e850c8f9f31f9326a965cd02663361d9e14f8b9589329f"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/repair-inputs.json",
+      "bytes": 3109,
+      "sha256": "6120c256aec0e0ad4350b21355d25ef7b665ee10aa287aea4ffc2d8317c9448d"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-proof.json",
+      "bytes": 5072,
+      "sha256": "af8c86e2e7b548d2c4186145a5702be6cc26d6f00619a7c9950e7b16a126a805"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.command.json",
+      "bytes": 144,
+      "sha256": "22b831af3b698eb2a9308e145f78e8dfbbd27a6861ffaed04404e2fa51a4c326"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "originalRecords": "all previous intake logs/maps and delivery checkpoint unchanged; old boundary21 remains historical failure",
+  "configSnapshot": "unchanged original producer output copied after completion; original cwd/relative meaning retained; inert evidence location"
+}

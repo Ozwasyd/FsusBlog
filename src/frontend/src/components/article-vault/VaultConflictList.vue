@@ -111,7 +111,7 @@
                 <p v-else>冲突证据版本或类型不兼容，请重新加载。</p>
             </li>
         </ol>
-        <ElPagination
+        <FsusUiPagination
             v-if="evidence.length > pageSize"
             :current-page="page"
             :page-size="pageSize"
@@ -125,10 +125,10 @@
 </template>
 
 <script setup lang="ts">
-import { ElPagination } from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 
 import { FsusUiButton } from '@/fsusui/button';
+import { FsusUiPagination } from '@/fsusui/pagination';
 
 import {
     conflictActionIntent,

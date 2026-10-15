@@ -1,8 +1,91 @@
 # Storage conflict presentation intake WIP
 
 Ordinary source/static review record. This is not an acceptance receipt, schema,
-registry, authority, grant, runtime qualification or release record. This draft
-has unresolved static findings and an unavailable lint toolchain.
+registry, authority, grant, runtime qualification or release record. The current
+boundary repair below supersedes the initial21-warning state; original global
+failures and the unavailable lint toolchain remain unresolved.
+
+## Current boundary repair on draft4407
+
+Repair parent: `13764fc16e482e7b18c07532f4de36a57e523dd0`; fixed PR base
+remains `b302f58a9aaee9f2399d9274157a478f3c2f78fb`. GitHub readback confirmed
+that exact parent OPEN/draft before work. Final containing head is recorded in
+the PR/delivery response. Existing branch reused; no parallel branch changed.
+
+The newly introduced boundary finding is repaired through the existing public
+adapter contract, without an exemption: add `src/frontend/src/fsusui/pagination.ts`
+with exactly `export { ElPagination as FsusUiPagination } from '@ozwasyd/element-plus';`.
+VaultConflictList imports FsusUiPagination through that adapter and changes only
+the template component identifier. It remains the same real public component,
+with all props, emits, pagination logic, accessibility attributes and styles
+unchanged. No wrappers, component/type casts, private paths, index-barrel changes,
+checker/allowlist/baseline/lock/frozen source or FsusUI source modifications.
+
+The one Vue blob intentionally supersedes its exact-donor initial version under
+the explicit repair authorization. Other five donor source blobs remain exact.
+Current total production delta versus4385 is seven added source files; this
+successor's production delta versus137 is only one Vue modification and one
+one-line adapter addition. Historical exact-six/21-warning statements below
+refer to the initial intake, not the repaired candidate. No donor history added.
+
+| Production path | Before blob | Repaired blob |
+| --- | --- | --- |
+| `src/frontend/src/components/article-vault/VaultConflictList.vue` | `0d95647a09baea57801ec6e1c98a44beae383937` | `65d746781b22d20a57db5dd9b3cfe985a3d620fc` |
+| `src/frontend/src/fsusui/pagination.ts` | absent | `e8bf28d76b1b35b720765f6c569d5cd292640cf8` |
+
+Actual clean UI973 `41a127611fa3db054b7d5bca25aeb101f2401ef6` remains the real
+local alias. Both public aliases still resolve to its real element-plus index.
+Static source inspection follows that public export through the original
+components/pagination named export; no package/product module was evaluated.
+Original checker/producer/config/Skills/authority and public-source hashes are
+bound in `boundary-repair/repair-inputs.json`; complete source/blob edit proof
+and alias configuration are in `boundary-repair/source-proof.json`.
+
+Fresh original full static commands ran before any source edit and again after
+the two-file repair, in the same actual project/environment. No source-set,
+compiler/rule/config/ref/enum/strict/noUnused/erasable inputs were weakened.
+
+| Original check | Before137 | Repaired candidate | Exact comparison |
+| --- | --- | --- | --- |
+| Complete FsusUI boundary | FAIL1 /21warnings /22lines | FAIL1 /20warnings /21lines | Whole repaired output byte-identical to original4385 base20; only introduced VaultConflictList warning removed |
+| Complete app compile | FAIL2 /29diagnostics /30lines | FAIL2 /29 /30 | Entire output byte-identical, added0/removed0; Blog4/UI25 retained |
+| Complete frontend style | FAIL1 /missing ESLint and Stylelint | FAIL1 /same | Whole environment refusal byte-identical; no actual source lint result |
+| Original strict-full all7 source paths | N/A | FAIL1 /same missing tools | Not source lint success |
+| Binary source boundary | FAIL1 /6findings /7lines | FAIL1 /same | Raw byte-identical |
+| Lifecycle check-only | FAIL1 /7lines | FAIL1 /same | Raw byte-identical |
+| Authoritative docs | FAIL1 /41lines | FAIL1 /same | Raw byte-identical |
+| Code intent | FAIL1 /2errors /5753files | FAIL1 /same2 /5754files | Only one new adapter counted; original findings exact |
+| SFC/template/TS AST source parsing | N/A | PASS0 /7files /0errors | Source parsers only; no product/helper evaluation |
+
+Complete before/after raw logs, exit codes, actual argv/cwd/environment sidecars,
+full diagnostic multiplicity differences and unchanged generated-config snapshot
+are committed under `storage-conflict-4395-static/boundary-repair/`;
+`delivery-map.json` binds every completed regular file by bytes and SHA-256.
+All original initial-intake raw logs, old boundary21 failure and inherited full
+app29/83667-line style failures stay unchanged. No historical evidence rewritten.
+
+The current boundary command remains FAIL1 for20 original findings; this repair
+is not a full boundary pass. All existing application/global failures remain.
+Original style-toolchain dependencies are still absent; setup remains HOLD, no
+installation/substitute or repeated permission request. The actual linter
+checkbox stays unchecked, so original PR metadata checker remains unresolved.
+
+All existing runtime/tests/collection/list/discovery/product/helper imports or
+evaluation/setup/mount/browser/native/worker/kernel/DB/network-security/privacy/
+receipt/race/backup restore/IME/frozen/qualification HOLD remain. Cancel/restore
+stay disabled, four-part request-action identity stays exact, unknown is not
+zero and cancel is not settlement. No host/command/authorization binding or
+Graph provider runtime is supplied. Theme/product CSS and consumer acceptance
+remain incomplete. Draft only; no Ready/merge/issue closure/package publication.
+
+Rollback this repair by restoring only the Vue import/tag and removing its new
+adapter. All other source and original evidence remain; no live state changed.
+
+## Historical initial intake record
+
+The following sections record the initial source intake and its old failures.
+Their exact-six and21-warning statements are superseded only as stated above;
+raw logs and their original candidate identities retain their historical meaning.
 
 ## Exact candidate and ownership
 

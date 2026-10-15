@@ -1,0 +1,15 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395",
+  "argv": [
+    "node",
+    "tools/docs/generate-document-lifecycle.mjs",
+    "--check"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-ui973-storage-conflict-4395"
+  },
+  "startedUTC": "2026-10-15T23:53:33.163742+00:00",
+  "exitCode": 1,
+  "finishedUTC": "2026-10-15T23:53:33.330027+00:00"
+}

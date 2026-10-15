@@ -1,0 +1,86 @@
+{
+  "boundary": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeLines": 22,
+    "afterLines": 21,
+    "byteIdentical": false,
+    "addedLinesMultiplicity": [
+      "[fsusui-boundary] warnings=20 strict=true"
+    ],
+    "removedLinesMultiplicity": [
+      "[fsusui-boundary] warnings=21 strict=true",
+      "- src/frontend/src/components/article-vault/VaultConflictList.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus"
+    ]
+  },
+  "application": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeLines": 30,
+    "afterLines": 30,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "full-style": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeLines": 2,
+    "afterLines": 2,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "binary": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeLines": 7,
+    "afterLines": 7,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "lifecycle": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeLines": 7,
+    "afterLines": 7,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "authoritative": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeLines": 41,
+    "afterLines": 41,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "code-intent": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeLines": 3,
+    "afterLines": 3,
+    "byteIdentical": false,
+    "addedLinesMultiplicity": [
+      "[code-intent] 2 error(s) across 5754 checked file(s):"
+    ],
+    "removedLinesMultiplicity": [
+      "[code-intent] 2 error(s) across 5753 checked file(s):"
+    ]
+  },
+  "originalBaseBoundaryRawIdentical": true,
+  "retainedOriginalIntakeBeforeBoundaryRawIdentical": true,
+  "ast": {
+    "files": 7,
+    "errors": 0,
+    "exit": 0
+  },
+  "strictSeven": {
+    "exit": 1,
+    "log": "[frontend-style] missing configured frontend style path tools/frontend/style-toolchain/node_modules/.bin/eslint\n[frontend-style] missing configured frontend style path tools/frontend/style-toolchain/node_modules/.bin/stylelint\n",
+    "meaning": "environment refusal, no actual source lint result; setup HOLD"
+  }
+}
