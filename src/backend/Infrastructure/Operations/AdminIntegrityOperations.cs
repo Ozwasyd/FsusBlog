@@ -166,10 +166,16 @@ internal sealed class AdminIntegrityOperations(
             LEFT JOIN article_revision r
               ON r.id = a.current_revision_id
              AND r.article_id = a.id
+            LEFT JOIN article_revision_content_block block ON block.id = r.content_block_id
             WHERE a.status = {{(int)ArticleStatus.Published}}
               AND b.markdown_content IS NOT NULL
               AND btrim(b.markdown_content) <> ''
-              AND (r.id IS NULL OR b.markdown_content IS DISTINCT FROM r.markdown_content)
+              AND (r.id IS NULL
+                OR r.content_block_id IS NULL
+                OR r.content_block_id <= 0
+                OR block.id IS NULL
+                OR block.markdown_content IS NULL
+                OR b.markdown_content IS DISTINCT FROM block.markdown_content)
             ORDER BY a.id
             """, cancellationToken);
         IntegrityCheckSample bodyWithoutRevision = await RunIntegritySqlCheckAsync("article_body_without_revision", """
