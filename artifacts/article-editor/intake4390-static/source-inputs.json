@@ -1,0 +1,38 @@
+{
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4390,
+  "donorHead": "2d7be98f40f73e70e93d9af3b415c40b03fd6027",
+  "donorBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+  "donorDiff": "A\tartifacts/article-editor/issue-2304-snapshot-ratio-intake-wip.md\nA\tsrc/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+  "leaf": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+  "leafAbsentAtBase": true,
+  "leafBlob": "8d9427320ecd553d5225e354af45d027cd21dfe6",
+  "donorParentTopology": "2d7be98f40f73e70e93d9af3b415c40b03fd6027 00f651f5480b319bed34134ca131c1633caccb93\n00f651f5480b319bed34134ca131c1633caccb93 0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+  "ownerEquality": [
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceRatioOwner.ts",
+      "baseBlob": "16261cbd3d0cf1b9ab519eec18b934e29e87c288",
+      "donorBlob": "16261cbd3d0cf1b9ab519eec18b934e29e87c288",
+      "equal": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRestore.ts",
+      "baseBlob": "1cb705df24b7c05e4883cc026cb6082510ead498",
+      "donorBlob": "1cb705df24b7c05e4883cc026cb6082510ead498",
+      "equal": true
+    }
+  ],
+  "sourceCommit": "e29dc932505785d838dca4090985b7f00e5f4ca7",
+  "actualParent": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "actualLeafBlob": "8d9427320ecd553d5225e354af45d027cd21dfe6",
+  "exactBlob": true,
+  "productionDiff": "A\tsrc/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts\n",
+  "conflicts": [],
+  "transplantMethod": "git show exact donor leaf bytes only; no cherry-pick, merge, donor WIP or donor history",
+  "measuredSourceCommit": "8bcdb08a45ad588d0f511cbb82154c898897d6dc",
+  "measuredTree": "493d84be6a42b39dbf5b647a244522a378af6482",
+  "finalSourceTree": "493d84be6a42b39dbf5b647a244522a378af6482",
+  "sourceTreeUnchangedByFooterFix": true,
+  "footerCorrection": "Original local Refs #2304 failed trusted range footer check; amend only own unpublished commit to Refs: #2304. Original failure retained."
+}

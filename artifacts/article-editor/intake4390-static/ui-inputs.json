@@ -1,0 +1,119 @@
+{
+  "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "status": "",
+  "dependencyNodeModulesRealPath": "/workspace/FsusUI/node_modules",
+  "documents": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89",
+      "blob": "b603f1cc2cbe9245cfd5f3d4cb6b54582bc557ff"
+    },
+    {
+      "path": ".agents/skills/fsusui-design-conformance/SKILL.md",
+      "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+      "blob": "51b62cd6d254ac107a4441dac17ba65bd61a5d66"
+    },
+    {
+      "path": "docs/design.md",
+      "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+      "blob": "cb6d8a77e4aa51dc8ae3ac651c141f2fb1eedc5a"
+    },
+    {
+      "path": "docs/consumers/design-integration.md",
+      "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+      "blob": "8584a03356eca99807559a44939b1475c0a31b7a"
+    },
+    {
+      "path": "package.json",
+      "sha256": "3c94a82459e759aef22d33f0909ec44d5ab4a03a776a44c48427a62be4924d43",
+      "blob": "8dbbb2bc830ec21a8ddf6e31482b01b4b7bc6a85"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "faf72e9bf46044be7e407783119c6fbe1945858855471ff3b6bc3e20155f19a2",
+      "blob": "2f7f781efa313eb4dffee3ebedb818bc2e3956b5"
+    },
+    {
+      "path": "vue/packages/element-plus/index.ts",
+      "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+      "blob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687"
+    }
+  ],
+  "packages": {
+    "blog:vue": {
+      "version": "3.5.33",
+      "realPath": "/workspace/FsusBlog/src/frontend/node_modules/vue/package.json",
+      "manifestSHA256": "fec980abfce3f75f81a6d9511de47400bc86a3496fe11620e701ad2590014297"
+    },
+    "ui:vue": {
+      "version": "3.5.32",
+      "realPath": "/workspace/FsusUI/node_modules/vue/package.json",
+      "manifestSHA256": "fc1afd2562b2ae3f0991b1a4ad37c2819a5486ca1172c5a1d17740b214936614"
+    },
+    "blog:typescript": {
+      "version": "6.0.3",
+      "realPath": "/workspace/FsusBlog/src/frontend/node_modules/typescript/package.json",
+      "manifestSHA256": "9332e97c30d3e53ed54910b89207ed657fb444066484df6e5b6965bf130865e9"
+    },
+    "ui:typescript": {
+      "version": "6.0.2",
+      "realPath": "/workspace/FsusUI/node_modules/typescript/package.json",
+      "manifestSHA256": "bb6ee7e709ae60426e30b8d393df4d939ee61407794b4f053ce6338d6eaa8c63"
+    },
+    "blog:vue-tsc": {
+      "version": "3.2.7",
+      "realPath": "/workspace/FsusBlog/src/frontend/node_modules/vue-tsc/package.json",
+      "manifestSHA256": "25b23c964e4f493ca6207d97bc99e94f6fc449609eb0ce89620535410d8f98f7"
+    },
+    "ui:vue-tsc": {
+      "version": "3.2.6",
+      "realPath": "/workspace/FsusUI/node_modules/vue-tsc/package.json",
+      "manifestSHA256": "1f15d73b551ee928e4fbe3a7c5433df262152ebb6fc75de4210a1b048d613c15"
+    },
+    "blog:@vue/compiler-sfc": {
+      "version": "3.5.33",
+      "realPath": "/workspace/FsusBlog/src/frontend/node_modules/@vue/compiler-sfc/package.json",
+      "manifestSHA256": "94de2ba48240f3515f45803c93ede444b5760bf4076d302c6357d1ed6921716d"
+    },
+    "ui:@vue/compiler-sfc": {
+      "version": "3.5.32",
+      "realPath": "/workspace/FsusUI/node_modules/@vue/compiler-sfc/package.json",
+      "manifestSHA256": "9cd5455467d29f8262c69ebc95fe5a7227b19f643eff919f89ca4dfa1fffb552"
+    },
+    "ui:@vueuse/core": {
+      "version": "14.2.1",
+      "realPath": "/workspace/FsusUI/node_modules/@vueuse/core/package.json",
+      "manifestSHA256": "76f4932fef53ec4716b3919ab047d92c963a55955d79374acc6753babb40d55c"
+    },
+    "blog:@ctrl/tinycolor": {
+      "version": "3.6.1",
+      "realPath": "/workspace/FsusBlog/src/frontend/node_modules/@ctrl/tinycolor/package.json",
+      "manifestSHA256": "8f1490f6074d449b1fae6ec6db19e37e64cac2193ace913e7a7fcc05dbe593fc"
+    },
+    "ui:@ctrl/tinycolor": {
+      "version": "3.6.1",
+      "realPath": "/workspace/FsusUI/node_modules/@ctrl/tinycolor/package.json",
+      "manifestSHA256": "8f1490f6074d449b1fae6ec6db19e37e64cac2193ace913e7a7fcc05dbe593fc"
+    },
+    "blog:async-validator": {
+      "version": "4.2.5",
+      "realPath": "/workspace/FsusBlog/src/frontend/node_modules/async-validator/package.json",
+      "manifestSHA256": "3f91af4429bb8871ebd4c59dcf8b52b06fa9f4d6f6398a1d72f9258c255f40cc"
+    },
+    "ui:async-validator": {
+      "version": "4.2.5",
+      "realPath": "/workspace/FsusUI/node_modules/async-validator/package.json",
+      "manifestSHA256": "3f91af4429bb8871ebd4c59dcf8b52b06fa9f4d6f6398a1d72f9258c255f40cc"
+    },
+    "blog:lodash-unified": {
+      "version": "1.0.3",
+      "realPath": "/workspace/FsusBlog/src/frontend/node_modules/lodash-unified/package.json",
+      "manifestSHA256": "23fa098f88e0f8718bb68854b3574b4649f593065ecf56632c7f4adf23836c24"
+    },
+    "ui:lodash-unified": {
+      "version": "1.0.3",
+      "realPath": "/workspace/FsusUI/node_modules/lodash-unified/package.json",
+      "manifestSHA256": "23fa098f88e0f8718bb68854b3574b4649f593065ecf56632c7f4adf23836c24"
+    }
+  }
+}
