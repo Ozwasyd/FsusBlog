@@ -1,0 +1,1 @@
+vite.config.ts(11,54): error TS7016: Could not find a declaration file for module './scripts/vite-watch-policy.mjs'. '/workspace/FsusBlog-intake4379/src/frontend/scripts/vite-watch-policy.mjs' implicitly has an 'any' type.

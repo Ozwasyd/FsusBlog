@@ -1,0 +1,17 @@
+{
+    "name": "application",
+    "cwd": "/workspace/FsusBlog-intake4379/src/frontend",
+    "argv": [
+        "node",
+        "scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+    ],
+    "environmentOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-981-intake4379",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
+    },
+    "startedAt": "2026-10-15T10:59:51.952511+00:00",
+    "exitCode": 2,
+    "endedAt": "2026-10-15T11:00:26.041414+00:00"
+}

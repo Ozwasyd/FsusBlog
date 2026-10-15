@@ -1,0 +1,42 @@
+[
+    {
+        "path": "/workspace/FsusUI-981-intake4379/node_modules",
+        "installedTarget": "/workspace/FsusUI/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/internal/build/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/internal/build/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/internal/metadata/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/internal/metadata/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/packages/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/packages/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/packages/components/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/packages/components/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/packages/demo-app/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/packages/demo-app/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/packages/element-plus/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/packages/element-plus/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/packages/icons-vue/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/packages/icons-vue/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/packages/theme-chalk/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/packages/theme-chalk/node_modules"
+    },
+    {
+        "path": "/workspace/FsusUI-981-intake4379/vue/packages/wasm/node_modules",
+        "installedTarget": "/workspace/FsusUI/vue/packages/wasm/node_modules"
+    }
+]

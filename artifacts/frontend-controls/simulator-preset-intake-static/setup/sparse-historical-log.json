@@ -1,0 +1,10 @@
+{
+    "reason": "Existing 11861610-byte historical log exceeds connector response transport; four unchanged inherited paths retain exact remote blob/tree. Every production/compiler/linter/config input is materialized. No historical content regenerated.",
+    "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+    "paths": [
+        "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.txt",
+        "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.txt",
+        "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-full-style.txt",
+        "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-full-style.txt"
+    ]
+}
