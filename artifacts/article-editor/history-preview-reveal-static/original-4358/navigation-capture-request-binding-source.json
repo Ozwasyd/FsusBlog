@@ -1,0 +1,9 @@
+{
+  "kind": "compiler AST source inspection only, no product/module evaluation",
+  "path": "src/frontend/src/services/articleCaptureRecovery.ts",
+  "requestBindingOffset": 16929,
+  "firstAwaitOffset": 17488,
+  "requestBindingLine": 427,
+  "firstAwaitLine": 435,
+  "bindingBeforeEveryAwait": true
+}

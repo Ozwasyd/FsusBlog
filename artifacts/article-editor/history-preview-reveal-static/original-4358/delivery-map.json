@@ -1,0 +1,218 @@
+{
+    "kind": "ordinary delivery-location mapping only; no qualification/authority schema",
+    "sourcePR": 4358,
+    "sourceHead": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+    "originalWIP": "artifacts/article-editor/issue-2295-navigation-capture-leaves.json",
+    "originalWIPUnchanged": true,
+    "original27": [
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-types.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-types.exit",
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-authoritative.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-authoritative.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-lifecycle.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-lifecycle.txt",
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "bytes": 762,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-lifecycle.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-lifecycle.txt",
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "bytes": 762,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-request-binding-source.json",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-request-binding-source.json",
+            "sha256": "794f0d35b469e07af9c7697225d515a5c9397215e684f7b08c8f5c0b634d52ea",
+            "bytes": 298,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-lifecycle.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-lifecycle.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-full-style.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-full-style.txt",
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "bytes": 11861610,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-types.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-types.exit",
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-exact-inputs.json",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-exact-inputs.json",
+            "sha256": "31591e2f751bd93f2a7ab4b5cbe21639f96f6496f6c68da9cfa43a4e05d0c55b",
+            "bytes": 393,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-authoritative.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-authoritative.txt",
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "bytes": 6771,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-code-intent.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-code-intent.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-ast.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-ast.exit",
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-lifecycle.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-lifecycle.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-authoritative.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-authoritative.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-types.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-types.txt",
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b",
+            "bytes": 5735,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-code-intent.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-code-intent.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-authoritative.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-authoritative.txt",
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "bytes": 6771,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-strict.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-strict.txt",
+            "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+            "bytes": 68,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-types.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-types.txt",
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b",
+            "bytes": 5735,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-full-style.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-full-style.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-full-style.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-full-style.txt",
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "bytes": 11861610,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-ast.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-ast.txt",
+            "sha256": "58dcb33bf07163985baae3bb6a5e212df0d47214580360c1a8feb16828890eb1",
+            "bytes": 156,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-protected-owners.json",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-protected-owners.json",
+            "sha256": "8ac934b7b069ae976fe7f6fa33cc6ded840229450ec6658495ed9b330cde5866",
+            "bytes": 944,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-full-style.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-full-style.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-code-intent.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-code-intent.txt",
+            "sha256": "d5df170354cfe959f89a40783c3632452040b2d7afd0c1914eb0bb817ef4cba9",
+            "bytes": 353,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-base-code-intent.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-code-intent.txt",
+            "sha256": "b28775b8a33594fe33211eb01843520674865609a4a725ccf8282682505daa4c",
+            "bytes": 353,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/navigation-capture-candidate-strict.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-strict.exit",
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "bytes": 2,
+            "provenance": "retained original4358 evidence; matches originalWIP declared digest, not rerun/recreated"
+        }
+    ],
+    "retainedConfigs": [
+        {
+            "role": "base",
+            "retainedPath": "/workspace/session-2295-blog-final-compatible-embed-composition/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/retained-base-app-config.snapshot.json",
+            "sha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+            "bytes": 3082,
+            "provenance": "existing retained generated configuration; bytes match original4358 WIP recorded hash. Original creation time not inferred, paths not rewritten."
+        },
+        {
+            "role": "candidate",
+            "retainedPath": "/workspace/session-2295-blog-navigation-capture-leaves/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/original-4358/retained-candidate-app-config.snapshot.json",
+            "sha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+            "bytes": 3082,
+            "provenance": "existing retained generated configuration; bytes match original4358 WIP recorded hash. Original creation time not inferred, paths not rewritten."
+        }
+    ],
+    "limitations": "Raw configs retain original relative-path meaning/cwd and are read-only evidence, not runnable configs at this delivery path. No original log/exit/config bytes normalized or regenerated; delivery mapping does not authenticate runtime/physical input or elevate PASS/FAIL. No historical timestamps invented. Delivery config snapshots are ordinary read-only evidence data; they are not compiler inputs at this location and do not replace the original ignored generated files.",
+    "reviewLocation": "All deliveryPath entries are actual regular files tracked by this new checkpoint; readable from any checkout of the draft head without access to /workspace/session-evidence-2295."
+}

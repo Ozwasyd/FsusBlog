@@ -1,0 +1,2 @@
+src/frontend/src/services/authoring/authoringNavigationHistory.ts: AST 0 diagnostics
+src/frontend/src/services/articleCaptureRecovery.ts: AST 0 diagnostics

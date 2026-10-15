@@ -1,0 +1,12 @@
+[
+  {
+    "donor": "020660a5e2a5246fbab75fc827aff7a21b1befc4",
+    "path": "src/frontend/src/services/authoring/authoringNavigationHistory.ts",
+    "blob": "834b31a5f0134bb9bcdb1fcc243525f0e55bd86a"
+  },
+  {
+    "donor": "80e4991f04db352e71ce7d7eed6196c2a52c187f",
+    "path": "src/frontend/src/services/articleCaptureRecovery.ts",
+    "blob": "5820feab4b951ebe90f3cedac0ee9d52a66e69f1"
+  }
+]

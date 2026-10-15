@@ -1,0 +1,257 @@
+{
+    "kind": "ordinary completed static delivery-location map, no qualification schema/authority",
+    "base": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+    "candidateBinding": "The containing draft HEAD and explicit source blobs bind this ordinary run; no self-referential candidate commit invented.",
+    "workingDirectories": {
+        "base": "/workspace/session-2295-blog-navigation-capture-leaves",
+        "candidate": "/workspace/session-2295-blog-history-preview-reveal-checkpoint"
+    },
+    "actualUI": "clean c77281165226ffd84223c4c8d43805c5deb2b1b3 via real /workspace/session-2295-ui961-local-dependency source",
+    "commands": {
+        "wholeApplication": "FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui961-local-dependency node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "wholeStyle": "same original environment; node tools/frontend/check-frontend-style.mjs --mode full",
+        "boundary": "same original environment; node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+        "strict": "same original environment; node tools/frontend/check-frontend-style.mjs --mode strict-full with --file for all five source leaves",
+        "global": [
+            "node tools/governance/check-code-intent.mjs",
+            "node tools/docs/generate-document-lifecycle.mjs --check",
+            "node tools/docs/check-authoritative-development-docs.mjs"
+        ]
+    },
+    "completedLogsAndExitFiles": [
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-types.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-types.txt",
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b",
+            "bytes": 5735
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-types.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-types.exit",
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-full-style.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.txt",
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "bytes": 11861610
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-full-style.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-boundary.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-boundary.txt",
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "bytes": 2805
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-boundary.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-boundary.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-code-intent.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-code-intent.txt",
+            "sha256": "d5df170354cfe959f89a40783c3632452040b2d7afd0c1914eb0bb817ef4cba9",
+            "bytes": 353
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-code-intent.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-code-intent.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-lifecycle.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-lifecycle.txt",
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "bytes": 762
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-lifecycle.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-lifecycle.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-authoritative.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-authoritative.txt",
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "bytes": 6771
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-base-authoritative.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-authoritative.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-types.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-types.txt",
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b",
+            "bytes": 5735
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-types.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-types.exit",
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-full-style.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.txt",
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "bytes": 11861610
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-full-style.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-boundary.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-boundary.txt",
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "bytes": 2805
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-boundary.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-boundary.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-code-intent.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-code-intent.txt",
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "bytes": 353
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-code-intent.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-code-intent.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-lifecycle.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-lifecycle.txt",
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "bytes": 762
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-lifecycle.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-lifecycle.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-authoritative.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-authoritative.txt",
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "bytes": 6771
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-authoritative.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-authoritative.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-strict-five.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-strict-five.txt",
+            "sha256": "6a300504efe54bec9078e875eabb0087c6d59dec6a6b7fa3c66cc9782cfda02e",
+            "bytes": 68
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-strict-five.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-strict-five.exit",
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "bytes": 2
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-ast.txt",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-ast.txt",
+            "sha256": "458ac8fb0f82edf8c0c6cb7d57fde98db95cdeacd37e5beb6fd9aed4374aa002",
+            "bytes": 458
+        },
+        {
+            "originalAbsolutePath": "/workspace/session-evidence-2295/history-preview-reveal-candidate-ast.exit",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-ast.exit",
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "bytes": 2
+        }
+    ],
+    "retainedFullConfigs": [
+        {
+            "role": "base",
+            "originalAbsolutePath": "/workspace/session-2295-blog-navigation-capture-leaves/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/base-app-config.snapshot.json",
+            "sha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+            "bytes": 3082,
+            "aliases": {
+                "element-plus": "/workspace/session-2295-ui961-local-dependency/vue/packages/element-plus/index.ts",
+                "@ozwasyd/element-plus": "/workspace/session-2295-ui961-local-dependency/vue/packages/element-plus/index.ts"
+            }
+        },
+        {
+            "role": "candidate",
+            "originalAbsolutePath": "/workspace/session-2295-blog-history-preview-reveal-checkpoint/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+            "deliveryPath": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/candidate-app-config.snapshot.json",
+            "sha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+            "bytes": 3082,
+            "aliases": {
+                "element-plus": "/workspace/session-2295-ui961-local-dependency/vue/packages/element-plus/index.ts",
+                "@ozwasyd/element-plus": "/workspace/session-2295-ui961-local-dependency/vue/packages/element-plus/index.ts"
+            }
+        }
+    ],
+    "comparison": {
+        "fullApplication": {
+            "base": 29,
+            "candidate": 29,
+            "exit": 2,
+            "Blog": 4,
+            "UI": 25,
+            "added": 0,
+            "removed": 0,
+            "normalization": "source positions only, complete blocks and multiplicity retained"
+        },
+        "full-style": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 83667
+        },
+        "boundary": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 21
+        },
+        "lifecycle": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 7
+        },
+        "authoritative": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 41
+        },
+        "codeIntent": {
+            "errors": 2,
+            "baseChecked": 5744,
+            "candidateChecked": 5747,
+            "sameDiagnosticRows": true,
+            "status": "FAIL1 both"
+        },
+        "strictFive": "PASS0 files5 eslint5 stylelint2 violations0new0",
+        "AST": "PASS0 compiler parser/SFC/script/TS only, no product/helper evaluation"
+    },
+    "limits": "All bytes copied only after each run exit sidecar existed; no normalization of raw logs, no synthesized or rerun historical4358 evidence. Config snapshots retain original cwd/relative-path meaning, not executable configs at delivery location. Static outputs never runtime/frozen/physical/UX qualification."
+}

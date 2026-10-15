@@ -1,0 +1,135 @@
+{
+    "kind": "ordinary exact unmounted display source-leaf WIP, no UX/authority receipt",
+    "base": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+    "inputs": [
+        {
+            "head": "50cf9039bcd5228a7d8a335f99b7e834a0b52728",
+            "path": "src/frontend/src/components/admin/article/ArticleSearchRevealStatus.vue",
+            "blob": "a0bc31cb12423a11fcb2128a8d6945fa513a156a"
+        }
+    ],
+    "scope": "1 exact source files plus this own ordinary WIP, no donor history/tests/other source or metadata. Independent sibling of history/recovery4358 and other presentation leaf.",
+    "sourceProof": {
+        "base": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+        "exactInputs": [
+            {
+                "head": "50cf9039bcd5228a7d8a335f99b7e834a0b52728",
+                "path": "src/frontend/src/components/admin/article/ArticleSearchRevealStatus.vue",
+                "blob": "a0bc31cb12423a11fcb2128a8d6945fa513a156a"
+            }
+        ],
+        "unmounted": "No source references/imports/mounts outside own new file(s) found. No route/resolver/currentpermission/selection/focus/browserports installed. This is finite static source inspection, not runtime reachability acceptance.",
+        "existingHelperUnchangedBlob": "28aa96f75cc9e62822593b3eebd351718753521e",
+        "alias": {
+            "realRoot": "/workspace/session-2295-ui961-local-dependency",
+            "gitHead": "c77281165226ffd84223c4c8d43805c5deb2b1b3",
+            "clean": true,
+            "completeGeneratedConfigSame": true,
+            "configSha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332"
+        },
+        "designContext": {
+            "scope": "Unactivated exact-source presenter intake only, no rendered output inspected or UX acceptance, no formal frozen classification/receipt refresh. Consumer presentation owner; FsusUI public controls/tokens remain upstream-owned. Existing holds override any execution workflow; future actual host/mount/UX evidence still needed.",
+            "loadedOrdinaryAuthorityDigests": {
+                "/workspace/session-2295-blog-search-reveal-status-leaf/.agents/skills/fsusblog-design-conformance/SKILL.md": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+                "/workspace/session-2295-ui961-local-dependency/.agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+                "/workspace/session-2295-ui961-local-dependency/docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+                "/workspace/session-2295-ui961-local-dependency/docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+                "/workspace/session-2295-ui961-local-dependency/docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+                "/workspace/session-2295-ui961-local-dependency/docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+                "/workspace/session-2295-ui961-local-dependency/docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+                "/workspace/session-2295-ui961-local-dependency/docs/components/popover.md": "7cf4f5f6538012f5c0167ac2b57fcd6e87aef3b8d5f76da28abb85f6a469fe89",
+                "/workspace/session-2295-ui961-local-dependency/docs/components/button.md": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76"
+            }
+        },
+        "allExistingTrackedFilesUnchanged": true
+    },
+    "meaning": "Read-only status/precision labels from supplied presentation only; existing articleSearchRevealPresentation helper unchanged and not invoked. Ready is command availability, never actual execution/focus/viewport success ACK. No helper/lease/index/selection/history authority or mount installed.",
+    "static": {
+        "completeApplication": "Actual original full UI96129FAIL2 ->29FAIL2, Blog4/UI25, full blocks/multiplicity positions-only delta0; same exact4352 baseline source/input/config/deps before candidate, no narrowed program/ref/enum/stub/config/lock changes.",
+        "originalFullFrontendStyle": "Complete original FAIL1 both,83667lines byte-identical; inherited stale configuration/source-state baseline diagnostics and all findings retained.",
+        "strict": "PASS0 exact1files originalstrict-full including scoped styles as selected by originalchecker,0violations",
+        "AST": "SFC script/TS AST source-onlyPASS0; no product/helper evaluation.",
+        "boundary": "Original source-only FSUSUI boundary20FAIL1 ->20FAIL1 raw byte-identical; no fixture/candidate producer/test/discovery/main wrapper invoked.",
+        "codeIntent": "Same2errors FAIL1, checked5742->5743; diagnostic rows unchanged.",
+        "docs": "Lifecycle7FAIL1/authoritative41FAIL1 raw unchanged. No managed source/project changes, no redundant managed rebuild."
+    },
+    "missing": "Actual host/Router/resolver/currentpermission/selection/focus/browser/mount integrations remain absent. No real runtime or rendered validation/UX conformance. Existing real editor native loan/worker/recovery/disposedrestoreACK capability gaps unchanged.",
+    "holds": "All runtime/product/helper/parser module evaluation/import/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixture/race/backuprestore/IME/qualification HOLD/UNRUN. No activation/merge/Ready/closure/package/publication/authority refresh. No frozen classification/UX evidence generation, no fake token or private FsusUI patch.4336aggregateFAIL unchanged; independent physicalalias/CSSoutputUNVERIFIED.",
+    "rollback": "Omit/revert only these2addedpaths to exact4352, no live state changed.",
+    "evidence": {
+        "/workspace/session-evidence-2295/search-reveal-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/search-reveal-code-intent.txt": {
+            "sha256": "5eb0935c52e6b34d7f93a1b5cc12390a52f47f31c73c5db1c6909fed666d77cf"
+        },
+        "/workspace/session-evidence-2295/search-reveal-strict.txt": {
+            "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577"
+        },
+        "/workspace/session-evidence-2295/search-reveal-candidate-full-style.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/search-reveal-source-proof.json": {
+            "sha256": "dc3b4fc189f99c10c853bef100bb90b60ff5e5f3c8b7c44c5e7d1b3bf9616a4f"
+        },
+        "/workspace/session-evidence-2295/search-reveal-boundary.txt": {
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+        },
+        "/workspace/session-evidence-2295/search-reveal-ast.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/search-reveal-strict.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/search-reveal-authoritative.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/search-reveal-ast.txt": {
+            "sha256": "3e73a980ca2fe3224bad48f8c9278afae570e785d1fe0590f93c0d3770f8be0c"
+        },
+        "/workspace/session-evidence-2295/search-reveal-boundary.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/search-reveal-candidate-full-style.txt": {
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "/workspace/session-evidence-2295/search-reveal-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "/workspace/session-evidence-2295/search-reveal-candidate-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/search-reveal-code-intent.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/search-reveal-lifecycle.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/search-reveal-candidate-types.exit": {
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+        },
+        "/workspace/session-evidence-2295/search-reveal-exact-inputs.json": {
+            "sha256": "21663fbcf823155ec45dccab38fc948745c0f0eeae4a9aa55e64819f1bdeb0c1"
+        }
+    },
+    "baselineEvidence": {
+        "/workspace/session-evidence-2295/navigation-capture-base-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-full-style.txt": {
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "/workspace/session-evidence-2295/display-base-boundary.txt": {
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-code-intent.txt": {
+            "sha256": "b28775b8a33594fe33211eb01843520674865609a4a725ccf8282682505daa4c"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        }
+    }
+}

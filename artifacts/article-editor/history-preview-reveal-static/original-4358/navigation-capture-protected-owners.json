@@ -1,0 +1,26 @@
+[
+  {
+    "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+    "unchangedBaseBlob": "808468e4efe9f72b92ba3799a7df233cda48ad30"
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleWorkspaceRetainedRecoverySnapshot.ts",
+    "unchangedBaseBlob": "3540b2ff622680a2fc6a19842bcb81ffbca1cd23"
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleWorkspaceTabRouter.ts",
+    "unchangedBaseBlob": "57bd14cdc6e13a6efac7cd6585feeaa378769468"
+  },
+  {
+    "path": "src/frontend/src/services/authoring/authoringSessionHost.ts",
+    "unchangedBaseBlob": "3a52f9d03c07d7dd0429d0c08d5097cce9038876"
+  },
+  {
+    "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+    "unchangedBaseBlob": "b54be3268b4fbe4ca02d1692735b148e82fed4cb"
+  },
+  {
+    "path": "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts",
+    "unchangedBaseBlob": "4e78c48bd891a856c6f19c2a3492b9920e3c01da"
+  }
+]

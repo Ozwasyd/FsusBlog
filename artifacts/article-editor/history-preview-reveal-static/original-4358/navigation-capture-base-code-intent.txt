@@ -1,0 +1,3 @@
+[code-intent] 2 error(s) across 5742 checked file(s):
+- src/frontend/src/services/authoringCanvasSpatialIndex.ts:1 unbounded performance claim 'high-performance' must be structural or evidence-registered
+- src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp:338 unbounded performance claim 'no allocation' must be structural or evidence-registered
