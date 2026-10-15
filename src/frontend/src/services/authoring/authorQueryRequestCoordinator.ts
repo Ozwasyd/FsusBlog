@@ -34,8 +34,12 @@ export class AuthorQueryRequestCoordinator
         {
             throw new Error('author_query_request_invalid');
         }
-        this.cancel();
         const sequence = ++this.sequence;
+        this.cancel();
+        if (this.disposed || this.sequence !== sequence)
+        {
+            throw new DOMException('author_query_request_stale', 'AbortError');
+        }
         const controller = new AbortController();
         const forwardAbort = (): void => controller.abort(callerSignal?.reason);
         if (callerSignal?.aborted)
@@ -86,17 +90,18 @@ export class AuthorQueryRequestCoordinator
 
     cancel(): void
     {
-        this.active?.controller.abort(new DOMException('author_query_request_canceled', 'AbortError'));
-        this.active?.cleanup();
+        const active = this.active;
         this.active = null;
+        active?.controller.abort(new DOMException('author_query_request_canceled', 'AbortError'));
+        active?.cleanup();
     }
 
     dispose(): void
     {
         if (!this.disposed)
         {
-            this.cancel();
             this.disposed = true;
+            this.cancel();
             this.unregisterCleanup();
         }
     }
