@@ -226,7 +226,7 @@ watch(() => props.selectedRevision?.id, () =>
 
 .revision-row__title
  {
-    color: var(--fsusblog-text-primary);
+    color: inherit;
     font-size: 14px;
     font-weight: 700;
 }
@@ -234,7 +234,7 @@ watch(() => props.selectedRevision?.id, () =>
 .revision-row__meta,
 .revision-row__actor
  {
-    color: var(--fsusblog-text-tertiary);
+    color: inherit;
     font-size: 12px;
 }
 
