@@ -1,0 +1,1 @@
+First delivery-map refresh stopped on existing delivery-map.json, which has no original source counterpart. No checker rerun or raw log modification occurred. The packaging loop now excludes its own map from input entries. Fresh map independently hashes the actual completed ordinary evidence files.

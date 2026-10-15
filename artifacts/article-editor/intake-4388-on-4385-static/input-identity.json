@@ -1,0 +1,63 @@
+{
+  "kind": "ordinary source input inventory, not frozen authority/classification/UX/qualification receipt",
+  "uiPR": 981,
+  "root": "/workspace/FsusUI-intake-4388-ui981",
+  "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+  "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+  "statusPorcelain": "",
+  "trackedDirtyFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "package": {
+    "name": "element-plus",
+    "version": "1.5.1",
+    "publishedName": "@ozwasyd/element-plus"
+  },
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+  },
+  "actualResolver": "src/frontend/scripts/fsusui-root.mjs; real output retained in resolver.txt",
+  "publicAliasChain": [
+    "src/frontend/src/fsusui/button.ts -> @ozwasyd/element-plus",
+    "/workspace/FsusUI-intake-4388-ui981/vue/packages/element-plus/index.ts",
+    "@element-plus/components -> button/index.ts -> src/button.vue"
+  ],
+  "dependencyLinks": {
+    "/workspace/FsusBlog-intake-4388/src/frontend/node_modules": "/workspace/FsusBlog/src/frontend/node_modules",
+    "/workspace/FsusUI-intake-4388-ui981/node_modules": "/workspace/FsusUI/node_modules"
+  },
+  "existingDependenciesReusedNoInstall": true,
+  "themeCSS": {
+    "vue/packages/theme-chalk/dist/index.css": false,
+    "vue/packages/theme-chalk/dist/el-fsus-theme.css": false
+  },
+  "consumerAcceptance": "WIP BLOCKED: product theme CSS is not built at reviewed UI981. Old installed CSS, source Sass and source aliases are not consumer acceptance. No theme/Wasm build or package publication performed.",
+  "readContextSha256": {
+    "/workspace/FsusBlog-intake-4388/AGENTS.md": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d",
+    "/workspace/FsusBlog-intake-4388/.agents/skills/fsusblog-design-conformance/SKILL.md": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+    "/workspace/FsusBlog-intake-4388/.agents/skills/fsusblog-design-conformance/references/baseline-resolution.md": "2a8f61be5adc04751bb72f2c8746dda94f9385f591261fa89f8f1f33bf2d979d",
+    "/workspace/FsusBlog-intake-4388/docs/design/governance.md": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+    "/workspace/FsusBlog-intake-4388/docs/design/surface-profiles.md": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243",
+    "/workspace/FsusBlog-intake-4388/docs/development/change-contract.md": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586",
+    "/workspace/FsusBlog-intake-4388/docs/development/document-lifecycle.md": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d",
+    "/workspace/FsusUI-intake-4388-ui981/AGENTS.md": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89",
+    "/workspace/FsusUI-intake-4388-ui981/.agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "/workspace/FsusUI-intake-4388-ui981/docs/index.md": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+    "/workspace/FsusUI-intake-4388-ui981/docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+    "/workspace/FsusUI-intake-4388-ui981/docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+    "/workspace/FsusUI-intake-4388-ui981/docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+    "/workspace/FsusUI-intake-4388-ui981/docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+    "/workspace/FsusUI-intake-4388-ui981/docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+    "/workspace/FsusUI-intake-4388-ui981/docs/components/button.md": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76"
+  },
+  "unchangedStaticInputsSha256": {
+    "src/frontend/tsconfig.app.json": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+    "src/frontend/scripts/fsusui-root.mjs": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304",
+    "src/frontend/scripts/fsusui-local.ts": "ae7e818373c60624d08315749b1b427aa81add634e0fb489d6dae27a5861287c",
+    "src/frontend/package.json": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "src/frontend/package-lock.json": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+    "config/development/frontend-style-policy.json": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+    "config/development/frontend-style-rule-registry.json": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+    "config/development/frontend-style-baseline.json": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+  }
+}
