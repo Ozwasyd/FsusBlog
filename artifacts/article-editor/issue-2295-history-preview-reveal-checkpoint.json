@@ -1,0 +1,162 @@
+{
+    "kind": "ordinary source composition WIP and readable static delivery, no qualification authority",
+    "base": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+    "basePR": 4358,
+    "inputParentTopology": {
+        "base": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+        "commonSiblingBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+        "donors": [
+            {
+                "PR": 4360,
+                "head": "458487b9d4b26d71ff529bea71f63e606d9cb5bf",
+                "trueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+                "ownPaths": [
+                    "artifacts/article-editor/issue-2295-internal-link-preview-leaf.json",
+                    "src/frontend/src/components/admin/article/ArticleInternalLinkPreview.types.ts",
+                    "src/frontend/src/components/admin/article/ArticleInternalLinkPreview.vue"
+                ]
+            },
+            {
+                "PR": 4361,
+                "head": "11e40156e33d4775eda2967b8ea8a359588b9ac2",
+                "trueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+                "ownPaths": [
+                    "artifacts/article-editor/issue-2295-search-reveal-status-leaf.json",
+                    "src/frontend/src/components/admin/article/ArticleSearchRevealStatus.vue"
+                ]
+            }
+        ],
+        "all5PreimagesMatchNewBase": true,
+        "paths": [
+            "artifacts/article-editor/issue-2295-internal-link-preview-leaf.json",
+            "src/frontend/src/components/admin/article/ArticleInternalLinkPreview.types.ts",
+            "src/frontend/src/components/admin/article/ArticleInternalLinkPreview.vue",
+            "artifacts/article-editor/issue-2295-search-reveal-status-leaf.json",
+            "src/frontend/src/components/admin/article/ArticleSearchRevealStatus.vue"
+        ]
+    },
+    "sourceProof": {
+        "base": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+        "commonSiblingBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+        "exactFiveDonorOwnFiles": [
+            {
+                "path": "artifacts/article-editor/issue-2295-internal-link-preview-leaf.json",
+                "donorPR": 4360,
+                "donorHead": "458487b9d4b26d71ff529bea71f63e606d9cb5bf",
+                "donorTrueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+                "exactFinalBlob": "5b1172bd9b48c8f286c2d742f323224564ab51c8"
+            },
+            {
+                "path": "src/frontend/src/components/admin/article/ArticleInternalLinkPreview.types.ts",
+                "donorPR": 4360,
+                "donorHead": "458487b9d4b26d71ff529bea71f63e606d9cb5bf",
+                "donorTrueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+                "exactFinalBlob": "755d42814b94de3f363df3015db82fc4cba221d9"
+            },
+            {
+                "path": "src/frontend/src/components/admin/article/ArticleInternalLinkPreview.vue",
+                "donorPR": 4360,
+                "donorHead": "458487b9d4b26d71ff529bea71f63e606d9cb5bf",
+                "donorTrueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+                "exactFinalBlob": "e0927fb11027973ed92dc547848651e7ebe6a464"
+            },
+            {
+                "path": "artifacts/article-editor/issue-2295-search-reveal-status-leaf.json",
+                "donorPR": 4361,
+                "donorHead": "11e40156e33d4775eda2967b8ea8a359588b9ac2",
+                "donorTrueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+                "exactFinalBlob": "cdd8d5f1ea83ee46e4238e1841822e6232a40f9c"
+            },
+            {
+                "path": "src/frontend/src/components/admin/article/ArticleSearchRevealStatus.vue",
+                "donorPR": 4361,
+                "donorHead": "11e40156e33d4775eda2967b8ea8a359588b9ac2",
+                "donorTrueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+                "exactFinalBlob": "a0bc31cb12423a11fcb2128a8d6945fa513a156a"
+            }
+        ],
+        "conflicts": 0,
+        "existing4358SourceAndMetadataUnchanged": true,
+        "actualUIHead": "c77281165226ffd84223c4c8d43805c5deb2b1b3",
+        "excludedExportQuickCapture": [
+            "src/frontend/src/views/admin/article/ExportCenter.vue",
+            "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue"
+        ],
+        "physicalAliasCSS": "UNVERIFIED",
+        "materializedOriginalFiles": 30,
+        "ignoredDeliveryFiles": []
+    },
+    "scope": "Base4358 History/Recovery owners and originalWIP unchanged. Receive exact own3paths4360 and own2paths4361 as siblings of common4352, not stackedparentheads; preserve both original WIPs byte-for-byte. Five added donorfiles contain3sources+2metadata. Own composition WIP and ordinary raw delivery files accompany the new checkpoint; no donor history, no sourceactivation.",
+    "provenanceContexts": "Sibling WIPs describe their original independent candidates/base0c9; preserve those historical checkpoint statements. This new WIP binds the actual combined candidate/base4358; their acceptance is limitedSOURCE, no inherited runtime/UX/physical qualification.",
+    "readableOriginal4358Evidence": {
+        "manifest": "artifacts/article-editor/history-preview-reveal-static/original-4358/delivery-map.json",
+        "originalCount": 27,
+        "allDeclaredDigestsMatch": true,
+        "extraRetainedConfigs": 2,
+        "meaning": "Actual regular repository-relative files readable after checkout in reviewer environment. Old4358 WIP absolute paths remain unchanged, resolved through this map. Retained config bytes match originalWIP recorded SHA; no original creation timestamp inferred."
+    },
+    "readableCurrentCheckpointEvidence": {
+        "manifest": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/delivery-map.json",
+        "completedLogExitFiles": 28,
+        "configSnapshots": 2,
+        "meaning": "Original complete current runs, all raw bytes preserved and digests computed after exit confirmation. No empty in-progress digest copied."
+    },
+    "static": {
+        "fullApplication": {
+            "base": 29,
+            "candidate": 29,
+            "exit": 2,
+            "Blog": 4,
+            "UI": 25,
+            "added": 0,
+            "removed": 0,
+            "normalization": "source positions only, complete blocks and multiplicity retained"
+        },
+        "full-style": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 83667
+        },
+        "boundary": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 21
+        },
+        "lifecycle": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 7
+        },
+        "authoritative": {
+            "status": "FAIL1 both",
+            "rawByteIdentical": true,
+            "linesEach": 41
+        },
+        "codeIntent": {
+            "errors": 2,
+            "baseChecked": 5744,
+            "candidateChecked": 5747,
+            "sameDiagnosticRows": true,
+            "status": "FAIL1 both"
+        },
+        "strictFive": "PASS0 files5 eslint5 stylelint2 violations0new0",
+        "AST": "PASS0 compiler parser/SFC/script/TS only, no product/helper evaluation"
+    },
+    "actualUIInput": {
+        "head": "c77281165226ffd84223c4c8d43805c5deb2b1b3",
+        "path": "/workspace/session-2295-ui961-local-dependency",
+        "publicAliases": {
+            "element-plus": "/workspace/session-2295-ui961-local-dependency/vue/packages/element-plus/index.ts",
+            "@ozwasyd/element-plus": "/workspace/session-2295-ui961-local-dependency/vue/packages/element-plus/index.ts"
+        },
+        "fullConfigByteIdentical": true,
+        "noScopeRelaxation": true,
+        "independentPhysicalAlias": "UNVERIFIED",
+        "CSSOutput": "UNVERIFIED"
+    },
+    "behaviorLimits": "Navigation only structural current-session semantic model, no actualRouter/historyreceipt/permission grant or secondeditorhistory. Capture borrows sole original journal/coordinator, firstrequestbindbeforeawait, unknown server outcome never absence. Preview caller-owned request/presentation/canonical optional action, no resolver/currentpermission/selection integration. Reveal readonlycommandavailability, ready is not execution/focus/viewportACK. All three new sources unmounted and all previous host/checkpointcustody/editor/registry/group owners unchanged.",
+    "excluded": "Export4362oldboundaryfailureversion not included;4368 underreview. Quick4364 remainsindependentreview, noQuicksourcehere. UI969 acceptedbut actualalias adoption/Metadata4359 sixfilesSaveDISABLED deferred to next separate checkpoint. Metadata4359 not included here, requiresrealUI966capability. UI970combo pending, WritingAidswait. Query4353realregistrymissingexcluded, nofakeentry.",
+    "remaining": "Independent newcombinationSOURCEreview, actual host/scope/coordinator/transport/site/historyreceipt/currentpermission/focus/reconciliation and every runtime/native/security/privacy/UX/physical qualification. Native resource loan/worker shutdown/recovery coordination/disposedrestoreACK interfaces incomplete; no fakepause/zero/ready/ACK.",
+    "holds": "All original runtime/product/helper/parser module import/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixture/race/backuprestore/IME/qualification HOLD/UNRUN. No authority/frozen producer changes, no merge/Ready/close/package/publication.4336aggregateFAIL unchanged.",
+    "rollback": "Omit/revert only this checkpoint added5donorpaths and own ordinaryWIP/static delivery to exact4358; no live state changed."
+}
