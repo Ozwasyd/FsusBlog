@@ -1,0 +1,42 @@
+{
+  "kind": "source AST parse and exact blob comparison only; no product module import/evaluation/calls",
+  "typescript": "6.0.3",
+  "file": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+  "bytes": 1322,
+  "parseDiagnostics": [],
+  "imports": [
+    "./authoringWorkspaceRatioOwner",
+    "./authoringWorkspaceSnapshotRestore"
+  ],
+  "functions": [
+    {
+      "name": "projectAuthoringWorkspaceSnapshotRatio",
+      "parameters": [
+        "scope",
+        "ratioRef"
+      ],
+      "statements": [
+        "return authoringWorkspaceRatioOwner.resolve(scope, ratioRef).splitRatioPermille;"
+      ]
+    },
+    {
+      "name": "prepareAuthoringWorkspaceSnapshotRatio",
+      "parameters": [
+        "plan",
+        "scope",
+        "expectedRatioRef"
+      ],
+      "statements": [
+        "requirePreparedWorkspaceSnapshotRestorePlan(plan);",
+        "return authoringWorkspaceRatioOwner.prepare(scope, expectedRatioRef, plan.layout.splitRatioPermille);"
+      ]
+    }
+  ],
+  "calls": [
+    "authoringWorkspaceRatioOwner.resolve",
+    "requirePreparedWorkspaceSnapshotRestorePlan",
+    "authoringWorkspaceRatioOwner.prepare"
+  ],
+  "sourceByteEqualDonor": true,
+  "statementCount": 4
+}
