@@ -1,0 +1,6 @@
+{
+    "priorStop": "Initial rulesets-only 403 is preserved verbatim in initial-preflight-evidence.json.",
+    "scopeClarification": "Rulesets read alone is unavailable because of private repository plan; no retry or alternate rulesets route, no protection/permission/credential change. Existing separately authorized source/ref/draft operations continue; no conformance to invisible rules is claimed. An actual write or PR denial stops the denied path.",
+    "rulesetsVisibility": "UNAVAILABLE",
+    "remoteChecks": "No absent/skipped check is a PASS; [skip ci] preserves runtime execution HOLD, not a waiver of raw static failures."
+}
