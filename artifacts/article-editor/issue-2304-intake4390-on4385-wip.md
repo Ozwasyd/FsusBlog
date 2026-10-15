@@ -80,3 +80,11 @@ Independent review of the actual new intake tree on4385 is pending. Real host/sc
 Rollback: omit/revert only the added leaf and this intake's own WIP/static delivery to exact4385. No live data/state was touched. Other parallel task branches and both original repository working trees are unchanged.
 
 Trusted-base title/range/actual-PR metadata and aggregate Git whitespace checks are reported in the final delivery and PR; their completed raw outputs are retained with this saved environment. No failed applicable static check is waived by this WIP or by those metadata checks.
+
+## Actual draft publication checkpoint
+
+Actual draft: https://github.com/Ozwasyd/FsusBlog/pull/4408 . Initial published head `8bc5f617d492ac92e96cdd9428e53d38ebb4b1ef`, exact base `b302f58a9aaee9f2399d9274157a478f3c2f78fb`; production source unchanged from the measured exact tree. Fresh prepublication audit found14target-base PRs; all prior11plus3new source rosters exclude this leaf (`duplicate-recheck.json`). Original issue remains unfinished; no closure action.
+
+The first actual trusted PR metadata check returned exit1 because the two copied config snapshot filenames ended in `.generated.json`. Its complete raw failure, exit sidecar and actual REST input are delivered as `pr-4408-contract-initial.*` and `pr-4408-rest-initial.json`. Renamed only these ordinary copies to `base-tsconfig.fsusui-local.app.snapshot.json` and `candidate-tsconfig.fsusui-local.app.snapshot.json`; all snapshot bytes/hashes and original absolute producer paths remain unchanged. No generated owner/output, policy/classification or project config was rewritten.
+
+Original full static results and their measured source tree remain unchanged. Original source/delivery title/range/whitespace checks and all first failures are preserved, no failed gate is erased. Final actual REST/check/readback logs remain in `/workspace/intake4390-evidence/` and exact final remote head is given in the live PR/final handoff. Current tree stays draft for independent review.

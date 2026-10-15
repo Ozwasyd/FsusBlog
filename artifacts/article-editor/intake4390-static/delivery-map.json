@@ -395,6 +395,44 @@
             ],
             "exit": 0,
             "log": "source-title-contract.log"
+        },
+        {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-intake4390-trusted/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-intake4390",
+                "--github-event",
+                "/workspace/intake4390-evidence/pr-4408-rest-input.json"
+            ],
+            "exit": 1,
+            "log": "pr-4408-contract-initial.log",
+            "binding": "Actual PR4408 initial head8bc5f617d492ac92e96cdd9428e53d38ebb4b1ef. Check identified ordinary config snapshots with generated filenames; copies renamed only, raw bytes/config/producer unchanged."
+        },
+        {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-intake4390-trusted/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-intake4390",
+                "--range",
+                "b302f58a9aaee9f2399d9274157a478f3c2f78fb..HEAD"
+            ],
+            "head": "8bc5f617d492ac92e96cdd9428e53d38ebb4b1ef",
+            "exit": 0,
+            "log": "delivery-range-contract.log"
+        },
+        {
+            "command": [
+                "git",
+                "diff",
+                "--check",
+                "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+                "HEAD"
+            ],
+            "head": "8bc5f617d492ac92e96cdd9428e53d38ebb4b1ef",
+            "exit": 0,
+            "log": "delivery-range-whitespace.log"
         }
     ],
     "files": [
@@ -490,7 +528,7 @@
         },
         {
             "originalPath": "/workspace/intake4390-evidence/base-tsconfig.fsusui-local.app.generated.json",
-            "deliveryPath": "artifacts/article-editor/intake4390-static/base-tsconfig.fsusui-local.app.generated.json",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/base-tsconfig.fsusui-local.app.snapshot.json",
             "bytes": 2842,
             "sha256": "0907d4729b279b669c8cae7130bffeddf6af69ddb34054fc0a23089b53f1fbff"
         },
@@ -610,7 +648,7 @@
         },
         {
             "originalPath": "/workspace/intake4390-evidence/candidate-tsconfig.fsusui-local.app.generated.json",
-            "deliveryPath": "artifacts/article-editor/intake4390-static/candidate-tsconfig.fsusui-local.app.generated.json",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/candidate-tsconfig.fsusui-local.app.snapshot.json",
             "bytes": 2842,
             "sha256": "0907d4729b279b669c8cae7130bffeddf6af69ddb34054fc0a23089b53f1fbff"
         },
@@ -769,6 +807,54 @@
             "deliveryPath": "artifacts/article-editor/intake4390-static/unchanged-check-inputs.json",
             "bytes": 3776,
             "sha256": "14ef1dee0e5b462023736f87d7fd932246c2cbf7cbfb752013f2a5d74f166bde"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/pr-4408-contract.log",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/pr-4408-contract-initial.log",
+            "bytes": 265,
+            "sha256": "73a4ffeff7de8dbbaeb1db5c67657aeb1ee4f4eb81d0d8ee7de4bf97848e4697"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/pr-4408-contract.exit",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/pr-4408-contract-initial.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/pr-4408-rest-input.json",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/pr-4408-rest-initial.json",
+            "bytes": 28088,
+            "sha256": "284d5b0a26dc071444f98a69d85b9dd6b3d81e2348e99a5fbf0a2bc33fc4766c"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/duplicate-recheck.json",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/duplicate-recheck.json",
+            "bytes": 37729,
+            "sha256": "6cb56940287876fa7d17ec9edd4594d2719e462162a82af3f58b58e83806f2c8"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/delivery-range-contract.log",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/delivery-range-contract.log",
+            "bytes": 81,
+            "sha256": "732d2fdb56ad44bbac7eceb4ba95a3a9befebec530d1ce61174a2fe3d43b1cfe"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/delivery-range-contract.exit",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/delivery-range-contract.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/delivery-range-whitespace.log",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/delivery-range-whitespace.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "originalPath": "/workspace/intake4390-evidence/delivery-range-whitespace.exit",
+            "deliveryPath": "artifacts/article-editor/intake4390-static/delivery-range-whitespace.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
         }
     ],
     "allCopiedFilesReadbackVerified": true
