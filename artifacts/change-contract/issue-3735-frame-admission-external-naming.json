@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationVerifier.cs"
+            ],
+            "reason": "Preserve the registered managed-source naming boundary and the existing Canvas contract refusal strings while restoring non-nested frame graph admission in the original engine and independent verifier."
+        }
+    ]
+}

@@ -49,8 +49,9 @@ public sealed class AuthoringContentTransferService(
             .Where(it => it.ArticleId == articleId)
             .OrderBy(it => it.RevisionNo)
             .ToListAsync(cancellationToken);
-        await ArticleRevisionContentBlockStore.HydrateAsync(db, revisions, cancellationToken).ConfigureAwait(false);
-        ContentExportMetadataResponse metadata = BuildExportMetadata(article, tagIds, revisions);
+        IReadOnlyDictionary<long, string> contentByBlockId = await ArticleRevisionContentBlockStore
+            .HydrateAsync(db, revisions, cancellationToken).ConfigureAwait(false);
+        ContentExportMetadataResponse metadata = BuildExportMetadata(article, tagIds, revisions, contentByBlockId);
         return new ContentExportResponse($"article-{articleId}.md", BuildArticleExportMarkdown(article, content, metadata), metadata);
     }
 
@@ -97,7 +98,7 @@ public sealed class AuthoringContentTransferService(
             .ToListAsync(cancellationToken))
             .GroupBy(static revision => revision.ArticleId)
             .ToDictionary(static group => group.Key, static group => group.ToList());
-        await ArticleRevisionContentBlockStore.HydrateAsync(
+        IReadOnlyDictionary<long, string> contentByBlockId = await ArticleRevisionContentBlockStore.HydrateAsync(
             db,
             revisionsByArticleId.Values.SelectMany(static revisions => revisions).ToArray(),
             cancellationToken).ConfigureAwait(false);
@@ -113,7 +114,7 @@ public sealed class AuthoringContentTransferService(
             revisions ??= [];
             revisionCount += revisions.Count;
 
-            ContentExportMetadataResponse metadata = BuildExportMetadata(article, tagIds, revisions);
+            ContentExportMetadataResponse metadata = BuildExportMetadata(article, tagIds, revisions, contentByBlockId);
             exports.Add(new ContentExportResponse(
                 $"article-{article.Id}.md",
                 BuildArticleExportMarkdown(article, content ?? string.Empty, metadata),
@@ -256,7 +257,8 @@ public sealed class AuthoringContentTransferService(
     private static ContentExportMetadataResponse BuildExportMetadata(
         Article article,
         IReadOnlyList<int> tagIds,
-        IReadOnlyList<ArticleRevision> revisions)
+        IReadOnlyList<ArticleRevision> revisions,
+        IReadOnlyDictionary<long, string> contentByBlockId)
         => new(
             article.Id,
             article.CategoryId,
@@ -265,10 +267,10 @@ public sealed class AuthoringContentTransferService(
             article.ScheduledPublishAt,
             article.CoverImageUrl,
             revisions.Count,
-            revisions.Select(static revision => new ContentRevisionExportResponse(
+            revisions.Select(revision => new ContentRevisionExportResponse(
                 revision.RevisionNo,
                 revision.Title,
-                revision.MarkdownContent,
+                contentByBlockId[revision.ContentBlockId],
                 revision.Summary,
                 revision.CoverImageUrl,
                 revision.CategoryId,
@@ -405,7 +407,7 @@ fsusMetadataJson: {encodedMetadata}
 
         var revisions = metadata.Revisions
             .OrderBy(static revision => revision.RevisionNo)
-            .Select(revision => new ArticleRevision
+            .Select(revision => (Revision: new ArticleRevision
             {
                 ArticleId = articleId,
                 RevisionNo = Math.Max(1, revision.RevisionNo),
@@ -414,11 +416,10 @@ fsusMetadataJson: {encodedMetadata}
                 CoverImageUrl = TextHelpers.NormalizeNullable(revision.CoverImageUrl, 512),
                 CategoryId = Math.Max(1, revision.CategoryId),
                 TagIds = string.Join(',', AuthoringNormalization.NormalizeTagIds(revision.TagIds)),
-                MarkdownContent = AuthoringNormalization.Normalize(revision.Content, 200_000),
                 DiffSummary = AuthoringNormalization.Normalize(revision.DiffSummary, 512),
                 CreatedByAdminPrincipalId = 0,
                 CreatedAt = revision.CreatedAt == default ? DateTime.UtcNow : revision.CreatedAt
-            })
+            }, Content: AuthoringNormalization.Normalize(revision.Content, 200_000)))
             .ToList();
         if (revisions.Count == 0)
         {
@@ -442,16 +443,18 @@ fsusMetadataJson: {encodedMetadata}
             }
 
             await db.Deleteable<ArticleRevision>().Where(it => it.ArticleId == articleId).ExecuteCommandAsync(cancellationToken);
-            foreach (ArticleRevision revision in revisions)
+            foreach (var imported in revisions)
             {
+                ArticleRevision revision = imported.Revision;
                 revision.ContentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
                     db,
-                    revision.MarkdownContent,
+                    imported.Content,
                     revision.CreatedAt,
                     cancellationToken).ConfigureAwait(false);
-                revision.MarkdownContent = string.Empty;
             }
-            await db.Insertable(revisions).ExecuteCommandAsync(cancellationToken);
+            await db.Insertable(revisions.Select(static imported => imported.Revision).ToList())
+                .IgnoreColumns(static revision => revision.MarkdownContent)
+                .ExecuteCommandAsync(cancellationToken);
         });
         if (!transaction.IsSuccess)
         {

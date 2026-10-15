@@ -334,7 +334,9 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             {
                 Id = a.Id,
                 Title = revision.Title,
-                Content = SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent),
+                Content = block.MarkdownContent,
+                ContentBlockId = revision.ContentBlockId,
+                ResolvedContentBlockId = (long?)block.Id,
                 ArticleBodyContent = body.MarkdownContent,
                 Summary = revision.Summary,
                 CoverImageUrl = revision.CoverImageUrl,
@@ -355,6 +357,13 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         if (projection is null)
         {
             return null;
+        }
+        if (projection.ContentBlockId <= 0
+            || projection.ResolvedContentBlockId != projection.ContentBlockId
+            || projection.Content is null)
+        {
+            throw new InvalidOperationException(
+                $"article_revision_content_block_missing:{projection.RevisionId}:{projection.ContentBlockId}");
         }
 
         int[] publishedTagIds = FsusBlog.Server.Services.Authoring.AuthoringNormalization
@@ -538,6 +547,14 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
 
     private sealed class ArticleDetailAotProjection
     {
+        public long ContentBlockId
+        {
+            get; init;
+        }
+        public long? ResolvedContentBlockId
+        {
+            get; init;
+        }
         public int Id
         {
             get; init;

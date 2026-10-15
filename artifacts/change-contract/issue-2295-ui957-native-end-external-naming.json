@@ -6,20 +6,24 @@
             "paths": [
                 "docs/architecture/authoring-workspace-snapshot-boundary.md"
             ],
-            "reason": "Preserve external CSS-like contract spelling in the changed nested current Main document registered by the original registry. Three top-level donor documents are outside that registered glob and stay exact composed source; no naming authority or rule changed."
+            "reason": "Preserve external contract spellings while documenting only the two bounded reviewed source prerequisites and unchanged receipt-return/ORM/runtime qualification limits."
         },
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Entities/Message.cs",
-                "src/backend/Infrastructure/Auth/AdminSessionRequestValidation.cs",
-                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-                "src/backend/Services/Security/AdminSessionValidationService.cs",
-                "src/migration/MessageRawSessionRetirementPreflight.cs",
-                "src/migration/SchemaMigrationExecution.cs",
-                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs"
+                "src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs",
+                "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+                "src/backend/Services/ArticleMutationSideEffects.cs",
+                "src/backend/Services/Articles/ArticleRevisionContentBlockStore.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationVerifier.cs",
+                "src/backend/Services/Authoring/AuthoringContentTransferService.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+                "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs",
+                "src/backend/Services/SearchIndexService.RuntimePersistence.cs"
             ],
-            "reason": "The original broad naming registry includes all src managed files. Preserve surviving process/schema/wire identifiers across these seven admitted managed source surfaces; explicitly document retired raw ORM source mappings without physical column retirement or any process environment key change."
+            "reason": "Original broad registry covers these eleven ordinary managed sources. Preserve all surviving environment, schema, property and wire names; no environment key or public wire mapping change, no physical retirement or frozen authority refresh."
         }
     ]
 }

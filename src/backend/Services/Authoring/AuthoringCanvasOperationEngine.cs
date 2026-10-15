@@ -526,6 +526,7 @@ public sealed class AuthoringCanvasOperationEngine(
             _nodes = snapshot.Nodes.ToDictionary(static node => node.Id);
             _edges = snapshot.Edges.ToDictionary(static edge => edge.Id);
             _viewport = snapshot.Header.Viewport;
+            ValidateGlobal();
         }
 
         public int NodeCount => _nodes.Count;
@@ -582,10 +583,20 @@ public sealed class AuthoringCanvasOperationEngine(
             foreach (AuthoringCanvasNode node in _nodes.Values)
             {
                 AuthoringCanvasContract.ValidateNode(node);
-                if (node.Type == AuthoringCanvasNodeType.GroupFrame
-                    && node.MemberNodeIds.Any(member => !_nodes.ContainsKey(member)))
+                if (node.Type != AuthoringCanvasNodeType.GroupFrame)
                 {
-                    throw new AuthoringCanvasValidationException("canvas_operation_frame_member_missing");
+                    continue;
+                }
+                foreach (Guid memberId in node.MemberNodeIds)
+                {
+                    if (!_nodes.TryGetValue(memberId, out AuthoringCanvasNode? member))
+                    {
+                        throw new AuthoringCanvasValidationException("canvas_operation_frame_member_missing");
+                    }
+                    if (member.Type == AuthoringCanvasNodeType.GroupFrame)
+                    {
+                        throw new AuthoringCanvasValidationException("canvas_frame_nesting_forbidden");
+                    }
                 }
             }
             foreach (AuthoringCanvasEdge edge in _edges.Values)

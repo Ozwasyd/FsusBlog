@@ -561,10 +561,30 @@ public static class AuthoringCanvasOperationVerifier
             {
                 reasons.Add($"{scope}_node_invalid:{node.Id:D}:{exception.Code}");
             }
-            if (node.Type == AuthoringCanvasNodeType.GroupFrame
-                && node.MemberNodeIds.Any(member => !nodes.ContainsKey(member)))
+            if (node.Type != AuthoringCanvasNodeType.GroupFrame)
+            {
+                continue;
+            }
+            bool memberMissing = false;
+            bool nestedFrame = false;
+            foreach (Guid memberId in node.MemberNodeIds)
+            {
+                if (!nodes.TryGetValue(memberId, out AuthoringCanvasNode? member))
+                {
+                    memberMissing = true;
+                }
+                else if (member.Type == AuthoringCanvasNodeType.GroupFrame)
+                {
+                    nestedFrame = true;
+                }
+            }
+            if (memberMissing)
             {
                 reasons.Add($"{scope}_frame_member_missing:{node.Id:D}");
+            }
+            if (nestedFrame)
+            {
+                reasons.Add($"{scope}_frame_nesting_forbidden:{node.Id:D}");
             }
         }
         foreach (AuthoringCanvasEdge edge in edges.Values)
