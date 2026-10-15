@@ -22,11 +22,23 @@ public sealed class ArticleGraphUnavailableRelationProjection : IArticleGraphRel
 /// <summary>Bounded read-only admission around the sole relation source. This class has no index, cache, writer or transport registration.</summary>
 public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection source)
 {
+    private static readonly ArticleGraphFilters s_preflightFilters = new(
+        Array.Empty<string>(), Array.Empty<string>(), Array.AsReadOnly(new[] { ArticleGraphEdgeKind.Link }));
+
     public async Task<ArticleGraphResult> QueryAsync(ArticleGraphRequest request, CancellationToken cancellationToken)
     {
+        // Preserve the original scalar/depth/budget refusal before touching caller-owned lists.
+        string? reason = ArticleGraphContract.Validate(request with
+        {
+            Filters = s_preflightFilters
+        });
+        if (reason is not null)
+        {
+            return Empty(request, ArticleGraphStatus.Refused, reason);
+        }
         IReadOnlyList<string>? categories = Snapshot(request.Filters.Categories, 32);
-        IReadOnlyList<string>? tags = Snapshot(request.Filters.Tags, 32);
-        IReadOnlyList<ArticleGraphEdgeKind>? kinds = Snapshot(request.Filters.Kinds, 4);
+        IReadOnlyList<string>? tags = categories is null ? null : Snapshot(request.Filters.Tags, 32);
+        IReadOnlyList<ArticleGraphEdgeKind>? kinds = tags is null ? null : Snapshot(request.Filters.Kinds, 4);
         request = request with
         {
             Filters = request.Filters with
@@ -37,7 +49,7 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
                 Kinds = categories is null || tags is null || kinds is null ? Array.Empty<ArticleGraphEdgeKind>() : kinds
             }
         };
-        string? reason = ArticleGraphContract.Validate(request);
+        reason = ArticleGraphContract.Validate(request);
         if (reason is not null)
         {
             return Empty(request, ArticleGraphStatus.Refused, reason);
@@ -52,9 +64,8 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
             {
                 return Empty(request, ArticleGraphStatus.Unavailable, "relation-api-unavailable");
             }
-            IReadOnlyList<ArticleGraphNode>? nodes = Snapshot(projection.Nodes, request.Budget.Nodes);
-            IReadOnlyList<ArticleGraphEdge>? edges = Snapshot(projection.Edges, request.Budget.Edges);
-            if (nodes is null || edges is null)
+            if (Snapshot(projection.Nodes, request.Budget.Nodes) is not { } nodes
+                || Snapshot(projection.Edges, request.Budget.Edges) is not { } edges)
             {
                 return Empty(request, ArticleGraphStatus.Refused, "source-budget");
             }
@@ -84,7 +95,27 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
         T[] snapshot = new T[count];
         for (int index = 0; index < count; index++)
         {
-            snapshot[index] = values[index];
+            try
+            {
+                snapshot[index] = values[index];
+            }
+            // Only recognize shrinkage when the failed captured index is no longer in the list.
+            catch (ArgumentOutOfRangeException)
+            {
+                if (values.Count <= index)
+                {
+                    return null;
+                }
+                throw;
+            }
+            catch (IndexOutOfRangeException)
+            {
+                if (values.Count <= index)
+                {
+                    return null;
+                }
+                throw;
+            }
         }
         return values.Count == count ? Array.AsReadOnly(snapshot) : null;
     }
