@@ -1,0 +1,448 @@
+{
+    "kind": "ordinary minimal frame/revision source composition WIP; no runtime/frozen/physical retirement authority",
+    "sourceBoundary": {
+        "MainBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+        "donors": [
+            {
+                "PR": 4337,
+                "trueBase": "a27a5c1922d681d9796a05acdd7f424362f26869",
+                "head": "542fb68d242f9b30647bbb60bf536f24716bdec1",
+                "paths": [
+                    {
+                        "path": "artifacts/change-contract/issue-3735-frame-admission-external-naming.json",
+                        "donorPreimage": null,
+                        "donorPostimage": "52d487e2af865f8109fec14eec0b4368fa3c4cb2",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.cs",
+                        "donorPreimage": "1f399dd4300f89d97194ec8cedfab0295473c346",
+                        "donorPostimage": "0455406db59c90d917333eb96887813a1a942722",
+                        "MainPreimage": "1f399dd4300f89d97194ec8cedfab0295473c346",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.md",
+                        "donorPreimage": null,
+                        "donorPostimage": "e3c64dbe1e48dd7204b37334d7989386dfe26127",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Authoring/AuthoringCanvasOperationVerifier.cs",
+                        "donorPreimage": "c4d3361e52812467d9801c410835593849cd5921",
+                        "donorPostimage": "2f47e0de50f7fe17af628c5bb46ee613e89c950f",
+                        "MainPreimage": "c4d3361e52812467d9801c410835593849cd5921",
+                        "MainMatchesDonorBase": true
+                    }
+                ]
+            },
+            {
+                "PR": 4341,
+                "trueBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "head": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "paths": [
+                    {
+                        "path": "artifacts/article-editor/issue-1775-revision-content-source-wip.md",
+                        "donorPreimage": null,
+                        "donorPostimage": "2dcf3b3c91cb5f756c8712afd45c9675a0372069",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "artifacts/change-contract/issue-1775-revision-content-external-naming.json",
+                        "donorPreimage": null,
+                        "donorPostimage": "65a2fdbfe1f39b580e928c8f08786dc77b1829b4",
+                        "MainPreimage": null,
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs",
+                        "donorPreimage": "1b674d3688976e09c74a2f60899b8b08b9bb7d0c",
+                        "donorPostimage": "2625645449dcbb9e3eff6b95d9ffb829787af594",
+                        "MainPreimage": "1b674d3688976e09c74a2f60899b8b08b9bb7d0c",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs",
+                        "donorPreimage": "7c96018bc195b43f77d2ee33bd27d1dad6f9823d",
+                        "donorPostimage": "8779a8cb222d7a99f66f0ff3d149ee9830fd27e6",
+                        "MainPreimage": "7c96018bc195b43f77d2ee33bd27d1dad6f9823d",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+                        "donorPreimage": "3b73177aeb6cca1303954a072c56462ac5abab79",
+                        "donorPostimage": "5fd4898232aa1c427484ab4830a54c4bcd050695",
+                        "MainPreimage": "3b73177aeb6cca1303954a072c56462ac5abab79",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/ArticleMutationSideEffects.cs",
+                        "donorPreimage": "b29b9cb2e4f98e16c27ad60b865cf3513f3ed48f",
+                        "donorPostimage": "1972f1cdfda60a5a3b0429b1adf310a2c7a5973c",
+                        "MainPreimage": "b29b9cb2e4f98e16c27ad60b865cf3513f3ed48f",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Articles/ArticleRevisionContentBlockStore.cs",
+                        "donorPreimage": "e6b3254390d0122bffad0428767a3da6b7391ca5",
+                        "donorPostimage": "cd470e440979b323692c90b6b0c935d3a7986d9f",
+                        "MainPreimage": "e6b3254390d0122bffad0428767a3da6b7391ca5",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Authoring/AuthoringContentTransferService.cs",
+                        "donorPreimage": "8eabbdfba861a38c7319d34ea7f6ba5259dd994a",
+                        "donorPostimage": "bdf83936d024b588e23be85470e4c313932b9cc1",
+                        "MainPreimage": "8eabbdfba861a38c7319d34ea7f6ba5259dd994a",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+                        "donorPreimage": "3130b80b71be500433ca0cd9625913abccd022cb",
+                        "donorPostimage": "066e5c3a1cbfd02ff2eb76aa2cfc4cf03ebe850b",
+                        "MainPreimage": "3130b80b71be500433ca0cd9625913abccd022cb",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs",
+                        "donorPreimage": "10cbddef8f6b4ce3b8928915bf3aa7ec20a7b202",
+                        "donorPostimage": "6e3d4b8be856d5d96c17777d904a76c71f998c29",
+                        "MainPreimage": "10cbddef8f6b4ce3b8928915bf3aa7ec20a7b202",
+                        "MainMatchesDonorBase": true
+                    },
+                    {
+                        "path": "src/backend/Services/SearchIndexService.RuntimePersistence.cs",
+                        "donorPreimage": "52abe0e2d2d729a86ea43295e44083f1f0221f20",
+                        "donorPostimage": "d5b3ce7b80dd0be26f4838c4cd6cbdc7d3e41c93",
+                        "MainPreimage": "52abe0e2d2d729a86ea43295e44083f1f0221f20",
+                        "MainMatchesDonorBase": true
+                    }
+                ]
+            }
+        ],
+        "paths": [
+            {
+                "path": "artifacts/article-editor/issue-1775-revision-content-source-wip.md",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "2dcf3b3c91cb5f756c8712afd45c9675a0372069",
+                "actualPostimage": "2dcf3b3c91cb5f756c8712afd45c9675a0372069",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "artifacts/change-contract/issue-1775-revision-content-external-naming.json",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "65a2fdbfe1f39b580e928c8f08786dc77b1829b4",
+                "actualPostimage": "65a2fdbfe1f39b580e928c8f08786dc77b1829b4",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "artifacts/change-contract/issue-3735-frame-admission-external-naming.json",
+                "donorPR": 4337,
+                "donorBase": "a27a5c1922d681d9796a05acdd7f424362f26869",
+                "donorHead": "542fb68d242f9b30647bbb60bf536f24716bdec1",
+                "donorPostimage": "52d487e2af865f8109fec14eec0b4368fa3c4cb2",
+                "actualPostimage": "52d487e2af865f8109fec14eec0b4368fa3c4cb2",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "2625645449dcbb9e3eff6b95d9ffb829787af594",
+                "actualPostimage": "2625645449dcbb9e3eff6b95d9ffb829787af594",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "8779a8cb222d7a99f66f0ff3d149ee9830fd27e6",
+                "actualPostimage": "8779a8cb222d7a99f66f0ff3d149ee9830fd27e6",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "5fd4898232aa1c427484ab4830a54c4bcd050695",
+                "actualPostimage": "5fd4898232aa1c427484ab4830a54c4bcd050695",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/ArticleMutationSideEffects.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "1972f1cdfda60a5a3b0429b1adf310a2c7a5973c",
+                "actualPostimage": "1972f1cdfda60a5a3b0429b1adf310a2c7a5973c",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Articles/ArticleRevisionContentBlockStore.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "cd470e440979b323692c90b6b0c935d3a7986d9f",
+                "actualPostimage": "cd470e440979b323692c90b6b0c935d3a7986d9f",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.cs",
+                "donorPR": 4337,
+                "donorBase": "a27a5c1922d681d9796a05acdd7f424362f26869",
+                "donorHead": "542fb68d242f9b30647bbb60bf536f24716bdec1",
+                "donorPostimage": "0455406db59c90d917333eb96887813a1a942722",
+                "actualPostimage": "0455406db59c90d917333eb96887813a1a942722",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.md",
+                "donorPR": 4337,
+                "donorBase": "a27a5c1922d681d9796a05acdd7f424362f26869",
+                "donorHead": "542fb68d242f9b30647bbb60bf536f24716bdec1",
+                "donorPostimage": "e3c64dbe1e48dd7204b37334d7989386dfe26127",
+                "actualPostimage": "e3c64dbe1e48dd7204b37334d7989386dfe26127",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Authoring/AuthoringCanvasOperationVerifier.cs",
+                "donorPR": 4337,
+                "donorBase": "a27a5c1922d681d9796a05acdd7f424362f26869",
+                "donorHead": "542fb68d242f9b30647bbb60bf536f24716bdec1",
+                "donorPostimage": "2f47e0de50f7fe17af628c5bb46ee613e89c950f",
+                "actualPostimage": "2f47e0de50f7fe17af628c5bb46ee613e89c950f",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Authoring/AuthoringContentTransferService.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "bdf83936d024b588e23be85470e4c313932b9cc1",
+                "actualPostimage": "bdf83936d024b588e23be85470e4c313932b9cc1",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "066e5c3a1cbfd02ff2eb76aa2cfc4cf03ebe850b",
+                "actualPostimage": "066e5c3a1cbfd02ff2eb76aa2cfc4cf03ebe850b",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "6e3d4b8be856d5d96c17777d904a76c71f998c29",
+                "actualPostimage": "6e3d4b8be856d5d96c17777d904a76c71f998c29",
+                "wholeFileByteIdentical": true
+            },
+            {
+                "path": "src/backend/Services/SearchIndexService.RuntimePersistence.cs",
+                "donorPR": 4341,
+                "donorBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+                "donorHead": "dafc318bea617a3de87fd9525110c26c4a3c7070",
+                "donorPostimage": "d5b3ce7b80dd0be26f4838c4cd6cbdc7d3e41c93",
+                "actualPostimage": "d5b3ce7b80dd0be26f4838c4cd6cbdc7d3e41c93",
+                "wholeFileByteIdentical": true
+            }
+        ],
+        "uniqueOwnPaths": 15,
+        "wholeDonorFilesExact": 15,
+        "allOtherMainTrackedLeaves": "byte unchanged before ordinary composition metadata",
+        "conflicts": 0,
+        "scope": "Only4337 four-path true-parent delta and4341 eleven-path fixed4335 delta, not4337 PR488 paths or donor histories;4336 notadmitted.",
+        "inverseAllFifteenFilesReturnToMainExactly": true,
+        "receiptEarlyReturnBoundary": {
+            "originalApplyAndHistoryMethodRegionByteIdentical": true,
+            "scope": "Existing validated recovered-receipt return precedes new planning/snapshot/MutableGraph ValidateGlobal; retained exactly, not claimed newly graph-validated. No runtime receipt/recovery evidence."
+        },
+        "privateInverseCopy": "/tmp/frame-revision-inverse-q4ww9f66"
+    },
+    "admission": "Parent supplied limited independent SOURCE acceptance:4337 truea27 parent four paths only (PR488 aggregate conflicts/history excluded),4341 fixed4335 nine production plus two ordinary records only. Current combination awaits separate exact-source review.",
+    "scope": "15 own donor paths, all15 complete final blobs exact, plus ordinary Main WIP/current doc/naming3 =18. All other Main product blobs unchanged.4336 formatting source/metadata notadmitted and its aggregate FAIL not waived.",
+    "fullOriginalBackend": {
+        "summary": {
+            "base": {
+                "Warning": 330,
+                "Error": 0
+            },
+            "candidate": {
+                "Warning": 330,
+                "Error": 0
+            }
+        },
+        "added": [],
+        "removed": [],
+        "normalization": "actual worktree roots/positions only; full emitted compiler diagnostic multiplicity retained"
+    },
+    "fullOriginalFrontend": {
+        "before": 29,
+        "after": 29,
+        "added": [],
+        "removed": [],
+        "normalization": "positions only; full continuation/multiplicity retained"
+    },
+    "fullOriginalGlobalChecks": {
+        "csharp-full": {
+            "beforeStatus": "FAIL1",
+            "afterStatus": "FAIL1",
+            "rawOutputByteIdentical": true,
+            "lines": 552,
+            "added": [],
+            "removed": []
+        },
+        "code-intent": {
+            "beforeStatus": "FAIL1",
+            "afterStatus": "FAIL1",
+            "rawOutputByteIdentical": true,
+            "lines": 3,
+            "added": [],
+            "removed": []
+        },
+        "lifecycle": {
+            "beforeStatus": "FAIL1",
+            "afterStatus": "FAIL1",
+            "rawOutputByteIdentical": true,
+            "lines": 7
+        },
+        "authoritative": {
+            "beforeStatus": "FAIL1",
+            "afterStatus": "FAIL1",
+            "rawOutputByteIdentical": true,
+            "lines": 41
+        }
+    },
+    "originalStrictSelected": "Original all11 source files PASS0 on baseline/candidate, violations0/new0, no scope/config/rule changes.",
+    "alias": {
+        "UIPath": "/workspace/session-2295-ui957-local-dependency",
+        "head": "903db034a14254fb162f51b9c25d3703ea20ccb5",
+        "dirty": false,
+        "originalCompleteConfigurationByteIdentical": true,
+        "configSHA256": "633e6b25f6c4df1ca2778953262adc3ac1542f7a74de7ceaed9ccbc2e64a4ef3",
+        "aliases": {
+            "@ozwasyd/element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ],
+            "element-plus": [
+                "../../../session-2295-ui957-local-dependency/vue/packages/element-plus/index.ts"
+            ]
+        },
+        "independentPhysicalQualification": "UNVERIFIED"
+    },
+    "protectedBlobs": [
+        {
+            "path": "src/backend/Entities/Article.cs",
+            "baseAndActualBlob": "46ff5bf70ab67351ff0eb7fc0f5b63a692693309",
+            "unchanged": true
+        },
+        {
+            "path": "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+            "baseAndActualBlob": "a21abf8359512862dac05f620944edca56c0d709",
+            "unchanged": true
+        },
+        {
+            "path": "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs",
+            "baseAndActualBlob": "93bf20ec2ff1343da6da073d8bb33ea61967fe1a",
+            "unchanged": true
+        },
+        {
+            "path": "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+            "baseAndActualBlob": "593e2b1b88ff972627f171068ac569cc07e0584e",
+            "unchanged": true
+        },
+        {
+            "path": "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+            "baseAndActualBlob": "d64e5b1c6721acd9456ff9ddcedab7b7cdafd939",
+            "unchanged": true
+        },
+        {
+            "path": ".git-blame-ignore-revs",
+            "baseAndActualBlob": "6af6fb4ca0c9938008d7bb205abd45f9af6653ea",
+            "unchanged": true
+        }
+    ],
+    "frameBoundary": "Fresh planning/full mutable graphs and sealed Undo/Redo result graph invariant require existing non-frame members. Independent verifier retains missing/nested reasons separately per frame/scope. No depth allowance, second engine or new receipt authority. Original Apply/History recovered-receipt paths return before new planning/snapshot/global graph validation exactly as before; original entire method region byte identical. No claim those early returns gained graph validation.",
+    "revisionBoundary": "Operation-local Markdown strings and real content blocks replace scoped legacy reads; invalid/nonpositive/dangling/null blocks refuse, original valid empty block remains possible. Three joined projections, detail/rollback/integrity/side effects and original import/export/backup normalization/history/dedup owners retained. Two scoped inserts exclude legacy column. Article.cs old ArticleRevision.MarkdownContent ORM map unchanged; no ignored/shadow carrier or mapping retirement.",
+    "retirementStillIncomplete": [
+        "Prohibited fixture dependencies preserved, including PublicContentFixtureSeeder and original lifecycle fixture source/tests.",
+        "Out-of-scope ArticleRevisionPersistence raw SQL legacy empty-string write preserved.",
+        "Out-of-scope ArticleDetailAedsArtifactStore legacy read/fallback preserved.",
+        "Generic entity projections and Article.cs old ORM map preserved; this is not full source nor physical retirement.",
+        "Backfill/reachability/hash/dedup/current-schema/drop/rerun/DB/fixture/receipt qualification remain HOLD;1775 incomplete,1762 tracking only."
+    ],
+    "remaining": "Original full29FAIL Blog4/UI25; full C#lint552 lines FAIL1, codeintent same2 errors5714 files FAIL1, docs7/41FAIL. Existing observer whitespace state preserved;4336 aggregateFAIL remains separate. CSS full output/physical alias qualification UNVERIFIED; no new UI adoption.",
+    "holds": "All runtime/product/helper/receipt recovery/parser/program tests/help/list/discovery/DB/drop/native/browser/catalog/fixture/frozen authority generation/security/privacy/race/backuprestore/IME/qualification HOLD/UNRUN. Original managed/TS compilers and lint/codeintent/doc/governance/static patch verification only. No merge/Ready/close/publication.",
+    "evidence": {
+        "/workspace/session-evidence-2295/main-pair-admission.json": {
+            "sha256": "f5ea0d365b760d38aee15da5a5f8f1a2e7cf3e61a1ea7c2df3f331ef86e06572"
+        },
+        "/workspace/session-evidence-2295/main-pair-source-boundary.json": {
+            "sha256": "caaf34397ccad93426c8bdc891c38c4d805b9fcec0b43c91b29b7959e5b53767"
+        },
+        "/workspace/session-evidence-2295/main-pair-protected-inputs.json": {
+            "sha256": "628094710e75a926d11386e64e4725b864b439d12628c8186ba31a6c950a4361"
+        },
+        "/workspace/session-evidence-2295/main-pair-managed-delta.json": {
+            "sha256": "4538755d9e32059bfa9978543594cad4815e70c16f4a421f8f6e7bb8b64da840"
+        },
+        "/workspace/session-evidence-2295/main-pair-types-delta.json": {
+            "sha256": "f897eacd3e87b4a6cfb951281a35370b2396d363995c9be3559a8bb001e7732e"
+        },
+        "/workspace/session-evidence-2295/main-pair-global-static-delta.json": {
+            "sha256": "03aeb5427ab9b75e34b624ab32b633f65a4dfb323ef12e7b33c50e3a33956224"
+        },
+        "/workspace/session-evidence-2295/main-pair-alias-source.json": {
+            "sha256": "ae6c5650ca37df4dc9f9f5bb99fb56c5c0542d653e7a016ccc72041c53227558"
+        },
+        "/workspace/session-evidence-2295/main-pair-base-backend-restore.txt": {
+            "sha256": "0248d51cc89bad901fae575fe15fd3b3b6b958ad004f6d6ba751bdf8b3720aa6"
+        },
+        "/workspace/session-evidence-2295/main-pair-candidate-backend-restore.txt": {
+            "sha256": "11e470c724592570f2ca20bb40950e01da85ecd7bcf963fb657640b45d483b34"
+        },
+        "/workspace/session-evidence-2295/main-pair-base-backend-build.txt": {
+            "sha256": "a7f3d3cfb95ce69ab347126b45c6017f7e6a1eb8da5222851577825bf9baa6a0"
+        },
+        "/workspace/session-evidence-2295/main-pair-candidate-backend-build.txt": {
+            "sha256": "9c71ef5c423915ae62b31ec8ae313e9a7af42b1fc442f705a400b044b46c4e3d"
+        },
+        "/workspace/session-evidence-2295/main-pair-base-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/main-pair-candidate-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/main-pair-base-csharp-full.txt": {
+            "sha256": "65c17a5db8bbbb36d9ef7b29fe9cb4a43143d75d0eabdbde72b6324380c139b1"
+        },
+        "/workspace/session-evidence-2295/main-pair-candidate-csharp-full.txt": {
+            "sha256": "65c17a5db8bbbb36d9ef7b29fe9cb4a43143d75d0eabdbde72b6324380c139b1"
+        },
+        "/workspace/session-evidence-2295/main-pair-base-code-intent.txt": {
+            "sha256": "09aec40e84ef9a1d3f6b767e561ffdf1b5b5edad476fb56e93cb4ef1c81522c6"
+        },
+        "/workspace/session-evidence-2295/main-pair-candidate-code-intent.txt": {
+            "sha256": "09aec40e84ef9a1d3f6b767e561ffdf1b5b5edad476fb56e93cb4ef1c81522c6"
+        },
+        "/workspace/session-evidence-2295/main-pair-base-csharp-strict.txt": {
+            "sha256": "5288e645993e17189c2f7b8aee1184e42c089b85263d0aebcb4f77ec419e9ff6"
+        },
+        "/workspace/session-evidence-2295/main-pair-candidate-csharp-strict.txt": {
+            "sha256": "5288e645993e17189c2f7b8aee1184e42c089b85263d0aebcb4f77ec419e9ff6"
+        }
+    }
+}

@@ -2570,3 +2570,27 @@ remain untouched. Full static29FAIL and original style/doc failures remain
 explicit in ordinary WIP; compilation and source review cannot grant running
 safety, schema activation, resource readiness or qualification. UI957 is fixed;
 complete CSS output and independent physical alias remain UNVERIFIED.
+
+
+## Minimal Frame And Revision Source Composition
+
+A bounded successor to accepted4335 admits only the true-parent four-path4337
+increment and fixed4335 eleven-path4341 increment. All fifteen final files
+match the reviewed donor blobs; no488-path PR history, formatting4336 or other
+Main replacement is imported. New graph invariants apply on actual fresh
+planning/sealed-result paths. Existing validated receipt recovery returns in
+Apply/History still precede new planning/snapshot validation exactly as before;
+this source does not claim new validation or runtime evidence for that path.
+
+Scoped revision Markdown reads use real content blocks and operation-local
+strings, preserving normalization/history/dedup and refusing missing/invalid
+blocks. Article.cs and its old ORM mapping, prohibited fixtures and out-of-scope
+legacy SQL read/write owners remain. This is incomplete source retirement and
+no physical retirement, migration, backfill, reachability/drop or schema
+qualification. Existing providers/transactions/receipts remain their sole owners.
+
+Actual full backend compilation330 warnings/zero errors and frontend29 failures
+remain unchanged. Original global lint/code-intent/doc failures remain explicit
+in ordinary WIP. UI957 aliases are fixed and unchanged; all runtime/tests/DB/
+native/frozen/qualification holds remain.4336 aggregate FAIL is not bypassed or
+reclassified; complete CSS output and independent physical alias stay UNVERIFIED.

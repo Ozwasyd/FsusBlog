@@ -117,13 +117,13 @@ public sealed class PostgresArticleCreatePersistence(
                 CategoryId = payload.CategoryId,
                 TagIds = string.Join(',', payload.TagIds.Order()),
                 ContentBlockId = contentBlockId,
-                MarkdownContent = string.Empty,
                 DiffSummary = "canonical create",
                 CreatedByAdminPrincipalId = command.Actor.AdminPrincipalId,
                 RollbackSourceRevisionId = null,
                 RollbackReason = null,
                 CreatedAt = now
             })
+                .IgnoreColumns(static revision => revision.MarkdownContent)
                 .ExecuteReturnBigIdentityAsync()
                 .ConfigureAwait(false);
             await db.Ado.ExecuteCommandAsync(

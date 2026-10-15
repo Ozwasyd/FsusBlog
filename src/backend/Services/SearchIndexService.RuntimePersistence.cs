@@ -160,7 +160,7 @@ public sealed partial class SearchIndexService
         CancellationToken cancellationToken)
     {
         DateTime now = DateTime.UtcNow;
-        return await db.Queryable<Article>()
+        var rows = await db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .LeftJoin<ArticleRevisionContentBlock>((article, publication, revision, block) => revision.ContentBlockId == block.Id)
@@ -176,7 +176,7 @@ public sealed partial class SearchIndexService
                     || (article.CurrentPublicationId == expectedReleaseId.GetValueOrDefault()
                         && publication.Id == expectedReleaseId.GetValueOrDefault()))
             .OrderByDescending((article, publication, revision, block, category) => publication.PublishedAt)
-            .Select((article, publication, revision, block, category, body) => new SearchArticleRow
+            .Select((article, publication, revision, block, category, body) => new
             {
                 Id = article.Id,
                 Title = revision.Title,
@@ -185,7 +185,9 @@ public sealed partial class SearchIndexService
                 CategoryName = category.Name,
                 Views = article.Views,
                 CreateTime = article.CreateTime,
-                MarkdownContent = SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent),
+                MarkdownContent = block.MarkdownContent,
+                revision.ContentBlockId,
+                ResolvedContentBlockId = (long?)block.Id,
                 ArticleBodyContent = body.MarkdownContent,
                 TagIds = revision.TagIds,
                 RevisionId = revision.Id,
@@ -195,6 +197,39 @@ public sealed partial class SearchIndexService
                 PublishedAt = publication.PublishedAt
             })
             .ToListAsync(cancellationToken);
+
+        var articles = new List<SearchArticleRow>(rows.Count);
+        foreach (var row in rows)
+        {
+            if (row.ContentBlockId <= 0
+                || row.ResolvedContentBlockId != row.ContentBlockId
+                || row.MarkdownContent is null)
+            {
+                throw new InvalidOperationException(
+                    $"article_revision_content_block_missing:{row.RevisionId}:{row.ContentBlockId}");
+            }
+
+            articles.Add(new SearchArticleRow
+            {
+                Id = row.Id,
+                Title = row.Title,
+                Summary = row.Summary,
+                CategoryId = row.CategoryId,
+                CategoryName = row.CategoryName,
+                Views = row.Views,
+                CreateTime = row.CreateTime,
+                MarkdownContent = row.MarkdownContent,
+                ArticleBodyContent = row.ArticleBodyContent,
+                TagIds = row.TagIds,
+                RevisionId = row.RevisionId,
+                RevisionNo = row.RevisionNo,
+                PublicationId = row.PublicationId,
+                PublicationNo = row.PublicationNo,
+                PublishedAt = row.PublishedAt
+            });
+        }
+
+        return articles;
     }
 
     private static async Task<Dictionary<int, string>> LoadBodyMapAsync(ISqlSugarClient db, int[] articleIds)

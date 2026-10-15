@@ -79,6 +79,11 @@ public static class ArticleRevisionContentBlockStore
         long contentBlockId,
         CancellationToken cancellationToken)
     {
+        if (contentBlockId <= 0)
+        {
+            throw new InvalidOperationException($"article_revision_content_block_missing:{contentBlockId}");
+        }
+
         string? content = await db.Queryable<ArticleRevisionContentBlock>()
             .Where(block => block.Id == contentBlockId)
             .Select(block => block.MarkdownContent)
@@ -88,17 +93,26 @@ public static class ArticleRevisionContentBlockStore
             $"article_revision_content_block_missing:{contentBlockId}");
     }
 
-    public static async Task HydrateAsync(
+    public static async Task<IReadOnlyDictionary<long, string>> HydrateAsync(
         ISqlSugarClient db,
         IReadOnlyCollection<ArticleRevision> revisions,
         CancellationToken cancellationToken)
     {
         if (revisions.Count == 0)
         {
-            return;
+            return new Dictionary<long, string>();
         }
 
-        long[] ids = [.. revisions.Select(static revision => revision.ContentBlockId).Where(static id => id > 0).Distinct()];
+        foreach (ArticleRevision revision in revisions)
+        {
+            if (revision.ContentBlockId <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"article_revision_content_block_missing:{revision.Id}:{revision.ContentBlockId}");
+            }
+        }
+
+        long[] ids = [.. revisions.Select(static revision => revision.ContentBlockId).Distinct()];
         Dictionary<long, string> contentById = (await db.Queryable<ArticleRevisionContentBlock>()
                 .Where(block => ids.Contains(block.Id))
                 .ToListAsync(cancellationToken)
@@ -106,19 +120,15 @@ public static class ArticleRevisionContentBlockStore
             .ToDictionary(static block => block.Id, static block => block.MarkdownContent);
         foreach (ArticleRevision revision in revisions)
         {
-            if (revision.ContentBlockId <= 0)
-            {
-                continue;
-            }
-
-            if (!contentById.TryGetValue(revision.ContentBlockId, out string? content))
+            if (!contentById.TryGetValue(revision.ContentBlockId, out string? content) || content is null)
             {
                 throw new InvalidOperationException(
                     $"article_revision_content_block_missing:{revision.Id}:{revision.ContentBlockId}");
             }
-
-            revision.MarkdownContent = content;
         }
+
+        // Loaded bytes belong to the read operation, never to an ORM column or a writable entity.
+        return contentById;
     }
 
     public static async Task<ArticleRevisionContentReachability> CheckReachabilityAsync(
