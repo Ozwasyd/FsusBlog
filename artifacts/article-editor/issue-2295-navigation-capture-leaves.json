@@ -1,0 +1,160 @@
+{
+    "kind": "ordinary exact two unactivated source-leaf intake WIP; no runtime/authority receipt",
+    "base": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+    "inputs": [
+        {
+            "donor": "020660a5e2a5246fbab75fc827aff7a21b1befc4",
+            "path": "src/frontend/src/services/authoring/authoringNavigationHistory.ts",
+            "blob": "834b31a5f0134bb9bcdb1fcc243525f0e55bd86a"
+        },
+        {
+            "donor": "80e4991f04db352e71ce7d7eed6196c2a52c187f",
+            "path": "src/frontend/src/services/articleCaptureRecovery.ts",
+            "blob": "5820feab4b951ebe90f3cedac0ee9d52a66e69f1"
+        }
+    ],
+    "scope": "Only two exact source blobs plus this ordinary WIP; no donor history/tests/docs/tools/other metadata. All pre-existing4352 files including corrected strict metadata preserved.",
+    "sourceFacts": {
+        "navigation": "Bounded current-session semantic navigation model only; explicit user causes, CAS/idempotency/cursor/pending settlement, current-only append/coalesce, unavailable/unknown does not advance cursor. Structural content-free model receipts/digests are not real authoritative history receipt, permission, Router navigation or editor undo history. No Router/session/editor activation.",
+        "capture": "Only original journal write/list/discard and borrowed original coordinator; scalar first request binding pinned before any await, including lock/storage failure. No new journal/storage/issuer or coordinator ownership; same-input reread does not renew TTL. Local absent/discard may coexist with serverOutcome unknown; never infer server absence or allow new request/retry from missing observed receipt.",
+        "missing": "Real current scope/coordinator composition, registered transport, genuine site/current permissions, historical receipt custody/reconciliation and actual history receipt wiring remain missing; no fake callback/grant/ready or unknown-as-absence. QuickCaptureVue stage-nullP2pending andexcluded."
+    },
+    "requestBindingSource": {
+        "kind": "compiler AST source inspection only, no product/module evaluation",
+        "path": "src/frontend/src/services/articleCaptureRecovery.ts",
+        "requestBindingOffset": 16929,
+        "firstAwaitOffset": 17488,
+        "requestBindingLine": 427,
+        "firstAwaitLine": 435,
+        "bindingBeforeEveryAwait": true
+    },
+    "protectedExistingOwners": [
+        {
+            "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+            "unchangedBaseBlob": "808468e4efe9f72b92ba3799a7df233cda48ad30"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/articleWorkspaceRetainedRecoverySnapshot.ts",
+            "unchangedBaseBlob": "3540b2ff622680a2fc6a19842bcb81ffbca1cd23"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/articleWorkspaceTabRouter.ts",
+            "unchangedBaseBlob": "57bd14cdc6e13a6efac7cd6585feeaa378769468"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringSessionHost.ts",
+            "unchangedBaseBlob": "3a52f9d03c07d7dd0429d0c08d5097cce9038876"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+            "unchangedBaseBlob": "b54be3268b4fbe4ca02d1692735b148e82fed4cb"
+        },
+        {
+            "path": "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts",
+            "unchangedBaseBlob": "4e78c48bd891a856c6f19c2a3492b9920e3c01da"
+        }
+    ],
+    "productionSourceConsumersFoundOutsideLeaves": false,
+    "actualUI": {
+        "head": "c77281165226ffd84223c4c8d43805c5deb2b1b3",
+        "path": "/workspace/session-2295-ui961-local-dependency",
+        "generatedFullConfigSha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+        "baseCandidateConfigByteIdentical": true,
+        "originalUnrelaxedProgram": true,
+        "independentPhysicalAlias": "UNVERIFIED",
+        "completeCSSOutput": "UNVERIFIED"
+    },
+    "static": {
+        "completeApplication": "Fresh original complete actualUI96129FAIL2 ->29FAIL2, Blog4/UI25, complete blocks/multiplicity positions-only added0removed0; no narrowing/ref/enum/config/deps/locks/rules change.",
+        "originalFullFrontendStyle": "FAIL1 both, complete83667line raw output byte-identical. Existing stale configuration/source-state baseline headers and all findings retained, no refresh/waiver.",
+        "strictTwo": "PASS0 files2 eslint2 stylelint0 violations0 new0",
+        "AST": "Compiler AST onlyPASS0 both; no product module import/evaluation or helper invocation.",
+        "global": "Same code-intent2errors checked5742->5744, lifecycle7FAIL/authoritative41FAIL raw same. Managed source/projects unchanged; no redundant managed rebuild.",
+        "authorProfiles": "Original4249older prerequisite631FAIL/UNRUN and4260older scoped journalTS1294FAIL remain historical source evidence, not converted to full PASS; actual current4352 closure independently measured here."
+    },
+    "holds": "All runtime/product/helper/parser module import/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixture/race/backuprestore/IME/qualification HOLD/UNRUN. No action activation, merge/Ready/closure/package/publication/authority refresh. Original editor resource interfaces and4336aggregateFAIL unchanged.",
+    "rollback": "Omit/revert only these3addedpaths to exact4352; no persisted/live state changed.",
+    "evidence": {
+        "/workspace/session-evidence-2295/navigation-capture-base-types.exit": {
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-authoritative.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-request-binding-source.json": {
+            "sha256": "794f0d35b469e07af9c7697225d515a5c9397215e684f7b08c8f5c0b634d52ea"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-lifecycle.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-full-style.txt": {
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-types.exit": {
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-exact-inputs.json": {
+            "sha256": "31591e2f751bd93f2a7ab4b5cbe21639f96f6496f6c68da9cfa43a4e05d0c55b"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-code-intent.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-ast.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-lifecycle.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-authoritative.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-code-intent.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-strict.txt": {
+            "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-full-style.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-full-style.txt": {
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-ast.txt": {
+            "sha256": "58dcb33bf07163985baae3bb6a5e212df0d47214580360c1a8feb16828890eb1"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-protected-owners.json": {
+            "sha256": "8ac934b7b069ae976fe7f6fa33cc6ded840229450ec6658495ed9b330cde5866"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-full-style.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-code-intent.txt": {
+            "sha256": "d5df170354cfe959f89a40783c3632452040b2d7afd0c1914eb0bb817ef4cba9"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-code-intent.txt": {
+            "sha256": "b28775b8a33594fe33211eb01843520674865609a4a725ccf8282682505daa4c"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-strict.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        }
+    }
+}
