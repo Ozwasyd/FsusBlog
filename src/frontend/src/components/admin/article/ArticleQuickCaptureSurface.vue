@@ -46,7 +46,10 @@ watch(
     () => props.stageResult !== null,
     observed =>
     {
-        if (observed) attempted.value = true;
+        if (observed)
+        {
+            attempted.value = true;
+        }
     },
     { immediate: true, flush: 'sync' }
 );
