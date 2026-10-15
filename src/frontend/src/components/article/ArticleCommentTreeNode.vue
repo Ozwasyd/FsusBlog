@@ -429,6 +429,12 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
         min-height: 44px;
         align-items: center;
     }
+
+    .fsus-comment-tree-node .fsus-comment-tree-node__action
+ {
+        min-width: 44px;
+        min-height: 44px;
+    }
 }
 
 @media (width <= 640px)
