@@ -1,0 +1,47 @@
+{
+    "kind": "ordinary exact reviewed unconnected module source intake; no qualification authority",
+    "parentMain": "e7ddf1fe118d08f5b74f8fbb28aad73eb326797f",
+    "donorPR": 4339,
+    "donorTrueBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+    "donorHead": "04cd32f3452c92016787275424b55c8203ef5e35",
+    "exactFinalFiles": [
+        {
+            "path": "artifacts/change-contract/load-sample-metrics-external-naming.json",
+            "donorFinalBlob": "566a98b58be9b75a4c42bd4e5202b8f8a50a6594",
+            "actualFinalBlob": "566a98b58be9b75a4c42bd4e5202b8f8a50a6594",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "tools/test/load-sample-metrics.mjs",
+            "donorFinalBlob": "25132f1a775bef3eeed243a528056b66e368d246",
+            "actualFinalBlob": "25132f1a775bef3eeed243a528056b66e368d246",
+            "wholeFileByteIdentical": true
+        }
+    ],
+    "fullOriginalApplication": {
+        "before": 29,
+        "after": 29,
+        "added": [],
+        "removed": [],
+        "normalization": "source positions only, complete continuation and multiplicity retained"
+    },
+    "sourceContract": "http-error requires400\u2013599 exactly; earlier100/200/302 P2 is closed in source only. Validate independent expected dispatch membership, exact terminal samples/worker sequences, canonical order/hash, completed/failed/cancelled denominators and nearest-rank latency from same supplied set. Missing duration/resources/status remain explicit null/reasons or refusal, zero status only explicit no-response with zero bytes/absent response metadata. Original probe already counted failures/rates; no fixed-zero bug claim, runner/controller/probe/threshold/collector or receipt imported.",
+    "static": "node --check syntax onlyPASS0; original strict selected module lintPASS0. No helper import/evaluation/calls/tests/collector or product execution. Full app actual profile measured, author older fullFAIL profile not treated as candidate pass.",
+    "alias": "Actual unchanged clean903db034a14254fb162f51b9c25d3703ea20ccb5 local UI957 through original whole app config; physical independently UNVERIFIED; no UI961 adoption in this batch.",
+    "remaining": "Original full29FAIL, complete lint/codeintent/doc failures remain. Source helper absent production wiring and all observations/threshold/receipt admission unqualified.4336 format-only aggregateFAIL remains untouched.",
+    "holds": "All runtime/tests/discovery/product/helper imports/calls/DB/native/browser/frozen authority/receipt/catalog/fixture generation/security/privacy/backuprestore/IME/qualification HOLD/UNRUN; no merge/Ready/close/publication.",
+    "evidence": {
+        "/workspace/session-evidence-2295/samples-intake-base-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/samples-intake-candidate-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/samples-intake-style.txt": {
+            "sha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+        },
+        "/workspace/session-evidence-2295/samples-intake-syntax.txt": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+    }
+}
