@@ -1,0 +1,179 @@
+{
+    "source": {
+        "url": "https://github.com/Ozwasyd/FsusBlog/pull/4384",
+        "base": "codex/r20-base-d5773ef9",
+        "base_sha": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+        "head": "codex/r20-outline-button-primitives",
+        "head_sha": "1750bfccbac4c9b58f3c24380918480b27d1712e",
+        "draft": true,
+        "changed_files": 1
+    },
+    "base": {
+        "url": "https://github.com/Ozwasyd/FsusBlog/pull/4385",
+        "head": "codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+        "head_sha": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "draft": true
+    },
+    "UI": {
+        "url": "https://github.com/Ozwasyd/FsusUI/pull/981",
+        "base_sha": "8b8217a3aca591e331b3068b8977c6b2c7f1c9e1",
+        "head": "codex/ui980-button-theme-source-intake-20261015",
+        "head_sha": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "draft": true
+    },
+    "searches": [
+        {
+            "query": "4384",
+            "state": "all",
+            "topn": 100,
+            "matches": [
+                {
+                    "number": 4384,
+                    "title": "refactor(frontend): delegate outline button primitives",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4384"
+                },
+                {
+                    "number": 4124,
+                    "title": "feat(backend): compose export authorization from persisted sessions",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4124"
+                }
+            ]
+        },
+        {
+            "query": "base:codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+            "state": "all",
+            "topn": 100,
+            "matches": [
+                {
+                    "number": 4404,
+                    "title": "feat(frontend): admit security dashboard controls source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4404"
+                },
+                {
+                    "number": 4403,
+                    "title": "feat(frontend): admit toc controls source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4403"
+                },
+                {
+                    "number": 4402,
+                    "title": "feat(frontend): admit relation graph controls source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4402"
+                },
+                {
+                    "number": 4401,
+                    "title": "feat(frontend): admit advanced filter controls source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4401"
+                },
+                {
+                    "number": 4400,
+                    "title": "feat(frontend): admit ops health controls source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4400"
+                },
+                {
+                    "number": 4399,
+                    "title": "feat(frontend): admit source compare custody source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4399"
+                },
+                {
+                    "number": 4398,
+                    "title": "feat(frontend): admit writing aid sources with real ui973 options",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4398"
+                },
+                {
+                    "number": 4397,
+                    "title": "feat(frontend): admit final quick capture presentation sources",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4397"
+                },
+                {
+                    "number": 4396,
+                    "title": "feat(frontend): admit final export presentation sources",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4396"
+                },
+                {
+                    "number": 4394,
+                    "title": "feat(frontend): admit vault plan presentation sources",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4394"
+                },
+                {
+                    "number": 4393,
+                    "title": "feat(frontend): admit metadata leaves with real ui969 controls",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4393"
+                }
+            ]
+        },
+        {
+            "query": "\"outline\" \"intake\"",
+            "state": "all",
+            "topn": 100,
+            "matches": [
+                {
+                    "number": 4261,
+                    "title": "chore(frontend): preserve original navigation dependency intake",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4261"
+                },
+                {
+                    "number": 4304,
+                    "title": "fix(frontend): intake reviewed Home Identity and Slider leaves",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4304"
+                },
+                {
+                    "number": 4233,
+                    "title": "feat(frontend): prepare writer draft refs without invalidating committed custody",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4233"
+                },
+                {
+                    "number": 4262,
+                    "title": "fix(frontend): make snapshot constructor fields erasable",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4262"
+                },
+                {
+                    "number": 4209,
+                    "title": "fix(frontend): require explicit canvas reference choices",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4209"
+                },
+                {
+                    "number": 4227,
+                    "title": "feat(frontend): stage bounded article library rail source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4227"
+                }
+            ]
+        }
+    ],
+    "sameLeafAndBaseIntakeFound": false,
+    "preDeliveryRecheck": {
+        "duplicateSearch": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Action completed."
+                }
+            ],
+            "structuredContent": {
+                "issues": []
+            },
+            "isError": false
+        },
+        "exactBaseRef": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Action completed."
+                }
+            ],
+            "structuredContent": {
+                "content": "{\"ref\":\"refs/heads/codex/issue-2295-history-preview-reveal-checkpoint-20261015\",\"node_id\":\"REF_kwDORUCP9doARnJlZnMvaGVhZHMvY29kZXgvaXNzdWUtMjI5NS1oaXN0b3J5LXByZXZpZXctcmV2ZWFsLWNoZWNrcG9pbnQtMjAyNjEwMTU\",\"url\":\"https://api.github.com/repos/Ozwasyd/FsusBlog/git/refs/heads/codex/issue-2295-history-preview-reveal-checkpoint-20261015\",\"object\":{\"sha\":\"b302f58a9aaee9f2399d9274157a478f3c2f78fb\",\"type\":\"commit\",\"url\":\"https://api.github.com/repos/Ozwasyd/FsusBlog/git/commits/b302f58a9aaee9f2399d9274157a478f3c2f78fb\"}}",
+                "title": "issue-2295-history-preview-reveal-checkpoint-20261015",
+                "modified_date": null,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/ref/heads/codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+                "display_url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/ref/heads/codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+                "display_title": "issue-2295-history-preview-reveal-checkpoint-20261015",
+                "structuredContent": {
+                    "title": "issue-2295-history-preview-reveal-checkpoint-20261015",
+                    "content": "{\"ref\":\"refs/heads/codex/issue-2295-history-preview-reveal-checkpoint-20261015\",\"node_id\":\"REF_kwDORUCP9doARnJlZnMvaGVhZHMvY29kZXgvaXNzdWUtMjI5NS1oaXN0b3J5LXByZXZpZXctcmV2ZWFsLWNoZWNrcG9pbnQtMjAyNjEwMTU\",\"url\":\"https://api.github.com/repos/Ozwasyd/FsusBlog/git/refs/heads/codex/issue-2295-history-preview-reveal-checkpoint-20261015\",\"object\":{\"sha\":\"b302f58a9aaee9f2399d9274157a478f3c2f78fb\",\"type\":\"commit\",\"url\":\"https://api.github.com/repos/Ozwasyd/FsusBlog/git/commits/b302f58a9aaee9f2399d9274157a478f3c2f78fb\"}}",
+                    "display_url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/ref/heads/codex/issue-2295-history-preview-reveal-checkpoint-20261015"
+                }
+            },
+            "isError": false
+        }
+    }
+}

@@ -1,0 +1,210 @@
+{
+    "kind": "ordinary independent single-leaf SOURCE intake WIP; no acceptance, qualification or frozen authority",
+    "basePR": 4385,
+    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "donorPR": 4384,
+    "donorHead": "1750bfccbac4c9b58f3c24380918480b27d1712e",
+    "donorTrueBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+    "branch": "codex/intake4384-on4385-ui981-20261015",
+    "productionPaths": [
+        "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue"
+    ],
+    "sourceProof": "artifacts/article-editor/intake4384-static/source-inputs.json",
+    "scope": "Apply only the complete accepted one-production-path donor delta, without donor history, other leaf source, historical WIP or sibling intakes. Preserve all other base source, existing WIP/evidence, tests, configs, locks, authorities and frozen baselines. Same exact donor/receiving preimage c556346d4134c8ef3ac50411f4389d33b94eb6ed; original patch applies cleanly with zero conflicts. Final source blob fe901aca6e363c689bd902cb13524cc14dc96774 is byte-exact accepted donor postimage.",
+    "behavior": "Only launcher/close/treeitem/diagnostic Button delegation through the existing public adapter, documented nativeType/default slots and public ButtonInstance.ref. Preserve original callbacks, emitted events, ARIA/roles/tabindex/data identity, tree navigation/expansion/reveal, outline snapshot, Drawer lifecycle/model timing, storage authority and nextTick/requestAnimationFrame focus schedule. Product-owned slot row/ellipsis/grid and selection classes remain the exact accepted layout source. No API/security/permission/business semantics or real host binding added; no cancellation/settlement semantics changed.",
+    "realLocalUI": {
+        "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+        "path": "/workspace/FsusUI-intake4384-981",
+        "trackedStatus": "clean",
+        "facts": "artifacts/article-editor/intake4384-static/ui-input.json",
+        "publicAliases": {
+            "element-plus": "/workspace/FsusUI-intake4384-981/vue/packages/element-plus/index.ts",
+            "@ozwasyd/element-plus": "/workspace/FsusUI-intake4384-981/vue/packages/element-plus/index.ts"
+        },
+        "meaning": "Actual exact reviewed UI981 source, including Tabs/Input/Button repairs; no source edits or package publication. Existing ten installed dependency locations copied to isolated checkout; inspected source links do not resolve to old UI. Author-side static alias identity only, not independent physical consumer qualification."
+    },
+    "designContext": {
+        "owner": "FsusBlog product composition using FsusUI public Button",
+        "profile": "task with existing compact Drawer overlay",
+        "intent": "prescribed public Button delegation, original accepted product layout source preserved",
+        "acceptance": "All formal classification/UX/frozen/receipt work remains HOLD under explicit task scope. Skill/authority identity observations are ordinary WIP, not refreshed authority or acceptance. No rendered state inspected."
+    },
+    "productThemeCSSDependency": {
+        "status": "WIP / NOT BUILT for this exact UI981 source",
+        "required": "Consumer theme, focus ring, cascade, contrast, geometry and overflow acceptance depend on the actual product theme CSS built from this exact reviewed source and later separately authorized rendered validation.",
+        "notEvidence": "Old installed/built CSS, historical screenshots, source Sass and Sass-only compilation cannot serve as consumer acceptance. No product/demo/theme build or browser execution was performed."
+    },
+    "staticComparison": {
+        "types": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseLines": 30,
+            "candidateLines": 30,
+            "rawByteIdentical": true,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "6194c0c4a6d836bf8af5bfaf01e3e7601b3b397bfd064395bf95d1f5aeef6fb3",
+            "candidateSHA256": "6194c0c4a6d836bf8af5bfaf01e3e7601b3b397bfd064395bf95d1f5aeef6fb3",
+            "baseDiagnostics": 29,
+            "candidateDiagnostics": 29
+        },
+        "node-types": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseLines": 1,
+            "candidateLines": 1,
+            "rawByteIdentical": true,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "bbf09384313f4b1b9946be53af912f2a7bd421721dc01146d6e4f4b35dcb34ae",
+            "candidateSHA256": "bbf09384313f4b1b9946be53af912f2a7bd421721dc01146d6e4f4b35dcb34ae",
+            "baseDiagnostics": 1,
+            "candidateDiagnostics": 1
+        },
+        "strict-full": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 83664,
+            "candidateLines": 83664,
+            "rawByteIdentical": false,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "c4fcc382ad9a2b4f4df002c8008602665c3915084dfad27ce3ff722b22d63210",
+            "candidateSHA256": "aae2399762609764dbf87f93cc57b505af7862e126f956caa3971b5f410bc11a",
+            "baseOwnedFindings": 64,
+            "candidateOwnedFindings": 64,
+            "outsideOwnedRawLinesIdentical": true
+        },
+        "full-style": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 83667,
+            "candidateLines": 83667,
+            "rawByteIdentical": false,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "candidateSHA256": "bdcee32951d897042ec4b0176aac745c11721dff507b7ec4d458cf533cc9acaf",
+            "baseOwnedFindings": 64,
+            "candidateOwnedFindings": 64,
+            "outsideOwnedRawLinesIdentical": true
+        },
+        "fsusui-boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 21,
+            "candidateLines": 21,
+            "rawByteIdentical": true,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "candidateSHA256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+        },
+        "binary-boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 7,
+            "candidateLines": 7,
+            "rawByteIdentical": true,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "candidateSHA256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+        },
+        "code-intent": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 3,
+            "candidateLines": 3,
+            "rawByteIdentical": true,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "candidateSHA256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+        },
+        "lifecycle": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 7,
+            "candidateLines": 7,
+            "rawByteIdentical": true,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "candidateSHA256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "authoritative": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 41,
+            "candidateLines": 41,
+            "rawByteIdentical": true,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "candidateSHA256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "strict-owned": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 64,
+            "candidateLines": 64,
+            "rawByteIdentical": false,
+            "completePositionNormalizedOutputIdentical": true,
+            "normalization": "Only TS diagnostic source coordinates and frontend-style finding source coordinates; no filtering, diagnostic deletion or deduplication.",
+            "addedRowsWithMultiplicity": [],
+            "removedRowsWithMultiplicity": [],
+            "baseSHA256": "bfdc543deb5cdd9e591d4f2d7b5893c0b5aa473c616519d6f085eec22ab71fea",
+            "candidateSHA256": "fcaea0ae8ab073912f4ce43526d9a0656958e069ee48670ebfbd64bfbfd8d0cd",
+            "baseOwnedFindings": 64,
+            "candidateOwnedFindings": 64,
+            "outsideOwnedRawLinesIdentical": true
+        },
+        "app-config": {
+            "byteIdentical": true,
+            "baseSHA256": "72c8842e29e9f730b42808c9cd5a024b037fdb83c75bc3f07bd93aafac3cdfc4",
+            "candidateSHA256": "72c8842e29e9f730b42808c9cd5a024b037fdb83c75bc3f07bd93aafac3cdfc4"
+        },
+        "effective-config": {
+            "byteIdentical": true,
+            "baseSHA256": "1d4ed84ca89719f66ebf88f784996b452eba482037dea3b06d78462e62563faa",
+            "candidateSHA256": "1d4ed84ca89719f66ebf88f784996b452eba482037dea3b06d78462e62563faa"
+        }
+    },
+    "rawDelivery": "artifacts/article-editor/intake4384-static/delivery-map.json",
+    "rawDeliveryCount": 71,
+    "failurePolicy": "Original full app/node/lint/boundary/code-intent/documentation failures remain FAIL. No gate suppression, narrowing of complete checks, source-set/ref/enum/config/lock relaxation, mocked authority, replacement harness or frozen baseline update. Scoped strict check is additional and its existing failures are retained. Missing remote checks are not PASS.",
+    "holds": "All existing runtime/tests/testcollection/list/discovery/productimport/moduleexecution/setup/mount/browser/native/worker/kernel/DB/network-security/privacy/receipt/race/backuprestore/IME/frozen/qualification HOLD/UNRUN remain; also product/helper/parser module import/evaluation/calls, catalog/fixture/render/UX/physical qualification and original 4336 aggregate FAIL. Only original static checker/compiler/linter infrastructure executed; no held product/test setup or lifecycle script execution. No rejected task restarted and no safety/credential settings changed.",
+    "remainingWIP": [
+        "Independent review of this exact receiving source increment on 4385 with UI981.",
+        "Build exact product theme CSS and consumer validation only after separate authorization; this intake supplies no rendered or CSS acceptance.",
+        "Existing static failures and every inherited HOLD/native resource loan/worker shutdown/recovery coordination/disposed-restoration ACK gap remain.",
+        "Historical donor .tmp/r20 raw logs are not in this fresh environment; retained donor PR contains original result/digest records. Fresh full original-entry logs are separately delivered here, never relabeled as historical logs.",
+        "All-delivery whitespace remains FAIL for verbatim raw patch/diagnostic payload whitespace; source-only whitespace passes."
+    ],
+    "delivery": "Draft only. No Ready, merge, close, package publication, release or authority activation. [skip ci] in the delivery commit preserves runtime execution HOLD; absent/skipped remote status is unverified.",
+    "rollback": "Omit/revert this sole receiving commit to exact b302f58. No live state changed; original source/base/UI and unrelated task branches remain untouched.",
+    "gitWhitespace": {
+        "sourceDiff": "PASS exit0",
+        "stagedAllDelivery": "FAIL exit2, raw donor.patch includes original unified-diff context lines containing a single space. Complete raw whitespace diagnostics and exit are preserved unchanged; later inclusion of those diagnostics also preserves their raw whitespace. This is ordinary evidence payload whitespace, not an added production source whitespace error. No raw patch/log was rewritten to make this check green."
+    }
+}

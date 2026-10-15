@@ -1,0 +1,19 @@
+{
+    "kind": "ordinary identity observation, no authority refresh",
+    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "SHA256": {
+        "AGENTS.md": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d",
+        ".agents/skills/fsusblog-design-conformance/SKILL.md": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+        "docs/design/governance.md": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+        "docs/design/surface-profiles.md": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243",
+        "docs/development/coding-conventions.md": "df6e2035db85dac6f630fe61aedb55de59e6bb4f2c19971345e5030c388867ba",
+        "docs/development/document-lifecycle.md": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d",
+        "docs/development/change-contract.md": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586",
+        "docs/architecture/repository-layout.md": "05457336f4d585f692ec15bbf12fc6c0eacb75eb12dc1bf1bdda105120bee193",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+        "src/frontend/tsconfig.app.json": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+        "tools/frontend/check-frontend-style.mjs": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+        "tools/frontend/style-toolchain/package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+    },
+    "excludedFromSourceChanges": "All tool/config/lock/authority/test/frozen/product-binding paths remain exact base; only selected source and own ordinary WIP/delivery may differ."
+}
