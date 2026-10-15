@@ -124,12 +124,12 @@ const handleDrawerNavigate = (id: string): void =>
 .article-toc-panel__item,
 .article-toc-drawer__item
  {
+    position: relative;
     min-height: 2.5rem;
     height: auto;
     min-width: 0;
     justify-content: flex-start;
-    border-left: 2px solid transparent;
-    padding-left: 0.625rem;
+    padding-left: calc(0.625rem + 2px);
     text-align: left;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -144,14 +144,26 @@ const handleDrawerNavigate = (id: string): void =>
 .article-toc-panel__item--h3,
 .article-toc-drawer__item--h3
  {
-    padding-left: 1.375rem;
+    padding-left: calc(1.375rem + 2px);
 }
 
 .article-toc-panel__item--active,
 .article-toc-drawer__item--active
  {
-    border-left-color: var(--fsusblog-color-primary);
     color: var(--fsusblog-text-primary);
+}
+
+.article-toc-panel__item--active::after,
+.article-toc-drawer__item--active::after
+ {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 2px;
+    background: var(--fsusblog-color-primary);
+    pointer-events: none;
+    content: '';
 }
 
 .article-toc-drawer__nav
