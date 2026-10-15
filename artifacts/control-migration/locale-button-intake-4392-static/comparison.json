@@ -1,0 +1,74 @@
+{
+  "typecheck": {
+    "baseExit": 2,
+    "headExit": 2,
+    "rawByteIdentical": true,
+    "baseLines": 39,
+    "headLines": 39,
+    "baseSha256": "19e6624b78fcf688af110d321bd56a86001967e6007c7280554cc1dc23bc6274",
+    "headSha256": "19e6624b78fcf688af110d321bd56a86001967e6007c7280554cc1dc23bc6274",
+    "baseDiagnostics": 29,
+    "headDiagnostics": 29,
+    "completeDiagnosticLinesIdentical": true,
+    "ownedPathReported": false
+  },
+  "node-typecheck": {
+    "baseExit": 2,
+    "headExit": 2,
+    "rawByteIdentical": true,
+    "baseLines": 1,
+    "headLines": 1,
+    "baseSha256": "d08ab8e7cf18fc5c7108ed2c1442fb4f874fad1eb030ec3398dc7c83e3b48689",
+    "headSha256": "d08ab8e7cf18fc5c7108ed2c1442fb4f874fad1eb030ec3398dc7c83e3b48689"
+  },
+  "boundary": {
+    "baseExit": 1,
+    "headExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 21,
+    "headLines": 21,
+    "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+    "headSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+  },
+  "code-intent": {
+    "baseExit": 1,
+    "headExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 3,
+    "headLines": 3,
+    "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+    "headSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+  },
+  "lifecycle": {
+    "baseExit": 1,
+    "headExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 7,
+    "headLines": 7,
+    "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "headSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+  },
+  "authoritative": {
+    "baseExit": 1,
+    "headExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 41,
+    "headLines": 41,
+    "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "headSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+  },
+  "lint": {
+    "baseExit": 1,
+    "headExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 83676,
+    "headLines": 83676,
+    "baseDiagnosticLines": 83667,
+    "headDiagnosticLines": 83667,
+    "baseSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+    "headSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+    "ownedPathReported": false
+  },
+  "generatedConfigByteIdentical": true,
+  "effectiveConfigByteIdentical": true
+}

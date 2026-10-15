@@ -14,9 +14,9 @@
         :data-active-locale="activeLocale"
         :data-pending-locale="pendingLocale || undefined"
     >
-        <button
+        <FsusUiButton
             ref="triggerRef"
-            type="button"
+            native-type="button"
             class="locale-selector__trigger"
             data-locale-selector-trigger
             :aria-label="triggerAriaLabel"
@@ -28,44 +28,46 @@
             @click="handleTriggerClick"
             @keydown="handleTriggerKeydown"
         >
-            <span
-                class="locale-selector__globe"
-                aria-hidden="true"
-            >
-                <svg
-                    class="locale-selector__globe-icon"
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.75"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    focusable="false"
+            <span class="locale-selector__trigger-content">
+                <span
+                    class="locale-selector__globe"
+                    aria-hidden="true"
                 >
-                    <circle
-                        cx="12"
-                        cy="12"
-                        r="9"
-                    />
-                    <path d="M3 12h18" />
-                    <path d="M12 3a14 14 0 0 1 0 18" />
-                    <path d="M12 3a14 14 0 0 0 0 18" />
-                </svg>
+                    <svg
+                        class="locale-selector__globe-icon"
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.75"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        focusable="false"
+                    >
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="9"
+                        />
+                        <path d="M3 12h18" />
+                        <path d="M12 3a14 14 0 0 1 0 18" />
+                        <path d="M12 3a14 14 0 0 0 0 18" />
+                    </svg>
+                </span>
+                <span class="locale-selector__trigger-label safe-inline-wrap">
+                    {{ triggerLabel }}
+                </span>
+                <span
+                    v-if="pendingLocale"
+                    class="locale-selector__trigger-pending"
+                    data-locale-selector-trigger-pending
+                    aria-hidden="true"
+                >
+                    <Loading class="locale-selector__spinner" />
+                </span>
             </span>
-            <span class="locale-selector__trigger-label safe-inline-wrap">
-                {{ triggerLabel }}
-            </span>
-            <span
-                v-if="pendingLocale"
-                class="locale-selector__trigger-pending"
-                data-locale-selector-trigger-pending
-                aria-hidden="true"
-            >
-                <Loading class="locale-selector__spinner" />
-            </span>
-        </button>
+        </FsusUiButton>
 
         <div
             :id="menuId"
@@ -76,7 +78,7 @@
             v-bind="{ 'aria-activedescendant': activeDescendantId, hidden: !resolvedOpen }"
         >
             <component
-                :is="item.href ? 'a' : 'button'"
+                :is="item.href ? 'a' : FsusUiButton"
                 v-for="(item, index) in items"
                 :id="itemDomId(item.code)"
                 :key="item.code"
@@ -85,7 +87,8 @@
                 :class="{
                     'locale-selector__item--selected': isSelected(item),
                     'locale-selector__item--pending': isPending(item),
-                    'locale-selector__item--disabled': disabled
+                    'locale-selector__item--disabled': disabled,
+                    'locale-selector__item--button': !item.href
                 }"
                 data-locale-selector-item
                 :data-locale-code="item.code"
@@ -97,33 +100,62 @@
                 :aria-disabled="disabled ? 'true' : undefined"
                 :tabindex="resolvedOpen && activeMenuIndex === index ? 0 : -1"
                 :href="item.href || undefined"
-                :type="item.href ? undefined : 'button'"
+                :native-type="item.href ? undefined : 'button'"
                 :dir="item.direction"
                 :disabled="item.href ? undefined : disabled"
                 @click.prevent="handleItemActivate(item)"
                 @keydown="handleItemKeydown($event, index, item)"
             >
-                <span class="locale-selector__item-copy safe-inline-wrap">
-                    <span class="locale-selector__item-native">{{ item.nativeName }}</span>
+                <template v-if="item.href">
+                    <span class="locale-selector__item-copy safe-inline-wrap">
+                        <span class="locale-selector__item-native">{{ item.nativeName }}</span>
+                        <span
+                            v-if="item.englishName && item.englishName !== item.nativeName"
+                            class="locale-selector__item-english"
+                        >{{ item.englishName }}</span>
+                    </span>
                     <span
-                        v-if="item.englishName && item.englishName !== item.nativeName"
-                        class="locale-selector__item-english"
-                    >{{ item.englishName }}</span>
-                </span>
+                        class="locale-selector__item-status"
+                        aria-hidden="true"
+                    >
+                        <Loading
+                            v-if="isPending(item)"
+                            class="locale-selector__spinner"
+                            data-locale-selector-item-pending
+                        />
+                        <Check
+                            v-else-if="isSelected(item)"
+                            class="locale-selector__check"
+                            data-locale-selector-item-check
+                        />
+                    </span>
+                </template>
                 <span
-                    class="locale-selector__item-status"
-                    aria-hidden="true"
+                    v-else
+                    class="locale-selector__item-content"
                 >
-                    <Loading
-                        v-if="isPending(item)"
-                        class="locale-selector__spinner"
-                        data-locale-selector-item-pending
-                    />
-                    <Check
-                        v-else-if="isSelected(item)"
-                        class="locale-selector__check"
-                        data-locale-selector-item-check
-                    />
+                    <span class="locale-selector__item-copy safe-inline-wrap">
+                        <span class="locale-selector__item-native">{{ item.nativeName }}</span>
+                        <span
+                            v-if="item.englishName && item.englishName !== item.nativeName"
+                            class="locale-selector__item-english"
+                        >{{ item.englishName }}</span>
+                    </span>
+                    <span
+                        class="locale-selector__item-status"
+                        aria-hidden="true"
+                    >
+                        <Loading
+                            v-if="isPending(item)"
+                            class="locale-selector__spinner"
+                            data-locale-selector-item-pending
+                        />
+                        <Check
+                            v-else-if="isSelected(item)"
+                            class="locale-selector__check"
+                            data-locale-selector-item-check
+                        />
+                    </span>
                 </span>
             </component>
 
@@ -134,20 +166,23 @@
                 role="alert"
             >
                 <p class="locale-selector__error-message safe-inline-wrap">{{ errorMessage }}</p>
-                <button
-                    type="button"
+                <FsusUiButton
+                    native-type="button"
                     class="locale-selector__retry"
                     data-locale-selector-retry
                     :disabled="disabled || !retryLocale"
                     :aria-label="retryAriaLabel"
+                    :aria-disabled="undefined"
                     @click="handleRetry"
                 >
-                    <Refresh
-                        class="locale-selector__retry-icon"
-                        aria-hidden="true"
-                    />
-                    <span class="locale-selector__retry-label">{{ retryLocaleLabel }}</span>
-                </button>
+                    <span class="locale-selector__retry-content">
+                        <Refresh
+                            class="locale-selector__retry-icon"
+                            aria-hidden="true"
+                        />
+                        <span class="locale-selector__retry-label">{{ retryLocaleLabel }}</span>
+                    </span>
+                </FsusUiButton>
             </div>
         </div>
 
@@ -158,20 +193,23 @@
             role="alert"
         >
             <p class="locale-selector__error-message safe-inline-wrap">{{ errorMessage }}</p>
-            <button
-                type="button"
+            <FsusUiButton
+                native-type="button"
                 class="locale-selector__retry"
                 data-locale-selector-retry
                 :disabled="disabled || !retryLocale"
                 :aria-label="retryAriaLabel"
+                :aria-disabled="undefined"
                 @click="handleRetry"
             >
-                <Refresh
-                    class="locale-selector__retry-icon"
-                    aria-hidden="true"
-                />
-                <span class="locale-selector__retry-label">{{ retryLocaleLabel }}</span>
-            </button>
+                <span class="locale-selector__retry-content">
+                    <Refresh
+                        class="locale-selector__retry-icon"
+                        aria-hidden="true"
+                    />
+                    <span class="locale-selector__retry-label">{{ retryLocaleLabel }}</span>
+                </span>
+            </FsusUiButton>
         </div>
     </div>
 </template>
@@ -190,7 +228,13 @@ import {
     selectedLocaleIndex
 } from '@/components/ui/localeSelectorPresentation';
 import type { LocaleSelectorItem } from '@/components/ui/localeSelectorTypes';
+import { FsusUiButton } from '@/fsusui/button';
 import { Check, Loading, Refresh } from '@/fsusui/icons';
+
+interface LocaleButtonInstance
+{
+    ref?: HTMLButtonElement;
+}
 
 const props = withDefaults(defineProps<{
     items: readonly LocaleSelectorItem[];
@@ -215,7 +259,7 @@ const emit = defineEmits<{
 }>();
 
 const rootRef = ref<HTMLElement | null>(null);
-const triggerRef = ref<HTMLButtonElement | null>(null);
+const triggerRef = ref<LocaleButtonInstance | null>(null);
 const itemRefs = new Map<string, HTMLElement>();
 const internalOpen = ref(false);
 const activeMenuIndex = ref(0);
@@ -251,9 +295,10 @@ const isPending = (item: LocaleSelectorItem): boolean => isLocaleItemPending(ite
 
 function setItemRef(code: string, el: unknown): void
 {
-    if (el instanceof HTMLElement)
+    const element = el instanceof HTMLElement ? el : (el as LocaleButtonInstance | null)?.ref;
+    if (element instanceof HTMLElement)
     {
-        itemRefs.set(code, el);
+        itemRefs.set(code, element);
         return;
     }
     itemRefs.delete(code);
@@ -275,7 +320,7 @@ function setOpen(next: boolean): void
 async function focusTrigger(): Promise<void>
 {
     await nextTick();
-    triggerRef.value?.focus();
+    triggerRef.value?.ref?.focus();
 }
 
 async function focusMenuItem(index: number): Promise<void>
@@ -540,6 +585,16 @@ onBeforeUnmount(() =>
     justify-content: center;
 }
 
+.locale-selector__trigger-content,
+.locale-selector__retry-content
+ {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    align-items: center;
+    gap: var(--fsus-space-1, 0.25rem);
+}
+
 .locale-selector__globe-icon
  {
     display: block;
@@ -606,6 +661,23 @@ onBeforeUnmount(() =>
     outline: none;
 }
 
+.locale-selector__item--button
+ {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+}
+
+.locale-selector__item-content
+ {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--fsus-space-2, 0.5rem);
+}
+
 .locale-selector__item:focus-visible
  {
     box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
@@ -667,6 +739,11 @@ onBeforeUnmount(() =>
     min-height: 1.25rem;
     margin-top: 0.125rem;
     color: var(--fsusblog-color-primary);
+}
+
+.locale-selector__menu .locale-selector__item
+ {
+    margin: 0;
 }
 
 .locale-selector__spinner,
