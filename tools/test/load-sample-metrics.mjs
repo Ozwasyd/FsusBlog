@@ -101,6 +101,7 @@ function validateMembership(entry)
 
 /**
  * Reject malformed or contradictory terminal facts; never coerce unknown values.
+ * An http-error requires a terminal HTTP status from 400 through 599.
  * This validates representation only, not the provenance of a typed outcome.
  * @param {LoadSample} sample
  * @returns {LoadSample} A detached immutable copy.
@@ -140,7 +141,7 @@ export function validateLoadSample(sample)
         }
     }
     else if (!nonemptyText(sample.errorKind) || typeof sample.errorDigest !== 'string' || !digestPattern.test(sample.errorDigest)
-        || sample.outcome === 'http-error' && sample.httpStatus === 0)
+        || sample.outcome === 'http-error' && (sample.httpStatus < 400 || sample.httpStatus > 599))
     {
         throw new Error('failed load sample requires explicit response/error facts');
     }
