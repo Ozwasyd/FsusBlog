@@ -10,7 +10,8 @@ This is ordinary partial source progress for open issue #1895, related to #1891.
 - Only production path: `src/frontend/src/components/ui/LocaleSelector.vue`.
 - Original production blob: `86ec82ec6ffe7f5bfcdddfff7dde7c05686255ba`; SHA-256 `e40b8dcc953e9e8aaba962eb191cb325b0baf55f268f745261003853e95a23da`.
 - Initial draft commit: `cdfba06773a465085577e680bd8edb0021c5a9d4`; production blob `06fb5311401fd38acf335cab434d0517ddf62f50`.
-- Layout-repaired production blob: `5e9498ca0e12bc3a0eab2df86f93a9854abd0b19`; SHA-256 `7164514a6a362fd1a41e0a2f3aeeb4bfe01d4b999c7f76c7d37ecc887c7accc9`.
+- Accepted slot/margin repair commit: `e790387795b050ea1f20c8ac9b96efe1c0219b55`; production blob `5e9498ca0e12bc3a0eab2df86f93a9854abd0b19`.
+- Content-height repaired production blob: `e7a69205123a67e7b8414a0b78b56f6f73762339`; SHA-256 `93d16fc68cc9023a80e2393cfdc30ddb526097bf488a66ebcc90731bec12a90b`.
 - Real UI961 alias: `/workspace/FsusUI`, clean at `c77281165226ffd84223c4c8d43805c5deb2b1b3`. Its source package identity is `element-plus@1.5.1`; the Blog public package import is `@ozwasyd/element-plus`. Source identity, rather than the version string, binds this local comparison.
 
 The original repository local-application typecheck producer resolves this alias using `FSUSBLOG_USE_LOCAL_FSUSUI=1` and `FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI`. It retains the full application include set, original strict options, local public entry point and dependency closure. No reduced project, mock, skip, config rewrite, or replacement resolver is introduced.
@@ -75,11 +76,25 @@ The original full lint exited 1 with the same 83,667 diagnostic lines. All diagn
 
 Current raw logs (`typecheck.log`, `lint.log`) and complete extracted diagnostics are retained under `/tmp/r22-locale-layout/`. Git whitespace verification passed. No tests, discovery, runtime, browser, native, DB or qualification lane was run. The same draft PR #4392 is updated with this bounded follow-up; its base remains pinned at `d5773ef97f55176a1eab67e677790f3e13352a7b`.
 
+## Content-driven row height rereview repair
+
+Independent rereview accepted the previous slot and margin repairs but reported one remaining P2: the no-href menu button still inherited the public Button's fixed 44px height. Two-line native/English copy plus the existing vertical padding can exceed that fixed size even when min-height is present.
+
+The only production change in this follow-up is `height: auto` on the existing product-owned `.locale-selector__item--button` class. The shared product item rule still supplies `min-height: 44px`; padding, grid/slot layout, row margins and the real anchor branch are unchanged. No selector for library internals, shared Button source, focus rule, script, ref, event, ARIA binding, locale/pending calculation or canonical projection is changed. UI975 remains a separate dependency and is not substituted for the recorded UI961 alias.
+
+The original complete application typecheck and full lint use the unchanged real UI961 source and original configurations. Comparison uses the source-bound original-base and accepted slot/margin repair logs above. No reduced project, file filter, mock or skip is introduced.
+
+The complete application typecheck exited 2 with the same 29 errors (Blog 4 / UI 25); all diagnostic lines are byte-identical to both comparison sources (`cmp` exit 0), with SHA-256 `14f7f7ca020604862376852119e38f4418417f30965bc1846a4ae4593d7eadf3`.
+
+Full lint exited 1 with the original 83,667 diagnostic lines, byte-identical to both comparison sources (`cmp` exit 0), with SHA-256 `e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a`. The complete raw lint log is also byte-identical to the original-base log. Neither complete check reports the owned component; all original failures and stale baseline reports remain failures. Git whitespace verification passed.
+
+Current raw logs (`typecheck.log`, `lint.log`) and complete extracted diagnostics are retained in `/tmp/r22-locale-height/`. No tests, discovery, browser, product runtime, native, DB or qualification command was run. Runtime, rendered acceptance, qualification, frozen-artifact work and the separate UI975 dependency remain HOLD. The same draft PR #4392 is updated; its source base remains unchanged.
+
 ## Preserved HOLDs and limitations
 
 No tests, test discovery, product-module execution, browser, native, DB, frozen artifact, qualification or package-publication operation was performed. No registry entry, gate, authority document, fixture, assertion, generated contract, dependency pin or acceptance receipt is changed. Existing #1895 and #1891 failures and HOLDs remain; historical results in those issues are not rerun or promoted here.
 
-Runtime event/focus/ARIA equivalence, keyboard races, controlled open behavior, published-package parity, themes, RTL, narrow/wide layouts, zoom, forced colors, touch and reduced motion remain unverified. The reviewed slot-layout and row-margin regressions have product-markup source repairs; no rendered verification is claimed and no private selector is used. Static comparison cannot establish rendered conformance or independent UX acceptance.
+Runtime event/focus/ARIA equivalence, keyboard races, controlled open behavior, published-package parity, themes, RTL, narrow/wide layouts, zoom, forced colors, touch and reduced motion remain unverified. The reviewed slot-layout, row-margin and content-height regressions have product-owned source repairs; no rendered verification is claimed and no private selector is used. Static comparison cannot establish rendered conformance or independent UX acceptance.
 
 Stop the affected follow-up if preserving an original business, keyboard, session, continuity, locale, security or authority handler requires more than public Button ref adaptation. No protected-handler change was needed for this bounded source increment.
 

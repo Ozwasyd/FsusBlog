@@ -665,6 +665,7 @@ onBeforeUnmount(() =>
  {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    height: auto;
 }
 
 .locale-selector__item-content
