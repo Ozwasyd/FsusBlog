@@ -17,9 +17,9 @@ public static class ArticleEmbedAuthoringPipeline
         ArticleEmbedResolutionBudgetLimits? budgets,
         TimeProvider? time = null)
     {
-        ArticleEmbedAuthoringResolution projection = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, budgets, time);
+        ArticleEmbedAuthoringResolution projection = ArticleEmbedAuthoringResolver.ResolveProjection(requests, snapshot, budgets, time);
         ArticleEmbedAuthoringResolution graph = ArticleEmbedDependencyGraphPlanner.Expand(requests, snapshot, budgets, projection, time);
-        ArticleEmbedRelationDerivation relations = ArticleEmbedRelationDeriver.DeriveFromAuthoring(requests, snapshot, budgets, graph);
+        ArticleEmbedRelationDerivation relations = ArticleEmbedRelationDeriver.DeriveFromGraph(requests, snapshot, budgets, graph);
         return (projection, graph, relations);
     }
 }

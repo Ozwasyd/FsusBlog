@@ -5,7 +5,7 @@ namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 /// authority snapshot of caller-verified current facts; it never parses Markdown, never reads rendered output,
 /// never mutates targets or host source, and never persists cache state beyond one resolution.
 /// </summary>
-public static class ArticleEmbedAuthoringResolver
+public static partial class ArticleEmbedAuthoringResolver
 {
     private static readonly ArticleEmbedActorContext s_rejectedActor =
         new("rejected:unknown", "rejected:unknown", new string('0', 64));
@@ -16,8 +16,8 @@ public static class ArticleEmbedAuthoringResolver
     private static readonly ArticleEmbedDocumentIdentity s_rejectedDocument = new("rejected:unknown", 1);
 
     /// <summary>
-    /// Resolves only supplied article/heading/block requests against the sealed current authority.
-    /// Nested directives remain authority facts for the explicit graph stage; this provider never expands them.
+    /// Resolves every supplied authoring request against one sealed authority snapshot under shared budgets.
+    /// Nested embeds expand inside the same graph and budget context; local failures never abort siblings.
     /// </summary>
     public static ArticleEmbedAuthoringResolution Resolve(
         IReadOnlyList<ArticleEmbedProviderRequest>? requests,
@@ -54,49 +54,40 @@ public static class ArticleEmbedAuthoringResolver
         var items = new List<ArticleEmbedAuthoringReceiptItem>(requests.Count);
         foreach (ArticleEmbedProviderRequest request in requests)
         {
-            NodeOutcome outcome = ResolveTarget(context, request);
-            AppendOutcome(context, request, outcome, results, items);
+            NodeOutcome outcome = ResolveTarget(
+                context,
+                request,
+                request.Target,
+                depth: 1,
+                path: new HashSet<NodeKey> { HostKey(snapshot!) });
+            ArticleEmbedProviderResult result = outcome.ToResult(request, context);
+            results.Add(new ArticleEmbedAuthoringEmbedResult(
+                request.RequestId,
+                result,
+                outcome.Eligibility,
+                outcome.Status == ArticleEmbedProviderResultStatus.Resolved
+                    ? new ArticleEmbedOpenSourceIntent(
+                        ArticleEmbedAuthoringSchemas.OpenSourceIntentKind,
+                        request.Target,
+                        outcome.Coordinate!.ResolvedRevision)
+                    : null,
+                outcome.UpdateAvailable,
+                outcome.Children));
+            items.Add(new ArticleEmbedAuthoringReceiptItem(
+                request.RequestId,
+                request.Target,
+                result.Status,
+                result.Error?.Code,
+                result.Visibility,
+                result.Lifecycle,
+                result.Permission,
+                outcome.Coordinate?.ResolvedRevision,
+                outcome.Eligibility,
+                outcome.CacheHit,
+                outcome.Children.Count,
+                result.ResultDigest));
         }
-        return Complete(requests, snapshot!, budgets, context, results, items);
-    }
 
-    internal static void AppendOutcome(
-        Context context, ArticleEmbedProviderRequest request, NodeOutcome outcome,
-        List<ArticleEmbedAuthoringEmbedResult> results, List<ArticleEmbedAuthoringReceiptItem> items)
-    {
-        ArticleEmbedProviderResult result = outcome.ToResult(request, context);
-        results.Add(new ArticleEmbedAuthoringEmbedResult(
-            request.RequestId,
-            result,
-            outcome.Eligibility,
-            outcome.Status == ArticleEmbedProviderResultStatus.Resolved
-                ? new ArticleEmbedOpenSourceIntent(
-                    ArticleEmbedAuthoringSchemas.OpenSourceIntentKind,
-                    request.Target,
-                    outcome.Coordinate!.ResolvedRevision)
-                : null,
-            outcome.UpdateAvailable,
-            outcome.Children));
-        items.Add(new ArticleEmbedAuthoringReceiptItem(
-            request.RequestId,
-            request.Target,
-            result.Status,
-            result.Error?.Code,
-            result.Visibility,
-            result.Lifecycle,
-            result.Permission,
-            outcome.Coordinate?.ResolvedRevision,
-            outcome.Eligibility,
-            outcome.CacheHit,
-            outcome.Children.Count,
-            result.ResultDigest));
-    }
-
-    internal static ArticleEmbedAuthoringResolution Complete(
-        IReadOnlyList<ArticleEmbedProviderRequest> requests, ArticleEmbedAuthoritySnapshot snapshot,
-        ArticleEmbedResolutionBudgetLimits budgets, Context context,
-        List<ArticleEmbedAuthoringEmbedResult> results, List<ArticleEmbedAuthoringReceiptItem> items)
-    {
         ArticleEmbedAuthoringReceipt receipt = SealReceipt(new ArticleEmbedAuthoringReceipt(
             ArticleEmbedAuthoringSchemas.Receipt,
             ArticleEmbedAuthoringSchemas.Version,
@@ -167,11 +158,17 @@ public static class ArticleEmbedAuthoringResolver
             string.Empty));
     }
 
+    private static NodeKey HostKey(ArticleEmbedAuthoritySnapshot snapshot)
+        => new(snapshot.HostPortableArticleIdentity, ArticleEmbedTargetKind.Article, null, null);
+
     private static NodeOutcome ResolveTarget(
         Context context,
-        ArticleEmbedProviderRequest request)
+        ArticleEmbedProviderRequest request,
+        ArticleEmbedTargetIdentity? target,
+        int depth,
+        HashSet<NodeKey> path)
     {
-        context.Meter.ObserveDepth(1);
+        context.Meter.ObserveDepth(depth);
 
         ArticleEmbedValidationResult requestCheck = ArticleEmbedContractValidator.Validate(request);
         if (!requestCheck.IsValid)
@@ -192,30 +189,7 @@ public static class ArticleEmbedAuthoringResolver
         {
             return binding;
         }
-        context.Meter.ObserveNode();
-        if (context.Meter.Nodes > context.Budgets.MaxExpandedNodes)
-        {
-            return NodeOutcome.Failed(ArticleEmbedErrorCode.SizeExceeded, "expanded_nodes_exceeded");
-        }
-        if (context.Meter.Elapsed(context.Time, context.Started) > context.Budgets.MaxElapsedMilliseconds)
-        {
-            return NodeOutcome.Failed(ArticleEmbedErrorCode.TimeExceeded, "elapsed_exceeded");
-        }
-        var key = KeyOf(request.Target);
-        if (context.Memo.TryGetValue(key, out NodeOutcome? cached))
-        {
-            context.Meter.Hit();
-            return cached with
-            {
-                CacheHit = true
-            };
-        }
-        NodeOutcome outcome = ProjectCurrent(context, request.Target);
-        if (!outcome.PathSensitive)
-        {
-            context.Memo[key] = outcome;
-        }
-        return outcome;
+        return ResolveNode(context, request, target!, depth, path, topLevel: true);
     }
 
     private static NodeOutcome? BindHost(Context context, ArticleEmbedProviderRequest request)
@@ -239,12 +213,55 @@ public static class ArticleEmbedAuthoringResolver
         return null;
     }
 
-    internal static NodeKey KeyOf(ArticleEmbedTargetIdentity target)
-        => new(target.PortableArticleIdentity, target.Kind, target.HeadingIdentity, target.BlockAnchor);
-
-    // One current projection owner, reused by the graph stage for typed nested targets.
-    internal static NodeOutcome ProjectCurrent(Context context, ArticleEmbedTargetIdentity target)
+    private static NodeOutcome ResolveNode(
+        Context context,
+        ArticleEmbedProviderRequest? request,
+        ArticleEmbedTargetIdentity target,
+        int depth,
+        HashSet<NodeKey> path,
+        bool topLevel)
     {
+        context.Meter.ObserveNode();
+        context.Meter.ObserveDepth(depth);
+        if (request?.AbortSignal.IsCancellationRequested == true)
+        {
+            return NodeOutcome.Failed(
+    ArticleEmbedErrorCode.StaleSource, "request_aborted", nodeTarget: target);
+        }
+        if (context.Meter.Nodes > context.Budgets.MaxExpandedNodes)
+        {
+            return NodeOutcome.Failed(
+    ArticleEmbedErrorCode.SizeExceeded, "expanded_nodes_exceeded", nodeTarget: target);
+        }
+        if (depth > context.Budgets.MaxDepth)
+        {
+            return NodeOutcome.Failed(
+    ArticleEmbedErrorCode.DepthExceeded, "depth_exceeded", nodeTarget: target);
+        }
+        if (context.Meter.Elapsed(context.Time, context.Started) > context.Budgets.MaxElapsedMilliseconds)
+        {
+            return NodeOutcome.Failed(
+    ArticleEmbedErrorCode.TimeExceeded, "elapsed_exceeded", nodeTarget: target);
+        }
+
+        var key = new NodeKey(target.PortableArticleIdentity, target.Kind, target.HeadingIdentity, target.BlockAnchor);
+        if (path.Contains(key))
+        {
+            return NodeOutcome.Failed(
+    ArticleEmbedErrorCode.Cycle, "embed_cycle", nodeTarget: target);
+        }
+        if (context.Memo.TryGetValue(key, out NodeOutcome? cached))
+        {
+            if (topLevel)
+            {
+                context.Meter.Hit();
+            }
+            return cached with
+            {
+                CacheHit = topLevel
+            };
+        }
+
         context.Meter.ObserveMessage();
         if (context.Meter.Messages > context.Budgets.MaxAuthorityMessages)
         {
@@ -254,23 +271,20 @@ public static class ArticleEmbedAuthoringResolver
         context.FactsByIdentity.TryGetValue(target.PortableArticleIdentity, out List<ArticleEmbedTargetFacts>? records);
         if (records is null || records.Count == 0)
         {
-            return NodeOutcome.Failed(
-    ArticleEmbedErrorCode.Missing, "target_missing", nodeTarget: target);
+            return Memoized(context, key, NodeOutcome.Failed(
+    ArticleEmbedErrorCode.Missing, "target_missing", nodeTarget: target));
         }
         if (records.Count > 1)
         {
-            return NodeOutcome.Failed(
-    ArticleEmbedErrorCode.Ambiguous, "target_ambiguous", nodeTarget: target);
+            return Memoized(context, key, NodeOutcome.Failed(
+    ArticleEmbedErrorCode.Ambiguous, "target_ambiguous", nodeTarget: target));
         }
 
         ArticleEmbedTargetFacts facts = records[0];
         NodeOutcome? factFailure = Classify(context, facts);
         if (factFailure is not null)
         {
-            return factFailure with
-            {
-                NodeTarget = target
-            };
+            return Memoized(context, key, factFailure);
         }
 
         context.Meter.ObserveBytes(facts.SourceByteCount);
@@ -283,7 +297,7 @@ public static class ArticleEmbedAuthoringResolver
         ArticleEmbedSafeProjectionReference? projection = SelectProjection(facts, target, out ArticleEmbedErrorCode? coordinateError);
         if (projection is null)
         {
-            return NodeOutcome.Failed(
+            return Memoized(context, key, NodeOutcome.Failed(
                 coordinateError!.Value,
                 coordinateError == ArticleEmbedErrorCode.HeadingMissing ? "heading_missing"
                     : coordinateError == ArticleEmbedErrorCode.HeadingDuplicate ? "heading_duplicate"
@@ -291,8 +305,7 @@ public static class ArticleEmbedAuthoringResolver
                     : "block_duplicate",
                 facts.Visibility,
                 facts.Lifecycle,
-                facts.Permission,
-                nodeTarget: target);
+                facts.Permission));
         }
 
         var coordinate = ArticleEmbedContractValidator.Seal(new ArticleEmbedDependencyCoordinate(
@@ -304,6 +317,17 @@ public static class ArticleEmbedAuthoringResolver
             projection.ProjectionIdentity,
             projection.ContentDigest,
             string.Empty));
+
+        path.Add(key);
+        var children = new List<ArticleEmbedResolvedNode>(facts.NestedDirectives.Count);
+        bool pathSensitive = false;
+        foreach (ArticleEmbedDirectiveProjection nested in OrderedNested(facts))
+        {
+            NodeOutcome child = ResolveNested(context, request, nested, depth + 1, path);
+            pathSensitive |= child.PathSensitive;
+            children.Add(child.ToNode(nested, child.NodeTarget));
+        }
+        path.Remove(key);
 
         var outcome = new NodeOutcome(
             ArticleEmbedProviderResultStatus.Resolved,
@@ -321,46 +345,99 @@ public static class ArticleEmbedAuthoringResolver
             facts.Lifecycle,
             facts.Permission,
             null,
-            [],
+            children,
             facts.LatestObservedRevision > facts.ResolvedRevision,
             facts.Visibility == ArticleEmbedVisibilityStatus.Public
                 && facts.Lifecycle == ArticleEmbedLifecycleStatus.Published
                 ? ArticleEmbedPublicationEligibility.PublicationEligible
                 : ArticleEmbedPublicationEligibility.AuthoringOnly,
             CacheHit: false,
-            PathSensitive: false,
+            PathSensitive: pathSensitive,
             NodeTarget: target);
+        if (!pathSensitive)
+        {
+            context.Memo[key] = outcome;
+        }
         return outcome;
     }
 
+    private static NodeOutcome ResolveNested(
+        Context context,
+        ArticleEmbedProviderRequest? request,
+        ArticleEmbedDirectiveProjection directive,
+        int depth,
+        HashSet<NodeKey> path)
+    {
+        ArticleEmbedTargetIdentity? target = null;
+        if (!Enum.IsDefined(directive.Mode)
+            || !ArticleEmbedTargetCodec.TryDecode(directive.TargetToken, directive.Mode, out target).IsValid
+            || target is null)
+        {
+            context.Meter.ObserveNode();
+            context.Meter.ObserveDepth(depth);
+            return new NodeOutcome(
+                ArticleEmbedProviderResultStatus.Failed,
+                null,
+                null,
+                null,
+                ArticleEmbedVisibilityStatus.Unknown,
+                ArticleEmbedLifecycleStatus.Unknown,
+                ArticleEmbedPermissionStatus.Unknown,
+                new ArticleEmbedError(ArticleEmbedErrorCode.InvalidTarget, "nested_target_invalid"),
+                [],
+                false,
+                ArticleEmbedPublicationEligibility.AuthoringOnly,
+                false,
+                false,
+                null);
+        }
+        return ResolveNode(context, request, target, depth, path, topLevel: false);
+    }
+
+    private static IReadOnlyList<ArticleEmbedDirectiveProjection> OrderedNested(ArticleEmbedTargetFacts facts)
+        => facts.NestedDirectives
+            .OrderBy(static directive => directive.RawRange.Start)
+            .ThenBy(static directive => directive.RawRange.End)
+            .ThenBy(static directive => directive.TargetToken, StringComparer.Ordinal)
+            .ToArray();
+
     private static NodeOutcome? Classify(Context context, ArticleEmbedTargetFacts facts)
     {
-        // Check the actor/site boundary before exposing target generation or lifecycle facts.
+        if (facts.AuthorityGeneration != context.Snapshot.AuthorityGeneration)
+        {
+            return NodeOutcome.Failed(
+                ArticleEmbedErrorCode.StaleTarget,
+                "authority_generation_drift",
+                facts.Visibility,
+                facts.Lifecycle,
+                facts.Permission);
+        }
         if (facts.SiteIdentity != context.Snapshot.Actor.SiteIdentity)
         {
-            return NodeOutcome.Failed(ArticleEmbedErrorCode.PermissionUnknown, "site_mismatch");
+            return NodeOutcome.Failed(
+                ArticleEmbedErrorCode.PermissionUnknown,
+                "site_mismatch",
+                ArticleEmbedVisibilityStatus.Unknown,
+                ArticleEmbedLifecycleStatus.Unknown,
+                ArticleEmbedPermissionStatus.Unknown);
         }
         if (facts.Permission == ArticleEmbedPermissionStatus.Denied)
         {
             return NodeOutcome.Failed(
                 ArticleEmbedErrorCode.PermissionDenied,
                 "permission_denied",
-                permission: ArticleEmbedPermissionStatus.Denied);
+                facts.Visibility,
+                facts.Lifecycle,
+                ArticleEmbedPermissionStatus.Denied);
         }
         if (facts.Permission == ArticleEmbedPermissionStatus.Unknown)
         {
-            return NodeOutcome.Failed(ArticleEmbedErrorCode.PermissionUnknown, "permission_unknown");
-        }
-        if (facts.AuthorityGeneration != context.Snapshot.AuthorityGeneration
-            || facts.SourceRevision != facts.ResolvedRevision)
-        {
             return NodeOutcome.Failed(
-                ArticleEmbedErrorCode.StaleTarget,
-                facts.AuthorityGeneration != context.Snapshot.AuthorityGeneration
-                    ? "authority_generation_drift" : "target_source_revision_drift",
+                ArticleEmbedErrorCode.PermissionUnknown,
+                "permission_unknown",
                 facts.Visibility,
                 facts.Lifecycle,
-                facts.Permission);
+                ArticleEmbedPermissionStatus.Unknown);
         }
         return facts.Lifecycle switch
         {
@@ -425,6 +502,12 @@ public static class ArticleEmbedAuthoringResolver
                 error = ArticleEmbedErrorCode.InvalidTarget;
                 return null;
         }
+    }
+
+    private static NodeOutcome Memoized(Context context, NodeKey key, NodeOutcome outcome)
+    {
+        context.Memo[key] = outcome;
+        return outcome;
     }
 
     private static ArticleEmbedAuthoringReceipt SealReceipt(ArticleEmbedAuthoringReceipt receipt)

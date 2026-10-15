@@ -2,10 +2,10 @@ namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 
 /// <summary>
 /// Independent authoring-resolution verifier. It re-derives expected per-node outcomes from the sealed
-/// authority snapshot, rejects nested expansion in this projection stage, recomputes every digest,
-/// and never calls the resolver or trusts candidate-computed fields. Complete graph verification is separate.
+/// authority snapshot, re-walks the recorded expansion tree for cycle/budget legitimacy, recomputes every
+/// digest, and never calls the resolver or trusts candidate-computed fields.
 /// </summary>
-public static class ArticleEmbedAuthoringVerifier
+public static partial class ArticleEmbedAuthoringVerifier
 {
     public static ArticleEmbedAuthoringVerification Verify(
         IReadOnlyList<ArticleEmbedProviderRequest>? requests,
@@ -20,15 +20,6 @@ public static class ArticleEmbedAuthoringVerifier
             return Finish(reasons);
         }
 
-        if (candidate.Status == ArticleEmbedAuthoringResolutionStatus.Completed
-            && (candidate.Results is null
-                || candidate.Results.Any(static result => result?.Result is null || result.Children is not { Count: 0 })
-                || candidate.Results.Any(static result => result.Result.Error?.Code is ArticleEmbedErrorCode.Cycle
-                    or ArticleEmbedErrorCode.DepthExceeded)))
-        {
-            reasons.Add("projection_stage_contains_graph_outcome");
-            return Finish(reasons);
-        }
         ArticleEmbedValidationResult structure = ArticleEmbedAuthoringContractValidator.Validate(candidate);
         if (!structure.IsValid)
         {
@@ -68,11 +59,6 @@ public static class ArticleEmbedAuthoringVerifier
             .ToDictionary(static group => group.Key, static group => group.ToList(), StringComparer.Ordinal);
 
         VerifyReceiptBinding(candidate.Receipt, snapshot, budgets!, requests!, reasons);
-        if (candidate.Receipt.Observed.Depth > 1 || candidate.Receipt.MaxObservedDepth > 1
-            || candidate.Receipt.Observed.Nodes > requests!.Count)
-        {
-            reasons.Add("projection_stage_graph_budget_observation");
-        }
 
         if (candidate.Results.Count != requests!.Count || candidate.Receipt.Items.Count != requests.Count)
         {
@@ -171,11 +157,6 @@ public static class ArticleEmbedAuthoringVerifier
             return;
         }
 
-        if (!ArticleEmbedTargetCodec.TryDecode(request.Directive.TargetToken, request.Directive.Mode, out var decoded).IsValid
-            || decoded != request.Target)
-        {
-            reasons.Add($"projection_request_target_mismatch:{request.RequestId}");
-        }
         ArticleEmbedValidationResult resultCheck = ArticleEmbedContractValidator.Validate(result.Result, request);
         if (!resultCheck.IsValid)
         {
@@ -234,22 +215,6 @@ public static class ArticleEmbedAuthoringVerifier
                 || result.Result.Error.SafeReasonCode != expectation.Error.SafeReasonCode)
             {
                 reasons.Add($"expected_failure_mismatch:{request.RequestId}");
-            }
-            bool concealed = expectation.Error.Code is ArticleEmbedErrorCode.PermissionDenied
-                or ArticleEmbedErrorCode.PermissionUnknown;
-            ArticleEmbedPermissionStatus expectedPermission = expectation.Error.Code switch
-            {
-                ArticleEmbedErrorCode.PermissionDenied => ArticleEmbedPermissionStatus.Denied,
-                ArticleEmbedErrorCode.PermissionUnknown => ArticleEmbedPermissionStatus.Unknown,
-                _ => expectation.Facts?.Permission ?? ArticleEmbedPermissionStatus.Unknown
-            };
-            if (result.Result.Visibility != (concealed ? ArticleEmbedVisibilityStatus.Unknown
-                    : expectation.Facts?.Visibility ?? ArticleEmbedVisibilityStatus.Unknown)
-                || result.Result.Lifecycle != (concealed ? ArticleEmbedLifecycleStatus.Unknown
-                    : expectation.Facts?.Lifecycle ?? ArticleEmbedLifecycleStatus.Unknown)
-                || result.Result.Permission != expectedPermission)
-            {
-                reasons.Add($"failure_metadata_mismatch:{request.RequestId}");
             }
         }
         else
@@ -311,17 +276,233 @@ public static class ArticleEmbedAuthoringVerifier
         }
 
         VerifyReceiptItem(result, item, expectation.Error is null ? expectation.Facts!.ResolvedRevision : null, reasons);
-        if (expectation.Error is null || IsFactStable(expectation.Error.Code))
+        bool subtreeClean = VerifyChildren(
+            result.Children,
+            expectation.Error is null ? expectation.Facts : null,
+            snapshot,
+            factsByIdentity,
+            depth: 2,
+            path: new HashSet<NodeKey>
+            {
+                new(snapshot.HostPortableArticleIdentity, ArticleEmbedTargetKind.Article, null, null),
+                key
+            },
+            budgets,
+            seenMemoizable,
+            reasons);
+
+        if (expectation.Error is null
+            ? subtreeClean
+            : IsFactStable(expectation.Error.Code))
         {
             seenMemoizable.Add(key);
         }
     }
 
-    internal static ArticleEmbedError? ExpectedFailure(
+    /// <summary>
+    /// Returns false when any descendant carries a path-dependent failure (cycle/budget/abort). Nodes whose
+    /// outcome is path-independent join <paramref name="seenMemoizable"/> exactly as the resolver memoizes them,
+    /// whether they were expanded top-level, nested, or replayed from the shared memo.
+    /// </summary>
+    private static bool VerifyChildren(
+        IReadOnlyList<ArticleEmbedResolvedNode> children,
+        ArticleEmbedTargetFacts? parentFacts,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        int depth,
+        HashSet<NodeKey> path,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        HashSet<NodeKey> seenMemoizable,
+        List<string> reasons)
+    {
+        if (parentFacts is null)
+        {
+            if (children.Count != 0)
+            {
+                reasons.Add("unexpected_children_on_failed_node");
+            }
+            return children.Count == 0;
+        }
+
+        ArticleEmbedDirectiveProjection[] expectedDirectives = parentFacts.NestedDirectives
+            .OrderBy(static directive => directive.RawRange.Start)
+            .ThenBy(static directive => directive.RawRange.End)
+            .ThenBy(static directive => directive.TargetToken, StringComparer.Ordinal)
+            .ToArray();
+        if (children.Count != expectedDirectives.Length)
+        {
+            reasons.Add("child_count_mismatch");
+            return false;
+        }
+
+        bool clean = true;
+        for (int index = 0; index < children.Count; index++)
+        {
+            ArticleEmbedResolvedNode child = children[index];
+            ArticleEmbedDirectiveProjection directive = expectedDirectives[index];
+            if (child.Directive != directive)
+            {
+                reasons.Add($"child_directive_mismatch:{directive.RawRange.Start}");
+                clean = false;
+                continue;
+            }
+
+            ArticleEmbedTargetIdentity? decoded = null;
+            bool decodable = Enum.IsDefined(directive.Mode)
+                && ArticleEmbedTargetCodec.TryDecode(directive.TargetToken, directive.Mode, out decoded).IsValid
+                && decoded is not null;
+            if (!decodable)
+            {
+                if (child.Status != ArticleEmbedProviderResultStatus.Failed
+                    || child.Error?.Code != ArticleEmbedErrorCode.InvalidTarget
+                    || child.Target is not null
+                    || child.Children.Count != 0)
+                {
+                    reasons.Add("nested_invalid_not_failed");
+                }
+                continue;
+            }
+            if (child.Target != decoded)
+            {
+                reasons.Add("nested_target_mismatch");
+                clean = false;
+                continue;
+            }
+
+            NodeKey key = NodeKeyOf(decoded!);
+            if (child.Status == ArticleEmbedProviderResultStatus.Failed)
+            {
+                if (child.Error is null || child.Children.Count != 0)
+                {
+                    reasons.Add("nested_failure_shape_invalid");
+                    clean = false;
+                    continue;
+                }
+                VerifyChildFailure(child, key, depth, path, snapshot, factsByIdentity, budgets, reasons);
+                if (!IsFactStable(child.Error.Code))
+                {
+                    clean = false;
+                }
+                else
+                {
+                    seenMemoizable.Add(key);
+                }
+                continue;
+            }
+            if (child.Status != ArticleEmbedProviderResultStatus.Resolved)
+            {
+                reasons.Add("nested_status_unknown");
+                clean = false;
+                continue;
+            }
+            if (path.Contains(key))
+            {
+                reasons.Add("resolved_node_on_cycle_path");
+                clean = false;
+                continue;
+            }
+
+            factsByIdentity.TryGetValue(decoded!.PortableArticleIdentity, out List<ArticleEmbedTargetFacts>? records);
+            ArticleEmbedTargetFacts? facts = records is { Count: 1 } ? records[0] : null;
+            ArticleEmbedErrorCode? expectedFailure = facts is null
+                ? ArticleEmbedErrorCode.Missing
+                : ExpectedFailure(facts, snapshot, decoded!)?.Code;
+            if (facts is null || expectedFailure is not null || child.Coordinate is null
+                || child.Coordinate.ResolvedRevision != facts!.ResolvedRevision
+                || child.Coordinate.Target != decoded)
+            {
+                reasons.Add("nested_coordinate_mismatch");
+                clean = false;
+                continue;
+            }
+            path.Add(key);
+            bool childClean = VerifyChildren(
+                child.Children,
+                facts,
+                snapshot,
+                factsByIdentity,
+                depth + 1,
+                path,
+                budgets,
+                seenMemoizable,
+                reasons);
+            path.Remove(key);
+            clean &= childClean;
+            if (childClean)
+            {
+                seenMemoizable.Add(key);
+            }
+        }
+        return clean;
+    }
+
+    private static void VerifyChildFailure(
+        ArticleEmbedResolvedNode child,
+        NodeKey key,
+        int depth,
+        HashSet<NodeKey> path,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        List<string> reasons)
+    {
+        switch (child.Error!.Code)
+        {
+            case ArticleEmbedErrorCode.Cycle:
+                if (!path.Contains(key))
+                {
+                    reasons.Add("cycle_without_ancestor");
+                }
+                return;
+            case ArticleEmbedErrorCode.DepthExceeded:
+                if (depth <= budgets.MaxDepth)
+                {
+                    reasons.Add("depth_failure_unjustified");
+                }
+                return;
+            case ArticleEmbedErrorCode.SizeExceeded:
+            case ArticleEmbedErrorCode.TimeExceeded:
+            case ArticleEmbedErrorCode.StaleSource:
+                return;
+            default:
+                break;
+        }
+
+        factsByIdentity.TryGetValue(key.PortableArticleIdentity, out List<ArticleEmbedTargetFacts>? records);
+        if (records is null || records.Count == 0)
+        {
+            if (child.Error.Code != ArticleEmbedErrorCode.Missing)
+            {
+                reasons.Add("missing_target_misclassified");
+            }
+            return;
+        }
+        if (records.Count > 1)
+        {
+            if (child.Error.Code != ArticleEmbedErrorCode.Ambiguous)
+            {
+                reasons.Add("ambiguous_target_misclassified");
+            }
+            return;
+        }
+
+        ArticleEmbedError? expected = ExpectedFailure(records[0], snapshot, child.Target!);
+        if (expected?.Code != child.Error.Code || expected.SafeReasonCode != child.Error.SafeReasonCode)
+        {
+            reasons.Add("nested_failure_misclassified");
+        }
+    }
+
+    /// <summary>Re-derives the fact-level failure a target must produce, or null when resolution proceeds.</summary>
+    private static ArticleEmbedError? ExpectedFailure(
         ArticleEmbedTargetFacts facts,
         ArticleEmbedAuthoritySnapshot snapshot,
         ArticleEmbedTargetIdentity target)
     {
+        if (facts.AuthorityGeneration != snapshot.AuthorityGeneration)
+        {
+            return new ArticleEmbedError(ArticleEmbedErrorCode.StaleTarget, "authority_generation_drift");
+        }
         if (facts.SiteIdentity != snapshot.Actor.SiteIdentity)
         {
             return new ArticleEmbedError(ArticleEmbedErrorCode.PermissionUnknown, "site_mismatch");
@@ -333,14 +514,6 @@ public static class ArticleEmbedAuthoringVerifier
         if (facts.Permission == ArticleEmbedPermissionStatus.Unknown)
         {
             return new ArticleEmbedError(ArticleEmbedErrorCode.PermissionUnknown, "permission_unknown");
-        }
-        if (facts.AuthorityGeneration != snapshot.AuthorityGeneration)
-        {
-            return new ArticleEmbedError(ArticleEmbedErrorCode.StaleTarget, "authority_generation_drift");
-        }
-        if (facts.SourceRevision != facts.ResolvedRevision)
-        {
-            return new ArticleEmbedError(ArticleEmbedErrorCode.StaleTarget, "target_source_revision_drift");
         }
         if (facts.Lifecycle == ArticleEmbedLifecycleStatus.Archived)
         {
@@ -449,7 +622,7 @@ public static class ArticleEmbedAuthoringVerifier
     internal static NodeKey NodeKeyOf(ArticleEmbedTargetIdentity target)
         => new(target.PortableArticleIdentity, target.Kind, target.HeadingIdentity, target.BlockAnchor);
 
-    internal static NodeExpectation Expect(
+    private static NodeExpectation Expect(
         ArticleEmbedTargetIdentity target,
         ArticleEmbedAuthoritySnapshot snapshot,
         Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity)
@@ -468,7 +641,7 @@ public static class ArticleEmbedAuthoringVerifier
         ArticleEmbedError? failure = ExpectedFailure(facts, snapshot, target);
         if (failure is not null)
         {
-            return new NodeExpectation(failure, facts, null);
+            return NodeExpectation.Failed(failure);
         }
 
         ArticleEmbedSafeProjectionReference? projection = target.Kind switch
