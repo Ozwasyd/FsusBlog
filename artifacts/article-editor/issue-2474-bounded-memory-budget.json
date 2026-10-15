@@ -13,7 +13,7 @@
         "sourceHead": "8143c7b29c28e5b23db6108004ec9b105390b561",
         "sourceBlob": "6e627b58ce09143814294ea3687651db02c8c360",
         "sourceSha256": "3b3d5671392f65663c968a1c619df7f26e0b6f341520e6433d81af4e77be5587",
-        "sourceHeadMeaning": "Exact one-file source commit checked by the completed build/lint. The subsequent metadata-only commit adds this WIP without changing source. Final delivery HEAD/base are read back from the actual PR API and recorded in the PR body, not guessed or self-referenced here."
+        "sourceHeadMeaning": "Exact one-file source commit checked by the completed build/lint. Subsequent metadata-only commits add this WIP and required naming manifest without changing source. Final delivery HEAD/base are read back from the actual PR API and recorded in the PR body, not guessed or self-referenced here."
     },
     "scope": {
         "productionPaths": [
@@ -22,7 +22,8 @@
         "ordinaryWipPath": "artifacts/article-editor/issue-2474-bounded-memory-budget.json",
         "sharedContracts": "unchanged",
         "testsReceiptsGatesConfiguration": "unchanged",
-        "preExistingWip": "unchanged"
+        "preExistingWip": "unchanged",
+        "requiredNamingManifest": "artifacts/change-contract/issue-2474-bounded-memory-external-naming.json"
     },
     "finding": "Original request Validate trusts Count before enumerating custom IReadOnlyList; request filters then call unbounded ToArray. Provider Count guards likewise precede unbounded ToArray. Count/enumerator disagreement or mutation can bypass the intended materialization bound.",
     "implementation": [
@@ -94,9 +95,10 @@
             "commands": [
                 "node tools/governance/check-change-contract.mjs --range 0c96259e00f9d39d41824110f63c3cc260a2cbf3..HEAD",
                 "node tools/governance/check-change-contract.mjs --repository",
-                "node tools/governance/check-change-contract.mjs --title fix(backend): bound article graph snapshots before validation"
+                "node tools/governance/check-change-contract.mjs --title 'fix(backend): bound article graph snapshots before validation'"
             ],
-            "result": "source commit range, repository types/scopes and PR title all exit0; final metadata range and actual REST PR contract rechecked at delivery"
+            "result": "source commit range, repository types/scopes and PR title all exit0; final metadata range and actual REST PR contract rechecked at delivery",
+            "firstActualRestResult": "Initial actual #4366 REST check failed on four metadata requirements: Deferred work value contained a template-like spaced slash; fix cannot use release-note:none; internal change must use Contract impact:none without Public contract change; broad trusted environment-variable surface requires naming manifest/classification. Correct only metadata, retain original gate and source; final actual REST result is recorded in PR body after recheck."
         },
         "localSupportingLogs": [
             {
