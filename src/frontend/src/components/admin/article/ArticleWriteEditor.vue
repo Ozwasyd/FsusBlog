@@ -61,7 +61,7 @@
                 <FsusUiButton
                     class="article-write-editor__surface-action"
                     native-type="button"
-                    text
+                    :text="sessionSurface !== 'live'"
                     :type="sessionSurface === 'live' ? 'primary' : 'default'"
                     :aria-pressed="sessionSurface === 'live'"
                     :disabled="loading"
@@ -73,7 +73,7 @@
                 <FsusUiButton
                     class="article-write-editor__surface-action"
                     native-type="button"
-                    text
+                    :text="sessionSurface !== 'source'"
                     :type="sessionSurface === 'source' ? 'primary' : 'default'"
                     :aria-pressed="sessionSurface === 'source'"
                     :disabled="loading"
@@ -86,7 +86,7 @@
             <FsusUiButton
                 class="article-write-editor__surface-action"
                 native-type="button"
-                text
+                :text="!sourceCompareOpen"
                 :type="sourceCompareOpen ? 'primary' : 'default'"
                 :aria-pressed="sourceCompareOpen"
                 :disabled="loading"
