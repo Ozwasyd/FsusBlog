@@ -4,11 +4,25 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
                 "src/backend/Services/Authoring/ArticlePackageImportResolutionPreparation.cs",
+                "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
                 "src/shared/Contracts/ArticlePackages/ArticlePackageImportResolutionContracts.cs",
-                "src/shared/Contracts/ArticlePackages/ArticlePackageImportResolutionPlanner.cs"
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportResolutionPlanner.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestVersionRegistry.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs"
             ],
-            "reason": "The trusted base broad environment-variable registry covers all src managed files. Preserve existing owner-defined wire, identity, reason and digest-domain spellings consumed by these three new ordinary preparation leaves; introduce no process environment key or naming rule. Internal C# members follow the repository mother-style mapping. This static naming declaration grants no runtime or execution authority."
+            "reason": "The trusted base broad environment-variable registry covers all src managed files. Preserve exact existing owner-defined wire, identity, reason and digest-domain spellings in these seventeen ordinary source leaves: three original preparation leaves and fourteen whole fixed donor prerequisites. All donor bytes are preserved. Introduce no process environment key or naming rule; internal C# members retain the repository mother-style mapping. This static naming declaration grants no runtime, observation or execution authority."
         }
     ]
 }
