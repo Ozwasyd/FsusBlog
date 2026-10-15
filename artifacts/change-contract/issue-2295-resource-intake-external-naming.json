@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/resource-retention-series.mjs"
+            ],
+            "reason": "Original broad registry covers this ordinary tooling module. Preserve existing process/protocol/observation names; no environment or frozen authority change, collector or qualification admission."
+        }
+    ]
+}
