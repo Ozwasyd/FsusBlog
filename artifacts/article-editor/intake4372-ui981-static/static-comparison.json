@@ -1,0 +1,100 @@
+{
+    "types": {
+        "baseExit": 2,
+        "candidateExit": 2,
+        "byteIdentical": true,
+        "baseLines": 30,
+        "candidateLines": 30,
+        "baseSha256": "94a4acc20f1bcd3dfbfbdcb4c66d72df46fd750f59aa1ce52ff071ab6093c90a",
+        "candidateSha256": "94a4acc20f1bcd3dfbfbdcb4c66d72df46fd750f59aa1ce52ff071ab6093c90a",
+        "tsDiagnosticsEach": [
+            29,
+            29
+        ],
+        "rawDelta": []
+    },
+    "full-style": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "byteIdentical": true,
+        "baseLines": 83676,
+        "candidateLines": 83676,
+        "baseSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+        "candidateSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+        "frontendStyleDiagnosticLinesEach": [
+            83667,
+            83667
+        ],
+        "rawDelta": []
+    },
+    "strict": {
+        "baseExit": 0,
+        "candidateExit": 0,
+        "byteIdentical": true,
+        "baseLines": 1,
+        "candidateLines": 1,
+        "baseSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+        "candidateSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+        "rawDelta": []
+    },
+    "boundary": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "byteIdentical": true,
+        "baseLines": 21,
+        "candidateLines": 21,
+        "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+        "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+        "rawDelta": []
+    },
+    "binary": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "byteIdentical": true,
+        "baseLines": 7,
+        "candidateLines": 7,
+        "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+        "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+        "rawDelta": []
+    },
+    "intent": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "byteIdentical": true,
+        "baseLines": 3,
+        "candidateLines": 3,
+        "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+        "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+        "rawDelta": []
+    },
+    "lifecycle": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "byteIdentical": true,
+        "baseLines": 7,
+        "candidateLines": 7,
+        "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+        "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+        "rawDelta": []
+    },
+    "authoritative": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "byteIdentical": true,
+        "baseLines": 41,
+        "candidateLines": 41,
+        "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+        "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+        "rawDelta": []
+    },
+    "diff-check": {
+        "baseExit": 0,
+        "candidateExit": 0,
+        "byteIdentical": true,
+        "baseLines": 0,
+        "candidateLines": 0,
+        "baseSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidateSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "rawDelta": []
+    }
+}
