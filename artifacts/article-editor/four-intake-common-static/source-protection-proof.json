@@ -1,0 +1,115 @@
+{
+  "kind": "ordinary exact-source/protected-base facts, no qualification authority",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "sourceInputs": [
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "donorPR": 4393,
+      "blob": "235737cf0e9602ca844076a6a60309ddede0a3dd"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "donorPR": 4393,
+      "blob": "c730c3487fe7430a1b8f5c6cb294a4bab1432307"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "donorPR": 4393,
+      "blob": "e88b8bfb751977acccd4685796fa2a945a9f2ad6"
+    },
+    {
+      "path": "src/frontend/src/fsusui/input.ts",
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "donorPR": 4393,
+      "blob": "ed384b384359bf4ed4f33f9af49ea6fbf99f41d8"
+    },
+    {
+      "path": "src/frontend/src/fsusui/select.ts",
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "donorPR": 4393,
+      "blob": "969ca38d256f00531cb2b48f4c219118c281403c"
+    },
+    {
+      "path": "src/frontend/src/fsusui/switch.ts",
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "donorPR": 4393,
+      "blob": "7d228c3d677e023012ca036e200d5bfd1870929d"
+    },
+    {
+      "path": "src/frontend/src/services/articleVault/dependencyPlanPresentation.ts",
+      "head": "8a56beb7dcfd4c50c6b6de64d004f323c3744125",
+      "donorPR": 4394,
+      "blob": "49aa4b6d9039d92b94d36578a62d2b5afeb8a415"
+    },
+    {
+      "path": "src/frontend/src/services/articleVault/planReview.ts",
+      "head": "8a56beb7dcfd4c50c6b6de64d004f323c3744125",
+      "donorPR": 4394,
+      "blob": "739d55888adb70fc9842023db1a5ba266df9278b"
+    },
+    {
+      "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+      "head": "ea74947fedf2bb94fb15593dd81261c21568b6a5",
+      "donorPR": 4396,
+      "blob": "5e82b53f5b8fea926c98965e486212d326cbb62d"
+    },
+    {
+      "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+      "head": "ea74947fedf2bb94fb15593dd81261c21568b6a5",
+      "donorPR": 4396,
+      "blob": "259211926b8b031e32c424b4772b50adec1867e6"
+    },
+    {
+      "path": "src/frontend/src/composables/useDocumentExport.ts",
+      "head": "ea74947fedf2bb94fb15593dd81261c21568b6a5",
+      "donorPR": 4396,
+      "blob": "69bd7213296ea746d6b33f619ca5669954f6d2b3"
+    },
+    {
+      "path": "src/frontend/src/fsusui/documentExportControls.ts",
+      "head": "ea74947fedf2bb94fb15593dd81261c21568b6a5",
+      "donorPR": 4396,
+      "blob": "76c4ad673491ec0288a7d12f6ecb772e9756b03d"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/ExportCenter.vue",
+      "head": "ea74947fedf2bb94fb15593dd81261c21568b6a5",
+      "donorPR": 4396,
+      "blob": "a4ab84b41d440fa3aee73016eb39724def1f620f"
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+      "head": "3be2bb3b0e4fe0d5caae766e3654317aab94b7c9",
+      "donorPR": 4397,
+      "blob": "a0065289220319020a336660884dcab60489985a"
+    },
+    {
+      "path": "src/frontend/src/fsusui/form.ts",
+      "head": "3be2bb3b0e4fe0d5caae766e3654317aab94b7c9",
+      "donorPR": 4397,
+      "blob": "cc4aeca30aa8842baea17df52f8153c9554f3dad"
+    }
+  ],
+  "all173DonorOwnPathsExact": true,
+  "allFourSiblingBases": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "conflicts": 0,
+  "existingBaseTrackedFilesUnchanged": true,
+  "packageSourceIdentity": {
+    "name": "element-plus",
+    "version": "1.5.1",
+    "path": "/workspace/session-2295-ui973-local-dependency/vue/packages/element-plus/package.json",
+    "sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c",
+    "meaning": "actual source package metadata, not published-package identity/parity; both consumer public aliases bind its actual public index"
+  },
+  "unmountedCallerSearch": "Source-only search found no existing caller/mount for MetadataField/Read, QuickCaptureSurface, ExportCenter or Vault presentation functions outside admitted leaf files. No router/host/registry/group/transport wiring changed.",
+  "scopeBoundaries": {
+    "Metadata": "Save unconditionally disabled; helper and public input/select/switch reexports unchanged from4393. Real UI973 contains UI969 actual SelectV2 native focus/blur source implementation; native behavior UNRUN.",
+    "Vault": "Two exact readonly plan presentation files; real planReview source dependency; no currentness/planner/grant/transport.",
+    "Export": "Final five exact4396 production postimages including real documentExportControls named reexports; canonical adapter/Jobs/AEDS/SiteScope/permission/browser download integration remains absent/held.",
+    "QuickCapture": "Final two4397 postimages; original recovery owner5820 remains unchanged. Save/open/recover/retry/discard/template disabled; close/cancel emit request-close only; no server-absence inference from unknown outcome."
+  },
+  "excluded": "All otherintakes including4398/4399/4400/4401/4402/4403/4404, directoriginaldonorhistory/WIPs, UI975 candidates, missingregistryQuery4353. Existing base versions unchanged; no4401newlog gap imported."
+}

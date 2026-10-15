@@ -1,0 +1,6 @@
+src/frontend/src/components/admin/article/ArticleMetadataField.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/article/ArticleMetadataRead.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/article/articleMetadataExactEdit.ts: AST 0 diagnostics
+src/frontend/src/fsusui/input.ts: AST 0 diagnostics
+src/frontend/src/fsusui/select.ts: AST 0 diagnostics
+src/frontend/src/fsusui/switch.ts: AST 0 diagnostics

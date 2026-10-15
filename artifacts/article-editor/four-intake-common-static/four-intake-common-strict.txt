@@ -1,0 +1,1 @@
+[frontend-style] ok files=15 eslint=15 stylelint=4 violations=0 new=0

@@ -1,0 +1,78 @@
+{
+  "types": {
+    "baseExit": 2,
+    "candidateExit": 2,
+    "baseLines": 30,
+    "candidateLines": 30,
+    "rawByteIdentical": true,
+    "status": "FAIL retained",
+    "baseErrors": 29,
+    "candidateErrors": 29,
+    "Blog": 4,
+    "UI": 25,
+    "added": 0,
+    "removed": 0,
+    "comparison": "whole raw output, source positions only; retain all complete diagnostic blocks and multiplicity, no filtering/deduplication"
+  },
+  "full-style": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 83667,
+    "candidateLines": 83667,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 21,
+    "candidateLines": 21,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "binary-boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "code-intent": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 3,
+    "candidateLines": 3,
+    "rawByteIdentical": false,
+    "status": "FAIL retained",
+    "same2DiagnosticRows": true,
+    "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+    "candidateSummary": "[code-intent] 2 error(s) across 5762 checked file(s):"
+  },
+  "lifecycle": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "authoritative": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 41,
+    "candidateLines": 41,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "strict": {
+    "exit": 0,
+    "rawResult": "[frontend-style] ok files=15 eslint=15 stylelint=4 violations=0 new=0",
+    "scope": "all15exactproductionfiles; source tools only, no product module evaluation/calls"
+  },
+  "ast": {
+    "exit": 0,
+    "rawResult": "src/frontend/src/components/admin/article/ArticleMetadataField.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/article/ArticleMetadataRead.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/article/articleMetadataExactEdit.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/input.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/select.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/switch.ts: AST 0 diagnostics\nsrc/frontend/src/services/articleVault/dependencyPlanPresentation.ts: AST 0 diagnostics\nsrc/frontend/src/services/articleVault/planReview.ts: AST 0 diagnostics\nsrc/frontend/src/components/document-export/documentExportCall.ts: AST 0 diagnostics\nsrc/frontend/src/components/document-export/documentExportUiPort.ts: AST 0 diagnostics\nsrc/frontend/src/composables/useDocumentExport.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/documentExportControls.ts: AST 0 diagnostics\nsrc/frontend/src/views/admin/article/ExportCenter.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/fsusui/form.ts: AST 0 diagnostics",
+    "scope": "all15exactproductionfiles; source tools only, no product module evaluation/calls"
+  }
+}

@@ -1,0 +1,909 @@
+{
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donors": [
+    {
+      "PR": 4393,
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "branch": "codex/issue-2295-metadata-ui969-leaves-20261015",
+      "files": 45,
+      "entries": [
+        {
+          "path": "artifacts/article-editor/issue-2295-metadata-ui969-leaves.json",
+          "mode": "100644",
+          "blob": "1686f47039c6ab43739bb0d585cb5428cc08dd23"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/actual-ui969-source-input.json",
+          "mode": "100644",
+          "blob": "43f39604bba4a8932b4681cd18d5b729e4026619"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/alias-only-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "c8d52b28f1d46ca55761a26006dff64f94d54c8c"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/candidate-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "c8d52b28f1d46ca55761a26006dff64f94d54c8c"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/delivery-map.json",
+          "mode": "100644",
+          "blob": "cb30d0f5d33c68166a9602c47f5b0de18693b779"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/exact-source-inputs.json",
+          "mode": "100644",
+          "blob": "a473657745ec6e0cb674c97b2b7940e5155e0c6b"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-ast.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-ast.txt",
+          "mode": "100644",
+          "blob": "1d0e6f9d274e33b2e9125a4224fac5fa94a50dd6"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-candidate-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-candidate-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-candidate-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-candidate-types.txt",
+          "mode": "100644",
+          "blob": "c88c7d10f89d3ac98b039ce8bfd844f9e2caa091"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-code-intent.txt",
+          "mode": "100644",
+          "blob": "f95e667ee389468a1e07f34cf0810fe1ae5d0994"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-strict-six.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/metadata-ui969-strict-six.txt",
+          "mode": "100644",
+          "blob": "83dc7689148e9499ecb92d91e9fc5180afebd3ff"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/static-comparison.json",
+          "mode": "100644",
+          "blob": "70581cc0bd6976682af40cf4f71986599774ef20"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-code-intent.txt",
+          "mode": "100644",
+          "blob": "193370d74f86868232a6d59cb2c41fb0545cb621"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/metadata-ui969-static/ui969-alias-only-types.txt",
+          "mode": "100644",
+          "blob": "c88c7d10f89d3ac98b039ce8bfd844f9e2caa091"
+        },
+        {
+          "path": "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+          "mode": "100644",
+          "blob": "235737cf0e9602ca844076a6a60309ddede0a3dd"
+        },
+        {
+          "path": "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+          "mode": "100644",
+          "blob": "c730c3487fe7430a1b8f5c6cb294a4bab1432307"
+        },
+        {
+          "path": "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+          "mode": "100644",
+          "blob": "e88b8bfb751977acccd4685796fa2a945a9f2ad6"
+        },
+        {
+          "path": "src/frontend/src/fsusui/input.ts",
+          "mode": "100644",
+          "blob": "ed384b384359bf4ed4f33f9af49ea6fbf99f41d8"
+        },
+        {
+          "path": "src/frontend/src/fsusui/select.ts",
+          "mode": "100644",
+          "blob": "969ca38d256f00531cb2b48f4c219118c281403c"
+        },
+        {
+          "path": "src/frontend/src/fsusui/switch.ts",
+          "mode": "100644",
+          "blob": "7d228c3d677e023012ca036e200d5bfd1870929d"
+        }
+      ]
+    },
+    {
+      "PR": 4394,
+      "head": "8a56beb7dcfd4c50c6b6de64d004f323c3744125",
+      "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "branch": "codex/issue-2295-vault-plan-presentation-leaves-20261015",
+      "files": 41,
+      "entries": [
+        {
+          "path": "artifacts/article-editor/issue-2295-vault-plan-presentation-leaves.json",
+          "mode": "100644",
+          "blob": "d3c7da0ead2a459e8d2e5ea0efd5575540cc5f12"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/actual-ui969-source-input.json",
+          "mode": "100644",
+          "blob": "43f39604bba4a8932b4681cd18d5b729e4026619"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/alias-only-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "c8d52b28f1d46ca55761a26006dff64f94d54c8c"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/candidate-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "c8d52b28f1d46ca55761a26006dff64f94d54c8c"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/delivery-map.json",
+          "mode": "100644",
+          "blob": "ed022e1ede03c0eeb8c07cdcc864b188d1e961a3"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/exact-source-inputs.json",
+          "mode": "100644",
+          "blob": "990cc662c0b21588897d2c12e56cc884c620c252"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/static-comparison.json",
+          "mode": "100644",
+          "blob": "824479b6a2da8517e6c538453a70a86f340cd426"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-code-intent.txt",
+          "mode": "100644",
+          "blob": "193370d74f86868232a6d59cb2c41fb0545cb621"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-types.txt",
+          "mode": "100644",
+          "blob": "c88c7d10f89d3ac98b039ce8bfd844f9e2caa091"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-ast.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-ast.txt",
+          "mode": "100644",
+          "blob": "b745c89022153b3bbe704631c6f2a37a011630cc"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-types.txt",
+          "mode": "100644",
+          "blob": "c88c7d10f89d3ac98b039ce8bfd844f9e2caa091"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-code-intent.txt",
+          "mode": "100644",
+          "blob": "e714b5c5df333e9e5b6dc89c177ad4748880d47e"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-strict-two.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/vault-plan-static/vault-plan-strict-two.txt",
+          "mode": "100644",
+          "blob": "2eafd77da931e63078df4db600ad057fcbc6fb96"
+        },
+        {
+          "path": "src/frontend/src/services/articleVault/dependencyPlanPresentation.ts",
+          "mode": "100644",
+          "blob": "49aa4b6d9039d92b94d36578a62d2b5afeb8a415"
+        },
+        {
+          "path": "src/frontend/src/services/articleVault/planReview.ts",
+          "mode": "100644",
+          "blob": "739d55888adb70fc9842023db1a5ba266df9278b"
+        }
+      ]
+    },
+    {
+      "PR": 4396,
+      "head": "ea74947fedf2bb94fb15593dd81261c21568b6a5",
+      "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "branch": "codex/issue-2295-export4368-final-leaves-20261015",
+      "files": 45,
+      "entries": [
+        {
+          "path": "artifacts/article-editor/export4368-static/actual-ui973-source-input.json",
+          "mode": "100644",
+          "blob": "7bd8cae98e3beee050a6aa1e27933726f006ed26"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/alias-only-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "bb3756fbfd3430188e048e07bf84d25156821269"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/candidate-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "bb3756fbfd3430188e048e07bf84d25156821269"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/delivery-map.json",
+          "mode": "100644",
+          "blob": "9571481c7e9e062f1ac3af40333ab82d1be57cfd"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/exact-source-inputs.json",
+          "mode": "100644",
+          "blob": "f10b239771afdde5c9d06e83992aa5cc53d2c861"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-ast.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-ast.txt",
+          "mode": "100644",
+          "blob": "e0af537735ebf5b37a1442c786d7431a44cc1787"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-code-intent.txt",
+          "mode": "100644",
+          "blob": "a38ec8abf2ac6d69cf6a99ce7525edc2a840ffca"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-strict.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-strict.txt",
+          "mode": "100644",
+          "blob": "6a45f505f448cf336ef5a796cecea27cc58be660"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/export4368-types.txt",
+          "mode": "100644",
+          "blob": "e182386b508124131a60ce438606866b728c1a29"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/parent-ui969-source-input.json",
+          "mode": "100644",
+          "blob": "43f39604bba4a8932b4681cd18d5b729e4026619"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/static-comparison.json",
+          "mode": "100644",
+          "blob": "0f3df0bc2964eabf5b3d6240b3133d194e6cdf48"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-code-intent.txt",
+          "mode": "100644",
+          "blob": "193370d74f86868232a6d59cb2c41fb0545cb621"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/export4368-static/ui973-alias-only-types.txt",
+          "mode": "100644",
+          "blob": "e182386b508124131a60ce438606866b728c1a29"
+        },
+        {
+          "path": "artifacts/article-editor/issue-2295-export4368-final-leaves.json",
+          "mode": "100644",
+          "blob": "8010ce7133208eb0516bb0bd23dc0121a1dfc5c0"
+        },
+        {
+          "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+          "mode": "100644",
+          "blob": "5e82b53f5b8fea926c98965e486212d326cbb62d"
+        },
+        {
+          "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+          "mode": "100644",
+          "blob": "259211926b8b031e32c424b4772b50adec1867e6"
+        },
+        {
+          "path": "src/frontend/src/composables/useDocumentExport.ts",
+          "mode": "100644",
+          "blob": "69bd7213296ea746d6b33f619ca5669954f6d2b3"
+        },
+        {
+          "path": "src/frontend/src/fsusui/documentExportControls.ts",
+          "mode": "100644",
+          "blob": "76c4ad673491ec0288a7d12f6ecb772e9756b03d"
+        },
+        {
+          "path": "src/frontend/src/views/admin/article/ExportCenter.vue",
+          "mode": "100644",
+          "blob": "a4ab84b41d440fa3aee73016eb39724def1f620f"
+        }
+      ]
+    },
+    {
+      "PR": 4397,
+      "head": "3be2bb3b0e4fe0d5caae766e3654317aab94b7c9",
+      "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "branch": "codex/issue-2295-quick4386-final-leaves-20261015",
+      "files": 42,
+      "entries": [
+        {
+          "path": "artifacts/article-editor/issue-2295-quick4386-final-leaves.json",
+          "mode": "100644",
+          "blob": "7a093373b6ab0f90dafdca40f2ff620804fad65f"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/actual-ui973-source-input.json",
+          "mode": "100644",
+          "blob": "7bd8cae98e3beee050a6aa1e27933726f006ed26"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/alias-only-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "bb3756fbfd3430188e048e07bf84d25156821269"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/candidate-full-app-config.snapshot.json",
+          "mode": "100644",
+          "blob": "bb3756fbfd3430188e048e07bf84d25156821269"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/delivery-map.json",
+          "mode": "100644",
+          "blob": "b7d24fb52c88bab0795ae25a52415c6d46de94c8"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/exact-source-inputs.json",
+          "mode": "100644",
+          "blob": "7bfdfd1bcff7ca877a8579c8c152b87969fbbd61"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/parent-ui969-source-input.json",
+          "mode": "100644",
+          "blob": "43f39604bba4a8932b4681cd18d5b729e4026619"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-ast.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-ast.txt",
+          "mode": "100644",
+          "blob": "96997ffd77f6aaefecdffd648f1d0390c0c6cc20"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-code-intent.txt",
+          "mode": "100644",
+          "blob": "e714b5c5df333e9e5b6dc89c177ad4748880d47e"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-strict.exit",
+          "mode": "100644",
+          "blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-strict.txt",
+          "mode": "100644",
+          "blob": "d41baac7277bc58ef0fa0eec89ed890ce5707d1b"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/quick4386-types.txt",
+          "mode": "100644",
+          "blob": "e182386b508124131a60ce438606866b728c1a29"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/static-comparison.json",
+          "mode": "100644",
+          "blob": "4346bfba4e294285af6a0622d21bad9c5f00746b"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-authoritative.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-authoritative.txt",
+          "mode": "100644",
+          "blob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-binary-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-binary-boundary.txt",
+          "mode": "100644",
+          "blob": "3e106d0c23145547a3a2e00513e47225dcc94036"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-boundary.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-boundary.txt",
+          "mode": "100644",
+          "blob": "9035d36bb27009344f6a3ba39957ac400a5b00a4"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-code-intent.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-code-intent.txt",
+          "mode": "100644",
+          "blob": "193370d74f86868232a6d59cb2c41fb0545cb621"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-full-style.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-full-style.txt",
+          "mode": "100644",
+          "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-lifecycle.exit",
+          "mode": "100644",
+          "blob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-lifecycle.txt",
+          "mode": "100644",
+          "blob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-types.exit",
+          "mode": "100644",
+          "blob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"
+        },
+        {
+          "path": "artifacts/article-editor/quick4386-static/ui973-alias-only-types.txt",
+          "mode": "100644",
+          "blob": "e182386b508124131a60ce438606866b728c1a29"
+        },
+        {
+          "path": "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+          "mode": "100644",
+          "blob": "a0065289220319020a336660884dcab60489985a"
+        },
+        {
+          "path": "src/frontend/src/fsusui/form.ts",
+          "mode": "100644",
+          "blob": "cc4aeca30aa8842baea17df52f8153c9554f3dad"
+        }
+      ]
+    }
+  ],
+  "conflicts": 0,
+  "allPaths": 173,
+  "productionFiles": 15
+}
