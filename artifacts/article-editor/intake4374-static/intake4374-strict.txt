@@ -1,0 +1,5 @@
+[frontend-style] src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue:168:1 eslint/import-x/order: `@ozwasyd/element-plus` type import should occur after import of `@/fsusui/button`
+[frontend-style] src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue:208:7 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue:208:24 eslint/@typescript-eslint/no-redundant-type-constituents: 'any' overrides all other types in this union type.
+[frontend-style] src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue:231:5 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue:231:16 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
