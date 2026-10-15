@@ -1,0 +1,332 @@
+{
+    "kind": "ordinary static-log handoff; not a receipt, authority, qualification or new check run",
+    "pr": "https://github.com/Ozwasyd/FsusBlog/pull/4401",
+    "delivery": {
+        "evidenceOnly": true,
+        "checksRerunForDelivery": false,
+        "productsModifiedForDelivery": false,
+        "oldIntakeEvidenceRewritten": false,
+        "rawBytesCopiedWithoutTransformation": true,
+        "logFilenameExtensionChangedFromLogToTxtForRepositoryStorage": true
+    },
+    "source": {
+        "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "brokenHead": "d77b10b9a9a79f66b240587f34504492701e0f71",
+        "acceptedRepairHead": "d77565ac949feb91c51336f561b3a1334981874e",
+        "publicationParent": "d77565ac949feb91c51336f561b3a1334981874e",
+        "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+        "baseBlob": "6bb4ecb0d192b22ffd575fe3a794998211cc374a",
+        "brokenBlob": "852634395efa63d16505889a7c157ab0a5947f0a",
+        "repairedBlob": "b0363a4e7a72aec3ab1483c48eb95a5a79afaedc"
+    },
+    "ui": {
+        "repository": "Ozwasyd/FsusUI",
+        "revision": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+        "localRoot": "/workspace/FsusUI",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI"
+        },
+        "sourceDirtyState": "clean at original recorded checks",
+        "physicalAliasAndCssQualification": "unverified; unchanged limitation"
+    },
+    "exitCodeProvenance": "Transcribed from the original exec_command/write_stdin results in this task history. The retained /tmp files did not include separate captured .exit files; no newly authored .exit file is represented as raw execution output.",
+    "capture": "Original combined stdout/stderr logs; existing files copied byte-for-byte. Commands originally used > /tmp/log 2>&1. No original commands were executed for this publication.",
+    "comparisons": [
+        {
+            "check": "types",
+            "base": "base-types.txt",
+            "repaired": "repaired-types.txt",
+            "wholeBytesIdentical": true
+        },
+        {
+            "check": "full-style",
+            "base": "base-full-style.txt",
+            "repaired": "repaired-full-style.txt",
+            "wholeBytesIdentical": true
+        },
+        {
+            "check": "strict",
+            "base": "base-strict.txt",
+            "repaired": "repaired-strict.txt",
+            "wholeBytesIdentical": true
+        },
+        {
+            "check": "boundary",
+            "base": "base-boundary.txt",
+            "repaired": "repaired-boundary.txt",
+            "wholeBytesIdentical": true
+        },
+        {
+            "check": "binary",
+            "base": "base-binary.txt",
+            "repaired": "repaired-binary.txt",
+            "wholeBytesIdentical": true
+        },
+        {
+            "check": "intent",
+            "base": "base-intent.txt",
+            "repaired": "repaired-intent.txt",
+            "wholeBytesIdentical": true
+        },
+        {
+            "check": "lifecycle",
+            "base": "base-lifecycle.txt",
+            "repaired": "repaired-lifecycle.txt",
+            "wholeBytesIdentical": true
+        },
+        {
+            "check": "authoritative",
+            "base": "base-authoritative.txt",
+            "repaired": "repaired-authoritative.txt",
+            "wholeBytesIdentical": true
+        }
+    ],
+    "outcome": {
+        "brokenStrictErrors": 5,
+        "repairedStrictErrors": 0,
+        "baseAndRepairedFullStyleLines": 83667,
+        "baseAndRepairedAppDiagnostics": 29,
+        "fullStyleStatus": "failure retained",
+        "appStatus": "failure retained",
+        "otherFailures": "boundary, binary boundary, code intent and both documentation failures retained; no waiver"
+    },
+    "historicalEvidenceUntouched": [
+        "artifacts/article-editor/intake4374-static/",
+        "artifacts/article-editor/issue-2295-intake4374.json"
+    ],
+    "holds": [
+        "runtime",
+        "tests",
+        "list",
+        "discovery",
+        "product/helper module execution",
+        "browser/render",
+        "native",
+        "DB",
+        "frozen/authority",
+        "qualification",
+        "Ready",
+        "merge",
+        "issue closure",
+        "package publishing"
+    ],
+    "logs": [
+        {
+            "path": "base-types.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-types.log",
+            "sha256": "f0aeff889488de5e3c3331a8ad17c01cfce57187a39f36ee67e7be0054e1bb6f",
+            "bytes": 4981,
+            "lines": 30,
+            "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 2,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "base-full-style.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-full-style.log",
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "bytes": 11861610,
+            "lines": 83667,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "base-strict.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-strict.log",
+            "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "bytes": 68,
+            "lines": 1,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 0,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "base-boundary.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-boundary.log",
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "bytes": 2805,
+            "lines": 21,
+            "command": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "base-binary.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-binary.log",
+            "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "bytes": 866,
+            "lines": 7,
+            "command": "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "base-intent.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-intent.log",
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "bytes": 353,
+            "lines": 3,
+            "command": "node tools/governance/check-code-intent.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "base-lifecycle.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-lifecycle.log",
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "bytes": 762,
+            "lines": 7,
+            "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "base-authoritative.txt",
+            "originalPath": "/tmp/fsusblog-4401-base-authoritative.log",
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "bytes": 6771,
+            "lines": 41,
+            "command": "node tools/docs/check-authoritative-development-docs.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "repaired-types.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-types.log",
+            "sha256": "f0aeff889488de5e3c3331a8ad17c01cfce57187a39f36ee67e7be0054e1bb6f",
+            "bytes": 4981,
+            "lines": 30,
+            "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 2,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "repaired-full-style.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-full-style.log",
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "bytes": 11861610,
+            "lines": 83667,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "repaired-strict.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-strict.log",
+            "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "bytes": 68,
+            "lines": 1,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 0,
+            "gitHeadAtExecution": "d77b10b9a9a79f66b240587f34504492701e0f71",
+            "sourceState": "pre-commit working tree; target blob equals accepted repaired source"
+        },
+        {
+            "path": "repaired-boundary.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-boundary.log",
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "bytes": 2805,
+            "lines": 21,
+            "command": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "repaired-binary.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-binary.log",
+            "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "bytes": 866,
+            "lines": 7,
+            "command": "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "repaired-intent.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-intent.log",
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "bytes": 353,
+            "lines": 3,
+            "command": "node tools/governance/check-code-intent.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "repaired-lifecycle.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-lifecycle.log",
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "bytes": 762,
+            "lines": 7,
+            "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "repaired-authoritative.txt",
+            "originalPath": "/tmp/fsusblog-4401-repaired-authoritative.log",
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "bytes": 6771,
+            "lines": 41,
+            "command": "node tools/docs/check-authoritative-development-docs.mjs",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "tracked source at named Git head"
+        },
+        {
+            "path": "before-strict.txt",
+            "originalPath": "/tmp/fsusblog-4401-before-strict.log",
+            "sha256": "1bb10623f36cfc6e41752d30b60399adba1e50b4be7648fae4183e71bdc2149f",
+            "bytes": 1080,
+            "lines": 5,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 1,
+            "gitHeadAtExecution": "d77b10b9a9a79f66b240587f34504492701e0f71",
+            "sourceState": "unchanged broken intake source"
+        },
+        {
+            "path": "repair-contract.txt",
+            "originalPath": "/tmp/fsusblog-4401-repair-contract.log",
+            "sha256": "e0661ef4949917d9a544fb5d31f749003e2e91644815f68d66bd4c4eb0a84158",
+            "bytes": 81,
+            "lines": 1,
+            "command": "node tools/governance/check-change-contract.mjs --range d77b10b9a9a79f66b240587f34504492701e0f71..HEAD",
+            "cwd": "/workspace/FsusBlog",
+            "exitCode": 0,
+            "gitHeadAtExecution": "d77565ac949feb91c51336f561b3a1334981874e",
+            "sourceState": "accepted repair source"
+        }
+    ]
+}
