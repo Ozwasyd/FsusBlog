@@ -88,12 +88,12 @@ public static class ArticleEmbedRefreshPlanner
         // Bound and copy collection-bearing facts before invoking any existing recursive verifier.
         if (!WithinSnapshotEnvelope(currentAuthority, request.Budgets))
         {
-            return Failure(ArticleEmbedRefreshPlanStatus.Blocked, "article_embed_refresh_authority_unbounded_or_missing");
+            return Failure(requests, ArticleEmbedRefreshPlanStatus.Blocked, "article_embed_refresh_authority_unbounded_or_missing");
         }
         ArticleEmbedAuthoritySnapshot snapshot = Freeze(currentAuthority!);
         if (!ArticleEmbedAuthoringContractValidator.Validate(snapshot).IsValid)
         {
-            return Failure(ArticleEmbedRefreshPlanStatus.Blocked, "article_embed_refresh_authority_invalid");
+            return Failure(requests, ArticleEmbedRefreshPlanStatus.Blocked, "article_embed_refresh_authority_invalid");
         }
         if (snapshot.AuthorityGeneration != request.ExpectedAuthorityGeneration
             || snapshot.SnapshotDigest != request.ExpectedAuthoritySnapshotDigest
@@ -104,16 +104,21 @@ public static class ArticleEmbedRefreshPlanner
             || snapshot.HostSourceDigest != request.ExpectedHost.SourceDigest
             || requests.Any(item => item.Runtime != snapshot.Runtime))
         {
-            return Failure(ArticleEmbedRefreshPlanStatus.Stale, "article_embed_refresh_authority_drift");
+            return Failure(requests, ArticleEmbedRefreshPlanStatus.Stale, "article_embed_refresh_authority_drift");
         }
 
         var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, request.Budgets, time);
+        // Cancellation can invalidate an earlier completed stage before the next verifier observes it.
+        if (requests.Any(static item => item.AbortSignal.IsCancellationRequested))
+        {
+            return Failure(ArticleEmbedRefreshPlanStatus.Cancelled, "article_embed_refresh_cancelled");
+        }
         ArticleEmbedAuthoringResolution graph = evaluated.Graph;
         if (graph.Status != ArticleEmbedAuthoringResolutionStatus.Completed
             || !ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, request.Budgets, graph).Valid
             || !evaluated.Relations.Accepted || evaluated.Relations.EdgeSet is null)
         {
-            return Failure(ArticleEmbedRefreshPlanStatus.Blocked, "article_embed_refresh_graph_unavailable");
+            return Failure(requests, ArticleEmbedRefreshPlanStatus.Blocked, "article_embed_refresh_graph_unavailable");
         }
         var items = ImmutableArray.CreateBuilder<ArticleEmbedRefreshPlanItem>(requests.Count);
         var nodes = ImmutableArray.CreateBuilder<ArticleEmbedRefreshGraphNode>();
@@ -130,14 +135,14 @@ public static class ArticleEmbedRefreshPlanner
                 selection.RecordedCoordinate, out bool updateAvailable);
             if (!comparison.IsValid)
             {
-                return Failure(HasStaleFailure(graph.Results[index])
+                return Failure(requests, HasStaleFailure(graph.Results[index])
                         ? ArticleEmbedRefreshPlanStatus.Stale : ArticleEmbedRefreshPlanStatus.Blocked,
                     "article_embed_refresh_selected_dependency_unavailable");
             }
             ArticleEmbedProviderResult current = graph.Results[index].Result;
             if (current.Coordinate != selection.DesiredCoordinate)
             {
-                return Failure(ArticleEmbedRefreshPlanStatus.Stale, "article_embed_refresh_desired_coordinate_drift");
+                return Failure(requests, ArticleEmbedRefreshPlanStatus.Stale, "article_embed_refresh_desired_coordinate_drift");
             }
             ArticleEmbedTargetFacts facts = snapshot.Targets.Single(item =>
                 item.PortableArticleIdentity == selection.Request.Target.PortableArticleIdentity);
@@ -159,7 +164,7 @@ public static class ArticleEmbedRefreshPlanner
                 item.PortableArticleIdentity == node.Coordinate.Target.PortableArticleIdentity);
             if (facts.LatestObservedRevision != node.Coordinate.ResolvedRevision)
             {
-                return Failure(ArticleEmbedRefreshPlanStatus.Stale, "article_embed_refresh_target_observation_drift");
+                return Failure(requests, ArticleEmbedRefreshPlanStatus.Stale, "article_embed_refresh_target_observation_drift");
             }
         }
 
@@ -167,6 +172,10 @@ public static class ArticleEmbedRefreshPlanner
             graph.ResolutionDigest, evaluated.Relations.EdgeSet.SetDigest, items.ToImmutable(), nodes.ToImmutable(), string.Empty);
         var plan = new ArticleEmbedRefreshPlan(request, snapshot, unsigned.Observed, unsigned.GraphDigest,
             unsigned.RelationSetDigest, unsigned.Items, unsigned.SelectedGraph, ComputePlanDigest(unsigned));
+        if (requests.Any(static item => item.AbortSignal.IsCancellationRequested))
+        {
+            return Failure(ArticleEmbedRefreshPlanStatus.Cancelled, "article_embed_refresh_cancelled");
+        }
         return new ArticleEmbedRefreshPlanningResult(
             changed ? ArticleEmbedRefreshPlanStatus.Prepared : ArticleEmbedRefreshPlanStatus.NoChange, plan, null);
     }
@@ -415,6 +424,13 @@ public static class ArticleEmbedRefreshPlanner
         writer.Add(directive.RawRange.Start);
         writer.Add(directive.RawRange.End);
     }
+
+    // Recheck after validation/comparison, which can observe cancellation after the preceding guard.
+    private static ArticleEmbedRefreshPlanningResult Failure(
+        IReadOnlyList<ArticleEmbedProviderRequest> requests, ArticleEmbedRefreshPlanStatus status, string reason)
+        => requests.Any(static item => item.AbortSignal.IsCancellationRequested)
+            ? Failure(ArticleEmbedRefreshPlanStatus.Cancelled, "article_embed_refresh_cancelled")
+            : Failure(status, reason);
 
     private static ArticleEmbedRefreshPlanningResult Failure(ArticleEmbedRefreshPlanStatus status, string reason)
         => new(status, null, reason);

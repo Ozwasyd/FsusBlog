@@ -7,7 +7,7 @@ This ordinary source handoff concerns open issue #2467 (original #2246 -> #2458)
 - Direct base: Main draft #4335, `1016c633466fb18083a8ac0f6cc56e9bb448b99f`.
 - Branch: `codex/issue-2467-nonexecuting-refresh-plan`.
 - Exclusive implementation takeover from terminated task `01a13b6b-ccc3-77c0-a935-bff98eabb01d`; no replacement author was started.
-- Initial three new implementation files: `ArticleEmbedRefreshPlanContracts.cs`, `ArticleEmbedRefreshPlanner.cs` in shared `Contracts/ArticleEmbeds/Authoring/`, and backend `Services/Authoring/ArticleEmbedRefreshPreparation.cs`. Their exact initial source blobs remain unchanged.
+- Initial three new implementation files: `ArticleEmbedRefreshPlanContracts.cs`, `ArticleEmbedRefreshPlanner.cs` in shared `Contracts/ArticleEmbeds/Authoring/`, and backend `Services/Authoring/ArticleEmbedRefreshPreparation.cs`. Contracts and Preparation retain their exact initial blobs. The later independent-review P2 repair changes only the planner's cancellation precedence; its current blob is recorded below.
 - The explicitly authorized continuation admits eight exact canonical prerequisite files from #3958: four new leaves and four existing owners, listed below. The complete PR increment is eleven implementation paths plus one current API explanation, this ordinary WIP and required naming metadata (fourteen paths total).
 - No other Main source, configuration, lockfile, fixtures, test source, schema, runtime registration or authority output changes. Donor history and historical runtime/test evidence are not imported.
 
@@ -40,7 +40,7 @@ Exact candidate prerequisite donor: #3958 `ab713219ea9b2be99061bd325039e8f4b67ac
 
 Static diff of that exact eight-file set against the base is 1104 insertions, 421 deletions. The initial six-path checkpoint `1d053d4312f4fa32814417cff4d5054c8c5f2e14` imported none and failed compilation. The parent subsequently explicitly authorized exactly these eight ordinary source files, retaining non-execution and all HOLD boundaries. They are now admitted byte-for-byte; no donor history or historical test/runtime evidence is imported. Reference #3953 `8c239073c3a7f602b43f27264aa22bee33a6d334` is source context only. The eight final files also match #4162 `cdf46ba5934f3d068c0018dc8ef3551223dcfb7d` exactly. No replacement policy/graph/authority is created.
 
-The merge base of exact Main and donor is `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`. All four existing Main files equal their common-ancestor blobs, with no intervening path history; all four new leaves are absent in both. Thus this exact eight-file application overwrites no Main-specific path repair. Every other Main path is preserved by the explicit file roster. Ordinary preimage/postimage diagnostic maps are retained under `/tmp/issue-2467-static/`; they are not execution receipts or frozen authority.
+The merge base of exact Main and donor is `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`. All four existing Main files equal their common-ancestor blobs, with no intervening path history; all four new leaves are absent in both. Thus this exact eight-file application overwrites no Main-specific path repair. Every other Main path is byte-preserved by the explicit file roster; that is not a claim of unchanged behavior at old callers of these modified owners. Ordinary preimage/postimage diagnostic maps are retained under `/tmp/issue-2467-static/`; they are not execution receipts or frozen authority.
 
 | Shared ArticleEmbeds path | Main/common-ancestor blob | Exact donor and admitted blob |
 | --- | --- | --- |
@@ -52,6 +52,28 @@ The merge base of exact Main and donor is `3bc9bacd55b4453ed0abd48632c6a1bb3f794
 | `Graph/ArticleEmbedDependencyGraphVerifier.cs` | absent | `2d77409763344422559de0e354a56a48a14761f1` |
 | `Relations/ArticleEmbedRelationDeriver.cs` | `7a420b9d4ca1c93f387f0e77d23a8f0aeb448288` | `34fa1617a717a5f9cb0d710fc7c3cb20b6f3ac97` |
 | `Relations/ArticleEmbedRelationVerifier.cs` | `7ed05b25f1e73d82f53f5432169a49ac8dd60e40` | `a541b20cf529fbc3b58b76052affb9e5e54bd1db` |
+
+## Finite semantic change in the donor split
+
+This admission is not semantics-preserving for every old recursive entry call. On the Main base, direct `ArticleEmbedAuthoringResolver.Resolve` produced recursive children and its `ArticleEmbedAuthoringVerifier.Verify` verified that recursive shape. The exact donor changes those same method names to projection-only resolution and projection verification. Nested expansion, nested cycle/depth/node/byte observations and graph verification now belong to `ArticleEmbedDependencyGraphPlanner.Expand` and `ArticleEmbedDependencyGraphVerifier`; `ArticleEmbedAuthoringPipeline.Evaluate` composes these stages. Relation derivation/verification now requires the graph verifier, which can reject an unexpanded projection where nested facts require children.
+
+The new refresh planner consumes the explicit pipeline. Other old direct callers are not migrated by this bounded patch and cannot infer recursive behavior from the unchanged entry names. No equivalence of their nested output, budgets, cancellation, memoization or relation-admission behavior has been established. Compilation and donor-byte equality do not establish those semantics; all relevant runtime/consumer/negative-case validation remains HOLD/UNRUN.
+
+## Independent-review P2 cancellation repair
+
+At source checkpoint `f1259278279324490ccb6c1a923c342a8cdacb74`, cancellation after projection completion could make the graph stage reject that projection: the verifier now expects `request_aborted` while the earlier projection still says Resolved. The refresh planner returned Blocked before reaching its later cancellation guard. This was a real status-classification defect found by independent static review; no executed cancellation case is claimed.
+
+The repair checks the entire validated explicit request set immediately after `Pipeline.Evaluate` returns. Its post-selection failure helper also rechecks cancellation at the actual Blocked/Stale return boundary, including cancellation during independent graph verification and `TryCompare`. Authority validation, desired-coordinate and reachable-target drift failures share that precedence after selection validation. A final cancellation observation after immutable plan construction covers cancellation during later graph projection/digest work; observed cancellation returns Cancelled with no plan. The original request/selection validation and all permission/coordinate/graph/budget rejection rules remain; no denied result can become an executable plan.
+
+These are finite observation points, not an atomic cancellation or commit guarantee. Cancellation after the final observation is not retrospectively observed. No runtime race/transition case, test, discovery, product method or compiled assembly is executed to claim behavioral qualification. The eight donor source blobs remain exact and unchanged by this repair.
+
+P2 static checks, raw ordinary logs under `/tmp/issue-2467-static/p2/`:
+
+- Actual original complete Server locked restore and default build both exit 0, 330 warnings/0 errors. All 660 emitted diagnostic lines match the isolated exact Main base with multiplicity, added 0/removed 0 after checkout-root/source-position-only normalization. No compiler/reference/analyzer/configuration suppression or reduced project.
+- Original strict C# checking of all eleven source files exits 0, 11 files/0 violations; original whitespace and solution style invocations retained.
+- Original complete full-style, code-intent, lifecycle and authoritative-doc checks remain FAIL1, with respectively 552/3/7/41 lines byte-identical to `f1259278279324490ccb6c1a923c342a8cdacb74` diagnostics. The two actual code-intent errors and all other original global failures remain, not waived.
+- Original required-tool API docs lint remains FAIL1, the same 26 findings after line-number-only normalization against exact Main. Git whitespace checking passes; the ordinary naming manifest remains unchanged because the governed path roster is unchanged.
+- Exact donor source parity remains 8/8. Only the refresh planner, current API explanation and this ordinary WIP differ from the P2 review head. Final commit-range/actual PR metadata are bound by the readback and final handoff; these static results provide no running cancellation, recursion-equivalence or qualification evidence.
 
 ## Static verification
 
@@ -92,5 +114,5 @@ These identities bind ordinary source, not runtime evidence or any approval. The
 | New source | Git blob | SHA-256 |
 | --- | --- | --- |
 | Shared `Authoring/ArticleEmbedRefreshPlanContracts.cs` | `4ea4f942e265c92bc4bd0903dc310a7c9d876fbc` | `59cba58ff7f1a536c130e62365d6d3ce6982e0cf284dd9704229a3db94196f24` |
-| Shared `Authoring/ArticleEmbedRefreshPlanner.cs` | `2ed9d85e4e8f38da7bd5c296206e5cacbf688bd6` | `73a49d306310a27636f1651fdbcd71e02d5b65f9c41509157c0a48b955787e00` |
+| Shared `Authoring/ArticleEmbedRefreshPlanner.cs` after P2 cancellation repair | `4ad0fa76748aed1309a4fcf9b07d839d923dcd31` | `332c98d378d4d36f0e582f38131899df460e051858774e186c79a58a5e1fad5e` |
 | Backend `Services/Authoring/ArticleEmbedRefreshPreparation.cs` | `6874247ecc5bc43ad9791af49dd60158e0be8162` | `2b68afd13d875453ba115643e515d9526f43cf94be43f308cef40a394eaef687` |

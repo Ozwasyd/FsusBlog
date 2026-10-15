@@ -840,6 +840,9 @@ revision/digest、actor/site/permission context、provider runtime 与 material 
 resolution 之外。任何 host/source/actor/runtime/authority-generation drift 或 abort signal 都让
 结果以 closed stale error 失败，而不是静默沿用旧状态。`ArticleEmbedAuthoringPipeline.Evaluate`
 复用该 resolver，再由 `ArticleEmbedDependencyGraphPlanner.Expand` 显式展开依赖并派生 relation。
+这是相对原递归入口的有限语义变化：直接调用原名 `Resolver.Resolve` 不再得到 nested expansion；
+需要该展开、cycle/budget observation 的调用方须消费显式 pipeline/graph stage，不能以旧入口名
+推断递归语义不变。旧调用路径的迁移、组合行为及运行时等价性尚未执行验证。
 
 article mode 返回整个 target body projection；heading mode 只返回 exact heading subtree；block
 mode 只返回 #289 canonical anchor target。missing/duplicate/invalid coordinate 一律 fail closed，
@@ -867,6 +870,9 @@ coordinate、目标 source digest、permission/lifecycle 和选中子图/budget�
 desired coordinate 漂移返回 `Stale`；无变化返回 `NoChange`；缺失/无权/结构或 graph/budget 不合法
 返回 `Blocked`，取消不返回部分计划。只消费既有 authoring pipeline/refresh policy，不重新解析或
 动态刷新到 latest，也不复制 target content。
+完整选中集合验证后，pipeline 返回及后续验证/比较失败返回前会重读选中项取消状态；已观察到
+取消时优先返回 `Cancelled`，最终计划构造后也检查取消，不把跨 stage 的取消失配报告为 `Blocked`。
+这只是取消观察点的源码约定，不提供原子提交或运行时竞态验收。
 
 该候选的 `CanExecute` 恒为 false；选中子图不是完整 host persisted graph 的提交资格。
 Policy/Pipeline/Graph 源码组合不提供执行能力；缺少真实 host dependency read、
