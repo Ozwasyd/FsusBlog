@@ -1,0 +1,72 @@
+{
+  "full-style": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 2,
+    "candidateLines": 2,
+    "baseSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+    "candidateSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+  },
+  "strict-full-style": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 2,
+    "candidateLines": 2,
+    "baseSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+    "candidateSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+  },
+  "application-types": {
+    "baseExit": 2,
+    "candidateExit": 2,
+    "rawByteIdentical": true,
+    "baseLines": 30,
+    "candidateLines": 30,
+    "baseSha256": "99b9abd98d45ce0c4967e34620139b0ba6e927c9212fb2694433d4e6ce611697",
+    "candidateSha256": "99b9abd98d45ce0c4967e34620139b0ba6e927c9212fb2694433d4e6ce611697",
+    "baseDiagnostics": 29,
+    "candidateDiagnostics": 29,
+    "newDiagnostics": 0
+  },
+  "boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 21,
+    "candidateLines": 21,
+    "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+    "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+  },
+  "code-intent": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 3,
+    "candidateLines": 3,
+    "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+    "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+  },
+  "lifecycle": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+  },
+  "authoritative": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "rawByteIdentical": true,
+    "baseLines": 41,
+    "candidateLines": 41,
+    "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+  },
+  "configs": {
+    "byteIdentical": true,
+    "meaning": "Original producer output snapshots at original cwd; not executable configs in delivery directory. No includes/compiler/rules/baseline relaxation."
+  }
+}

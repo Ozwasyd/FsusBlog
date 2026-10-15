@@ -1,0 +1,76 @@
+{
+  "kind": "ordinary completed post-draft metadata check evidence; not qualification authority",
+  "checkedHead": "51af0fe1bb642c9a3f78a0974e85451efb4473c7",
+  "checkedSourceCommit": "17e52bdc2f7d2f5d6bef86dd5b51553e2a8f36a0",
+  "checkedTree": "fae74ddf3651eefa631ffdbe34bb5b4945a32fd2",
+  "originalActualRestGateExit": 1,
+  "correctedActualRestGateExit": 0,
+  "remoteRangeExit": 0,
+  "meaning": "Keep original metadata failure and exact corrected actual-REST gate success. Only PR checkbox labels/link and no-public-contract impact corrected; source/threshold/checkers unchanged. A later prose-only pluralization describes multiple ordinary evidence commits. These recorded gates bind their explicit preceding head, not a fabricated future SHA.",
+  "allStaticFailuresAndHoldsUnchanged": true,
+  "remoteStatusesAtRead": [],
+  "entries": [
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/final-actual-pr-event.json",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/final-actual-pr-event.json",
+      "bytes": 29916,
+      "sha256": "6a69240752e9ea38bfc9efe81b1afeaace2a86b83f51b6b1a67b2cc88512f492"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/final-actual-pr-contract.txt",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/final-actual-pr-contract.txt",
+      "bytes": 826,
+      "sha256": "42c5150e8c993b8bcd252245fba500e8e3dcb7d3e82a468881ed7453d3c7ff02"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/final-actual-pr-contract.exit",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/final-actual-pr-contract.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/final-remote-range.txt",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/final-remote-range.txt",
+      "bytes": 117,
+      "sha256": "5c1d20ab6d3f9223d5a0e73ffc8b7fad25fadf82bb0ecb22be8ace20337e2c05"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/final-remote-range.exit",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/final-remote-range.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/corrected-actual-pr-event.json",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/corrected-actual-pr-event.json",
+      "bytes": 30236,
+      "sha256": "a111fb9bbdd248d429ca80a86d2e52251bf37de2048d2c2e5bb498c3c3d79d2f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/corrected-actual-pr-contract.txt",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/corrected-actual-pr-contract.txt",
+      "bytes": 43,
+      "sha256": "71dd7ea6166923da3234377e8714f42be114e9d541bd408e9468d34452fc1f9c"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/corrected-actual-pr-contract.exit",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/corrected-actual-pr-contract.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/intake-4388-evidence/corrected-draft-body.md.txt",
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/corrected-draft-body.base64.txt",
+      "bytes": 13330,
+      "sha256": "c573794561ada3a0d08fb97694739d3a1bb6fe2646a621f73bc2cf5a3d3cb0a7",
+      "encoding": "base64",
+      "decodedSha256": "b7235c1bedda8360389047bd34096dec09bfb4ba8513714192a4b899d2b3956d",
+      "decodedBytes": 9865
+    },
+    {
+      "deliveryPath": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/packaging-whitespace-failure.json",
+      "bytes": 459,
+      "sha256": "4470665d8d4d69873cc1c10f777de5bb5e65383d79658fba2332b6f235898407"
+    }
+  ]
+}
