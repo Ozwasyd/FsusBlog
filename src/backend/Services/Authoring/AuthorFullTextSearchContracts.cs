@@ -130,9 +130,12 @@ public static partial class AuthorFullTextSearchContract
         if (document.Field.Kind == AuthorSearchFieldKind.Property)
         {
             Require(definitions.TryGetValue(document.Field.PropertyDefinitionId!.Value,
-                out ArticlePropertyDefinition? definition), "author_search_property_unknown");
-            ValidateDefinition(definition!, document.Identity.SiteScope, document.Identity.UserId);
-            Require(definition!.SchemaRevision == document.Field.DefinitionSchemaRevision,
+                out ArticlePropertyDefinition? definition) && definition is not null,
+                "author_search_property_unknown");
+            Require(definition.DefinitionId == document.Field.PropertyDefinitionId.Value,
+                "author_search_property_identity_invalid");
+            ValidateDefinition(definition, document.Identity.SiteScope, document.Identity.UserId);
+            Require(definition.SchemaRevision == document.Field.DefinitionSchemaRevision,
                 "author_search_property_schema_stale");
             Require(definition.ValueType == document.Field.PropertyValueType,
                 "author_search_property_type_mismatch");
