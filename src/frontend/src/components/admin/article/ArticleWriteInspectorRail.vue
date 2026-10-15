@@ -7,7 +7,7 @@
         <FsusUiButton
             v-for="view in inspectorViews"
             :key="view.id"
-            :ref="(element) => registerTrigger(view.id, element)"
+            :ref="(element: Element | ComponentPublicInstance | null) => registerTrigger(view.id, element)"
             native-type="button"
             size="large"
             text
