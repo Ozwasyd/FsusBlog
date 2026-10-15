@@ -15,6 +15,7 @@ using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Content;
+using FsusBlog.Server.Infrastructure.Data;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -430,18 +431,21 @@ public partial class ArticleService(
                     ELSE a.public_updated_at
                 END AS "UpdatedAt",
                 CASE
-                    WHEN @IncludePrivate THEN current_block.id IS NOT NULL OR ab.article_id IS NOT NULL
+                    WHEN @IncludePrivate THEN current_block.id IS NOT NULL
+                        AND current_block.markdown_content IS NOT NULL
                     ELSE published_block.id IS NOT NULL
                         AND btrim(published_block.markdown_content) <> ''
                 END AS "BodyAvailable",
+                CASE WHEN @IncludePrivate THEN a.current_revision_id ELSE publication.article_revision_id END AS "ExpectedRevisionId",
                 CASE WHEN @IncludePrivate THEN current_revision.id ELSE published_revision.id END AS "CurrentRevisionId",
                 CASE WHEN @IncludePrivate THEN current_revision.revision_no ELSE published_revision.revision_no END AS "RevisionNo",
                 CASE WHEN @IncludePrivate THEN current_block.id ELSE published_block.id END AS "ContentBlockId",
+                CASE WHEN @IncludePrivate THEN current_revision.content_block_id ELSE published_revision.content_block_id END AS "ExpectedContentBlockId",
                 publication.id AS "CurrentPublicationId",
                 publication.publication_no AS "PublicationNo",
                 c.name AS "CategoryName",
                 CASE
-                    WHEN @IncludePrivate THEN COALESCE(current_block.markdown_content, ab.markdown_content, current_revision.markdown_content, '')
+                    WHEN @IncludePrivate THEN current_block.markdown_content
                     ELSE published_block.markdown_content
                 END AS "Content",
                 rights.id AS "RightsSnapshotId",
@@ -477,10 +481,10 @@ public partial class ArticleService(
                     ARRAY[]::text[]
                 ) AS "TagNames"
             FROM article a
-            LEFT JOIN article_publication publication ON publication.id = a.current_publication_id
-            LEFT JOIN article_revision published_revision ON published_revision.id = publication.article_revision_id
+            LEFT JOIN article_publication publication ON publication.id = a.current_publication_id AND publication.article_id = a.id
+            LEFT JOIN article_revision published_revision ON published_revision.id = publication.article_revision_id AND published_revision.article_id = a.id
             LEFT JOIN article_revision_content_block published_block ON published_block.id = published_revision.content_block_id
-            LEFT JOIN article_revision current_revision ON current_revision.id = a.current_revision_id
+            LEFT JOIN article_revision current_revision ON current_revision.id = a.current_revision_id AND current_revision.article_id = a.id
             LEFT JOIN article_revision_content_block current_block ON current_block.id = current_revision.content_block_id
             LEFT JOIN category c ON c.id = CASE WHEN @IncludePrivate THEN a.categoryid ELSE published_revision.categoryid END
             LEFT JOIN article_body ab ON ab.article_id = a.id
@@ -525,7 +529,9 @@ public partial class ArticleService(
                 a.published_at,
                 a.metadata_updated_at,
                 a.public_updated_at,
+                a.current_revision_id,
                 publication.id,
+                publication.article_revision_id,
                 publication.publication_no,
                 publication.published_at,
                 published_revision.id,
@@ -534,13 +540,13 @@ public partial class ArticleService(
                 published_revision.summary,
                 published_revision.cover_image_url,
                 published_revision.categoryid,
-                published_revision.markdown_content,
+                published_revision.content_block_id,
                 published_revision.created_at,
                 published_block.id,
                 published_block.markdown_content,
                 current_revision.id,
                 current_revision.revision_no,
-                current_revision.markdown_content,
+                current_revision.content_block_id,
                 current_block.id,
                 current_block.markdown_content,
                 ab.updated_at,
@@ -563,9 +569,7 @@ public partial class ArticleService(
                 rights.policy_hash,
                 rights.content_canonical_hash,
                 rights_proof.id,
-                rights_proof.proof_status,
-                ab.article_id,
-                ab.markdown_content;
+                rights_proof.proof_status;
             """;
         bool incompletePublicBody = false;
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql, parameters))
@@ -578,7 +582,22 @@ public partial class ArticleService(
                     fTime = reader.GetOrdinal("CreateTime"), fIsDel = reader.GetOrdinal("IsDeleted"), fStatus = reader.GetOrdinal("Status"),
                     fScheduled = reader.GetOrdinal("ScheduledPublishAt"), fPublished = reader.GetOrdinal("PublishedAt"), fUpdated = reader.GetOrdinal("UpdatedAt"), fCatName = reader.GetOrdinal("CategoryName"),
                     fContent = reader.GetOrdinal("Content"), fBodyAvailable = reader.GetOrdinal("BodyAvailable"), fTagIds = reader.GetOrdinal("TagIds"), fTagNames = reader.GetOrdinal("TagNames");
-                string content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent);
+                long revisionId = reader.IsNull("CurrentRevisionId") ? 0 : reader.ReadInt64("CurrentRevisionId");
+                long contentBlockId = reader.IsNull("ExpectedContentBlockId") ? 0 : reader.ReadInt64("ExpectedContentBlockId");
+                if (revisionId <= 0
+                    || reader.IsNull("ExpectedRevisionId")
+                    || reader.ReadInt64("ExpectedRevisionId") != revisionId
+                    || reader.IsNull("RevisionNo")
+                    || reader.ReadInt32("RevisionNo") <= 0
+                    || contentBlockId <= 0
+                    || reader.IsNull("ContentBlockId")
+                    || reader.ReadInt64("ContentBlockId") != contentBlockId
+                    || reader.IsDBNull(fContent))
+                {
+                    throw new InvalidOperationException($"article_revision_content_block_missing:{revisionId}:{contentBlockId}");
+                }
+
+                string content = reader.GetString(fContent);
                 string? summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum);
                 bool bodyAvailable = !reader.IsDBNull(fBodyAvailable) && reader.GetBoolean(fBodyAvailable);
 

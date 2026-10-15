@@ -1198,7 +1198,9 @@ public static class ArticleLifecycleTransitionWriter
                    revision.cover_image_url,
                    revision.categoryid,
                    revision.tag_ids,
-                   COALESCE(content_block.markdown_content, revision.markdown_content) AS content
+                   revision.content_block_id,
+                   content_block.id AS resolved_content_block_id,
+                   content_block.markdown_content AS content
             FROM article_revision revision
             LEFT JOIN article_revision_content_block content_block
                 ON content_block.id = revision.content_block_id
@@ -1214,6 +1216,15 @@ public static class ArticleLifecycleTransitionWriter
                 $"Revision {revisionId} is not a revision of article {articleId}.");
         }
 
+        long contentBlockId = reader.IsNull("content_block_id") ? 0 : reader.ReadInt64("content_block_id");
+        if (contentBlockId <= 0
+            || reader.IsNull("resolved_content_block_id")
+            || reader.ReadInt64("resolved_content_block_id") != contentBlockId
+            || reader.IsNull("content"))
+        {
+            throw new InvalidOperationException($"article_revision_content_block_missing:{revisionId}:{contentBlockId}");
+        }
+
         return new ArticleRevisionSource(
             reader.ReadInt64("id"),
             reader.ReadString("title"),
@@ -1221,7 +1232,7 @@ public static class ArticleLifecycleTransitionWriter
             reader.IsNull("cover_image_url") ? null : reader.ReadString("cover_image_url"),
             reader.ReadInt32("categoryid"),
             reader.IsNull("tag_ids") ? string.Empty : reader.ReadString("tag_ids"),
-            reader.IsNull("content") ? string.Empty : reader.ReadString("content"));
+            reader.ReadString("content"));
     }
 
     private static async Task<ArticleRightsNormalizedModel> LoadRightsWriteModelAsync(
@@ -1420,18 +1431,32 @@ public static class ArticleLifecycleTransitionWriter
         long revisionId,
         CancellationToken cancellationToken)
     {
-        string? content = await db.Queryable<ArticleRevision>()
-            .LeftJoin<ArticleRevisionContentBlock>((revision, block) => revision.ContentBlockId == block.Id)
-            .Where((revision, block) => revision.Id == revisionId)
-            .Select((revision, block) => block.MarkdownContent)
-            .FirstAsync(cancellationToken)
-            .ConfigureAwait(false);
-        content ??= await db.Queryable<ArticleRevision>()
-            .Where(item => item.Id == revisionId)
-            .Select(item => item.MarkdownContent)
-            .FirstAsync(cancellationToken)
-            .ConfigureAwait(false) ?? string.Empty;
-        return ComputeDigest(content);
+        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT revision.content_block_id,
+                   block.id AS resolved_content_block_id,
+                   block.markdown_content AS content
+            FROM article_revision revision
+            LEFT JOIN article_revision_content_block block ON block.id = revision.content_block_id
+            WHERE revision.id = @RevisionId;
+            """,
+            new SugarParameter("@RevisionId", revisionId)).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"article_revision_content_block_missing:{revisionId}");
+        }
+
+        long contentBlockId = reader.IsNull("content_block_id") ? 0 : reader.ReadInt64("content_block_id");
+        if (revisionId <= 0
+            || contentBlockId <= 0
+            || reader.IsNull("resolved_content_block_id")
+            || reader.ReadInt64("resolved_content_block_id") != contentBlockId
+            || reader.IsNull("content"))
+        {
+            throw new InvalidOperationException($"article_revision_content_block_missing:{revisionId}:{contentBlockId}");
+        }
+
+        return ComputeDigest(reader.ReadString("content"));
     }
 
     private static async Task<AuthoringSignedAuditWriter.ChainWrite> WriteAuditAsync(
