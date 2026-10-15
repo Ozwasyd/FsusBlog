@@ -1,0 +1,18 @@
+[
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/docs/check-authoritative-development-docs.mjs"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:49:29.185861+00:00",
+        "completed": "2026-10-15T10:49:29.314266+00:00",
+        "exitCode": 1,
+        "log": "base-authoritative.log"
+    }
+]

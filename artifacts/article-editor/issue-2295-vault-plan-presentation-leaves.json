@@ -1,0 +1,99 @@
+{
+  "kind": "ordinary source intake WIP; no qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4365,
+  "donorTrueBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+  "exactSourceInputs": [
+    {
+      "head": "755bebab89ea61af66f57fcd0c84f7fec88c6ffd",
+      "path": "src/frontend/src/services/articleVault/dependencyPlanPresentation.ts",
+      "blob": "49aa4b6d9039d92b94d36578a62d2b5afeb8a415"
+    },
+    {
+      "head": "755bebab89ea61af66f57fcd0c84f7fec88c6ffd",
+      "path": "src/frontend/src/services/articleVault/planReview.ts",
+      "blob": "739d55888adb70fc9842023db1a5ba266df9278b"
+    }
+  ],
+  "scope": "Exact two production postimages from4365 755bebab89ea61af66f57fcd0c84f7fec88c6ffd. Real planReview source dependency included. Pure display membership/order projection; duplicate planned/extension identities and duplicate/missing/foreign order fail display availability. Existing production source has no caller imports/mount. No currentness validation/planner grant/transport.",
+  "actualUI": {
+    "head": "075e71c60b6a116aea8f2a7f448c5747b00c481b",
+    "path": "/workspace/session-2295-ui969-local-dependency",
+    "publicAliasesSameRealIndex": true,
+    "configSha256": "dd77438ce71593676336d60bdb0931be9227225d8a053c8553355a869432cdc4",
+    "ordinaryInputFacts": "artifacts/article-editor/vault-plan-static/actual-ui969-source-input.json",
+    "physicalIndependence": "UNVERIFIED",
+    "CSSOutput": "UNVERIFIED"
+  },
+  "static": {
+    "oldUI961ToActualUI969": {
+      "baseErrors": 29,
+      "candidateErrors": 29,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output after exact UI-root and source-position replacement only; no diagnostic filtering or deduplication"
+    },
+    "actualUI969ToSourceCandidate": {
+      "baseErrors": 29,
+      "candidateErrors": 29,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output after exact UI-root and source-position replacement only; no diagnostic filtering or deduplication"
+    },
+    "full-style": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 83667
+    },
+    "boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 21
+    },
+    "binary-boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "lifecycle": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "authoritative": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 41
+    },
+    "codeIntent": {
+      "status": "FAIL1 both",
+      "errors": 2,
+      "baseChecked": 5747,
+      "candidateChecked": 5749,
+      "sameDiagnosticRows": true
+    },
+    "strict": {
+      "exit": 0,
+      "rawResult": "[frontend-style] ok files=2 eslint=2 stylelint=0 violations=0 new=0"
+    },
+    "AST": "PASS0 SFC/script/TS parsing only; no product module import/evaluation"
+  },
+  "sourceProtection": "All base4385 tracked files unchanged. Only exact admitted new source paths plus own WIP and ordinary static delivery added. No host/router/editor/journal/registry/group/typography/authority/frozen/config/lock/test changes. Source search only; no helper function invoked.",
+  "readableEvidence": "artifacts/article-editor/vault-plan-static/delivery-map.json",
+  "commandEntrypoints": {
+    "application": "FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui969-local-dependency node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+    "fullStyle": "same environment: node tools/frontend/check-frontend-style.mjs --mode full",
+    "strict": "same environment: node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/services/articleVault/dependencyPlanPresentation.ts --file src/frontend/src/services/articleVault/planReview.ts",
+    "sourceOnlyGlobals": [
+      "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+      "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+      "node tools/governance/check-code-intent.mjs",
+      "node tools/docs/generate-document-lifecycle.mjs --check",
+      "node tools/docs/check-authoritative-development-docs.mjs"
+    ]
+  },
+  "remaining": "Independent source-combination review; host activation/integration and all runtime/UX/native/security/privacy qualification remain incomplete. Native resource loan/worker shutdown/recovery coordination/disposed-restoration ACK owner interfaces incomplete; no zero-resource or paused/ready/ACK invented.",
+  "holds": "All original runtime/product/helper/parser module imports/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/qualification HOLD/UNRUN. Source parsers only. No authority/frozen producers/refresh; no merge/Ready/close/package/publication.4336 aggregate FAIL untouched.",
+  "rollback": "Omit/revert only this independent source increment and own ordinary WIP/evidence to exact4385; no live state changed."
+}

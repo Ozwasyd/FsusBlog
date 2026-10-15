@@ -1,0 +1,49 @@
+[
+    {
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "git",
+            "diff",
+            "b302f58a9aaee9f2399d9274157a478f3c2f78fb..HEAD",
+            "--check"
+        ],
+        "exitCode": 0,
+        "log": "source-whitespace.log"
+    },
+    {
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "/workspace/FsusBlog-intake4391-base/tools/governance/check-change-contract.mjs",
+            "--root",
+            "/workspace/FsusBlog-intake4391",
+            "--range",
+            "b302f58a9aaee9f2399d9274157a478f3c2f78fb..HEAD"
+        ],
+        "exitCode": 0,
+        "log": "source-range.log"
+    },
+    {
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "/workspace/FsusBlog-intake4391-base/tools/governance/check-change-contract.mjs",
+            "--root",
+            "/workspace/FsusBlog-intake4391",
+            "--repository"
+        ],
+        "exitCode": 0,
+        "log": "repository-contract.log"
+    },
+    {
+        "cwd": "/workspace/FsusBlog-intake4391",
+        "argv": [
+            "node",
+            "/workspace/FsusBlog-intake4391-base/tools/governance/check-change-contract.mjs",
+            "--title",
+            "fix(frontend): admit code copy controls source"
+        ],
+        "exitCode": 0,
+        "log": "title-contract.log"
+    }
+]

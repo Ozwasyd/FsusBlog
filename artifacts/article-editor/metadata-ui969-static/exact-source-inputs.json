@@ -1,0 +1,32 @@
+[
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+    "blob": "235737cf0e9602ca844076a6a60309ddede0a3dd",
+    "head": "0030ffc1836ad9428a5e2e6bd9955c99d95368d9"
+  },
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+    "blob": "c730c3487fe7430a1b8f5c6cb294a4bab1432307",
+    "head": "0030ffc1836ad9428a5e2e6bd9955c99d95368d9"
+  },
+  {
+    "path": "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+    "blob": "e88b8bfb751977acccd4685796fa2a945a9f2ad6",
+    "head": "0030ffc1836ad9428a5e2e6bd9955c99d95368d9"
+  },
+  {
+    "path": "src/frontend/src/fsusui/input.ts",
+    "blob": "ed384b384359bf4ed4f33f9af49ea6fbf99f41d8",
+    "head": "0030ffc1836ad9428a5e2e6bd9955c99d95368d9"
+  },
+  {
+    "path": "src/frontend/src/fsusui/select.ts",
+    "blob": "969ca38d256f00531cb2b48f4c219118c281403c",
+    "head": "0030ffc1836ad9428a5e2e6bd9955c99d95368d9"
+  },
+  {
+    "path": "src/frontend/src/fsusui/switch.ts",
+    "blob": "7d228c3d677e023012ca036e200d5bfd1870929d",
+    "head": "0030ffc1836ad9428a5e2e6bd9955c99d95368d9"
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "head": "755bebab89ea61af66f57fcd0c84f7fec88c6ffd",
+    "path": "src/frontend/src/services/articleVault/dependencyPlanPresentation.ts",
+    "blob": "49aa4b6d9039d92b94d36578a62d2b5afeb8a415"
+  },
+  {
+    "head": "755bebab89ea61af66f57fcd0c84f7fec88c6ffd",
+    "path": "src/frontend/src/services/articleVault/planReview.ts",
+    "blob": "739d55888adb70fc9842023db1a5ba266df9278b"
+  }
+]

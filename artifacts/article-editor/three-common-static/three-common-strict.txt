@@ -1,0 +1,1 @@
+[frontend-style] src/frontend/src/assets/markdown.css:11:17 stylelint/declaration-property-value-keyword-no-deprecated: Deprecated keyword "break-word" for property "word-break" (declaration-property-value-keyword-no-deprecated)

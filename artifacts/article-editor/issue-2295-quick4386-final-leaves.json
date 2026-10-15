@@ -1,0 +1,158 @@
+{
+  "kind": "ordinary source intake WIP, no qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4386,
+  "donorPRBase": "da9d30d5234b49b653206f98deed9fc66f6a3558",
+  "donorFinalHead": "9364798d6ed522099c426e26a795632448635eef",
+  "exactSourceInputs": [
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+      "head": "9364798d6ed522099c426e26a795632448635eef",
+      "blob": "a0065289220319020a336660884dcab60489985a"
+    },
+    {
+      "path": "src/frontend/src/fsusui/form.ts",
+      "head": "9364798d6ed522099c426e26a795632448635eef",
+      "blob": "cc4aeca30aa8842baea17df52f8153c9554f3dad"
+    }
+  ],
+  "sourceTopology": "4386 own2path fix sits on old4364 da9, itself on4358 e907. Extract only2 FINAL production postimages from936; do not import old4364 failed source/history/WIP. Old strict50/import1 failures remain untouched in old records.",
+  "scope": "Two exact final production postimages: QuickCaptureSurface and direct public form reexports. Existing4385 real recovery owner5820 remains unchanged. Terminal attempted/scope-retired latches retain custody and hide retired private input, blocked/unknown observations never imply server absence. Save/open/recover/retry/discard/template remain disabled. Close/cancel stays active only to emit request-close; original host owns dismissal/retirement/journal cleanup/focus. Existing callers do not mount it. No actual capture/open/recovery/transport/receipt activation.",
+  "sourceProtection": "Only admitted new production paths and own ordinary WIP/static delivery added. Every base4385 tracked file unchanged, including host/router/editor/journal/registry/group/typography and metadata. No donor history, tests, authority/frozen/config/lock/schema changes. Source consumer search only, no helper called.",
+  "actualUI": {
+    "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "path": "/workspace/session-2295-ui973-local-dependency",
+    "parentUI969": "075e71c60b6a116aea8f2a7f448c5747b00c481b",
+    "bothRealPublicAliasesSameIndex": true,
+    "fullAppConfigSha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+    "physicalIndependence": "UNVERIFIED",
+    "CSSOutput": "UNVERIFIED"
+  },
+  "static": {
+    "UI969ToUI973AliasOnly": {
+      "base": 29,
+      "candidate": 29,
+      "exit": 2,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+    },
+    "sourceCandidate": {
+      "base": 29,
+      "candidate": 29,
+      "exit": 2,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+    },
+    "full-style": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 83667
+    },
+    "boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 21
+    },
+    "binary-boundary": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "lifecycle": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 7
+    },
+    "authoritative": {
+      "status": "FAIL1 both, retained",
+      "rawByteIdentical": true,
+      "linesEach": 41
+    },
+    "codeIntent": {
+      "status": "FAIL1 both",
+      "same2DiagnosticRows": true,
+      "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+      "candidateSummary": "[code-intent] 2 error(s) across 5749 checked file(s):"
+    },
+    "priorUI969AliasEvidence": {
+      "immutablePR": 4393,
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "map": "artifacts/article-editor/metadata-ui969-static/delivery-map.json",
+      "meaning": "prior UI969 alias-only raw files preserved in immutable sibling commit; no receipt inheritance"
+    },
+    "UI969ToUI973NonCompilerChecks": "full style/boundary/binary/code-intent/lifecycle/authoritative raw byte-identical; failures retained",
+    "strict": {
+      "exit": 0,
+      "rawResult": "[frontend-style] ok files=2 eslint=2 stylelint=1 violations=0 new=0"
+    },
+    "AST": "PASS0 SFC/script/TS parse only; no product module import/evaluation"
+  },
+  "readableEvidence": "artifacts/article-editor/quick4386-static/delivery-map.json",
+  "originalStaticPreflight": {
+    "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+    "cwd": "/workspace/session-2295-blog-quick4386-final-leaves",
+    "actualUI": "/workspace/session-2295-ui973-local-dependency",
+    "commands": {
+      "types": [
+        "node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "full-style": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "full"
+      ],
+      "boundary": [
+        "node",
+        "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+      ],
+      "binary-boundary": [
+        "node",
+        "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+      ],
+      "code-intent": [
+        "node",
+        "tools/governance/check-code-intent.mjs"
+      ],
+      "lifecycle": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "authoritative": [
+        "node",
+        "tools/docs/check-authoritative-development-docs.mjs"
+      ],
+      "strict": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+        "--file",
+        "src/frontend/src/fsusui/form.ts"
+      ],
+      "ast": [
+        "node",
+        "/workspace/session-evidence-2295/static-source.cjs",
+        "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+        "src/frontend/src/fsusui/form.ts"
+      ]
+    },
+    "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+    "mode": "all"
+  },
+  "remaining": "Independent source combination review and actual host/adapter/native/security/privacy/runtime/UX/physical qualification. Native resource loan/worker shutdown/recovery coordination/disposed-restoration ACK owner interfaces incomplete; no fake resources/pause/ready/ACK.",
+  "holds": "All runtime/product/helper/parser module imports/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/qualification HOLD/UNRUN. Source parsers only. No authority/frozen producer/refresh, merge/Ready/close/package/publication.4336 aggregate FAIL untouched.",
+  "rollback": "Omit/revert only this source increment and ordinary WIP/static delivery to exact4385, no live state changed."
+}

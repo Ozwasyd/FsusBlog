@@ -1,0 +1,246 @@
+{
+  "kind": "ordinary fresh current-combination source review delivery, no receipt/qualification",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "actualUI": "/workspace/session-2295-ui973-local-dependency",
+  "files": [
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-types.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-types.txt",
+      "sha256": "85f6ec21235cc85cb0187e60711dd5e1dc717fbab247c819ae19ef70fd7271de",
+      "bytes": 5735,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-types.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-types.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-full-style.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-full-style.txt",
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "bytes": 11861610,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-full-style.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-full-style.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-boundary.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-boundary.txt",
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "bytes": 2805,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-boundary.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-binary-boundary.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "bytes": 866,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-binary-boundary.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-code-intent.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-code-intent.txt",
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "bytes": 353,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-code-intent.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-lifecycle.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "bytes": 762,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-lifecycle.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-authoritative.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "bytes": 6771,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-baseline-authoritative.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-baseline-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-types.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-types.txt",
+      "sha256": "85f6ec21235cc85cb0187e60711dd5e1dc717fbab247c819ae19ef70fd7271de",
+      "bytes": 5735,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-types.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-types.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-full-style.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-full-style.txt",
+      "sha256": "eb67ea4380da6ffda64e872fdc894dff7d3a2346351eca1ec653644ded9b5962",
+      "bytes": 11861411,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-full-style.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-full-style.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-boundary.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-boundary.txt",
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "bytes": 2805,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-boundary.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-binary-boundary.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "bytes": 866,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-binary-boundary.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-code-intent.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-code-intent.txt",
+      "sha256": "37ef09ba419ff3b38ee25ef1661fdbd222d62503420c3780f966571942ba8136",
+      "bytes": 353,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-code-intent.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-lifecycle.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "bytes": 762,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-lifecycle.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-authoritative.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "bytes": 6771,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-authoritative.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-strict.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-strict.txt",
+      "sha256": "c16cff17f252af2e8d2ac3489b7795d9d9d0ab0de376684e1c058074a2f22c73",
+      "bytes": 229,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-strict.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-strict.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-ast.txt",
+      "path": "artifacts/article-editor/three-common-static/three-common-ast.txt",
+      "sha256": "9210a2bdd365d83764d3c96ac9be96019d2fc8c02ff656b5e3d35fffa25eb5ad",
+      "bytes": 1948,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/three-common-ast.exit",
+      "path": "artifacts/article-editor/three-common-static/three-common-ast.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-2295-blog-three-common-baseline/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+      "path": "artifacts/article-editor/three-common-static/baseline-full-app-config.snapshot.json",
+      "sha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+      "bytes": 3082,
+      "kind": "ordinary completed config snapshot, original cwd/relative meaning retained, not executable at copied location"
+    },
+    {
+      "originalPath": "/workspace/session-2295-blog-three-common/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+      "path": "artifacts/article-editor/three-common-static/candidate-full-app-config.snapshot.json",
+      "sha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+      "bytes": 3082,
+      "kind": "ordinary completed config snapshot, original cwd/relative meaning retained, not executable at copied location"
+    }
+  ],
+  "note": "All exits collected before copying/hashing. Config snapshots preserve originalcwd/relative semantics, not runnable here. No inherited helper/setup/install script executed. Historical failed outputs/large-body independent read limits unchanged."
+}

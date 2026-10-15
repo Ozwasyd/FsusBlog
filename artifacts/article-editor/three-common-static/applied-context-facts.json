@@ -1,0 +1,33 @@
+{
+  "kind": "ordinary unchanged read-only context identity; no formal receipt/authority refresh",
+  "inputs": {
+    "/workspace/session-2295-blog-three-common/.agents/skills/fsusblog-design-conformance/SKILL.md": {
+      "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+      "gitBlob": "9afff0c7bc3464b4e33f4275a463d8dc18351f45"
+    },
+    "/workspace/session-2295-blog-three-common/docs/design/governance.md": {
+      "sha256": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+      "gitBlob": "4d56fb080c566664ca508f2412de53836d318335"
+    },
+    "/workspace/session-2295-blog-three-common/docs/development/change-contract.md": {
+      "sha256": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586",
+      "gitBlob": "b919bd6a0c4ceb03cf73bf9f6d8b37b3ba9e8dd9"
+    },
+    "/workspace/session-2295-ui973-local-dependency/.agents/skills/fsusui-design-conformance/SKILL.md": {
+      "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+      "gitBlob": "51b62cd6d254ac107a4441dac17ba65bd61a5d66"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/button.md": {
+      "sha256": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76",
+      "gitBlob": "ff006e819355e457f8fc35eea3e43b072bfc53e7"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/components/markdown-editor.md": {
+      "sha256": "1c54cc42efb0d43d36562b7dcee1ec8f45359184970141d1b490e4ed747c627a",
+      "gitBlob": "8363f55d1f9c45ef77577a06d2837f792a4a0e96"
+    },
+    "/workspace/session-2295-ui973-local-dependency/docs/consumers/design-integration.md": {
+      "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+      "gitBlob": "8584a03356eca99807559a44939b1475c0a31b7a"
+    }
+  }
+}

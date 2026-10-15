@@ -1,0 +1,27 @@
+[
+  {
+    "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+    "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+    "blob": "5e82b53f5b8fea926c98965e486212d326cbb62d"
+  },
+  {
+    "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+    "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+    "blob": "259211926b8b031e32c424b4772b50adec1867e6"
+  },
+  {
+    "path": "src/frontend/src/composables/useDocumentExport.ts",
+    "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+    "blob": "69bd7213296ea746d6b33f619ca5669954f6d2b3"
+  },
+  {
+    "path": "src/frontend/src/views/admin/article/ExportCenter.vue",
+    "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+    "blob": "a4ab84b41d440fa3aee73016eb39724def1f620f"
+  },
+  {
+    "path": "src/frontend/src/fsusui/documentExportControls.ts",
+    "head": "fd08a63b747a9c79fbbaadbd6c7bf841a2e27ba8",
+    "blob": "76c4ad673491ec0288a7d12f6ecb772e9756b03d"
+  }
+]

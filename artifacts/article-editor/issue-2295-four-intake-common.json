@@ -1,0 +1,291 @@
+{
+  "kind": "ordinary four-intake source composition WIP and raw static delivery; no qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donors": [
+    {
+      "PR": 4393,
+      "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 45
+    },
+    {
+      "PR": 4394,
+      "head": "8a56beb7dcfd4c50c6b6de64d004f323c3744125",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 41
+    },
+    {
+      "PR": 4396,
+      "head": "ea74947fedf2bb94fb15593dd81261c21568b6a5",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 45
+    },
+    {
+      "PR": 4397,
+      "head": "3be2bb3b0e4fe0d5caae766e3654317aab94b7c9",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 42
+    }
+  ],
+  "topology": "Four actual accepted intake heads are independent siblings on4385. Copy only their exact173ownaddedpaths including15productionfiles,4originalWIPs and154ordinarydeliveryfiles. No donor history/merge, no sibling treated as already combined. Historical WIPs describe their own original candidates/aliases and remain byte-for-byte unchanged; this WIP binds the new combined source candidate.",
+  "scope": "Only Metadata4393, Vault4394, finalExport4396 and finalQuickCapture4397. All173originalpostimages/modes exact, no conflicts. Every prior4385entry unchanged. New own WIP and actual current static delivery added. No host/router/editor/journal/registry/group/typography/authority/frozen/config/lock/test/schema change or feature/port/adapter installation.",
+  "actualUI": {
+    "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "path": "/workspace/session-2295-ui973-local-dependency",
+    "dirty": false,
+    "bothPublicAliasesSameRealIndex": true,
+    "configSha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+    "sourcePackageIdentity": {
+      "name": "element-plus",
+      "version": "1.5.1",
+      "path": "/workspace/session-2295-ui973-local-dependency/vue/packages/element-plus/package.json",
+      "sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c",
+      "meaning": "actual source package metadata, not published-package identity/parity; both consumer public aliases bind its actual public index"
+    },
+    "physicalIndependence": "UNVERIFIED",
+    "CSSOutput": "UNVERIFIED",
+    "meaning": "Actual readonly UI973 (UI969 plus Typewriter source fix) retained for fresh base/candidate compilation. Original4393/4394 UI969 historical facts not rewritten or treated as current-combination qualification."
+  },
+  "static": {
+    "types": {
+      "baseExit": 2,
+      "candidateExit": 2,
+      "baseLines": 30,
+      "candidateLines": 30,
+      "rawByteIdentical": true,
+      "status": "FAIL retained",
+      "baseErrors": 29,
+      "candidateErrors": 29,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output, source positions only; retain all complete diagnostic blocks and multiplicity, no filtering/deduplication"
+    },
+    "full-style": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 83667,
+      "candidateLines": 83667,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 21,
+      "candidateLines": 21,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "binary-boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "code-intent": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 3,
+      "candidateLines": 3,
+      "rawByteIdentical": false,
+      "status": "FAIL retained",
+      "same2DiagnosticRows": true,
+      "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+      "candidateSummary": "[code-intent] 2 error(s) across 5762 checked file(s):"
+    },
+    "lifecycle": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "authoritative": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 41,
+      "candidateLines": 41,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "strict": {
+      "exit": 0,
+      "rawResult": "[frontend-style] ok files=15 eslint=15 stylelint=4 violations=0 new=0",
+      "scope": "all15exactproductionfiles; source tools only, no product module evaluation/calls"
+    },
+    "ast": {
+      "exit": 0,
+      "rawResult": "src/frontend/src/components/admin/article/ArticleMetadataField.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/article/ArticleMetadataRead.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/article/articleMetadataExactEdit.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/input.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/select.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/switch.ts: AST 0 diagnostics\nsrc/frontend/src/services/articleVault/dependencyPlanPresentation.ts: AST 0 diagnostics\nsrc/frontend/src/services/articleVault/planReview.ts: AST 0 diagnostics\nsrc/frontend/src/components/document-export/documentExportCall.ts: AST 0 diagnostics\nsrc/frontend/src/components/document-export/documentExportUiPort.ts: AST 0 diagnostics\nsrc/frontend/src/composables/useDocumentExport.ts: AST 0 diagnostics\nsrc/frontend/src/fsusui/documentExportControls.ts: AST 0 diagnostics\nsrc/frontend/src/views/admin/article/ExportCenter.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/fsusui/form.ts: AST 0 diagnostics",
+      "scope": "all15exactproductionfiles; source tools only, no product module evaluation/calls"
+    }
+  },
+  "sourceProtection": "artifacts/article-editor/four-intake-common-static/source-protection-proof.json",
+  "readableCurrentEvidence": {
+    "map": "artifacts/article-editor/four-intake-common-static/delivery-map.json",
+    "completedRawLogsAndExits": 32,
+    "configSnapshots": 2,
+    "allHashesAfterCompletion": true
+  },
+  "readableInheritedEvidence": {
+    "maps": [
+      "artifacts/article-editor/metadata-ui969-static/delivery-map.json",
+      "artifacts/article-editor/vault-plan-static/delivery-map.json",
+      "artifacts/article-editor/export4368-static/delivery-map.json",
+      "artifacts/article-editor/quick4386-static/delivery-map.json"
+    ],
+    "rawFilesVerified": 136,
+    "allCopiedExact": true,
+    "proof": "artifacts/article-editor/four-intake-common-static/inherited-evidence-proof.json",
+    "original4385and4358": "Inherited untouched, including original27andretained2config delivery map in4385."
+  },
+  "authorityContextFacts": "artifacts/article-editor/four-intake-common-static/authority-input-facts.json",
+  "originalStaticPreflights": {
+    "baseline": {
+      "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+      "cwd": "/workspace/session-2295-blog-four-intake-common-baseline",
+      "actualUI": "/workspace/session-2295-ui973-local-dependency",
+      "commands": {
+        "types": [
+          "node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "full-style": [
+          "node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "full"
+        ],
+        "boundary": [
+          "node",
+          "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "binary-boundary": [
+          "node",
+          "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "code-intent": [
+          "node",
+          "tools/governance/check-code-intent.mjs"
+        ],
+        "lifecycle": [
+          "node",
+          "tools/docs/generate-document-lifecycle.mjs",
+          "--check"
+        ],
+        "authoritative": [
+          "node",
+          "tools/docs/check-authoritative-development-docs.mjs"
+        ]
+      },
+      "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+      "mode": "all"
+    },
+    "candidate": {
+      "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+      "cwd": "/workspace/session-2295-blog-four-intake-common",
+      "actualUI": "/workspace/session-2295-ui973-local-dependency",
+      "commands": {
+        "types": [
+          "node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "full-style": [
+          "node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "full"
+        ],
+        "boundary": [
+          "node",
+          "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "binary-boundary": [
+          "node",
+          "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "code-intent": [
+          "node",
+          "tools/governance/check-code-intent.mjs"
+        ],
+        "lifecycle": [
+          "node",
+          "tools/docs/generate-document-lifecycle.mjs",
+          "--check"
+        ],
+        "authoritative": [
+          "node",
+          "tools/docs/check-authoritative-development-docs.mjs"
+        ],
+        "strict": [
+          "node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+          "--file",
+          "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+          "--file",
+          "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+          "--file",
+          "src/frontend/src/fsusui/input.ts",
+          "--file",
+          "src/frontend/src/fsusui/select.ts",
+          "--file",
+          "src/frontend/src/fsusui/switch.ts",
+          "--file",
+          "src/frontend/src/services/articleVault/dependencyPlanPresentation.ts",
+          "--file",
+          "src/frontend/src/services/articleVault/planReview.ts",
+          "--file",
+          "src/frontend/src/components/document-export/documentExportCall.ts",
+          "--file",
+          "src/frontend/src/components/document-export/documentExportUiPort.ts",
+          "--file",
+          "src/frontend/src/composables/useDocumentExport.ts",
+          "--file",
+          "src/frontend/src/fsusui/documentExportControls.ts",
+          "--file",
+          "src/frontend/src/views/admin/article/ExportCenter.vue",
+          "--file",
+          "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+          "--file",
+          "src/frontend/src/fsusui/form.ts"
+        ],
+        "ast": [
+          "node",
+          "/workspace/session-evidence-2295/static-source.cjs",
+          "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+          "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+          "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+          "src/frontend/src/fsusui/input.ts",
+          "src/frontend/src/fsusui/select.ts",
+          "src/frontend/src/fsusui/switch.ts",
+          "src/frontend/src/services/articleVault/dependencyPlanPresentation.ts",
+          "src/frontend/src/services/articleVault/planReview.ts",
+          "src/frontend/src/components/document-export/documentExportCall.ts",
+          "src/frontend/src/components/document-export/documentExportUiPort.ts",
+          "src/frontend/src/composables/useDocumentExport.ts",
+          "src/frontend/src/fsusui/documentExportControls.ts",
+          "src/frontend/src/views/admin/article/ExportCenter.vue",
+          "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+          "src/frontend/src/fsusui/form.ts"
+        ]
+      },
+      "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+      "mode": "all"
+    }
+  },
+  "excluded": "Other unreviewed actualintakes and4401newloghandoffgap excluded. No repair/reclassification of their failures, no generated replacement evidence. AdvancedFilters base4385version unchanged; its5strictfailuresnotimported/fixed. UI975combinedtheme candidates notreceived, Query4353realregistrymissing still excluded.",
+  "remaining": "Independent current combined SOURCE review. Actual canonical adapters/host/current scopes/permissions/receipts/focus/restoration/native/runtime/UX/physical qualification remain incomplete. Native loan/worker shutdown/recovery coordination/disposed-restoration ACK owner interfaces remain incomplete; no fake zero resources/paused/ready/success ACK.",
+  "holds": "All original runtime/tests/help/list/discovery/collection/product/helper/parser module evaluation/calls/browser/native/DB/security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/frozen/qualification HOLD/UNRUN. Source compiler/linter/AST tools only. No alternative harness, permissions change, frozen/authority producer/refresh, Ready/merge/close/package/publication.4336aggregateFAIL untouched.",
+  "rollback": "Omit/revert only this exact173path intake union plus own ordinary WIP/static delivery to4385. No live state or persisted data changed."
+}
