@@ -1,0 +1,253 @@
+{
+    "kind": "ordinary R24 SOURCE WIP and completed local static facts; not a formal receipt or authority/qualification record",
+    "issue": 1895,
+    "status": "partial increment; independent SOURCE and runtime/lifecycle acceptance pending",
+    "base": {
+        "sha": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+        "targetRef": "codex/issue-1895-r24-base-d5773ef9",
+        "originalBlobs": {
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts": "15a1355e4443d0412bd5245469307df31f06b530",
+            "src/frontend/src/assets/markdown.css": "0584b3f9d34243267c8c7c5ad4c2c0a2f67617c0"
+        }
+    },
+    "candidate": {
+        "ref": "codex/issue-1895-r24-code-copy-button",
+        "sourceHead": "6af0ffab31048879672b4fe79768c135064f47ee",
+        "sourceBlobs": {
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts": "0c631a00eb9b71ba6a767b922950a3606f0f49a9",
+            "src/frontend/src/assets/markdown.css": "39ec38458ff5741bde6be410e2809d85a34703bf"
+        },
+        "deliveryHeadMeaning": "This exact two-file source head was checked; the next metadata-only commit adds this ordinary WIP. Actual final PR base/head are read back from REST and recorded in the PR body, avoiding a self-referential commit claim."
+    },
+    "scope": {
+        "productionPaths": [
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts",
+            "src/frontend/src/assets/markdown.css"
+        ],
+        "ordinaryWipPath": "artifacts/work-in-progress/r24-code-copy-button.json",
+        "allOtherTrackedPaths": "unchanged, including ArticleDetail, rights/clipboard/motion owners, tests/registries/schema/fixtures/receipts/gates/configuration"
+    },
+    "classification": {
+        "ordinaryContextOnly": true,
+        "owner": "FsusBlog consumer composition; UI961 public Button owns generic control geometry/states/keyboard/focus",
+        "surface": "reading",
+        "decisionClass": "prescribed",
+        "verificationClass": "ux-local",
+        "statesRemainingUnverified": [
+            "default/copying/copied/reset/failure",
+            "clipboard fallback and permissions",
+            "locale refresh",
+            "owning appContext/injection",
+            "cleanup/unmount/detached pre/pending clipboard/pending nextTick",
+            "keyboard/focus/a11y/touch",
+            "light/dark/narrow/wide/long-code/zoom/reduced-motion"
+        ],
+        "formalReceipts": "not produced; caller explicitly limited work to owned source and ordinary WIP, with runtime/frozen/qualification HOLD"
+    },
+    "implementation": [
+        "Capture owning appContext during setup through exported getCurrentInstance; public VNode.appContext receives it. Missing context fails before any mount. No private app._context/instance.$, createApp, generic component wrapper or alternative clipboard authority.",
+        "Keep existing one-per-pre marker and exact pre/code source capture. A noninteractive span is only the public render mount container; h(FsusUiButton) uses documented nativeType/size, public class/ARIA and default slot.",
+        "A per-control copied ref and watchEffect drive visible/ARIA labels. Original locale watcher cleans up and refreshes. No Button private DOM/class mutation or alternate keyboard handler.",
+        "Register every owned container; cleanup clears original reset timers, stops its render effect, calls render(null, container), removes it and keeps original reveal kill and pre marker cleanup. Enhancement generation/disposal guards deny stale nextTick work after cleanup/unmount.",
+        "Clipboard completion after cleanup retains original success toast; stopped rendering cannot remount and membership guard creates no orphan reset timer. Original success/error keys and1200/2200 durations,1400 reset and stop/prevent behavior remain.",
+        "Only fsus-code-copy button CSS changes: retain original host and absolute top/right placement. Generic border/color/geometry/hover/focus/opacity/copied-state/coarse and Button reduced-motion overrides removed. Other markdown rules and clipboard fallback unchanged; FsusUI owns control styling.",
+        "Original useScrollReveal/reveal/kill and its catch remain. Existing reading-motion conformance concerns are not adjudicated or qualified here."
+    ],
+    "sourceDiff": {
+        "kind": "ordinary static source diff facts; no fixture or module execution",
+        "writeClipboard": {
+            "baseSha256": "1eea78231bb435249b4eab3c3c4e9e7a9a33bdf0184ceb51733228499af86ce7",
+            "candidateSha256": "1eea78231bb435249b4eab3c3c4e9e7a9a33bdf0184ceb51733228499af86ce7",
+            "byteIdentical": true
+        },
+        "nonCopyCss": {
+            "baseSha256": "17b5cc42e2891dc43584d959edb6a3d7cb385e604719beaf69b687405859f58e",
+            "candidateSha256": "17b5cc42e2891dc43584d959edb6a3d7cb385e604719beaf69b687405859f58e",
+            "byteIdentical": true,
+            "method": "Remove only exact code-copy-button rules until article-preview-image, the code-copy-only coarse block and code-copy member of reduced-motion selector. Host positioning and clipboard fallback remain in comparison."
+        },
+        "ArticleDetailBlob": "70037f49399b9b3bf7397e280264358e8880816f",
+        "ownedSources": {
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts": "fb6b5657992f7c19bd6bc827f6f4d49237352d6d737d9be6098458102d265e99",
+            "src/frontend/src/assets/markdown.css": "1972f5551479328c562517514f9f921a352422b62b1c1f7311532a546db919fc"
+        }
+    },
+    "baselineInputs": {
+        "kind": "ordinary read-only source and static-input inventory; not a classification or acceptance receipt",
+        "blog": {
+            "AGENTS.md": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d",
+            ".agents/skills/fsusblog-design-conformance/SKILL.md": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+            ".agents/skills/fsusblog-design-conformance/contracts/blog-ui-stage-policy.json": "a0c0120751f77f81ecb32dad389fd1e8465035576a81444b8daec463fa76b82f",
+            "docs/design/governance.md": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+            "docs/design/surface-profiles.md": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243",
+            "src/frontend/tsconfig.app.json": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+            "src/frontend/scripts/run-local-fsusui-typecheck.mjs": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+            "tools/frontend/style-toolchain/package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+            "config/development/frontend-style-policy.json": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+            "eslint.config.mjs": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+            "stylelint.config.mjs": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
+            "src/frontend/src/fsusui/button.ts": "da95b15c672eeee127e3a8de7bcebb21a69d226312aef46e475e32a2258543dd",
+            "src/frontend/src/views/ArticleDetail.vue": "35df51863d7e1812f99103a3bf67d51ed880a960a49c22908ce525b4496c0552"
+        },
+        "ui961": {
+            ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+            "docs/index.md": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+            "docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+            "docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+            "docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+            "docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+            "docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+            "docs/components/button.md": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76",
+            "vue/packages/element-plus/index.ts": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+            "vue/packages/components/index.ts": "56ac867b683553b7734b902710b879307075935ad0c028f981a4ee5719f26d02",
+            "vue/packages/components/button/index.ts": "b3dc158977a6724e547893979e7188a443361a67516f713768bf976eca902538",
+            "vue/packages/components/button/src/button.vue": "24f55d1392971c5ff240ef4ac1298e06692d59dd017bd8506bc94b63a4ccf7d0",
+            "vue/packages/components/button/src/button.ts": "ee6f77f20821735cfee2eba31b72f67c9c28b78afdba4a75ff16e9d788a0569a"
+        },
+        "uiRoot": "/workspace/FsusUI-r24",
+        "uiHead": "c77281165226ffd84223c4c8d43805c5deb2b1b3",
+        "uiTrackedDirty": "",
+        "nodeModules": {
+            "blog": "/workspace/FsusBlog/src/frontend/node_modules",
+            "ui": "/workspace/FsusUI/node_modules"
+        },
+        "generatedConfigSha256": "493af1c450fd2ff8a246fe2c82c4d4e803df266fdb9f8ae13797b6e3ad0428ef"
+    },
+    "installedProfiles": {
+        "Blog": {
+            "typescript": "6.0.3",
+            "vue-tsc": "3.2.7",
+            "vue": "3.5.33",
+            "vite": "8.0.16"
+        },
+        "UI dependency cache": {
+            "typescript": "6.0.2",
+            "vue-tsc": "3.2.6",
+            "vue": "3.5.32",
+            "vite": "7.3.1"
+        },
+        "interpretation": "Actual existing dependency caches, not an independent frozen installation or UI qualification. Both public aliases point to the clean exact UI961 source. No mock or package-version inference."
+    },
+    "verification": {
+        "environment": "Real shell at /workspace/FsusBlog-r24; original exact clean base captured before source edit; original application/configuration/ref/source inclusion and warnings retained",
+        "typecheckCommand": "FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-r24 node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+        "fullLintCommand": "FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-r24 node tools/frontend/check-frontend-style.mjs --mode full",
+        "changedLintCommand": "FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-r24 node tools/frontend/check-frontend-style.mjs --mode changed --base d5773ef97f55176a1eab67e677790f3e13352a7b",
+        "comparison": {
+            "kind": "ordinary complete static comparison; not qualification",
+            "application": {
+                "baseExit": 2,
+                "candidateExit": 2,
+                "baseDiagnosticCount": 29,
+                "candidateDiagnosticCount": 29,
+                "byteIdentical": true
+            },
+            "fullLint": {
+                "baseExit": 1,
+                "candidateExit": 1,
+                "baseLines": 83667,
+                "candidateLines": 83666,
+                "added": [],
+                "removed": [
+                    "[frontend-style] src/frontend/src/composables/article/useCodeBlockCopy.ts:98:46 eslint/@typescript-eslint/no-misused-promises: Promise returned in function argument where a void return was expected."
+                ],
+                "normalization": "none; complete raw line/multiplicity comparison"
+            },
+            "changedLint": {
+                "exit": 1,
+                "diagnostics": [
+                    "[frontend-style] src/frontend/src/assets/markdown.css:11:17 stylelint/declaration-property-value-keyword-no-deprecated: Deprecated keyword \"break-word\" for property \"word-break\" (declaration-property-value-keyword-no-deprecated)"
+                ]
+            }
+        },
+        "effectiveConfig": "Original generated application project extends original tsconfig.app.json, preserves strict/noUnusedLocals/noUnusedParameters/erasableSyntaxOnly=true and all original include/ref inputs.764 initial root files in original compiler showConfig; no reduced project or fixture substitute.",
+        "toolPreparation": "Configured locked style CLIs initially absent; first full scan exit1 only missing paths. Original npm ci --ignore-scripts --no-audit --no-fund --prefix tools/frontend/style-toolchain exit0,257 packages. No lifecycle scripts or tracked dependency/lock changes. Complete raw base/candidate lint after install both failed and are retained.",
+        "codeIntent": "node tools/governance/check-code-intent.mjs exit1: same two pre-existing unchanged frontend source claims at authoringCanvasSpatialIndex.ts and font_theme_admin_pods.hpp; no acceptance inference.",
+        "gitStatic": "git diff --check, source commit range/title and repository change contract exit0; final metadata range and actual REST PR contract checked at delivery.",
+        "completedLocalLogs": [
+            {
+                "path": "/tmp/fsusblog-r24-base-app.log",
+                "bytes": 5085,
+                "sha256": "227bc460ff661b001f168c4ceb623ce1cf8dc0fb19dd45c96563e694b929edf9"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-candidate-app.log",
+                "bytes": 5085,
+                "sha256": "227bc460ff661b001f168c4ceb623ce1cf8dc0fb19dd45c96563e694b929edf9"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-base-lint.log",
+                "bytes": 11861610,
+                "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-candidate-lint.log",
+                "bytes": 11861411,
+                "sha256": "eb67ea4380da6ffda64e872fdc894dff7d3a2346351eca1ec653644ded9b5962"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-changed-lint.log",
+                "bytes": 229,
+                "sha256": "c16cff17f252af2e8d2ac3489b7795d9d9d0ab0de376684e1c058074a2f22c73"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-code-intent.log",
+                "bytes": 353,
+                "sha256": "b28775b8a33594fe33211eb01843520674865609a4a725ccf8282682505daa4c"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-repository-contract.log",
+                "bytes": 51,
+                "sha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-style-install.log",
+                "bytes": 235,
+                "sha256": "d27256ac4ce91d7ae33c18013fb2f80fd6668c6fda0a3b2d7a04dd3e9ca4ae93"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-base-lint-missing-tools.log",
+                "bytes": 227,
+                "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-effective-config.json",
+                "bytes": 47029,
+                "sha256": "bd984a9be0830c6fdd40523c97d9fe185bb0105e639beb184d83ec32c94e5c50"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-static-inputs.json",
+                "bytes": 3497,
+                "sha256": "22d85f99a1b0bccebfbd3d21077106d3bb9569ced6df76937ed1efd1036e8837"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-source-diff.json",
+                "bytes": 1155,
+                "sha256": "d0366a6c69314ea0f151c32b20389be5ff4d24fa6193df89e0ee4f0ad40f20b5"
+            },
+            {
+                "path": "/tmp/fsusblog-r24-comparison.json",
+                "bytes": 1064,
+                "sha256": "2affb8b4e032a1f3d27947168dbd8e7f3b6e97dec86743c14c30ea5be3f0a1dd"
+            }
+        ],
+        "logCustody": "Task-local /tmp supporting files hashed only after command completion; no historical logs reconstructed or formal/frozen receipt emitted."
+    },
+    "holds": [
+        "runtime and product/helper/parser module evaluation/import/calls",
+        "tests/list/discovery/collection",
+        "browser/native/rendered UI validation",
+        "database",
+        "frozen consumers/producers/fixtures/qualification",
+        "merge/Ready/issue closure/package publication/release/authority refresh"
+    ],
+    "remainingFailures": [
+        "complete application typecheck29 existing diagnostics, exit2 on both",
+        "complete lint83667 to83666 lines, both exit1; existing configuration/source-state baseline drift and all unrelated diagnostics retained",
+        "changed lint remains exit1 solely for original markdown.css:11 break-word outside fsus-code-copy rules",
+        "code-intent2 existing errors",
+        "all lifecycle/appContext/rights/clipboard/keyboard/rendered/qualification acceptance UNRUN"
+    ],
+    "rollout": "Draft SOURCE review only; no complete #1895 acceptance or generic control legality registration",
+    "rollback": "Revert/omit only the two-file source commit; no database or authority state changed."
+}
