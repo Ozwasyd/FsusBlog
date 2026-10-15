@@ -1,0 +1,246 @@
+{
+  "kind": "ordinary source review delivery, no qualification authority",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "actualUI": "/workspace/session-2295-ui973-local-dependency",
+  "files": [
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-types.txt",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-types.txt",
+      "sha256": "85f6ec21235cc85cb0187e60711dd5e1dc717fbab247c819ae19ef70fd7271de",
+      "bytes": 5735,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-types.exit",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-types.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-full-style.txt",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-full-style.txt",
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "bytes": 11861610,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-full-style.exit",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-full-style.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-boundary.txt",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-boundary.txt",
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "bytes": 2805,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-boundary.exit",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-binary-boundary.txt",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "bytes": 866,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-binary-boundary.exit",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-code-intent.txt",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-code-intent.txt",
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "bytes": 353,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-code-intent.exit",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-lifecycle.txt",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "bytes": 762,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-lifecycle.exit",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-authoritative.txt",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "bytes": 6771,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui973-alias-only-authoritative.exit",
+      "path": "artifacts/article-editor/intake4376-static/ui973-alias-only-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-types.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-types.txt",
+      "sha256": "85f6ec21235cc85cb0187e60711dd5e1dc717fbab247c819ae19ef70fd7271de",
+      "bytes": 5735,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-types.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-types.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-full-style.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-full-style.txt",
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "bytes": 11861610,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-full-style.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-full-style.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-boundary.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-boundary.txt",
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "bytes": 2805,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-boundary.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-binary-boundary.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "bytes": 866,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-binary-boundary.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-code-intent.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-code-intent.txt",
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "bytes": 353,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-code-intent.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-lifecycle.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "bytes": 762,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-lifecycle.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-authoritative.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "bytes": 6771,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-authoritative.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-strict.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-strict.txt",
+      "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+      "bytes": 68,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-strict.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-strict.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-ast.txt",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-ast.txt",
+      "sha256": "1e72eeceab7faeed45d019f9af45e4ae039d214465d90550ee6f17fd635e6870",
+      "bytes": 90,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/intake4376-ast.exit",
+      "path": "artifacts/article-editor/intake4376-static/intake4376-ast.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "kind": "completed original raw log/exit; unchanged bytes"
+    },
+    {
+      "originalPath": "/workspace/session-2295-blog-ui973-alias-baseline/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+      "path": "artifacts/article-editor/intake4376-static/alias-only-full-app-config.snapshot.json",
+      "sha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+      "bytes": 3082,
+      "kind": "ordinary completed config snapshot; original cwd/relative semantics retained, not executable at copied location"
+    },
+    {
+      "originalPath": "/workspace/session-2295-blog-intake4376/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+      "path": "artifacts/article-editor/intake4376-static/candidate-full-app-config.snapshot.json",
+      "sha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+      "bytes": 3082,
+      "kind": "ordinary completed config snapshot; original cwd/relative semantics retained, not executable at copied location"
+    }
+  ],
+  "note": "Copied only after actual checks exit. Raw bytes/multiplicity/failures retained. Config snapshots preserve original cwd/relative semantics, not runnable here. Historical evidence untouched."
+}

@@ -1,0 +1,1 @@
+src/frontend/src/views/admin/security/SecurityDashboard.vue: SFC script/AST 0 diagnostics
