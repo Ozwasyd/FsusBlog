@@ -1,0 +1,2 @@
+[frontend-style] src/frontend/src/assets/markdown.css:11:17 stylelint/declaration-property-value-keyword-no-deprecated: Deprecated keyword "break-word" for property "word-break" (declaration-property-value-keyword-no-deprecated)
+[frontend-style] src/frontend/src/composables/article/useCodeBlockCopy.ts:98:46 eslint/@typescript-eslint/no-misused-promises: Promise returned in function argument where a void return was expected.

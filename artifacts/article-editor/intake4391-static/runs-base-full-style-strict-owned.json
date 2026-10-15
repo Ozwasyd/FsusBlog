@@ -1,0 +1,42 @@
+[
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "full"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:47:03.200002+00:00",
+        "completed": "2026-10-15T10:49:06.694024+00:00",
+        "exitCode": 1,
+        "log": "base-full-style.log"
+    },
+    {
+        "stage": "base",
+        "cwd": "/workspace/FsusBlog-intake4391-base",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "strict-full",
+            "--file",
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts",
+            "--file",
+            "src/frontend/src/assets/markdown.css"
+        ],
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake4391-ui973"
+        },
+        "started": "2026-10-15T10:49:06.694073+00:00",
+        "completed": "2026-10-15T10:49:15.121936+00:00",
+        "exitCode": 1,
+        "log": "base-strict-owned.log"
+    }
+]

@@ -1,0 +1,319 @@
+{
+  "kind": "ordinary second independent common SOURCE composition WIP; no qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donors": [
+    {
+      "PR": 4398,
+      "head": "84152fa6e5197715e1499504455a175f2b00b6f1",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 44
+    },
+    {
+      "PR": 4399,
+      "head": "c6657260b496c7f9043dc8e33991730a37bda5c0",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 41
+    },
+    {
+      "PR": 4400,
+      "head": "c0aa5da223315964b5cddc80920c623a82700073",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 41
+    },
+    {
+      "PR": 4402,
+      "head": "47aca7a1cd18dcf8daf4c6bc229a30a4d2924644",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 41
+    },
+    {
+      "PR": 4403,
+      "head": "4dda86a2b0068e8742cc61bef4fb0a1c9a66eaa1",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 41
+    },
+    {
+      "PR": 4404,
+      "head": "46a9621c6cae6762626d90fff425a15cd1b82e8f",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 41
+    },
+    {
+      "PR": 4401,
+      "head": "21c9135bc87f97f0f9e14c2c85ad532a1d64b297",
+      "trueBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "ownPaths": 62
+    }
+  ],
+  "topology": "Seven actual intakes are siblings on4385. Apply only their311ownpaths,8productionfiles (3added,5modified),7originalWIPs and296ordinaryevidencefiles. One new common source commit on4385; no donor ancestry, no4405source or history. Two common groups retain separate4385baselines.",
+  "scope": "WritingAids4398, SourceCompare4399, OpsHealth4400, RelationGraph4402, TOC4403, SecurityDashboard4404 and repairedAdvancedFilters4401at21c9135evidencehead. All final postimages exact. No unrelated source/config/rule/ref/enum/lock/test/schema or host/router/editor/journal/registry/group/typography/authority/frozen ownership change.",
+  "executionSourceBinding": "Fresh baseline ran at clean tracked4385 with ignored configured dependencies. Fresh candidate ran with HEAD4385 and the exact8sourcepostimages plus historical donor data in its working tree, before the new publication commit. No original historical run relabeled or rerun to fill old evidence.",
+  "actualUI": {
+    "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "path": "/workspace/session-2295-ui973-local-dependency",
+    "dirty": false,
+    "bothRealPublicAliasesSameIndex": true,
+    "fullConfigSha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+    "physicalIndependence": "UNVERIFIED",
+    "CSSOutput": "UNVERIFIED",
+    "meaning": "Actual clean readonly local UI973. No UI edits/package publication/alias stubs or scope relaxation. Same owner provider/store APIs, no second editor/history."
+  },
+  "static": {
+    "types": {
+      "baseExit": 2,
+      "candidateExit": 2,
+      "baseLines": 30,
+      "candidateLines": 30,
+      "rawByteIdentical": true,
+      "status": "FAIL retained",
+      "baseErrors": 29,
+      "candidateErrors": 29,
+      "Blog": 4,
+      "UI": 25,
+      "added": 0,
+      "removed": 0,
+      "comparison": "whole raw output; source positions only, all complete blocks/multiplicity retained; no filtering/deduplication"
+    },
+    "full-style": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 83667,
+      "candidateLines": 83667,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 21,
+      "candidateLines": 21,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "binary-boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "code-intent": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 3,
+      "candidateLines": 3,
+      "rawByteIdentical": false,
+      "status": "FAIL retained",
+      "same2DiagnosticRows": true,
+      "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+      "candidateSummary": "[code-intent] 2 error(s) across 5750 checked file(s):"
+    },
+    "lifecycle": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "authoritative": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 41,
+      "candidateLines": 41,
+      "rawByteIdentical": true,
+      "status": "FAIL retained"
+    },
+    "strict": {
+      "exit": 0,
+      "rawResult": "[frontend-style] ok files=8 eslint=8 stylelint=5 violations=0 new=0",
+      "scope": "all8exactsourcepostimages; original source tooling only, no product evaluation"
+    },
+    "ast": {
+      "exit": 0,
+      "rawResult": "src/frontend/src/services/authoring/articleWritingAidPolicy.ts: AST 0 diagnostics\nsrc/frontend/src/services/authoring/articleWritingAidRuntime.ts: AST 0 diagnostics\nsrc/frontend/src/services/authoring/articleSourceCompare.ts: AST 0 diagnostics\nsrc/frontend/src/components/admin/OpsHealthWorkbench.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/article/ArticleRelationGraph.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/article/ArticleTocPanel.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/views/admin/security/SecurityDashboard.vue: SFC script/AST 0 diagnostics\nsrc/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue: SFC script/AST 0 diagnostics",
+      "scope": "all8exactsourcepostimages; original source tooling only, no product evaluation"
+    }
+  },
+  "freshReadableEvidence": {
+    "map": "artifacts/article-editor/second-common-static/delivery-map.json",
+    "rawLogExitFiles": 32,
+    "configSnapshots": 2,
+    "allHashesAfterCompletion": true
+  },
+  "historicalReadableEvidence": {
+    "sevenOriginalMapsLocallyHashedFiles": 240,
+    "repairSHA256SUMSEntriesLocallyHashed": 20,
+    "integrityProof": "artifacts/article-editor/second-common-static/inherited-integrity-boundary.json",
+    "oldWIPsAndRawBytesUnchanged": true,
+    "meaning": "Local byte integrity and delivery are not independent body review/semantic/UX qualification."
+  },
+  "4401IndependentReviewBoundary": {
+    "sourceRepair": "limitedSOURCEaccepted as reported by parent",
+    "smallRepairLogs": "16independentlyverified as reported by parent",
+    "largeRepairStyleBodies": "UNVERIFIED(2): body retrieval limits remain, cannot be labeled passed or resolved by local Git hashing or this fresh combination check",
+    "largePaths": [
+      "artifacts/article-editor/repair4401-static/base-full-style.txt",
+      "artifacts/article-editor/repair4401-static/repaired-full-style.txt"
+    ],
+    "historicalExitProvenance": "Original repair exits were transcribed in owner handoff, no separate captured exit files existed; none manufactured here."
+  },
+  "4398PreservedFailure": "InitialESLintchildexitnullFAIL1/raw48lines/trailingSpace plus exactCLIretryFAIL1 and originalaggregatewhitespaceFAIL2 preserved. Whole current aggregate whitespace is measured separately without changing rules/attributes or raw files.",
+  "gitWhitespace": {
+    "kind": "lossless ordinary current Git diagnostic facts, no waiver or qualification",
+    "aggregate": {
+      "command": "git diff --cached --check",
+      "exit": 2,
+      "stdout": "artifacts/article-editor/writing-ui973-static/writing-ui973-full-style.txt:1: trailing whitespace.\n+[frontend-style] eslint execution failed with exit null: \n",
+      "stdoutSha256": "c9595b8b1a3be7be19c1f0069279fd56b5f6ddd3e093468ca3456b4f067aca85",
+      "status": "FAIL2 preserved due exactly original4398rawline1tailspace"
+    },
+    "sourceOnly": {
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check",
+        "--",
+        "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+        "src/frontend/src/services/authoring/articleWritingAidRuntime.ts",
+        "src/frontend/src/services/authoring/articleSourceCompare.ts",
+        "src/frontend/src/components/admin/OpsHealthWorkbench.vue",
+        "src/frontend/src/components/admin/article/ArticleRelationGraph.vue",
+        "src/frontend/src/components/article/ArticleTocPanel.vue",
+        "src/frontend/src/views/admin/security/SecurityDashboard.vue",
+        "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "PASS0"
+    },
+    "meaning": "No raw file trimmed, rule/attribute changed or aggregate failure relabeled. JSON escapes preserve diagnostic stdout losslessly without adding a second raw trailing-space artifact."
+  },
+  "sourceProof": "artifacts/article-editor/second-common-static/source-protection-proof.json",
+  "originalStaticPreflights": {
+    "baseline": {
+      "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+      "cwd": "/workspace/session-2295-blog-second-common-baseline",
+      "actualUI": "/workspace/session-2295-ui973-local-dependency",
+      "commands": {
+        "types": [
+          "node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "full-style": [
+          "node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "full"
+        ],
+        "boundary": [
+          "node",
+          "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "binary-boundary": [
+          "node",
+          "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "code-intent": [
+          "node",
+          "tools/governance/check-code-intent.mjs"
+        ],
+        "lifecycle": [
+          "node",
+          "tools/docs/generate-document-lifecycle.mjs",
+          "--check"
+        ],
+        "authoritative": [
+          "node",
+          "tools/docs/check-authoritative-development-docs.mjs"
+        ]
+      },
+      "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+      "mode": "all"
+    },
+    "candidate": {
+      "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+      "cwd": "/workspace/session-2295-blog-second-common",
+      "actualUI": "/workspace/session-2295-ui973-local-dependency",
+      "commands": {
+        "types": [
+          "node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "full-style": [
+          "node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "full"
+        ],
+        "boundary": [
+          "node",
+          "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "binary-boundary": [
+          "node",
+          "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "code-intent": [
+          "node",
+          "tools/governance/check-code-intent.mjs"
+        ],
+        "lifecycle": [
+          "node",
+          "tools/docs/generate-document-lifecycle.mjs",
+          "--check"
+        ],
+        "authoritative": [
+          "node",
+          "tools/docs/check-authoritative-development-docs.mjs"
+        ],
+        "strict": [
+          "node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+          "--file",
+          "src/frontend/src/services/authoring/articleWritingAidRuntime.ts",
+          "--file",
+          "src/frontend/src/services/authoring/articleSourceCompare.ts",
+          "--file",
+          "src/frontend/src/components/admin/OpsHealthWorkbench.vue",
+          "--file",
+          "src/frontend/src/components/admin/article/ArticleRelationGraph.vue",
+          "--file",
+          "src/frontend/src/components/article/ArticleTocPanel.vue",
+          "--file",
+          "src/frontend/src/views/admin/security/SecurityDashboard.vue",
+          "--file",
+          "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue"
+        ],
+        "ast": [
+          "node",
+          "/workspace/session-evidence-2295/static-source.cjs",
+          "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+          "src/frontend/src/services/authoring/articleWritingAidRuntime.ts",
+          "src/frontend/src/services/authoring/articleSourceCompare.ts",
+          "src/frontend/src/components/admin/OpsHealthWorkbench.vue",
+          "src/frontend/src/components/admin/article/ArticleRelationGraph.vue",
+          "src/frontend/src/components/article/ArticleTocPanel.vue",
+          "src/frontend/src/views/admin/security/SecurityDashboard.vue",
+          "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue"
+        ]
+      },
+      "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+      "mode": "all"
+    }
+  },
+  "excluded": "Firstcommon4405 c3dc8a030a8d3119f5e772fce162ad6aca2779ba notparent/notincluded/notmerged. No4393/4394/4396/4397increments. Otherunselectedintakes/UI975theme-dependentcandidates/missingregistryQuery4353excluded.",
+  "remaining": "Independent current second-combinationSOURCEreview; all runtime/UX/native/security/privacy/physical qualification and actual host integration for new services. Existing control migrations need rendered verification. Original native loan/worker shutdown/recovery coordination/disposed-restoration ACK owner gaps remain; no fake zero/paused/ready/ACK. Two historical4401largebody independent reads remain unresolved.",
+  "holds": "All original runtime/tests/help/list/discovery/collection/product/helper/parser module evaluation/calls/browser/native/DB/security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/frozen/qualification HOLD/UNRUN. Original source compiler/linter/ASTtools only; no alternative harness, permissions change, Ready/merge/close/package/publication or authority/frozen producer/refresh.4336aggregateFAIL untouched.",
+  "rollback": "Revert/omit only own311path source/data union plus this own WIP/static data to4385. No live data changed; firstcommon4405 and original branches remain untouched."
+}

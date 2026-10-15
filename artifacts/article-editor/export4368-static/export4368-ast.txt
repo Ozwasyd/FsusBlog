@@ -1,0 +1,5 @@
+src/frontend/src/components/document-export/documentExportCall.ts: AST 0 diagnostics
+src/frontend/src/components/document-export/documentExportUiPort.ts: AST 0 diagnostics
+src/frontend/src/composables/useDocumentExport.ts: AST 0 diagnostics
+src/frontend/src/views/admin/article/ExportCenter.vue: SFC script/AST 0 diagnostics
+src/frontend/src/fsusui/documentExportControls.ts: AST 0 diagnostics

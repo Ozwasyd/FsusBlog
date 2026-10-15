@@ -1,0 +1,177 @@
+[
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleMetadataField.vue",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "235737cf0e9602ca844076a6a60309ddede0a3dd",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleMetadataRead.vue",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "c730c3487fe7430a1b8f5c6cb294a4bab1432307",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "a0065289220319020a336660884dcab60489985a",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/components/admin/article/articleMetadataExactEdit.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "e88b8bfb751977acccd4685796fa2a945a9f2ad6",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "5e82b53f5b8fea926c98965e486212d326cbb62d",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "259211926b8b031e32c424b4772b50adec1867e6",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/composables/useDocumentExport.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "69bd7213296ea746d6b33f619ca5669954f6d2b3",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/fsusui/documentExportControls.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "76c4ad673491ec0288a7d12f6ecb772e9756b03d",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/fsusui/form.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "cc4aeca30aa8842baea17df52f8153c9554f3dad",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/fsusui/input.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "ed384b384359bf4ed4f33f9af49ea6fbf99f41d8",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/fsusui/select.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "969ca38d256f00531cb2b48f4c219118c281403c",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/fsusui/switch.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "7d228c3d677e023012ca036e200d5bfd1870929d",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/services/articleVault/dependencyPlanPresentation.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "49aa4b6d9039d92b94d36578a62d2b5afeb8a415",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/services/articleVault/planReview.ts",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "739d55888adb70fc9842023db1a5ba266df9278b",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/views/admin/article/ExportCenter.vue",
+    "head": "c3dc8a030a8d3119f5e772fce162ad6aca2779ba",
+    "donorPR": 4405,
+    "blob": "a4ab84b41d440fa3aee73016eb39724def1f620f",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/components/admin/OpsHealthWorkbench.vue",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "fc692137e69506ae53ee3b8154fc0a962b1818cd",
+    "preimage": "c37fe85de7bcac0e50f19d1d5aac236bcede5f72"
+  },
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleRelationGraph.vue",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "69b897f86d112a7f6751718a31125677ed7acf5f",
+    "preimage": "ed466d867641cce05f3a1d9fa9c456dc0f28451d"
+  },
+  {
+    "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "b0363a4e7a72aec3ab1483c48eb95a5a79afaedc",
+    "preimage": "6bb4ecb0d192b22ffd575fe3a794998211cc374a"
+  },
+  {
+    "path": "src/frontend/src/components/article/ArticleTocPanel.vue",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "d270d0680c658e267c3da524bc0f799d8d6f12b1",
+    "preimage": "35f303fa5ed76e7b77e5cc425aa88bb4a21ffcc0"
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleSourceCompare.ts",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "6b7c6a5d9c6c5d5771f35c185842385cd41ba360",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "ef1c0532813a1dde15dee1f5e5175ed0b2b73068",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleWritingAidRuntime.ts",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "a463f664036895e931df75228fc0c8ab50a0b0a3",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/views/admin/security/SecurityDashboard.vue",
+    "head": "0caa61ab0e02174ea882949b6b60ad853e3b0a37",
+    "donorPR": 4416,
+    "blob": "44f3d6c3aaabd9ca7048d8ed29d57b753789b2cf",
+    "preimage": "893dc8cb8a2fc84fd6d253f5c21933b346f959c7"
+  },
+  {
+    "path": "src/frontend/src/assets/markdown.css",
+    "head": "a116677eecc7dce7246be5101d29b2587d921c63",
+    "donorPR": 4406,
+    "blob": "39ec38458ff5741bde6be410e2809d85a34703bf",
+    "preimage": "0584b3f9d34243267c8c7c5ad4c2c0a2f67617c0"
+  },
+  {
+    "path": "src/frontend/src/composables/article/useCodeBlockCopy.ts",
+    "head": "a116677eecc7dce7246be5101d29b2587d921c63",
+    "donorPR": 4406,
+    "blob": "0c631a00eb9b71ba6a767b922950a3606f0f49a9",
+    "preimage": "15a1355e4443d0412bd5245469307df31f06b530"
+  }
+]

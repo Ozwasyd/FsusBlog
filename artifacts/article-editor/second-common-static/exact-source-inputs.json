@@ -1,0 +1,58 @@
+[
+  {
+    "path": "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+    "head": "84152fa6e5197715e1499504455a175f2b00b6f1",
+    "donorPR": 4398,
+    "blob": "ef1c0532813a1dde15dee1f5e5175ed0b2b73068",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleWritingAidRuntime.ts",
+    "head": "84152fa6e5197715e1499504455a175f2b00b6f1",
+    "donorPR": 4398,
+    "blob": "a463f664036895e931df75228fc0c8ab50a0b0a3",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleSourceCompare.ts",
+    "head": "c6657260b496c7f9043dc8e33991730a37bda5c0",
+    "donorPR": 4399,
+    "blob": "6b7c6a5d9c6c5d5771f35c185842385cd41ba360",
+    "preimage": null
+  },
+  {
+    "path": "src/frontend/src/components/admin/OpsHealthWorkbench.vue",
+    "head": "c0aa5da223315964b5cddc80920c623a82700073",
+    "donorPR": 4400,
+    "blob": "fc692137e69506ae53ee3b8154fc0a962b1818cd",
+    "preimage": "c37fe85de7bcac0e50f19d1d5aac236bcede5f72"
+  },
+  {
+    "path": "src/frontend/src/components/admin/article/ArticleRelationGraph.vue",
+    "head": "47aca7a1cd18dcf8daf4c6bc229a30a4d2924644",
+    "donorPR": 4402,
+    "blob": "69b897f86d112a7f6751718a31125677ed7acf5f",
+    "preimage": "ed466d867641cce05f3a1d9fa9c456dc0f28451d"
+  },
+  {
+    "path": "src/frontend/src/components/article/ArticleTocPanel.vue",
+    "head": "4dda86a2b0068e8742cc61bef4fb0a1c9a66eaa1",
+    "donorPR": 4403,
+    "blob": "d270d0680c658e267c3da524bc0f799d8d6f12b1",
+    "preimage": "35f303fa5ed76e7b77e5cc425aa88bb4a21ffcc0"
+  },
+  {
+    "path": "src/frontend/src/views/admin/security/SecurityDashboard.vue",
+    "head": "46a9621c6cae6762626d90fff425a15cd1b82e8f",
+    "donorPR": 4404,
+    "blob": "44f3d6c3aaabd9ca7048d8ed29d57b753789b2cf",
+    "preimage": "893dc8cb8a2fc84fd6d253f5c21933b346f959c7"
+  },
+  {
+    "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
+    "head": "21c9135bc87f97f0f9e14c2c85ad532a1d64b297",
+    "donorPR": 4401,
+    "blob": "b0363a4e7a72aec3ab1483c48eb95a5a79afaedc",
+    "preimage": "6bb4ecb0d192b22ffd575fe3a794998211cc374a"
+  }
+]

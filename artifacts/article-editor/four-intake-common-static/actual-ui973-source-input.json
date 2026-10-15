@@ -1,0 +1,24 @@
+{
+  "kind": "ordinary actual readonly UI973 source input, no qualification",
+  "base": "075e71c60b6a116aea8f2a7f448c5747b00c481b",
+  "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "path": "/workspace/session-2295-ui973-local-dependency",
+  "changed2": [
+    {
+      "path": ".changeset/markdown-editor-typewriter-options-reactivity.md",
+      "treeEntry": "100644 blob db9a64bf1721e3635eff5d9e1f259d243c018dda",
+      "sha256": "92276be6c7fb603454dc774dce246a0d2a56ae7998790cf341d43c33a8d83ca0"
+    },
+    {
+      "path": "vue/packages/components/markdown-editor/src/markdown-editor.vue",
+      "treeEntry": "100644 blob 5e9dc35514734c5f51244c4366b3661a56391890",
+      "sha256": "66c8713fe8ad21304b3c4605ad46e73ef238702e923dda9def7788130387750e"
+    }
+  ],
+  "allOtherBaselineEntriesExact": 4792,
+  "rootNodeModulesRealpath": "/workspace/FsusUI/node_modules",
+  "authorityDocsSkillsConfigDepsUnchanged": true,
+  "physicalIndependence": "UNVERIFIED",
+  "CSSOutput": "UNVERIFIED",
+  "sourceCapability": "resolvedWritingAids is now a Vue ref and refreshWritingAidsDocument assigns controller.options to ref. Existing sole controller/store and source history unchanged. No runtime executed."
+}

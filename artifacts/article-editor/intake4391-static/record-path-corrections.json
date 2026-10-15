@@ -1,0 +1,26 @@
+{
+    "kind": "original initial runner records remain unchanged; these are their historical delivered log locations",
+    "mappings": [
+        {
+            "record": "runs-full-style-strict-owned.json",
+            "stage": "base",
+            "originalLabel": "full-style",
+            "actualDeliveredLog": "base-full-style-initial-eisdir.log",
+            "actualDeliveredExit": "base-full-style-initial-eisdir.exit"
+        },
+        {
+            "record": "runs-full-style-strict-owned.json",
+            "stage": "base",
+            "originalLabel": "strict-owned",
+            "actualDeliveredLog": "base-strict-owned-initial-eisdir.log",
+            "actualDeliveredExit": "base-strict-owned-initial-eisdir.exit"
+        },
+        {
+            "record": "runs-application-boundary-binary-boundary-code-intent-lifecycle-authoritative.json",
+            "stage": "base",
+            "originalLabel": "authoritative",
+            "actualDeliveredLog": "base-authoritative-initial-link.log",
+            "actualDeliveredExit": "base-authoritative-initial-link.exit"
+        }
+    ]
+}

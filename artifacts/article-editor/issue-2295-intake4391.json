@@ -1,0 +1,217 @@
+{
+    "kind": "ordinary complete intake WIP and static source delivery, not receipt or qualification authority",
+    "issue": 2295,
+    "relatedIssue": 1895,
+    "base": {
+        "PR": 4385,
+        "sha": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "ref": "codex/issue-2295-history-preview-reveal-checkpoint-20261015"
+    },
+    "donor": {
+        "PR": 4391,
+        "sha": "f89ffd18c5e24679ff48daec4b14e5ba815b7cef",
+        "trueBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+        "acceptedScope": "independent finite SOURCE only as provided by caller"
+    },
+    "candidate": {
+        "ref": "codex/issue-2295-intake4391-20261015",
+        "checkedSourceHead": "44ee0599174b084888ce92401a170f96a3b0a130",
+        "finalHead": "Read exact final containing PR head from GitHub; metadata commit is deliberately not self-referential"
+    },
+    "source": {
+        "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "donorBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+        "donorHead": "f89ffd18c5e24679ff48daec4b14e5ba815b7cef",
+        "conflicts": 0,
+        "paths": [
+            {
+                "path": "src/frontend/src/composables/article/useCodeBlockCopy.ts",
+                "donorPreimage": "15a1355e4443d0412bd5245469307df31f06b530",
+                "intakePreimage": "15a1355e4443d0412bd5245469307df31f06b530",
+                "postimage": "0c631a00eb9b71ba6a767b922950a3606f0f49a9",
+                "candidateBlob": "0c631a00eb9b71ba6a767b922950a3606f0f49a9",
+                "sha256": "fb6b5657992f7c19bd6bc827f6f4d49237352d6d737d9be6098458102d265e99"
+            },
+            {
+                "path": "src/frontend/src/assets/markdown.css",
+                "donorPreimage": "0584b3f9d34243267c8c7c5ad4c2c0a2f67617c0",
+                "intakePreimage": "0584b3f9d34243267c8c7c5ad4c2c0a2f67617c0",
+                "postimage": "39ec38458ff5741bde6be410e2809d85a34703bf",
+                "candidateBlob": "39ec38458ff5741bde6be410e2809d85a34703bf",
+                "sha256": "1972f5551479328c562517514f9f921a352422b62b1c1f7311532a546db919fc"
+            }
+        ],
+        "checkedSourceHead": "44ee0599174b084888ce92401a170f96a3b0a130",
+        "allOtherBaseBlobsPreserved": 7962,
+        "protectedTreeIdentity": "99bcb039029f9720a7ca32afd0c54411c15843faac67e929c48e13c8668ce496",
+        "clipboardBytes": {
+            "b302f58a9aaee9f2399d9274157a478f3c2f78fb": "1eea78231bb435249b4eab3c3c4e9e7a9a33bdf0184ceb51733228499af86ce7",
+            "f89ffd18c5e24679ff48daec4b14e5ba815b7cef": "1eea78231bb435249b4eab3c3c4e9e7a9a33bdf0184ceb51733228499af86ce7"
+        }
+    },
+    "dependency": {
+        "root": "/workspace/FsusUI-intake4391-ui973",
+        "sha": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+        "parent": "075e71c60b6a116aea8f2a7f448c5747b00c481b",
+        "trackedDirty": "",
+        "trackedFilesFingerprint": "7e638ac0f27e771565d01dd5f5720e2d1f27e3491d5811f19b4dc28d2eef48d4",
+        "aliases": {
+            "element-plus": "/workspace/FsusUI-intake4391-ui973/vue/packages/element-plus/index.ts",
+            "@ozwasyd/element-plus": "/workspace/FsusUI-intake4391-ui973/vue/packages/element-plus/index.ts"
+        },
+        "profiles": {
+            "Blog": {
+                "typescript": "6.0.3",
+                "vue-tsc": "3.2.7",
+                "vue": "3.5.33",
+                "vite": "8.0.16"
+            },
+            "UI cache": {
+                "typescript": "6.0.2",
+                "vue-tsc": "3.2.6",
+                "vue": "3.5.32",
+                "vite": "7.3.1"
+            }
+        },
+        "publicPackage": "@ozwasyd/element-plus",
+        "sourceManifestName": "element-plus",
+        "sourceManifestVersion": "1.5.1"
+    },
+    "scope": {
+        "productionPaths": [
+            "src/frontend/src/composables/article/useCodeBlockCopy.ts",
+            "src/frontend/src/assets/markdown.css"
+        ],
+        "donorHistoryImported": false,
+        "donorWipImported": false,
+        "conflicts": 0,
+        "otherBaseBlobsPreserved": 7962,
+        "otherParallelBranchesModified": false
+    },
+    "ordinaryDesignContext": {
+        "owner": "Blog clipboard/content rights and position; public FsusUI Button owns generic control semantics and geometry",
+        "surface": "reading",
+        "decisionClass": "prescribed",
+        "verificationClass": "ux-local",
+        "formalReceipts": "HOLD; no frozen authority refresh",
+        "hashBoundAuthorities": "intake4391-static/static-inputs.json"
+    },
+    "static": {
+        "application": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseLines": 30,
+            "candidateLines": 30,
+            "rawByteIdentical": true,
+            "added": [],
+            "removed": [],
+            "normalization": "none; complete raw lines/multiplicity",
+            "baseDiagnostics": 29,
+            "candidateDiagnostics": 29
+        },
+        "full-style": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 83667,
+            "candidateLines": 83666,
+            "rawByteIdentical": false,
+            "added": [],
+            "removed": [
+                "[frontend-style] src/frontend/src/composables/article/useCodeBlockCopy.ts:98:46 eslint/@typescript-eslint/no-misused-promises: Promise returned in function argument where a void return was expected."
+            ],
+            "normalization": "none; complete raw lines/multiplicity"
+        },
+        "strict-owned": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 2,
+            "candidateLines": 1,
+            "rawByteIdentical": false,
+            "added": [],
+            "removed": [
+                "[frontend-style] src/frontend/src/composables/article/useCodeBlockCopy.ts:98:46 eslint/@typescript-eslint/no-misused-promises: Promise returned in function argument where a void return was expected."
+            ],
+            "normalization": "none; complete raw lines/multiplicity"
+        },
+        "boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 21,
+            "candidateLines": 21,
+            "rawByteIdentical": true,
+            "added": [],
+            "removed": [],
+            "normalization": "none; complete raw lines/multiplicity"
+        },
+        "binary-boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 7,
+            "candidateLines": 7,
+            "rawByteIdentical": true,
+            "added": [],
+            "removed": [],
+            "normalization": "none; complete raw lines/multiplicity"
+        },
+        "code-intent": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 3,
+            "candidateLines": 3,
+            "rawByteIdentical": true,
+            "added": [],
+            "removed": [],
+            "normalization": "none; complete raw lines/multiplicity"
+        },
+        "lifecycle": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 7,
+            "candidateLines": 7,
+            "rawByteIdentical": true,
+            "added": [],
+            "removed": [],
+            "normalization": "none; complete raw lines/multiplicity"
+        },
+        "authoritative": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseLines": 41,
+            "candidateLines": 41,
+            "rawByteIdentical": true,
+            "added": [],
+            "removed": [],
+            "normalization": "none; complete raw lines/multiplicity"
+        }
+    },
+    "evidence": "artifacts/article-editor/intake4391-static/delivery-map.json",
+    "preparationFailures": "Initial unavailable default npm cache and symlink EISDIR/document classification preserved; real locked tools installed with scripts disabled, complete original checks rerun without changing tracked config/lock/gates",
+    "originalEvidenceCustody": "Inherited4385/original4358 delivery files unchanged. Source4391 historical /tmp logs not present in this environment and not reconstructed; immutable original PR/WIP remains its source record. This intake supplies fresh complete raw logs.",
+    "implementation": "Exact donor production postimages: Vue public Button h/render with owning appContext, cleanup effects/containers/timers and stale generation guard; original clipboard fallback/rights/source/toast/locale/reveal owners retained; remove copied generic code-copy CSS only. No execution claim.",
+    "remaining": [
+        "Independent review of this exact intake draft",
+        "All runtime/lifecycle/appContext/clipboard fallback/rights/locale/unmount/pending operations/keyboard/focus/touch/screen reader/zoom/theme/viewport/reduced-motion acceptance UNRUN",
+        "Full app29/static lint/boundary/binary/code-intent/docs failures remain failures",
+        "Product theme CSS unfinished; independent physical alias and CSS output UNVERIFIED; no consumer acceptance",
+        "Native resource loan/worker shutdown/recovery coordination/disposed-restoration ACK owner interfaces incomplete;4336aggregateFAIL unchanged",
+        "Missing remote checks are not passes; original issue acceptance remains incomplete"
+    ],
+    "holds": [
+        "runtime",
+        "tests/test collection/list/discovery",
+        "product/helper/parser module imports/evaluation/calls",
+        "setup/mount/browser/native/worker/kernel/DB",
+        "network-security/privacy/receipt/race/backup restore/IME",
+        "frozen/qualification",
+        "Ready/merge/issue close/package publication/release/authority refresh"
+    ],
+    "preservedBoundaries": [
+        "unknown is not zero; cancel is not settled",
+        "No fabricated real host/command/authorization bindings",
+        "Graph preflight only; no provider runtime",
+        "StorageConflict cancel/restore disabled unchanged",
+        "No substitute harness/reduced config/fake data/private package substitute/credential refresh"
+    ],
+    "rollout": "Independent actual draft only; no activation/publication",
+    "rollback": "Revert/omit only these exact2productionpaths and own ordinaryWIP/static evidence to exact4385; no live state changed"
+}

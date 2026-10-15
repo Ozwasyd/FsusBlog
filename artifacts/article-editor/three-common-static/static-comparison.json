@@ -1,0 +1,84 @@
+{
+  "types": {
+    "baseExit": 2,
+    "candidateExit": 2,
+    "baseLines": 30,
+    "candidateLines": 30,
+    "rawByteIdentical": true,
+    "status": "FAIL retained",
+    "baseErrors": 29,
+    "candidateErrors": 29,
+    "Blog": 4,
+    "UI": 25,
+    "added": 0,
+    "removed": 0,
+    "comparison": "whole output source positions only; all blocks/multiplicity retained, no filtering/deduplication"
+  },
+  "full-style": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 83667,
+    "candidateLines": 83666,
+    "rawByteIdentical": false,
+    "status": "FAIL retained",
+    "added": [],
+    "removed": [
+      "[frontend-style] src/frontend/src/composables/article/useCodeBlockCopy.ts:98:46 eslint/@typescript-eslint/no-misused-promises: Promise returned in function argument where a void return was expected."
+    ],
+    "normalization": "none; complete raw lines and multiplicity"
+  },
+  "boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 21,
+    "candidateLines": 21,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "binary-boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "code-intent": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 3,
+    "candidateLines": 3,
+    "rawByteIdentical": false,
+    "status": "FAIL retained",
+    "same2DiagnosticRows": true,
+    "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+    "candidateSummary": "[code-intent] 2 error(s) across 5765 checked file(s):"
+  },
+  "lifecycle": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "authoritative": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 41,
+    "candidateLines": 41,
+    "rawByteIdentical": true,
+    "status": "FAIL retained"
+  },
+  "strict": {
+    "exit": 1,
+    "status": "FAIL retained",
+    "files": 25,
+    "rawResult": "[frontend-style] src/frontend/src/assets/markdown.css:11:17 stylelint/declaration-property-value-keyword-no-deprecated: Deprecated keyword \"break-word\" for property \"word-break\" (declaration-property-value-keyword-no-deprecated)",
+    "meaning": "Only existing markdown.css line11 deprecated break-word finding, outside code-copy changes. No rule/config waiver or source repair."
+  },
+  "AST": {
+    "exit": 0,
+    "scope": "24TS/Vuefiles parse-only; CSS checked by original Stylelint, no product evaluation"
+  }
+}

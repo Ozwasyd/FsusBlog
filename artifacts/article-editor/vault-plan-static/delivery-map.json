@@ -1,0 +1,246 @@
+{
+  "kind": "ordinary review delivery, not qualification or replacement evidence",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "actualUI": "/workspace/session-2295-ui969-local-dependency",
+  "files": [
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-types.txt",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-types.txt",
+      "sha256": "61b8a1411f8a3942d842b6f9e8c0bd060482c8192e967f2841875bf8acd815ea",
+      "bytes": 5735,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-types.exit",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-types.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-full-style.txt",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-full-style.txt",
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "bytes": 11861610,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-full-style.exit",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-full-style.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-boundary.txt",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-boundary.txt",
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "bytes": 2805,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-boundary.exit",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-binary-boundary.txt",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "bytes": 866,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-binary-boundary.exit",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-code-intent.txt",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-code-intent.txt",
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "bytes": 353,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-code-intent.exit",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-lifecycle.txt",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "bytes": 762,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-lifecycle.exit",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-authoritative.txt",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "bytes": 6771,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/ui969-alias-only-authoritative.exit",
+      "path": "artifacts/article-editor/vault-plan-static/ui969-alias-only-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-candidate-types.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-types.txt",
+      "sha256": "61b8a1411f8a3942d842b6f9e8c0bd060482c8192e967f2841875bf8acd815ea",
+      "bytes": 5735,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-candidate-types.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-types.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-candidate-full-style.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-full-style.txt",
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "bytes": 11861610,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-candidate-full-style.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-candidate-full-style.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-boundary.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-boundary.txt",
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "bytes": 2805,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-boundary.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-binary-boundary.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "bytes": 866,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-binary-boundary.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-code-intent.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-code-intent.txt",
+      "sha256": "198859bffc14bc30d821a231c4df26294eb2a9ef1f0cd874a1b090a546bbb0e8",
+      "bytes": 353,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-code-intent.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-lifecycle.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "bytes": 762,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-lifecycle.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-authoritative.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "bytes": 6771,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-authoritative.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-ast.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-ast.txt",
+      "sha256": "9b4aa69a80a49e62bab7af25caaba44679faedc5928cc6f9213d56e6c572d24f",
+      "bytes": 160,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-ast.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-ast.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-strict-two.txt",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-strict-two.txt",
+      "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+      "bytes": 68,
+      "kind": "completed original raw log"
+    },
+    {
+      "originalPath": "/workspace/session-evidence-2295/vault-plan-strict-two.exit",
+      "path": "artifacts/article-editor/vault-plan-static/vault-plan-strict-two.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "kind": "original exit code"
+    },
+    {
+      "originalPath": "/workspace/session-2295-blog-ui969-alias-baseline/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+      "path": "artifacts/article-editor/vault-plan-static/alias-only-full-app-config.snapshot.json",
+      "sha256": "dd77438ce71593676336d60bdb0931be9227225d8a053c8553355a869432cdc4",
+      "bytes": 3082,
+      "kind": "ordinary completed-run config snapshot; original cwd/relative semantics retained, not executable at copied location"
+    },
+    {
+      "originalPath": "/workspace/session-2295-blog-vault-plan-presentation-leaves/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+      "path": "artifacts/article-editor/vault-plan-static/candidate-full-app-config.snapshot.json",
+      "sha256": "dd77438ce71593676336d60bdb0931be9227225d8a053c8553355a869432cdc4",
+      "bytes": 3082,
+      "kind": "ordinary completed-run config snapshot; original cwd/relative semantics retained, not executable at copied location"
+    }
+  ],
+  "note": "All logs copied after actual exit confirmation. Original bytes preserved. Inherited 4385 historical evidence remains unchanged. No runtime/tests or qualification run."
+}
