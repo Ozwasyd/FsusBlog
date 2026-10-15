@@ -97,14 +97,31 @@ function expectedPhases(contract)
     return phases;
 }
 
+function exactHalf(doubledValue)
+{
+    const value = Number(doubledValue) / 2;
+    // Multiplication by two is exact for the finite integer/half-integer domain.
+    // Reject only unrepresentable derived values, without imposing a resource cap.
+    requireCondition(Number.isFinite(value) && BigInt(value * 2) === doubledValue,
+        'derived median or growth cannot be represented exactly as a Number');
+    return value;
+}
+
 function median(values)
 {
     requireCondition(values.length > 0, 'recovery latter half has no samples');
     const sorted = [...values].sort((left, right) => left - right);
     const middle = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 1
-        ? sorted[middle]
-        : sorted[middle - 1] + (sorted[middle] - sorted[middle - 1]) / 2;
+    const doubledMedian = sorted.length % 2 === 1
+        ? BigInt(sorted[middle]) * 2n
+        : BigInt(sorted[middle - 1]) + BigInt(sorted[middle]);
+    return exactHalf(doubledMedian);
+}
+
+function retainedGrowth(recovered, baseline)
+{
+    // Both medians have already passed the exact doubled-integer round trip.
+    return exactHalf(BigInt(recovered * 2) - BigInt(baseline * 2));
 }
 
 function summarizePhase(phase, expected, contract, mode, previousEnd)
@@ -173,6 +190,8 @@ function summarizePhase(phase, expected, contract, mode, previousEnd)
  * Samples use `value` for RSS bytes or total handles/FDs according to `mode`.
  * It neither authenticates the caller's contract nor verifies any observation.
  * Numerical threshold comparisons never imply workload, identity or runtime PASS.
+ * Medians and growth use exact doubled BigInt arithmetic; a derived value that
+ * cannot round-trip through the Number output representation is rejected.
  *
  * @param {object} input Explicit mode, contract and ordered sampled phases.
  * @returns {object} Unqualified arithmetic summary; invalid input throws TypeError.
@@ -197,8 +216,8 @@ export function summarizeResourceRetentionSeries(input)
     const baseline = summaries[1].recoveredMedian;
     const cycleRecovered = summaries.filter(phase => phase.phase === 'recovery').map(phase => phase.recoveredMedian);
     const finalRecovered = summaries[summaries.length - 1].recoveredMedian;
-    const maxRetainedGrowth = Math.max(...cycleRecovered, finalRecovered) - baseline;
-    const finalRetainedGrowth = finalRecovered - baseline;
+    const maxRetainedGrowth = retainedGrowth(Math.max(...cycleRecovered, finalRecovered), baseline);
+    const finalRetainedGrowth = retainedGrowth(finalRecovered, baseline);
     return {
         qualificationEligible: false,
         evidenceClass: 'calculation-only',
