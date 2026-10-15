@@ -1,0 +1,161 @@
+{
+    "kind": "ordinary source WIP and local static facts; not a receipt, qualification or authority record",
+    "issue": "https://github.com/Ozwasyd/FsusBlog/issues/2474",
+    "status": "WIP; independent review pending; original issue remains open",
+    "base": {
+        "pullRequest": 4352,
+        "ref": "codex/issue-2295-final-compatible-embed-composition-20261015",
+        "sha": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+        "sourceBlob": "2600ffd78a9316be7ce50868df6667291d8d85be"
+    },
+    "candidate": {
+        "ref": "codex/issue-2474-bounded-memory-base4352",
+        "sourceHead": "8143c7b29c28e5b23db6108004ec9b105390b561",
+        "sourceBlob": "6e627b58ce09143814294ea3687651db02c8c360",
+        "sourceSha256": "3b3d5671392f65663c968a1c619df7f26e0b6f341520e6433d81af4e77be5587",
+        "sourceHeadMeaning": "Exact one-file source commit checked by the completed build/lint. The subsequent metadata-only commit adds this WIP without changing source. Final delivery HEAD/base are read back from the actual PR API and recorded in the PR body, not guessed or self-referenced here."
+    },
+    "scope": {
+        "productionPaths": [
+            "src/backend/Services/Authoring/ArticleGraphQueryService.cs"
+        ],
+        "ordinaryWipPath": "artifacts/article-editor/issue-2474-bounded-memory-budget.json",
+        "sharedContracts": "unchanged",
+        "testsReceiptsGatesConfiguration": "unchanged",
+        "preExistingWip": "unchanged"
+    },
+    "finding": "Original request Validate trusts Count before enumerating custom IReadOnlyList; request filters then call unbounded ToArray. Provider Count guards likewise precede unbounded ToArray. Count/enumerator disagreement or mutation can bypass the intended materialization bound.",
+    "implementation": [
+        "Each Snapshot reads Count once, rejects negative and over-limit values before allocation, allocates exactly that bounded count, copies only indexed elements [0,count), and rereads Count before returning a read-only wrapper over the private array. No caller/provider enumerator or CopyTo participates.",
+        "Category/tag maximum32 each; kinds maximum4. Node/edge bounds come only from the original admitted request budget, with original shared-contract maxima1000/2000.",
+        "Freeze all request filters before original ArticleGraphContract.Validate, before deadline/source call. A failed snapshot substitutes bounded empty lists and an invalid empty kind set, preserving original invalid-filter refusal and invalid-request sealing; earlier scalar/depth/budget refusal precedence remains with the original validator.",
+        "After original null/unavailable and cancellation handling, snapshot provider nodes/edges within admitted budgets; failure returns original Refused/source-budget. Only frozen projection lists reach original Validate/Seal.",
+        "Original deadline/caller-cancellation catch, default/explicit depth rules, stale identity status mapping, provider interface/default unavailable source, Empty and shared Validate/Seal implementations remain unchanged."
+    ],
+    "sourceReviewLimits": [
+        "Observed Count drift is rejected. This is a bounded ordinary snapshot, not a linearizable concurrency guarantee. Mutations that keep Count unchanged may affect which values are captured; all captured values still pass the original validator before use.",
+        "Arbitrary Count/indexer/provider exceptions continue to propagate except the unchanged deadline cancellation catch. A custom callback can still block or allocate internally; this change does not create callback preemption or arbitrary-provider memory guarantees.",
+        "No tests, synthetic fixture execution, runtime behavior or independent qualification was performed. Static source review does not establish permission/timing noninterference, real relation integration or #2474 acceptance.",
+        "Missing authoritative relation API remains Unavailable. No relation scanner, permission implementation, second provider/store, transport registration or authority was added."
+    ],
+    "verification": {
+        "serverBuild": {
+            "command": "source /workspace/.setup/activate.sh && dotnet build src/backend/FsusBlog.Server.csproj -c Release /p:RestoreLockedMode=true /p:PublishClientAssets=false",
+            "baseCwd": "/workspace/FsusBlog-2474-base",
+            "candidateCwd": "/workspace/FsusBlog-2474",
+            "baseExit": 0,
+            "candidateExit": 0,
+            "scope": "Fresh complete Server project closure, original refs/analyzers/configuration/severities; locked restore; no application execution",
+            "comparison": {
+                "kind": "ordinary complete static build diagnostic comparison, not a qualification receipt",
+                "baseSummary": [
+                    "330 Warning(s)",
+                    "0 Error(s)"
+                ],
+                "candidateSummary": [
+                    "330 Warning(s)",
+                    "0 Error(s)"
+                ],
+                "baseDiagnosticLines": 660,
+                "candidateDiagnosticLines": 660,
+                "baseUniqueDiagnosticLines": 330,
+                "candidateUniqueDiagnosticLines": 330,
+                "added": [],
+                "removed": [],
+                "normalization": "replace only absolute checkout root; preserve paths, locations, messages, project and multiplicity",
+                "fullLintByteIdentical": true,
+                "codeIntentByteIdentical": true
+            }
+        },
+        "invocationCorrection": "Initial dotnet build attempt used unsupported --locked-mode and stopped with MSB1001 before build; corrected to original RestoreLockedMode=true property. Completed build logs above belong to the corrected command.",
+        "strictChangedCsharp": {
+            "command": "node tools/dotnet/check-csharp-style.mjs --mode changed --base 0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+            "exit": 0,
+            "result": "files=1 violations=0 new=0; original folder whitespace and solution style invocations retained"
+        },
+        "fullCsharp": {
+            "command": "node tools/dotnet/check-csharp-style.mjs --mode full",
+            "baseExit": 1,
+            "candidateExit": 1,
+            "result": "552 diagnostic lines on each; raw logs byte-identical. Existing failures retained, no baseline/config changes."
+        },
+        "codeIntent": {
+            "command": "node tools/governance/check-code-intent.mjs",
+            "baseExit": 1,
+            "candidateExit": 1,
+            "result": "Same 2 pre-existing errors across5742 files, raw logs byte-identical; authoringCanvasSpatialIndex.ts high-performance and font_theme_admin_pods.hpp no allocation claims."
+        },
+        "diff": {
+            "command": "git diff --check 0c96259e00f9d39d41824110f63c3cc260a2cbf3 HEAD",
+            "exit": 0,
+            "sourceDelta": "1 production file, 32 insertions, 11 deletions"
+        },
+        "changeContract": {
+            "commands": [
+                "node tools/governance/check-change-contract.mjs --range 0c96259e00f9d39d41824110f63c3cc260a2cbf3..HEAD",
+                "node tools/governance/check-change-contract.mjs --repository",
+                "node tools/governance/check-change-contract.mjs --title fix(backend): bound article graph snapshots before validation"
+            ],
+            "result": "source commit range, repository types/scopes and PR title all exit0; final metadata range and actual REST PR contract rechecked at delivery"
+        },
+        "localSupportingLogs": [
+            {
+                "path": "/tmp/fsusblog-2474-build.log",
+                "bytes": 185591,
+                "sha256": "b0ed2905e9c96ab1d6e29e6c2fb99376611db1354adcba4ce86cfa4f97d38ba9"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-base-build.log",
+                "bytes": 192231,
+                "sha256": "09f162c8fe9551b08702406c2193b44bee419cdc1591373751e285119550a467"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-lint.log",
+                "bytes": 45,
+                "sha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-full-lint.log",
+                "bytes": 122452,
+                "sha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-base-full-lint.log",
+                "bytes": 122452,
+                "sha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-code-intent.log",
+                "bytes": 353,
+                "sha256": "b28775b8a33594fe33211eb01843520674865609a4a725ccf8282682505daa4c"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-base-code-intent.log",
+                "bytes": 353,
+                "sha256": "b28775b8a33594fe33211eb01843520674865609a4a725ccf8282682505daa4c"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-repository-contract.log",
+                "bytes": 51,
+                "sha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885"
+            },
+            {
+                "path": "/tmp/fsusblog-2474-static-comparison.json",
+                "bytes": 636,
+                "sha256": "046d46a1c944c0abc180e3fbc180046e0fa3ef6e17adc8820758f435bb27431a"
+            }
+        ],
+        "logCustody": "Completed raw local logs under /tmp, measured only after their processes exited. These paths are task-local supporting files, not published/frozen receipts. Missing copies cannot be treated as verification."
+    },
+    "holds": [
+        "tests",
+        "test listing/discovery/collection",
+        "product/helper/parser modules and compiled-output execution",
+        "database operations",
+        "frozen consumers/producers",
+        "qualification",
+        "merge/Ready/issue closure/publication/release/authority refresh"
+    ],
+    "rollout": "Draft source review only; no activation. Original real relation API and qualification gaps remain.",
+    "rollback": "Omit/revert only the one-file source commit if independent source review rejects it; no live data or schema changes."
+}
