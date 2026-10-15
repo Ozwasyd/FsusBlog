@@ -371,7 +371,7 @@
                 "sha256": "d132a75e2f74e9c2498340c2685140b7411e52b563bb2077db0699d91546b0c2"
             },
             "/workspace/session-evidence-2295/final-compatible-candidate-strict.txt": {
-                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                "sha256": "3c51d666ceb51ed1a263cf8b25f2a469d588b029b7feafb096055f875ae040a3"
             },
             "/workspace/session-evidence-2295/final-compatible-candidate-csharp-full.txt": {
                 "sha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0"
@@ -573,5 +573,25 @@
         "/workspace/session-evidence-2295/final-compatible-base-code-intent.txt": {
             "sha256": "3a9446a1e590b4ff7bed628749b526f56eee198932e6b03010d15c6b2c3531d1"
         }
+    },
+    "ordinaryMetadataCorrection": {
+        "scope": "Correct only this ordinary composition WIP; no product source or static result change.",
+        "retainedCompletedLog": "/workspace/session-evidence-2295/final-compatible-candidate-strict.txt",
+        "actualCompletedBytes": 46,
+        "actualCompletedSha256": "3c51d666ceb51ed1a263cf8b25f2a469d588b029b7feafb096055f875ae040a3",
+        "actualCompletedContent": "[csharp-style] ok files=13 violations=0 new=0\n",
+        "exitSidecar": "/workspace/session-evidence-2295/final-compatible-candidate-strict.exit",
+        "actualExitSidecarSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "retainedExitCode": 0,
+        "previousStaleNestedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cause": "The source-only orchestration started strict asynchronously, then generated the full-static comparison snapshot while its output file was still empty. The final WIP copied that snapshot into staticChecks before refreshing the nested strict-log digest, while rawStaticEvidence captured the completed log. The completed original log is available and both current references now use its actual digest. The empty-file digest was an in-progress observation, not another completed check or historical result.",
+        "earlierComparisonSnapshot": {
+            "path": "/workspace/session-evidence-2295/final-compatible-full-static-comparison.json",
+            "sha256": "867a810bf55bb03c5cb0e6227d086a2fa1e5ad162d7dc2a185a901af1c133479",
+            "unchanged": true,
+            "limitation": "Retained as the original early snapshot; its strict-log entry is stale and is not evidence for the completed strict output. The correction uses the retained completed raw log directly, without rewriting that earlier snapshot."
+        },
+        "verification": "Read retained original bytes and exit sidecar only; no strict rerun, recreated historical log, runtime, tests or discovery.",
+        "unchanged": "All product blobs, original full static PASS/FAIL results, source acceptance limits and every existing HOLD remain unchanged. No merge/Ready/close/publication/authority refresh."
     }
 }
