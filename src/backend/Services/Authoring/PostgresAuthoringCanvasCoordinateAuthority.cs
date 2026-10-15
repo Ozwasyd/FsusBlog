@@ -226,7 +226,8 @@ public sealed class PostgresAuthoringCanvasCoordinateAuthority(ISqlSugarClient d
         }
         command.CommandText = """
             SELECT revision.id, revision.article_id,
-                   COALESCE(block.markdown_content, revision.markdown_content) AS markdown_content
+                   revision.content_block_id, block.id AS resolved_content_block_id,
+                   block.markdown_content
             FROM article_revision revision
             LEFT JOIN article_revision_content_block block ON block.id = revision.content_block_id
             WHERE revision.id = ANY(@RevisionIds);
@@ -242,8 +243,7 @@ public sealed class PostgresAuthoringCanvasCoordinateAuthority(ISqlSugarClient d
         {
             long revisionId = reader.GetInt64(0);
             int articleId = reader.GetInt32(1);
-            if (!targetsByRevision.TryGetValue(revisionId, out AuthoringCanvasReferenceTarget[]? targets)
-                || reader.IsDBNull(2))
+            if (!targetsByRevision.TryGetValue(revisionId, out AuthoringCanvasReferenceTarget[]? targets))
             {
                 continue;
             }
@@ -253,11 +253,19 @@ public sealed class PostgresAuthoringCanvasCoordinateAuthority(ISqlSugarClient d
             {
                 continue;
             }
+            long contentBlockId = reader.IsDBNull(2) ? 0 : reader.GetInt64(2);
+            if (contentBlockId <= 0
+                || reader.IsDBNull(3)
+                || reader.GetInt64(3) != contentBlockId
+                || reader.IsDBNull(4))
+            {
+                continue;
+            }
             string[] identities = matching.Select(static target =>
                 target.NodeType == AuthoringCanvasNodeType.HeadingReference
                     ? target.TargetHeadingIdentity!
                     : target.TargetBlockIdentity!).Distinct(StringComparer.Ordinal).ToArray();
-            using TextReader text = reader.GetTextReader(2);
+            using TextReader text = reader.GetTextReader(4);
             AuthoringCanvasAnchorSourceProjection.ScanResult scan =
                 await AuthoringCanvasAnchorSourceProjection.ScanAsync(text, identities, cancellationToken).ConfigureAwait(false);
             if (scan.SourceCharacters > 0)

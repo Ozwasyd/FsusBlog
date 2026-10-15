@@ -113,7 +113,7 @@ public sealed class ArticleBodyRepairService(
         int repaired = await db.Ado.ExecuteCommandAsync(
             $$"""
             INSERT INTO article_body (article_id, markdown_content, updated_at)
-            SELECT article.id, revision.markdown_content, NOW()
+            SELECT article.id, block.markdown_content, NOW()
             FROM article
             JOIN article_publication publication
               ON publication.id = article.current_publication_id
@@ -121,12 +121,14 @@ public sealed class ArticleBodyRepairService(
             JOIN article_revision revision
               ON revision.id = publication.article_revision_id
              AND revision.article_id = article.id
+            JOIN article_revision_content_block block ON block.id = revision.content_block_id
             WHERE article.id = @ArticleId
               AND article.isdeleted = false
               AND article.status = {{(int)ArticleStatus.Published}}
               AND article.current_revision_id = publication.article_revision_id
-              AND revision.markdown_content IS NOT NULL
-              AND btrim(revision.markdown_content) <> ''
+              AND revision.content_block_id > 0
+              AND block.markdown_content IS NOT NULL
+              AND btrim(block.markdown_content) <> ''
             ON CONFLICT (article_id) DO UPDATE
             SET markdown_content = EXCLUDED.markdown_content,
                 updated_at = EXCLUDED.updated_at
@@ -139,12 +141,25 @@ public sealed class ArticleBodyRepairService(
         int bodyAvailable = repaired > 0
             ? 1
             : await db.Ado.GetIntAsync(
-                """
+                $$"""
                 SELECT COUNT(*)
-                FROM article_body
-                WHERE article_id = @ArticleId
-                  AND markdown_content IS NOT NULL
-                  AND btrim(markdown_content) <> '';
+                FROM article
+                JOIN article_publication publication
+                  ON publication.id = article.current_publication_id
+                 AND publication.article_id = article.id
+                JOIN article_revision revision
+                  ON revision.id = publication.article_revision_id
+                 AND revision.article_id = article.id
+                JOIN article_revision_content_block block ON block.id = revision.content_block_id
+                JOIN article_body body ON body.article_id = article.id
+                WHERE article.id = @ArticleId
+                  AND article.isdeleted = false
+                  AND article.status = {{(int)ArticleStatus.Published}}
+                  AND article.current_revision_id = publication.article_revision_id
+                  AND revision.content_block_id > 0
+                  AND block.markdown_content IS NOT NULL
+                  AND btrim(block.markdown_content) <> ''
+                  AND body.markdown_content = block.markdown_content;
                 """,
                 new SugarParameter("@ArticleId", request.ArticleId)).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();

@@ -441,12 +441,20 @@ public partial class ArticleService : IArticleCanvasLinkWriter
     private async Task<(string Source, string? Summary)> ReadCanvasLinkRevisionSourceAsync(int articleId, long revisionId, CancellationToken cancellationToken)
     {
         using DbDataReader reader = (DbDataReader)await _db.Ado.GetDataReaderAsync("""
-            SELECT COALESCE(b.markdown_content, r.markdown_content) AS source, r.summary
+            SELECT b.markdown_content AS source, r.summary,
+                   r.content_block_id, b.id AS resolved_content_block_id
             FROM article_revision r LEFT JOIN article_revision_content_block b ON b.id = r.content_block_id
             WHERE r.article_id = @Article AND r.id = @Revision;
             """, new SugarParameter("@Article", articleId), new SugarParameter("@Revision", revisionId)).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false) || reader.IsNull("source"))
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
+            || reader.IsNull("content_block_id")
+            || reader.ReadInt64("content_block_id") <= 0
+            || reader.IsNull("resolved_content_block_id")
+            || reader.ReadInt64("resolved_content_block_id") != reader.ReadInt64("content_block_id")
+            || reader.IsNull("source"))
+        {
             throw new AuthoringCanvasValidationException("article_canvas_link_revision_unavailable");
+        }
         return (reader.ReadString("source"), reader.IsNull("summary") ? null : reader.ReadString("summary"));
     }
 }
