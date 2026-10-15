@@ -57,7 +57,7 @@ interface CompareOperation
 }
 
 /** Read-only custody inspection; all futures and work objects belong to the original invocation. */
-export type ArticleSourceCompareOperation = Readonly<CompareOperation>;
+export type ArticleSourceCompareOperation = Readonly<Omit<CompareOperation, 'lease'>> & { readonly taskRef: string | null; };
 
 const requestKeys = ['schema', 'document', 'taskRef', 'requestId', 'identity', 'anchorDigest', 'continuityRef', 'originalSurface', 'contentDigest'];
 const identityKeys = ['rendererVersion', 'projectionVersion', 'featureConfigurationDigest', 'themeDigest', 'locale'];
@@ -226,8 +226,12 @@ export class ArticleSourceCompareSession
 
     public get pendingOperations(): readonly ArticleSourceCompareOperation[]
     {
-        return Object.freeze([...this.operations].map(operation => Object.freeze({ ...operation,
-            candidates: Object.freeze([...operation.candidates]), failures: Object.freeze([...operation.failures]) })));
+        return Object.freeze([...this.operations].map(operation =>
+        {
+            const { lease, ...observation } = operation;
+            return Object.freeze({ ...observation, taskRef: lease?.taskRef ?? null,
+                candidates: Object.freeze([...operation.candidates]), failures: Object.freeze([...operation.failures]) });
+        }));
     }
 
     private get hold(): boolean
