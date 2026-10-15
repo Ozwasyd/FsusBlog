@@ -1,0 +1,318 @@
+{
+    "kind": "ordinary exact reviewed source combination/conflict WIP, no qualification authority",
+    "admission": "Current parent explicitly admits4340 exact4d9c144; earlier UNKNOWN/not-admitted messages do not grant authority",
+    "parentMain": "128f61f0c30768c061bbda32a1165371f417e517",
+    "donorPR": 4340,
+    "donorTrueBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+    "donorHead": "4d9c14434705e8e4c0c940352ee57e76ae4c550f",
+    "scope": "Exact14 donor files plus own ordinary15th WIP;11C# leaves. Independent sibling of revisionSQL4345 intake, not combined. All other Main source and frozen consumers unchanged.",
+    "exactFinalFiles": [
+        {
+            "path": "artifacts/change-contract/issue-2467-refresh-plan-external-naming.json",
+            "exactReviewedFinalBlob": "95fa6aeceb00bebd41b43300284c6cb95e7610d6",
+            "sha256": "8fd1185de63fc121024d19bfa46e7eab3cb334aed4953e72f952cc4bf8fc6c30",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "artifacts/work-in-progress/article-embed-refresh-plan.md",
+            "exactReviewedFinalBlob": "2c57fe205fcf1d14e528bb8cab2dd1173ac51328",
+            "sha256": "4711b4f4a6bb0e8e295b0d13bc5e4751f2324b13735a6e18903cfa3ca891cfe8",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "docs/api/contracts.md",
+            "exactReviewedFinalBlob": "52e21a40a1e73b7d94f87582753280e3d730874c",
+            "sha256": "03759597f11750ef0589d4a98ec8c06ff339fbcd86fe5fc3a6684eb41cd0a505",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticleEmbedRefreshPreparation.cs",
+            "exactReviewedFinalBlob": "6874247ecc5bc43ad9791af49dd60158e0be8162",
+            "sha256": "2b68afd13d875453ba115643e515d9526f43cf94be43f308cef40a394eaef687",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
+            "exactReviewedFinalBlob": "0f1393afa25817819a99af7ecbe2155b727513d5",
+            "sha256": "447a6818fb60b391a0a2ffd604991b76dc32b9d719615acc8dcf3112a5c8b046",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
+            "exactReviewedFinalBlob": "b619186b6c347e53297ceb868caa6939eba8e15b",
+            "sha256": "c0196d3c47bc3490f2f847ba233bf68bb25c3f8c486c16028bbc855ad71677c2",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+            "exactReviewedFinalBlob": "bfab0407b5ee441b9521fec174fa41f5a3e5b789",
+            "sha256": "675d5b4eccab25ae066bce77193351b4e8de7e3305c563ea6b34f6065fca4a22",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+            "exactReviewedFinalBlob": "5ef77946e015b3527c40b6ba4a5191c55ea7029b",
+            "sha256": "0b4ceeca1e7b57e7ff8849cc9183e39213f9169e45787a65a49c968a13b8ee58",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanContracts.cs",
+            "exactReviewedFinalBlob": "4ea4f942e265c92bc4bd0903dc310a7c9d876fbc",
+            "sha256": "59cba58ff7f1a536c130e62365d6d3ce6982e0cf284dd9704229a3db94196f24",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanner.cs",
+            "exactReviewedFinalBlob": "4ad0fa76748aed1309a4fcf9b07d839d923dcd31",
+            "sha256": "332c98d378d4d36f0e582f38131899df460e051858774e186c79a58a5e1fad5e",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs",
+            "exactReviewedFinalBlob": "9f0d7b928790b2c220db93aeaac540cb8673818f",
+            "sha256": "dfc036015c9b795250980cf17f4f26527728d5b4b36c88ce4a80020934d29847",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs",
+            "exactReviewedFinalBlob": "2d77409763344422559de0e354a56a48a14761f1",
+            "sha256": "2905dce9ebe94daad254a4df6b017dbb51c44459d845254720990b0411184e81",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+            "exactReviewedFinalBlob": "34fa1617a717a5f9cb0d710fc7c3cb20b6f3ac97",
+            "sha256": "3522104e2c6c66b3a9df89665894dcf56ac630a6d6b300e213bdfb8996a069e3",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs",
+            "exactReviewedFinalBlob": "a541b20cf529fbc3b58b76052affb9e5e54bd1db",
+            "sha256": "4731758f952026acffc6a063111d2a31a3d4d99e8c9ac5283df5192d3e7d8b45",
+            "wholeFileByteIdentical": true
+        }
+    ],
+    "eightCanonicalPrerequisites": [
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "0f1393afa25817819a99af7ecbe2155b727513d5"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "b619186b6c347e53297ceb868caa6939eba8e15b"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "bfab0407b5ee441b9521fec174fa41f5a3e5b789"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "5ef77946e015b3527c40b6ba4a5191c55ea7029b"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "9f0d7b928790b2c220db93aeaac540cb8673818f"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "2d77409763344422559de0e354a56a48a14761f1"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "34fa1617a717a5f9cb0d710fc7c3cb20b6f3ac97"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs",
+            "originalDonor": "ab713219ea9b2be99061bd325039e8f4b67aca42",
+            "sameBlob": "a541b20cf529fbc3b58b76052affb9e5e54bd1db"
+        }
+    ],
+    "disposition": "BLOCKED source compatibility: declare breaking current composition; old Resolver.Resolve/AuthoringVerifier.Verify names become projection-only, recursion requires explicit Pipeline/Graph. No compatibility label, old-entry equivalence or passing tests inherited from donor. Do not modify frozen consumers. Owning semantic disposition/migration remains outside this intake and held.",
+    "currentMainCallerConflict": {
+        "scope": "static source caller inspection only; no tests/import/discovery/evaluation",
+        "parent": "128f61f0c30768c061bbda32a1165371f417e517",
+        "donor": "4d9c14434705e8e4c0c940352ee57e76ae4c550f",
+        "sourceCallers": "At Main the only src references to old authoring verifier are RelationDeriver and RelationVerifier, both donor-owned paths. No backend runtime direct call/wiring found under src. New refresh uses explicit Pipeline. This search is source inspection, not runtime reachability proof.",
+        "frozenConsumerConflicts": [
+            {
+                "path": "tests/backend/Unit/ArticleEmbedAuthoringResolverTests.cs",
+                "line": 161,
+                "blob": "c6ad1bc827ab8dd259ed99e3155814b4728bd5a4",
+                "sha256": "ec3ee8f9a5092369c941db713b5848be36106c465794677c7069cc8c45629694",
+                "conflict": "SelfCycleAndMultiHopCycleFailLocallyWithoutStackOverflow calls unchanged Resolve and asserts recursive children/cycle nodes",
+                "unchanged": true
+            },
+            {
+                "path": "tests/backend/Unit/ArticleEmbedAuthoringResolverTests.cs",
+                "line": 212,
+                "blob": "c6ad1bc827ab8dd259ed99e3155814b4728bd5a4",
+                "sha256": "ec3ee8f9a5092369c941db713b5848be36106c465794677c7069cc8c45629694",
+                "conflict": "DepthNodeByteAndMessageBudgetsFailLocally calls unchanged Resolve and asserts nested depth/node/byte/message outcomes",
+                "unchanged": true
+            },
+            {
+                "path": "tests/backend/Unit/ArticleEmbedAuthoringResolverTests.cs",
+                "line": 189,
+                "blob": "c6ad1bc827ab8dd259ed99e3155814b4728bd5a4",
+                "sha256": "ec3ee8f9a5092369c941db713b5848be36106c465794677c7069cc8c45629694",
+                "conflict": "SharedSubtreeResolvesOnceAndSecondReferenceIsACacheHit asserts old traversal/memoization semantics",
+                "unchanged": true
+            },
+            {
+                "path": "tests/backend/Unit/ArticleEmbedRelationDeriverTests.cs",
+                "line": 44,
+                "blob": "804052a41f8da0c6929adc03d624959b37d2ecc4",
+                "sha256": "7746846285147abab3bac14ae987d94a9967cb38b04ff0763c250c86c322084f",
+                "conflict": "Direct resolver output feeds relation DeriveFromAuthoring and independent VerifyFromAuthoring; donor requires graph-verified trees",
+                "unchanged": true
+            }
+        ],
+        "donorVerifierGuard": "Completed candidates with nonempty children or Cycle/DepthExceeded root errors reject projection_stage_contains_graph_outcome; old caller recursive expectations incompatible.",
+        "disposition": "Separate blocked draft on4348, preserve all14 reviewed donor postimages and frozen consumers; no semantic equivalence or passing test claim. Breaking source-contract classification for current composition. Owner decision/migration remains outside this intake and held.",
+        "cancellationP2": "Validated request-set recheck immediately after Pipeline.Evaluate, all post-selection Blocked/Stale failures recheck cancellation, final check after immutable plan construction; finite source observation points, no atomic/running guarantee."
+    },
+    "cancellation": "Reviewed P2 checks full validated selected request set after Pipeline.Evaluate, cancellation-aware post-selection Blocked/Stale failure boundaries including verification/TryCompare, and final immutable-plan construction. Finite observation points only; cancellation after final check is not observed retrospectively. No atomicity/running race acceptance.",
+    "executionBoundary": "CanExecute alwaysfalse. Preparation unregistered; source search found no other backend direct old resolver/verifier runtime call or preparation wiring. No actual whole-host dependency reader, permission authority, completeness observation/revalidation,CAS,idempotency,journal/outbox/audit/execute capability; selected current-target graph cannot qualify complete persisted host graph. #2467 incomplete.",
+    "protectedOwners": [
+        {
+            "path": "src/backend/Entities/Article.cs",
+            "blob": "46ff5bf70ab67351ff0eb7fc0f5b63a692693309"
+        },
+        {
+            "path": "src/backend/FsusBlog.Server.csproj",
+            "blob": "c7e38c66b974862cddaef76897c957c9c28a5d81"
+        },
+        {
+            "path": "src/shared/FsusBlog.Shared.csproj",
+            "blob": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47"
+        },
+        {
+            "path": "src/frontend/tsconfig.app.json",
+            "blob": "f666ea827eff4d93dd12f3fbb0df310f2242cd74"
+        },
+        {
+            "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+            "blob": "2f338a003c951fb295eea59c64a93bb5197e06c3"
+        },
+        {
+            "path": "src/frontend/scripts/fsusui-root.mjs",
+            "blob": "b8ae455b18dbb36d36987d7ab7c4454138eb5d78"
+        }
+    ],
+    "static": {
+        "completeServer": "Fresh original locked restorePASS0/full no-incremental Server buildPASS0 vs actual exact4348,330warnings0errors both; complete660 diagnostic lines/multiplicity root/position-only delta0.",
+        "completeApplication": "Original full actualUI961 app29FAIL2 ->29FAIL2, Blog4/UI25; complete blocks/multiplicity positions-only delta0, same unrelaxed full config/deps/refs/enums/program.",
+        "strictCSharp": "Original strict checker including folder-whitespace/solution-style:baseline4existingfilesPASS0, candidateall11filesPASS0,0violations. Seven added files absent at base; no absent-file stub or reduced global compiler used.",
+        "globalCSharp": "Original complete552lineFAIL1 raw byte-identical.",
+        "codeIntent": "Same2 diagnostic rowsFAIL1, checkedsourcefiles5733->5740 explicitly retained; no count normalization.",
+        "docs": "Lifecycle7FAIL1 and authoritative41FAIL1 complete raw byte-identical. Required original API lint26FAIL1 both, complete source-position-only outputs identical; actual pinnedmarkdownlint-cli2@0.23.1 under/tmp with scriptsdisabled, initial default-cache failure retained then taskcache installPASS0, no repository deps/lock changed."
+    },
+    "UIInput": "Actual fixed cleanUI961c77281165226ffd84223c4c8d43805c5deb2b1b3 original localaliases. CSS output and independent physical alias UNVERIFIED; old formal identity-dependent receipts not inherited/refreshed.",
+    "holds": "All runtime/product/helper/parser module evaluation/import/calls/tests/help/list/discovery/collection/DB/drop/backfill/native/browser/render/security/privacy/receipts/catalog/fixtures/race/backuprestore/IME/qualification HOLD/UNRUN. No merge/Ready/closure/package/publication/authority refresh.4336aggregateFAIL retained. Original public editor loan/worker/recovery/disposedrestoreACK interfaces remain incomplete; no fakepause/ready/zero/successACK.",
+    "rollback": "Omit/revert this15path candidate to exact4348; no live state changed. Resolve consumer semantic conflict in its owning authorized lane before source compatibility/activation acceptance.",
+    "evidence": {
+        "/workspace/session-evidence-2295/embed-markdownlint-tool-install-task-cache.txt": {
+            "sha256": "08fc6b88750675cc6a28c6e3b3d5472bdcd2e28926e0bff565de705164734306"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-intake-message.txt": {
+            "sha256": "c532f7700b4cdb1a10d60867d4f4a4e28e3177f959e0895b80d7d3b810ce7004"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-lifecycle.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-base-strict-existing-four.txt": {
+            "sha256": "338c3460669d174026aff5806362826322bba8ad7b474d80ac85fdd8acbc56ec"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-strict-command.json": {
+            "sha256": "d53bac02adcebab9f308da9e33a250e49fc13e4b8ffddcbe17ec736996bffbf2"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-build.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-restore.txt": {
+            "sha256": "1757df1b097812c873ce813f3089de6e9899209dd0c0e1d06f0dc07e344c8a5d"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-restore.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-intake-csharp-paths.json": {
+            "sha256": "1ab4879bfd3fa248a10e232310f2807c03717f080f315244431084dac3479093"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-authoritative.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/embed-markdownlint-tool-install-task-cache.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-strict.txt": {
+            "sha256": "5288e645993e17189c2f7b8aee1184e42c089b85263d0aebcb4f77ec419e9ff6"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-api-doc-lint.txt": {
+            "sha256": "a1be1351361021a66c327022606c9cde543a460661b2efdf924cb984052096e6"
+        },
+        "/workspace/session-evidence-2295/embed-markdownlint-tool-install.txt": {
+            "sha256": "a637878810aea74d37e090a02b00ade4b7ebdc4e140ef895e70d1fb838390454"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-base-strict-existing-four.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-current-main-conflicts.json": {
+            "sha256": "93483e49c6a094623079dc47dd4992317ab12d3e033282e35948f73606e76918"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-build.txt": {
+            "sha256": "073aeb2474b43aa94ab8d4a093b518b075ea85d6230eaf30a93448dea885d19f"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-base-api-doc-lint.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-code-intent.txt": {
+            "sha256": "c8679bf2a25ced572ad5411f339220777903fae614930939d2c6f26f55a02ba1"
+        },
+        "/workspace/session-evidence-2295/embed-markdownlint-tool-install.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-code-intent.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-strict.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/embed-main-preimage-check.json": {
+            "sha256": "23d03a07d47e94750b29bef6d10efb4106af63745ed36d7e72a56aee70bd0a4d"
+        },
+        "/workspace/session-evidence-2295/embed-current-main-callers.txt": {
+            "sha256": "ab8d051a2ea1203e57dfc5c70effd72b9afd0ca2fc2c3da4d29e85853ce7f0e7"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-base-api-doc-lint.txt": {
+            "sha256": "b2dc8ded592c3cc23fbacc31f07b99ab4335174c2d132886b9488dc75881d0df"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-csharp-full.txt": {
+            "sha256": "65c17a5db8bbbb36d9ef7b29fe9cb4a43143d75d0eabdbde72b6324380c139b1"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-types.exit": {
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-api-doc-lint.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/embed-refresh-candidate-csharp-full.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        }
+    }
+}
