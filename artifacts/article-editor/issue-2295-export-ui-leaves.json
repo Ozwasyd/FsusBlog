@@ -1,0 +1,158 @@
+{
+    "kind": "ordinary exact four unmounted frontend export source-leaf WIP, no execution authority",
+    "base": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+    "donorPR": 4354,
+    "donorHead": "b8b68651347eac7862e0e8252cdc25718dad6f27",
+    "donorTrueBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+    "sourceProof": {
+        "base": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+        "exactInputs": [
+            {
+                "head": "b8b68651347eac7862e0e8252cdc25718dad6f27",
+                "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+                "blob": "5e82b53f5b8fea926c98965e486212d326cbb62d"
+            },
+            {
+                "head": "b8b68651347eac7862e0e8252cdc25718dad6f27",
+                "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+                "blob": "259211926b8b031e32c424b4772b50adec1867e6"
+            },
+            {
+                "head": "b8b68651347eac7862e0e8252cdc25718dad6f27",
+                "path": "src/frontend/src/composables/useDocumentExport.ts",
+                "blob": "69bd7213296ea746d6b33f619ca5669954f6d2b3"
+            },
+            {
+                "head": "b8b68651347eac7862e0e8252cdc25718dad6f27",
+                "path": "src/frontend/src/views/admin/article/ExportCenter.vue",
+                "blob": "ac19526e618058ca918682988a0682cff59e9371"
+            }
+        ],
+        "noOtherSourceConsumers": true,
+        "allPreexistingTrackedFilesUnchanged": true,
+        "protectedOwners": [
+            {
+                "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+                "blob": "808468e4efe9f72b92ba3799a7df233cda48ad30"
+            },
+            {
+                "path": "src/frontend/src/services/authoring/articleWorkspaceRetainedRecoverySnapshot.ts",
+                "blob": "3540b2ff622680a2fc6a19842bcb81ffbca1cd23"
+            },
+            {
+                "path": "src/frontend/src/services/authoring/articleWorkspaceTabRouter.ts",
+                "blob": "57bd14cdc6e13a6efac7cd6585feeaa378769468"
+            },
+            {
+                "path": "src/frontend/src/services/authoring/articleSearchRevealPresentation.ts",
+                "blob": "28aa96f75cc9e62822593b3eebd351718753521e"
+            },
+            {
+                "path": "artifacts/article-editor/issue-2295-final-compatible-embed-composition.json",
+                "blob": "b5971347653c9448c1a3d9fb1b135d60c5ddb759"
+            }
+        ],
+        "unactivated": "No host/Router/transport/browser/download implementation or activation. Future component methods/helpers not called; props/canonical owner facts are not real grants.",
+        "actualUIAlias": "Same cleanUI961c77281165226ffd84223c4c8d43805c5deb2b1b3 through original full app producer; generated config byte-identical, no ref/enum/config/deps/lock/rule changes",
+        "generatedConfigSha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+        "boundaryNewFinding": "Original20 ->21FAIL, exact new runtime-import-outside-boundary at addedVue. Preserve donorbytes and unchanged boundaryallowlist; no waiver/ready claim.",
+        "sourceNotes": "Int64 values preserved as exact scalars and comparedBigInt; old snapshots reject, unknown/noninteger status nonactionable; uncertain recovery remains visible without selectedrow and identity/revoke invalidation original exact reviewed source."
+    },
+    "scope": "Only four exact newfrontend sources plus own ordinary WIP,5paths; no donor history/tests or backendJobs/Shared/schema/SiteScope/registry owner. Independent4352 sibling, no feature enabled.",
+    "contracts": "Exact decimal Int64 version/output length preserved and validated, comparedBigInt; old responses and noninteger/unknown mutation statuses rejected; uncertain command recovery remains when polling/pagination clears selection; identity/revoke synchronously clear private choices/ephemeral form. UIport describes canonical caller capability, not a real site/auth/transport/browserport/download grant.",
+    "static": {
+        "completeApplication": "Current original actualUI96129FAIL2 ->29FAIL2 full blocks/multiplicity positions-only delta0, Blog4/UI25, no ref/enum/config/rule/lock/deps/source-set changes.",
+        "fullFrontendStyle": "Original configured toolchain actually present; fullFAIL1 both83667lines raw byte-identical, including all stale config/source-state baseline failures. Author4354missingtoolBLOCKED retained as its distinct original profile, not substituted.",
+        "strict": "PASS0 files4 eslint4 stylelint1 violations0 new0",
+        "AST": "3TS/1SFC source ASTPASS0, no product/helper evaluation",
+        "boundary": {
+            "baseWarnings": 20,
+            "candidateWarnings": 21,
+            "exit": "FAIL1 both",
+            "added": [
+                "- src/frontend/src/views/admin/article/ExportCenter.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus"
+            ],
+            "disposition": "New unmet integration check retained, no donor import change or allowlist/guard waiver. LimitedSOURCEacceptance is not a boundary/activation qualification."
+        },
+        "global": "Code-intent same2errors checked5742->5746, docs7/41FAIL retained; no managed source/project changes or unnecessary managed rebuild."
+    },
+    "missing": "Real canonical site/auth/current permission/browserport/authorized download and feature registration absent. BackendJobs/schema/SiteScope owners excluded.4353querycoordinator remains separate because4352 lacks real registry entry; no fake registry or wiring.4355WritingAidsnotusable, pendingUIstaleP2/scopeclarification.",
+    "holds": "All original runtime/product/helper/parser module import/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixture/race/backuprestore/IME/qualification HOLD/UNRUN. No exportactivation/merge/Ready/close/package/publication/authority refresh. No rendered/UX or physicalalias/CSSoutput acceptance; original resource/host gaps and4336aggregateFAIL unchanged.",
+    "rollback": "Omit/revert only these5addedpaths to exact4352; no live state changed.",
+    "evidence": {
+        "/workspace/session-evidence-2295/export-ui-strict.txt": {
+            "sha256": "cd1f01067a81dd18e9315081d644111caa45ac1130d35dd3e0ce817835530e09"
+        },
+        "/workspace/session-evidence-2295/export-ui-code-intent.txt": {
+            "sha256": "1dc7ed0717c4543ee9c1546f255cfc7420663958a0d197979f23ccf739168f27"
+        },
+        "/workspace/session-evidence-2295/export-ui-candidate-full-style.txt": {
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "/workspace/session-evidence-2295/export-ui-ast.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/export-ui-strict.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/export-ui-code-intent.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/export-ui-exact-inputs.json": {
+            "sha256": "f36185c2c29de83e59a01d32104ac7d18b602986ff937fb186d76398af9ecbd8"
+        },
+        "/workspace/session-evidence-2295/export-ui-ast.txt": {
+            "sha256": "c9fcccd82c9bef4902368d76efb52ba89855dfe7554aa6235210e8562c0f37c1"
+        },
+        "/workspace/session-evidence-2295/export-ui-candidate-full-style.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/export-ui-candidate-types.exit": {
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+        },
+        "/workspace/session-evidence-2295/export-ui-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/export-ui-boundary.txt": {
+            "sha256": "be65cd3dd9b2f8a2fb6c13265299c1532bf710889b41df1041ea0141e1f798cc"
+        },
+        "/workspace/session-evidence-2295/export-ui-boundary.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/export-ui-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "/workspace/session-evidence-2295/export-ui-source-proof.json": {
+            "sha256": "95319eff83fc348d9b40a5b2e9e73051f9e7dd3123c0b5de915d2358cde0bcb8"
+        },
+        "/workspace/session-evidence-2295/export-ui-candidate-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/export-ui-lifecycle.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/export-ui-authoritative.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        }
+    },
+    "baselineEvidence": {
+        "/workspace/session-evidence-2295/navigation-capture-base-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-full-style.txt": {
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "/workspace/session-evidence-2295/display-base-boundary.txt": {
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-code-intent.txt": {
+            "sha256": "b28775b8a33594fe33211eb01843520674865609a4a725ccf8282682505daa4c"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-base-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        }
+    }
+}
