@@ -1,0 +1,83 @@
+{
+  "compilerOptions": {
+    "composite": false,
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@wasm/*": [
+        "./wasm/web/*"
+      ],
+      "vue": [
+        "./node_modules/vue"
+      ],
+      "@vue/*": [
+        "./node_modules/@vue/*"
+      ],
+      "@ozwasyd/element-plus": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/index.ts"
+      ],
+      "element-plus": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/index.ts"
+      ],
+      "@ozwasyd/element-plus/icons-vue": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/icons-vue.ts"
+      ],
+      "@ozwasyd/element-plus/markdown-runtime": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/markdown-runtime.ts"
+      ],
+      "@ozwasyd/element-plus/motion": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/motion.ts"
+      ],
+      "@ozwasyd/element-plus/perception-challenge": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/perception-challenge.ts"
+      ],
+      "@ozwasyd/element-plus/render-pipeline": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/render-pipeline.ts"
+      ],
+      "@ozwasyd/element-plus/result": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/result.ts"
+      ],
+      "@ozwasyd/element-plus/theme": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/theme.ts"
+      ],
+      "@ozwasyd/element-plus/wasm": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/element-plus/wasm.ts"
+      ],
+      "@element-plus/icons-vue": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/icons-vue/src/index.ts"
+      ],
+      "@element-plus/icons-vue/*": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/icons-vue/src/*"
+      ],
+      "@element-plus/theme-chalk/src": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/theme-chalk/src"
+      ],
+      "@element-plus/theme-chalk/src/*": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/theme-chalk/src/*"
+      ],
+      "@element-plus/wasm": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/wasm/index.ts"
+      ],
+      "@element-plus/wasm/*": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/wasm/*"
+      ],
+      "@element-plus/*": [
+        "../../../session-2295-ui969-local-dependency/vue/packages/*"
+      ]
+    },
+    "tsBuildInfoFile": "./tsconfig.fsusui-local.app.generated.tsbuildinfo",
+    "types": [
+      "vite/client",
+      "node"
+    ]
+  },
+  "extends": "../../tsconfig.app.json",
+  "files": [
+    "../../../../../session-2295-ui969-local-dependency/vue/global.d.ts",
+    "../../../../../session-2295-ui969-local-dependency/vue/typings/components.d.ts",
+    "../../../../../session-2295-ui969-local-dependency/vue/typings/env.d.ts"
+  ]
+}
