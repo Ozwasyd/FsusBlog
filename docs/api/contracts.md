@@ -832,17 +832,20 @@ relation、article package 与 document export 必须直接复用
 ### Article embed authoring resolution contract
 
 `src/shared/Contracts/ArticleEmbeds/Authoring/` 是 authoring scope embed resolution 的唯一
-authority。`ArticleEmbedAuthoringResolver.Resolve` 只投影当前目标，不展开 nested directives；它只接受
+authority。`ArticleEmbedAuthoringResolver.Resolve` 与 `ArticleEmbedAuthoringVerifier.Verify`
+保留原递归入口的 traversal、整棵子树 memo、cycle 与 budget observation 语义；旧 `Resolve`
+不转发新 graph planner。`ResolveProjection` / `VerifyProjection` 是同一 owner 的明确新入口，
+只投影/验证当前目标，拒绝把 nested expansion 当成 projection。两种入口都只消费
 sealed #2454 authoring requests 与
 caller-verified `ArticleEmbedAuthoritySnapshot`（绑定 host article/document epoch、source
 revision/digest、actor/site/permission context、provider runtime 与 material locale/theme）；
 它不解析 Markdown、不读 rendered output、不修改 target 或 host source，也不把 memo state 保留到
 resolution 之外。任何 host/source/actor/runtime/authority-generation drift 或 abort signal 都让
 结果以 closed stale error 失败，而不是静默沿用旧状态。`ArticleEmbedAuthoringPipeline.Evaluate`
-复用该 resolver，再由 `ArticleEmbedDependencyGraphPlanner.Expand` 显式展开依赖并派生 relation。
-这是相对原递归入口的有限语义变化：直接调用原名 `Resolver.Resolve` 不再得到 nested expansion；
-需要该展开、cycle/budget observation 的调用方须消费显式 pipeline/graph stage，不能以旧入口名
-推断递归语义不变。旧调用路径的迁移、组合行为及运行时等价性尚未执行验证。
+明确调用 `ResolveProjection`，再由 `ArticleEmbedDependencyGraphPlanner.Expand` 以
+`VerifyProjection` 验证该阶段并显式展开依赖。旧入口复用整棵缓存树，新 graph stage 复用叶投影后
+重新展开，预算/时钟观察不可互换；调用方通过明确入口选择语义，不根据 candidate 内容猜测。
+旧递归核心的源码还原与静态编译不等于运行时兼容验收；冻结消费者及新旧组合行为均未执行验证。
 
 article mode 返回整个 target body projection；heading mode 只返回 exact heading subtree；block
 mode 只返回 #289 canonical anchor target。missing/duplicate/invalid coordinate 一律 fail closed，
@@ -856,7 +859,7 @@ authority message budget 逐 request/graph 累计并封闭上限。局部 embed 
 
 每次 resolution 产出 sealed `ArticleEmbedAuthoringReceipt`：只记录 host/target identities、
 permission/lifecycle、graph/budget/cache fact、status、timing 与 content digest，绝不记录无权
-content。`ArticleEmbedAuthoringVerifier` 独立验证 projection stage，
+content。`ArticleEmbedAuthoringVerifier.Verify` 独立验证旧递归结果，`VerifyProjection` 验证新 projection stage，
 `ArticleEmbedDependencyGraphVerifier` 独立重算 graph 的 expected outcome、cycle/budget legitimacy、
 memoization exactness 与全部 digest；任何 tamper 都 fail closed。本 slice 不执行
 publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
@@ -913,8 +916,11 @@ invalidation、publication write、AOT 或 UI。
 ### Article embed relation edge contract
 
 `src/shared/Contracts/ArticleEmbeds/Relations/` 定义 #1808 relation authority 持久化的 embed 边的唯一
-canonical shape。`ArticleEmbedRelationDeriver` 是纯投影：每个入口先独立 re-verify 其来源（#2455
-`ArticleEmbedDependencyGraphVerifier` / #2456 `ArticleEmbedPublicationVerifier`），未通过或 blocked 来源只
+canonical shape。`ArticleEmbedRelationDeriver` 是纯投影：旧 `DeriveFromAuthoring` /
+`ArticleEmbedRelationVerifier.VerifyFromAuthoring` 先使用递归 `ArticleEmbedAuthoringVerifier.Verify`；
+新 `DeriveFromGraph` / `VerifyFromGraph` 先使用 `ArticleEmbedDependencyGraphVerifier`，Pipeline
+明确调用 `DeriveFromGraph`。各自验证后复用私有 relation 投影/核验核心，不以一种 verifier 失败后
+重试另一种来猜测语义。publication 仍由 #2456 `ArticleEmbedPublicationVerifier` 验证。未通过或 blocked 来源只
 产出 closed rejection，绝不产生 edge。它不解析 source、不扫描 rendered output、不读 store/cache、不
 改写 host 或 target 内容。
 

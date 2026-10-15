@@ -18,7 +18,7 @@ public static class ArticleEmbedDependencyGraphPlanner
         ArticleEmbedAuthoringResolution? projection,
         TimeProvider? time = null)
     {
-        if (!ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, projection).Valid)
+        if (!ArticleEmbedAuthoringVerifier.VerifyProjection(requests, snapshot, budgets, projection).Valid)
         {
             return Rejected("article_embed_graph_projection_unverified", snapshot, budgets, requests?.Count ?? 0);
         }

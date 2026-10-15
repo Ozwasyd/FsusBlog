@@ -536,7 +536,7 @@ public static class ArticleEmbedDependencyGraphVerifier
     private static ArticleEmbedError? ExpectedGraphFailure(
         ArticleEmbedTargetFacts facts, ArticleEmbedAuthoritySnapshot snapshot, ArticleEmbedTargetIdentity target)
     {
-        ArticleEmbedError? source = ExpectedFailure(facts, snapshot, target);
+        ArticleEmbedError? source = ExpectedProjectionFailure(facts, snapshot, target);
         return source ?? (target.Kind != ArticleEmbedTargetKind.Article && facts.NestedDirectives.Count != 0
             ? new ArticleEmbedError(ArticleEmbedErrorCode.InvalidTarget, "projection_dependencies_unbound") : null);
     }
@@ -545,7 +545,7 @@ public static class ArticleEmbedDependencyGraphVerifier
         ArticleEmbedTargetIdentity target, ArticleEmbedAuthoritySnapshot snapshot,
         Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity)
     {
-        NodeExpectation source = Expect(target, snapshot, factsByIdentity);
+        NodeExpectation source = ExpectProjection(target, snapshot, factsByIdentity);
         if (source.Error is not null)
         {
             return source;

@@ -22,6 +22,27 @@ public static class ArticleEmbedRelationDeriver
         ArticleEmbedAuthoringResolution? resolution)
     {
         ArticleEmbedAuthoringVerification verification =
+            ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, resolution);
+        if (!verification.Valid)
+        {
+            return Rejected("article_embed_relation_source_unverified");
+        }
+        if (resolution!.Status != ArticleEmbedAuthoringResolutionStatus.Completed)
+        {
+            return Rejected("article_embed_relation_resolution_rejected");
+        }
+
+        return DeriveAuthoringCore(requests!, snapshot!, resolution);
+    }
+
+    /// <summary>Verifies the explicit graph contract before projecting current relation edges; never falls back to recursive admission.</summary>
+    public static ArticleEmbedRelationDerivation DeriveFromGraph(
+        IReadOnlyList<ArticleEmbedProviderRequest>? requests,
+        ArticleEmbedAuthoritySnapshot? snapshot,
+        ArticleEmbedResolutionBudgetLimits? budgets,
+        ArticleEmbedAuthoringResolution? resolution)
+    {
+        ArticleEmbedAuthoringVerification verification =
             ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, resolution);
         if (!verification.Valid)
         {
@@ -32,6 +53,14 @@ public static class ArticleEmbedRelationDeriver
             return Rejected("article_embed_relation_resolution_rejected");
         }
 
+        return DeriveAuthoringCore(requests!, snapshot!, resolution);
+    }
+
+    private static ArticleEmbedRelationDerivation DeriveAuthoringCore(
+        IReadOnlyList<ArticleEmbedProviderRequest> requests,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        ArticleEmbedAuthoringResolution resolution)
+    {
         var factsByIdentity = snapshot!.Targets
             .GroupBy(static facts => facts.PortableArticleIdentity, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.ToList(), StringComparer.Ordinal);
