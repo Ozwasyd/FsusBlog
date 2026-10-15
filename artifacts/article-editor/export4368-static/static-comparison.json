@@ -1,0 +1,65 @@
+{
+  "UI969ToUI973AliasOnly": {
+    "base": 29,
+    "candidate": 29,
+    "exit": 2,
+    "Blog": 4,
+    "UI": 25,
+    "added": 0,
+    "removed": 0,
+    "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+  },
+  "sourceCandidate": {
+    "base": 29,
+    "candidate": 29,
+    "exit": 2,
+    "Blog": 4,
+    "UI": 25,
+    "added": 0,
+    "removed": 0,
+    "comparison": "whole raw output; replace only exact UI root and source positions; no filtering or deduplication"
+  },
+  "full-style": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 83667
+  },
+  "boundary": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 21
+  },
+  "binary-boundary": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 7
+  },
+  "lifecycle": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 7
+  },
+  "authoritative": {
+    "status": "FAIL1 both, retained",
+    "rawByteIdentical": true,
+    "linesEach": 41
+  },
+  "codeIntent": {
+    "status": "FAIL1 both",
+    "same2DiagnosticRows": true,
+    "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+    "candidateSummary": "[code-intent] 2 error(s) across 5752 checked file(s):"
+  },
+  "priorUI969AliasEvidence": {
+    "immutablePR": 4393,
+    "head": "48a02f933a13f6cdc1078cea531cbf87897a96e1",
+    "map": "artifacts/article-editor/metadata-ui969-static/delivery-map.json",
+    "meaning": "prior UI969 alias-only raw files preserved in immutable sibling commit; no receipt inheritance"
+  },
+  "UI969ToUI973NonCompilerChecks": "full style/boundary/binary/code-intent/lifecycle/authoritative raw byte-identical; failures retained",
+  "strict": {
+    "exit": 0,
+    "rawResult": "[frontend-style] ok files=5 eslint=5 stylelint=1 violations=0 new=0"
+  },
+  "AST": "PASS0 SFC/script/TS parse only; no product module import/evaluation"
+}
