@@ -1,0 +1,171 @@
+{
+    "meaning": "Complete original static outputs and exits; byte comparison has no filtering, normalization, deduplication, rule suppression or ceiling. Original failures remain failures.",
+    "checks": [
+        {
+            "name": "strict",
+            "command": [
+                "node",
+                "tools/frontend/check-frontend-style.mjs",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue"
+            ],
+            "baseExit": 0,
+            "candidateExit": 0,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "candidateSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "bytesEach": 68,
+            "linesEach": 1,
+            "diagnosticsEach": null
+        },
+        {
+            "name": "types",
+            "command": [
+                "node",
+                "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+                "--application"
+            ],
+            "baseExit": 2,
+            "candidateExit": 2,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f",
+            "candidateSha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f",
+            "bytesEach": 4992,
+            "linesEach": 30,
+            "diagnosticsEach": 29
+        },
+        {
+            "name": "node-types",
+            "command": [
+                "node",
+                "src/frontend/node_modules/typescript/bin/tsc",
+                "--noEmit",
+                "-p",
+                "src/frontend/tsconfig.node.json"
+            ],
+            "baseExit": 2,
+            "candidateExit": 2,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e",
+            "candidateSha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e",
+            "bytesEach": 236,
+            "linesEach": 1,
+            "diagnosticsEach": 1
+        },
+        {
+            "name": "full-style",
+            "command": [
+                "node",
+                "tools/frontend/check-frontend-style.mjs",
+                "--mode",
+                "full"
+            ],
+            "baseExit": 1,
+            "candidateExit": 1,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "candidateSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "bytesEach": 11861610,
+            "linesEach": 83667,
+            "diagnosticsEach": null
+        },
+        {
+            "name": "boundary",
+            "command": [
+                "node",
+                "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+            ],
+            "baseExit": 1,
+            "candidateExit": 1,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "bytesEach": 2805,
+            "linesEach": 21,
+            "diagnosticsEach": null
+        },
+        {
+            "name": "binary",
+            "command": [
+                "node",
+                "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+            ],
+            "baseExit": 1,
+            "candidateExit": 1,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "bytesEach": 866,
+            "linesEach": 7,
+            "diagnosticsEach": null
+        },
+        {
+            "name": "intent",
+            "command": [
+                "node",
+                "tools/governance/check-code-intent.mjs"
+            ],
+            "baseExit": 1,
+            "candidateExit": 1,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "bytesEach": 353,
+            "linesEach": 3,
+            "diagnosticsEach": null
+        },
+        {
+            "name": "lifecycle",
+            "command": [
+                "node",
+                "tools/docs/generate-document-lifecycle.mjs",
+                "--check"
+            ],
+            "baseExit": 1,
+            "candidateExit": 1,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "bytesEach": 762,
+            "linesEach": 7,
+            "diagnosticsEach": null
+        },
+        {
+            "name": "authoritative",
+            "command": [
+                "node",
+                "tools/docs/check-authoritative-development-docs.mjs"
+            ],
+            "baseExit": 1,
+            "candidateExit": 1,
+            "wholeRawBytesEqual": true,
+            "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "bytesEach": 6771,
+            "linesEach": 41,
+            "diagnosticsEach": null
+        }
+    ],
+    "effectiveVueRootFilesEach": 771,
+    "effectiveVueConfigurationRawEqual": true,
+    "generatedConfigurationRawEqual": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "publicAliases": {
+        "element-plus": [
+            "../../../FsusUI/vue/packages/element-plus/index.ts"
+        ],
+        "@ozwasyd/element-plus": [
+            "../../../FsusUI/vue/packages/element-plus/index.ts"
+        ]
+    },
+    "additionalCommands": [
+        "node src/frontend/node_modules/vue-tsc/bin/vue-tsc.js --showConfig -p src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+        "node src/frontend/node_modules/typescript/bin/tsc --showConfig -p src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+    ],
+    "configSnapshotMeaning": "Original compiler/tooling output, retained with original cwd and relative path meaning. Snapshots are not executable configurations at delivery locations. TypeScript-only showConfig has 581 root files; the actual Vue compiler showConfig has 771. Neither project include scope nor references was reduced."
+}

@@ -1,0 +1,27 @@
+{
+    "base": {
+        "pr": 4385,
+        "head": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "tree": "c50f8f2f7417cf5d70d2bae9ca7451c554f98518"
+    },
+    "donor": {
+        "pr": 4377,
+        "head": "bb6a4476a15fcba3a3f477c386fd12a4705c06db",
+        "trueBase": "d5773ef97f55176a1eab67e677790f3e13352a7b"
+    },
+    "ownedPath": "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
+    "mode": "100644",
+    "donorPreimage": "8393e632287260a6ce9220a0b42f821e9779e696",
+    "receivingBasePreimage": "8393e632287260a6ce9220a0b42f821e9779e696",
+    "acceptedAndCandidatePostimage": "4716a11b72c148be96db83270a87f2715c24ced6",
+    "conflict": false,
+    "adaptation": "Exact preimages match. Apply accepted production delta without textual adaptation; csp-safe was already in both preimages and remains unchanged. No donor commits, WIP or unrelated source imported.",
+    "staticAssertions": {
+        "scriptIdenticalExceptPublicButtonImport": true,
+        "templateOutsideRevisionRowIdentical": true,
+        "stylesAfterRevisionFieldsIdentical": true
+    },
+    "semanticReview": "Original revision objects, keys/list order, select payload, aria-current, loading || rollbacking disabled expression preserved. Refresh/rollback event values, minimum/trim reason, selected watcher/reset and all adjacent Input/Select/authority logic unchanged. No new focus/ref mechanism, wrapper, API, permission, host binding, cancel/settlement or authority semantics.",
+    "patchSha256": "2bddfa02b07186cec3f2b3349f90120829fff6433a21b96756b8f2e1534154f0",
+    "renderedAcceptance": "HOLD/UNRUN"
+}
