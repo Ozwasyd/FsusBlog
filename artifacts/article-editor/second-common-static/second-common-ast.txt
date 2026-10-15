@@ -1,0 +1,8 @@
+src/frontend/src/services/authoring/articleWritingAidPolicy.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/articleWritingAidRuntime.ts: AST 0 diagnostics
+src/frontend/src/services/authoring/articleSourceCompare.ts: AST 0 diagnostics
+src/frontend/src/components/admin/OpsHealthWorkbench.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/article/ArticleRelationGraph.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/article/ArticleTocPanel.vue: SFC script/AST 0 diagnostics
+src/frontend/src/views/admin/security/SecurityDashboard.vue: SFC script/AST 0 diagnostics
+src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue: SFC script/AST 0 diagnostics

@@ -1,0 +1,177 @@
+{
+  "kind": "ordinary exact accepted source intake WIP, no qualification authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4357,
+  "donorPRBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+  "acceptedHead": "8d9b5f3c3da0257c4d41dbd9756d2f376ca647ae",
+  "sourceInputs": [
+    {
+      "path": "src/frontend/src/services/authoring/articleSourceCompare.ts",
+      "head": "8d9b5f3c3da0257c4d41dbd9756d2f376ca647ae",
+      "blob": "6b7c6a5d9c6c5d5771f35c185842385cd41ba360",
+      "preimage": null,
+      "donorPreimage": null
+    }
+  ],
+  "scope": "Exact source retains original invocation/work/receipt/terminal custody across normal close/reentry and real failures; no lease/terminal success invented. New service remains unmounted.",
+  "topology": "Only own final production paths applied on4385; donor preimages match4385 exactly. No donor ancestry or historical WIP imported. Other accepted sibling increments remain separate; Metadata/Vault are not combined here.",
+  "actualUI": {
+    "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "path": "/workspace/session-2295-ui973-local-dependency",
+    "bothPublicAliasesSameRealIndex": true,
+    "fullConfigSha256": "68fb404e9052717a1293dacba40eda20ead45104479dd4db15cdd71fc9559d72",
+    "physicalIndependence": "UNVERIFIED",
+    "CSSOutput": "UNVERIFIED"
+  },
+  "static": {
+    "types": {
+      "baseExit": 2,
+      "candidateExit": 2,
+      "status": "original failures retained",
+      "baseLines": 30,
+      "candidateLines": 30,
+      "rawByteIdentical": true,
+      "baseErrors": 29,
+      "candidateErrors": 29,
+      "wholeOutputPositionsOnlyEqual": true
+    },
+    "full-style": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "status": "original failures retained",
+      "baseLines": 83667,
+      "candidateLines": 83667,
+      "rawByteIdentical": true,
+      "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+      "added": [],
+      "removed": []
+    },
+    "boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "status": "original failures retained",
+      "baseLines": 21,
+      "candidateLines": 21,
+      "rawByteIdentical": true,
+      "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+      "added": [],
+      "removed": []
+    },
+    "binary-boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "status": "original failures retained",
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+      "added": [],
+      "removed": []
+    },
+    "code-intent": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "status": "original failures retained",
+      "baseLines": 3,
+      "candidateLines": 3,
+      "rawByteIdentical": false,
+      "sameDiagnosticRows": true,
+      "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+      "candidateSummary": "[code-intent] 2 error(s) across 5748 checked file(s):"
+    },
+    "lifecycle": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "status": "original failures retained",
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+      "added": [],
+      "removed": []
+    },
+    "authoritative": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "status": "original failures retained",
+      "baseLines": 41,
+      "candidateLines": 41,
+      "rawByteIdentical": true,
+      "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+      "added": [],
+      "removed": []
+    },
+    "strict": {
+      "exit": 0,
+      "status": "PASS",
+      "lines": 1,
+      "meaning": "source parser/linter only, no product module import/evaluation"
+    },
+    "ast": {
+      "exit": 0,
+      "status": "PASS",
+      "lines": 1,
+      "meaning": "source parser/linter only, no product module import/evaluation"
+    }
+  },
+  "sourceProtection": "Only declared donor production paths changed plus own ordinary WIP/raw static delivery; every other4385entry unchanged. No other owner branch edited, no host/router/editor/journal/registry/group/typography/authority/frozen/config/lock/test/schema changes.",
+  "readableEvidence": "artifacts/article-editor/intake4357-static/delivery-map.json",
+  "originalStaticPreflight": {
+    "kind": "ordinary zero-product-execution source check preflight, no qualification authority",
+    "cwd": "/workspace/session-2295-blog-intake4357",
+    "actualUI": "/workspace/session-2295-ui973-local-dependency",
+    "commands": {
+      "types": [
+        "node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "full-style": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "full"
+      ],
+      "boundary": [
+        "node",
+        "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+      ],
+      "binary-boundary": [
+        "node",
+        "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+      ],
+      "code-intent": [
+        "node",
+        "tools/governance/check-code-intent.mjs"
+      ],
+      "lifecycle": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "authoritative": [
+        "node",
+        "tools/docs/check-authoritative-development-docs.mjs"
+      ],
+      "strict": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/services/authoring/articleSourceCompare.ts"
+      ],
+      "ast": [
+        "node",
+        "/workspace/session-evidence-2295/static-source.cjs",
+        "src/frontend/src/services/authoring/articleSourceCompare.ts"
+      ]
+    },
+    "scope": "Only original complete compiler, source-only checkers, lint and AST/SFC parse. No product module imports/evaluation/calls, tests/help/list/discovery/collection, runtime/native/browser/DB or authority producers. Existing authorization for these exact original static CLIs retained.",
+    "mode": "all"
+  },
+  "holds": "All runtime/product/helper/parser module import/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/qualification HOLD/UNRUN. Source parser/linter/compiler only. No authority/frozen producers/refresh; no merge/Ready/close/package/publication.4336aggregateFAIL unchanged. Native loan/worker/recovery/disposedrestoreACK gaps remain; no fake resources/paused/ready/ACK.",
+  "remaining": "Independent current combination source review; no runtime/UX/physical qualification. Existing mounted migrations require rendered acceptance, unmounted leaves require original host integration. Real current permissions/focus/restoration/receipts not claimed.",
+  "rollback": "Revert/omit only own source paths and ordinary WIP/evidence to exact4385; no live data changed."
+}
