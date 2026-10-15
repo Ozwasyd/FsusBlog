@@ -1,0 +1,91 @@
+{
+  "types": {
+    "baseExit": 2,
+    "candidateExit": 2,
+    "status": "original failures retained",
+    "baseLines": 30,
+    "candidateLines": 30,
+    "rawByteIdentical": true,
+    "baseErrors": 29,
+    "candidateErrors": 29,
+    "wholeOutputPositionsOnlyEqual": true
+  },
+  "full-style": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "status": "original failures retained",
+    "baseLines": 83667,
+    "candidateLines": 83667,
+    "rawByteIdentical": true,
+    "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+    "added": [],
+    "removed": []
+  },
+  "boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "status": "original failures retained",
+    "baseLines": 21,
+    "candidateLines": 21,
+    "rawByteIdentical": true,
+    "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+    "added": [],
+    "removed": []
+  },
+  "binary-boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "status": "original failures retained",
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+    "added": [],
+    "removed": []
+  },
+  "code-intent": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "status": "original failures retained",
+    "baseLines": 3,
+    "candidateLines": 3,
+    "rawByteIdentical": true,
+    "sameDiagnosticRows": true,
+    "baseSummary": "[code-intent] 2 error(s) across 5747 checked file(s):",
+    "candidateSummary": "[code-intent] 2 error(s) across 5747 checked file(s):"
+  },
+  "lifecycle": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "status": "original failures retained",
+    "baseLines": 7,
+    "candidateLines": 7,
+    "rawByteIdentical": true,
+    "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+    "added": [],
+    "removed": []
+  },
+  "authoritative": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "status": "original failures retained",
+    "baseLines": 41,
+    "candidateLines": 41,
+    "rawByteIdentical": true,
+    "normalization": "diagnostic positions only, complete line multiplicity retained; raw logs delivered",
+    "added": [],
+    "removed": []
+  },
+  "strict": {
+    "exit": 0,
+    "status": "PASS",
+    "lines": 1,
+    "meaning": "source parser/linter only, no product module import/evaluation"
+  },
+  "ast": {
+    "exit": 0,
+    "status": "PASS",
+    "lines": 1,
+    "meaning": "source parser/linter only, no product module import/evaluation"
+  }
+}
