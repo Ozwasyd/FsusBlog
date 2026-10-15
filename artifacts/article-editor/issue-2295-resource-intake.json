@@ -1,0 +1,47 @@
+{
+    "kind": "ordinary exact reviewed unconnected module source intake; no qualification authority",
+    "parentMain": "12ce2dc5f8396bd76b3b22c62e210d58e20a65ea",
+    "donorPR": 4338,
+    "donorTrueBase": "1016c633466fb18083a8ac0f6cc56e9bb448b99f",
+    "donorHead": "4ffb6cd683b4a2dfc8899eaad88fe0f5d72439fb",
+    "exactFinalFiles": [
+        {
+            "path": "artifacts/work-in-progress/resource-retention-series-source.md",
+            "donorFinalBlob": "f88d49265483f5bd695a288e3c0cf192668a1883",
+            "actualFinalBlob": "f88d49265483f5bd695a288e3c0cf192668a1883",
+            "wholeFileByteIdentical": true
+        },
+        {
+            "path": "tools/test/resource-retention-series.mjs",
+            "donorFinalBlob": "42912f8614f4350cc0074a0823bdab764c6002a6",
+            "actualFinalBlob": "42912f8614f4350cc0074a0823bdab764c6002a6",
+            "wholeFileByteIdentical": true
+        }
+    ],
+    "fullOriginalApplication": {
+        "before": 29,
+        "after": 29,
+        "added": [],
+        "removed": [],
+        "normalization": "source positions only, complete continuation and multiplicity retained"
+    },
+    "sourceContract": "BigInt doubled middle-pair medians and doubled growth subtraction remain exact. Every derived Number must exactly round-trip or throw before summary/threshold comparison; no invented physical bound/default missing contract. Complete13 ordered sampled phases preserve original durations/minimums/thresholds, missing/failed/late/duplicate slots refuse. No supplied complete data can qualify: qualificationEligible=false and evidenceClass=calculation-only. No collector/policy/identity/environment/receipt authority or actual measurements.",
+    "static": "node --check syntax onlyPASS0; original strict selected module lintPASS0. No helper import/evaluation/calls/tests/collector or product execution. Full app actual profile measured, author older fullFAIL profile not treated as candidate pass.",
+    "alias": "Actual unchanged clean903db034a14254fb162f51b9c25d3703ea20ccb5 local UI957 through original whole app config; physical independently UNVERIFIED; no UI961 adoption in this batch.",
+    "remaining": "Original full29FAIL, complete lint/codeintent/doc failures remain. Source helper absent production wiring and all observations/threshold/receipt admission unqualified.4336 format-only aggregateFAIL remains untouched.",
+    "holds": "All runtime/tests/discovery/product/helper imports/calls/DB/native/browser/frozen authority/receipt/catalog/fixture generation/security/privacy/backuprestore/IME/qualification HOLD/UNRUN; no merge/Ready/close/publication.",
+    "evidence": {
+        "/workspace/session-evidence-2295/resource-intake-base-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/resource-intake-candidate-types.txt": {
+            "sha256": "f86bd2f0a5fef72c32529e6123513dbe764d56f2ad89fd4bcfc9e3445e858085"
+        },
+        "/workspace/session-evidence-2295/resource-intake-style.txt": {
+            "sha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+        },
+        "/workspace/session-evidence-2295/resource-intake-syntax.txt": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+    }
+}
