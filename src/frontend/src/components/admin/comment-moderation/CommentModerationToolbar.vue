@@ -4,25 +4,13 @@
         role="search"
         aria-label="评论审核筛选"
     >
-        <div
+        <FsusUiSegmentedControl
+            :model-value="filters.status"
+            :items="statusItems"
             class="comment-moderation-status-tabs"
-            role="radiogroup"
             aria-label="评论审核状态筛选"
-        >
-            <button
-                v-for="option in statusOptions"
-                :key="option.value"
-                type="button"
-                class="comment-moderation-status-tabs__item"
-                :class="{ 'is-active': filters.status === option.value }"
-                role="radio"
-                :aria-checked="filters.status === option.value"
-                :disabled="loading"
-                @click="onStatusChange(option.value)"
-            >
-                {{ option.label }}
-            </button>
-        </div>
+            @update:model-value="onStatusChange"
+        />
 
         <ElInput
             :model-value="filters.keyword"
@@ -45,12 +33,15 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import type { CommentModerationStatus } from '@/api/authoring';
 import {
     commentModerationStatusOptions as statusOptions,
     type CommentModerationFilters
 } from '@/composables/useCommentModerationQueue';
 import { Search } from '@/fsusui/icons';
+import { FsusUiSegmentedControl, type FsusUiSegmentedControlValue } from '@/fsusui/segmentedControl';
 
 const props = defineProps<{
     filters: CommentModerationFilters;
@@ -62,10 +53,12 @@ const emit = defineEmits<{
     'update:keyword': [value: string];
 }>();
 
-const onStatusChange = (value: string | number | boolean): void =>
+const statusItems = computed(() => statusOptions.map((option) => ({ ...option, disabled: props.loading })));
+
+const onStatusChange = (value: FsusUiSegmentedControlValue): void =>
 {
-    const nextStatus = Number(value) as CommentModerationStatus;
-    if (nextStatus !== props.filters.status)
+    const nextStatus = statusOptions.find((option) => option.value === value)?.value;
+    if (nextStatus !== undefined && nextStatus !== props.filters.status)
     {
         emit('update:status', nextStatus);
     }
@@ -87,55 +80,6 @@ const onStatusChange = (value: string | number | boolean): void =>
     min-height: 44px;
 }
 
-.comment-moderation-status-tabs
- {
-    display: inline-flex;
-    min-height: 40px;
-    align-items: center;
-    overflow: hidden;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsus-radius-control);
-    background: var(--fsusblog-surface-bg);
-}
-
-.comment-moderation-status-tabs__item
- {
-    min-height: 40px;
-    padding: 0 var(--fsus-space-4);
-    border: 0;
-    border-right: 1px solid var(--fsusblog-panel-border);
-    background: transparent;
-    color: var(--fsusblog-text-muted);
-    cursor: pointer;
-    font: inherit;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.comment-moderation-status-tabs__item:last-child
- {
-    border-right: 0;
-}
-
-.comment-moderation-status-tabs__item.is-active
- {
-    background: var(--fsusblog-page-bg);
-    box-shadow: inset 0 -2px 0 var(--fsusblog-color-primary);
-    color: var(--fsusblog-text-primary);
-}
-
-.comment-moderation-status-tabs__item:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
-}
-
-.comment-moderation-status-tabs__item:disabled
- {
-    cursor: not-allowed;
-    opacity: 0.55;
-}
-
 @media (width <= 767px)
  {
     .comment-moderation-primary-filters
@@ -149,12 +93,6 @@ const onStatusChange = (value: string | number | boolean): void =>
     .comment-moderation-status-tabs
  {
         width: 100%;
-    }
-
-    .comment-moderation-status-tabs__item
- {
-        flex: 1 1 auto;
-        padding-inline: var(--fsus-space-2);
     }
 }
 </style>
