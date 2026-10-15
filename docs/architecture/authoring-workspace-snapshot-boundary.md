@@ -2594,3 +2594,42 @@ remain unchanged. Original global lint/code-intent/doc failures remain explicit
 in ordinary WIP. UI957 aliases are fixed and unchanged; all runtime/tests/DB/
 native/frozen/qualification holds remain.4336 aggregate FAIL is not bypassed or
 reclassified; complete CSS output and independent physical alias stay UNVERIFIED.
+
+
+## Reviewed UI961 Local Source Input
+
+The next bounded source-check input uses the clean local FsusUI checkout
+`/workspace/session-2295-ui961-local-dependency` at
+`c77281165226ffd84223c4c8d43805c5deb2b1b3` (reviewed961), replacing the earlier
+UI957 input `903db034a14254fb162f51b9c25d3703ea20ccb5`. Its eleven-path
+composition includes the exact reviewed960 final PublicShell source. Drawer
+closed-state interaction and compact PublicShell disclosure remain owned by
+FsusUI; Blog adds no private selector, component fork or replacement primitive.
+
+The existing resolver and complete application compiler consume this actual
+source through explicit environment inputs:
+
+```bash
+FSUSBLOG_USE_LOCAL_FSUSUI=1 \
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/session-2295-ui961-local-dependency \
+node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application
+```
+
+Both public package aliases resolve to the same real local public index. This
+is the measured source-check input for this isolated worktree, not a change to
+the default resolver, a deployment setting or package publication. Original
+strict/noUnused/erasable application configuration and all source templates,
+refs, enums, locks and dependency installations remain unchanged. Ordinary input
+facts record the generated configuration, dependency topology and exact source
+identities. They provide no independent physical-identity or UX acceptance.
+
+The donor author's complete Web profile still reports1023 failures. The saved
+environment has a different installed dependency topology; its own complete
+Web checks must be reported separately, without replacing that author failure
+or treating compilation as rendered acceptance. Existing lint, full application,
+code-intent and documentation failures remain explicit. Complete CSS output
+and independent physical identity remain UNVERIFIED. No formal classification,
+receipt, catalog, fixture or authority is refreshed. All runtime, tests,
+discovery, native/browser, security/privacy, race, backup/restore, IME and
+qualification holds remain. Original public editor session/resource gaps and
+the4336 aggregate rejection are unchanged;4340 is excluded.
