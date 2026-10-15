@@ -393,6 +393,7 @@ defineExpose({
 .messages-conversation-item
  {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
     min-width: 0;
     max-width: 100%;
@@ -465,7 +466,7 @@ defineExpose({
 .messages-conversation-preview,
 .messages-conversation-meta
  {
-    color: var(--fsusblog-text-tertiary);
+    color: var(--fsusblog-text-secondary);
 }
 
 .messages-conversation-preview
