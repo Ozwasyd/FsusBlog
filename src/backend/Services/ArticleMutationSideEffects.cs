@@ -711,19 +711,16 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 throw new InvalidOperationException($"Article publication {publication.Id} has an invalid revision coordinate.");
             }
 
-            if (revision.ContentBlockId > 0)
-            {
-                revision.MarkdownContent = await ArticleRevisionContentBlockStore.LoadAsync(
-                    db,
-                    revision.ContentBlockId,
-                    CancellationToken.None).ConfigureAwait(false);
-            }
+            string content = await ArticleRevisionContentBlockStore.LoadAsync(
+                db,
+                revision.ContentBlockId,
+                CancellationToken.None).ConfigureAwait(false);
 
             article.Title = revision.Title;
             article.Summary = revision.Summary;
             article.CoverImageUrl = revision.CoverImageUrl;
             article.CategoryId = revision.CategoryId;
-            article.Content = revision.MarkdownContent;
+            article.Content = content;
             article.PublishedAt = publication.PublishedAt;
             return article;
         }

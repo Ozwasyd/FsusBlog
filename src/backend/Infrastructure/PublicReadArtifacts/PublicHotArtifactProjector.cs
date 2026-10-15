@@ -1168,7 +1168,10 @@ public sealed class PublicHotArtifactProjector(
             .Select((article, publication, revision, block, body) => new
             {
                 ArticleId = article.Id,
-                MarkdownContent = SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent),
+                RevisionId = revision.Id,
+                revision.ContentBlockId,
+                ResolvedContentBlockId = (long?)block.Id,
+                MarkdownContent = block.MarkdownContent,
                 ArticleBodyContent = body.MarkdownContent
             })
             .ToListAsync(ct)
@@ -1177,12 +1180,20 @@ public sealed class PublicHotArtifactProjector(
         var contentMap = new Dictionary<int, string>(ids.Length);
         foreach (var row in rows)
         {
+            if (row.ContentBlockId <= 0
+                || row.ResolvedContentBlockId != row.ContentBlockId
+                || row.MarkdownContent is null)
+            {
+                throw new InvalidOperationException(
+                    $"article_revision_content_block_missing:{row.RevisionId}:{row.ContentBlockId}");
+            }
+
             if (string.IsNullOrWhiteSpace(row.ArticleBodyContent))
             {
                 continue;
             }
 
-            contentMap[row.ArticleId] = row.MarkdownContent ?? string.Empty;
+            contentMap[row.ArticleId] = row.MarkdownContent;
         }
 
         return contentMap;
