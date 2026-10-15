@@ -262,7 +262,7 @@ const OutlinePanelContent = defineComponent({
                             nativeType: 'button',
                             class: [
                                 'article-write-outline-item',
-                                { 'is-active': props.activeHeadingId === node.nodeId }
+                                { 'article-write-outline-item-selected': props.activeHeadingId === node.nodeId }
                             ],
                             role: 'treeitem',
                             tabindex: props.activeHeadingId === node.nodeId || index === 0 ? '0' : '-1',
@@ -276,7 +276,7 @@ const OutlinePanelContent = defineComponent({
                             'data-outline-node-id': node.nodeId,
                             style: { '--article-outline-depth': String(Math.max(0, node.depth - 1)) },
                             onClick: () => emit('reveal-heading', node)
-                        }, () => [
+                        }, () => h('span', { class: 'article-write-outline-item-content' }, [
                             node.children.length > 0
                                 ? h('span', {
                                     class: 'article-write-outline-disclosure',
@@ -288,7 +288,7 @@ const OutlinePanelContent = defineComponent({
                                 }, expanded.value.has(node.nodeId) ? '▾' : '▸')
                                 : h('span', { class: 'article-write-outline-disclosure-placeholder', 'aria-hidden': 'true' }),
                             h('span', { class: 'article-write-outline-item-text', title: node.text || '无标题' }, node.text || '无标题')
-                        ]),
+                        ])),
                         node.diagnostics.length > 0
                             ? h('div', {
                                 class: 'article-write-outline-diagnostics',
@@ -525,13 +525,6 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
     color: var(--fsusblog-text-primary);
 }
 
-.article-write-outline-content
- {
-    display: grid;
-    min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr);
-}
-
 .article-write-outline-header
  {
     display: flex;
@@ -561,76 +554,6 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
     border-radius: var(--fsus-radius-control);
     background: transparent;
     color: var(--fsusblog-text-muted);
-}
-
-.article-write-outline-tree-wrap
- {
-    min-height: 0;
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding: var(--fsus-space-2);
-}
-
-.article-write-outline-tree
- {
-    display: grid;
-    gap: var(--fsus-space-1);
-}
-
-.article-write-outline-item
- {
-    display: flex;
-    width: 100%;
-    min-height: var(--fsus-control-height);
-    align-items: center;
-    gap: var(--fsus-space-1);
-    cursor: pointer;
-    border: 0;
-    border-radius: var(--fsus-radius-control-small);
-    padding: var(--fsus-space-1) var(--fsus-space-2);
-    padding-inline-start: calc(
-        var(--fsus-space-2) + var(--article-outline-depth, 0) * var(--fsus-space-4)
-    );
-    background: transparent;
-    color: var(--fsusblog-text-primary);
-    font: inherit;
-    line-height: 1.4;
-    text-align: start;
-}
-
-.article-write-outline-item:hover,
-.article-write-outline-item.is-active
- {
-    background: var(--fsus-state-selected-bg, var(--fsusblog-page-bg-soft));
-}
-
-.article-write-outline-item.is-active
- {
-    color: var(--fsus-scholarly-blue);
-    font-weight: 700;
-}
-
-.article-write-outline-disclosure,
-.article-write-outline-disclosure-placeholder
- {
-    display: inline-grid;
-    width: 1rem;
-    flex: 0 0 1rem;
-    place-items: center;
-    color: var(--fsusblog-text-muted);
-}
-
-.article-write-outline-disclosure
- {
-    cursor: pointer;
-}
-
-.article-write-outline-item-text
- {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .article-write-outline-diagnostics
@@ -684,4 +607,104 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
         left: var(--fsus-space-3);
      }
  }
+</style>
+
+<style>
+/* The render component uses product classes without the outer SFC scope attribute. */
+.article-write-outline-content
+ {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.article-write-outline-content .article-write-outline-tree-wrap
+ {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: var(--fsus-space-2);
+}
+
+.article-write-outline-content .article-write-outline-tree
+ {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--fsus-space-1);
+}
+
+.article-write-outline-content .article-write-outline-node
+ {
+    min-width: 0;
+}
+
+.article-write-outline-content .article-write-outline-item
+ {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    min-height: var(--fsus-control-height);
+    align-items: center;
+    gap: var(--fsus-space-1);
+    cursor: pointer;
+    border: 0;
+    border-radius: var(--fsus-radius-control-small);
+    padding: var(--fsus-space-1) var(--fsus-space-2);
+    padding-inline-start: calc(
+        var(--fsus-space-2) + var(--article-outline-depth, 0) * var(--fsus-space-4)
+    );
+    background: transparent;
+    color: var(--fsusblog-text-primary);
+    font: inherit;
+    line-height: 1.4;
+    text-align: start;
+}
+
+.article-write-outline-content .article-write-outline-item:hover,
+.article-write-outline-content .article-write-outline-item.article-write-outline-item-selected
+ {
+    background: var(--fsus-state-selected-bg, var(--fsusblog-page-bg-soft));
+}
+
+.article-write-outline-content .article-write-outline-item.article-write-outline-item-selected
+ {
+    color: var(--fsusblog-text-primary);
+    font-weight: 700;
+}
+
+.article-write-outline-content .article-write-outline-item-content
+ {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--fsus-space-1);
+}
+
+.article-write-outline-content .article-write-outline-disclosure,
+.article-write-outline-content .article-write-outline-disclosure-placeholder
+ {
+    display: inline-grid;
+    width: 1rem;
+    flex: 0 0 1rem;
+    place-items: center;
+    color: var(--fsusblog-text-muted);
+}
+
+.article-write-outline-content .article-write-outline-disclosure
+ {
+    cursor: pointer;
+}
+
+.article-write-outline-content .article-write-outline-item-text
+ {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 </style>
