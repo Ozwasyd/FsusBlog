@@ -1,0 +1,88 @@
+{
+    "FsusBlog": {
+        "head": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "tree": "c50f8f2f7417cf5d70d2bae9ca7451c554f98518",
+        "entries": 7964,
+        "verifiedBodies": 7958,
+        "absent": [
+            {
+                "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.txt",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+                "size": 11861610,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/blobs/59da6091e3747a49c3930cb227dc781ea5d821c7"
+            },
+            {
+                "path": "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.txt",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+                "size": 11861610,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/blobs/59da6091e3747a49c3930cb227dc781ea5d821c7"
+            },
+            {
+                "path": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-full-style.txt",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+                "size": 11861610,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/blobs/59da6091e3747a49c3930cb227dc781ea5d821c7"
+            },
+            {
+                "path": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-full-style.txt",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+                "size": 11861610,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/blobs/59da6091e3747a49c3930cb227dc781ea5d821c7"
+            },
+            {
+                "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "d73eafbc58bb3b6d10c767eb73202e89e6f1a70d",
+                "size": 4796407,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/blobs/d73eafbc58bb3b6d10c767eb73202e89e6f1a70d"
+            },
+            {
+                "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "5acd7ceb23f9b17e959588e53a8a06acab7b49d7",
+                "size": 3014594,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusBlog/git/blobs/5acd7ceb23f9b17e959588e53a8a06acab7b49d7"
+            }
+        ],
+        "mismatches": [],
+        "status": {
+            "stdout": "",
+            "stderr": "",
+            "exit": 0
+        },
+        "canonicalTreeRosterSha256": "f8b897946f4711a9ae5e70d03a3929d0c4226b705e890f3deb368436d50598ed"
+    },
+    "FsusUI": {
+        "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+        "entries": 4800,
+        "verifiedBodies": 4799,
+        "absent": [
+            {
+                "path": "spec/components/contracts/v2/contract-v2.json",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "dbc4e4c616ec6a6c9a2da50c56d875ae272afd60",
+                "size": 6171910,
+                "url": "https://api.github.com/repos/Ozwasyd/FsusUI/git/blobs/dbc4e4c616ec6a6c9a2da50c56d875ae272afd60"
+            }
+        ],
+        "mismatches": [],
+        "status": {
+            "stdout": "",
+            "stderr": "",
+            "exit": 0
+        },
+        "canonicalTreeRosterSha256": "a38059e2ea740ef60f6ee854b4f50ed0d15fbf38641b06bf155a346a739a2b53"
+    }
+}

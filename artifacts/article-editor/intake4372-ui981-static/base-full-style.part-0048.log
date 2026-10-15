@@ -1,0 +1,820 @@
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:8:66 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:10:74 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:11:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:11:105 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:12:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:12:21 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:12:108 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:13:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:13:31 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:16:54 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:17:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:18:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:19:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:19:48 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:22:57 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:23:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:23:94 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:26:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:27:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:27:69 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:28:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:28:68 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:29:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:29:62 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:30:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:31:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:32:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:33:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:34:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:34:68 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:35:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:35:94 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:36:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:36:78 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:37:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:38:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:39:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:40:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:41:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:42:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:43:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:43:8 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:44:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:45:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:45:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:48:68 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:49:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:49:102 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:52:56 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:53:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:53:48 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:54:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:54:58 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:55:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:55:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:56:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:56:13 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:57:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:57:12 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:58:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:58:26 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:59:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:59:122 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:61:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:62:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:63:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:64:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:64:40 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:65:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:65:88 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:66:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:66:25 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:67:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:67:161 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:68:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:69:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:70:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:70:43 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:71:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:72:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:73:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:73:10 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:74:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:74:122 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:75:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:75:105 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:76:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:76:79 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:77:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:77:22 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:78:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:79:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:79:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:80:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:80:118 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:81:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:81:133 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:82:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:82:78 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:83:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:83:80 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:84:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:84:79 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:85:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:85:100 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:86:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:86:99 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:87:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:87:77 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:88:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:88:66 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:89:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:89:76 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:90:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:91:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:92:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:93:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:94:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:95:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:96:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:97:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:98:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:99:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:100:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:101:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:102:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:103:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:104:1 eslint/@stylistic/indent: Expected indentation of 20 spaces but found 10.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:105:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:106:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:106:8 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:107:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:108:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:108:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/runtime-cache-scenarios/telemetry.mjs:111:86 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:1:25 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:2:29 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:3:1 eslint/import-x/order: `node:crypto` import should occur before import of `node:fs`
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:3:41 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:5:48 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `inventory.mjs` to same directory as `../governance-suite-plan.mjs` or consider making `../governance-suite-plan.mjs` a package.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:5:78 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:7:57 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:9:46 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:10:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:10:61 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:13:38 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:14:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:14:53 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:14:65 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:15:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:15:90 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:15:102 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:16:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:16:62 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:16:74 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:17:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:17:14 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:20:53 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:21:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:21:25 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:22:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:22:20 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:23:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:23:33 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:24:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:24:98 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:25:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:25:30 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:26:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:26:120 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:27:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:27:15 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:28:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:29:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:30:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:31:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:32:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:33:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:34:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:35:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:36:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:37:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:38:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:39:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:40:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:41:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:41:7 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:42:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:43:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:43:33 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:46:67 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:47:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:47:63 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:48:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:48:42 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:48:54 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:49:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:49:83 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:50:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:50:68 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:51:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:51:30 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:51:72 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:52:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:52:82 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:52:102 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:53:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:54:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:54:15 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:57:48 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:58:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:58:69 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:59:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:59:70 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:60:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:61:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:62:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:63:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:64:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:64:19 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:65:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:66:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:67:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:68:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:69:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:70:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:71:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:71:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:74:68 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:75:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:75:103 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:76:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:76:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:77:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:77:41 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:77:95 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:78:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:79:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:80:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:81:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:82:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:83:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:84:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:85:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:86:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:87:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:88:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:89:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:90:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:91:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:92:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:93:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:94:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/test-asset-audit/inventory.mjs:94:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:3:25 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:4:29 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:5:35 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:6:41 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:8:39 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `verify-benchmark-build-ready.mjs` to same directory as `../test-matrix/local-profile.mjs` or consider making `../test-matrix/local-profile.mjs` a package.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:8:73 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:10:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:11:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:12:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `verify-benchmark-build-ready.mjs` to same directory as `../test-matrix/production-build-layout.mjs` or consider making `../test-matrix/production-build-layout.mjs` a package.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:12:52 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:14:81 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:15:68 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:16:13 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:16:64 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:18:90 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:19:33 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:19:102 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:20:63 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:21:61 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:27:82 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:28:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:28:107 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:30:60 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:31:110 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:32:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:32:99 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-benchmark-build-ready.mjs:34:85 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:2:41 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:3:25 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:4:29 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:5:35 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:8:36 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `verify-privacy-zk-performance-inputs.mjs` to same directory as `../test-matrix/run-bound-marker.mjs` or consider making `../test-matrix/run-bound-marker.mjs` a package.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:9:1 eslint/import-x/order: `../test-matrix/frontend-build-ready-marker.mjs` import should occur before import of `../test-matrix/run-bound-marker.mjs`
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:9:58 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `verify-privacy-zk-performance-inputs.mjs` to same directory as `../test-matrix/frontend-build-ready-marker.mjs` or consider making `../test-matrix/frontend-build-ready-marker.mjs` a package.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:10:1 eslint/import-x/order: `../test-matrix/local-profile.mjs` import should occur before import of `../test-matrix/run-bound-marker.mjs`
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:10:39 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `verify-privacy-zk-performance-inputs.mjs` to same directory as `../test-matrix/local-profile.mjs` or consider making `../test-matrix/local-profile.mjs` a package.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:11:1 eslint/import-x/order: `../test-matrix/production-build-layout.mjs` import should occur before import of `../test-matrix/run-bound-marker.mjs`
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:11:46 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `verify-privacy-zk-performance-inputs.mjs` to same directory as `../test-matrix/production-build-layout.mjs` or consider making `../test-matrix/production-build-layout.mjs` a package.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:12:1 eslint/import-x/order: `../frontend/build.mjs` import should occur before import of `../test-matrix/run-bound-marker.mjs`
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:12:43 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `verify-privacy-zk-performance-inputs.mjs` to same directory as `../frontend/build.mjs` or consider making `../frontend/build.mjs` a package.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:43:31 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:43:31 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:43:32 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:43:107 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:43:107 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:44:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:44:39 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:45:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:45:12 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:46:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:46:7 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:47:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:47:31 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:48:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:48:3 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:48:19 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:49:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:49:103 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:50:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:51:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:51:32 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:52:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:53:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:54:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:55:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:55:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:59:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:60:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:70:27 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:70:27 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:70:28 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:70:118 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:70:118 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:75:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:76:6 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:78:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:79:6 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:83:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 0.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:85:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 0.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:86:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:86:65 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:87:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:87:5 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:87:21 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:88:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:88:79 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:89:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:89:18 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:90:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:91:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:91:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:93:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:94:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:95:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:96:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:97:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:98:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:99:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:100:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:101:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:102:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:103:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:104:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:105:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:106:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:106:69 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:107:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:107:78 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:108:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:108:9 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:109:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:110:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:111:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:112:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:113:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:114:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:115:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:116:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:117:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:117:9 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:118:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:118:62 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:118:65 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:119:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:119:5 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:119:21 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:120:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:120:79 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:121:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:121:18 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:122:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:123:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:123:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:124:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:125:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:126:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:126:31 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:127:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:132:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 0.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:150:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 0.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:156:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 0.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:162:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:163:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:164:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:165:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:166:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:166:32 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:167:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:170:47 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:171:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:171:129 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:172:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:173:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:174:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:174:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:175:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:175:28 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:176:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:177:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:178:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:179:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:179:6 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:180:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:181:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:181:68 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:184:90 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:185:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:185:7 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:186:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:186:56 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:187:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:188:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:189:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:190:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:191:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:191:12 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:192:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:192:3 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:192:19 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:193:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:193:111 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:194:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:194:20 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/test/verify-privacy-zk-performance-inputs.mjs:195:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/test/vstest-discovery-diagnostic.mjs:22:13 eslint/preserve-caught-error: There is no `cause` attached to the symptom error being thrown.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:8:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `write-browser-diagnostics-release-assertions.mjs` to same directory as `../test-matrix/evidence-projection.mjs` or consider making `../test-matrix/evidence-projection.mjs` a package.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:12:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `write-browser-diagnostics-release-assertions.mjs` to same directory as `../test-matrix/release-domain-evidence.mjs` or consider making `../test-matrix/release-domain-evidence.mjs` a package.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:14:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:16:17 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:20:31 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:24:58 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:26:41 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:27:45 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:28:14 eslint/curly: Expected { after 'else'.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:30:58 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:31:50 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:33:41 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:37:34 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:38:46 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:40:29 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:43:56 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:49:43 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:53:39 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:60:5 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:70:70 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:89:95 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:96:1 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/test/write-browser-diagnostics-release-assertions.mjs:96:17 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/testing/content-shape-catalog.mjs:2:1 eslint/import-x/order: `node:child_process` import should occur before import of `node:crypto`
+[frontend-style] tools/testing/content-shape-catalog.mjs:125:55 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:184:44 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:234:26 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:238:43 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:250:35 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:253:21 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:261:51 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:290:44 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:314:35 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:332:33 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:348:27 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:349:28 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:355:28 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:356:27 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:385:27 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/testing/content-shape-catalog.mjs:415:28 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tools/ux/release-preview-readiness.mjs:9:43 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `release-preview-readiness.mjs` to same directory as `../frontend/build.mjs` or consider making `../frontend/build.mjs` a package.
+[frontend-style] tools/ux/release-preview-readiness.mjs:10:58 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `release-preview-readiness.mjs` to same directory as `../test-matrix/frontend-build-ready-marker.mjs` or consider making `../test-matrix/frontend-build-ready-marker.mjs` a package.
+[frontend-style] tools/ux/release-preview-readiness.mjs:11:39 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `release-preview-readiness.mjs` to same directory as `../test-matrix/local-profile.mjs` or consider making `../test-matrix/local-profile.mjs` a package.
+[frontend-style] tools/ux/release-preview-readiness.mjs:12:46 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `release-preview-readiness.mjs` to same directory as `../test-matrix/production-build-layout.mjs` or consider making `../test-matrix/production-build-layout.mjs` a package.
+[frontend-style] tools/ux/release-preview-readiness.mjs:21:24 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:22:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:22:70 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:25:34 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:26:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:26:43 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:27:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:27:87 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:28:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:28:90 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:29:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:30:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:30:15 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:33:34 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:34:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:34:47 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:35:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:35:100 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:36:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:36:88 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:37:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:38:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:38:19 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:41:39 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:42:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:42:10 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:43:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:43:7 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:44:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:44:46 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:45:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:45:3 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/ux/release-preview-readiness.mjs:45:11 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:46:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:46:61 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:47:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:48:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:50:55 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:51:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:51:84 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:52:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:53:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:53:20 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:56:35 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:57:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:57:7 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:58:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:58:67 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:59:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:59:3 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/ux/release-preview-readiness.mjs:59:11 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:60:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:60:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:61:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:64:87 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:65:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:66:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:67:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:68:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:68:19 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:71:54 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:94:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:94:77 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:95:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:95:13 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:96:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:96:7 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:97:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:97:61 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:98:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:98:3 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/ux/release-preview-readiness.mjs:98:19 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:99:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:99:103 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:100:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:101:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:103:50 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:104:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:104:79 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:105:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:106:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:106:88 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:107:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:107:98 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:108:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:108:48 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:109:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:109:105 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:110:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:111:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:111:92 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:112:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:114:41 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:115:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:115:102 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:116:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:117:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:117:61 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:118:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:119:67 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:120:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:120:97 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:121:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:122:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:122:72 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:123:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:123:110 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:124:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:124:97 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:125:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:126:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:126:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:127:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:127:44 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:128:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:128:101 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:129:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:130:59 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:131:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:131:90 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:132:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:133:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:134:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:135:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:136:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:137:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:138:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:139:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:168:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 0.
+[frontend-style] tools/ux/release-preview-readiness.mjs:170:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:172:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:172:13 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:173:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:173:7 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:174:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:174:61 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:175:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:175:3 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/ux/release-preview-readiness.mjs:175:19 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:176:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:176:102 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:177:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:178:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:188:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 0.
+[frontend-style] tools/ux/release-preview-readiness.mjs:192:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:192:69 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:193:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:193:86 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:194:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:194:88 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:195:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:196:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:196:94 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:198:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 0.
+[frontend-style] tools/ux/release-preview-readiness.mjs:203:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 0.
+[frontend-style] tools/ux/release-preview-readiness.mjs:207:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 0.
+[frontend-style] tools/ux/release-preview-readiness.mjs:227:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:228:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:229:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:230:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:231:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:231:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:234:61 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:235:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:236:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:237:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:238:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:239:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:240:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:241:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:242:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:243:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:244:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:244:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:245:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:245:57 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:246:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:246:53 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:247:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:247:88 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:248:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:249:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:250:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:251:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:252:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:253:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:253:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:256:39 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:257:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:257:56 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:258:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:258:66 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:259:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:259:7 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:260:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:260:88 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:261:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:261:35 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:262:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:262:3 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] tools/ux/release-preview-readiness.mjs:262:13 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:263:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:263:42 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:264:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:268:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:269:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:280:42 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:280:42 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tools/ux/release-preview-readiness.mjs:280:43 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tools/ux/release-preview-readiness.mjs:280:94 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tools/ux/release-preview-readiness.mjs:280:94 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:293:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:293:54 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:294:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:294:82 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:295:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:297:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:297:85 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:298:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:298:83 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:299:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:299:72 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:300:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:300:72 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:301:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:302:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:303:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:304:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:305:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:305:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:306:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:306:69 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:307:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:307:121 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:308:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:310:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:310:61 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:311:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:311:81 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:312:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:312:92 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:313:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:313:54 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:314:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:314:58 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:315:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:315:76 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:316:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:316:27 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:317:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:317:105 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:318:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:320:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:320:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:321:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:321:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:322:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:322:63 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:323:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:323:24 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:324:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:324:94 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:325:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:327:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:328:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:329:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:330:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:331:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:332:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:333:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:334:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:335:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:336:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:337:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:338:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:339:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:340:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:341:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:342:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:343:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:344:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:345:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:346:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:347:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:348:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:349:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:350:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:351:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:352:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:353:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:354:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:355:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:356:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:357:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:358:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:359:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:359:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:360:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:360:38 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:361:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:361:32 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:364:23 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:375:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 0.
+[frontend-style] tools/ux/release-preview-readiness.mjs:377:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:377:126 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:378:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:378:11 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:379:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:380:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:380:35 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:381:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:382:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:383:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:384:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:385:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tools/ux/release-preview-readiness.mjs:386:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:386:7 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:387:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:387:114 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:388:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tools/ux/release-preview-readiness.mjs:388:11 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:389:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:390:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:390:89 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/release-preview-readiness.mjs:393:68 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tools/ux/release-preview-readiness.mjs:394:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tools/ux/release-preview-readiness.mjs:394:15 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tools/ux/run-local-production-risk.mjs:8:40 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `run-local-production-risk.mjs` to same directory as `../../tests/frontend/checks/ux/write-ux-viewport-summary.mjs` or consider making `../../tests/frontend/checks/ux/write-ux-viewport-summary.mjs` a package.
+[frontend-style] tools/ux/run-local-production-risk.mjs:12:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `run-local-production-risk.mjs` to same directory as `../../tests/frontend/support/playwright/uxViewportPlan.mjs` or consider making `../../tests/frontend/support/playwright/uxViewportPlan.mjs` a package.
+[frontend-style] tools/ux/ux-risk-cli-timing.mjs:24:9 eslint/preserve-caught-error: There is no `cause` attached to the symptom error being thrown.
+[frontend-style] tools/ux/ux-risk-session-plan.mjs:1:42 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `ux-risk-session-plan.mjs` to same directory as `../../tests/frontend/support/test-session.mjs` or consider making `../../tests/frontend/support/test-session.mjs` a package.
+[frontend-style] tools/visual/aggregate-screenshot-evidence.mjs:145:16 eslint/no-unused-vars: 'error' is defined but never used.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
