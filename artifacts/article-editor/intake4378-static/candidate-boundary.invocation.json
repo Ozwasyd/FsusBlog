@@ -1,0 +1,14 @@
+{
+  "cwd": "/workspace/intake4378-candidate",
+  "argv": [
+    "node",
+    "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4378-ui981"
+  },
+  "startedUtc": "2026-10-15T10:51:45.287930+00:00",
+  "exit": 1,
+  "completedUtc": "2026-10-15T10:51:45.428259+00:00"
+}

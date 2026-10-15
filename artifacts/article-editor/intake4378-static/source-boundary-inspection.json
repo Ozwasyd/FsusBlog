@@ -1,0 +1,14 @@
+{
+  "kind": "ordinary source text comparison; no product import/evaluation/test",
+  "scriptComparison": "identical after removing the one admitted public Button import",
+  "sourceBytes": 13243,
+  "sourceSha256": "81572237a3620702178d4d2ffff85a5f8a4cc0dbfebc5c6d77154b875c688623",
+  "newComponentTagCount": 6,
+  "noAdditionalSourceAdaptation": true,
+  "scope": "six existing ordinary reply/fold/edit/delete/load-more actions only; handlers/permissions/privacy/API/cancellation/settlement untouched",
+  "nativeArticleRef": {
+    "name": "nodeElement",
+    "baseAttachedToArticle": true,
+    "candidateAttachedToArticle": true
+  }
+}

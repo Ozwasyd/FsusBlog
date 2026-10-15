@@ -1,0 +1,16 @@
+{
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donor": "bea456e343b2da0925b6c2380e88ecc8e0b6ee66",
+  "donorBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+  "sourcePath": "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
+  "baseEntry": "100644 blob ee1dff0daaa5af36fe9289ea78efb24a8dea7b54\tsrc/frontend/src/components/article/ArticleCommentTreeNode.vue",
+  "donorBaseEntry": "100644 blob ee1dff0daaa5af36fe9289ea78efb24a8dea7b54\tsrc/frontend/src/components/article/ArticleCommentTreeNode.vue",
+  "donorFinalEntry": "100644 blob ffa6bbb8615240ade0cd89138af25ab4cfc9e05f\tsrc/frontend/src/components/article/ArticleCommentTreeNode.vue",
+  "candidateStagedEntry": "100644 ffa6bbb8615240ade0cd89138af25ab4cfc9e05f 0\tsrc/frontend/src/components/article/ArticleCommentTreeNode.vue",
+  "preimageIdentical": true,
+  "postimageIdentical": true,
+  "productionChangedPaths": [
+    "src/frontend/src/components/article/ArticleCommentTreeNode.vue"
+  ],
+  "conflictDisposition": "three-way git apply --3way --index applied cleanly; identical preimage; no invented conflict or additional adaptation"
+}

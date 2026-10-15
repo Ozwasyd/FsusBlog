@@ -1,0 +1,12 @@
+artifacts/article-editor/intake4378-static/donor-production.patch:7: trailing whitespace.
++ 
+artifacts/article-editor/intake4378-static/donor-production.patch:79: trailing whitespace.
++ 
+artifacts/article-editor/intake4378-static/donor-production.patch:113: trailing whitespace.
++ 
+artifacts/article-editor/intake4378-static/donor-production.patch:141: trailing whitespace.
++ 
+artifacts/article-editor/intake4378-static/donor-production.patch:144: trailing whitespace.
++ 
+artifacts/article-editor/intake4378-static/donor-production.patch:163: trailing whitespace.
++ 

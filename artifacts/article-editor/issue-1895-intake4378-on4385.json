@@ -1,0 +1,573 @@
+{
+  "kind": "ordinary source intake WIP; not frozen/classification/acceptance/qualification evidence",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4378,
+  "donorHead": "bea456e343b2da0925b6c2380e88ecc8e0b6ee66",
+  "donorBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+  "candidateBinding": "containing draft head; exact owned source postimage ffa6bbb8615240ade0cd89138af25ab4cfc9e05f",
+  "branch": "codex/issue-1895-intake4378-on4385-20261015",
+  "duplicateCheck": "leaf number, full leaf SHA, full base SHA, and leaf + exact base branch searched across all PR states; no same leaf/base intake found before creation",
+  "productionPaths": [
+    "src/frontend/src/components/article/ArticleCommentTreeNode.vue"
+  ],
+  "conflictDisposition": "Original donor preimage equals actual4385 blob ee1dff0daaa5af36fe9289ea78efb24a8dea7b54; git apply --3way --index applied cleanly. Final postimage exactly equals accepted leaf; no source adaptation necessary.",
+  "history": "Only this production diff on sole exact4385 parent; no donor history or sibling intake. All7963 other base blobs unchanged. Other task branches and primary worktrees untouched.",
+  "fsusui": {
+    "repository": "Ozwasyd/FsusUI",
+    "sourceRoot": "/workspace/intake4378-ui981",
+    "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+    "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+    "trackedStatus": "",
+    "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "packageIdentity": {
+      "name": "element-plus",
+      "version": "1.5.1",
+      "description": "A Component Library for Vue 3",
+      "keywords": [
+        "element-plus",
+        "element",
+        "component library",
+        "ui framework",
+        "ui",
+        "vue"
+      ],
+      "homepage": "https://github.com/Ozwasyd/FsusUI",
+      "bugs": {
+        "url": "https://github.com/Ozwasyd/FsusUI/issues"
+      },
+      "license": "MIT",
+      "main": "lib/index.js",
+      "module": "es/index.mjs",
+      "types": "es/index.d.ts",
+      "exports": {
+        ".": {
+          "types": "./es/index.d.ts",
+          "import": "./es/index.mjs",
+          "require": "./lib/index.js"
+        },
+        "./global": {
+          "types": "./global.d.ts"
+        },
+        "./es": {
+          "types": "./es/index.d.ts",
+          "import": "./es/index.mjs"
+        },
+        "./lib": {
+          "types": "./lib/index.d.ts",
+          "require": "./lib/index.js"
+        },
+        "./render-pipeline": {
+          "types": "./es/render-pipeline.d.ts",
+          "import": "./es/render-pipeline.mjs",
+          "require": "./lib/render-pipeline.js"
+        },
+        "./result": {
+          "types": "./es/result.d.ts",
+          "import": "./es/result.mjs",
+          "require": "./lib/result.js"
+        },
+        "./theme": {
+          "types": "./es/theme.d.ts",
+          "import": "./es/theme.mjs",
+          "require": "./lib/theme.js"
+        },
+        "./icons-vue": {
+          "types": "./es/icons-vue.d.ts",
+          "import": "./es/icons-vue.mjs",
+          "require": "./lib/icons-vue.js"
+        },
+        "./wasm": {
+          "types": "./es/wasm.d.ts",
+          "import": "./es/wasm.mjs",
+          "require": "./lib/wasm.js"
+        },
+        "./markdown-runtime": {
+          "types": "./es/markdown-runtime.d.ts",
+          "import": "./es/markdown-runtime.mjs",
+          "require": "./lib/markdown-runtime.js"
+        },
+        "./motion": {
+          "types": "./es/motion.d.ts",
+          "import": "./es/motion.mjs",
+          "require": "./lib/motion.js"
+        },
+        "./perception-challenge": {
+          "types": "./es/perception-challenge.d.ts",
+          "import": "./es/perception-challenge.mjs",
+          "require": "./lib/perception-challenge.js"
+        },
+        "./dist/public-shell-critical.css": "./dist/public-shell-critical.css",
+        "./dist/fsus.css": "./dist/fsus.css",
+        "./dist/el-fsus-theme.css": "./dist/el-fsus-theme.css",
+        "./dist/index.css": "./dist/index.css",
+        "./theme-chalk/*": "./theme-chalk/*",
+        "./es/index": {
+          "types": "./es/index.d.ts",
+          "import": "./es/index.mjs"
+        },
+        "./lib/index": {
+          "types": "./lib/index.d.ts",
+          "require": "./lib/index.js"
+        },
+        "./es/icons-vue": {
+          "types": "./es/icons-vue.d.ts",
+          "import": "./es/icons-vue.mjs"
+        },
+        "./lib/icons-vue": {
+          "types": "./lib/icons-vue.d.ts",
+          "require": "./lib/icons-vue.js"
+        },
+        "./es/wasm": {
+          "types": "./es/wasm.d.ts",
+          "import": "./es/wasm.mjs"
+        },
+        "./lib/wasm": {
+          "types": "./lib/wasm.d.ts",
+          "require": "./lib/wasm.js"
+        },
+        "./es/wasm/*": null,
+        "./lib/wasm/*": null,
+        "./es/components": {
+          "types": "./es/components/index.d.ts",
+          "import": "./es/components/index.mjs"
+        },
+        "./es/components/*": {
+          "types": [
+            "./es/components/*.d.ts",
+            "./es/components/*/index.d.ts"
+          ],
+          "import": "./es/components/*.mjs"
+        },
+        "./es/components/*.mjs": {
+          "types": "./es/components/*.d.ts",
+          "import": "./es/components/*.mjs"
+        },
+        "./lib/components": {
+          "types": "./lib/components/index.d.ts",
+          "require": "./lib/components/index.js"
+        },
+        "./lib/components/*": {
+          "types": [
+            "./lib/components/*.d.ts",
+            "./lib/components/*/index.d.ts"
+          ],
+          "require": "./lib/components/*.js"
+        },
+        "./lib/components/*.js": {
+          "types": "./lib/components/*.d.ts",
+          "require": "./lib/components/*.js"
+        },
+        "./es/constants": {
+          "types": "./es/constants/index.d.ts",
+          "import": "./es/constants/index.mjs"
+        },
+        "./es/constants/*": {
+          "types": [
+            "./es/constants/*.d.ts",
+            "./es/constants/*/index.d.ts"
+          ],
+          "import": "./es/constants/*.mjs"
+        },
+        "./es/constants/*.mjs": {
+          "types": "./es/constants/*.d.ts",
+          "import": "./es/constants/*.mjs"
+        },
+        "./lib/constants": {
+          "types": "./lib/constants/index.d.ts",
+          "require": "./lib/constants/index.js"
+        },
+        "./lib/constants/*": {
+          "types": [
+            "./lib/constants/*.d.ts",
+            "./lib/constants/*/index.d.ts"
+          ],
+          "require": "./lib/constants/*.js"
+        },
+        "./lib/constants/*.js": {
+          "types": "./lib/constants/*.d.ts",
+          "require": "./lib/constants/*.js"
+        },
+        "./es/directives": {
+          "types": "./es/directives/index.d.ts",
+          "import": "./es/directives/index.mjs"
+        },
+        "./es/directives/*": {
+          "types": [
+            "./es/directives/*.d.ts",
+            "./es/directives/*/index.d.ts"
+          ],
+          "import": "./es/directives/*.mjs"
+        },
+        "./es/directives/*.mjs": {
+          "types": "./es/directives/*.d.ts",
+          "import": "./es/directives/*.mjs"
+        },
+        "./lib/directives": {
+          "types": "./lib/directives/index.d.ts",
+          "require": "./lib/directives/index.js"
+        },
+        "./lib/directives/*": {
+          "types": [
+            "./lib/directives/*.d.ts",
+            "./lib/directives/*/index.d.ts"
+          ],
+          "require": "./lib/directives/*.js"
+        },
+        "./lib/directives/*.js": {
+          "types": "./lib/directives/*.d.ts",
+          "require": "./lib/directives/*.js"
+        },
+        "./es/hooks": {
+          "types": "./es/hooks/index.d.ts",
+          "import": "./es/hooks/index.mjs"
+        },
+        "./es/hooks/*": {
+          "types": [
+            "./es/hooks/*.d.ts",
+            "./es/hooks/*/index.d.ts"
+          ],
+          "import": "./es/hooks/*.mjs"
+        },
+        "./es/hooks/*.mjs": {
+          "types": "./es/hooks/*.d.ts",
+          "import": "./es/hooks/*.mjs"
+        },
+        "./lib/hooks": {
+          "types": "./lib/hooks/index.d.ts",
+          "require": "./lib/hooks/index.js"
+        },
+        "./lib/hooks/*": {
+          "types": [
+            "./lib/hooks/*.d.ts",
+            "./lib/hooks/*/index.d.ts"
+          ],
+          "require": "./lib/hooks/*.js"
+        },
+        "./lib/hooks/*.js": {
+          "types": "./lib/hooks/*.d.ts",
+          "require": "./lib/hooks/*.js"
+        },
+        "./es/locale": {
+          "types": "./es/locale/index.d.ts",
+          "import": "./es/locale/index.mjs"
+        },
+        "./es/locale/*": {
+          "types": [
+            "./es/locale/*.d.ts",
+            "./es/locale/*/index.d.ts"
+          ],
+          "import": "./es/locale/*.mjs"
+        },
+        "./es/locale/*.mjs": {
+          "types": "./es/locale/*.d.ts",
+          "import": "./es/locale/*.mjs"
+        },
+        "./lib/locale": {
+          "types": "./lib/locale/index.d.ts",
+          "require": "./lib/locale/index.js"
+        },
+        "./lib/locale/*": {
+          "types": [
+            "./lib/locale/*.d.ts",
+            "./lib/locale/*/index.d.ts"
+          ],
+          "require": "./lib/locale/*.js"
+        },
+        "./lib/locale/*.js": {
+          "types": "./lib/locale/*.d.ts",
+          "require": "./lib/locale/*.js"
+        },
+        "./es/motion": {
+          "types": "./es/motion.d.ts",
+          "import": "./es/motion.mjs"
+        },
+        "./es/motion/*": {
+          "types": [
+            "./es/motion/*.d.ts",
+            "./es/motion/*/index.d.ts"
+          ],
+          "import": "./es/motion/*.mjs"
+        },
+        "./es/motion/*.mjs": {
+          "types": "./es/motion/*.d.ts",
+          "import": "./es/motion/*.mjs"
+        },
+        "./lib/motion": {
+          "types": "./lib/motion.d.ts",
+          "require": "./lib/motion.js"
+        },
+        "./lib/motion/*": {
+          "types": [
+            "./lib/motion/*.d.ts",
+            "./lib/motion/*/index.d.ts"
+          ],
+          "require": "./lib/motion/*.js"
+        },
+        "./lib/motion/*.js": {
+          "types": "./lib/motion/*.d.ts",
+          "require": "./lib/motion/*.js"
+        },
+        "./es/utils": {
+          "types": "./es/utils/index.d.ts",
+          "import": "./es/utils/index.mjs"
+        },
+        "./es/utils/*": {
+          "types": [
+            "./es/utils/*.d.ts",
+            "./es/utils/*/index.d.ts"
+          ],
+          "import": "./es/utils/*.mjs"
+        },
+        "./es/utils/*.mjs": {
+          "types": "./es/utils/*.d.ts",
+          "import": "./es/utils/*.mjs"
+        },
+        "./lib/utils": {
+          "types": "./lib/utils/index.d.ts",
+          "require": "./lib/utils/index.js"
+        },
+        "./lib/utils/*": {
+          "types": [
+            "./lib/utils/*.d.ts",
+            "./lib/utils/*/index.d.ts"
+          ],
+          "require": "./lib/utils/*.js"
+        },
+        "./lib/utils/*.js": {
+          "types": "./lib/utils/*.d.ts",
+          "require": "./lib/utils/*.js"
+        }
+      },
+      "unpkg": "dist/index.full.js",
+      "jsdelivr": "dist/index.full.js",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Ozwasyd/FsusUI.git"
+      },
+      "publishConfig": {
+        "access": "public"
+      },
+      "style": "dist/fsus.css",
+      "sideEffects": [
+        "dist/*",
+        "theme-chalk/**/*.css",
+        "theme-chalk/src/**/*.scss",
+        "es/components/*/style/*",
+        "lib/components/*/style/*"
+      ],
+      "peerDependencies": {
+        "vue": "^3.5.0"
+      },
+      "dependencies": {
+        "@ctrl/tinycolor": "^3.4.1",
+        "@element-plus/icons-vue": "workspace:*",
+        "@element-plus/motion": "workspace:*",
+        "@floating-ui/dom": "^1.0.1",
+        "@popperjs/core": "npm:@sxzz/popperjs-es@^2.11.7",
+        "@types/lodash": "^4.14.182",
+        "@types/lodash-es": "^4.17.6",
+        "async-validator": "^4.2.5",
+        "dayjs": "^1.11.3",
+        "escape-html": "^1.0.3",
+        "gsap": "^3.15.0",
+        "katex": "^0.17.0",
+        "lodash": "^4.17.21",
+        "lodash-es": "^4.17.21",
+        "lodash-unified": "^1.0.2",
+        "memoize-one": "^6.0.0",
+        "mermaid": "^11.15.0",
+        "motion-dom": "^12.40.0",
+        "normalize-wheel-es": "^1.2.0",
+        "shiki": "^4.2.0"
+      },
+      "devDependencies": {
+        "@types/node": "25.5.2",
+        "csstype": "3.2.3",
+        "vue": "3.5.32",
+        "vue-router": "4.6.4"
+      },
+      "vetur": {
+        "tags": "tags.json",
+        "attributes": "attributes.json"
+      },
+      "web-types": "web-types.json",
+      "browserslist": [
+        "> 1%",
+        "not ie 11",
+        "not op_mini all"
+      ]
+    },
+    "localConsumption": "FSUSBLOG_USE_LOCAL_FSUSUI=1; FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/intake4378-ui981",
+    "cssStatus": "product theme CSS NOT BUILT; source Sass and old installed CSS cannot establish consumer acceptance",
+    "dependentInputs": [
+      {
+        "path": "node_modules",
+        "realpath": "/workspace/FsusUI/node_modules",
+        "exists": true
+      },
+      {
+        "path": "vue/packages/node_modules",
+        "realpath": "/workspace/FsusUI/vue/packages/node_modules",
+        "exists": true
+      },
+      {
+        "path": "vue/packages/components/node_modules",
+        "realpath": "/workspace/FsusUI/vue/packages/components/node_modules",
+        "exists": true
+      },
+      {
+        "path": "vue/packages/element-plus/node_modules",
+        "realpath": "/workspace/FsusUI/vue/packages/element-plus/node_modules",
+        "exists": true
+      },
+      {
+        "path": "vue/packages/icons-vue/node_modules",
+        "realpath": "/workspace/FsusUI/vue/packages/icons-vue/node_modules",
+        "exists": true
+      },
+      {
+        "path": "vue/packages/wasm/node_modules",
+        "realpath": "/workspace/FsusUI/vue/packages/wasm/node_modules",
+        "exists": true
+      },
+      {
+        "path": "vue/packages/theme-chalk/node_modules",
+        "realpath": "/workspace/FsusUI/vue/packages/theme-chalk/node_modules",
+        "exists": true
+      }
+    ]
+  },
+  "static": [
+    {
+      "check": "strict",
+      "baseExit": 0,
+      "candidateExit": 0,
+      "rawByteIdentical": true,
+      "baseBytes": 68,
+      "candidateBytes": 68,
+      "baseSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+      "candidateSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577"
+    },
+    {
+      "check": "types",
+      "baseExit": 2,
+      "candidateExit": 2,
+      "rawByteIdentical": true,
+      "baseBytes": 5241,
+      "candidateBytes": 5241,
+      "baseSha256": "250364ce34737e508b1e444e20a2d3a64007a0a7f12ff659136652d16baaf450",
+      "candidateSha256": "250364ce34737e508b1e444e20a2d3a64007a0a7f12ff659136652d16baaf450",
+      "baseDiagnostics": 29,
+      "candidateDiagnostics": 29,
+      "changedComponentDiagnostic": false
+    },
+    {
+      "check": "full-style",
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseBytes": 11861919,
+      "candidateBytes": 11861919,
+      "baseSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+      "candidateSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+      "baseFrontendStyleLines": 83667,
+      "candidateFrontendStyleLines": 83667,
+      "baseRawLines": 83676,
+      "candidateRawLines": 83676,
+      "changedComponentDiagnostic": false
+    },
+    {
+      "check": "boundary",
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseBytes": 2805,
+      "candidateBytes": 2805,
+      "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    {
+      "check": "binary",
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseBytes": 866,
+      "candidateBytes": 866,
+      "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    {
+      "check": "intent",
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseBytes": 353,
+      "candidateBytes": 353,
+      "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+    },
+    {
+      "check": "lifecycle",
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseBytes": 762,
+      "candidateBytes": 762,
+      "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    {
+      "check": "authoritative",
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseBytes": 6771,
+      "candidateBytes": 6771,
+      "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    }
+  ],
+  "evidenceMap": "artifacts/article-editor/intake4378-static/delivery-map.json",
+  "firstAttempt": "Both complete application invocations before copying two existing ignored declarations retained separately as initial-missing-declarations, FAIL2/29. Exact original ignored declaration bytes then copied from main checkout, no generation; final complete original runs FAIL2/29 with full771-file effective config. No lost failure.",
+  "remainingWIP": [
+    "Independent review of this exact receiving increment",
+    "Product theme CSS NOT BUILT. UI981 includes reviewed Tabs/Input/Button source fixes, but old CSS and source Sass do not establish consumer acceptance.",
+    "All original full/static failures retained, not waived or qualified",
+    "Historical4378 raw logs absent from this fresh workspace; original PR metadata and declared hashes retained without fabricating/relabeling old logs",
+    "Actual npm11.9.0 differs from configured npm11.13.0; original locked lint dependencies and commands retained; no package/lock/config edits",
+    "Aggregate Git whitespace FAIL2 from exact raw patch evidence, source-only PASS0; preserve raw bytes."
+  ],
+  "holds": [
+    "runtime",
+    "tests",
+    "testcollection",
+    "list",
+    "discovery",
+    "productimport",
+    "moduleexecution",
+    "setup",
+    "mount",
+    "browser",
+    "native",
+    "worker",
+    "kernel",
+    "DB",
+    "network-security",
+    "privacy",
+    "receipt",
+    "race",
+    "backuprestore",
+    "IME",
+    "frozen",
+    "qualification"
+  ],
+  "constraints": "No alternate harness, mocks, rejected-task restart, test/discovery/setup/product imports/evaluation/mount, host/security/API/permission binding, cancellation/settlement changes, credential/security changes, authority/frozen baseline refresh, Ready/merge/close/package/deploy. Source acceptance only, no runtime/UX qualification.",
+  "rollout": "draft only",
+  "rollback": "omit/revert this sole receiving commit to exact4385; no live state changed",
+  "gitWhitespace": {
+    "sourceOnlyExit": 0,
+    "aggregateExit": 2,
+    "reason": "Exact raw donor-production.patch context-only blank lines retain a single space; aggregate raw-evidence whitespace FAIL retained, no attributes/rules/suppression or byte normalization. Diagnostic delivery may itself show those same raw trailing spaces; no aggregate pass claimed."
+  }
+}

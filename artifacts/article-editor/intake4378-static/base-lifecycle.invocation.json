@@ -1,0 +1,15 @@
+{
+  "cwd": "/workspace/intake4378-base",
+  "argv": [
+    "node",
+    "tools/docs/generate-document-lifecycle.mjs",
+    "--check"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4378-ui981"
+  },
+  "startedUtc": "2026-10-15T10:49:11.839133+00:00",
+  "exit": 1,
+  "completedUtc": "2026-10-15T10:49:11.975601+00:00"
+}

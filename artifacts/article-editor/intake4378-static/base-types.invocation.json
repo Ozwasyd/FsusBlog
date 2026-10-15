@@ -1,0 +1,15 @@
+{
+  "cwd": "/workspace/intake4378-base",
+  "argv": [
+    "node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4378-ui981"
+  },
+  "startedUtc": "2026-10-15T10:46:31.877384+00:00",
+  "exit": 2,
+  "completedUtc": "2026-10-15T10:47:05.808551+00:00"
+}
