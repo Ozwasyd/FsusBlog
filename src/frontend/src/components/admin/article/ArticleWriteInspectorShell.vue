@@ -12,10 +12,12 @@
             @activate="handleRailActivate"
         />
 
-        <button
+        <FsusUiButton
             v-if="isCompact"
             v-show="activeInspector === null"
-            type="button"
+            native-type="button"
+            size="large"
+            plain
             class="article-write-inspector-launcher"
             aria-label="打开文章检查器"
             aria-controls="article-write-inspector-view-publish"
@@ -25,7 +27,7 @@
             <ElIcon aria-hidden="true">
                 <Checked />
             </ElIcon>
-        </button>
+        </FsusUiButton>
 
         <component
             :is="inspectorHost"
@@ -48,16 +50,16 @@
                 <h2 class="article-write-inspector-pane__title">
                     {{ activeView?.label ?? '文章检查器' }}
                 </h2>
-                <button
-                    type="button"
-                    class="article-write-inspector-pane__close"
+                <FsusUiButton
+                    native-type="button"
+                    text
                     aria-label="关闭文章检查器"
                     @click="requestClose"
                 >
                     <ElIcon aria-hidden="true">
                         <Close />
                     </ElIcon>
-                </button>
+                </FsusUiButton>
             </header>
 
             <div class="article-write-inspector-views">
@@ -97,6 +99,7 @@ import {
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
 import { useMediaQuery } from '@/composables/useMediaQuery';
+import { FsusUiButton } from '@/fsusui/button';
 import { Checked, Close } from '@/fsusui/icons';
 
 const props = defineProps<{
@@ -280,57 +283,12 @@ onUnmounted(() =>
     line-height: 1.35;
 }
 
-.article-write-inspector-pane__close
- {
-    display: inline-grid;
-    width: var(--fsus-control-height);
-    height: var(--fsus-control-height);
-    cursor: pointer;
-    place-items: center;
-    border: 0;
-    border-radius: var(--fsus-radius-control);
-    background: transparent;
-    color: var(--fsusblog-text-muted);
-}
-
-.article-write-inspector-pane__close:hover
- {
-    background: var(--el-fill-color-light);
-    color: var(--fsus-scholarly-blue);
-}
-
-.article-write-inspector-pane__close:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
-}
-
 .article-write-inspector-launcher
  {
     position: absolute;
     z-index: var(--fsusblog-z-sticky, 30);
     top: calc((3.5rem - var(--fsus-control-height-spacious)) / 2);
     right: var(--fsus-space-4);
-    display: inline-grid;
-    width: var(--fsus-control-height-spacious);
-    height: var(--fsus-control-height-spacious);
-    cursor: pointer;
-    place-items: center;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsus-radius-control);
-    background: var(--fsusblog-page-bg);
-    color: var(--fsus-scholarly-blue);
-}
-
-.article-write-inspector-launcher:hover
- {
-    background: var(--el-fill-color-light);
-}
-
-.article-write-inspector-launcher:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
 }
 
 .article-write-inspector-views,
