@@ -1,0 +1,12 @@
+[
+  {
+    "path": "src/frontend/src/services/authoring/articleWritingAidPolicy.ts",
+    "head": "fdc1091c57dbb7e47807fd0d57159dec0f780993",
+    "blob": "ef1c0532813a1dde15dee1f5e5175ed0b2b73068"
+  },
+  {
+    "path": "src/frontend/src/services/authoring/articleWritingAidRuntime.ts",
+    "head": "fdc1091c57dbb7e47807fd0d57159dec0f780993",
+    "blob": "a463f664036895e931df75228fc0c8ab50a0b0a3"
+  }
+]
