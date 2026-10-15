@@ -1,0 +1,74 @@
+{
+  "application": {
+    "baseExit": 2,
+    "candidateExit": 2,
+    "baseLines": 30,
+    "candidateLines": 30,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "boundary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 21,
+    "candidateLines": 22,
+    "byteIdentical": false,
+    "addedLinesMultiplicity": [
+      "[fsusui-boundary] warnings=21 strict=true",
+      "- src/frontend/src/components/article-vault/VaultConflictList.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus"
+    ],
+    "removedLinesMultiplicity": [
+      "[fsusui-boundary] warnings=20 strict=true"
+    ]
+  },
+  "binary": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "lifecycle": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 7,
+    "candidateLines": 7,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "authoritative": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 41,
+    "candidateLines": 41,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  },
+  "code-intent": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 3,
+    "candidateLines": 3,
+    "byteIdentical": false,
+    "addedLinesMultiplicity": [
+      "[code-intent] 2 error(s) across 5753 checked file(s):"
+    ],
+    "removedLinesMultiplicity": [
+      "[code-intent] 2 error(s) across 5747 checked file(s):"
+    ]
+  },
+  "full-style": {
+    "baseExit": 1,
+    "candidateExit": 1,
+    "baseLines": 2,
+    "candidateLines": 2,
+    "byteIdentical": true,
+    "addedLinesMultiplicity": [],
+    "removedLinesMultiplicity": []
+  }
+}

@@ -1,0 +1,5 @@
+fix(frontend): route conflict pagination through public adapter
+
+Remove the new direct runtime-import finding through the documented type-preserving boundary. Preserve the same public pagination props, emits, behavior and original static failures.
+
+Refs: #2295

@@ -1,0 +1,117 @@
+{
+  "kind": "ordinary completed delivery checkpoint; no acceptance authority",
+  "observedDraft": "https://github.com/Ozwasyd/FsusBlog/pull/4407",
+  "observedHead": "d86aa14df538439b1fbeffcb80bf172a73d88fe6",
+  "currentContainingHead": "this evidence-only successor; final head recorded in PR/delivery response",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "files": [
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.txt",
+      "bytes": 46,
+      "sha256": "332c7862da2a2abc7daacd44fb35c4db910b55af6aba840a3a9b35787a73063b"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.txt",
+      "bytes": 81,
+      "sha256": "732d2fdb56ad44bbac7eceb4ba95a3a9befebec530d1ce61174a2fe3d43b1cfe"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.txt",
+      "bytes": 710,
+      "sha256": "ab7b8c846d69410cc62a593c766fff12cfa9ddaf18cae5279f7f5e2845e07f2e"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.txt",
+      "bytes": 81,
+      "sha256": "b4c302b4db0a04245538f8cb2235af2cc424270e0bb96f5bfacf3c1268a01c64"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.json",
+      "bytes": 222246,
+      "sha256": "80cd9f1d5b70977bb999973a142c2d369f4c7c8467f040bf0028ced389c99cc0"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback-event.json",
+      "bytes": 30701,
+      "sha256": "69742e9914d1dac2342a6610c7cd02983ac07dcb3231fae7ec6663d4594c2a1f"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.json",
+      "bytes": 26137,
+      "sha256": "538cb0c51ffe2a1f15e1be69ee4b0fceef66749e5120419185eb8b2bbcd56b95"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.txt",
+      "bytes": 121,
+      "sha256": "fd40da8ad698103bc6a9cc3e9d2f3221689c9b13c3ee4558c9426709ef9a7275"
+    }
+  ],
+  "prContract": "actual REST-backed original checker FAIL1: Formatter/linter run unchecked, correctly reflecting unavailable actual lint tools",
+  "intermediateFailures": "earlier metadata checker missing event ENOENT retained; old gh does not support --slurp; refusal exit and empty stdout retained; stderr was emitted only to session transcript. Corrected read uses per_page100, all75 equals authoritative changed_files. No permission denial or credential change.",
+  "remoteChecksAtObservedHead": {
+    "prWorkflowRuns": [],
+    "combinedStatuses": [],
+    "meaning": "empty lists are not passing checks"
+  },
+  "staticSourceIdentity": "all production bytes remain exact source20e3db62b100b7944594ad7fa3156a01b4994d95; no static source check rerun or acceptance inferred"
+}

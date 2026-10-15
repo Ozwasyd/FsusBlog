@@ -1,0 +1,14 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395-base",
+  "argv": [
+    "node",
+    "tools/governance/check-code-intent.mjs"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-ui973-storage-conflict-4395"
+  },
+  "startedUTC": "2026-10-15T10:46:18.637579+00:00",
+  "exitCode": 1,
+  "finishedUTC": "2026-10-15T10:46:28.937203+00:00"
+}

@@ -1,0 +1,12 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395",
+  "argv": [
+    "node",
+    "src/frontend/scripts/fsusui-root.mjs",
+    "--repository-root",
+    "/workspace/FsusBlog-storage-conflict-4395",
+    "--override",
+    "/workspace/FsusUI-ui973-storage-conflict-4395"
+  ],
+  "exitCode": 0
+}

@@ -1,0 +1,30 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { createRequire } = require('node:module');
+const load = createRequire(path.join(process.cwd(), 'src/frontend/package.json'));
+const ts = load('typescript');
+const sfc = load('@vue/compiler-sfc');
+const dom = load('@vue/compiler-dom');
+const root = 'src/frontend/src/components/article-vault';
+let errors = 0;
+for (const name of fs.readdirSync(root).sort()) {
+    const file = `${root}/${name}`;
+    const source = fs.readFileSync(file, 'utf8');
+    let scripts = [{content:source,lang:'ts'}];
+    if (name.endsWith('.vue')) {
+        const result = sfc.parse(source, {filename:file});
+        for (const error of result.errors) { console.error(file, error); errors++; }
+        const d = result.descriptor;
+        scripts = [d.script,d.scriptSetup].filter(Boolean);
+        if (d.template) {
+            dom.baseParse(d.template.content, {onError(error) { console.error(file,error.message);errors++; }});
+        }
+    }
+    for (const block of scripts) {
+        const parsed = ts.createSourceFile(file+'.ts',block.content,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
+        for (const error of parsed.parseDiagnostics) {console.error(file,ts.flattenDiagnosticMessageText(error.messageText,'\n'));errors++;}
+    }
+    console.log(`parsed source only: ${file}`);
+}
+console.log(`files=6 errors=${errors}; candidate modules never imported or evaluated`);
+process.exitCode = errors ? 1 : 0;

@@ -1,0 +1,16 @@
+node:fs:484
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open '/workspace/evidence-storage-conflict-4395/pr-readback-event.json'
+    at readFileSync (node:fs:484:20)
+    at validateEvent (file:///workspace/FsusBlog-storage-conflict-4395/tools/governance/check-change-contract.mjs:46:30)
+    at file:///workspace/FsusBlog-storage-conflict-4395/tools/governance/check-change-contract.mjs:156:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/workspace/evidence-storage-conflict-4395/pr-readback-event.json'
+}
+
+Node.js v24.19.0
