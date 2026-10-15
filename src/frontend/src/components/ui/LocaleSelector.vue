@@ -14,9 +14,9 @@
         :data-active-locale="activeLocale"
         :data-pending-locale="pendingLocale || undefined"
     >
-        <button
+        <FsusUiButton
             ref="triggerRef"
-            type="button"
+            native-type="button"
             class="locale-selector__trigger"
             data-locale-selector-trigger
             :aria-label="triggerAriaLabel"
@@ -65,7 +65,7 @@
             >
                 <Loading class="locale-selector__spinner" />
             </span>
-        </button>
+        </FsusUiButton>
 
         <div
             :id="menuId"
@@ -76,7 +76,7 @@
             v-bind="{ 'aria-activedescendant': activeDescendantId, hidden: !resolvedOpen }"
         >
             <component
-                :is="item.href ? 'a' : 'button'"
+                :is="item.href ? 'a' : FsusUiButton"
                 v-for="(item, index) in items"
                 :id="itemDomId(item.code)"
                 :key="item.code"
@@ -97,7 +97,7 @@
                 :aria-disabled="disabled ? 'true' : undefined"
                 :tabindex="resolvedOpen && activeMenuIndex === index ? 0 : -1"
                 :href="item.href || undefined"
-                :type="item.href ? undefined : 'button'"
+                :native-type="item.href ? undefined : 'button'"
                 :dir="item.direction"
                 :disabled="item.href ? undefined : disabled"
                 @click.prevent="handleItemActivate(item)"
@@ -134,12 +134,13 @@
                 role="alert"
             >
                 <p class="locale-selector__error-message safe-inline-wrap">{{ errorMessage }}</p>
-                <button
-                    type="button"
+                <FsusUiButton
+                    native-type="button"
                     class="locale-selector__retry"
                     data-locale-selector-retry
                     :disabled="disabled || !retryLocale"
                     :aria-label="retryAriaLabel"
+                    :aria-disabled="undefined"
                     @click="handleRetry"
                 >
                     <Refresh
@@ -147,7 +148,7 @@
                         aria-hidden="true"
                     />
                     <span class="locale-selector__retry-label">{{ retryLocaleLabel }}</span>
-                </button>
+                </FsusUiButton>
             </div>
         </div>
 
@@ -158,12 +159,13 @@
             role="alert"
         >
             <p class="locale-selector__error-message safe-inline-wrap">{{ errorMessage }}</p>
-            <button
-                type="button"
+            <FsusUiButton
+                native-type="button"
                 class="locale-selector__retry"
                 data-locale-selector-retry
                 :disabled="disabled || !retryLocale"
                 :aria-label="retryAriaLabel"
+                :aria-disabled="undefined"
                 @click="handleRetry"
             >
                 <Refresh
@@ -171,7 +173,7 @@
                     aria-hidden="true"
                 />
                 <span class="locale-selector__retry-label">{{ retryLocaleLabel }}</span>
-            </button>
+            </FsusUiButton>
         </div>
     </div>
 </template>
@@ -190,7 +192,13 @@ import {
     selectedLocaleIndex
 } from '@/components/ui/localeSelectorPresentation';
 import type { LocaleSelectorItem } from '@/components/ui/localeSelectorTypes';
+import { FsusUiButton } from '@/fsusui/button';
 import { Check, Loading, Refresh } from '@/fsusui/icons';
+
+interface LocaleButtonInstance
+{
+    ref?: HTMLButtonElement;
+}
 
 const props = withDefaults(defineProps<{
     items: readonly LocaleSelectorItem[];
@@ -215,7 +223,7 @@ const emit = defineEmits<{
 }>();
 
 const rootRef = ref<HTMLElement | null>(null);
-const triggerRef = ref<HTMLButtonElement | null>(null);
+const triggerRef = ref<LocaleButtonInstance | null>(null);
 const itemRefs = new Map<string, HTMLElement>();
 const internalOpen = ref(false);
 const activeMenuIndex = ref(0);
@@ -251,9 +259,10 @@ const isPending = (item: LocaleSelectorItem): boolean => isLocaleItemPending(ite
 
 function setItemRef(code: string, el: unknown): void
 {
-    if (el instanceof HTMLElement)
+    const element = el instanceof HTMLElement ? el : (el as LocaleButtonInstance | null)?.ref;
+    if (element instanceof HTMLElement)
     {
-        itemRefs.set(code, el);
+        itemRefs.set(code, element);
         return;
     }
     itemRefs.delete(code);
@@ -275,7 +284,7 @@ function setOpen(next: boolean): void
 async function focusTrigger(): Promise<void>
 {
     await nextTick();
-    triggerRef.value?.focus();
+    triggerRef.value?.ref?.focus();
 }
 
 async function focusMenuItem(index: number): Promise<void>
