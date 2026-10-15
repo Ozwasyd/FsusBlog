@@ -1,0 +1,3 @@
+[change-contract] PR body requires checked checklist field: [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+[change-contract] refactor title cannot claim Behavior change
+[change-contract] Contract impact must be none unless Public contract change is checked

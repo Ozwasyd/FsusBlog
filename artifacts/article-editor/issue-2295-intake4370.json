@@ -1,0 +1,178 @@
+{
+    "status": "WIP independent SOURCE intake draft; receiving combination awaits independent review",
+    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "selectedLeaf": "940bc9c45d5887cf18daa147be92f484114d41ab",
+    "productionPaths": [
+        "src/frontend/src/components/article/ArticleCommentsVirtualList.vue"
+    ],
+    "sourceOnlyCandidateTree": "be3c7dbf5bc3789fe34a8e85b510c392f159a3f6",
+    "scope": "Only native root-thread show-more action becomes existing public FsusUiButton with native-type=button and link; remove only duplicated control styling. Exact selected source blob preserved. No other leaf, donor history, business security/API/permission or real-host binding.",
+    "preserved": "showMoreRootThreads, render bounds, slicing, hidden count, conditional visibility, source order, child event payloads/forwarding, ARIA and wrappers/layout; no cancellation/settlement semantic change",
+    "sourceDesignContext": {
+        "owner": "Blog reading-surface composition; FsusUI owns generic control/state/focus styling",
+        "interpretation": "prescribed, ux-local; informational source WIP only, no new frozen classification or UX receipt",
+        "authorityDigests": "artifacts/article-editor/intake4370-static/authority-digests.json",
+        "renderedEvidence": "None; HOLD under explicit delegation"
+    },
+    "actualFsusui": {
+        "repository": "Ozwasyd/FsusUI",
+        "path": "/workspace/intake4370-ui-git",
+        "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+        "statusPorcelain": "",
+        "dirtyFingerprintSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "package": "element-plus",
+        "version": "1.5.1",
+        "bothPublicPackageAliases": "../../../intake4370-ui-git/vue/packages/element-plus/index.ts",
+        "productThemeCss": "NOT BUILT / consumer acceptance HOLD; no old CSS or source Sass substituted",
+        "dependencyLocations": [
+            "node_modules",
+            "vue/internal/build/node_modules",
+            "vue/internal/metadata/node_modules",
+            "vue/packages/node_modules",
+            "vue/packages/components/node_modules",
+            "vue/packages/demo-app/node_modules",
+            "vue/packages/element-plus/node_modules",
+            "vue/packages/icons-vue/node_modules",
+            "vue/packages/theme-chalk/node_modules",
+            "vue/packages/wasm/node_modules"
+        ]
+    },
+    "static": {
+        "application": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "rawByteIdentical": true,
+            "baseSha256": "509abcac7d709a6ba725f0e6d731f1bc404d3085e972a1908d4c0a1c18b81877",
+            "candidateSha256": "509abcac7d709a6ba725f0e6d731f1bc404d3085e972a1908d4c0a1c18b81877",
+            "baseLines": 30,
+            "candidateLines": 30,
+            "baseTsDiagnostics": 29,
+            "candidateTsDiagnostics": 29
+        },
+        "node-types": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "rawByteIdentical": false,
+            "baseSha256": "aceb59001be83abbacf885c1e4d329b7971c882854d880473387c1ac5c60f3be",
+            "candidateSha256": "a70adf63f3499a400500e6814fc74683537b1281cc00dca03a70949f77c7ce0f",
+            "baseLines": 1,
+            "candidateLines": 1,
+            "baseTsDiagnostics": 1,
+            "candidateTsDiagnostics": 1,
+            "cwdPathOnlyEqual": true,
+            "rawPreserved": true
+        },
+        "full-style": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "candidateSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "baseLines": 83667,
+            "candidateLines": 83667,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "strict-file": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "rawByteIdentical": true,
+            "baseSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "candidateSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "baseLines": 1,
+            "candidateLines": 1,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "fsusui-boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "baseLines": 21,
+            "candidateLines": 21,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "binary-boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "baseLines": 7,
+            "candidateLines": 7,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "code-intent": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "baseLines": 3,
+            "candidateLines": 3,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "lifecycle": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "baseLines": 7,
+            "candidateLines": 7,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "authoritative": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawByteIdentical": true,
+            "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "baseLines": 41,
+            "candidateLines": 41,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "effective-config": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "rawByteIdentical": true,
+            "baseSha256": "09855eef945193c240701d4d35801b4bdf27f57160732dac834345dcb9a4c765",
+            "candidateSha256": "09855eef945193c240701d4d35801b4bdf27f57160732dac834345dcb9a4c765",
+            "baseLines": 898,
+            "candidateLines": 898,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        },
+        "whitespace": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "rawByteIdentical": true,
+            "baseSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "candidateSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "baseLines": 0,
+            "candidateLines": 0,
+            "baseTsDiagnostics": 0,
+            "candidateTsDiagnostics": 0
+        }
+    },
+    "rawEvidence": "artifacts/article-editor/intake4370-static/delivery-map.json",
+    "configs": "Generated configs/effective config outputs are snapshots retaining their original cwd/relative meaning; not executable configs at delivery paths. Full source sets, genuine refs/enums, rules, configs and locks unchanged.",
+    "existingDonorFailures": "Original #4370 reported app exit2/336 and full lint exit1/83668 lines with UI961. They remain historical failures; current paired #4385/UI981 results use different exact inputs and do not relabel donor failures as repaired.",
+    "rulesets": "Only rulesets read returned403/private-plan unavailable. Endpoint not retried; no invisible-rule compliance or merge claim. See preserved raw preflight and resume-scope.json.",
+    "holds": "runtime/tests/testcollection/list/discovery/productimport/moduleexecution/setup/mount/browser/native/worker/kernel/DB/network-security/privacy/receipt/race/backuprestore/IME/frozen/qualification HOLD/UNRUN",
+    "productThemeDependency": "UI981 includes reviewed Tabs/Input/Button theme source repairs, but actual product theme CSS is NOT BUILT. Old CSS and source Sass cannot qualify consumer behavior, focus, theme, cascade, hit area or UX. No product/theme build executed.",
+    "noAuthorityRefresh": "No frozen baseline, receipt, catalog, fixture, qualification or authority producer refreshed. No substitute harness, mock authority, denied-task restart, credential or security change.",
+    "delivery": "Independent draft only; no Ready, merge, close or package publication; no original/sibling task branch modified. All original failures/HOLDs and4336 aggregateFAIL preserved.",
+    "rollback": "Revert/omit this sole source intake plus its new ordinary WIP/evidence to the exact4385 base; no live data changed.",
+    "ordinaryEvidenceRepair": "Initial staged whitespace check exit2 found only two space-only diff context lines in raw production.patch. Exact patch bytes are now base64 in production-patch.snapshot.json; original failure retained. Production source and all original checker outputs unchanged.",
+    "metadataGateRepair": "Initial original range/PR gates failed on missing base ancestor metadata;166 real ancestor commits were imported and each original SHA verified, no graph/ref changes. Range then passes. Planned PR gate next retained three metadata findings: required linked conventions checkbox, incompatible refactor/Behavior change classification, compatible contract impact without public-contract checkbox. Receiving metadata is corrected to feat, linked applicability checkbox, and Contract impact none; all original raw failures preserved.",
+    "exactFailureCapsules": "Two own metadata-gate failure logs with whitespace in their raw output are losslessly base64-capsuled as evidence-whitespace-before.snapshot.json and local-range-gate.snapshot.json, each bound to decoded SHA256; their unencoded originals remain task-local. Complete original application/fullstyle/strict/boundary/intent/docs raw outputs remain plain committed regular logs. No original failure or output byte discarded."
+}
