@@ -108,6 +108,7 @@ const activate = (view: ArticleWriteInspectorView, event: MouseEvent): void =>
 
 .article-write-inspector-rail__trigger
  {
+    width: var(--fsus-control-height-spacious);
     flex: 0 0 auto;
     margin: 0;
 }
