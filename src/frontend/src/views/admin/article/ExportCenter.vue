@@ -11,6 +11,7 @@
             data-document-export-center
         >
             <form
+                v-if="state.permitted.value"
                 :aria-busy="state.busy.value"
                 @submit.prevent="start"
             >
@@ -222,23 +223,26 @@
                         @click="state.act('delete', state.selectedView.value.taskId)"
                     >删除结果</ElButton>
                 </div>
-                <p
-                    v-if="state.actionState.value.phase === 'pending'"
-                    role="status"
-                >等待服务器确认 {{ state.actionName.value }}。</p>
-                <p
-                    v-if="state.actionState.value.phase === 'uncertain'"
-                    role="status"
-                >操作结果待核实，未确认取消、删除或下载完成。</p>
-                <ElButton
-                    v-if="state.actionState.value.phase === 'uncertain'"
-                    @click="state.reconcile"
-                >核实任务</ElButton>
-                <ElButton
-                    v-if="state.actionState.value.phase === 'uncertain' && ['cancel', 'delete', 'status'].includes(state.actionName.value)"
-                    @click="state.retryAction"
-                >重试原操作</ElButton>
             </section>
+
+            <p
+                v-if="state.actionState.value.phase === 'pending'"
+                role="status"
+            >等待服务器确认 {{ state.actionName.value }}。</p>
+            <p
+                v-if="state.actionState.value.phase === 'uncertain'"
+                role="status"
+            >操作结果待核实，未确认取消、删除或下载完成。</p>
+            <ElButton
+                v-if="state.actionState.value.phase === 'uncertain'"
+                :disabled="state.busy.value || !state.permitted.value"
+                @click="state.reconcile"
+            >核实任务</ElButton>
+            <ElButton
+                v-if="state.actionState.value.phase === 'uncertain' && ['cancel', 'delete', 'status'].includes(state.actionName.value)"
+                :disabled="state.busy.value || !state.permitted.value"
+                @click="state.retryAction"
+            >重试原操作</ElButton>
         </div>
     </ElDrawer>
 </template>
@@ -278,6 +282,15 @@ const selectionValid = computed(() => source.value !== undefined && format.value
 const submissionLocked = computed(() => state.value.busy.value
     || state.value.submission.value.phase === 'uncertain' || !state.value.permitted.value);
 
+function clearSelection(): void
+{
+    sourceId.value = '';
+    formatId.value = '';
+    layout.value = '';
+    theme.value = '';
+    confirmed.value = false;
+}
+
 watch([sourceId, formatId, layout, theme], () =>
 {
     confirmed.value = false;
@@ -293,13 +306,16 @@ watch([() => props.identity, () => props.port], () =>
     center.dispose();
     center = useDocumentExport(props.port);
     revision.value += 1;
-    sourceId.value = '';
-    formatId.value = '';
-    layout.value = '';
-    theme.value = '';
-    confirmed.value = false;
+    clearSelection();
     center.setOpen(props.visible);
-});
+}, { flush: 'sync' });
+watch(() => state.value.permitted.value, (permitted) =>
+{
+    if (!permitted)
+    {
+        clearSelection();
+    }
+}, { flush: 'sync' });
 onBeforeUnmount(() => center.dispose());
 
 const columns = [
