@@ -1,0 +1,25 @@
+{
+    "initialLargeBlob": [
+        {
+            "path": "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-full-style.txt",
+            "sha": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+            "error": "Error: {\"content\":[{\"type\":\"text\",\"text\":\"tool call error: tool call failed for `codex_apps/github.fetch_blob`\\n\\nCaused by:\\n    Transport closed\"}],\"isError\":true}"
+        }
+    ],
+    "protocolDisconnect": [
+        {
+            "path": "src/frontend/src/services/securityPerceptionChallengeFlow.ts",
+            "sha": "c68bf0cbe834ad81750a5b804447ee5283226ef4",
+            "error": "Error: {\"content\":[{\"type\":\"text\",\"text\":\"RemoteProtocolError: Server disconnected without sending a response.\"}],\"structuredContent\":{\"error\":\"RemoteProtocolError: Server disconnected without sending a response.\",\"error_code\":\"UNKNOWN\"},\"isError\":true}"
+        }
+    ],
+    "secondDisconnect": [
+        {
+            "path": "tests/backend/Integration/ArticleCanvasLinkTransactionIntegrationTests.cs",
+            "sha": "326452ecc7076ccfe0e499af28ac7d0507e321d3",
+            "error": "Error: {\"content\":[{\"type\":\"text\",\"text\":\"RemoteProtocolError: Server disconnected without sending a response.\"}],\"structuredContent\":{\"error\":\"RemoteProtocolError: Server disconnected without sending a response.\",\"error_code\":\"UNKNOWN\"},\"isError\":true}"
+        }
+    ],
+    "completion": [],
+    "explanation": "No access-denial/credential failure occurred. Source reads resumed only after transport disconnection; the unchanged oversized historical log remains remote and sparse locally."
+}

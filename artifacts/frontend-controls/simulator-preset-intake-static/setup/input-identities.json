@@ -1,0 +1,103 @@
+{
+    "blogBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "blogTree": "c50f8f2f7417cf5d70d2bae9ca7451c554f98518",
+    "blogTrackedStatusBefore": "",
+    "preservedOriginalTrackingReference": "de37cc017ddad80960968811ccb07a614586125e",
+    "realUi": {
+        "root": "/workspace/FsusUI-981-intake4379",
+        "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+        "trackedStatus": "",
+        "package": "element-plus",
+        "version": "1.5.1",
+        "themeDistExists": false
+    },
+    "authorities": [
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": "AGENTS.md",
+            "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d"
+        },
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": ".agents/skills/fsusblog-design-conformance/SKILL.md",
+            "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+        },
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": "docs/design/governance.md",
+            "sha256": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e"
+        },
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": "docs/design/surface-profiles.md",
+            "sha256": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243"
+        },
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": "docs/design/task-surface-geometry.md",
+            "sha256": "5c69c73371d2870907e0382bd07f0f943898069694ed248aab75bddbf46e1d97"
+        },
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": "docs/development/change-contract.md",
+            "sha256": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586"
+        },
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": "docs/development/coding-conventions.md",
+            "sha256": "df6e2035db85dac6f630fe61aedb55de59e6bb4f2c19971345e5030c388867ba"
+        },
+        {
+            "repository": "FsusBlog-intake4379",
+            "path": "docs/development/document-lifecycle.md",
+            "sha256": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "AGENTS.md",
+            "sha256": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": ".agents/skills/fsusui-design-conformance/SKILL.md",
+            "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "docs/index.md",
+            "sha256": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "docs/design.md",
+            "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "docs/design/governance.md",
+            "sha256": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "docs/design/change-classification.md",
+            "sha256": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "docs/workflows/visual-change.md",
+            "sha256": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "docs/consumers/design-integration.md",
+            "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+        },
+        {
+            "repository": "FsusUI-981-intake4379",
+            "path": "docs/components/button.md",
+            "sha256": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76"
+        }
+    ],
+    "nodeVersion": "v24.19.0"
+}

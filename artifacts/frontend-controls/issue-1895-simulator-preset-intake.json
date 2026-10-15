@@ -1,0 +1,330 @@
+{
+    "kind": "ordinary-wip-single-leaf-source-intake",
+    "issue": 1895,
+    "state": "draft; independent receiving review pending",
+    "qualification": false,
+    "base": {
+        "pullRequest": 4385,
+        "head": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "tree": "c50f8f2f7417cf5d70d2bae9ca7451c554f98518",
+        "branch": "codex/issue-2295-history-preview-reveal-checkpoint-20261015"
+    },
+    "donor": {
+        "pullRequest": 4379,
+        "head": "9f8f119ccb753adb726cee3fde9d95ffd4c5c38b",
+        "originalBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+        "reviewBasis": "User delegated finite independent source acceptance of this exact donor only; no receiving/runtime/UX acceptance inherited.",
+        "historyReplayed": false
+    },
+    "branch": "codex/issue-1895-simulator-presets-intake-20261015",
+    "productionScope": [
+        {
+            "path": "src/frontend/src/views/admin/security/SecuritySimulator.vue",
+            "mode": "100644",
+            "receivingBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "receivingPreimageBlob": "237ab7f2792e878185c66b2eac8f62253b160603",
+            "acceptedDonorPostimageBlob": "a4d37fdfa6572540b5fccf16428795cb1e69b512",
+            "actualPostimageEqualsExactAcceptedDonor": true,
+            "receivingPreimageEqualsExactDonorPreimage": true,
+            "actualTextConflict": false,
+            "application": "git apply --3way --index, clean; no extra adaptation needed",
+            "businessScriptBytesUnchangedExceptPublicImport": true,
+            "existingScopedCssBytesUnchanged": true,
+            "productionDiffNumstat": "20\t6\tsrc/frontend/src/views/admin/security/SecuritySimulator.vue",
+            "allOtherBaseIndexEntriesUnchanged": true,
+            "whitespaceExit": 0
+        }
+    ],
+    "scope": "Only four ordinary preset buttons in SecuritySimulator.vue use FsusUiButton from the existing public adapter, native-type=button, the public default slot and two page-owned layout rules. Labels/scores/order/click/applyPreset/form.riskScore, enabled state, run action, loading, risk model, API/request/error/auth/security behavior are preserved. No host/authority binding, cancel/settlement semantic, registry, shared wrapper or other leaf is admitted.",
+    "classificationContext": {
+        "owner": "FsusBlog consumer composition",
+        "profile": "task",
+        "uiDecisionClass": "prescribed",
+        "verificationClass": "ux-local",
+        "formalReceiptOrAuthorityRefreshed": false,
+        "authoritiesAndSkills": [
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": "AGENTS.md",
+                "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d"
+            },
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": ".agents/skills/fsusblog-design-conformance/SKILL.md",
+                "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+            },
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": "docs/design/governance.md",
+                "sha256": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e"
+            },
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": "docs/design/surface-profiles.md",
+                "sha256": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243"
+            },
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": "docs/design/task-surface-geometry.md",
+                "sha256": "5c69c73371d2870907e0382bd07f0f943898069694ed248aab75bddbf46e1d97"
+            },
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": "docs/development/change-contract.md",
+                "sha256": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586"
+            },
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": "docs/development/coding-conventions.md",
+                "sha256": "df6e2035db85dac6f630fe61aedb55de59e6bb4f2c19971345e5030c388867ba"
+            },
+            {
+                "repository": "FsusBlog-intake4379",
+                "path": "docs/development/document-lifecycle.md",
+                "sha256": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "AGENTS.md",
+                "sha256": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": ".agents/skills/fsusui-design-conformance/SKILL.md",
+                "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "docs/index.md",
+                "sha256": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "docs/design.md",
+                "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "docs/design/governance.md",
+                "sha256": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "docs/design/change-classification.md",
+                "sha256": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "docs/workflows/visual-change.md",
+                "sha256": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "docs/consumers/design-integration.md",
+                "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+            },
+            {
+                "repository": "FsusUI-981-intake4379",
+                "path": "docs/components/button.md",
+                "sha256": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76"
+            }
+        ],
+        "renderedEvidence": "HOLD/UNRUN; source observations are not conformance or UX acceptance"
+    },
+    "realLocalFsusUi": {
+        "root": "/workspace/FsusUI-981-intake4379",
+        "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+        "trackedStatus": "",
+        "package": "element-plus",
+        "version": "1.5.1",
+        "themeDistExists": false
+    },
+    "themeDependency": {
+        "state": "WIP BLOCKER: product theme CSS has not been built for UI981",
+        "sourceRepairs": "Exact UI981 includes accepted Tabs/Input/Button source theme repairs.",
+        "consumerAcceptance": "UNVERIFIED/HOLD. Old CSS and source Sass must not substitute for actual product CSS output or consumer acceptance.",
+        "themeBuildRun": false,
+        "sourceSassCompilationRun": false,
+        "oldCssAccepted": false
+    },
+    "staticComparison": {
+        "checks": [
+            {
+                "name": "application-effective-config",
+                "baseExit": 0,
+                "candidateExit": 0,
+                "baseRawSha256": "f064dc11beda78a31cfd0709dd8e407d77f157cc2a2250641cfea88d0b1e75e7",
+                "candidateRawSha256": "f064dc11beda78a31cfd0709dd8e407d77f157cc2a2250641cfea88d0b1e75e7",
+                "baseRawLines": 898,
+                "candidateRawLines": 898,
+                "completeRawBytesIdentical": true
+            },
+            {
+                "name": "application",
+                "baseExit": 2,
+                "candidateExit": 2,
+                "baseRawSha256": "83aee6484c1c3ba773b0bdb9a643b9d6db39b6500d63fe83a9cf5383e4fbd981",
+                "candidateRawSha256": "83aee6484c1c3ba773b0bdb9a643b9d6db39b6500d63fe83a9cf5383e4fbd981",
+                "baseRawLines": 30,
+                "candidateRawLines": 30,
+                "completeRawBytesIdentical": true,
+                "baseTsDiagnostics": 29,
+                "candidateTsDiagnostics": 29
+            },
+            {
+                "name": "authoritative-docs",
+                "baseExit": 1,
+                "candidateExit": 1,
+                "baseRawSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+                "candidateRawSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+                "baseRawLines": 41,
+                "candidateRawLines": 41,
+                "completeRawBytesIdentical": true
+            },
+            {
+                "name": "boundary",
+                "baseExit": 1,
+                "candidateExit": 1,
+                "baseRawSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+                "candidateRawSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+                "baseRawLines": 21,
+                "candidateRawLines": 21,
+                "completeRawBytesIdentical": true
+            },
+            {
+                "name": "code-intent",
+                "baseExit": 1,
+                "candidateExit": 1,
+                "baseRawSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+                "candidateRawSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+                "baseRawLines": 3,
+                "candidateRawLines": 3,
+                "completeRawBytesIdentical": true
+            },
+            {
+                "name": "full-lint",
+                "baseExit": 1,
+                "candidateExit": 1,
+                "baseRawSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+                "candidateRawSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+                "baseRawLines": 83676,
+                "candidateRawLines": 83676,
+                "completeRawBytesIdentical": true,
+                "baseReportLines": 83667,
+                "candidateReportLines": 83667,
+                "orderedCompleteReportIdentical": true,
+                "addedReportLines": 0,
+                "removedReportLines": 0,
+                "eslintFindings": 83620,
+                "stylelintFindings": 44,
+                "ownedFileMentioned": false
+            },
+            {
+                "name": "lifecycle",
+                "baseExit": 1,
+                "candidateExit": 1,
+                "baseRawSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+                "candidateRawSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+                "baseRawLines": 7,
+                "candidateRawLines": 7,
+                "completeRawBytesIdentical": true
+            },
+            {
+                "name": "node",
+                "baseExit": 2,
+                "candidateExit": 2,
+                "baseRawSha256": "aec542b63aef746e7b2140f15dee5242b1207ef338d29627b28354249daec825",
+                "candidateRawSha256": "aec542b63aef746e7b2140f15dee5242b1207ef338d29627b28354249daec825",
+                "baseRawLines": 1,
+                "candidateRawLines": 1,
+                "completeRawBytesIdentical": true,
+                "baseTsDiagnostics": 1,
+                "candidateTsDiagnostics": 1
+            }
+        ],
+        "generatedCompleteApplicationConfigurationIdentical": true,
+        "generatedConfigurationSha256": "42f5ed0fd77b32813318af4e25dfe46afb303380180771a3d4e250c6d52cbe39",
+        "effectiveApplicationRootFiles": 771,
+        "allOriginalFailureExitCodesRetained": true,
+        "newQualification": false
+    },
+    "unchangedFailureDetails": {
+        "application": "29 diagnostics: Blog4/UI25, including upload operation/payload mismatches, unused references and seven erasableSyntaxOnly enum compatibility failures.",
+        "node": "TS7016 vite-watch-policy.mjs missing declaration.",
+        "fullLint": "83620 ESLint findings, 44 Stylelint findings and three stale baseline errors. 83667 report lines within 83676 raw output lines including npm output. Owned file is not mentioned.",
+        "boundary": "20 warnings, strict=true, exit1.",
+        "codeIntent": "2 errors, 5747 checked files, exit1.",
+        "documentLifecycle": "7 output error lines, exit1.",
+        "authoritativeDocs": "41 output error lines, exit1."
+    },
+    "evidence": {
+        "deliveryMap": "artifacts/frontend-controls/simulator-preset-intake-static/delivery-map.json",
+        "deliveryMapSha256": "8a6176e53e159615ab3e3ae7e470121ec031d53c77254c17d977301497a78b08",
+        "files": 83,
+        "allBytesIncludedAsRegularFiles": true,
+        "originalDonorEvidence": "Donor PR metadata and exact source/patch are retained as historical input. Its old /tmp logs are not present in this new environment and have not been recreated. Fresh current-base/current-candidate complete runs are separate.",
+        "inheritedHistoricalLog": {
+            "reason": "Existing 11861610-byte historical log exceeds connector response transport; four unchanged inherited paths retain exact remote blob/tree. Every production/compiler/linter/config input is materialized. No historical content regenerated.",
+            "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+            "paths": [
+                "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.txt",
+                "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.txt",
+                "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-full-style.txt",
+                "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-full-style.txt"
+            ]
+        },
+        "sourceDiffTextEnvelopes": "Exact text payload/size/SHA retained in JSON; original complete command outputs remain raw files. First delivery whitespace failure retained and corrected by file representation only, with no rule/config change.",
+        "deliveryWhitespaceAttempts": "Two nonzero delivery whitespace attempts are retained as exact JSON error-output envelopes with exits. Valid diff context spaces and their error echoes are represented losslessly; no whitespace check/config exception was added."
+    },
+    "baselinePreservation": {
+        "trackingReferenceRetained": "de37cc017ddad80960968811ccb07a614586125e",
+        "remoteMasterObserved": "29051db2a80db7770dfe78a1db6e4c6998337324",
+        "authorityOrFrozenBaselineRefresh": false,
+        "trackedConfigSourceSetRuleThresholdLockChanges": false,
+        "genuineSourceReferencesRemoved": false,
+        "enumCompatibilityRelaxed": false,
+        "diagnosticsSuppressed": false,
+        "mockOrReplacementHarnessUsed": false,
+        "existingIgnoredDeclarations": "Both existing declarations are byte-preserved; snapshots and exact hashes are in the delivery map. No generator or new declaration stub was used."
+    },
+    "holds": [
+        "runtime",
+        "tests",
+        "testcollection",
+        "list",
+        "discovery",
+        "productimport",
+        "moduleexecution",
+        "setup",
+        "mount",
+        "browser",
+        "native",
+        "worker",
+        "kernel",
+        "DB",
+        "network-security",
+        "privacy",
+        "receipt",
+        "race",
+        "backuprestore",
+        "IME",
+        "frozen",
+        "qualification"
+    ],
+    "remainingWip": [
+        "Independent review of this exact receiving increment.",
+        "All original nonzero static outcomes remain unresolved failures.",
+        "Actual UI981 product theme CSS output and independent consumer/runtime/UX acceptance remain unavailable/HOLD.",
+        "No Ready, merge, close, package publication, security/credential change or denied-task restart."
+    ],
+    "delivery": "Only a checked tree with sole exact receiving parent may be sent through the existing authorized GitHub connector to a new independent draft. [skip ci] preserves execution HOLD; absent/skipped CI is not PASS.",
+    "rollback": "Drop/revert this single receiving commit to restore exact base4385; no live runtime state changed.",
+    "gitRangeCheck": {
+        "initialExit": 1,
+        "initialErrors": "17 inherited blame-ignore revisions unreachable behind the temporary local shallow boundary; raw failure retained.",
+        "repair": "Imported and SHA-verified 166 read-only commits already in the exact receiving base ancestry; no commit replay, tree change, baseline refresh or other task branch write.",
+        "finalOriginalCheckerExit": 0,
+        "newCommitsBeyondExactBase": 1
+    }
+}
