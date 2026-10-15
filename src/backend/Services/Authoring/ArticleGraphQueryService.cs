@@ -24,20 +24,24 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
 {
     public async Task<ArticleGraphResult> QueryAsync(ArticleGraphRequest request, CancellationToken cancellationToken)
     {
+        IReadOnlyList<string>? categories = Snapshot(request.Filters.Categories, 32);
+        IReadOnlyList<string>? tags = Snapshot(request.Filters.Tags, 32);
+        IReadOnlyList<ArticleGraphEdgeKind>? kinds = Snapshot(request.Filters.Kinds, 4);
+        request = request with
+        {
+            Filters = request.Filters with
+            {
+                Categories = categories ?? Array.Empty<string>(),
+                Tags = tags ?? Array.Empty<string>(),
+                // An empty kind set keeps a failed snapshot invalid through refusal sealing.
+                Kinds = categories is null || tags is null || kinds is null ? Array.Empty<ArticleGraphEdgeKind>() : kinds
+            }
+        };
         string? reason = ArticleGraphContract.Validate(request);
         if (reason is not null)
         {
             return Empty(request, ArticleGraphStatus.Refused, reason);
         }
-        request = request with
-        {
-            Filters = request.Filters with
-            {
-                Categories = Array.AsReadOnly(request.Filters.Categories.ToArray()),
-                Tags = Array.AsReadOnly(request.Filters.Tags.ToArray()),
-                Kinds = Array.AsReadOnly(request.Filters.Kinds.ToArray())
-            }
-        };
         using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(request.Budget.QueryMilliseconds);
         try
@@ -48,15 +52,17 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
             {
                 return Empty(request, ArticleGraphStatus.Unavailable, "relation-api-unavailable");
             }
-            if (projection.Nodes.Count > request.Budget.Nodes || projection.Edges.Count > request.Budget.Edges)
+            IReadOnlyList<ArticleGraphNode>? nodes = Snapshot(projection.Nodes, request.Budget.Nodes);
+            IReadOnlyList<ArticleGraphEdge>? edges = Snapshot(projection.Edges, request.Budget.Edges);
+            if (nodes is null || edges is null)
             {
                 return Empty(request, ArticleGraphStatus.Refused, "source-budget");
             }
             // Freeze the source-owned lists before validating and sealing; callers cannot mutate returned facts.
             projection = projection with
             {
-                Nodes = Array.AsReadOnly(projection.Nodes.ToArray()),
-                Edges = Array.AsReadOnly(projection.Edges.ToArray())
+                Nodes = nodes,
+                Edges = edges
             };
             reason = ArticleGraphContract.Validate(request, projection);
             return reason is null ? ArticleGraphContract.Seal(request, projection)
@@ -66,6 +72,21 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
         {
             return Empty(request, ArticleGraphStatus.Cancelled, cancellationToken.IsCancellationRequested ? "cancelled" : "time-budget");
         }
+    }
+
+    private static IReadOnlyList<T>? Snapshot<T>(IReadOnlyList<T> values, int maximum)
+    {
+        int count = values.Count;
+        if (count < 0 || count > maximum)
+        {
+            return null;
+        }
+        T[] snapshot = new T[count];
+        for (int index = 0; index < count; index++)
+        {
+            snapshot[index] = values[index];
+        }
+        return values.Count == count ? Array.AsReadOnly(snapshot) : null;
     }
 
     private static ArticleGraphResult Empty(ArticleGraphRequest request, ArticleGraphStatus status, string reason)
