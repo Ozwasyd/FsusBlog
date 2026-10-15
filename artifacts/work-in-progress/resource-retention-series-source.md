@@ -14,9 +14,13 @@ observation, receipt, independent acceptance or qualification authority. Issues
   `1016c633466fb18083a8ac0f6cc56e9bb448b99f`. The exact object was fetched before
   creating the new branch; the remote branch matched that SHA.
 - Isolated branch: `codex/resource-retention-series-source`.
-- Source commit: `c2c0c156495b4726409fc7dc864faa41d62f1df7`, whose parent is the
+- Initial source commit: `c2c0c156495b4726409fc7dc864faa41d62f1df7`, whose parent is the
   selected base. The final documentation commit and exact PR head are recorded in
   the draft PR body to avoid a self-referential commit digest.
+- Precision-repaired source commit: `6bcc0b5735f4bf1b601b7497723bf6415e5ddfa8`,
+  following the original draft head `ca2f12bd84274bc2d729a2cb4eb81b9cb01accb5`.
+  The initial source checkpoint has the rounding defect described below and must
+  not be treated as the corrected implementation.
 - Only executable source added: `tools/test/resource-retention-series.mjs`.
   The other changed file is this WIP. All existing source, shared probes,
   controllers, policies, schemas, catalogs, fixtures and receipts are preserved.
@@ -141,8 +145,66 @@ packages. The first attempt without an explicit cache failed with ENOENT at the
 unwritable default cache `/home/agent/.npm/_cacache`; no policy, lock or security
 configuration was changed to recover. Dependencies are ignored and uncommitted.
 
-No complete application compilation, complete repository lint or runtime/test
-check was run or claimed PASS. No .NET SDK was available on PATH; frontend
-application dependencies were absent. Previous #4335 compile/lint results are
-historical context only and were not reused as this candidate's validation.
-Behavior and negative-case execution remain unverified under HOLD.
+At the initial delivery no complete application compilation, complete repository
+lint or runtime/test check was run or claimed PASS. No .NET SDK was available on
+PATH. Application dependency availability was not established by that delivery;
+the precision-repair round below found an installed original `vue-tsc` and ran
+the complete application check. Previous #4335 compile/lint results are historical
+context only and were not reused as this candidate's validation. Behavior and
+negative-case execution remain unverified under HOLD.
+
+## Precision review correction
+
+Independent review identified a safe-integer-domain median bug: the exact median
+of 4503599627370497 and 4503599627370498 is 4503599627370497.5, which is not exactly
+representable as a JavaScript Number. The initial implementation rounded it to
+4503599627370498. Against recovered count 4503599627370514, that incorrectly
+reported growth 16 instead of the exact 16.5 and could invert the 16 threshold
+comparison. These are mathematical review inputs, not collected observations or
+executed test results.
+
+The repaired implementation calculates twice each median with BigInt, sums even
+middle pairs exactly, and requires `BigInt(number * 2)` to equal the exact doubled
+value before returning a Number. It also calculates both retained-growth
+differences as doubled BigInt and applies the same exact conversion check, so
+even representable medians cannot yield a rounded growth result. Unrepresentable
+derived values throw TypeError before any summary or threshold comparison is
+returned. In the review example the baseline median itself therefore refuses.
+No arbitrary RSS/handle upper bound was introduced; exactly representable large
+integers remain within the original safe-integer input contract. Negative growth,
+the fixed thresholds and unconditional nonqualifying result are preserved.
+
+The physical checkout was reverified clean at the old exact draft head before
+editing. Local and remote draft heads matched; the selected base remained
+`1016c633466fb18083a8ac0f6cc56e9bb448b99f`. No other task's source was changed.
+
+Static checks on repaired source `6bcc0b5735f4bf1b601b7497723bf6415e5ddfa8`:
+
+- Original `node --check tools/test/resource-retention-series.mjs`: exit 0.
+- Original repository ESLint command above, same full config/rules on the changed
+  file: exit 0, no diagnostics.
+- Source commit-message check and `git diff --cached --check`: exit 0.
+- Complete original application command
+  `node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application`:
+  exit 2, 158 TS error diagnostics (Blog 115, UI 43). It used the real clean local
+  FsusUI checkout at `8db0ac8f49749e3e5f28be5051bb3d3ed71ada71`, with the original
+  complete generated application configuration, no filtered application or fake
+  dependencies. No pre-repair full-application comparison was run, so this is not
+  an added/removed-regression claim. The old #4335 UI957/29-error result is not
+  comparable to this different current UI baseline.
+  Full raw log: `/tmp/fsusblog-retention-repair-full-typecheck.log`, SHA-256
+  `a50bdc45c21f3a17e705cbb582bf6912e760bc4729a71babc5b595b10b18ce09`.
+- Complete original lint command
+  `node tools/frontend/check-frontend-style.mjs --mode full`: exit 1. The full
+  84666-line raw output reports stale baseline configuration/source/generatedFrom
+  bindings plus source diagnostics, rather than PASS. No baseline, rule, source
+  set or configuration was changed to suppress them. There is no full before/after
+  comparison, and no claim that this count measures newly introduced regressions.
+  Full raw log: `/tmp/fsusblog-retention-repair-full-style.log`, SHA-256
+  `e102c0d16453909bab989eb8c15fcfdd2821cea897987b26e58d8acfb0bd907b`.
+- Backend and migration static compilation cannot start because the original
+  `dotnet` command is absent on PATH. No substitute compiler or reduced project
+  configuration was used.
+
+The calculation module was never imported or invoked. No behavioral tests, test
+collection/discovery, product execution or other HOLD activity was performed.
