@@ -1,0 +1,206 @@
+{
+    "kind": "ordinary exact unmounted QuickCapture latch source WIP; no runtime or authority receipt",
+    "base": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+    "basePR": 4358,
+    "donorPR": 4356,
+    "donorHead": "06bae42f0b2f691b538bdcb70037b3f5bccdec64",
+    "donorTrueBase": "204e7ad41da0a836fb121eea0873cba7e3a4ebb7",
+    "scope": "Only one exact accepted Vue plus this own WIP,2paths, no donor history/tests/host. Actual existingRecovery5820prerequisite present unchanged; navigation model/journal/custody and all base4358 source unchanged.",
+    "sourceProof": {
+        "base": "e9077a98f0ee2d6e7df663240c1a36e14c96131f",
+        "exactInputs": [
+            {
+                "head": "06bae42f0b2f691b538bdcb70037b3f5bccdec64",
+                "path": "src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue",
+                "blob": "bad3853332de0d8a5c2484d978eef28f8e4ebb73"
+            }
+        ],
+        "noOtherSourceConsumers": true,
+        "allPreexistingTrackedFilesUnchanged": true,
+        "protectedOwners": [
+            {
+                "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+                "blob": "808468e4efe9f72b92ba3799a7df233cda48ad30"
+            },
+            {
+                "path": "src/frontend/src/services/authoring/articleWorkspaceRetainedRecoverySnapshot.ts",
+                "blob": "3540b2ff622680a2fc6a19842bcb81ffbca1cd23"
+            },
+            {
+                "path": "src/frontend/src/services/authoring/articleWorkspaceTabRouter.ts",
+                "blob": "57bd14cdc6e13a6efac7cd6585feeaa378769468"
+            },
+            {
+                "path": "src/frontend/src/services/authoring/articleSearchRevealPresentation.ts",
+                "blob": "28aa96f75cc9e62822593b3eebd351718753521e"
+            },
+            {
+                "path": "artifacts/article-editor/issue-2295-final-compatible-embed-composition.json",
+                "blob": "b5971347653c9448c1a3d9fb1b135d60c5ddb759"
+            }
+        ],
+        "unactivated": "No host/Router/transport/browser/download implementation or activation. Future component methods/helpers not called; props/canonical owner facts are not real grants.",
+        "actualUIAlias": "Same cleanUI961c77281165226ffd84223c4c8d43805c5deb2b1b3 through original full app producer; generated config byte-identical, no ref/enum/config/deps/lock/rule changes",
+        "generatedConfigSha256": "b85de7011af19c01c39657ae0013fbdd6c216d35e4644dc161e4b0d4117c9332",
+        "boundaryNewFinding": "Original20 ->21FAIL, exact new runtime-import-outside-boundary at addedVue. Preserve donorbytes and unchanged boundaryallowlist; no waiver/ready claim.",
+        "sourceNotes": {
+            "comparison": "Exact original4264ba9c3216 leaf to accepted4356source, source-only; originalleaf not executed or imported",
+            "addedLines": 14,
+            "removedLines": 1,
+            "diff": [
+                "--- original-reviewed-leaf\n",
+                "+++ accepted4356-leaf\n",
+                "@@ -39,6 +39,20 @@\n",
+                " });",
+                " const openedCaptureId = props.captureId;",
+                " const scopeRetired = ref(false);",
+                "+const attempted = ref(false);",
+                "+",
+                "+// A stage observation cannot be undone by clearing its prop; the original request stays bound.",
+                "+watch(",
+                "+    () => props.stageResult !== null,",
+                "+    observed =>",
+                "+    {",
+                "+        if (observed)",
+                "+        {",
+                "+            attempted.value = true;",
+                "+        }",
+                "+    },",
+                "+    { immediate: true, flush: 'sync' }",
+                "+);",
+                " ",
+                " // Original recovery retirement is terminal. Observe it synchronously so a later result",
+                " // cannot revive this leaf's private input; only the original host can establish a new binding.",
+                "@@ -58,7 +72,6 @@\n",
+                "     && props.currentScope.adminPrincipalId === openedScope.adminPrincipalId",
+                "     && props.currentScope.siteScope === openedScope.siteScope",
+                "     && props.currentScope.canCreateInbox === true && props.captureId === openedCaptureId);",
+                "-const attempted = computed(() => props.stageResult !== null);",
+                " const blockedObservation = computed(() => props.stageResult?.status === 'blocked');",
+                " const editable = computed(() => scopeCurrent.value && !attempted.value);",
+                " const boundInput = computed<ArticleCaptureInboxInput | null>(() =>"
+            ],
+            "oneWayLatch": "Only declarationfalse and one synchronous assignmenttrue on stage observation, no reset; editing requires !attempted, null cannot reopen.",
+            "controls": "Save/open/recover/retry/discard/template disabled. Close/cancel enabled and onlyemitrequest-close, no servercancel/absence claim.",
+            "baseRecoveryBlob": "5820feab4b951ebe90f3cedac0ee9d52a66e69f1"
+        }
+    },
+    "latch": "Relative original4264ba9c3216 Vue exactly+14/-1, one-way attempted flag becomestrue synchronously on stage observation and never resets when stageResultnull. Afterstage-null fields remainreadonly and outcomeunknown; no invented bound input or fresh request.",
+    "controls": "Save/open/recover/retry/discard/template disabled. Close/cancel remains enabled and solely emits request-close; it is not server cancellation/discard or a missing-outcome acknowledgment. Do NOT describe all buttons as disabled.",
+    "supersession": "Base4358 WIP pending/excludedQuickCapture note records its earlier intake. Current explicit4356SOURCEadmission supersedes that pending state only for this new leaf. Keep original metadata unchanged, no historical rewrite.",
+    "static": {
+        "completeApplication": "Original actualUI961 full29FAIL2 ->29FAIL2 versus source-exact4358 baseline, Blog4/UI25, full blocks/multiplicity positions-only added0removed0; no ref/enum/config/deps/lock/rule/source-set reduction.",
+        "strict": "Actual original strict1FAIL50, known received leaf style findings remain red, no lintpass. Author repair reports no new findings relativeitsoriginalleaf; this does not mean zero new integration diagnostics relative4358 whereleafabsent.",
+        "fullFrontendStyle": {
+            "baselineLines": 83667,
+            "candidateLines": 83717,
+            "exit": "FAIL1 both",
+            "added": 50,
+            "removed": 0,
+            "fact": "Exactly the50strictleaf diagnostics added to original full multiset; all existing findings unchanged. No source reformat, baseline/config/rule refresh or waiver.",
+            "initialAttempt": "Retain original2line missing configuredeslint/stylelint failure. Fullstyle launched before ignored actualtool copy completed. After configured realtools existed, reran identical originalfullCLI to separately named completed log, not overwriting failure. No fake tools/config/package or product action."
+        },
+        "boundary": {
+            "baseWarnings": 20,
+            "candidateWarnings": 21,
+            "exit": "FAIL1 both",
+            "added": [
+                "- src/frontend/src/components/admin/article/ArticleQuickCaptureSurface.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus"
+            ],
+            "disposition": "New unmet runtime import-boundary check kept explicit; exact admitted source and originalallowlist unchanged. No activation qualification."
+        },
+        "AST": "SFC/TS source ASTPASS0 only; no helper/props/component evaluation",
+        "global": "Same code-intent2errors checked5744->5745; docs7/41FAIL rawunchanged. No managed source/project changes or unnecessary rebuild."
+    },
+    "capabilityGaps": "Current host/scope/coordinator/registered transport/site/historical receipt and actual permission/reconciliation integration absent. No second journal, issuer, sourcewriter, submit/open/restore/retry action or host activation. Stage-null source repair is not executed runtime/UX/race acceptance.",
+    "holds": "All original runtime/product/helper/parser module import/evaluation/calls/tests/help/list/discovery/collection/DB/native/browser/render/security/privacy/receipt/catalog/fixture/race/backuprestore/IME/qualification HOLD/UNRUN. No merge/Ready/close/package/publication/authority refresh.4336aggregateFAIL, real resource interface gaps, independentphysicalalias/CSSoutputUNVERIFIED unchanged.4353queryregistryexcluded,4355UIstaleP2pendingnotdeclaredusable.",
+    "rollback": "Omit/revert only2addedpaths to exact4358, preserving requiredRecovery5820 and all prior source; no live state changed.",
+    "evidence": {
+        "/workspace/session-evidence-2295/quick-capture-boundary.txt": {
+            "sha256": "52d892c23005d6fff57d543e451512eff7660a202a8172be54c6c22f24868ced"
+        },
+        "/workspace/session-evidence-2295/quick-capture-authoritative.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/quick-capture-candidate-full-style-completed.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/quick-capture-code-intent.txt": {
+            "sha256": "2b7c519d0f4ec76a861bc013f549cead74aa6e1dffb38e78e70fdc97bf3ad9d1"
+        },
+        "/workspace/session-evidence-2295/quick-capture-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/quick-capture-boundary.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/quick-capture-ast.txt": {
+            "sha256": "4d77ec6498b912691162a61ba3bb0330f9c1ca0eeec11dbfdcd813af02f06e99"
+        },
+        "/workspace/session-evidence-2295/quick-capture-ast.exit": {
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        "/workspace/session-evidence-2295/quick-capture-candidate-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/quick-capture-candidate-full-style-completed.txt": {
+            "sha256": "e5dee9ec0eea413d56ee4bf102ab1d912f291f4c375958d0d4762bb948241340"
+        },
+        "/workspace/session-evidence-2295/quick-capture-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        },
+        "/workspace/session-evidence-2295/quick-capture-candidate-full-style.txt": {
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+        },
+        "/workspace/session-evidence-2295/quick-capture-candidate-types.exit": {
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+        },
+        "/workspace/session-evidence-2295/quick-capture-candidate-full-style.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/quick-capture-source-proof.json": {
+            "sha256": "fad1ec8b5933b80fafcbb9263435cd7ba0c74e572834e0301158affea7a15190"
+        },
+        "/workspace/session-evidence-2295/quick-capture-exact-inputs.json": {
+            "sha256": "7a31dde27dab9f21da09e12bf4b8e5158e1ee0f80372412f6061fc794cbf5bdd"
+        },
+        "/workspace/session-evidence-2295/quick-capture-strict.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/quick-capture-strict.txt": {
+            "sha256": "b1fb80c944e11ca6159bf0997d35be7fe9a4d9a0eeff04fa9a4af954313920da"
+        },
+        "/workspace/session-evidence-2295/quick-capture-code-intent.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/quick-capture-lifecycle.exit": {
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        "/workspace/session-evidence-2295/quick-capture-original-leaf.vue": {
+            "sha256": "c74a8a71c94dc2674ed06b2f5578dc640333f10da59c889ed83d32db830f2df3"
+        },
+        "/workspace/session-evidence-2295/quick-capture-latch-source-proof.json": {
+            "sha256": "ca69162a9e3a82fe7ddbe8079330172d8fff70a2725d9fa2716c526e775a27db"
+        }
+    },
+    "baselineEvidence": {
+        "/workspace/session-evidence-2295/navigation-capture-candidate-types.txt": {
+            "sha256": "60a4d1b9a8982ee41333a844d89cb129cff811a5fa324d4d0d362555e5bb4c6b"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-full-style.txt": {
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+        },
+        "/workspace/session-evidence-2295/display-base-boundary.txt": {
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-code-intent.txt": {
+            "sha256": "d5df170354cfe959f89a40783c3632452040b2d7afd0c1914eb0bb817ef4cba9"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-lifecycle.txt": {
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+        },
+        "/workspace/session-evidence-2295/navigation-capture-candidate-authoritative.txt": {
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+        }
+    }
+}
