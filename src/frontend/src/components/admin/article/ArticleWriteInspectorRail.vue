@@ -4,13 +4,16 @@
         :class="`article-write-inspector-rail--${placement}`"
         aria-label="文章检查器"
     >
-        <button
+        <FsusUiButton
             v-for="view in inspectorViews"
             :key="view.id"
             :ref="(element) => registerTrigger(view.id, element)"
-            type="button"
+            native-type="button"
+            size="large"
+            text
+            :type="activeInspector === view.id ? 'primary' : 'default'"
+            :bg="activeInspector === view.id"
             class="article-write-inspector-rail__trigger"
-            :class="{ 'is-active': activeInspector === view.id }"
             :aria-label="view.label"
             :aria-pressed="activeInspector === view.id"
             :aria-expanded="activeInspector === view.id"
@@ -21,7 +24,7 @@
                 <component :is="view.icon" />
             </ElIcon>
             <span class="article-write-inspector-rail__label">{{ view.label }}</span>
-        </button>
+        </FsusUiButton>
     </nav>
 </template>
 
@@ -32,6 +35,7 @@ import {
     articleWriteInspectorRegistry,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import { FsusUiButton } from '@/fsusui/button';
 import { Checked, DocumentChecked, Files, Lock, Picture, View } from '@/fsusui/icons';
 
 const props = defineProps<{
@@ -55,26 +59,14 @@ const inspectorViews = articleWriteInspectorRegistry.map((view) => ({
     icon: inspectorIcons[view.id]
 }));
 
-const resolveElement = (
-    element: Element | ComponentPublicInstance | null
-): HTMLElement | null =>
-{
-    if (element instanceof HTMLElement)
-    {
-        return element;
-    }
-    const componentElement: unknown = element instanceof Element || !element ? null : element.$el;
-    return componentElement instanceof HTMLElement ? componentElement : null;
-};
-
 const registerTrigger = (
     view: ArticleWriteInspectorView,
     element: Element | ComponentPublicInstance | null
 ): void =>
 {
-    const resolved = resolveElement(element);
+    const button = element as InstanceType<typeof FsusUiButton> | null;
     // Template refs are registered through the prop without creating a second rail state owner.
-    props.registerTriggerElement?.(view, resolved);
+    props.registerTriggerElement?.(view, button?.ref ?? null);
 };
 
 const activate = (view: ArticleWriteInspectorView, event: MouseEvent): void =>
@@ -116,29 +108,8 @@ const activate = (view: ArticleWriteInspectorView, event: MouseEvent): void =>
 
 .article-write-inspector-rail__trigger
  {
-    display: inline-grid;
-    width: var(--fsus-control-height-spacious);
-    height: var(--fsus-control-height-spacious);
-    cursor: pointer;
     flex: 0 0 auto;
-    place-items: center;
-    border: 0;
-    border-radius: var(--fsus-radius-control);
-    background: transparent;
-    color: var(--fsusblog-text-muted);
-}
-
-.article-write-inspector-rail__trigger:hover,
-.article-write-inspector-rail__trigger.is-active
- {
-    background: var(--el-fill-color-light);
-    color: var(--fsus-scholarly-blue);
-}
-
-.article-write-inspector-rail__trigger:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
+    margin: 0;
 }
 
 .article-write-inspector-rail__label
