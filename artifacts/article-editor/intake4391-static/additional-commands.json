@@ -1,0 +1,82 @@
+{
+    "kind": "additional exact static/preparation invocations",
+    "commands": [
+        {
+            "cwd": "/workspace/FsusBlog-intake4391",
+            "argv": [
+                "npm",
+                "ci",
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+                "--prefix",
+                "tools/frontend/style-toolchain"
+            ],
+            "exitCode": 254,
+            "log": "style-install.log"
+        },
+        {
+            "cwd": "/workspace/FsusBlog-intake4391",
+            "argv": [
+                "npm",
+                "ci",
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+                "--cache",
+                "/workspace/intake4391-evidence/npm-cache",
+                "--prefix",
+                "tools/frontend/style-toolchain"
+            ],
+            "exitCode": 0,
+            "log": "style-install-workspace-cache.log"
+        },
+        {
+            "cwd": "/workspace/FsusBlog-intake4391-base",
+            "argv": [
+                "npm",
+                "ci",
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+                "--cache",
+                "/workspace/intake4391-evidence/npm-cache",
+                "--prefix",
+                "tools/frontend/style-toolchain"
+            ],
+            "exitCode": 0,
+            "log": "base-style-install.log"
+        },
+        {
+            "cwd": "/workspace",
+            "argv": [
+                "node",
+                "/tmp/intake4391-ast.cjs"
+            ],
+            "exitCode": 0,
+            "log": "ast-source-only.log"
+        },
+        {
+            "cwd": "/workspace/FsusBlog-intake4391-base",
+            "argv": [
+                "/workspace/FsusBlog/src/frontend/node_modules/.bin/vue-tsc",
+                "--showConfig",
+                "-p",
+                "/workspace/FsusBlog-intake4391-base/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+            ],
+            "exitCode": 0,
+            "log": "base-effective-config.json"
+        },
+        {
+            "cwd": "/workspace/FsusBlog-intake4391",
+            "argv": [
+                "/workspace/FsusBlog/src/frontend/node_modules/.bin/vue-tsc",
+                "--showConfig",
+                "-p",
+                "/workspace/FsusBlog-intake4391/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+            ],
+            "exitCode": 0,
+            "log": "candidate-effective-config.json"
+        }
+    ]
+}
