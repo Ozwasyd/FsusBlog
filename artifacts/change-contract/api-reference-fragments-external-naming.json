@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md",
+                "docs/api/quick-reference.md",
+                "docs/api/stability.md",
+                "docs/architecture/comment-query-boundary.md"
+            ],
+            "reason": "Preserve caller-visible fragment, URL and contract spellings in the existing registered documentation paths while correcting Markdown headings, spacing and table separators; no selector, token or external name is renamed."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve the schema reference's typed claim, frame, error and generated-marker identifiers while adding the missing blank line before the existing Plugin Admin heading; all generated blocks and external schema names remain unchanged."
+        }
+    ]
+}
