@@ -1,0 +1,463 @@
+{
+  "kind": "ordinary completed before/after static delivery; no qualification or frozen authority",
+  "PR": 4412,
+  "targetBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "beforeHead": "b097253ef6829464ff67aa591d57e4b865652eb5",
+  "candidateBinding": "Containing repaired draft commit; production-only source tree and exact before/after entries are in source-provenance.json. Actual final remote head/tree are in the PR metadata, not a self-referential SHA.",
+  "cwd": "/workspace/privacy4389-intake/FsusBlog",
+  "actualUI": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "actualUIPath": "/workspace/privacy4389-intake/FsusUI",
+  "commands": "artifacts/article-editor/intake4389-boundary-repair-static/commands.json",
+  "rawCompleteness": "All original complete before/after compiler/full lint/boundary/binary/code-intent/document check-only logs and exits copied only after process completion, with full diagnostic multiplicity. Single/two-file strict and compiler-only AST logs also retained. No source-set/config/gate reduction.",
+  "suffixes": "Original .log files use .txt delivery suffix without byte changes; original AST static tool is a .txt source snapshot. Config snapshots retain original cwd/relative-path meaning and are not executable at delivery location.",
+  "entries": [
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-app-config.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-app-config.json",
+      "bytes": 2502,
+      "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-app.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-app.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-app.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-app.txt",
+      "bytes": 5000,
+      "sha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-ast.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-ast.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-ast.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-ast.txt",
+      "bytes": 998,
+      "sha256": "fda04989ca7b58c1ab26ef7f6439ef10bfe12b0ab4ed8568b381d56e3d200d54",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-authoritative.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-authoritative.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-authoritative.txt",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-binary-boundary.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-binary-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-binary-boundary.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-binary-boundary.txt",
+      "bytes": 866,
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-boundary.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-boundary.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-boundary.txt",
+      "bytes": 2805,
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-code-intent.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-code-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-code-intent.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-code-intent.txt",
+      "bytes": 353,
+      "sha256": "198859bffc14bc30d821a231c4df26294eb2a9ef1f0cd874a1b090a546bbb0e8",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-full-lint.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-full-lint.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-full-lint.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-full-lint.txt",
+      "bytes": 11861610,
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-lifecycle.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-lifecycle.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-lifecycle.txt",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-strict.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-strict.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/after-strict.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/after-strict.txt",
+      "bytes": 68,
+      "sha256": "d58b7fae4fe99ccb5f0521063e932259e09a241d9e6ae3299c3abb889617962c",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/app-raw.diff",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/app-raw.diff",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/authoritative-raw.diff",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/authoritative-raw.diff",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-app-config.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-app-config.json",
+      "bytes": 2502,
+      "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-app.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-app.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-app.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-app.txt",
+      "bytes": 5000,
+      "sha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-ast.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-ast.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-ast.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-ast.txt",
+      "bytes": 853,
+      "sha256": "a099d472f8157320947f833e2f0907dc612048429d3f51481cff7e39f270520d",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-authoritative.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-authoritative.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-authoritative.txt",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-binary-boundary.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-binary-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-binary-boundary.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-binary-boundary.txt",
+      "bytes": 866,
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-boundary.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-boundary.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-boundary.txt",
+      "bytes": 2965,
+      "sha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-code-intent.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-code-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-code-intent.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-code-intent.txt",
+      "bytes": 353,
+      "sha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-full-lint.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-full-lint.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-full-lint.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-full-lint.txt",
+      "bytes": 11861610,
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-lifecycle.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-lifecycle.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-lifecycle.txt",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-strict.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-strict.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/before-strict.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/before-strict.txt",
+      "bytes": 68,
+      "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/binary-boundary-raw.diff",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/binary-boundary-raw.diff",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/boundary-raw.diff",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/boundary-raw.diff",
+      "bytes": 1598,
+      "sha256": "80a8ba9923694a237c5bb0a0c0959a510173331e675e38d2ed498e9dbf99d026",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/code-intent-raw.diff",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/code-intent-raw.diff",
+      "bytes": 480,
+      "sha256": "39cf7177d6b030c3f1b38232f14ec0ba1a07548798c44656eb4e836c8b1b5fc5",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/commands.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/commands.json",
+      "bytes": 2494,
+      "sha256": "e9c30e8cca5d2830ba026ccb643133be075aa860709444b50079c668a066d5c3",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/commit-message-check.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/commit-message-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/commit-message-check.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/commit-message-check.txt",
+      "bytes": 36,
+      "sha256": "d0f4f591aee85999e4bd6eea79833551a1710eccee9d1bced11e3ae6f07759ba",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/configuration-inspection.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/configuration-inspection.json",
+      "bytes": 704,
+      "sha256": "f248490e83e3c486fc4a0419788babae04b03b265db34425b02c768ca60c274e",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/fresh-before-vs-initial.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/fresh-before-vs-initial.json",
+      "bytes": 1975,
+      "sha256": "18da39a2ab015511b3cfadf8501d3cd8f89001d6970c44994a2811a19d93aa33",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/full-lint-raw.diff",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/full-lint-raw.diff",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/github-before.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/github-before.json",
+      "bytes": 12128,
+      "sha256": "fda11da27c6e9a4f11669302235cd41ed0d9330377229590050a9827b81a5e11",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/initial-evidence-verification.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/initial-evidence-verification.json",
+      "bytes": 14268,
+      "sha256": "94ef93be694b31036bef679d273f6568535cef74f7c37d7d96b7603a6309d99a",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/input-identities.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/input-identities.json",
+      "bytes": 2891,
+      "sha256": "cb027322075fe541a45a82280089a00766f54bb11bd34debc6fd06ef9352a000",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/lifecycle-raw.diff",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/lifecycle-raw.diff",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/original4385-vs-after.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/original4385-vs-after.json",
+      "bytes": 1361,
+      "sha256": "d95cbed4074280a4a180543030dcbc7232d54e96ae61c6d10fba3c4d492ed3b8",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/parse-repaired-source.mjs",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/parse-repaired-source.txt",
+      "bytes": 2819,
+      "sha256": "269b10aee63fb15f4b7d7f97801635cb509962f807ceeed00614be8437dcc4de",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/production-tree.txt",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/production-tree.txt",
+      "bytes": 41,
+      "sha256": "197492ffd7dbdade4c61cb5a5711e0cdf4ce747121c00824889a52f66908b795",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/public-api-input.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/public-api-input.json",
+      "bytes": 1290,
+      "sha256": "8df58f0aa4d8f2ffbcef4f933309d7a68a69715bdfbd23527d74d80349ba684d",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/source-diff-check.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/source-diff-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/source-diff-check.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/source-diff-check.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/source-provenance.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/source-provenance.json",
+      "bytes": 1900,
+      "sha256": "2b329ed26d6181c45620a52c80b14596f10a29cc234e73cda5fbbfa725392cd5",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/static-comparison.json",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/static-comparison.json",
+      "bytes": 5271,
+      "sha256": "be22f324e39c0ad64bb94acdd5aa126b9eb5bd8d02552c652071d0d360998a0f",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/title-check.exit",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/title-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "regularFile": true
+    },
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/title-check.log",
+      "deliveryPath": "artifacts/article-editor/intake4389-boundary-repair-static/title-check.txt",
+      "bytes": 27,
+      "sha256": "52673dd97326206af19c814a4ceacb7018c2bfd77408713cff8ccab38bc02e47",
+      "regularFile": true
+    }
+  ],
+  "localSupportingFiles": [
+    {
+      "originalAbsolutePath": "/workspace/privacy4389-intake/repair-evidence/source-repair.patch",
+      "sha256": "1d9ea9100d6ae58403353e5c31fc67ce8151d0131b57750730adace657c40b5c",
+      "meaning": "Raw source patch retained locally; exact source changes are also directly inspectable in immutable Git repair parent..head. Complete static logs/diffs/exits below are delivered as regular files."
+    }
+  ]
+}

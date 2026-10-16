@@ -1,0 +1,28 @@
+// Static compiler parsing and source-byte comparison only; no product module import/evaluation.
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
+
+const root = '/workspace/privacy4389-intake/FsusBlog';
+const filename = 'src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue';
+const checkboxFile = 'src/frontend/src/fsusui/checkbox.ts';
+const beforeHead = 'b097253ef6829464ff67aa591d57e4b865652eb5';
+const require = createRequire(path.join(root, 'src/frontend/package.json'));
+const sfc = require('@vue/compiler-sfc');
+const ts = require('typescript');
+const source = fs.readFileSync(path.join(root, filename), 'utf8');
+const before = execFileSync('git', ['show', `${beforeHead}:${filename}`], { cwd: root, encoding: 'utf8' });
+const oldImports = "import { ElButton, ElCheckbox } from '@ozwasyd/element-plus';\nimport { computed, ref, useId, watch } from 'vue';";
+const newImports = "import { computed, ref, useId, watch } from 'vue';\n\nimport { FsusUiButton as ElButton } from '@/fsusui/button';\nimport { FsusUiCheckbox as ElCheckbox } from '@/fsusui/checkbox';";
+if (source.replace(newImports, oldImports) !== before) throw new Error('non-import SFC change');
+const parsed = sfc.parse(source, { filename });
+if (parsed.errors.length || !parsed.descriptor.scriptSetup || !parsed.descriptor.template) throw new Error('SFC parse failed');
+const script = ts.createSourceFile(filename + '.ts', parsed.descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+const checkboxSource = fs.readFileSync(path.join(root, checkboxFile), 'utf8');
+const checkbox = ts.createSourceFile(checkboxFile, checkboxSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+if (script.parseDiagnostics.length || checkbox.parseDiagnostics.length) throw new Error('TypeScript parse failed');
+if (checkboxSource !== "export { ElCheckbox as FsusUiCheckbox } from '@ozwasyd/element-plus';\n") throw new Error('unexpected checkbox adapter');
+const imports = script.statements.filter(ts.isImportDeclaration).map(node => ({ specifier: node.moduleSpecifier.text, clause: node.importClause?.getText(script) }));
+const exports = checkbox.statements.filter(ts.isExportDeclaration).map(node => ({ specifier: node.moduleSpecifier.text, namedExports: node.exportClause.getText(checkbox) }));
+console.log(JSON.stringify({ kind: 'ordinary static source parse and inverse import proof; no runtime or acceptance receipt', beforeHead, source: filename, parseDiagnostics: 0, wholeSfcInverseImportEquality: true, templateAndNonImportStatementsBytePreserved: true, imports, checkboxAdapter: { path: checkboxFile, exports, exactSingleNamedReexport: true }, productImportsOrEvaluation: 'HOLD/UNRUN' }, null, 2));

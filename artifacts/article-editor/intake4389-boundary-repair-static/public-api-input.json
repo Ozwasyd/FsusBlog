@@ -1,0 +1,18 @@
+{
+  "actualUIHead": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "status": "",
+  "publicSourceSha256": {
+    "vue/packages/element-plus/index.ts": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+    "vue/packages/components/index.ts": "56ac867b683553b7734b902710b879307075935ad0c028f981a4ee5719f26d02",
+    "vue/packages/components/button/index.ts": "b3dc158977a6724e547893979e7188a443361a67516f713768bf976eca902538",
+    "vue/packages/components/checkbox/index.ts": "867025a817b9b1fef4f816b55026a4ef6eaecd199c66717f53755a5ac57997fb",
+    ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+  },
+  "directPublicPackage": "@ozwasyd/element-plus",
+  "existingButtonAdapter": "export { ElButton as FsusUiButton } from '@ozwasyd/element-plus';\n",
+  "newCheckboxAdapter": "export { ElCheckbox as FsusUiCheckbox } from '@ozwasyd/element-plus';\n",
+  "resolution": "Both package aliases in original generated application project point to actual UI973 vue/packages/element-plus/index.ts. Component public exports descend via its components index to existing Button/Checkbox owners. No private import, codegen, install, wrapper or type assertion introduced.",
+  "toolVersions": {
+    "node": "v24.19.0"
+  }
+}

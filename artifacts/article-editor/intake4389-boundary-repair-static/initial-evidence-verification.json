@@ -1,0 +1,341 @@
+{
+  "beforeHead": "b097253ef6829464ff67aa591d57e4b865652eb5",
+  "all67InitialRawFilesMatch": true,
+  "entries": [
+    {
+      "path": "artifacts/article-editor/intake4389-static/app-raw.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/apply-preflight.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/apply-preflight.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/apply.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/apply.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/authoritative-raw.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-app-config.json",
+      "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-app.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-app.txt",
+      "sha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-boundary.txt",
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-code-intent.txt",
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-full-lint.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-full-lint.txt",
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/base-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/before-apply-status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/binary-boundary-raw.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/boundary-raw.diff",
+      "sha256": "f7bbdae0714c328657992dc3c2cc53c5e085c90ac1a8f93ecc41358f68f5b73e",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-app-config.json",
+      "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-app.exit",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-app.txt",
+      "sha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-ast.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-ast.txt",
+      "sha256": "a099d472f8157320947f833e2f0907dc612048429d3f51481cff7e39f270520d",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-authoritative.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-authoritative.txt",
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-binary-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-binary-boundary.txt",
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-boundary.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-boundary.txt",
+      "sha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-code-intent.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-code-intent.txt",
+      "sha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-full-lint.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-full-lint.txt",
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-lifecycle.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-lifecycle.txt",
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-strict.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/candidate-strict.txt",
+      "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/code-intent-raw.diff",
+      "sha256": "c00a30ef1212e681d1a17ce2557242a040ea144d494718722807c2c497a88d21",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/commands.json",
+      "sha256": "afef26d3a4a53207c1e55c37c250d35758d3645de8525aaa32297132f96eb04f",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/commit-message-check.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/commit-message-check.txt",
+      "sha256": "d0f4f591aee85999e4bd6eea79833551a1710eccee9d1bced11e3ae6f07759ba",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/configuration-inspection.json",
+      "sha256": "1bf44556eafe00c15765f9fd1441ff77cfb402eb1bf902d23477bd0dff9a2e19",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/dependency-inputs.json",
+      "sha256": "98381cb57c68de31f5f23a00e212cf34fca7d9da7dd07244ce204eb20ba5e803",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/full-lint-raw.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/github-preflight.json",
+      "sha256": "f3b3297ac542d241dfaddfba38459ac6ff4d6a8cfc2418e1d300acb9e683398b",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/inherited-base-evidence-verification.json",
+      "sha256": "d3a29d072a0c5a00523415bd462779e58da64c9408a8b7935d2169367214e89d",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/input-identities.json",
+      "sha256": "ef9726545924fc8d30acc691783ab4507d55f70a53e6d1891da7c63742294665",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/lifecycle-raw.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/parse-leaf-source.txt",
+      "sha256": "6512d3b5fe014d5a1d5f857da6b878532b42b27ad315a6c4416a5607feb0860c",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/production-provenance.json",
+      "sha256": "fdb6adb31112e935a245cbc7b6da79ef37b7d3a48f49314f1cb6a5ebc814d288",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/production-tree.txt",
+      "sha256": "8eb695eac843daaa93eeff2702461e16631d3ad41b9de34b071300c4ef1afa57",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/public-export-source.txt",
+      "sha256": "f8ea1aee0a0344662b8d21e57ae374c1134312b542dbf881b00b43b37df5e00b",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/source-diff-check.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/source-diff-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/source-intent-review.json",
+      "sha256": "4b07b40d386b8e7248ee156ebc17ca656c552c61d62a1e7ad08c6941ce4e4dab",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/source4389.patch",
+      "sha256": "0b1254809309c5194037cc0deb88419f1803a7c6125d759f1a8b3df6833d0251",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/static-comparison.json",
+      "sha256": "0f8b696ab634a6ba7dbc5ff37e20182c8f4c51f1bc65dc810f0f14eb4cf4bd7c",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/style-toolchain-install.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/style-toolchain-install.txt",
+      "sha256": "a73dc128b62db5e9df054d24b9b5befe4b4b3181d6064fdabb5dc1d6628f694d",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/title-check.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "matchesInitialMap": true
+    },
+    {
+      "path": "artifacts/article-editor/intake4389-static/title-check.txt",
+      "sha256": "52673dd97326206af19c814a4ceacb7018c2bfd77408713cff8ccab38bc02e47",
+      "matchesInitialMap": true
+    }
+  ]
+}

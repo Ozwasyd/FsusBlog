@@ -1,0 +1,16 @@
+--- base-boundary.log
++++ candidate-boundary.log
+@@ -1,4 +1,4 @@
+-[fsusui-boundary] warnings=20 strict=true
++[fsusui-boundary] warnings=21 strict=true
+ - src/frontend/src/App.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+ - src/frontend/src/components/admin/article/AdminArticleCompactCard.vue: internal-selector: uses .el-tag
+ - src/frontend/src/components/admin/article/ArticleBulkExecutionProgress.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+@@ -8,6 +8,7 @@
+ - src/frontend/src/components/admin/article/ArticleBulkSelectionBar.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+ - src/frontend/src/components/admin/article/ArticleRelationGraph.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+ - src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
++- src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+ - src/frontend/src/components/admin/canvas/AuthoringCanvasEdgeToLinkDialog.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+ - src/frontend/src/components/admin/canvas/AuthoringCanvasNodeCard.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+ - src/frontend/src/components/admin/canvas/AuthoringCanvasOutlineView.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus

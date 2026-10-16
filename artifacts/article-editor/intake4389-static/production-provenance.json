@@ -1,0 +1,19 @@
+{
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "source": "962fa5ba18d7a4c6438417cddf147750a16d0663",
+  "sourceParent": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+  "path": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+  "basePreimage": "absent",
+  "sourceParentPreimage": "absent",
+  "finalGitMode": "100644",
+  "exactSourceAndCandidateBlob": "666dd6bf8a169293d00e941ec158b35ae3569105",
+  "sourceBytesEqual": true,
+  "sha256": "0c9648f48321c0c49010ce3418fe5bc01aa3ab26f06f0a6952af955477a40f56",
+  "productionTree": "3b768444d7ca2bbdfbe76d768fcf11cb40f5d65d",
+  "conflicts": 0,
+  "stagedProductionPaths": [
+    "A\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue"
+  ],
+  "allOtherBasePathsUnchanged": true,
+  "method": "Apply exact single-leaf production patch with original git apply; no cherry-pick or donor history."
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "ordinary exact static command inventory; no test/runtime harness",
+  "PR": 4412,
+  "targetBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "beforeHead": "b097253ef6829464ff67aa591d57e4b865652eb5",
+  "cwd": "/workspace/privacy4389-intake/FsusBlog",
+  "sharedStaticEnvironment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/privacy4389-intake/FsusUI"
+  },
+  "heapForAppAndStyle": {
+    "NODE_OPTIONS": "--max-old-space-size=8192"
+  },
+  "beforeAndAfterOriginalComplete": {
+    "app": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+    "full-lint": "node tools/frontend/check-frontend-style.mjs --mode full",
+    "boundary": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+    "binary-boundary": "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+    "code-intent": "node tools/governance/check-code-intent.mjs",
+    "lifecycle": "node tools/docs/generate-document-lifecycle.mjs --check",
+    "authoritative": "node tools/docs/check-authoritative-development-docs.mjs"
+  },
+  "beforeSupplemental": {
+    "strict": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+    "AST": "node /workspace/privacy4389-intake/evidence/parse-leaf.mjs"
+  },
+  "afterSupplemental": {
+    "strict": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue --file src/frontend/src/fsusui/checkbox.ts",
+    "AST": "node /workspace/privacy4389-intake/repair-evidence/parse-repaired-source.mjs"
+  },
+  "metadata": {
+    "message": "node tools/governance/check-change-contract.mjs --message-file /workspace/privacy4389-intake/repair-commit-message.txt",
+    "title": "node tools/governance/check-change-contract.mjs --title 'feat(frontend): admit privacy presentation source'"
+  },
+  "ordering": "All before commands complete on b097 before source edits; then all after commands use unchanged original projects/configuration. New evidence copied only after commands exited.",
+  "preservation": "No rule/allowlist/baseline/config/lock/include/exclude/frozen input changed. Both complete full runs retained, scoped strict does not substitute for full. AST loads compiler tooling only; no product/helper module evaluated. All runtime/test/collection/setup/mount/frozen/qualification HOLDs retained."
+}

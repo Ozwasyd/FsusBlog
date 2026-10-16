@@ -1,0 +1,31 @@
+// Static compiler parsing only. Never imports or evaluates the product component.
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const root = '/workspace/privacy4389-intake/FsusBlog';
+const relative = 'src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue';
+const require = createRequire(path.join(root, 'src/frontend/package.json'));
+const sfc = require('@vue/compiler-sfc');
+const ts = require('typescript');
+const source = fs.readFileSync(path.join(root, relative), 'utf8');
+const parsed = sfc.parse(source, { filename: relative });
+if (parsed.errors.length) throw new Error(JSON.stringify(parsed.errors));
+if (!parsed.descriptor.template || !parsed.descriptor.scriptSetup) throw new Error('missing expected SFC sections');
+const script = ts.createSourceFile(relative + '.ts', parsed.descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+if (script.parseDiagnostics.length) throw new Error(JSON.stringify(script.parseDiagnostics));
+const imports = script.statements.filter(ts.isImportDeclaration).map(node => ({ specifier: node.moduleSpecifier.text, clause: node.importClause?.getText(script) }));
+const calls = [];
+function visit(node) {
+    if (ts.isCallExpression(node)) calls.push(node.expression.getText(script));
+    ts.forEachChild(node, visit);
+}
+visit(script);
+console.log(JSON.stringify({
+    kind: 'ordinary static source parse; no component execution or qualification',
+    path: relative, sourceBytes: Buffer.byteLength(source),
+    templateParsed: true, scriptSetupLang: parsed.descriptor.scriptSetup.lang,
+    normalScript: Boolean(parsed.descriptor.script), styles: parsed.descriptor.styles.length,
+    parseDiagnostics: script.parseDiagnostics.length, imports, syntacticCalls: calls,
+    componentRuntimeImportsOrEvaluation: 'UNRUN/HOLD'
+}, null, 2));

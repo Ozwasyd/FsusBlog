@@ -1,0 +1,38 @@
+{
+  "kind": "ordinary complete-project configuration inspection",
+  "generatedExtends": "../../tsconfig.app.json",
+  "localAliasesFromActualGeneratedConfig": {
+    "element-plus": "/workspace/privacy4389-intake/FsusUI/vue/packages/element-plus/index.ts",
+    "@ozwasyd/element-plus": "/workspace/privacy4389-intake/FsusUI/vue/packages/element-plus/index.ts"
+  },
+  "generatedConfigSha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+  "baseCandidateGeneratedBytesEqual": true,
+  "originalApplicationInclude": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "src/vite-env.d.ts",
+    "wasm/security/**/*.ts",
+    "wasm/web/**/*.ts",
+    "auto-imports.d.ts",
+    "components.d.ts"
+  ],
+  "originalApplicationExclude": [
+    "dist",
+    "obj",
+    "node_modules",
+    "public/wasm",
+    "wasm/build",
+    "wasm/dist"
+  ],
+  "originalCompilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "noOriginalIncludeExcludeRuleOrEnumChanges": true,
+  "snapshotMeaning": "Copied config bytes retain original cwd/relative-path meaning. Delivered snapshots are not runnable configs at their delivery location."
+}

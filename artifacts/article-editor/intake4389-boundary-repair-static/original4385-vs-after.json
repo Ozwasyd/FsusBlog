@@ -1,0 +1,55 @@
+{
+  "app": {
+    "originalBaseExit": 2,
+    "afterExit": 2,
+    "rawByteIdentical": true,
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": []
+  },
+  "full-lint": {
+    "originalBaseExit": 1,
+    "afterExit": 1,
+    "rawByteIdentical": true,
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": []
+  },
+  "boundary": {
+    "originalBaseExit": 1,
+    "afterExit": 1,
+    "rawByteIdentical": true,
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": []
+  },
+  "binary-boundary": {
+    "originalBaseExit": 1,
+    "afterExit": 1,
+    "rawByteIdentical": true,
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": []
+  },
+  "code-intent": {
+    "originalBaseExit": 1,
+    "afterExit": 1,
+    "rawByteIdentical": false,
+    "completeLineMultisetAdded": [
+      "[code-intent] 2 error(s) across 5749 checked file(s):"
+    ],
+    "completeLineMultisetRemoved": [
+      "[code-intent] 2 error(s) across 5747 checked file(s):"
+    ]
+  },
+  "lifecycle": {
+    "originalBaseExit": 1,
+    "afterExit": 1,
+    "rawByteIdentical": true,
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": []
+  },
+  "authoritative": {
+    "originalBaseExit": 1,
+    "afterExit": 1,
+    "rawByteIdentical": true,
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": []
+  }
+}

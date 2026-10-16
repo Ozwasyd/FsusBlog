@@ -1,0 +1,42 @@
+{
+  "app": {
+    "freshBeforeSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+    "retainedInitialCandidateSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+    "rawBytesEqual": true
+  },
+  "boundary": {
+    "freshBeforeSha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
+    "retainedInitialCandidateSha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
+    "rawBytesEqual": true
+  },
+  "binary-boundary": {
+    "freshBeforeSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+    "retainedInitialCandidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+    "rawBytesEqual": true
+  },
+  "code-intent": {
+    "freshBeforeSha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
+    "retainedInitialCandidateSha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
+    "rawBytesEqual": true
+  },
+  "lifecycle": {
+    "freshBeforeSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "retainedInitialCandidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "rawBytesEqual": true
+  },
+  "authoritative": {
+    "freshBeforeSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "retainedInitialCandidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "rawBytesEqual": true
+  },
+  "strict": {
+    "freshBeforeSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+    "retainedInitialCandidateSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+    "rawBytesEqual": true
+  },
+  "ast": {
+    "freshBeforeSha256": "a099d472f8157320947f833e2f0907dc612048429d3f51481cff7e39f270520d",
+    "retainedInitialCandidateSha256": "a099d472f8157320947f833e2f0907dc612048429d3f51481cff7e39f270520d",
+    "rawBytesEqual": true
+  }
+}

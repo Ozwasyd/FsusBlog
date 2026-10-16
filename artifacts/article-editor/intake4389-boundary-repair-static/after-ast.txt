@@ -1,0 +1,33 @@
+{
+  "kind": "ordinary static source parse and inverse import proof; no runtime or acceptance receipt",
+  "beforeHead": "b097253ef6829464ff67aa591d57e4b865652eb5",
+  "source": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+  "parseDiagnostics": 0,
+  "wholeSfcInverseImportEquality": true,
+  "templateAndNonImportStatementsBytePreserved": true,
+  "imports": [
+    {
+      "specifier": "vue",
+      "clause": "{ computed, ref, useId, watch }"
+    },
+    {
+      "specifier": "@/fsusui/button",
+      "clause": "{ FsusUiButton as ElButton }"
+    },
+    {
+      "specifier": "@/fsusui/checkbox",
+      "clause": "{ FsusUiCheckbox as ElCheckbox }"
+    }
+  ],
+  "checkboxAdapter": {
+    "path": "src/frontend/src/fsusui/checkbox.ts",
+    "exports": [
+      {
+        "specifier": "@ozwasyd/element-plus",
+        "namedExports": "{ ElCheckbox as FsusUiCheckbox }"
+      }
+    ],
+    "exactSingleNamedReexport": true
+  },
+  "productImportsOrEvaluation": "HOLD/UNRUN"
+}
