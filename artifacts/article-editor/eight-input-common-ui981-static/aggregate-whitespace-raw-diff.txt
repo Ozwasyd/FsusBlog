@@ -1,0 +1,115 @@
+--- base-aggregate-whitespace.txt
++++ candidate-aggregate-whitespace.txt
+@@ -0,0 +1,112 @@
++artifacts/article-editor/intake4372-ui981-static/delivery-first-candidate-final-full-diff-check.log:2: trailing whitespace.
++++ 
++artifacts/article-editor/intake4372-ui981-static/delivery-first-candidate-final-full-diff-check.log:4: trailing whitespace.
++++ 
++artifacts/article-editor/intake4372-ui981-static/delivery-first-candidate-final-full-diff-check.log:6: trailing whitespace.
++++ 
++artifacts/article-editor/intake4372-ui981-static/delivery-first-candidate-final-full-diff-check.log:8: trailing whitespace.
++++ 
++artifacts/article-editor/intake4372-ui981-static/delivery-first-candidate-final-full-diff-check.log:10: trailing whitespace.
++++ 
++artifacts/article-editor/intake4372-ui981-static/delivery-first-candidate-final-full-diff-check.log:12: trailing whitespace.
++++ 
++artifacts/article-editor/intake4372-ui981-static/delivery-first-candidate-final-full-diff-check.log:14: trailing whitespace.
++++ 
++artifacts/article-editor/intake4372-ui981-static/production.patch:21: trailing whitespace.
+++ 
++artifacts/article-editor/intake4372-ui981-static/production.patch:26: trailing whitespace.
+++ 
++artifacts/article-editor/intake4372-ui981-static/production.patch:29: trailing whitespace.
+++ 
++artifacts/article-editor/intake4372-ui981-static/production.patch:34: trailing whitespace.
+++ 
++artifacts/article-editor/intake4372-ui981-static/production.patch:42: trailing whitespace.
+++ 
++artifacts/article-editor/intake4372-ui981-static/production.patch:49: trailing whitespace.
+++ 
++artifacts/article-editor/intake4372-ui981-static/production.patch:56: trailing whitespace.
+++ 
++artifacts/article-editor/intake4378-static/aggregate-whitespace.txt:2: trailing whitespace.
++++ 
++artifacts/article-editor/intake4378-static/aggregate-whitespace.txt:4: trailing whitespace.
++++ 
++artifacts/article-editor/intake4378-static/aggregate-whitespace.txt:6: trailing whitespace.
++++ 
++artifacts/article-editor/intake4378-static/aggregate-whitespace.txt:8: trailing whitespace.
++++ 
++artifacts/article-editor/intake4378-static/aggregate-whitespace.txt:10: trailing whitespace.
++++ 
++artifacts/article-editor/intake4378-static/aggregate-whitespace.txt:12: trailing whitespace.
++++ 
++artifacts/article-editor/intake4378-static/donor-production.patch:7: trailing whitespace.
+++ 
++artifacts/article-editor/intake4378-static/donor-production.patch:79: trailing whitespace.
+++ 
++artifacts/article-editor/intake4378-static/donor-production.patch:113: trailing whitespace.
+++ 
++artifacts/article-editor/intake4378-static/donor-production.patch:141: trailing whitespace.
+++ 
++artifacts/article-editor/intake4378-static/donor-production.patch:144: trailing whitespace.
+++ 
++artifacts/article-editor/intake4378-static/donor-production.patch:163: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:22: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:32: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:34: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:42: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:46: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:147: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:151: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:165: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:237: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:245: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:265: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:273: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:281: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:302: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/donor.patch:308: trailing whitespace.
+++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:2: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:4: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:6: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:8: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:10: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:12: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:14: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:16: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:18: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:20: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:22: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:24: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:26: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:28: trailing whitespace.
++++ 
++artifacts/article-editor/intake4384-static/staged-whitespace.txt:30: trailing whitespace.
++++ 

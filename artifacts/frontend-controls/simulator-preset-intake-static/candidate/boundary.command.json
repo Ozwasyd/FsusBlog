@@ -1,0 +1,16 @@
+{
+    "name": "boundary",
+    "cwd": "/workspace/FsusBlog-intake4379",
+    "argv": [
+        "node",
+        "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+    ],
+    "environmentOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-981-intake4379",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
+    },
+    "startedAt": "2026-10-15T11:05:15.623630+00:00",
+    "exitCode": 1,
+    "endedAt": "2026-10-15T11:05:15.762749+00:00"
+}

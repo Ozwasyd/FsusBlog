@@ -1,0 +1,140 @@
+{
+    "inspectedSourceAndAbsoluteLinks": [
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/icons-vue/node_modules/@element-plus/icons-svg",
+            "link": "../../../icons-svg",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/icons-svg"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/theme-chalk/node_modules/@element-plus/build",
+            "link": "../../../../internal/build",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/build"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/demo-app/node_modules/@element-plus/icons-vue",
+            "link": "../../../icons-vue",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/icons-vue"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/demo-app/node_modules/@element-plus/theme-chalk",
+            "link": "../../../theme-chalk",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/theme-chalk"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/components/node_modules/@element-plus/motion",
+            "link": "../../../motion",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/motion"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/element-plus/node_modules/@element-plus/icons-vue",
+            "link": "../../../icons-vue",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/icons-vue"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/element-plus/node_modules/@element-plus/motion",
+            "link": "../../../motion",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/motion"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/wasm/node_modules/@element-plus/utils",
+            "link": "../../../utils",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/utils"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/packages/node_modules/@element-plus/icons-vue",
+            "link": "/workspace/FsusBlog/src/frontend/node_modules/@element-plus/icons-vue",
+            "realpath": "/workspace/FsusBlog/src/frontend/node_modules/@element-plus/icons-vue"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/internal/build/node_modules/@element-plus/build-constants",
+            "link": "../../../build-constants",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/build-constants"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/internal/metadata/node_modules/@element-plus/build",
+            "link": "../../../build",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/build"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/internal/metadata/node_modules/@element-plus/build-constants",
+            "link": "../../../build-constants",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/build-constants"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/vue/internal/metadata/node_modules/@element-plus/build-utils",
+            "link": "../../../build-utils",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/build-utils"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/icons-vue",
+            "link": "../../vue/packages/icons-vue",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/icons-vue"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/locale",
+            "link": "../../vue/packages/locale",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/locale"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/build",
+            "link": "../../vue/internal/build",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/build"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/icons-svg",
+            "link": "../../vue/packages/icons-svg",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/icons-svg"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/theme-chalk",
+            "link": "../../vue/packages/theme-chalk",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/theme-chalk"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/build-utils",
+            "link": "../../vue/internal/build-utils",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/build-utils"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/hooks",
+            "link": "../../vue/packages/hooks",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/hooks"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/test-utils",
+            "link": "../../vue/packages/test-utils",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/test-utils"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/eslint-config",
+            "link": "../../vue/internal/eslint-config",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/internal/eslint-config"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/components",
+            "link": "../../vue/packages/components",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/components"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/utils",
+            "link": "../../vue/packages/utils",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/utils"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/wasm",
+            "link": "../../vue/packages/wasm",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/wasm"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/constants",
+            "link": "../../vue/packages/constants",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/constants"
+        },
+        {
+            "path": "/workspace/FsusUI-intake4384-981/node_modules/@element-plus/directives",
+            "link": "../../vue/packages/directives",
+            "realpath": "/workspace/FsusUI-intake4384-981/vue/packages/directives"
+        }
+    ],
+    "sourceLinksResolvingToOldUI": []
+}

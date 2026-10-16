@@ -1,0 +1,52 @@
+{
+    "ui": [
+        {
+            "path": "/workspace/FsusUI-981-intake4372/node_modules",
+            "realpath": "/workspace/FsusUI/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/internal/build/node_modules",
+            "realpath": "/workspace/FsusUI/vue/internal/build/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/internal/metadata/node_modules",
+            "realpath": "/workspace/FsusUI/vue/internal/metadata/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/packages/components/node_modules",
+            "realpath": "/workspace/FsusUI/vue/packages/components/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/packages/demo-app/node_modules",
+            "realpath": "/workspace/FsusUI/vue/packages/demo-app/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/packages/element-plus/node_modules",
+            "realpath": "/workspace/FsusUI/vue/packages/element-plus/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/packages/icons-vue/node_modules",
+            "realpath": "/workspace/FsusUI/vue/packages/icons-vue/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/packages/node_modules",
+            "realpath": "/workspace/FsusUI/vue/packages/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/packages/theme-chalk/node_modules",
+            "realpath": "/workspace/FsusUI/vue/packages/theme-chalk/node_modules"
+        },
+        {
+            "path": "/workspace/FsusUI-981-intake4372/vue/packages/wasm/node_modules",
+            "realpath": "/workspace/FsusUI/vue/packages/wasm/node_modules"
+        }
+    ],
+    "blog": {
+        "path": "/workspace/FsusBlog-intake4372/src/frontend/node_modules",
+        "realpath": "/workspace/FsusBlog/src/frontend/node_modules"
+    },
+    "declarations": {
+        "src/frontend/auto-imports.d.ts": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac",
+        "src/frontend/components.d.ts": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76"
+    }
+}

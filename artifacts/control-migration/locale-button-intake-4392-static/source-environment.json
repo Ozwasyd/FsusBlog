@@ -1,0 +1,168 @@
+{
+  "recordedAt": "2026-10-15T10:49:08Z",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "uiHead": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+  "uiTree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+  "uiStatusPorcelain": "",
+  "blogStatusBeforeApply": "",
+  "uiPath": "/workspace/FsusUI-intake-4392",
+  "uiSourcePackage": "element-plus",
+  "uiSourceVersion": "1.5.1",
+  "effectiveCompilerOptions": {
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "moduleDetection": "force",
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "noImplicitThis": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "target": "es2022",
+    "useDefineForClassFields": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "libReplacement": false,
+    "skipLibCheck": true,
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable",
+      "webworker"
+    ],
+    "types": [
+      "vite/client",
+      "node"
+    ],
+    "tsBuildInfoFile": "./tsconfig.fsusui-local.app.generated.tsbuildinfo",
+    "composite": false,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "../..",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@wasm/*": [
+        "./wasm/web/*"
+      ],
+      "vue": [
+        "./node_modules/vue"
+      ],
+      "@vue/*": [
+        "./node_modules/@vue/*"
+      ],
+      "@ozwasyd/element-plus": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/index.ts"
+      ],
+      "element-plus": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/index.ts"
+      ],
+      "@ozwasyd/element-plus/icons-vue": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/icons-vue.ts"
+      ],
+      "@ozwasyd/element-plus/markdown-runtime": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/markdown-runtime.ts"
+      ],
+      "@ozwasyd/element-plus/motion": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/motion.ts"
+      ],
+      "@ozwasyd/element-plus/perception-challenge": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/perception-challenge.ts"
+      ],
+      "@ozwasyd/element-plus/render-pipeline": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/render-pipeline.ts"
+      ],
+      "@ozwasyd/element-plus/result": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/result.ts"
+      ],
+      "@ozwasyd/element-plus/theme": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/theme.ts"
+      ],
+      "@ozwasyd/element-plus/wasm": [
+        "../../../FsusUI-intake-4392/vue/packages/element-plus/wasm.ts"
+      ],
+      "@element-plus/icons-vue": [
+        "../../../FsusUI-intake-4392/vue/packages/icons-vue/src/index.ts"
+      ],
+      "@element-plus/icons-vue/*": [
+        "../../../FsusUI-intake-4392/vue/packages/icons-vue/src/*"
+      ],
+      "@element-plus/theme-chalk/src": [
+        "../../../FsusUI-intake-4392/vue/packages/theme-chalk/src"
+      ],
+      "@element-plus/theme-chalk/src/*": [
+        "../../../FsusUI-intake-4392/vue/packages/theme-chalk/src/*"
+      ],
+      "@element-plus/wasm": [
+        "../../../FsusUI-intake-4392/vue/packages/wasm/index.ts"
+      ],
+      "@element-plus/wasm/*": [
+        "../../../FsusUI-intake-4392/vue/packages/wasm/*"
+      ],
+      "@element-plus/*": [
+        "../../../FsusUI-intake-4392/vue/packages/*"
+      ]
+    },
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "isolatedModules": true,
+    "preserveConstEnums": true
+  },
+  "applicationRootFiles": 771,
+  "declarationSnapshots": {
+    "auto-imports.d.ts": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac",
+    "components.d.ts": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76"
+  },
+  "dependencyLocations": [
+    {
+      "path": "/workspace/FsusBlog-intake-4392/src/frontend/node_modules",
+      "target": "/workspace/FsusBlog/src/frontend/node_modules",
+      "installedLockSha256": "b3046dd31f9fbb3b29e596c7c6e24020bd9b86f36898fbd56f7107e2c693da1d"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/node_modules",
+      "target": "/workspace/FsusUI/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/packages/node_modules",
+      "target": "/workspace/FsusUI/vue/packages/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/internal/build/node_modules",
+      "target": "/workspace/FsusUI/vue/internal/build/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/internal/metadata/node_modules",
+      "target": "/workspace/FsusUI/vue/internal/metadata/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/packages/demo-app/node_modules",
+      "target": "/workspace/FsusUI/vue/packages/demo-app/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/packages/icons-vue/node_modules",
+      "target": "/workspace/FsusUI/vue/packages/icons-vue/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/packages/theme-chalk/node_modules",
+      "target": "/workspace/FsusUI/vue/packages/theme-chalk/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/packages/components/node_modules",
+      "target": "/workspace/FsusUI/vue/packages/components/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/packages/element-plus/node_modules",
+      "target": "/workspace/FsusUI/vue/packages/element-plus/node_modules"
+    },
+    {
+      "path": "/workspace/FsusUI-intake-4392/vue/packages/wasm/node_modules",
+      "target": "/workspace/FsusUI/vue/packages/wasm/node_modules"
+    }
+  ]
+}

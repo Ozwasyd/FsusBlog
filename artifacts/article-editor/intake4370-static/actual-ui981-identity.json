@@ -1,0 +1,24 @@
+{
+    "repository": "Ozwasyd/FsusUI",
+    "path": "/workspace/intake4370-ui-git",
+    "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+    "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+    "statusPorcelain": "",
+    "dirtyFingerprintSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "package": "element-plus",
+    "version": "1.5.1",
+    "bothPublicPackageAliases": "../../../intake4370-ui-git/vue/packages/element-plus/index.ts",
+    "productThemeCss": "NOT BUILT / consumer acceptance HOLD; no old CSS or source Sass substituted",
+    "dependencyLocations": [
+        "node_modules",
+        "vue/internal/build/node_modules",
+        "vue/internal/metadata/node_modules",
+        "vue/packages/node_modules",
+        "vue/packages/components/node_modules",
+        "vue/packages/demo-app/node_modules",
+        "vue/packages/element-plus/node_modules",
+        "vue/packages/icons-vue/node_modules",
+        "vue/packages/theme-chalk/node_modules",
+        "vue/packages/wasm/node_modules"
+    ]
+}

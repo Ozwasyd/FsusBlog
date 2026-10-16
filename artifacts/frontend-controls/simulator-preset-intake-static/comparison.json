@@ -1,0 +1,101 @@
+{
+    "checks": [
+        {
+            "name": "application-effective-config",
+            "baseExit": 0,
+            "candidateExit": 0,
+            "baseRawSha256": "f064dc11beda78a31cfd0709dd8e407d77f157cc2a2250641cfea88d0b1e75e7",
+            "candidateRawSha256": "f064dc11beda78a31cfd0709dd8e407d77f157cc2a2250641cfea88d0b1e75e7",
+            "baseRawLines": 898,
+            "candidateRawLines": 898,
+            "completeRawBytesIdentical": true
+        },
+        {
+            "name": "application",
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseRawSha256": "83aee6484c1c3ba773b0bdb9a643b9d6db39b6500d63fe83a9cf5383e4fbd981",
+            "candidateRawSha256": "83aee6484c1c3ba773b0bdb9a643b9d6db39b6500d63fe83a9cf5383e4fbd981",
+            "baseRawLines": 30,
+            "candidateRawLines": 30,
+            "completeRawBytesIdentical": true,
+            "baseTsDiagnostics": 29,
+            "candidateTsDiagnostics": 29
+        },
+        {
+            "name": "authoritative-docs",
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseRawSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "candidateRawSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "baseRawLines": 41,
+            "candidateRawLines": 41,
+            "completeRawBytesIdentical": true
+        },
+        {
+            "name": "boundary",
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseRawSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "candidateRawSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "baseRawLines": 21,
+            "candidateRawLines": 21,
+            "completeRawBytesIdentical": true
+        },
+        {
+            "name": "code-intent",
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseRawSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "candidateRawSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "baseRawLines": 3,
+            "candidateRawLines": 3,
+            "completeRawBytesIdentical": true
+        },
+        {
+            "name": "full-lint",
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseRawSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+            "candidateRawSha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+            "baseRawLines": 83676,
+            "candidateRawLines": 83676,
+            "completeRawBytesIdentical": true,
+            "baseReportLines": 83667,
+            "candidateReportLines": 83667,
+            "orderedCompleteReportIdentical": true,
+            "addedReportLines": 0,
+            "removedReportLines": 0,
+            "eslintFindings": 83620,
+            "stylelintFindings": 44,
+            "ownedFileMentioned": false
+        },
+        {
+            "name": "lifecycle",
+            "baseExit": 1,
+            "candidateExit": 1,
+            "baseRawSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "candidateRawSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "baseRawLines": 7,
+            "candidateRawLines": 7,
+            "completeRawBytesIdentical": true
+        },
+        {
+            "name": "node",
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseRawSha256": "aec542b63aef746e7b2140f15dee5242b1207ef338d29627b28354249daec825",
+            "candidateRawSha256": "aec542b63aef746e7b2140f15dee5242b1207ef338d29627b28354249daec825",
+            "baseRawLines": 1,
+            "candidateRawLines": 1,
+            "completeRawBytesIdentical": true,
+            "baseTsDiagnostics": 1,
+            "candidateTsDiagnostics": 1
+        }
+    ],
+    "generatedCompleteApplicationConfigurationIdentical": true,
+    "generatedConfigurationSha256": "42f5ed0fd77b32813318af4e25dfe46afb303380180771a3d4e250c6d52cbe39",
+    "effectiveApplicationRootFiles": 771,
+    "allOriginalFailureExitCodesRetained": true,
+    "newQualification": false
+}

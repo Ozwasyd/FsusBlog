@@ -1,0 +1,20 @@
+{
+    "kind": "original full compiler project, no source-set relaxation",
+    "rootFileCount": 771,
+    "compilerOptions": {
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "erasableSyntaxOnly": true
+    },
+    "bothAliases": {
+        "@ozwasyd/element-plus": [
+            "../../../FsusUI/vue/packages/element-plus/index.ts"
+        ],
+        "element-plus": [
+            "../../../FsusUI/vue/packages/element-plus/index.ts"
+        ]
+    },
+    "generatedConfigBytesEqual": true,
+    "effectiveConfigBytesEqual": true
+}

@@ -1,0 +1,17 @@
+{
+  "cwd": "/workspace/intake4378-candidate",
+  "argv": [
+    "npm",
+    "run",
+    "lint:full",
+    "--prefix",
+    "src/frontend"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4378-ui981"
+  },
+  "startedUtc": "2026-10-15T10:49:54.277159+00:00",
+  "exit": 1,
+  "completedUtc": "2026-10-15T10:51:45.287757+00:00"
+}

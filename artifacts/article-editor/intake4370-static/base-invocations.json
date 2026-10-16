@@ -1,0 +1,167 @@
+{
+    "environment": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4370-ui-git",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
+    },
+    "commands": [
+        {
+            "name": "application",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+                "--application"
+            ],
+            "started": "2026-10-15T10:58:18.997987+00:00",
+            "completed": "2026-10-15T10:58:54.270371+00:00",
+            "exit": 2,
+            "log": "base-application.log",
+            "exitFile": "base-application.exit"
+        },
+        {
+            "name": "node-types",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "src/frontend/node_modules/typescript/bin/tsc",
+                "--noEmit",
+                "-p",
+                "src/frontend/tsconfig.node.json"
+            ],
+            "started": "2026-10-15T10:58:54.270410+00:00",
+            "completed": "2026-10-15T10:58:55.299246+00:00",
+            "exit": 2,
+            "log": "base-node-types.log",
+            "exitFile": "base-node-types.exit"
+        },
+        {
+            "name": "full-style",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "tools/frontend/check-frontend-style.mjs",
+                "--mode",
+                "full"
+            ],
+            "started": "2026-10-15T10:58:55.299293+00:00",
+            "completed": "2026-10-15T11:00:52.275508+00:00",
+            "exit": 1,
+            "log": "base-full-style.log",
+            "exitFile": "base-full-style.exit"
+        },
+        {
+            "name": "strict-file",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "tools/frontend/check-frontend-style.mjs",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/frontend/src/components/article/ArticleCommentsVirtualList.vue"
+            ],
+            "started": "2026-10-15T11:00:52.275550+00:00",
+            "completed": "2026-10-15T11:01:01.092010+00:00",
+            "exit": 0,
+            "log": "base-strict-file.log",
+            "exitFile": "base-strict-file.exit"
+        },
+        {
+            "name": "fsusui-boundary",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+            ],
+            "started": "2026-10-15T11:01:01.092053+00:00",
+            "completed": "2026-10-15T11:01:01.240345+00:00",
+            "exit": 1,
+            "log": "base-fsusui-boundary.log",
+            "exitFile": "base-fsusui-boundary.exit"
+        },
+        {
+            "name": "binary-boundary",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+            ],
+            "started": "2026-10-15T11:01:01.240388+00:00",
+            "completed": "2026-10-15T11:01:01.309055+00:00",
+            "exit": 1,
+            "log": "base-binary-boundary.log",
+            "exitFile": "base-binary-boundary.exit"
+        },
+        {
+            "name": "code-intent",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "tools/governance/check-code-intent.mjs"
+            ],
+            "started": "2026-10-15T11:01:01.309111+00:00",
+            "completed": "2026-10-15T11:01:10.385510+00:00",
+            "exit": 1,
+            "log": "base-code-intent.log",
+            "exitFile": "base-code-intent.exit"
+        },
+        {
+            "name": "lifecycle",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "tools/docs/generate-document-lifecycle.mjs",
+                "--check"
+            ],
+            "started": "2026-10-15T11:01:10.385551+00:00",
+            "completed": "2026-10-15T11:01:10.514924+00:00",
+            "exit": 1,
+            "log": "base-lifecycle.log",
+            "exitFile": "base-lifecycle.exit"
+        },
+        {
+            "name": "authoritative",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "tools/docs/check-authoritative-development-docs.mjs"
+            ],
+            "started": "2026-10-15T11:01:10.514965+00:00",
+            "completed": "2026-10-15T11:01:10.635547+00:00",
+            "exit": 1,
+            "log": "base-authoritative.log",
+            "exitFile": "base-authoritative.exit"
+        },
+        {
+            "name": "effective-config",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "node",
+                "src/frontend/node_modules/vue-tsc/bin/vue-tsc.js",
+                "--showConfig",
+                "-p",
+                "src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+            ],
+            "started": "2026-10-15T11:01:10.635588+00:00",
+            "completed": "2026-10-15T11:01:10.861522+00:00",
+            "exit": 0,
+            "log": "base-effective-config.log",
+            "exitFile": "base-effective-config.exit"
+        },
+        {
+            "name": "whitespace",
+            "cwd": "/workspace/intake4370-base",
+            "argv": [
+                "git",
+                "diff",
+                "--check"
+            ],
+            "started": "2026-10-15T11:01:10.861566+00:00",
+            "completed": "2026-10-15T11:01:11.322120+00:00",
+            "exit": 0,
+            "log": "base-whitespace.log",
+            "exitFile": "base-whitespace.exit"
+        }
+    ]
+}

@@ -1,0 +1,34 @@
+error: Could not read e9077a98f0ee2d6e7df663240c1a36e14c96131f
+error: could not parse commit e9077a98f0ee2d6e7df663240c1a36e14c96131f
+node:internal/errors:985
+  const err = new Error(message);
+              ^
+
+Error: Command failed: git merge-base b302f58a9aaee9f2399d9274157a478f3c2f78fb d1a3578d5fc60fe37e61df9ba68d78600bbccb21
+error: Could not read e9077a98f0ee2d6e7df663240c1a36e14c96131f
+error: could not parse commit e9077a98f0ee2d6e7df663240c1a36e14c96131f
+
+    at genericNodeError (node:internal/errors:985:15)
+    at wrappedFn (node:internal/errors:539:14)
+    at checkExecSyncError (node:child_process:942:11)
+    at execFileSync (node:child_process:978:15)
+    at mergeBaseBetween (file:///workspace/intake4370-base/tools/governance/change-contract.mjs:4442:12)
+    at changedFilesBetween (file:///workspace/intake4370-base/tools/governance/change-contract.mjs:4451:22)
+    at validateEvent (file:///workspace/intake4370-base/tools/governance/check-change-contract.mjs:51:30)
+    at file:///workspace/intake4370-base/tools/governance/check-change-contract.mjs:156:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  status: 255,
+  signal: null,
+  output: [
+    null,
+    '',
+    'error: Could not read e9077a98f0ee2d6e7df663240c1a36e14c96131f\n' +
+      'error: could not parse commit e9077a98f0ee2d6e7df663240c1a36e14c96131f\n'
+  ],
+  pid: 22416,
+  stdout: '',
+  stderr: 'error: Could not read e9077a98f0ee2d6e7df663240c1a36e14c96131f\n' +
+    'error: could not parse commit e9077a98f0ee2d6e7df663240c1a36e14c96131f\n'
+}
+
+Node.js v24.19.0

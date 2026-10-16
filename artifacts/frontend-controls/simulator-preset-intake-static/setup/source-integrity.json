@@ -1,0 +1,16 @@
+{
+    "path": "src/frontend/src/views/admin/security/SecuritySimulator.vue",
+    "mode": "100644",
+    "receivingBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "receivingPreimageBlob": "237ab7f2792e878185c66b2eac8f62253b160603",
+    "acceptedDonorPostimageBlob": "a4d37fdfa6572540b5fccf16428795cb1e69b512",
+    "actualPostimageEqualsExactAcceptedDonor": true,
+    "receivingPreimageEqualsExactDonorPreimage": true,
+    "actualTextConflict": false,
+    "application": "git apply --3way --index, clean; no extra adaptation needed",
+    "businessScriptBytesUnchangedExceptPublicImport": true,
+    "existingScopedCssBytesUnchanged": true,
+    "productionDiffNumstat": "20\t6\tsrc/frontend/src/views/admin/security/SecuritySimulator.vue",
+    "allOtherBaseIndexEntriesUnchanged": true,
+    "whitespaceExit": 0
+}

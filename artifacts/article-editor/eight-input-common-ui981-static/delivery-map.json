@@ -1,0 +1,699 @@
+{
+    "kind": "ordinary engineering evidence delivery",
+    "entries": [
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/aggregate-whitespace-raw-diff.txt",
+            "bytes": 5566,
+            "sha256": "15c163689c73f6bb701cd017b1de371d59999c729fd3b017640f6ba42007affa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/application-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/authoritative-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-aggregate-whitespace.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-aggregate-whitespace.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-application.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-application.txt",
+            "bytes": 4981,
+            "sha256": "f0aeff889488de5e3c3331a8ad17c01cfce57187a39f36ee67e7be0054e1bb6f",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-authoritative.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-authoritative.txt",
+            "bytes": 6771,
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-binary.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-binary.txt",
+            "bytes": 866,
+            "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-boundary.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-boundary.txt",
+            "bytes": 2805,
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-commands.json",
+            "bytes": 11746,
+            "sha256": "010d2c99295c16c38312cd0dfedf897dbb121b792ccf37a544511cb04c09ca1d",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-effective-config.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-effective-config.txt",
+            "bytes": 47378,
+            "sha256": "b6214f080ee9126408074e309b587b2e85a3b548d203f00989ce9ebaf441d55b",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-full-style.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-full-style.txt",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-generated-config.snapshot.json",
+            "bytes": 2502,
+            "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-intent.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-intent.txt",
+            "bytes": 353,
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-lifecycle.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-lifecycle.txt",
+            "bytes": 762,
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-node-types.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-node-types.txt",
+            "bytes": 225,
+            "sha256": "d96b9b0f4ee33787a1b5a117602013b0e576450b19c743c27f9d6e736dc08395",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-resolver.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-resolver.txt",
+            "bytes": 18,
+            "sha256": "0180d88966237821780b4974ff097a91cf514179b12c4ec76372bc444e56e86e",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-source-compile.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-source-compile.txt",
+            "bytes": 1168,
+            "sha256": "e53f9fa5b1e9a6b678376045592414f5e0559c87bfa1bacfc4de37c607fa6774",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-source-whitespace.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-source-whitespace.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-strict-full-style.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-strict-full-style.txt",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-strict-owned.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/base-strict-owned.txt",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/binary-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/boundary-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-aggregate-whitespace.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-aggregate-whitespace.txt",
+            "bytes": 5363,
+            "sha256": "90fe198796fff89ac06a73de9b0d3f757aff1a70f619b8f10b319fb4435456c2",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-application.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-application.txt",
+            "bytes": 4981,
+            "sha256": "f0aeff889488de5e3c3331a8ad17c01cfce57187a39f36ee67e7be0054e1bb6f",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-authoritative.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-authoritative.txt",
+            "bytes": 6771,
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-binary.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-binary.txt",
+            "bytes": 866,
+            "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-boundary.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-boundary.txt",
+            "bytes": 2805,
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-commands.json",
+            "bytes": 11821,
+            "sha256": "f3465733345584a18e45708547f5433d964ccf9fa4a2f6053d7a36c3cbda7baf",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-effective-config.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-effective-config.txt",
+            "bytes": 47378,
+            "sha256": "b6214f080ee9126408074e309b587b2e85a3b548d203f00989ce9ebaf441d55b",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-full-style.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-full-style.txt",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-generated-config.snapshot.json",
+            "bytes": 2502,
+            "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-intent.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-intent.txt",
+            "bytes": 353,
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-lifecycle.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-lifecycle.txt",
+            "bytes": 762,
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-node-types.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-node-types.txt",
+            "bytes": 225,
+            "sha256": "d96b9b0f4ee33787a1b5a117602013b0e576450b19c743c27f9d6e736dc08395",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-resolver.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-resolver.txt",
+            "bytes": 18,
+            "sha256": "0180d88966237821780b4974ff097a91cf514179b12c4ec76372bc444e56e86e",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-source-compile.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-source-compile.txt",
+            "bytes": 1169,
+            "sha256": "e1a1b289ba1e6f7f94adb90f08e453fe6f5f2244881b118a9dd823136c0ba2f1",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-source-whitespace.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-source-whitespace.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-strict-full-style.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-strict-full-style.txt",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-strict-owned.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/candidate-strict-owned.txt",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/duplicate-check.json",
+            "bytes": 19470,
+            "sha256": "315881309901b31392593152d9003a261f22b5f1c3907c01794006742e976c17",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/effective-config-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/excluded-4420.json",
+            "bytes": 1941,
+            "sha256": "0e044217d4cfb52743d8b43b3363a09ae48d616c64776afa3a4bd84c4440f46e",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/full-project-proof.json",
+            "bytes": 578,
+            "sha256": "3e945f12981475305719dbea8adf2b9c9d6e554cb62155b770b0e79c7349bee5",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/full-style-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/input-identity.json",
+            "bytes": 5562,
+            "sha256": "3015e94ba31f49ac5ff469d034deaee3b973b8c868ed5fb1218d5bd3090ee078",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/intent-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/lifecycle-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/message-contract.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/message-contract.txt",
+            "bytes": 36,
+            "sha256": "d0f4f591aee85999e4bd6eea79833551a1710eccee9d1bced11e3ae6f07759ba",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/node-types-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/original-config_development_frontend-style-policy.json.snapshot.txt",
+            "bytes": 3632,
+            "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/original-eslint.config.mjs.snapshot.txt",
+            "bytes": 78,
+            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/original-src_frontend_tsconfig.app.json.snapshot.txt",
+            "bytes": 1099,
+            "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/original-src_frontend_tsconfig.node.json.snapshot.txt",
+            "bytes": 735,
+            "sha256": "db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/original-stylelint.config.mjs.snapshot.txt",
+            "bytes": 81,
+            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/protected-base.json",
+            "bytes": 223,
+            "sha256": "0ecb1c575329536b3959495151298177c31cfeb2cbaa9414a9e73dda14903340",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/remote-base.json",
+            "bytes": 120,
+            "sha256": "649217ecc2d619f544911284654e824ad23ab598a0ac971a5ab6dcb77a9b5093",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/repository.json",
+            "bytes": 74,
+            "sha256": "c5880012c90a757c93b11299f20830cf319443d1ff5bfa7838afab6ee2a98d7d",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/resolver-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/source-compiler-source.snapshot.txt",
+            "bytes": 1810,
+            "sha256": "6d565ec89244e50da5d6d44f497ea586c52b93111c6faf3dd8587872c74a9588",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/source-manifest.json",
+            "bytes": 421206,
+            "sha256": "bed95a11b3f300f417fbf7fc20d1fd1949af7e260bbe4ce7a0e48f7b85ecced9",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/source-whitespace-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/static-comparison.json",
+            "bytes": 28237,
+            "sha256": "db075ccf7f13273194eb3f12a700088e678160333d50add50a508b9c14b32248",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/static-recorder-source.snapshot.txt",
+            "bytes": 3115,
+            "sha256": "253741241da56ceb332f63e6662fca1c3baf64facc3967d6d95e15e5ba8df6d5",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/strict-full-style-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/strict-owned-raw-diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/title-contract.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/title-contract.txt",
+            "bytes": 27,
+            "sha256": "52673dd97326206af19c814a4ceacb7018c2bfd77408713cff8ccab38bc02e47",
+            "mode": "100644",
+            "meaning": "ordinary original-output/context/source-integrity record; not acceptance authority"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/packaged-aggregate-whitespace.snapshot.json",
+            "bytes": 25817,
+            "sha256": "9930486e6f2bfd51181efc224a54fd7b259b4e84e5a71b0656f7b250112aa7f3",
+            "mode": "100644",
+            "meaning": "lossless original final-whitespace failure capsule"
+        }
+    ],
+    "snapshotMeaning": "Original generated/effective/config snapshots retain original cwd and relative paths; delivered copies are not runnable projects. Recorder/compiler source snapshots are archived tooling text, not product or runtime harness. All processes completed before copying."
+}

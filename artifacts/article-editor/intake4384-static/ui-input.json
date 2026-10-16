@@ -1,0 +1,46 @@
+{
+    "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+    "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+    "status": "",
+    "path": "/workspace/FsusUI-intake4384-981",
+    "package": {
+        "name": "element-plus",
+        "version": "1.5.1"
+    },
+    "authorityAndSourceSHA256": {
+        "AGENTS.md": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89",
+        ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+        "docs/index.md": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+        "docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+        "docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+        "docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+        "docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+        "docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+        "docs/components/button.md": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76",
+        "vue/packages/components/button/src/button.vue": "24f55d1392971c5ff240ef4ac1298e06692d59dd017bd8506bc94b63a4ccf7d0",
+        "vue/packages/components/button/src/use-button.ts": "3ce6f22289efe2c01de9ff735d741f312fbd388530714b48536f516feb00a1da",
+        "vue/packages/components/button/src/button.ts": "ee6f77f20821735cfee2eba31b72f67c9c28b78afdba4a75ff16e9d788a0569a",
+        "vue/packages/theme-chalk/src/fsus-theme.scss": "d8493c6cce32aca3df67cb1d6483200964538b83e80d5783432c22e1fb8c51c6"
+    },
+    "cssOutput": "NOT BUILT for UI981; old CSS and source Sass are not consumer acceptance",
+    "dependencyLocationsCopiedFrom": "/workspace/FsusUI, ten existing installed node_modules locations; no install/build/test on FsusUI",
+    "blogIgnoredDeclarationSHA256": {
+        "src/frontend/auto-imports.d.ts": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac",
+        "src/frontend/components.d.ts": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76"
+    },
+    "sourceChain": [
+        "2e0e059f193407170d8e23bcc40d59f1af3291f6 8b8217a3aca591e331b3068b8977c6b2c7f1c9e1 fix(button): receive reviewed public theme repairs after UI980 [skip ci]",
+        "8b8217a3aca591e331b3068b8977c6b2c7f1c9e1 6216549f6f6fec4e9693669fce1bb9dfd3858f5f fix(tabs): receive reviewed ARIA forwarding after UI978 [skip ci]",
+        "6216549f6f6fec4e9693669fce1bb9dfd3858f5f 65ebbe9422f1e657afc1bd3f654550ff7c7224e0 fix(markdown-renderer): receive reviewed pending theme listener after Dropdown [skip ci]",
+        "65ebbe9422f1e657afc1bd3f654550ff7c7224e0 41a127611fa3db054b7d5bca25aeb101f2401ef6 fix(dropdown): receive reviewed trap and viewport ownership after UI973 [skip ci]",
+        "41a127611fa3db054b7d5bca25aeb101f2401ef6 075e71c60b6a116aea8f2a7f448c5747b00c481b fix(markdown-editor): synchronize Typewriter options reactively [skip ci]",
+        "075e71c60b6a116aea8f2a7f448c5747b00c481b 7467b0bd410d2487494c4f32ba33b7c608011570 fix(collection): receive reviewed DataList focus and responsive grid increment [skip ci]",
+        "7467b0bd410d2487494c4f32ba33b7c608011570 d0474e6183ac1b36bd1d8a04946ec850f8d4cc0a fix(input): receive reviewed CSP-safe textarea resize classes [skip ci]",
+        "d0474e6183ac1b36bd1d8a04946ec850f8d4cc0a 77fa895af570fafcf9c63e4a189b605d21834f0e fix(tag): receive reviewed opt-in multiline increment [skip ci]",
+        "77fa895af570fafcf9c63e4a189b605d21834f0e 789b65dd8ebf82d34f865ccf90bafa8fac84a701 fix(select-v2): receive reviewed focus and accessibility increment [skip ci]",
+        "789b65dd8ebf82d34f865ccf90bafa8fac84a701 c77281165226ffd84223c4c8d43805c5deb2b1b3 fix(ui): compose reviewed Table and TableV2 increments on UI961 [skip ci]",
+        "c77281165226ffd84223c4c8d43805c5deb2b1b3 e2ccc45100135ab5c171be13eae4d697098f905a fix(public-shell): preserve scoped CSP host, grid and readiness in UI composite [skip ci]",
+        "e2ccc45100135ab5c171be13eae4d697098f905a 48bb3e286c629dc84983e5cad9291bb7418db255 fix(public-shell): carry static CSP search host into UI composite [skip ci]"
+    ],
+    "blogSkillSHA256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+}

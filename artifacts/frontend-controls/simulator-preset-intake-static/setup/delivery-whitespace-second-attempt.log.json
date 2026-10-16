@@ -1,0 +1,9 @@
+{
+    "kind": "exact-git-whitespace-error-output",
+    "originalName": "delivery-whitespace-second-attempt.log",
+    "bytes": 788,
+    "sha256": "87b77124995be9987f3d598e0ca4f4e8601f86bf64ebbebcb05c37063f3b49e9",
+    "content": "artifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.log:2: trailing whitespace.\n++ \nartifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.log:4: trailing whitespace.\n++ \nartifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.log:6: trailing whitespace.\n++ \nartifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.log:8: trailing whitespace.\n++ \nartifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.log:10: trailing whitespace.\n++ \nartifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.log:12: trailing whitespace.\n++ \n",
+    "exit": 2,
+    "note": "Meaningful context-space output retained exactly in JSON. No compiler/linter output, source, rule, baseline or threshold changed."
+}

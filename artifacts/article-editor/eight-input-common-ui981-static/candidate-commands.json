@@ -1,0 +1,330 @@
+[
+    {
+        "name": "resolver",
+        "argv": [
+            "node",
+            "src/frontend/scripts/fsusui-root.mjs",
+            "--repository-root",
+            "/workspace/FsusBlog",
+            "--override",
+            "/workspace/FsusUI"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:51:31.803565+00:00",
+        "finished": "2026-10-16T02:51:31.904956+00:00",
+        "exit": 0,
+        "log": "candidate-resolver.txt",
+        "bytes": 18,
+        "lines": 1,
+        "sha256": "0180d88966237821780b4974ff097a91cf514179b12c4ec76372bc444e56e86e"
+    },
+    {
+        "name": "application",
+        "argv": [
+            "node",
+            "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+            "--application"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:51:31.905203+00:00",
+        "finished": "2026-10-16T02:53:11.013995+00:00",
+        "exit": 2,
+        "log": "candidate-application.txt",
+        "bytes": 4981,
+        "lines": 30,
+        "sha256": "f0aeff889488de5e3c3331a8ad17c01cfce57187a39f36ee67e7be0054e1bb6f"
+    },
+    {
+        "name": "effective-config",
+        "argv": [
+            "node",
+            "src/frontend/node_modules/vue-tsc/bin/vue-tsc.js",
+            "--showConfig",
+            "-p",
+            "src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:11.016351+00:00",
+        "finished": "2026-10-16T02:53:11.735128+00:00",
+        "exit": 0,
+        "log": "candidate-effective-config.txt",
+        "bytes": 47378,
+        "lines": 898,
+        "sha256": "b6214f080ee9126408074e309b587b2e85a3b548d203f00989ce9ebaf441d55b"
+    },
+    {
+        "name": "node-types",
+        "argv": [
+            "node",
+            "src/frontend/node_modules/typescript/bin/tsc",
+            "--noEmit",
+            "-p",
+            "src/frontend/tsconfig.node.json"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:11.735947+00:00",
+        "finished": "2026-10-16T02:53:14.592021+00:00",
+        "exit": 2,
+        "log": "candidate-node-types.txt",
+        "bytes": 225,
+        "lines": 1,
+        "sha256": "d96b9b0f4ee33787a1b5a117602013b0e576450b19c743c27f9d6e736dc08395"
+    },
+    {
+        "name": "full-style",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "full"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:14.592295+00:00",
+        "finished": "2026-10-16T02:53:21.789784+00:00",
+        "exit": 1,
+        "log": "candidate-full-style.txt",
+        "bytes": 227,
+        "lines": 2,
+        "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    {
+        "name": "strict-full-style",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "strict-full"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:21.790033+00:00",
+        "finished": "2026-10-16T02:53:29.531711+00:00",
+        "exit": 1,
+        "log": "candidate-strict-full-style.txt",
+        "bytes": 227,
+        "lines": 2,
+        "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    {
+        "name": "strict-owned",
+        "argv": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "strict-full",
+            "--file",
+            "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+            "--file",
+            "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
+            "--file",
+            "src/frontend/src/components/ui/LocaleSelector.vue",
+            "--file",
+            "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+            "--file",
+            "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
+            "--file",
+            "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
+            "--file",
+            "src/frontend/src/views/admin/security/SecuritySimulator.vue",
+            "--file",
+            "src/frontend/src/components/admin/SecurityDashboardWorkbench.vue"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:29.532031+00:00",
+        "finished": "2026-10-16T02:53:38.352507+00:00",
+        "exit": 1,
+        "log": "candidate-strict-owned.txt",
+        "bytes": 227,
+        "lines": 2,
+        "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    {
+        "name": "boundary",
+        "argv": [
+            "node",
+            "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:38.352992+00:00",
+        "finished": "2026-10-16T02:53:38.706664+00:00",
+        "exit": 1,
+        "log": "candidate-boundary.txt",
+        "bytes": 2805,
+        "lines": 21,
+        "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    {
+        "name": "binary",
+        "argv": [
+            "node",
+            "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:38.707275+00:00",
+        "finished": "2026-10-16T02:53:38.865902+00:00",
+        "exit": 1,
+        "log": "candidate-binary.txt",
+        "bytes": 866,
+        "lines": 7,
+        "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    {
+        "name": "intent",
+        "argv": [
+            "node",
+            "tools/governance/check-code-intent.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:53:38.866464+00:00",
+        "finished": "2026-10-16T02:54:03.234202+00:00",
+        "exit": 1,
+        "log": "candidate-intent.txt",
+        "bytes": 353,
+        "lines": 3,
+        "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+    },
+    {
+        "name": "lifecycle",
+        "argv": [
+            "node",
+            "tools/docs/generate-document-lifecycle.mjs",
+            "--check"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:54:03.236752+00:00",
+        "finished": "2026-10-16T02:54:03.512297+00:00",
+        "exit": 1,
+        "log": "candidate-lifecycle.txt",
+        "bytes": 762,
+        "lines": 7,
+        "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    {
+        "name": "authoritative",
+        "argv": [
+            "node",
+            "tools/docs/check-authoritative-development-docs.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:54:03.512781+00:00",
+        "finished": "2026-10-16T02:54:03.777694+00:00",
+        "exit": 1,
+        "log": "candidate-authoritative.txt",
+        "bytes": 6771,
+        "lines": 41,
+        "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    },
+    {
+        "name": "source-whitespace",
+        "argv": [
+            "git",
+            "diff",
+            "--check",
+            "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+            "--",
+            "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+            "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
+            "src/frontend/src/components/ui/LocaleSelector.vue",
+            "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+            "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
+            "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
+            "src/frontend/src/views/admin/security/SecuritySimulator.vue",
+            "src/frontend/src/components/admin/SecurityDashboardWorkbench.vue"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:54:03.778026+00:00",
+        "finished": "2026-10-16T02:54:03.794991+00:00",
+        "exit": 0,
+        "log": "candidate-source-whitespace.txt",
+        "bytes": 0,
+        "lines": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+        "name": "aggregate-whitespace",
+        "argv": [
+            "git",
+            "diff",
+            "--cached",
+            "--check",
+            "b302f58a9aaee9f2399d9274157a478f3c2f78fb"
+        ],
+        "cwd": "/workspace/FsusBlog",
+        "environment": {
+            "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+            "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+            "NODE_OPTIONS": "--max-old-space-size=8192"
+        },
+        "started": "2026-10-16T02:54:03.795610+00:00",
+        "finished": "2026-10-16T02:54:04.523249+00:00",
+        "exit": 2,
+        "log": "candidate-aggregate-whitespace.txt",
+        "bytes": 5363,
+        "lines": 112,
+        "sha256": "90fe198796fff89ac06a73de9b0d3f757aff1a70f619b8f10b319fb4435456c2"
+    }
+]

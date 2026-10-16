@@ -1,0 +1,188 @@
+[
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "AGENTS.md",
+        "bytes": 7223,
+        "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": ".agents/skills/fsusblog-design-conformance/SKILL.md",
+        "bytes": 3817,
+        "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "docs/design/governance.md",
+        "bytes": 8848,
+        "sha256": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "docs/design/surface-profiles.md",
+        "bytes": 7642,
+        "sha256": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "docs/design/task-surface-geometry.md",
+        "bytes": 2278,
+        "sha256": "5c69c73371d2870907e0382bd07f0f943898069694ed248aab75bddbf46e1d97"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "docs/development/coding-conventions.md",
+        "bytes": 16190,
+        "sha256": "df6e2035db85dac6f630fe61aedb55de59e6bb4f2c19971345e5030c388867ba"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "docs/development/document-lifecycle.md",
+        "bytes": 5925,
+        "sha256": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "docs/development/change-contract.md",
+        "bytes": 32875,
+        "sha256": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "tools/frontend/check-frontend-style.mjs",
+        "bytes": 65325,
+        "sha256": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "bytes": 7025,
+        "sha256": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "src/frontend/tsconfig.app.json",
+        "bytes": 1099,
+        "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "src/frontend/tsconfig.node.json",
+        "bytes": 735,
+        "sha256": "db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "tools/frontend/style-toolchain/package-lock.json",
+        "bytes": 169746,
+        "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "src/frontend/package-lock.json",
+        "bytes": 337719,
+        "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "src/frontend/auto-imports.d.ts",
+        "bytes": 193,
+        "sha256": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusBlog",
+        "path": "src/frontend/components.d.ts",
+        "bytes": 24410,
+        "sha256": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "AGENTS.md",
+        "bytes": 8053,
+        "sha256": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": ".agents/skills/fsusui-design-conformance/SKILL.md",
+        "bytes": 11447,
+        "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "docs/index.md",
+        "bytes": 5070,
+        "sha256": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "docs/design.md",
+        "bytes": 49896,
+        "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "docs/design/governance.md",
+        "bytes": 6291,
+        "sha256": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "docs/design/change-classification.md",
+        "bytes": 6082,
+        "sha256": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "docs/workflows/visual-change.md",
+        "bytes": 6324,
+        "sha256": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "docs/consumers/design-integration.md",
+        "bytes": 5637,
+        "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "docs/components/button.md",
+        "bytes": 7512,
+        "sha256": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "vue/packages/components/button/src/button.vue",
+        "bytes": 2281,
+        "sha256": "24f55d1392971c5ff240ef4ac1298e06692d59dd017bd8506bc94b63a4ccf7d0"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "vue/packages/components/button/src/use-button.ts",
+        "bytes": 2277,
+        "sha256": "3ce6f22289efe2c01de9ff735d741f312fbd388530714b48536f516feb00a1da"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "vue/packages/components/button/src/button.ts",
+        "bytes": 3019,
+        "sha256": "ee6f77f20821735cfee2eba31b72f67c9c28b78afdba4a75ff16e9d788a0569a"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "vue/packages/theme-chalk/src/fsus-theme.scss",
+        "bytes": 101379,
+        "sha256": "d8493c6cce32aca3df67cb1d6483200964538b83e80d5783432c22e1fb8c51c6"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "package.json",
+        "bytes": 33483,
+        "sha256": "3c94a82459e759aef22d33f0909ec44d5ab4a03a776a44c48427a62be4924d43"
+    },
+    {
+        "repository": "/workspace/intake4377/FsusUI",
+        "path": "pnpm-lock.yaml",
+        "bytes": 533429,
+        "sha256": "faf72e9bf46044be7e407783119c6fbe1945858855471ff3b6bc3e20155f19a2"
+    }
+]

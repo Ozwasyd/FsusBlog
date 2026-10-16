@@ -1,0 +1,1009 @@
+{
+    "kind": "ordinary-static-evidence-delivery",
+    "qualificationReceipt": false,
+    "meaning": "All raw bytes copied only after original commands completed. Concatenate orderedParts in order; when storageEncoding is base64, decode the concatenation to recover the complete original file. Raw patch context and original whitespace diagnostics use reversible encoding to preserve bytes while satisfying delivery whitespace; splitting does not remove, filter, normalize, summarize or replace any bytes. Empty successful whitespace log is intentional and has exit 0. Historical PR snapshots remain historical, never promoted to current acceptance.",
+    "files": [
+        {
+            "originalFile": "/workspace/intake4377-evidence/authority-and-input-hashes.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 7088,
+            "sha256": "f378ade9c48c39ac1592cc44feb2f315e8a2077028b77879034bcc48a0ec4d68",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/authority-and-input-hashes.json",
+                    "bytes": 7088,
+                    "sha256": "f378ade9c48c39ac1592cc44feb2f315e8a2077028b77879034bcc48a0ec4d68"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-app-config.snapshot.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2502,
+            "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-app-config.snapshot.json",
+                    "bytes": 2502,
+                    "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-authoritative.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-authoritative.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-authoritative.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 6771,
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-authoritative.log",
+                    "bytes": 6771,
+                    "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-binary.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-binary.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-binary.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 866,
+            "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-binary.log",
+                    "bytes": 866,
+                    "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-boundary.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-boundary.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-boundary.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2805,
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-boundary.log",
+                    "bytes": 2805,
+                    "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-commands.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 5900,
+            "sha256": "be1f07d3d2202c4740b4d31514974053b7624f05aaa4f30b4c733e47778968cb",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-commands.json",
+                    "bytes": 5900,
+                    "sha256": "be1f07d3d2202c4740b4d31514974053b7624f05aaa4f30b4c733e47778968cb"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-effective-app-config.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 35364,
+            "sha256": "29318811be59104f82766f39dcdb0642e4229ffe9f57e017814683ef01333996",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-effective-app-config.json",
+                    "bytes": 35364,
+                    "sha256": "29318811be59104f82766f39dcdb0642e4229ffe9f57e017814683ef01333996"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-effective-vue-app-config.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 47378,
+            "sha256": "b6214f080ee9126408074e309b587b2e85a3b548d203f00989ce9ebaf441d55b",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-effective-vue-app-config.json",
+                    "bytes": 47378,
+                    "sha256": "b6214f080ee9126408074e309b587b2e85a3b548d203f00989ce9ebaf441d55b"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-full-style.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-full-style.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-full-style.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 11861610,
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-full-style.log.part000",
+                    "bytes": 1999908,
+                    "sha256": "5e11b5b0692e650ae7d8dacc1705d005f1294acf7270325f0fdb6fd34fd93c7c"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-full-style.log.part001",
+                    "bytes": 1999979,
+                    "sha256": "41fc079e46dff0e46a1fd027006398d0681fada528a55aca7fdde733718d1b66"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-full-style.log.part002",
+                    "bytes": 1999899,
+                    "sha256": "053b02bbfa75ecbe7eb7457c837d17671f1d73137f6a9da3805a80d32809a100"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-full-style.log.part003",
+                    "bytes": 1999984,
+                    "sha256": "a961e9e166733bab610d48de776daf52d1e903c4505f81fa1affc3000a59c2c0"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-full-style.log.part004",
+                    "bytes": 1999853,
+                    "sha256": "9c440c96d55d9381d801ffcc7d3e14d0db8e64bf6091043d1b6e642631ee8728"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-full-style.log.part005",
+                    "bytes": 1861987,
+                    "sha256": "5956ee0c89ed5192e387dc768a71edb0a19f93cbb30748d52c2bc862fae2931a"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-intent.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-intent.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-intent.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 353,
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-intent.log",
+                    "bytes": 353,
+                    "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-lifecycle.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-lifecycle.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-lifecycle.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 762,
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-lifecycle.log",
+                    "bytes": 762,
+                    "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-node-types.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-node-types.exit",
+                    "bytes": 2,
+                    "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-node-types.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 236,
+            "sha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-node-types.log",
+                    "bytes": 236,
+                    "sha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-pr.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 167029,
+            "sha256": "6778a838e5126e6226340a760a269ad228e1cd2ac0b7c54bc5405ddbc41ab38e",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-pr.json",
+                    "bytes": 167029,
+                    "sha256": "6778a838e5126e6226340a760a269ad228e1cd2ac0b7c54bc5405ddbc41ab38e"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-strict.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-strict.exit",
+                    "bytes": 2,
+                    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-strict.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 68,
+            "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-strict.log",
+                    "bytes": 68,
+                    "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-types.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-types.exit",
+                    "bytes": 2,
+                    "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/base-types.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 4992,
+            "sha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/base-types.log",
+                    "bytes": 4992,
+                    "sha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-app-config.snapshot.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2502,
+            "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-app-config.snapshot.json",
+                    "bytes": 2502,
+                    "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-authoritative.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-authoritative.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-authoritative.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 6771,
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-authoritative.log",
+                    "bytes": 6771,
+                    "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-binary.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-binary.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-binary.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 866,
+            "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-binary.log",
+                    "bytes": 866,
+                    "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-boundary.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-boundary.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-boundary.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2805,
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-boundary.log",
+                    "bytes": 2805,
+                    "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-commands.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 5945,
+            "sha256": "1c1204c8c289929f9e3943857b56944b32aec726d323cc27e4fe38551127dc77",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-commands.json",
+                    "bytes": 5945,
+                    "sha256": "1c1204c8c289929f9e3943857b56944b32aec726d323cc27e4fe38551127dc77"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-effective-app-config.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 35364,
+            "sha256": "29318811be59104f82766f39dcdb0642e4229ffe9f57e017814683ef01333996",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-effective-app-config.json",
+                    "bytes": 35364,
+                    "sha256": "29318811be59104f82766f39dcdb0642e4229ffe9f57e017814683ef01333996"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-effective-vue-app-config.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 47378,
+            "sha256": "b6214f080ee9126408074e309b587b2e85a3b548d203f00989ce9ebaf441d55b",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-effective-vue-app-config.json",
+                    "bytes": 47378,
+                    "sha256": "b6214f080ee9126408074e309b587b2e85a3b548d203f00989ce9ebaf441d55b"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-full-style.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-full-style.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-full-style.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 11861610,
+            "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-full-style.log.part000",
+                    "bytes": 1999908,
+                    "sha256": "5e11b5b0692e650ae7d8dacc1705d005f1294acf7270325f0fdb6fd34fd93c7c"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-full-style.log.part001",
+                    "bytes": 1999979,
+                    "sha256": "41fc079e46dff0e46a1fd027006398d0681fada528a55aca7fdde733718d1b66"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-full-style.log.part002",
+                    "bytes": 1999899,
+                    "sha256": "053b02bbfa75ecbe7eb7457c837d17671f1d73137f6a9da3805a80d32809a100"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-full-style.log.part003",
+                    "bytes": 1999984,
+                    "sha256": "a961e9e166733bab610d48de776daf52d1e903c4505f81fa1affc3000a59c2c0"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-full-style.log.part004",
+                    "bytes": 1999853,
+                    "sha256": "9c440c96d55d9381d801ffcc7d3e14d0db8e64bf6091043d1b6e642631ee8728"
+                },
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-full-style.log.part005",
+                    "bytes": 1861987,
+                    "sha256": "5956ee0c89ed5192e387dc768a71edb0a19f93cbb30748d52c2bc862fae2931a"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-intent.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-intent.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-intent.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 353,
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-intent.log",
+                    "bytes": 353,
+                    "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-lifecycle.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-lifecycle.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-lifecycle.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 762,
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-lifecycle.log",
+                    "bytes": 762,
+                    "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-node-types.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-node-types.exit",
+                    "bytes": 2,
+                    "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-node-types.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 236,
+            "sha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-node-types.log",
+                    "bytes": 236,
+                    "sha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-strict.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-strict.exit",
+                    "bytes": 2,
+                    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-strict.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 68,
+            "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-strict.log",
+                    "bytes": 68,
+                    "sha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-types.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-types.exit",
+                    "bytes": 2,
+                    "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/candidate-types.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 4992,
+            "sha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/candidate-types.log",
+                    "bytes": 4992,
+                    "sha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/donor-pr.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 14897,
+            "sha256": "57764c0068d91397c249107740c6ce97812bb238a974434331f0425651b61e4a",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/donor-pr.json",
+                    "bytes": 14897,
+                    "sha256": "57764c0068d91397c249107740c6ce97812bb238a974434331f0425651b61e4a"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/duplicate-exact.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 20493,
+            "sha256": "636db0fd8ef7ea025ad5d6e4233e7b7283731d3343929f91265fb51d1b280b1e",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/duplicate-exact.json",
+                    "bytes": 20493,
+                    "sha256": "636db0fd8ef7ea025ad5d6e4233e7b7283731d3343929f91265fb51d1b280b1e"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/duplicates.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 10728,
+            "sha256": "3a400ab4272383d357e0006f07ce1e2a3323fddca805d2c34d2148c2c64b2ea8",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/duplicates.json",
+                    "bytes": 10728,
+                    "sha256": "3a400ab4272383d357e0006f07ce1e2a3323fddca805d2c34d2148c2c64b2ea8"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/duplicates2.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 99572,
+            "sha256": "cfff7bf0b4725cb21d97ad5cfbb06e0faad72cc814c3ed119ece3cec67211515",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/duplicates2.json",
+                    "bytes": 99572,
+                    "sha256": "cfff7bf0b4725cb21d97ad5cfbb06e0faad72cc814c3ed119ece3cec67211515"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/initial-delivery-whitespace.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/initial-delivery-whitespace.exit",
+                    "bytes": 2,
+                    "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/initial-delivery-whitespace.log",
+            "storageEncoding": "base64",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 745,
+            "sha256": "937e5b59c51c74bd705e8caede847bc8378ce9c89026a2c4de5a1accbc380478",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/initial-delivery-whitespace.log.base64",
+                    "bytes": 997,
+                    "sha256": "9237b733b07a68d47e360a91004a00e73924d3089d70afd11516692f7a865af6"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/initial-range-contract.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/initial-range-contract.exit",
+                    "bytes": 2,
+                    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/initial-range-contract.log",
+            "storageEncoding": "base64",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2292,
+            "sha256": "a20d8e2ab9ead579987fafe548ee4af62d3c1123ad5e7b0193d4417376f430cf",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/initial-range-contract.log.base64",
+                    "bytes": 3057,
+                    "sha256": "8a63d1b279b5e3d39e70f2c31136bce7c6ecbe3edbfa56f8110124ef683f88e7"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/production-only.patch",
+            "storageEncoding": "base64",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 3876,
+            "sha256": "2bddfa02b07186cec3f2b3349f90120829fff6433a21b96756b8f2e1534154f0",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/production-only.patch.base64",
+                    "bytes": 5169,
+                    "sha256": "a707260a9025ed30267e74617cd011fb70689310d45acab400b9f2049329f41f"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/protected-base-tree.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 905,
+            "sha256": "cd2dcc5d28da320ca8a3ae3a1d741c8ed62b5c8686299b788eff35f9f152bb1c",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/protected-base-tree.json",
+                    "bytes": 905,
+                    "sha256": "cd2dcc5d28da320ca8a3ae3a1d741c8ed62b5c8686299b788eff35f9f152bb1c"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/recovered-range-contract.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/recovered-range-contract.exit",
+                    "bytes": 2,
+                    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/recovered-range-contract.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 81,
+            "sha256": "732d2fdb56ad44bbac7eceb4ba95a3a9befebec530d1ce61174a2fe3d43b1cfe",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/recovered-range-contract.log",
+                    "bytes": 81,
+                    "sha256": "732d2fdb56ad44bbac7eceb4ba95a3a9befebec530d1ce61174a2fe3d43b1cfe"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/second-delivery-whitespace.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/second-delivery-whitespace.exit",
+                    "bytes": 2,
+                    "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/second-delivery-whitespace.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 97,
+            "sha256": "8f8e966557b1b097f263905d322f6a103797f64329e1fdc75d4bb12c7860d793",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/second-delivery-whitespace.log",
+                    "bytes": 97,
+                    "sha256": "8f8e966557b1b097f263905d322f6a103797f64329e1fdc75d4bb12c7860d793"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/source-provenance.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 1613,
+            "sha256": "7102e88722c58b921bbae405d99c07d6d64df75c02d7bf339ab0126dcccfd8e5",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/source-provenance.json",
+                    "bytes": 1613,
+                    "sha256": "7102e88722c58b921bbae405d99c07d6d64df75c02d7bf339ab0126dcccfd8e5"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/source-whitespace.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/source-whitespace.exit",
+                    "bytes": 2,
+                    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/source-whitespace.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/source-whitespace.log",
+                    "bytes": 0,
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/static-comparison.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 6873,
+            "sha256": "638d85ecae667f9920715b3cfa99e6d6d515010267ceb7c5477b9d96cc4887d0",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/static-comparison.json",
+                    "bytes": 6873,
+                    "sha256": "638d85ecae667f9920715b3cfa99e6d6d515010267ceb7c5477b9d96cc4887d0"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/title-contract.exit",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/title-contract.exit",
+                    "bytes": 2,
+                    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/title-contract.log",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 27,
+            "sha256": "52673dd97326206af19c814a4ceacb7018c2bfd77408713cff8ccab38bc02e47",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/title-contract.log",
+                    "bytes": 27,
+                    "sha256": "52673dd97326206af19c814a4ceacb7018c2bfd77408713cff8ccab38bc02e47"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/ui981-identity.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 801,
+            "sha256": "838d944d7947f3065c59028c8d28657b0ac4be1e3e7b74d57713eba903c92ebd",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/ui981-identity.json",
+                    "bytes": 801,
+                    "sha256": "838d944d7947f3065c59028c8d28657b0ac4be1e3e7b74d57713eba903c92ebd"
+                }
+            ]
+        },
+        {
+            "originalFile": "/workspace/intake4377-evidence/ui981-pr.json",
+            "storageEncoding": "raw",
+            "originalCwd": "/workspace/intake4377/FsusBlog",
+            "bytes": 12013,
+            "sha256": "cb2396c99732ac63b60d9b6183586c22a33f394b91026df9282928dcb8b4160f",
+            "orderedParts": [
+                {
+                    "path": "artifacts/article-editor/intake4377-static/ui981-pr.json",
+                    "bytes": 12013,
+                    "sha256": "cb2396c99732ac63b60d9b6183586c22a33f394b91026df9282928dcb8b4160f"
+                }
+            ]
+        }
+    ]
+}

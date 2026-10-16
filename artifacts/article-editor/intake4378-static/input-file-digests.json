@@ -1,0 +1,110 @@
+[
+  {
+    "side": "base",
+    "path": "src/frontend/auto-imports.d.ts",
+    "bytes": 193,
+    "sha256": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac"
+  },
+  {
+    "side": "base",
+    "path": "src/frontend/components.d.ts",
+    "bytes": 24410,
+    "sha256": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76"
+  },
+  {
+    "side": "base",
+    "path": "src/frontend/package-lock.json",
+    "bytes": 337719,
+    "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+  },
+  {
+    "side": "base",
+    "path": "tools/frontend/style-toolchain/package-lock.json",
+    "bytes": 169746,
+    "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+  },
+  {
+    "side": "base",
+    "path": "src/frontend/tsconfig.app.json",
+    "bytes": 1099,
+    "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d"
+  },
+  {
+    "side": "base",
+    "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "bytes": 7025,
+    "sha256": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822"
+  },
+  {
+    "side": "base",
+    "path": "src/frontend/scripts/fsusui-root.mjs",
+    "bytes": 3990,
+    "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304"
+  },
+  {
+    "side": "base",
+    "path": "config/development/frontend-style-policy.json",
+    "bytes": 3632,
+    "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d"
+  },
+  {
+    "side": "base",
+    "path": "config/development/frontend-style-baseline.json",
+    "bytes": 620180,
+    "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+  },
+  {
+    "side": "candidate",
+    "path": "src/frontend/auto-imports.d.ts",
+    "bytes": 193,
+    "sha256": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac"
+  },
+  {
+    "side": "candidate",
+    "path": "src/frontend/components.d.ts",
+    "bytes": 24410,
+    "sha256": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76"
+  },
+  {
+    "side": "candidate",
+    "path": "src/frontend/package-lock.json",
+    "bytes": 337719,
+    "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+  },
+  {
+    "side": "candidate",
+    "path": "tools/frontend/style-toolchain/package-lock.json",
+    "bytes": 169746,
+    "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+  },
+  {
+    "side": "candidate",
+    "path": "src/frontend/tsconfig.app.json",
+    "bytes": 1099,
+    "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d"
+  },
+  {
+    "side": "candidate",
+    "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "bytes": 7025,
+    "sha256": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822"
+  },
+  {
+    "side": "candidate",
+    "path": "src/frontend/scripts/fsusui-root.mjs",
+    "bytes": 3990,
+    "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304"
+  },
+  {
+    "side": "candidate",
+    "path": "config/development/frontend-style-policy.json",
+    "bytes": 3632,
+    "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d"
+  },
+  {
+    "side": "candidate",
+    "path": "config/development/frontend-style-baseline.json",
+    "bytes": 620180,
+    "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+  }
+]

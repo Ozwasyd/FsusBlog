@@ -1,0 +1,134 @@
+[
+  {
+    "name": "full-style",
+    "argv": [
+      "node",
+      "tools/frontend/check-frontend-style.mjs",
+      "--mode",
+      "full"
+    ],
+    "cwd": "/workspace/FsusBlog-intake-4388-base",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "started": "2026-10-15T10:46:18.846743+00:00",
+    "finished": "2026-10-15T10:46:21.311668+00:00",
+    "exit": 1,
+    "log": "base-full-style.txt",
+    "bytes": 227,
+    "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+  },
+  {
+    "name": "strict-full-style",
+    "argv": [
+      "node",
+      "tools/frontend/check-frontend-style.mjs",
+      "--mode",
+      "strict-full"
+    ],
+    "cwd": "/workspace/FsusBlog-intake-4388-base",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "started": "2026-10-15T10:46:21.311737+00:00",
+    "finished": "2026-10-15T10:46:23.794832+00:00",
+    "exit": 1,
+    "log": "base-strict-full-style.txt",
+    "bytes": 227,
+    "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+  },
+  {
+    "name": "application-types",
+    "argv": [
+      "node",
+      "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+      "--application"
+    ],
+    "cwd": "/workspace/FsusBlog-intake-4388-base",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "started": "2026-10-15T10:46:23.794891+00:00",
+    "finished": "2026-10-15T10:47:01.671091+00:00",
+    "exit": 2,
+    "log": "base-application-types.txt",
+    "bytes": 5449,
+    "sha256": "99b9abd98d45ce0c4967e34620139b0ba6e927c9212fb2694433d4e6ce611697"
+  },
+  {
+    "name": "boundary",
+    "argv": [
+      "node",
+      "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+    ],
+    "cwd": "/workspace/FsusBlog-intake-4388-base",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "started": "2026-10-15T10:47:01.671171+00:00",
+    "finished": "2026-10-15T10:47:01.824682+00:00",
+    "exit": 1,
+    "log": "base-boundary.txt",
+    "bytes": 2805,
+    "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+  },
+  {
+    "name": "code-intent",
+    "argv": [
+      "node",
+      "tools/governance/check-code-intent.mjs"
+    ],
+    "cwd": "/workspace/FsusBlog-intake-4388-base",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "started": "2026-10-15T10:47:01.824723+00:00",
+    "finished": "2026-10-15T10:47:12.376672+00:00",
+    "exit": 1,
+    "log": "base-code-intent.txt",
+    "bytes": 353,
+    "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+  },
+  {
+    "name": "lifecycle",
+    "argv": [
+      "node",
+      "tools/docs/generate-document-lifecycle.mjs",
+      "--check"
+    ],
+    "cwd": "/workspace/FsusBlog-intake-4388-base",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "started": "2026-10-15T10:47:12.376727+00:00",
+    "finished": "2026-10-15T10:47:12.510653+00:00",
+    "exit": 1,
+    "log": "base-lifecycle.txt",
+    "bytes": 762,
+    "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+  },
+  {
+    "name": "authoritative",
+    "argv": [
+      "node",
+      "tools/docs/check-authoritative-development-docs.mjs"
+    ],
+    "cwd": "/workspace/FsusBlog-intake-4388-base",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "started": "2026-10-15T10:47:12.510705+00:00",
+    "finished": "2026-10-15T10:47:12.660192+00:00",
+    "exit": 1,
+    "log": "base-authoritative.txt",
+    "bytes": 6771,
+    "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+  }
+]

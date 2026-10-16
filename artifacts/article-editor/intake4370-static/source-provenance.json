@@ -1,0 +1,18 @@
+{
+    "repository": "Ozwasyd/FsusBlog",
+    "basePr": 4385,
+    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "baseTree": "c50f8f2f7417cf5d70d2bae9ca7451c554f98518",
+    "selectedPr": 4370,
+    "selectedHead": "940bc9c45d5887cf18daa147be92f484114d41ab",
+    "originalDonorBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+    "sourceOnlyCandidateTree": "be3c7dbf5bc3789fe34a8e85b510c392f159a3f6",
+    "path": "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
+    "mode": "100644",
+    "actualBaseAndDonorPreimage": "2c1ddb5b6f80f4eaa53455590c17790cf343e9d2",
+    "selectedAndReceivingPostimage": "ed2697e6341a03b4f6a0bed0055e3feb958b0ac9",
+    "preimagesEqual": true,
+    "conflicts": "None; exact original production patch applies with git apply --check. No invented adaptation or donor history.",
+    "protectedBase": "All other tracked entries byte/mode preserved; own ordinary WIP/evidence are new paths.",
+    "productionDiff": "1 path, 5 additions, 25 deletions"
+}

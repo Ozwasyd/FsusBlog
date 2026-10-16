@@ -1,0 +1,14 @@
+{
+  "node": "v24.19.0",
+  "npm": "11.9.0",
+  "configuredPackageManager": "npm@11.13.0",
+  "note": "Actual installed npm 11.9.0 is recorded, not mislabeled as configured 11.13.0; original unchanged locked lint dependency packages installed using npm ci --ignore-scripts; no package/config/lock changes.",
+  "frontend:typescript": "6.0.3",
+  "frontend:vue-tsc": "3.2.7",
+  "frontend:vue": "3.5.33",
+  "frontend:@vue/compiler-sfc": "3.5.33",
+  "style:eslint": "10.8.0",
+  "style:stylelint": "17.14.1",
+  "style:typescript-eslint": "8.65.0",
+  "style:vue-eslint-parser": "10.4.1"
+}

@@ -1,0 +1,118 @@
+{
+    "/workspace/FsusBlog-intake4372/AGENTS.md": {
+        "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d",
+        "gitBlob": "1445755f3eceb7c05fec62ae9feea4badd7b30fc"
+    },
+    "/workspace/FsusBlog-intake4372/.agents/skills/fsusblog-design-conformance/SKILL.md": {
+        "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+        "gitBlob": "9afff0c7bc3464b4e33f4275a463d8dc18351f45"
+    },
+    "/workspace/FsusBlog-intake4372/.agents/skills/fsusblog-design-conformance/references/design-change.md": {
+        "sha256": "ca276a6c8b07079f1984407e2a51c3c2e8eb1150744f35b1e18f7c42e0f5576c",
+        "gitBlob": "06fb592eae99a501072e02951bbda4d7188e4a40"
+    },
+    "/workspace/FsusBlog-intake4372/.agents/skills/fsusblog-design-conformance/references/orchestrated-ui.md": {
+        "sha256": "8df7798f7f90f4551ef9851ed8bd0254ed9a6e70dc9e129eda952453bf7ed30e",
+        "gitBlob": "ff1ba744108383f99bc9f2b1e39e4663faa2e673"
+    },
+    "/workspace/FsusBlog-intake4372/.agents/skills/fsusblog-design-conformance/references/baseline-resolution.md": {
+        "sha256": "2a8f61be5adc04751bb72f2c8746dda94f9385f591261fa89f8f1f33bf2d979d",
+        "gitBlob": "47f71a52f3dbbf832335cb5ad46b2404d49b4d23"
+    },
+    "/workspace/FsusBlog-intake4372/docs/design/governance.md": {
+        "sha256": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+        "gitBlob": "4d56fb080c566664ca508f2412de53836d318335"
+    },
+    "/workspace/FsusBlog-intake4372/docs/design/surface-profiles.md": {
+        "sha256": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243",
+        "gitBlob": "a1a89cfec64a35313c715395436f9c16de25e0f8"
+    },
+    "/workspace/FsusBlog-intake4372/docs/design/task-surface-geometry.md": {
+        "sha256": "5c69c73371d2870907e0382bd07f0f943898069694ed248aab75bddbf46e1d97",
+        "gitBlob": "1df46194fe9b3e34df10acb290b1cd1979ae732f"
+    },
+    "/workspace/FsusBlog-intake4372/docs/development/coding-conventions.md": {
+        "sha256": "df6e2035db85dac6f630fe61aedb55de59e6bb4f2c19971345e5030c388867ba",
+        "gitBlob": "287cb4a60b330f06b0ca3261a089bf2144f676f0"
+    },
+    "/workspace/FsusBlog-intake4372/docs/development/document-lifecycle.md": {
+        "sha256": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d",
+        "gitBlob": "fe5ed301f1ddff2d20d0a41be8aabb418d15fff6"
+    },
+    "/workspace/FsusBlog-intake4372/docs/development/change-contract.md": {
+        "sha256": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586",
+        "gitBlob": "b919bd6a0c4ceb03cf73bf9f6d8b37b3ba9e8dd9"
+    },
+    "/workspace/FsusBlog-intake4372/src/frontend/scripts/run-local-fsusui-typecheck.mjs": {
+        "sha256": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+        "gitBlob": "2f338a003c951fb295eea59c64a93bb5197e06c3"
+    },
+    "/workspace/FsusBlog-intake4372/src/frontend/scripts/fsusui-root.mjs": {
+        "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304",
+        "gitBlob": "b8ae455b18dbb36d36987d7ab7c4454138eb5d78"
+    },
+    "/workspace/FsusBlog-intake4372/src/frontend/scripts/fsusui-local.ts": {
+        "sha256": "ae7e818373c60624d08315749b1b427aa81add634e0fb489d6dae27a5861287c",
+        "gitBlob": "9f7a8134122316ca14e41a675f78b81e8bef7a25"
+    },
+    "/workspace/FsusBlog-intake4372/src/frontend/tsconfig.app.json": {
+        "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+        "gitBlob": "f666ea827eff4d93dd12f3fbb0df310f2242cd74"
+    },
+    "/workspace/FsusBlog-intake4372/tools/frontend/style-toolchain/package-lock.json": {
+        "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+        "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d"
+    },
+    "/workspace/FsusUI-981-intake4372/AGENTS.md": {
+        "sha256": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89",
+        "gitBlob": "b603f1cc2cbe9245cfd5f3d4cb6b54582bc557ff"
+    },
+    "/workspace/FsusUI-981-intake4372/.agents/skills/fsusui-design-conformance/SKILL.md": {
+        "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+        "gitBlob": "51b62cd6d254ac107a4441dac17ba65bd61a5d66"
+    },
+    "/workspace/FsusUI-981-intake4372/docs/index.md": {
+        "sha256": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+        "gitBlob": "701de5752c57dee4a260bb20cb8ee6f91905a67b"
+    },
+    "/workspace/FsusUI-981-intake4372/docs/design.md": {
+        "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+        "gitBlob": "cb6d8a77e4aa51dc8ae3ac651c141f2fb1eedc5a"
+    },
+    "/workspace/FsusUI-981-intake4372/docs/design/governance.md": {
+        "sha256": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+        "gitBlob": "ac7b66daeaf4baa921d3821acd1d732c681d63a3"
+    },
+    "/workspace/FsusUI-981-intake4372/docs/design/change-classification.md": {
+        "sha256": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+        "gitBlob": "fb963463f7af74dfdf3721ee41bb8baf7c9aab64"
+    },
+    "/workspace/FsusUI-981-intake4372/docs/workflows/visual-change.md": {
+        "sha256": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+        "gitBlob": "df2b4905104965b007804d9e79e51a89329a90a0"
+    },
+    "/workspace/FsusUI-981-intake4372/docs/consumers/design-integration.md": {
+        "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+        "gitBlob": "8584a03356eca99807559a44939b1475c0a31b7a"
+    },
+    "/workspace/FsusUI-981-intake4372/docs/components/button.md": {
+        "sha256": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76",
+        "gitBlob": "ff006e819355e457f8fc35eea3e43b072bfc53e7"
+    },
+    "/workspace/FsusUI-981-intake4372/vue/packages/theme-chalk/src/fsus-theme.scss": {
+        "sha256": "d8493c6cce32aca3df67cb1d6483200964538b83e80d5783432c22e1fb8c51c6",
+        "gitBlob": "842cf20ef632f82ded987d99c9bcbb4fcac2327c"
+    },
+    "/workspace/FsusUI-981-intake4372/vue/packages/components/button/src/button.vue": {
+        "sha256": "24f55d1392971c5ff240ef4ac1298e06692d59dd017bd8506bc94b63a4ccf7d0",
+        "gitBlob": "f7d2f3e6a4649af46586220fa91174c5f5b9708b"
+    },
+    "/workspace/FsusUI-981-intake4372/vue/packages/components/button/src/use-button.ts": {
+        "sha256": "3ce6f22289efe2c01de9ff735d741f312fbd388530714b48536f516feb00a1da",
+        "gitBlob": "cfa377049ee07437a9afe1be830ce5e2b8ce0c46"
+    },
+    "/workspace/FsusUI-981-intake4372/vue/packages/element-plus/package.json": {
+        "sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c",
+        "gitBlob": "2ef25ec987f7da549b4788303aa4eec26791005e"
+    }
+}

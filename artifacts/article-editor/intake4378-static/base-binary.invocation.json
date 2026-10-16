@@ -1,0 +1,14 @@
+{
+  "cwd": "/workspace/intake4378-base",
+  "argv": [
+    "node",
+    "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4378-ui981"
+  },
+  "startedUtc": "2026-10-15T10:49:02.465921+00:00",
+  "exit": 1,
+  "completedUtc": "2026-10-15T10:49:02.536464+00:00"
+}

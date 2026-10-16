@@ -1,0 +1,15 @@
+{
+  "cwd": "/workspace/intake4378-base",
+  "argv": [
+    "npm",
+    "ci",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--cache",
+    "/tmp/intake4378-npm-cache",
+    "--prefix",
+    "tools/frontend/style-toolchain"
+  ],
+  "npmVersion": "11.9.0"
+}
