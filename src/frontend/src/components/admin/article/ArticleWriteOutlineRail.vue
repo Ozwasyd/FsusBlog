@@ -88,6 +88,7 @@ import {
 import { useMediaQuery } from '@/composables/useMediaQuery';
 import { FsusUiButton } from '@/fsusui/button';
 import { Close, List } from '@/fsusui/icons';
+
 import type { MarkdownEditorOutlineItem, MarkdownOutlineTreeNode } from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteOutlineRail' });
@@ -131,7 +132,8 @@ const OutlinePanelContent = defineComponent({
         'reveal-range': (item: MarkdownEditorOutlineItem) => Boolean(item),
         close: () => true
     },
-    setup(props, { emit }) {
+    setup(props, { emit })
+    {
         const treeRef = ref<HTMLElement | null>(null);
         const nodeButtons = new Map<string, HTMLButtonElement>();
         const expanded = computed(() => props.expandedNodeIds);
@@ -140,75 +142,103 @@ const OutlinePanelContent = defineComponent({
             expanded.value
         ));
         const hasHeadings = computed(() => (props.snapshot?.items.length ?? 0) > 0);
-        const status = computed(() => {
-            if (!props.snapshot) return 'stale';
+        const status = computed(() =>
+        {
+            if (!props.snapshot)
+            {
+                return 'stale';
+            }
             return hasHeadings.value ? 'ready' : 'empty';
         });
 
-        const registerNodeButton = (nodeId: string, element: unknown): void => {
+        const registerNodeButton = (nodeId: string, element: unknown): void =>
+        {
             const button = (element as OutlineButtonHandle | null)?.ref;
-            if (button instanceof HTMLButtonElement) {
+            if (button instanceof HTMLButtonElement)
+            {
                 nodeButtons.set(nodeId, button);
                 return;
             }
             nodeButtons.delete(nodeId);
         };
 
-        const focusNode = (nodeId: string | undefined): void => {
-            if (!nodeId) return;
-            nextTick(() => nodeButtons.get(nodeId)?.focus({ preventScroll: true }));
+        // Return queued focus failures through the originating Vue event handler.
+        const focusNode = async (nodeId: string | undefined): Promise<void> =>
+        {
+            if (!nodeId)
+            {
+                return;
+            }
+            await nextTick();
+            nodeButtons.get(nodeId)?.focus({ preventScroll: true });
         };
 
         const nodeIndex = (nodeId: string | undefined): number =>
             visibleNodes.value.findIndex((node) => node.nodeId === nodeId);
 
-        const parentNode = (node: MarkdownOutlineTreeNode): MarkdownEditorOutlineItem | null => {
+        const parentNode = (node: MarkdownOutlineTreeNode): MarkdownEditorOutlineItem | null =>
+        {
             const parentId = node.parentId;
-            if (!parentId || !props.snapshot) return null;
+            if (!parentId || !props.snapshot)
+            {
+                return null;
+            }
             return props.snapshot.items.find((item) => item.nodeId === parentId) ?? null;
         };
 
-        const handleTreeKeydown = (event: KeyboardEvent): void => {
+        const handleTreeKeydown = async (event: KeyboardEvent): Promise<void> =>
+        {
             const target = event.target;
-            if (!(target instanceof HTMLButtonElement) || target.getAttribute('role') !== 'treeitem') {
+            if (!(target instanceof HTMLButtonElement) || target.getAttribute('role') !== 'treeitem')
+            {
                 return;
             }
             const node = visibleNodes.value.find((item) => item.nodeId === target.dataset.outlineNodeId);
-            if (!node) return;
+            if (!node)
+            {
+                return;
+            }
             const index = nodeIndex(node.nodeId);
             const previous = visibleNodes.value[index - 1];
             const next = visibleNodes.value[index + 1];
-            switch (event.key) {
+            switch (event.key)
+            {
                 case 'ArrowDown':
                     event.preventDefault();
-                    focusNode(next?.nodeId);
+                    await focusNode(next?.nodeId);
                     break;
                 case 'ArrowUp':
                     event.preventDefault();
-                    focusNode(previous?.nodeId);
+                    await focusNode(previous?.nodeId);
                     break;
                 case 'Home':
                     event.preventDefault();
-                    focusNode(visibleNodes.value[0]?.nodeId);
+                    await focusNode(visibleNodes.value[0]?.nodeId);
                     break;
                 case 'End':
                     event.preventDefault();
-                    focusNode(visibleNodes.value[visibleNodes.value.length - 1]?.nodeId);
+                    await focusNode(visibleNodes.value[visibleNodes.value.length - 1]?.nodeId);
                     break;
                 case 'ArrowRight':
                     event.preventDefault();
-                    if (node.children.length > 0 && !expanded.value.has(node.nodeId)) {
+                    if (node.children.length > 0 && !expanded.value.has(node.nodeId))
+                    {
                         emit('toggle-node', node.nodeId);
-                    } else if (node.children.length > 0) {
-                        focusNode(node.children[0]?.nodeId);
+                    }
+                    else if (node.children.length > 0)
+                    {
+                        await focusNode(node.children[0]?.nodeId);
                     }
                     break;
                 case 'ArrowLeft': {
                     event.preventDefault();
-                    if (node.children.length > 0 && expanded.value.has(node.nodeId)) {
+                    if (node.children.length > 0 && expanded.value.has(node.nodeId))
+                    {
                         emit('toggle-node', node.nodeId);
-                    } else {
-                        focusNode(parentNode(node)?.nodeId);
+                    }
+                    else
+                    {
+                        await focusNode(parentNode(node)?.nodeId);
                     }
                     break;
                 }
@@ -281,7 +311,8 @@ const OutlinePanelContent = defineComponent({
                                 ? h('span', {
                                     class: 'article-write-outline-disclosure',
                                     'aria-hidden': 'true',
-                                    onClick: (event: MouseEvent) => {
+                                    onClick: (event: MouseEvent) =>
+                                    {
                                         event.stopPropagation();
                                         emit('toggle-node', node.nodeId);
                                     }
@@ -302,8 +333,8 @@ const OutlinePanelContent = defineComponent({
                                 onClick: () => emit('reveal-range', node)
                             }, () => diagnosticLabels[diagnostic.code] ?? diagnostic.code)))
                             : null
-                    ]))),
-            ])
+                    ])))
+                    ])
         ]);
     }
 });
@@ -355,11 +386,15 @@ const outlineHostProperties = computed(() => isCompact.value
         class: 'article-write-outline-panel-host'
     });
 
-const collectExpandableNodeIds = (tree: readonly MarkdownOutlineTreeNode[]): ReadonlySet<string> => {
+const collectExpandableNodeIds = (tree: readonly MarkdownOutlineTreeNode[]): ReadonlySet<string> =>
+{
     const ids = new Set<string>();
-    const visit = (nodes: readonly MarkdownOutlineTreeNode[]): void => {
-        nodes.forEach((node) => {
-            if (node.children.length > 0) {
+    const visit = (nodes: readonly MarkdownOutlineTreeNode[]): void =>
+    {
+        nodes.forEach((node) =>
+        {
+            if (node.children.length > 0)
+            {
                 ids.add(node.nodeId);
                 visit(node.children);
             }
@@ -374,13 +409,15 @@ watch(() => [
     props.snapshot?.articleIdentity,
     props.snapshot?.documentIdentity.id,
     props.snapshot?.documentIdentity.epoch
-], () => {
+], () =>
+{
     const snapshot = props.snapshot;
     const nextKey = snapshot
         ? `${snapshot.articleIdentity}\u0000${snapshot.documentIdentity.id}\u0000${snapshot.documentIdentity.epoch}`
         : '';
     const available = snapshot ? collectExpandableNodeIds(snapshot.tree) : new Set<string>();
-    if (nextKey !== expandedSnapshotKey) {
+    if (nextKey !== expandedSnapshotKey)
+    {
         expandedNodeIds.value = available;
         expandedSnapshotKey = nextKey;
         return;
@@ -390,86 +427,133 @@ watch(() => [
     );
 }, { immediate: true });
 
-const writeRailPreference = (value: boolean): void => {
-    if (typeof window === 'undefined') return;
-    try {
+const writeRailPreference = (value: boolean): void =>
+{
+    if (typeof window === 'undefined')
+    {
+        return;
+    }
+    try
+    {
         window.localStorage.setItem(RAIL_OPEN_STORAGE_KEY, String(value));
-    } catch {
+    }
+    catch
+    {
         // Private browsing and blocked storage do not affect the editor.
     }
 };
 
-const readRailPreference = (): boolean => {
-    if (typeof window === 'undefined') return false;
-    try {
+const readRailPreference = (): boolean =>
+{
+    if (typeof window === 'undefined')
+    {
+        return false;
+    }
+    try
+    {
         const value = window.localStorage.getItem(RAIL_OPEN_STORAGE_KEY);
         return value === 'true';
-    } catch {
+    }
+    catch
+    {
         return false;
     }
 };
 
-watch(isOpen, (value) => {
-    if (mounted) writeRailPreference(value);
+watch(isOpen, (value) =>
+{
+    if (mounted)
+    {
+        writeRailPreference(value);
+    }
 });
 
-onMounted(() => {
+onMounted(() =>
+{
     mounted = true;
     isOpen.value = readRailPreference();
 });
 
-const focusLauncher = (): void => {
-    if (!focusReturnPending) return;
+const focusLauncher = async (): Promise<void> =>
+{
+    if (!focusReturnPending)
+    {
+        return;
+    }
     focusReturnPending = false;
-    void nextTick(() => {
-        if (!isCompact.value) {
-            launcherRef.value?.ref?.focus({ preventScroll: true });
-            return;
-        }
-        if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-            launcherRef.value?.ref?.focus({ preventScroll: true });
-            return;
-        }
-        window.requestAnimationFrame(() => launcherRef.value?.ref?.focus({ preventScroll: true }));
-    });
+    await nextTick();
+    if (!isCompact.value)
+    {
+        launcherRef.value?.ref?.focus({ preventScroll: true });
+        return;
+    }
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function')
+    {
+        launcherRef.value?.ref?.focus({ preventScroll: true });
+        return;
+    }
+    window.requestAnimationFrame(() => launcherRef.value?.ref?.focus({ preventScroll: true }));
 };
 
-const openRail = (): void => {
+const openRail = (): void =>
+{
     focusReturnPending = false;
     isOpen.value = true;
 };
 
-const requestClose = (): void => {
-    if (!isOpen.value) return;
+const requestClose = async (): Promise<void> =>
+{
+    if (!isOpen.value)
+    {
+        return;
+    }
     focusReturnPending = true;
     isOpen.value = false;
-    if (!isCompact.value) focusLauncher();
+    if (!isCompact.value)
+    {
+        await focusLauncher();
+    }
 };
 
-const handleHostVisibility = (visible: boolean): void => {
-    if (visible) {
+const handleHostVisibility = async (visible: boolean): Promise<void> =>
+{
+    if (visible)
+    {
         openRail();
         return;
     }
-    requestClose();
+    await requestClose();
 };
 
-const handleClosed = (): void => {
-    if (isCompact.value) focusLauncher();
+const handleClosed = async (): Promise<void> =>
+{
+    if (isCompact.value)
+    {
+        await focusLauncher();
+    }
 };
 
-const toggleNode = (nodeId: string): void => {
+const toggleNode = (nodeId: string): void =>
+{
     const next = new Set(expandedNodeIds.value);
-    if (next.has(nodeId)) next.delete(nodeId);
-    else next.add(nodeId);
+    if (next.has(nodeId))
+    {
+        next.delete(nodeId);
+    }
+    else
+    {
+        next.add(nodeId);
+    }
     expandedNodeIds.value = next;
 };
 
-const revealHeading = (item: MarkdownEditorOutlineItem): void => {
+const revealHeading = (item: MarkdownEditorOutlineItem): void =>
+{
     emit('reveal-heading', item);
 };
 
-const revealRange = (item: MarkdownEditorOutlineItem): void => {
+const revealRange = (item: MarkdownEditorOutlineItem): void =>
+{
     emit('reveal-range', item);
 };
 </script>
@@ -599,14 +683,14 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
     white-space: nowrap;
 }
 
-@media (max-width: 1023px)
+@media (width <= 1023px)
  {
     .article-write-outline-launcher
      {
         top: var(--fsus-space-3);
         left: var(--fsus-space-3);
-     }
- }
+    }
+}
 </style>
 
 <style>
