@@ -440,3 +440,139 @@ test('missing independent held inputs, unsafe JSON and host budget expansion are
     budget.expectedInputs.hostExpectedLimits.maxNodes = 10;
     assert.throws(() => adaptFrontendVitestSemanticOutcome(budget), /budget exceeded/u);
 });
+
+test('transported candidates reject top-level and nested accessors before reading them', () =>
+{
+    const observations = [];
+    for (const location of ['schema', 'identity', 'outcome', 'membership'])
+    {
+        const values = fixture();
+        const candidate = structuredClone(adaptFrontendVitestSemanticOutcome(values));
+        const target = location === 'membership' ? candidate.outcome : candidate;
+        const key = location;
+        const value = target[key];
+        let reads = 0;
+        Object.defineProperty(target, key, { enumerable: true, configurable: true, get()
+        {
+            reads += 1;
+            return value;
+        } });
+        let rejected = false;
+        try
+        {
+            verifyFrontendVitestSemanticOutcomeCandidate(candidate, values);
+        }
+        catch
+        {
+            rejected = true;
+        }
+        observations.push({ location, reads, rejected });
+    }
+    assert.deepEqual(observations, ['schema', 'identity', 'outcome', 'membership']
+        .map((location) => ({ location, reads: 0, rejected: true })));
+});
+
+test('transported candidate proxies are refused before top-level or nested reflection', () =>
+{
+    const observations = [];
+    for (const trapped of [false, true])
+    {
+        for (const location of ['candidate', 'outcome', 'membership'])
+        {
+            const values = fixture();
+            let candidate = structuredClone(adaptFrontendVitestSemanticOutcome(values));
+            let traps = 0;
+            const handler = trapped ? Object.fromEntries(['getPrototypeOf', 'ownKeys', 'getOwnPropertyDescriptor', 'get']
+                .map((name) => [name, () =>
+                {
+                    traps += 1;
+                    throw new Error('transported candidate proxy trap must not execute');
+                }])) : {};
+            if (location === 'candidate')
+            {
+                candidate = new Proxy(candidate, handler);
+            }
+            else if (location === 'outcome')
+            {
+                candidate.outcome = new Proxy(candidate.outcome, handler);
+            }
+            else
+            {
+                candidate.outcome.membership = new Proxy(candidate.outcome.membership, handler);
+            }
+            let rejected = false;
+            try
+            {
+                verifyFrontendVitestSemanticOutcomeCandidate(candidate, values);
+            }
+            catch
+            {
+                rejected = true;
+            }
+            observations.push({ trapped, location, traps, rejected });
+        }
+    }
+    assert.deepEqual(observations, [false, true].flatMap((trapped) => ['candidate', 'outcome', 'membership']
+        .map((location) => ({ trapped, location, traps: 0, rejected: true }))));
+});
+
+test('transport verification safely obtains held inputs and host budgets before using them', () =>
+{
+    const observations = [];
+    for (const location of ['inputs', 'expected-inputs', 'limits', 'inputs-accessor', 'limits-accessor'])
+    {
+        let values = fixture();
+        const candidate = adaptFrontendVitestSemanticOutcome(values);
+        let touches = 0;
+        const handler = Object.fromEntries(['getPrototypeOf', 'ownKeys', 'getOwnPropertyDescriptor', 'get']
+            .map((name) => [name, () =>
+            {
+                touches += 1;
+                throw new Error('held input trap must not execute');
+            }]));
+        if (location === 'inputs')
+        {
+            values = new Proxy(values, handler);
+        }
+        else if (location === 'expected-inputs')
+        {
+            values.expectedInputs = new Proxy(values.expectedInputs, handler);
+        }
+        else if (location === 'limits')
+        {
+            values.expectedInputs.hostExpectedLimits = new Proxy(values.expectedInputs.hostExpectedLimits, handler);
+        }
+        else
+        {
+            const target = location === 'inputs-accessor' ? values : values.expectedInputs;
+            const key = location === 'inputs-accessor' ? 'expectedInputs' : 'hostExpectedLimits';
+            const value = target[key];
+            Object.defineProperty(target, key, { enumerable: true, configurable: true, get()
+            {
+                touches += 1;
+                return value;
+            } });
+        }
+        let rejected = false;
+        try
+        {
+            verifyFrontendVitestSemanticOutcomeCandidate(candidate, values);
+        }
+        catch
+        {
+            rejected = true;
+        }
+        observations.push({ location, touches, rejected });
+    }
+    assert.deepEqual(observations, ['inputs', 'expected-inputs', 'limits', 'inputs-accessor', 'limits-accessor']
+        .map((location) => ({ location, touches: 0, rejected: true })));
+});
+
+test('transported candidate JSON admission uses the original independently held host budgets', () =>
+{
+    const values = fixture();
+    const candidate = adaptFrontendVitestSemanticOutcome(values);
+    assert.equal(verifyFrontendVitestSemanticOutcomeCandidate(candidate, values), candidate);
+    const oversized = { ...candidate, extra: 'x'.repeat(values.expectedInputs.hostExpectedLimits.maxStringBytes + 1) };
+    assert.throws(() => verifyFrontendVitestSemanticOutcomeCandidate(oversized, values), /JSON byte budget exceeded/u);
+});

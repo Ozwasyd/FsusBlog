@@ -399,6 +399,19 @@ export function adaptFrontendVitestSemanticOutcome({
 /** Verify a transported candidate by replaying its exact independently held inputs. */
 export function verifyFrontendVitestSemanticOutcomeCandidate(candidate, inputs)
 {
+    requireValue(inputs && typeof inputs === 'object' && !types.isProxy(inputs), 'independent inputs required');
+    const expectedInputsDescriptor = Object.getOwnPropertyDescriptor(inputs, 'expectedInputs');
+    requireValue(expectedInputsDescriptor && Object.hasOwn(expectedInputsDescriptor, 'value'), 'independent expected inputs must be data');
+    const expectedInputs = expectedInputsDescriptor.value;
+    requireValue(expectedInputs && !types.isProxy(expectedInputs), 'independent expected inputs required');
+    const limitsDescriptor = Object.getOwnPropertyDescriptor(expectedInputs, 'hostExpectedLimits');
+    requireValue(limitsDescriptor && Object.hasOwn(limitsDescriptor, 'value'), 'independent host limits required');
+    const limits = limitsDescriptor.value;
+    requireValue(limits && !types.isProxy(limits) && Object.values(Object.getOwnPropertyDescriptors(limits))
+        .every((item) => Object.hasOwn(item, 'value')), 'host limits must be data');
+    // Admit transported data with the held budgets before legacy reflection or hashing.
+    inspectJson(inputs, limits);
+    inspectJson(candidate, limits);
     validateProducerSemanticOutcomeCandidate(candidate, { expectedProducerId: frontendVitestOutcomeProducerId,
         expectedAuthorityId: authorityId });
     const expected = adaptFrontendVitestSemanticOutcome(inputs);
