@@ -51,8 +51,10 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElCheckbox } from '@ozwasyd/element-plus';
 import { computed, ref, useId, watch } from 'vue';
+
+import { FsusUiButton as ElButton } from '@/fsusui/button';
+import { FsusUiCheckbox as ElCheckbox } from '@/fsusui/checkbox';
 
 const props = defineProps<{
     siteIdentity: string | null;

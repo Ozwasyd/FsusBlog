@@ -1,0 +1,13 @@
+{
+  "kind": "ordinary exact original complete config inspection",
+  "beforeAfterGeneratedBytesEqual": true,
+  "sha256": "f5a2e3ec68b9476fc78167580cc8b9a4f7c89a9de7d42ad840ff0a73840e3e05",
+  "actualPublicAliases": {
+    "element-plus": "/workspace/privacy4389-intake/FsusUI/vue/packages/element-plus/index.ts",
+    "@ozwasyd/element-plus": "/workspace/privacy4389-intake/FsusUI/vue/packages/element-plus/index.ts"
+  },
+  "extends": "../../tsconfig.app.json",
+  "originalFullApplicationIncludeExcludeRulesRetained": true,
+  "inputIdentities": "input-identities.json",
+  "snapshotMeaning": "Configuration snapshot bytes retain original cwd and relative-path meaning; not executable at delivery location."
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "ordinary repair input identity, not a frozen/qualification receipt",
+  "PR": 4412,
+  "beforeHead": "b097253ef6829464ff67aa591d57e4b865652eb5",
+  "targetBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "UI_head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "UI_status": "",
+  "cwd": "/workspace/privacy4389-intake/FsusBlog",
+  "Blog_statusBeforeWrites": "",
+  "inputs": {
+    "AGENTS.md": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d",
+    ".agents/skills/fsusblog-design-conformance/SKILL.md": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+    "src/frontend/src/fsusui/README.md": "1a581458698e3cbfa6e40f5a0d6328183d67aeac72487496ff3d2a601acd5cc3",
+    "src/frontend/src/fsusui/button.ts": "da95b15c672eeee127e3a8de7bcebb21a69d226312aef46e475e32a2258543dd",
+    "tests/frontend/checks/static/check-fsusui-boundary.mjs": "9c2f49f29af8e3bda240de6a4aa2160d7337791d1e84a836b041cd413d2a44a7",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+    "src/frontend/scripts/fsusui-root.mjs": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304",
+    "src/frontend/tsconfig.app.json": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+    "tools/frontend/check-frontend-style.mjs": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+    "config/development/frontend-style-policy.json": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+    "config/development/frontend-style-baseline.json": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+    "config/development/frontend-style-rule-registry.json": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+    "eslint.config.mjs": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+    "stylelint.config.mjs": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
+    "src/frontend/package.json": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "src/frontend/package-lock.json": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+    "src/frontend/auto-imports.d.ts": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac",
+    "src/frontend/components.d.ts": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76"
+  },
+  "reusedContext": "Original exact UI973 skill/authority/dependency/config identity remains unchanged, see ../intake4389-static/input-identities.json. Current task authorizes ordinary source-only adapter repair; no frozen classification/UX authority refreshed.",
+  "legalContract": "src/frontend/src/fsusui/README.md requires named, type-preserving public re-exports for new runtime imports. Reuse existing button.ts, introduce only checkbox.ts; explicit imports need no general index.ts change."
+}

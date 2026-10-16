@@ -1,0 +1,34 @@
+{
+  "kind": "ordinary static source parse; no component execution or qualification",
+  "path": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+  "sourceBytes": 3374,
+  "templateParsed": true,
+  "scriptSetupLang": "ts",
+  "normalScript": false,
+  "styles": 0,
+  "parseDiagnostics": 0,
+  "imports": [
+    {
+      "specifier": "@ozwasyd/element-plus",
+      "clause": "{ ElButton, ElCheckbox }"
+    },
+    {
+      "specifier": "vue",
+      "clause": "{ computed, ref, useId, watch }"
+    }
+  ],
+  "syntacticCalls": [
+    "defineProps",
+    "defineEmits",
+    "useId",
+    "useId",
+    "ref",
+    "computed",
+    "[\n    props.siteIdentity,\n    props.vaultIdentity,\n    props.selectedRootPath\n].every",
+    "value.trim",
+    "watch",
+    "emit",
+    "emit"
+  ],
+  "componentRuntimeImportsOrEvaluation": "UNRUN/HOLD"
+}

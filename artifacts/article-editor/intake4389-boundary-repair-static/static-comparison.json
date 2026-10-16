@@ -1,0 +1,127 @@
+{
+  "app": {
+    "beforeExit": 2,
+    "afterExit": 2,
+    "beforeBytes": 5000,
+    "afterBytes": 5000,
+    "beforeLines": 30,
+    "afterLines": 30,
+    "rawByteIdentical": true,
+    "beforeSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+    "afterSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": [],
+    "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication.",
+    "beforeDiagnostics": 29,
+    "afterDiagnostics": 29
+  },
+  "full-lint": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeBytes": 11861610,
+    "afterBytes": 11861610,
+    "beforeLines": 83667,
+    "afterLines": 83667,
+    "rawByteIdentical": true,
+    "beforeSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+    "afterSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": [],
+    "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
+  },
+  "boundary": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeBytes": 2965,
+    "afterBytes": 2805,
+    "beforeLines": 22,
+    "afterLines": 21,
+    "rawByteIdentical": false,
+    "beforeSha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
+    "afterSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+    "completeLineMultisetAdded": [
+      "[fsusui-boundary] warnings=20 strict=true"
+    ],
+    "completeLineMultisetRemoved": [
+      "[fsusui-boundary] warnings=21 strict=true",
+      "- src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus"
+    ],
+    "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication.",
+    "meaning": "Exactly remove leaf runtime-import-outside-boundary diagnostic, warnings21 ->20. Original checker unchanged. Overall boundary remains FAIL1."
+  },
+  "binary-boundary": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeBytes": 866,
+    "afterBytes": 866,
+    "beforeLines": 7,
+    "afterLines": 7,
+    "rawByteIdentical": true,
+    "beforeSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+    "afterSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": [],
+    "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
+  },
+  "code-intent": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeBytes": 353,
+    "afterBytes": 353,
+    "beforeLines": 3,
+    "afterLines": 3,
+    "rawByteIdentical": false,
+    "beforeSha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
+    "afterSha256": "198859bffc14bc30d821a231c4df26294eb2a9ef1f0cd874a1b090a546bbb0e8",
+    "completeLineMultisetAdded": [
+      "[code-intent] 2 error(s) across 5749 checked file(s):"
+    ],
+    "completeLineMultisetRemoved": [
+      "[code-intent] 2 error(s) across 5748 checked file(s):"
+    ],
+    "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication.",
+    "meaning": "Same two errors; checked-file count5748 ->5749 because new named adapter source. No errors suppressed."
+  },
+  "lifecycle": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeBytes": 762,
+    "afterBytes": 762,
+    "beforeLines": 7,
+    "afterLines": 7,
+    "rawByteIdentical": true,
+    "beforeSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "afterSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": [],
+    "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
+  },
+  "authoritative": {
+    "beforeExit": 1,
+    "afterExit": 1,
+    "beforeBytes": 6771,
+    "afterBytes": 6771,
+    "beforeLines": 41,
+    "afterLines": 41,
+    "rawByteIdentical": true,
+    "beforeSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "afterSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+    "completeLineMultisetAdded": [],
+    "completeLineMultisetRemoved": [],
+    "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
+  },
+  "strict": {
+    "beforeExit": 0,
+    "afterExit": 0,
+    "beforeFiles": 1,
+    "afterFiles": 2,
+    "meaning": "Supplemental original strict lint only, never substitutes for full lint."
+  },
+  "AST": {
+    "beforeExit": 0,
+    "afterExit": 0,
+    "wholeSfcInverseImportEquality": true,
+    "meaning": "Compiler-only parsing and source byte proof; no product execution."
+  },
+  "overall": "FAIL remains: original app29/full lint83667lines/boundary20/binary/code-intent/docs failures retained. New boundary leaf diagnostic resolved. No runtime/UX/qualification acceptance."
+}

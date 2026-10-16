@@ -1,158 +1,267 @@
 {
-  "kind": "ordinary bounded SOURCE intake WIP; no acceptance/qualification receipt or frozen authority",
+  "kind": "ordinary repaired bounded SOURCE intake WIP; not an acceptance/qualification receipt",
+  "PR": 4412,
   "basePR": 4385,
   "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
   "targetBaseBranch": "codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+  "candidateBranch": "codex/issue-2295-privacy4389-intake-20261015",
+  "candidateIdentity": "Actual containing repaired draft commit; full remote head/tree in PR metadata. Source-only repair tree and exact blobs below.",
   "sourcePR": 4389,
   "sourceHead": "962fa5ba18d7a4c6438417cddf147750a16d0663",
   "sourceTrueBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
-  "candidateBranch": "codex/issue-2295-privacy4389-intake-20261015",
-  "candidateIdentity": "Actual containing draft commit, remote full SHA in PR metadata. Exact production tree and file identities below.",
-  "productionProvenance": {
-    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
-    "source": "962fa5ba18d7a4c6438417cddf147750a16d0663",
-    "sourceParent": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
-    "path": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
-    "basePreimage": "absent",
-    "sourceParentPreimage": "absent",
-    "finalGitMode": "100644",
-    "exactSourceAndCandidateBlob": "666dd6bf8a169293d00e941ec158b35ae3569105",
-    "sourceBytesEqual": true,
-    "sha256": "0c9648f48321c0c49010ce3418fe5bc01aa3ab26f06f0a6952af955477a40f56",
-    "productionTree": "3b768444d7ca2bbdfbe76d768fcf11cb40f5d65d",
-    "conflicts": 0,
-    "stagedProductionPaths": [
-      "A\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue"
-    ],
-    "allOtherBasePathsUnchanged": true,
-    "method": "Apply exact single-leaf production patch with original git apply; no cherry-pick or donor history."
+  "initialIntake": {
+    "head": "b097253ef6829464ff67aa591d57e4b865652eb5",
+    "WIPPath": "artifacts/article-editor/issue-2295-intake4389.json",
+    "WIPGitBlob": "a0d94eac5898943f0fc9c0a7efff17fc25692d54",
+    "WIPSha256": "8c405f6f317e382ae08b6c9ea80d0b13c7f615da34aefabba74ec62d43d6ebf6",
+    "historicalMeaning": "Exact donor leaf first admitted at this head, with new boundary21 failure. Its WIP remains in immutable history and its entire initial evidence directory is unchanged. Current source differs only by the explicitly authorized import repair and named Checkbox adapter."
   },
-  "scope": "Only the exact single production leaf; no donor history, other donor files/WIPs, route/mount/host/transport/registration, unrelated task branch, UI source change, config/rule/ref/enum/source-set/lock reduction, private package substitute or fake data. Own ordinary WIP/raw static delivery accompany it.",
-  "sourceAcceptance": "The independently finite SOURCE-accepted4389 leaf is received unchanged. This new combination requires independent review; its current full static checks FAIL, including one new boundary diagnostic.",
-  "staticComparison": {
+  "repair": {
+    "parent": "b097253ef6829464ff67aa591d57e4b865652eb5",
+    "ownedSourceAndDocumentation": [
+      {
+        "path": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+        "beforeTreeEntry": "100644 blob 666dd6bf8a169293d00e941ec158b35ae3569105\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+        "afterTreeEntry": "100644 8dc6b952d242d9964f506405acf2157dcc2e0093 0\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+        "sha256": "f4a1e8eed095cdd88f000a575d86aec933b76031e785f824c5ab97a1f8bea802"
+      },
+      {
+        "path": "src/frontend/src/fsusui/checkbox.ts",
+        "beforeTreeEntry": "absent",
+        "afterTreeEntry": "100644 4e39c0c8b6e2e25c4f8ded666600d3bf2654ff2f 0\tsrc/frontend/src/fsusui/checkbox.ts",
+        "sha256": "62d3a91c98ab8601e7df8f3b167c46a0bc63b78dd79b6d50bae3cab1defabd65"
+      },
+      {
+        "path": "src/frontend/src/fsusui/README.md",
+        "beforeTreeEntry": "100644 blob 5744bd3c1e68efff3cad9ba0b53663032bab0b45\tsrc/frontend/src/fsusui/README.md",
+        "afterTreeEntry": "100644 700b86202236c303c7ce4cf40d17e1475ff7a5c4 0\tsrc/frontend/src/fsusui/README.md",
+        "sha256": "de1a2fc706bb3cae66e75846604f85ad1427f8f5685adc0dfb6704dadea9f01b"
+      }
+    ],
+    "productionOnlyRepairTree": "5e87e42e1aa40ec146f18ca6d17b1ac24a325615",
+    "method": "Ordinary import-boundary repair. Reuse existing unchanged public Button adapter, add a one-line type-preserving public Checkbox named re-export, and consume both through explicit Blog fsusui adapters. No wrapper/DOM/CSS/helper, private import, type assertion or general barrel change. README adds only checkbox.ts to the existing classification table.",
+    "scopeProof": {
+      "beforeHead": "b097253ef6829464ff67aa591d57e4b865652eb5",
+      "targetBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+      "sourceProductionTree": "5e87e42e1aa40ec146f18ca6d17b1ac24a325615",
+      "ownedPaths": [
+        {
+          "path": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+          "beforeTreeEntry": "100644 blob 666dd6bf8a169293d00e941ec158b35ae3569105\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+          "afterTreeEntry": "100644 8dc6b952d242d9964f506405acf2157dcc2e0093 0\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+          "sha256": "f4a1e8eed095cdd88f000a575d86aec933b76031e785f824c5ab97a1f8bea802"
+        },
+        {
+          "path": "src/frontend/src/fsusui/checkbox.ts",
+          "beforeTreeEntry": "absent",
+          "afterTreeEntry": "100644 4e39c0c8b6e2e25c4f8ded666600d3bf2654ff2f 0\tsrc/frontend/src/fsusui/checkbox.ts",
+          "sha256": "62d3a91c98ab8601e7df8f3b167c46a0bc63b78dd79b6d50bae3cab1defabd65"
+        },
+        {
+          "path": "src/frontend/src/fsusui/README.md",
+          "beforeTreeEntry": "100644 blob 5744bd3c1e68efff3cad9ba0b53663032bab0b45\tsrc/frontend/src/fsusui/README.md",
+          "afterTreeEntry": "100644 700b86202236c303c7ce4cf40d17e1475ff7a5c4 0\tsrc/frontend/src/fsusui/README.md",
+          "sha256": "de1a2fc706bb3cae66e75846604f85ad1427f8f5685adc0dfb6704dadea9f01b"
+        }
+      ],
+      "existingButtonAdapterUnchanged": true,
+      "businessScope": "Leaf imports only; full original SFC equals candidate after reversing exactly the import block, checked in after-ast.log. New Checkbox adapter is one named public re-export, not a wrapper or type assertion. README adds its name to the existing classification table only.",
+      "everyOtherBeforeHeadPathUnchanged": true,
+      "originalRuleConfigBaselineAndFrozenAuthorityUnchanged": true,
+      "boundaryReadmeInverseSingleNameEquality": true
+    },
+    "currentLeafBlob": "8dc6b952d242d9964f506405acf2157dcc2e0093",
+    "currentCheckboxBlob": "4e39c0c8b6e2e25c4f8ded666600d3bf2654ff2f",
+    "originalDonorLeafBlob": "666dd6bf8a169293d00e941ec158b35ae3569105",
+    "wholeSfcInverseImportEquality": true,
+    "templateAndNonImportStatementsBytePreserved": true,
+    "resolvedDiagnostic": "Original complete FsusUI boundary warnings21 ->20, exit1 ->1. After raw output equals original4385 warnings20 baseline bytes. The new leaf runtime-import-outside-boundary item is removed by legal ordinary source; original checker/allowlist/rules unchanged.",
+    "acceptance": "New repair and combined candidate require independent review; original finite SOURCE acceptance is not inherited as runtime/UX/current-combination qualification."
+  },
+  "scope": "Relative to prior draft: only Privacy SFC imports, new fsusui/checkbox.ts, factual README classification entry, this current WIP and own ordinary repair static delivery. Every other prior tracked entry, original 67-file intake evidence and inherited4385 records remain unchanged. No donor history or unrelated source admitted.",
+  "staticComparisonBeforeAfter": {
     "app": {
-      "baseExit": 2,
-      "candidateExit": 2,
-      "baseBytes": 5000,
-      "candidateBytes": 5000,
-      "baseLines": 30,
-      "candidateLines": 30,
+      "beforeExit": 2,
+      "afterExit": 2,
+      "beforeBytes": 5000,
+      "afterBytes": 5000,
+      "beforeLines": 30,
+      "afterLines": 30,
       "rawByteIdentical": true,
-      "baseSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
-      "candidateSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
-      "allOutputLineMultisetAdded": [],
-      "allOutputLineMultisetRemoved": [],
-      "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication.",
-      "baseDiagnostics": 29,
-      "candidateDiagnostics": 29,
-      "candidateBlogDiagnostics": 4,
-      "candidateUIDiagnostics": 25
+      "beforeSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+      "afterSha256": "0ea4fd1f4754e852cd53926d78b9fd85a69ef6dc0c985edf599838d692c31b04",
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": [],
+      "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication.",
+      "beforeDiagnostics": 29,
+      "afterDiagnostics": 29
     },
     "full-lint": {
-      "baseExit": 1,
-      "candidateExit": 1,
-      "baseBytes": 11861610,
-      "candidateBytes": 11861610,
-      "baseLines": 83667,
-      "candidateLines": 83667,
+      "beforeExit": 1,
+      "afterExit": 1,
+      "beforeBytes": 11861610,
+      "afterBytes": 11861610,
+      "beforeLines": 83667,
+      "afterLines": 83667,
       "rawByteIdentical": true,
-      "baseSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
-      "candidateSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
-      "allOutputLineMultisetAdded": [],
-      "allOutputLineMultisetRemoved": [],
-      "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+      "beforeSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "afterSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": [],
+      "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
     },
     "boundary": {
-      "baseExit": 1,
-      "candidateExit": 1,
-      "baseBytes": 2805,
-      "candidateBytes": 2965,
-      "baseLines": 21,
-      "candidateLines": 22,
+      "beforeExit": 1,
+      "afterExit": 1,
+      "beforeBytes": 2965,
+      "afterBytes": 2805,
+      "beforeLines": 22,
+      "afterLines": 21,
       "rawByteIdentical": false,
-      "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
-      "candidateSha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
-      "allOutputLineMultisetAdded": [
+      "beforeSha256": "fa59ac00ed954ac113c9b31ac36a63403e30d611b3b08fa9258284b0cce60c8d",
+      "afterSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "completeLineMultisetAdded": [
+        "[fsusui-boundary] warnings=20 strict=true"
+      ],
+      "completeLineMultisetRemoved": [
         "[fsusui-boundary] warnings=21 strict=true",
         "- src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus"
       ],
-      "allOutputLineMultisetRemoved": [
-        "[fsusui-boundary] warnings=20 strict=true"
-      ],
-      "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication.",
-      "interpretation": "New blocker: original strict boundary rejects exact donor public package runtime import; warnings20 -> 21. Preserve source, no wrapper or allowlist relaxation."
+      "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication.",
+      "meaning": "Exactly remove leaf runtime-import-outside-boundary diagnostic, warnings21 ->20. Original checker unchanged. Overall boundary remains FAIL1."
     },
     "binary-boundary": {
-      "baseExit": 1,
-      "candidateExit": 1,
-      "baseBytes": 866,
-      "candidateBytes": 866,
-      "baseLines": 7,
-      "candidateLines": 7,
+      "beforeExit": 1,
+      "afterExit": 1,
+      "beforeBytes": 866,
+      "afterBytes": 866,
+      "beforeLines": 7,
+      "afterLines": 7,
       "rawByteIdentical": true,
-      "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
-      "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
-      "allOutputLineMultisetAdded": [],
-      "allOutputLineMultisetRemoved": [],
-      "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+      "beforeSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "afterSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": [],
+      "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
     },
     "code-intent": {
-      "baseExit": 1,
-      "candidateExit": 1,
-      "baseBytes": 353,
-      "candidateBytes": 353,
-      "baseLines": 3,
-      "candidateLines": 3,
+      "beforeExit": 1,
+      "afterExit": 1,
+      "beforeBytes": 353,
+      "afterBytes": 353,
+      "beforeLines": 3,
+      "afterLines": 3,
       "rawByteIdentical": false,
-      "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
-      "candidateSha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
-      "allOutputLineMultisetAdded": [
+      "beforeSha256": "9ec8e9a966678b5cb7cb0215bdd66765e65bc3a38a252f945bb4e8c2ab9c376f",
+      "afterSha256": "198859bffc14bc30d821a231c4df26294eb2a9ef1f0cd874a1b090a546bbb0e8",
+      "completeLineMultisetAdded": [
+        "[code-intent] 2 error(s) across 5749 checked file(s):"
+      ],
+      "completeLineMultisetRemoved": [
         "[code-intent] 2 error(s) across 5748 checked file(s):"
       ],
-      "allOutputLineMultisetRemoved": [
-        "[code-intent] 2 error(s) across 5747 checked file(s):"
-      ],
-      "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication.",
-      "interpretation": "Same two diagnostics; scanner file count5747 -> 5748 because one admitted source file."
+      "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication.",
+      "meaning": "Same two errors; checked-file count5748 ->5749 because new named adapter source. No errors suppressed."
     },
     "lifecycle": {
-      "baseExit": 1,
-      "candidateExit": 1,
-      "baseBytes": 762,
-      "candidateBytes": 762,
-      "baseLines": 7,
-      "candidateLines": 7,
+      "beforeExit": 1,
+      "afterExit": 1,
+      "beforeBytes": 762,
+      "afterBytes": 762,
+      "beforeLines": 7,
+      "afterLines": 7,
       "rawByteIdentical": true,
-      "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
-      "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
-      "allOutputLineMultisetAdded": [],
-      "allOutputLineMultisetRemoved": [],
-      "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+      "beforeSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "afterSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": [],
+      "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
     },
     "authoritative": {
-      "baseExit": 1,
-      "candidateExit": 1,
-      "baseBytes": 6771,
-      "candidateBytes": 6771,
-      "baseLines": 41,
-      "candidateLines": 41,
+      "beforeExit": 1,
+      "afterExit": 1,
+      "beforeBytes": 6771,
+      "afterBytes": 6771,
+      "beforeLines": 41,
+      "afterLines": 41,
       "rawByteIdentical": true,
-      "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
-      "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
-      "allOutputLineMultisetAdded": [],
-      "allOutputLineMultisetRemoved": [],
-      "comparison": "Complete raw bytes and all output lines/multiplicity, no filtering, location normalization or deduplication."
+      "beforeSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "afterSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": [],
+      "comparison": "All raw bytes and all output lines/multiplicity; no filtering, position normalization or deduplication."
     },
     "strict": {
-      "exit": 0,
-      "meaning": "Supplemental single-file original strict lint; not a substitute for original complete lint."
+      "beforeExit": 0,
+      "afterExit": 0,
+      "beforeFiles": 1,
+      "afterFiles": 2,
+      "meaning": "Supplemental original strict lint only, never substitutes for full lint."
     },
     "AST": {
-      "exit": 0,
-      "meaning": "Compiler-only SFC/template/TS parsing; no product imports/evaluation."
+      "beforeExit": 0,
+      "afterExit": 0,
+      "wholeSfcInverseImportEquality": true,
+      "meaning": "Compiler-only parsing and source byte proof; no product execution."
     },
-    "overall": "FAIL; original full static failures plus one new FsusUI boundary diagnostic. No combination SOURCE/UX/runtime acceptance claimed."
+    "overall": "FAIL remains: original app29/full lint83667lines/boundary20/binary/code-intent/docs failures retained. New boundary leaf diagnostic resolved. No runtime/UX/qualification acceptance."
   },
+  "staticComparisonOriginal4385ToCurrent": {
+    "app": {
+      "originalBaseExit": 2,
+      "afterExit": 2,
+      "rawByteIdentical": true,
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": []
+    },
+    "full-lint": {
+      "originalBaseExit": 1,
+      "afterExit": 1,
+      "rawByteIdentical": true,
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": []
+    },
+    "boundary": {
+      "originalBaseExit": 1,
+      "afterExit": 1,
+      "rawByteIdentical": true,
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": []
+    },
+    "binary-boundary": {
+      "originalBaseExit": 1,
+      "afterExit": 1,
+      "rawByteIdentical": true,
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": []
+    },
+    "code-intent": {
+      "originalBaseExit": 1,
+      "afterExit": 1,
+      "rawByteIdentical": false,
+      "completeLineMultisetAdded": [
+        "[code-intent] 2 error(s) across 5749 checked file(s):"
+      ],
+      "completeLineMultisetRemoved": [
+        "[code-intent] 2 error(s) across 5747 checked file(s):"
+      ]
+    },
+    "lifecycle": {
+      "originalBaseExit": 1,
+      "afterExit": 1,
+      "rawByteIdentical": true,
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": []
+    },
+    "authoritative": {
+      "originalBaseExit": 1,
+      "afterExit": 1,
+      "rawByteIdentical": true,
+      "completeLineMultisetAdded": [],
+      "completeLineMultisetRemoved": []
+    }
+  },
+  "currentFullStatic": "FAIL remains. App29 FAIL2/full lint83667lines FAIL1/boundary20 FAIL1/binary/code-intent/docs original failures retained. Supplemental strict/AST/diff success is not a full-static PASS.",
   "actualUI": {
     "PR": 973,
     "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
@@ -168,18 +277,14 @@
     "consumerAcceptance": "NOT CLAIMED"
   },
   "evidence": {
-    "deliveryMap": "artifacts/article-editor/intake4389-static/delivery-map.json",
-    "commandExitRawLogs": "All original application/full lint/boundary/binary boundary/code-intent/document check-only logs and exits are actual regular files in this draft; full app/config/full lint pairs are byte-identical. New boundary delta and code-intent count delta are explicit, unfiltered.",
-    "priorEvidence": "All base4385 files remain exact. Both inherited delivery maps verified: 30 current-checkpoint and29 original4358 entries, every declared SHA matches. No historical record rewritten or regenerated.",
-    "original4389ExternalLogs": "The original source PR references /workspace/vault-privacy-leaf/evidence, which is absent from this selected environment. No historical source-leaf log is fabricated or replaced by a new run. All inherited4385 raw evidence and fresh current input-bound runs are retained."
-  },
-  "newBlocker": {
-    "checker": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
-    "base": "exit1 warnings20",
-    "candidate": "exit1 warnings21",
-    "path": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
-    "diagnostic": "runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus",
-    "disposition": "Unresolved. Preserve exact accepted donor source and existing boundary authority; no wrapper, fake dependency or allowlist/config relaxation. Independent owner disposition/review required before broader acceptance."
+    "repairDeliveryMap": "artifacts/article-editor/intake4389-boundary-repair-static/delivery-map.json",
+    "initialDeliveryMap": "artifacts/article-editor/intake4389-static/delivery-map.json",
+    "initialRawFiles": "All67 initial raw/input/exit/config files verified against original unchanged map. Fresh before checks are byte-identical to their retained initial-candidate counterparts.",
+    "completedRepairMappedFiles": 63,
+    "commands": "artifacts/article-editor/intake4389-boundary-repair-static/commands.json",
+    "fullRawLogs": "Both original complete fresh app/full lint/boundary/binary/code-intent/check-only document outputs, exits and raw diffs are actual committed regular files, no filtering/deduplication or summary replacement.",
+    "configuration": "Before/after original full generated project bytes equal; actual public aliases resolve clean UI973 index, original strict/unused/erasable/include/exclude retained.",
+    "historicalLimit": "The original source PR references /workspace/vault-privacy-leaf/evidence, which is absent from this selected environment. No historical source-leaf log is fabricated or replaced by a new run. All inherited4385 raw evidence and fresh current input-bound runs are retained."
   },
   "presentationSemantics": {
     "scope": "Props are caller-provided strings/null; local nonempty check is presentation validation, not actual host/selected-root/site/Vault/authorization binding.",
@@ -202,22 +307,13 @@
     "frozen inputs/authority/catalog/fixtures/schema/qualification",
     "CSS/theme production and consumer UX acceptance"
   ],
-  "noActions": "No substitute runtime harness, reduced config, fake data/package, frozen authority rewrite, credential refresh, workflow dispatch, Ready, merge, issue closure, package publication, release or deployment. [skip ci] preserves execution HOLD; absent/skipped checks are not PASS.",
+  "noActions": "All existing runtime/tests/collection/list/discovery/help/product/helper/parser module import/evaluation/setup/mount/browser/native/worker/kernel/DB/network-security/privacy/receipt/race/backuprestore/IME/frozen/catalog/qualification HOLDs retained. Compiler tooling only. No authority/baseline/config/lock refresh, fake package/data, credentials refresh, manual workflow dispatch, Ready/merge/close/publication/deployment. Commit uses [skip ci]; missing remote checks are not PASS.",
   "remaining": [
-    "Independent review of this exact new draft and its new boundary diagnostic",
-    "All original app29/full lint/binary boundary/code-intent/docs failures remain failures",
-    "Actual host/scope/command/authorization/transport/lifecycle and machine receipt ownership is not supplied by this display leaf",
-    "Product CSS/theme incomplete; rendered/consumer/physical/runtime/UX/qualification acceptance remains HOLD",
-    "Original4389 external-only logs unavailable here; historical absence remains unknown, not recreated"
+    "Independent review of import-only repair, new named public Checkbox adapter and exact current combination",
+    "Original full app29, full lint83667lines, boundary20, binary boundary, two code-intent errors and documentation failures remain FAIL",
+    "Actual host/scope/command/authorization/transport/lifecycle/receipt ownership is absent from this presentation leaf",
+    "Product theme CSS incomplete; all runtime/rendered/UX/physical/consumer/qualification acceptance remains HOLD",
+    "Saved UI dependency lock differs from exact UI973 source; no fresh exact-lock install claimed; original4389 external raw logs unavailable here"
   ],
-  "rollback": "Remove/revert only this exact single leaf plus this intake own WIP/static delivery to fixed4385; no live data, credentials, persisted state, existing branch or authority changed.",
-  "finalTreeProof": {
-    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
-    "everyBaseEntryPreserved": true,
-    "productionPathCount": 1,
-    "addedPaths": 70,
-    "mappedRawInputExitConfigFiles": 67,
-    "allMapBytesReadBackFromIndex": true,
-    "ignoredDeliveryFiles": []
-  }
+  "rollback": "Revert only this repair commit to b097253ef6829464ff67aa591d57e4b865652eb5 to undo adapter/import/README/current WIP/repair-delivery changes; that restores the original21-item boundary failure. Entire intake may be omitted/reverted to exact4385 without live-state changes."
 }

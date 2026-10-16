@@ -1,0 +1,30 @@
+{
+  "beforeHead": "b097253ef6829464ff67aa591d57e4b865652eb5",
+  "targetBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "sourceProductionTree": "5e87e42e1aa40ec146f18ca6d17b1ac24a325615",
+  "ownedPaths": [
+    {
+      "path": "src/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+      "beforeTreeEntry": "100644 blob 666dd6bf8a169293d00e941ec158b35ae3569105\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+      "afterTreeEntry": "100644 8dc6b952d242d9964f506405acf2157dcc2e0093 0\tsrc/frontend/src/components/admin/article/vault/VaultConnectionPrivacyReview.vue",
+      "sha256": "f4a1e8eed095cdd88f000a575d86aec933b76031e785f824c5ab97a1f8bea802"
+    },
+    {
+      "path": "src/frontend/src/fsusui/checkbox.ts",
+      "beforeTreeEntry": "absent",
+      "afterTreeEntry": "100644 4e39c0c8b6e2e25c4f8ded666600d3bf2654ff2f 0\tsrc/frontend/src/fsusui/checkbox.ts",
+      "sha256": "62d3a91c98ab8601e7df8f3b167c46a0bc63b78dd79b6d50bae3cab1defabd65"
+    },
+    {
+      "path": "src/frontend/src/fsusui/README.md",
+      "beforeTreeEntry": "100644 blob 5744bd3c1e68efff3cad9ba0b53663032bab0b45\tsrc/frontend/src/fsusui/README.md",
+      "afterTreeEntry": "100644 700b86202236c303c7ce4cf40d17e1475ff7a5c4 0\tsrc/frontend/src/fsusui/README.md",
+      "sha256": "de1a2fc706bb3cae66e75846604f85ad1427f8f5685adc0dfb6704dadea9f01b"
+    }
+  ],
+  "existingButtonAdapterUnchanged": true,
+  "businessScope": "Leaf imports only; full original SFC equals candidate after reversing exactly the import block, checked in after-ast.log. New Checkbox adapter is one named public re-export, not a wrapper or type assertion. README adds its name to the existing classification table only.",
+  "everyOtherBeforeHeadPathUnchanged": true,
+  "originalRuleConfigBaselineAndFrozenAuthorityUnchanged": true,
+  "boundaryReadmeInverseSingleNameEquality": true
+}
