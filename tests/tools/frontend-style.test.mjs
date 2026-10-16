@@ -1787,3 +1787,194 @@ test('canonical local project rejects an invalid explicit source root and local-
     assert.throws(() => resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env }), /does not contain the FsusUI source contract/u);
     assert.equal(resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env: { ...env, FSUSBLOG_USE_LOCAL_FSUSUI: '0' } }), null);
 });
+
+function withNodeDeclarationFixture(callback)
+{
+    withFixture(fixtureRoot =>
+    {
+        const project = 'src/frontend/tsconfig.node.json';
+        writeFixture(fixtureRoot, project, readFileSync(path.join(root, project), 'utf8'));
+        const policyPath = path.join(fixtureRoot, 'config/development/frontend-style-policy.json');
+        const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+        policy.configurationSources.push(project);
+        writeFileSync(policyPath, JSON.stringify(policy, null, 4) + '\n');
+        symlinkSync(path.join(root, 'src/frontend/node_modules'), path.join(fixtureRoot, 'src/frontend/node_modules'), 'dir');
+        writeFixture(fixtureRoot, 'src/frontend/scripts/esm-policy.mjs', 'export const patterns = Object.freeze(["**/coverage/**"]);\n');
+        writeFixture(fixtureRoot, 'src/frontend/scripts/cjs-policy.cjs', 'module.exports = Object.freeze(["**/coverage/**"]);\n');
+        const esm = 'src/frontend/scripts/esm-policy.d.mts';
+        const cjs = 'src/frontend/scripts/cjs-policy.d.cts';
+        writeFixture(fixtureRoot, esm, 'export declare const patterns: readonly string[];\n');
+        writeFixture(fixtureRoot, cjs, 'declare const patterns: readonly string[];\nexport = patterns;\n');
+        writeFixture(fixtureRoot, 'src/frontend/vite.config.ts',
+            'import { patterns as esmPatterns } from "./scripts/esm-policy.mjs";\n'
+            + 'import cjsPatterns from "./scripts/cjs-policy.cjs";\n'
+            + 'export const ignored = [...esmPatterns, ...cjsPatterns];\n');
+        callback({ fixtureRoot, esm, cjs, policyPath, project });
+    });
+}
+
+test('script declaration owner inspects real ESM and CJS declarations with the unchanged original Node project', () =>
+{
+    withNodeDeclarationFixture(({ fixtureRoot, esm, cjs, project }) =>
+    {
+        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm, '--file', cjs]);
+        assert.equal(result.status, 0, output(result));
+        assert.match(result.stdout, /files=2 eslint=2 stylelint=0 violations=0 new=0/u);
+        const probe = `
+            import fs from 'node:fs';
+            import path from 'node:path';
+            import { pathToFileURL } from 'node:url';
+            const toolchain = ${JSON.stringify(toolchain)};
+            const root = ${JSON.stringify(fixtureRoot)};
+            const { ESLint } = await import(pathToFileURL(path.join(toolchain, 'node_modules/eslint/lib/api.js')));
+            const { default: ts } = await import(pathToFileURL(path.join(toolchain, 'node_modules/typescript/lib/typescript.js')));
+            const eslint = new ESLint({ cwd: root, overrideConfigFile: path.join(root, 'eslint.config.mjs') });
+            const file = path.join(root, ${JSON.stringify(esm)});
+            const config = await eslint.calculateConfigForFile(file);
+            const program = config.languageOptions.parser.parseForESLint(fs.readFileSync(file, 'utf8'), {
+                ...config.languageOptions.parserOptions, filePath: file
+            }).services.program;
+            const project = path.join(root, ${JSON.stringify(project)});
+            const original = ts.parseJsonConfigFileContent(ts.readConfigFile(project, ts.sys.readFile).config,
+                ts.sys, path.dirname(project), {}, project);
+            console.log(JSON.stringify({ project: program.getCompilerOptions().configFilePath,
+                roots: program.getRootFileNames(), originalRoots: original.fileNames,
+                options: program.getCompilerOptions(), originalOptions: original.options,
+                declaration: program.getSourceFile(file).isDeclarationFile,
+                esmFormat: program.getSourceFile(file).impliedNodeFormat,
+                cjsFormat: program.getSourceFile(path.join(root, ${JSON.stringify(cjs)})).impliedNodeFormat,
+                esmExpected: ts.ModuleKind.ESNext, cjsExpected: ts.ModuleKind.CommonJS,
+                noAny: config.rules['@typescript-eslint/no-explicit-any'],
+                noUnsafe: config.rules['@typescript-eslint/no-unsafe-assignment'] }));
+        `;
+        const observed = spawnSync(process.execPath, ['--input-type=module', '-e', probe],
+            { cwd: fixtureRoot, encoding: 'utf8', timeout: 90_000,
+                env: { ...process.env, FSUSBLOG_STYLE_ROOT: fixtureRoot, FSUSBLOG_USE_LOCAL_FSUSUI: '0' } });
+        assert.equal(observed.status, 0, output(observed));
+        const actual = JSON.parse(observed.stdout);
+        assert.equal(actual.project, path.join(fixtureRoot, project));
+        assert.deepEqual(actual.roots, actual.originalRoots);
+        for (const option of ['strict', 'noUnusedLocals', 'noUnusedParameters', 'erasableSyntaxOnly',
+            'skipLibCheck', 'noEmit', 'module', 'moduleResolution', 'types'])
+        {
+            assert.deepEqual(actual.options[option], actual.originalOptions[option], option);
+        }
+        assert.equal(actual.declaration, true);
+        assert.equal(actual.esmFormat, actual.esmExpected);
+        assert.equal(actual.cjsFormat, actual.cjsExpected);
+        assert.deepEqual(actual.noAny, [2]);
+        assert.deepEqual(actual.noUnsafe, [2]);
+    });
+});
+
+test('script declaration owner rejects actual syntax and explicit-any violations', () =>
+{
+    for (const source of ['export declare const patterns: ;\n', 'export declare const patterns: any;\n'])
+    {
+        withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+        {
+            writeFixture(fixtureRoot, esm, source);
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /Parsing error|@typescript-eslint\/no-explicit-any/u);
+        });
+    }
+});
+
+test('script declaration owner refuses a real ignored ESLint input without an actual report', () =>
+{
+    withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+    {
+        // This negative fixture invokes real ESLint with an ignored input. It is not an accepted policy exemption.
+        writeFixture(fixtureRoot, 'eslint.config.mjs',
+            `import original from '${pathToFileURL(eslintConfig).href}';\n`
+            + 'export default [{ ignores: ["src/frontend/scripts/**/*.d.mts"] }, ...original];\n');
+        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /coverage|report/u);
+    });
+});
+
+test('script declaration owner refuses policy omission and an unbound Node configuration', () =>
+{
+    for (const omission of ['suffix', 'configuration', 'missing-configuration'])
+    {
+        withNodeDeclarationFixture(({ fixtureRoot, esm, policyPath, project }) =>
+        {
+            const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+            if (omission === 'suffix')
+            {
+                for (const sourceSet of policy.eslintSourceSets)
+                {
+                    sourceSet.extensions = sourceSet.extensions.filter(extension => extension !== '.d.mts');
+                }
+            }
+            else if (omission === 'configuration')
+            {
+                policy.configurationSources = policy.configurationSources.filter(file => file !== project);
+            }
+            else
+            {
+                rmSync(path.join(fixtureRoot, project));
+            }
+            writeFileSync(policyPath, JSON.stringify(policy, null, 4) + '\n');
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /declaration.*(?:governed|configuration)|Node configuration/u);
+        });
+    }
+});
+
+test('script declaration owner refuses a real default parser even for an empty declaration', () =>
+{
+    withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+    {
+        writeFixture(fixtureRoot, esm, '');
+        writeFixture(fixtureRoot, 'eslint.config.mjs',
+            `import original from '${pathToFileURL(eslintConfig).href}';\n`
+            + 'export default original.filter(config => config.name !== "fsusblog/type-aware-node-declarations");\n');
+        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /declaration.*(?:parser|project)|coverage/u);
+    });
+});
+
+test('script declaration owner refuses missing linked and outside-owner inputs', () =>
+{
+    for (const refusal of ['missing', 'linked', 'outside-owner'])
+    {
+        withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+        {
+            let file = esm;
+            if (refusal === 'outside-owner')
+            {
+                file = 'tools/unowned.d.mts';
+                writeFixture(fixtureRoot, file, 'export declare const patterns: readonly string[];\n');
+            }
+            else
+            {
+                rmSync(path.join(fixtureRoot, esm));
+                if (refusal === 'linked')
+                {
+                    writeFixture(fixtureRoot, 'src/frontend/scripts/linked.d.mts', 'export declare const patterns: readonly string[];\n');
+                    symlinkSync('linked.d.mts', path.join(fixtureRoot, esm));
+                }
+            }
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', file]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /declaration|ENOENT|regular|governed/u);
+        });
+    }
+});
+
+test('script declaration owner refuses a declaration absent from the original complete Node program', () =>
+{
+    withNodeDeclarationFixture(({ fixtureRoot }) =>
+    {
+        const orphan = 'src/frontend/scripts/orphan.d.mts';
+        writeFixture(fixtureRoot, orphan, 'export declare const value: string;\n');
+        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', orphan]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /not found|does not include|not included|Parsing error/u);
+    });
+});

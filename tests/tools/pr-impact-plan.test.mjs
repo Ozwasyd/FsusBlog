@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
@@ -499,6 +499,53 @@ test('SOURCE frontend routing retains source-diff only with complete unchanged a
     assert.deepEqual(groups[1], { options: ['--mode', 'strict-full'], files: files.slice(3) });
     assert.deepEqual(sourceFrontendCheckGroups(files, 'qualification', base),
         [{ options: ['--mode', 'strict-full'], files }]);
+});
+
+test('script declaration owner admits only actual checked declarations and preserves unknown source refusal', () =>
+{
+    const declarations = ['src/frontend/scripts/watch.d.mts', 'src/frontend/scripts/nested/watch.d.cts'];
+    const unsupported = ['src/frontend/scripts/watch.mts', 'src/frontend/scripts/watch.cts',
+        'src/frontend/scripts/watch.d.mtsx', 'tools/watch.d.mts', 'tests/watch.d.cts'];
+    assert.deepEqual(unsupportedSourceStageFiles(declarations), declarations);
+    assert.deepEqual(unsupportedSourceStageFiles(declarations, [], [], [], ['other.d.mts']), declarations);
+    assert.deepEqual(unsupportedSourceStageFiles([...declarations, ...unsupported], [], [], [],
+        [...declarations, ...unsupported]), unsupported);
+});
+
+test('script declaration owner uses strict frontend checks and binds the original Node configuration', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const declaration = 'src/frontend/scripts/watch.d.mts';
+    fixture.write(declaration, 'export declare const patterns: readonly string[];\n');
+    fixture.commit();
+    const files = fixture.actual();
+    const groups = sourceFrontendCheckGroups(files, 'source-integration', fixture.base, fixture.root);
+    assert.ok(groups.find(group => group.options[1] === 'strict-full').files.includes(declaration));
+    assert.equal(groups.find(group => group.options[1] === 'source-diff').files.includes(declaration), false);
+    assert.ok(sourceGovernanceDataInputs.includes('src/frontend/tsconfig.node.json'));
+    fixture.write('src/frontend/tsconfig.node.json', '{"compilerOptions":{"strict":true}}\n');
+    fixture.commit();
+    const changed = fixture.actual();
+    assert.deepEqual(sourceFrontendCheckGroups(changed, 'source-integration', fixture.base, fixture.root),
+        [{ options: ['--mode', 'strict-full'], files: changed.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file) || file === declaration) }]);
+    assert.throws(() => sourceFrontendCheckGroups(changed.filter(file => file !== declaration),
+        'source-integration', fixture.base, fixture.root), /complete actual changed-source scope/u);
+});
+
+test('script declaration owner retains real deleted Git inputs instead of minting absent coverage', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const declaration = 'src/frontend/scripts/watch.d.mts';
+    fixture.write(declaration, 'export declare const patterns: readonly string[];\n');
+    fixture.commit();
+    const beforeDeletion = execFileSync('git', ['-C', fixture.root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    rmSync(path.join(fixture.root, declaration));
+    fixture.commit();
+    const evidence = readGitChangedPaths(fixture.root, beforeDeletion);
+    const present = evidence.changedFiles.filter(file => existsSync(path.join(fixture.root, file)));
+    assert.equal(typeof sourceStageInspectionFiles, 'function');
+    assert.deepEqual(sourceStageInspectionFiles(present, evidence.changedFiles), [declaration]);
+    assert.deepEqual(unsupportedSourceStageFiles(sourceStageInspectionFiles(present, evidence.changedFiles)), [declaration]);
 });
 
 test('SOURCE configuration drift dispatches every applicable changed input through strict-full without exemptions', t =>
