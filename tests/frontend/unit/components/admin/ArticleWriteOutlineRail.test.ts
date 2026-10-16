@@ -131,7 +131,7 @@ function controlFocusFrames() {
   }
 }
 
-async function openCompactOutline() {
+async function openCompactOutline(activation: 'pointer' | 'keyboard' = 'pointer') {
   const setCompact = controlCompactViewport()
   const frames = controlFocusFrames()
   const wrapper = mount(ArticleWriteOutlineRail, {
@@ -141,7 +141,15 @@ async function openCompactOutline() {
   })
   outlineCleanups.push(() => wrapper.unmount())
   await nextTick()
-  await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
+  const launcher = wrapper.get<HTMLButtonElement>('[data-article-outline-launcher="true"]').element
+  if (activation === 'keyboard') launcher.focus()
+  await wrapper.get('[data-article-outline-launcher="true"]').trigger('click', { detail: activation === 'pointer' ? 1 : 0 })
+  await nextTick()
+  await nextTick()
+  expect(wrapper.get<HTMLButtonElement>('[data-article-outline-launcher="true"]').element).toBe(launcher)
+  expect(launcher.isConnected).toBe(true)
+  expect(window.getComputedStyle(launcher).display).not.toBe('none')
+  expect(launcher.disabled).toBe(false)
   const close = async (order: 'closed-first' | 'model-first' = 'closed-first') => {
     // Control only the real Drawer's public event order; its source and child tree remain mounted.
     const drawer = wrapper.getComponent(ElDrawer)
@@ -156,21 +164,21 @@ async function openCompactOutline() {
     await nextTick()
     await nextTick()
   }
-  return { wrapper, frames, close, setCompact }
+  return { wrapper, launcher, frames, close, setCompact }
 }
 
 describe('ArticleWriteOutlineRail focus intent ownership', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it.each(['closed-first', 'model-first'] as const)('returns focus once for controlled close order %s', async (order) => {
-    const { wrapper, frames, close } = await openCompactOutline()
-    await close(order)
-    const launcher = wrapper.get<HTMLButtonElement>('[data-article-outline-launcher="true"]').element
+  it.each(['closed-first', 'model-first'] as const)('lets the shared trap restore the same connected opener once for close order %s', async (order) => {
+    const { wrapper, launcher, frames, close } = await openCompactOutline()
     const focus = vi.spyOn(launcher, 'focus')
-    expect(frames.frames.size).toBe(1)
-    frames.flush()
+    await close(order)
+    expect(wrapper.get('[data-article-outline-launcher="true"]').element).toBe(launcher)
     expect(document.activeElement).toBe(launcher)
     expect(focus).toHaveBeenCalledTimes(1)
+    expect(frames.frames.size).toBe(0)
+    expect(frames.cancel).not.toHaveBeenCalled()
     wrapper.getComponent(ElDrawer).vm.$emit('closed')
     wrapper.getComponent(ElDrawer).vm.$emit('update:modelValue', false)
     await nextTick()
@@ -178,32 +186,33 @@ describe('ArticleWriteOutlineRail focus intent ownership', () => {
     expect(focus).toHaveBeenCalledTimes(1)
   })
 
-  it('invalidates close A before opening and closing B, even if the cancelled callback runs', async () => {
-    const { wrapper, frames, close } = await openCompactOutline()
-    await close('model-first')
-    const stale = [...frames.frames.values()][0]
-    expect(stale).toBeDefined()
-    await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
-    expect(frames.cancel).toHaveBeenCalledTimes(1)
-    expect(frames.frames.size).toBe(0)
-    await close('model-first')
-    const launcher = wrapper.get<HTMLButtonElement>('[data-article-outline-launcher="true"]').element
+  it('leaves close A, open B and close B to the shared trap without a stale consumer task', async () => {
+    const { wrapper, launcher, frames, close } = await openCompactOutline()
     const focus = vi.spyOn(launcher, 'focus')
-    stale?.(0)
-    expect(focus).not.toHaveBeenCalled()
-    expect(frames.frames.size).toBe(1)
-    frames.flush()
+    await close('model-first')
     expect(focus).toHaveBeenCalledTimes(1)
+    await wrapper.get('[data-article-outline-launcher="true"]').trigger('click', { detail: 1 })
+    await nextTick()
+    await nextTick()
+    const inside = document.activeElement
+    expect(inside).not.toBe(launcher)
+    wrapper.getComponent(ElDrawer).vm.$emit('closed')
+    await nextTick()
+    expect(document.activeElement).toBe(inside)
+    expect(focus).toHaveBeenCalledTimes(1)
+    await close('model-first')
+    expect(focus).toHaveBeenCalledTimes(2)
     expect(document.activeElement).toBe(launcher)
+    expect(wrapper.get('[data-article-outline-launcher="true"]').element).toBe(launcher)
+    expect(frames.frames.size).toBe(0)
+    expect(frames.cancel).not.toHaveBeenCalled()
   })
 
-  it.each(['unmount', 'breakpoint', 'snapshot'] as const)('cancels the owned close frame on %s', async (change) => {
-    const { wrapper, frames, close, setCompact } = await openCompactOutline()
-    await close('model-first')
-    const stale = [...frames.frames.values()][0]
-    expect(stale).toBeDefined()
-    const launcher = wrapper.get<HTMLButtonElement>('[data-article-outline-launcher="true"]').element
+  it.each(['unmount', 'breakpoint', 'snapshot'] as const)('does not add a consumer focus task after shared restoration and %s', async (change) => {
+    const { wrapper, launcher, frames, close, setCompact } = await openCompactOutline()
     const focus = vi.spyOn(launcher, 'focus')
+    await close('model-first')
+    expect(focus).toHaveBeenCalledTimes(1)
     if (change === 'unmount') {
       wrapper.unmount()
       outlineCleanups.pop()
@@ -215,21 +224,28 @@ describe('ArticleWriteOutlineRail focus intent ownership', () => {
         source: '# Replacement', sourceRevision: 0,
       }) })
     }
-    expect(frames.cancel).toHaveBeenCalledTimes(1)
-    expect(frames.frames.size).toBe(0)
-    stale?.(0)
-    expect(focus).not.toHaveBeenCalled()
-  })
-
-  it('invalidates the queued tick when the compact breakpoint changes before the frame', async () => {
-    const { wrapper, frames, setCompact } = await openCompactOutline()
-    wrapper.getComponent(ElDrawer).vm.$emit('close')
-    wrapper.getComponent(ElDrawer).vm.$emit('update:modelValue', false)
-    wrapper.getComponent(ElDrawer).vm.$emit('closed')
-    await setCompact(false)
+    frames.flush()
     await nextTick()
     expect(frames.frames.size).toBe(0)
-    expect(document.activeElement?.getAttribute('data-article-outline-launcher')).not.toBe('true')
+    expect(frames.cancel).not.toHaveBeenCalled()
+    expect(focus).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retarget focus after compact close while switching to the desktop host', async () => {
+    const { wrapper, launcher, frames, close, setCompact } = await openCompactOutline()
+    await close()
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outlineCleanups.push(() => outside.remove())
+    outside.focus()
+    const focus = vi.spyOn(launcher, 'focus')
+    await setCompact(false)
+    frames.flush()
+    await nextTick()
+    expect(frames.frames.size).toBe(0)
+    expect(document.activeElement).toBe(outside)
+    expect(focus).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-article-outline-launcher="true"]').element).toBe(launcher)
   })
 
   it('invalidates a desktop close tick when switching to the compact host', async () => {
@@ -248,7 +264,7 @@ describe('ArticleWriteOutlineRail focus intent ownership', () => {
     expect(document.activeElement?.getAttribute('data-article-outline-launcher')).not.toBe('true')
   })
 
-  it('does not schedule a frame after disposal during the queued close tick', async () => {
+  it('does not schedule a frame after disposal during the compact close tick', async () => {
     const { wrapper, frames } = await openCompactOutline()
     const drawer = wrapper.getComponent(ElDrawer)
     drawer.vm.$emit('close')
@@ -258,6 +274,7 @@ describe('ArticleWriteOutlineRail focus intent ownership', () => {
     outlineCleanups.pop()
     await nextTick()
     expect(frames.frames.size).toBe(0)
+    expect(frames.cancel).not.toHaveBeenCalled()
   })
 
   it('returns tick focus failures to the existing Vue event error handler exactly once', async () => {
@@ -282,14 +299,14 @@ describe('ArticleWriteOutlineRail focus intent ownership', () => {
     expect(errors).toEqual([failure])
   })
 
-  it('keeps frame focus exceptions in the later task instead of changing the close Promise boundary', async () => {
-    const { wrapper, frames, close } = await openCompactOutline()
+  it('lets the shared trap restore a keyboard opener without a second handler or frame', async () => {
+    const { launcher, frames, close } = await openCompactOutline('keyboard')
+    const focus = vi.spyOn(launcher, 'focus')
     await close('model-first')
-    const launcher = wrapper.get<HTMLButtonElement>('[data-article-outline-launcher="true"]').element
-    const failure = new Error('outline frame focus failed')
-    vi.spyOn(launcher, 'focus').mockImplementation(() => { throw failure })
-    expect(frames.frames.size).toBe(1)
-    expect(() => frames.flush()).toThrow(failure)
+    expect(document.activeElement).toBe(launcher)
+    expect(focus).toHaveBeenCalledTimes(1)
+    expect(frames.frames.size).toBe(0)
+    expect(frames.cancel).not.toHaveBeenCalled()
   })
 
   it('delegates the actual public Drawer built-in close through its real lifecycle', async () => {
@@ -300,17 +317,20 @@ describe('ArticleWriteOutlineRail focus intent ownership', () => {
     })
     outlineCleanups.push(() => wrapper.unmount())
     await nextTick()
-    await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
+    const launcher = wrapper.get<HTMLButtonElement>('[data-article-outline-launcher="true"]').element
+    await wrapper.get('[data-article-outline-launcher="true"]').trigger('click', { detail: 1 })
     await flushPromises()
+    expect(wrapper.get('[data-article-outline-launcher="true"]').element).toBe(launcher)
+    expect(window.getComputedStyle(launcher).display).not.toBe('none')
     const dialog = wrapper.get('[role="dialog"][aria-label="文章大纲"]')
     const button = dialog.get<HTMLButtonElement>('header button[aria-label]')
     expect(button.attributes('aria-label')).toBeTruthy()
     await button.trigger('click')
     await vi.waitFor(() => {
       expect(document.activeElement).toBe(wrapper.get('[data-article-outline-launcher="true"]').element)
+      expect(wrapper.getComponent(ElDrawer).emitted('closed')).toHaveLength(1)
+      expect(wrapper.getComponent(ElDrawer).emitted('update:modelValue')).toEqual([[false]])
     })
-    expect(wrapper.getComponent(ElDrawer).emitted('closed')).toHaveLength(1)
-    expect(wrapper.getComponent(ElDrawer).emitted('update:modelValue')).toEqual([[false]])
   })
 })
 

@@ -1,6 +1,6 @@
 <template>
     <button
-        v-if="!isOpen"
+        v-if="isCompact || !isOpen"
         ref="launcherRef"
         type="button"
         class="article-write-outline-launcher"
@@ -22,7 +22,6 @@
         v-bind="outlineHostProperties"
         @close="requestClose"
         @update:model-value="handleHostVisibility"
-        @closed="handleClosed"
     >
         <aside
             v-if="!isCompact"
@@ -431,7 +430,6 @@ const launcherRef = ref<HTMLButtonElement | null>(null);
 const expandedNodeIds = ref<ReadonlySet<string>>(new Set());
 let pendingFocusIntent: number | null = null;
 let focusGeneration = 0;
-let focusFrame: number | null = null;
 let disposed = false;
 let mounted = false;
 
@@ -548,11 +546,6 @@ const invalidateFocusReturn = (): void =>
 {
     focusGeneration += 1;
     pendingFocusIntent = null;
-    if (focusFrame !== null)
-    {
-        window.cancelAnimationFrame(focusFrame);
-        focusFrame = null;
-    }
 };
 
 const focusLauncher = async (): Promise<void> =>
@@ -564,33 +557,12 @@ const focusLauncher = async (): Promise<void> =>
     }
     pendingFocusIntent = null;
     await nextTick();
-    const isCurrent = (): boolean => !disposed && generation === focusGeneration && !isOpen.value;
-    if (!isCurrent())
-    {
-        return;
-    }
-    if (!isCompact.value)
+    // The modal Drawer owns compact focus restoration. Its native opener remains
+    // connected and focusable while open; only the non-modal desktop rail retargets.
+    if (!disposed && generation === focusGeneration && !isOpen.value && !isCompact.value)
     {
         launcherRef.value?.focus({ preventScroll: true });
-        return;
     }
-    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function')
-    {
-        launcherRef.value?.focus({ preventScroll: true });
-        return;
-    }
-    const handle = window.requestAnimationFrame(() =>
-    {
-        if (focusFrame === handle)
-        {
-            focusFrame = null;
-        }
-        if (isCurrent())
-        {
-            launcherRef.value?.focus({ preventScroll: true });
-        }
-    });
-    focusFrame = handle;
 };
 
 const openRail = (): void =>
@@ -606,10 +578,10 @@ const requestClose = async (): Promise<void> =>
         return;
     }
     invalidateFocusReturn();
-    pendingFocusIntent = focusGeneration;
     isOpen.value = false;
     if (!isCompact.value)
     {
+        pendingFocusIntent = focusGeneration;
         await focusLauncher();
     }
 };
@@ -622,14 +594,6 @@ const handleHostVisibility = async (visible: boolean): Promise<void> =>
         return;
     }
     await requestClose();
-};
-
-const handleClosed = async (): Promise<void> =>
-{
-    if (isCompact.value)
-    {
-        await focusLauncher();
-    }
 };
 
 watch(isCompact, invalidateFocusReturn, { flush: 'sync' });
