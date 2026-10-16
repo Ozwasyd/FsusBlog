@@ -85,6 +85,27 @@ function inspectJson(value, limits)
     visit(value, 0);
 }
 
+function admitFrontendVitestInputs(inputs)
+{
+    requireValue(inputs && typeof inputs === 'object' && !types.isProxy(inputs), 'plain own data inputs required');
+    requireValue([Object.prototype, null].includes(Object.getPrototypeOf(inputs)), 'plain own data inputs required');
+    const descriptors = Object.getOwnPropertyDescriptors(inputs);
+    requireValue(Reflect.ownKeys(descriptors).every((key) => typeof key === 'string'
+        && descriptors[key].enumerable && Object.hasOwn(descriptors[key], 'value')), 'plain own data inputs required');
+    const expectedInputs = Object.hasOwn(descriptors, 'expectedInputs') ? descriptors.expectedInputs.value : undefined;
+    requireValue(expectedInputs && !types.isProxy(expectedInputs), 'independent expected inputs required');
+    const limitsDescriptor = Object.getOwnPropertyDescriptor(expectedInputs, 'hostExpectedLimits');
+    requireValue(limitsDescriptor && Object.hasOwn(limitsDescriptor, 'value'), 'independent host limits required');
+    const limits = limitsDescriptor.value;
+    requireValue(limits && !types.isProxy(limits) && Object.values(Object.getOwnPropertyDescriptors(limits))
+        .every((item) => Object.hasOwn(item, 'value')), 'host limits must be data');
+    // Preserve the original seven-field budget and authority projection; caller metadata stays outside it.
+    const envelope = Object.fromEntries(['identity', 'attemptEligibility', 'replayPlan', 'manifest', 'report', 'evidence', 'expectedInputs']
+        .map((key) => [key, Object.hasOwn(descriptors, key) ? descriptors[key].value : undefined]));
+    inspectJson(envelope, limits);
+    return { envelope, limits };
+}
+
 function sealed(document, expectedDigest, label)
 {
     digest(expectedDigest, `external ${label} digest`);
@@ -190,17 +211,10 @@ function failureRecord(failure, testId, assertionId, context, artifacts)
  * Returns candidate-v1 only; registration, fingerprinting and qualification belong
  * to their existing owners. Missing native assertion/blocked evidence is an error.
  */
-export function adaptFrontendVitestSemanticOutcome({
-    identity, attemptEligibility, replayPlan, manifest, report, evidence, expectedInputs
-})
+export function adaptFrontendVitestSemanticOutcome(inputs)
 {
-    requireValue(expectedInputs && !types.isProxy(expectedInputs), 'independent expected inputs required');
-    const limitsDescriptor = Object.getOwnPropertyDescriptor(expectedInputs, 'hostExpectedLimits');
-    requireValue(limitsDescriptor && Object.hasOwn(limitsDescriptor, 'value'), 'independent host limits required');
-    const limits = limitsDescriptor.value;
-    requireValue(limits && !types.isProxy(limits) && Object.values(Object.getOwnPropertyDescriptors(limits))
-        .every((item) => Object.hasOwn(item, 'value')), 'host limits must be data');
-    inspectJson({ identity, attemptEligibility, replayPlan, manifest, report, evidence, expectedInputs }, limits);
+    const { envelope } = admitFrontendVitestInputs(inputs);
+    const { identity, attemptEligibility, replayPlan, manifest, report, evidence, expectedInputs } = envelope;
     exact(expectedInputs, ['identity', 'attemptEligibility', 'replayPlanDigest', 'manifestDigest',
         'reportDigest', 'evidenceDigest', 'hostExpectedLimits'], 'expected inputs');
     equal(identity, expectedInputs.identity, 'held identity');
@@ -399,22 +413,12 @@ export function adaptFrontendVitestSemanticOutcome({
 /** Verify a transported candidate by replaying its exact independently held inputs. */
 export function verifyFrontendVitestSemanticOutcomeCandidate(candidate, inputs)
 {
-    requireValue(inputs && typeof inputs === 'object' && !types.isProxy(inputs), 'independent inputs required');
-    const expectedInputsDescriptor = Object.getOwnPropertyDescriptor(inputs, 'expectedInputs');
-    requireValue(expectedInputsDescriptor && Object.hasOwn(expectedInputsDescriptor, 'value'), 'independent expected inputs must be data');
-    const expectedInputs = expectedInputsDescriptor.value;
-    requireValue(expectedInputs && !types.isProxy(expectedInputs), 'independent expected inputs required');
-    const limitsDescriptor = Object.getOwnPropertyDescriptor(expectedInputs, 'hostExpectedLimits');
-    requireValue(limitsDescriptor && Object.hasOwn(limitsDescriptor, 'value'), 'independent host limits required');
-    const limits = limitsDescriptor.value;
-    requireValue(limits && !types.isProxy(limits) && Object.values(Object.getOwnPropertyDescriptors(limits))
-        .every((item) => Object.hasOwn(item, 'value')), 'host limits must be data');
+    const { envelope, limits } = admitFrontendVitestInputs(inputs);
     // Admit transported data with the held budgets before legacy reflection or hashing.
-    inspectJson(inputs, limits);
     inspectJson(candidate, limits);
     validateProducerSemanticOutcomeCandidate(candidate, { expectedProducerId: frontendVitestOutcomeProducerId,
         expectedAuthorityId: authorityId });
-    const expected = adaptFrontendVitestSemanticOutcome(inputs);
+    const expected = adaptFrontendVitestSemanticOutcome(envelope);
     equal(candidate, expected, 'candidate exact bound outcome');
     return candidate;
 }

@@ -576,3 +576,77 @@ test('transported candidate JSON admission uses the original independently held 
     const oversized = { ...candidate, extra: 'x'.repeat(values.expectedInputs.hostExpectedLimits.maxStringBytes + 1) };
     assert.throws(() => verifyFrontendVitestSemanticOutcomeCandidate(oversized, values), /JSON byte budget exceeded/u);
 });
+
+test('direct adaptation rejects outer identity report and expected-input accessors before reading them', () =>
+{
+    const observations = [];
+    for (const key of ['identity', 'report', 'expectedInputs'])
+    {
+        const values = fixture();
+        const value = values[key];
+        let reads = 0;
+        Object.defineProperty(values, key, { enumerable: true, configurable: true, get()
+        {
+            reads += 1;
+            return value;
+        } });
+        let rejected = false;
+        try
+        {
+            adaptFrontendVitestSemanticOutcome(values);
+        }
+        catch
+        {
+            rejected = true;
+        }
+        observations.push({ key, reads, rejected });
+    }
+    assert.deepEqual(observations, ['identity', 'report', 'expectedInputs']
+        .map((key) => ({ key, reads: 0, rejected: true })));
+});
+
+test('direct adaptation refuses transparent and trapped outer proxies before reflection', () =>
+{
+    const observations = [];
+    for (const trapped of [false, true])
+    {
+        let traps = 0;
+        const handler = trapped ? Object.fromEntries(['getPrototypeOf', 'ownKeys', 'getOwnPropertyDescriptor', 'get']
+            .map((name) => [name, () =>
+            {
+                traps += 1;
+                throw new Error('direct input proxy trap must not execute');
+            }])) : {};
+        let rejected = false;
+        try
+        {
+            adaptFrontendVitestSemanticOutcome(new Proxy(fixture(), handler));
+        }
+        catch
+        {
+            rejected = true;
+        }
+        observations.push({ trapped, traps, rejected });
+    }
+    assert.deepEqual(observations, [false, true].map((trapped) => ({ trapped, traps: 0, rejected: true })));
+});
+
+test('direct adaptation refuses nonplain inherited and cyclic consumed inputs', () =>
+{
+    const nonplain = Object.assign(Object.create({ hostKind: 'unregistered' }), fixture());
+    assert.throws(() => adaptFrontendVitestSemanticOutcome(nonplain), /plain own data inputs/u);
+    assert.throws(() => adaptFrontendVitestSemanticOutcome(Object.create(fixture())), /plain own data inputs/u);
+    const cyclic = fixture();
+    cyclic.report.self = cyclic.report;
+    assert.throws(() => adaptFrontendVitestSemanticOutcome(cyclic), /cyclic input/u);
+});
+
+test('both entry points preserve the original seven-field envelope and held budget semantics', () =>
+{
+    const values = fixture();
+    const candidate = adaptFrontendVitestSemanticOutcome(values);
+    const withMetadata = { ...values, callerMetadata: 'x'.repeat(values.expectedInputs.hostExpectedLimits.maxStringBytes + 1) };
+    assert.deepEqual(adaptFrontendVitestSemanticOutcome(withMetadata), candidate);
+    assert.equal(verifyFrontendVitestSemanticOutcomeCandidate(candidate, withMetadata), candidate);
+    assert.equal(values.expectedInputs.hostExpectedLimits.maxStringBytes, 100000);
+});
