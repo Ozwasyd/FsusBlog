@@ -1,0 +1,13 @@
+const fs = require('node:fs');
+const cp = require('node:child_process');
+const ts = require('/workspace/FsusBlog/src/frontend/node_modules/typescript');
+const root = '/workspace/FsusBlog-intake4390';
+const file = 'src/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts';
+const source = fs.readFileSync(`${root}/${file}`, 'utf8');
+const donor = cp.execFileSync('git', ['-C',root,'show',`2d7be98f40f73e70e93d9af3b415c40b03fd6027:${file}`], {encoding:'utf8'});
+const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+const imports = parsed.statements.filter(ts.isImportDeclaration).map(node => node.moduleSpecifier.text);
+const functions = parsed.statements.filter(ts.isFunctionDeclaration).map(node=>({name:node.name.text,parameters:node.parameters.map(p=>p.name.getText(parsed)),statements:node.body.statements.map(s=>s.getText(parsed))}));
+const calls=[];function visit(node){if(ts.isCallExpression(node))calls.push(node.expression.getText(parsed));ts.forEachChild(node,visit);}visit(parsed);
+const report={kind:'source AST parse and exact blob comparison only; no product module import/evaluation/calls',typescript:ts.version,file,bytes:Buffer.byteLength(source),parseDiagnostics:parsed.parseDiagnostics.map(d=>({code:d.code,message:ts.flattenDiagnosticMessageText(d.messageText,'\n')})),imports,functions,calls,sourceByteEqualDonor:source===donor,statementCount:parsed.statements.length};
+console.log(JSON.stringify(report,null,2));process.exitCode=parsed.parseDiagnostics.length||source!==donor?1:0;

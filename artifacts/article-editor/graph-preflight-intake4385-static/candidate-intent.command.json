@@ -1,0 +1,12 @@
+{
+  "cwd": "/workspace/fsusblog-4366-intake",
+  "command": "node tools/governance/check-code-intent.mjs",
+  "setup": "source /workspace/.setup/activate.sh",
+  "envOverrides": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+  },
+  "started": "2026-10-15T10:50:36.418182+00:00",
+  "finished": "2026-10-15T10:50:46.470065+00:00",
+  "exit": 1
+}

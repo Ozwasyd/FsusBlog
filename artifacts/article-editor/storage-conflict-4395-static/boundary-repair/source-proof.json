@@ -1,0 +1,126 @@
+{
+  "repairParent": "13764fc16e482e7b18c07532f4de36a57e523dd0",
+  "sourceChanges": [
+    {
+      "path": "src/frontend/src/components/article-vault/VaultConflictList.vue",
+      "oldBlob": "0d95647a09baea57801ec6e1c98a44beae383937",
+      "newBlob": "65d746781b22d20a57db5dd9b3cfe985a3d620fc",
+      "sha256": "e0515f0f986d4a02aaf3b21113124a6e5881604529a8c091ae367947b684ae51"
+    },
+    {
+      "path": "src/frontend/src/fsusui/pagination.ts",
+      "oldBlob": null,
+      "newBlob": "e8bf28d76b1b35b720765f6c569d5cd292640cf8",
+      "sha256": "7ac60b08bd53115446aec40f207b59aaa0e1eaa5a75a97ca0a02d4c3d76cc8cd"
+    }
+  ],
+  "exactEditProof": "entire old Vue file transformed only by the three explicit import/tag edits equals entire new file; all props/events/script logic/styles remain exact",
+  "adapterExactBytes": "export { ElPagination as FsusUiPagination } from '@ozwasyd/element-plus';\n",
+  "otherFiveLeaves": [
+    {
+      "path": "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+      "blob": "1e1e52dcf04de0c5412af71c008b431c602fa2a1"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultStoredConflictReview.vue",
+      "blob": "364c9f2ffe8d66436aec5c577c71aca965f69dc4"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+      "blob": "709a071e3743b2add4a3dbf0bbd08d6febb74954"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+      "blob": "12e23d71fee3bb1ad67b3f885a57fbd3dc956254"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/storedConflictReviewPresentation.ts",
+      "blob": "81b2795503df22944bf22c4f078c447111b3d2bd"
+    }
+  ],
+  "unmodifiedFrozenInputs": true,
+  "runtime": "UNRUN; no product/helper imported or evaluated",
+  "generatedConfig": {
+    "compilerOptions": {
+      "composite": false,
+      "jsx": "preserve",
+      "jsxImportSource": "vue",
+      "paths": {
+        "@/*": [
+          "./src/*"
+        ],
+        "@wasm/*": [
+          "./wasm/web/*"
+        ],
+        "vue": [
+          "./node_modules/vue"
+        ],
+        "@vue/*": [
+          "./node_modules/@vue/*"
+        ],
+        "@ozwasyd/element-plus": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts"
+        ],
+        "element-plus": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/index.ts"
+        ],
+        "@ozwasyd/element-plus/icons-vue": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/icons-vue.ts"
+        ],
+        "@ozwasyd/element-plus/markdown-runtime": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/markdown-runtime.ts"
+        ],
+        "@ozwasyd/element-plus/motion": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/motion.ts"
+        ],
+        "@ozwasyd/element-plus/perception-challenge": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/perception-challenge.ts"
+        ],
+        "@ozwasyd/element-plus/render-pipeline": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/render-pipeline.ts"
+        ],
+        "@ozwasyd/element-plus/result": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/result.ts"
+        ],
+        "@ozwasyd/element-plus/theme": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/theme.ts"
+        ],
+        "@ozwasyd/element-plus/wasm": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/element-plus/wasm.ts"
+        ],
+        "@element-plus/icons-vue": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/icons-vue/src/index.ts"
+        ],
+        "@element-plus/icons-vue/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/icons-vue/src/*"
+        ],
+        "@element-plus/theme-chalk/src": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/theme-chalk/src"
+        ],
+        "@element-plus/theme-chalk/src/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/theme-chalk/src/*"
+        ],
+        "@element-plus/wasm": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/wasm/index.ts"
+        ],
+        "@element-plus/wasm/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/wasm/*"
+        ],
+        "@element-plus/*": [
+          "../../../FsusUI-ui973-storage-conflict-4395/vue/packages/*"
+        ]
+      },
+      "tsBuildInfoFile": "./tsconfig.fsusui-local.app.generated.tsbuildinfo",
+      "types": [
+        "vite/client",
+        "node"
+      ]
+    },
+    "extends": "../../tsconfig.app.json",
+    "files": [
+      "../../../../../FsusUI-ui973-storage-conflict-4395/vue/global.d.ts",
+      "../../../../../FsusUI-ui973-storage-conflict-4395/vue/typings/components.d.ts",
+      "../../../../../FsusUI-ui973-storage-conflict-4395/vue/typings/env.d.ts"
+    ]
+  }
+}

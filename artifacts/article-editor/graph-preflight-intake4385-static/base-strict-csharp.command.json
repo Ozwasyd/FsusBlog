@@ -1,0 +1,12 @@
+{
+  "cwd": "/workspace/fsusblog-4366-base",
+  "command": "node tools/dotnet/check-csharp-style.mjs --mode strict-full --file src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+  "setup": "source /workspace/.setup/activate.sh",
+  "envOverrides": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+  },
+  "started": "2026-10-15T10:50:41.014041+00:00",
+  "finished": "2026-10-15T10:50:47.574337+00:00",
+  "exit": 0
+}

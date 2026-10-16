@@ -1,0 +1,6 @@
+fix(backend): intake bounded graph preflight source
+
+Preserve the exact accepted #4366 production delta on reviewed #4385 without donor history or provider runtime activation.
+
+Refs: #2474
+

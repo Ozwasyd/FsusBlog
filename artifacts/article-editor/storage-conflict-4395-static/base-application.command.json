@@ -1,0 +1,14 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395-base",
+  "argv": [
+    "node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-ui973-storage-conflict-4395"
+  },
+  "exitCode": 2,
+  "timestamps": "not independently captured for this first command; no timestamp invented"
+}

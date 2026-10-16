@@ -1,0 +1,50 @@
+[
+  {
+    "label": "base",
+    "originalPath": "/workspace/fsusblog-4366-base/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+    "snapshotPath": "base-local-application-config.snapshot.json",
+    "sha256": "941353f3f02b1084aba7561514223a06b2f711745b6c5d3270a8ce7b28311008",
+    "publicAliases": {
+      "element-plus": {
+        "target": "/workspace/fsusblog-4366-ui973/vue/packages/element-plus/index.ts",
+        "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+        "uiGitBlob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687"
+      },
+      "@ozwasyd/element-plus": {
+        "target": "/workspace/fsusblog-4366-ui973/vue/packages/element-plus/index.ts",
+        "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+        "uiGitBlob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687"
+      }
+    },
+    "extends": "../../tsconfig.app.json",
+    "files": [
+      "../../../../../fsusblog-4366-ui973/vue/global.d.ts",
+      "../../../../../fsusblog-4366-ui973/vue/typings/components.d.ts",
+      "../../../../../fsusblog-4366-ui973/vue/typings/env.d.ts"
+    ]
+  },
+  {
+    "label": "candidate",
+    "originalPath": "/workspace/fsusblog-4366-intake/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+    "snapshotPath": "candidate-local-application-config.snapshot.json",
+    "sha256": "941353f3f02b1084aba7561514223a06b2f711745b6c5d3270a8ce7b28311008",
+    "publicAliases": {
+      "element-plus": {
+        "target": "/workspace/fsusblog-4366-ui973/vue/packages/element-plus/index.ts",
+        "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+        "uiGitBlob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687"
+      },
+      "@ozwasyd/element-plus": {
+        "target": "/workspace/fsusblog-4366-ui973/vue/packages/element-plus/index.ts",
+        "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+        "uiGitBlob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687"
+      }
+    },
+    "extends": "../../tsconfig.app.json",
+    "files": [
+      "../../../../../fsusblog-4366-ui973/vue/global.d.ts",
+      "../../../../../fsusblog-4366-ui973/vue/typings/components.d.ts",
+      "../../../../../fsusblog-4366-ui973/vue/typings/env.d.ts"
+    ]
+  }
+]

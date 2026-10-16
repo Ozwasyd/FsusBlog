@@ -1,0 +1,10 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395",
+  "argv": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--message-file",
+    "/workspace/evidence-storage-conflict-4395-boundary-repair/commit-message.txt"
+  ],
+  "exitCode": 0
+}

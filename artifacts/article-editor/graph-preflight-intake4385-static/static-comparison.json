@@ -1,0 +1,117 @@
+{
+  "kind": "ordinary static comparison, not qualification",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "sourceHead": "fa2057c6d3d6893ac7588b849669957d703aa8a8",
+  "checks": {
+    "build": {
+      "baseExit": 0,
+      "candidateExit": 0,
+      "baseLines": 676,
+      "candidateLines": 676,
+      "rawByteIdentical": false,
+      "baseSha256": "13cfde6320329edf09493a2a4c6f1fb59fc1c5f22dac4891b96dee09c17e97a6",
+      "candidateSha256": "e17c21f7a0342d89daeda9a6576ba9cccab97b950c532ee12b945a7d2e983e7a",
+      "warningsEach": 330,
+      "errorsEach": 0,
+      "emittedDiagnosticLinesEach": 660,
+      "uniqueDiagnosticsEach": 330,
+      "introduced": 0,
+      "removed": 0,
+      "comparison": "complete emitted diagnostic multiset and multiplicity equal after absolute checkout-root replacement only; complete rows in build-diagnostic-comparison.json and untouched raw logs"
+    },
+    "types": {
+      "baseExit": 2,
+      "candidateExit": 2,
+      "baseLines": 30,
+      "candidateLines": 30,
+      "rawByteIdentical": true,
+      "baseSha256": "5f62e5c80087ffd6a2812fedc20d3da83a365688a3534f7b29145e4341776d2f",
+      "candidateSha256": "5f62e5c80087ffd6a2812fedc20d3da83a365688a3534f7b29145e4341776d2f",
+      "diagnosticsEach": 29,
+      "BlogEach": 4,
+      "UIEach": 25,
+      "comparison": "whole raw output identical; no filtering, normalization, sorting or deduplication"
+    },
+    "full-csharp": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 552,
+      "candidateLines": 552,
+      "rawByteIdentical": true,
+      "baseSha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0",
+      "candidateSha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0"
+    },
+    "full-style": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 83667,
+      "candidateLines": 83667,
+      "rawByteIdentical": true,
+      "baseSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+      "candidateSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+    },
+    "boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 21,
+      "candidateLines": 21,
+      "rawByteIdentical": true,
+      "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    "binary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+      "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    "intent": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 3,
+      "candidateLines": 3,
+      "rawByteIdentical": true,
+      "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+    },
+    "lifecycle": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 7,
+      "candidateLines": 7,
+      "rawByteIdentical": true,
+      "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    "authoritative": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "baseLines": 41,
+      "candidateLines": 41,
+      "rawByteIdentical": true,
+      "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    },
+    "graph-factory": {
+      "baseExit": 0,
+      "candidateExit": 0,
+      "baseLines": 1,
+      "candidateLines": 1,
+      "rawByteIdentical": true,
+      "baseSha256": "23105fd675ff738da7ecf9f5f6ca7e13bc346bda87ca9db0ea2c112ebd8e4b2f",
+      "candidateSha256": "23105fd675ff738da7ecf9f5f6ca7e13bc346bda87ca9db0ea2c112ebd8e4b2f"
+    },
+    "strict-csharp": {
+      "baseExit": 0,
+      "candidateExit": 0,
+      "baseLines": 1,
+      "candidateLines": 1,
+      "rawByteIdentical": true,
+      "baseSha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580",
+      "candidateSha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+    }
+  }
+}

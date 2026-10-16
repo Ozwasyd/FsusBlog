@@ -1,0 +1,9 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395",
+  "argv": [
+    "node",
+    "/workspace/evidence-storage-conflict-4395-boundary-repair/parse-source.cjs"
+  ],
+  "exitCode": 0,
+  "scope": "seven source files; only source parsers loaded, never product/helper evaluation"
+}
