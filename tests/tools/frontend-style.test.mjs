@@ -1883,16 +1883,26 @@ test('script declaration owner rejects actual syntax and explicit-any violations
 
 test('script declaration owner refuses a real ignored ESLint input without an actual report', () =>
 {
-    withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+    for (const ignoredPhase of ['configuration', 'report'])
     {
-        // This negative fixture invokes real ESLint with an ignored input. It is not an accepted policy exemption.
-        writeFixture(fixtureRoot, 'eslint.config.mjs',
-            `import original from '${pathToFileURL(eslintConfig).href}';\n`
-            + 'export default [{ ignores: ["src/frontend/scripts/**/*.d.mts"] }, ...original];\n');
-        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
-        assert.notEqual(result.status, 0, output(result));
-        assert.match(output(result), /coverage|report/u);
-    });
+        withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+        {
+            // Both controls use real ESLint. The second keeps print-config valid
+            // and ignores only its actual JSON lint invocation, proving report coverage.
+            const ignore = ignoredPhase === 'report' ? 'process.argv.includes("--format")' : 'true';
+            writeFixture(fixtureRoot, 'eslint.config.mjs',
+                `import original from '${pathToFileURL(eslintConfig).href}';\n`
+                + `const ignored = ${ignore} ? [{ ignores: ["src/frontend/scripts/**/*.d.mts"] }] : [];\n`
+                + 'export default [...ignored, ...original];\n');
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /coverage|report/u);
+            if (ignoredPhase === 'report')
+            {
+                assert.match(output(result), /exactly one actual ESLint report/u);
+            }
+        });
+    }
 });
 
 test('script declaration owner refuses policy omission and an unbound Node configuration', () =>

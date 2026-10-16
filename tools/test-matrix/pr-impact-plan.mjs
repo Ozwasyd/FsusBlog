@@ -415,12 +415,25 @@ export function sourceRegressionArguments(entry)
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedBlame = [])
+export function isScriptDeclarationSource(file)
+{
+    return typeof file === 'string' && file.startsWith('src/frontend/scripts/')
+        && /\.d\.(?:mts|cts)$/u.test(file) && !/[\\\0\r\n]/u.test(file)
+        && file.split('/').every(part => part && part !== '.' && part !== '..');
+}
+
+export function sourceStageInspectionFiles(presentFiles, changedFiles)
+{
+    return [...new Set([...presentFiles, ...changedFiles.filter(isScriptDeclarationSource)])];
+}
+
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedBlame = [], checkedDeclarations = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
         && !(file === '.git-blame-ignore-revs' && checkedBlame.includes(file))
+        && !(isScriptDeclarationSource(file) && checkedDeclarations.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
@@ -446,7 +459,8 @@ export const sourceGovernanceDataInputs = Object.freeze([
     '.editorconfig', 'eslint.config.mjs', 'stylelint.config.mjs',
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
-    'tools/frontend/style-toolchain/stylelint.config.mjs'
+    'tools/frontend/style-toolchain/stylelint.config.mjs',
+    'src/frontend/tsconfig.node.json'
 ]);
 
 export function assertSourceShellSyntaxInspection(input)
@@ -523,7 +537,8 @@ export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
 
 export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRoot)
 {
-    const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file));
+    const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file)
+        || isScriptDeclarationSource(file));
     if (stage !== 'source-integration')
     {
         return [{ options: ['--mode', 'strict-full'], files: applicable }];
@@ -543,6 +558,6 @@ export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRo
         { options: ['--mode', 'source-diff', '--base', baseCommit],
             files: applicable.filter(file => /\.(?:mjs|js|cjs)$/u.test(file)) },
         { options: ['--mode', 'strict-full'],
-            files: applicable.filter(file => /\.(?:ts|tsx|vue|css|scss)$/u.test(file)) }
+            files: applicable.filter(file => /\.(?:ts|tsx|vue|css|scss)$/u.test(file) || isScriptDeclarationSource(file)) }
     ];
 }
