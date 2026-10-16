@@ -1,0 +1,30 @@
+artifacts/article-editor/intake4384-static/donor.patch:22: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:32: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:34: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:42: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:46: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:147: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:151: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:165: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:237: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:245: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:265: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:273: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:281: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:302: trailing whitespace.
++ 
+artifacts/article-editor/intake4384-static/donor.patch:308: trailing whitespace.
++ 

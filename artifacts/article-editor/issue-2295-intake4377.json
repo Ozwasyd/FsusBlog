@@ -1,0 +1,273 @@
+{
+    "kind": "ordinary-source-intake-wip",
+    "qualificationReceipt": false,
+    "status": "DRAFT / WIP; independent review pending",
+    "issue": 2295,
+    "originalLeafIssue": 1895,
+    "basePr": 4385,
+    "baseHead": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "donorPr": 4377,
+    "donorHead": "bb6a4476a15fcba3a3f477c386fd12a4705c06db",
+    "donorTrueBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+    "productionPaths": [
+        "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue"
+    ],
+    "productionPreimage": "8393e632287260a6ce9220a0b42f821e9779e696",
+    "productionPostimage": "4716a11b72c148be96db83270a87f2715c24ced6",
+    "conflicts": "No textual conflict: receiving and donor preimages are exact same regular blob. Accepted final postimage preserved verbatim, including csp-safe and all non-row behavior. No fabricated adaptation.",
+    "scope": "Only accepted revision-row ordinary control delta, plus own ordinary WIP/static raw delivery. No donor history/WIP or sibling intake composed; no other task branch modified. No business security/API/permission/real-host binding, authority refresh, cancellation/settlement semantic change or frozen metadata change.",
+    "ui981": {
+        "path": "/workspace/intake4377/FsusUI",
+        "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+        "status": "",
+        "dirtyDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "publicPackage": {
+            "path": "/workspace/intake4377/FsusUI/vue/packages/element-plus/package.json",
+            "name": "element-plus",
+            "version": "1.5.1",
+            "sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c"
+        },
+        "themeProductDistExists": false,
+        "themeBuiltByTask": false,
+        "renderedAcceptance": "HOLD/UNRUN",
+        "dependencies": "All ten original installed dependency locations copied to isolated worktree with original relative symlinks; no dependency or source edits."
+    },
+    "designContext": {
+        "owner": "FsusBlog product composition; FsusUI public control states/geometry/keyboard/focus/motion",
+        "surface": "task",
+        "sourceDecision": "bounded-composition",
+        "skills": [
+            ".agents/skills/fsusblog-design-conformance/SKILL.md",
+            "FsusUI/.agents/skills/fsusui-design-conformance/SKILL.md"
+        ],
+        "authorityDigestFile": "artifacts/article-editor/intake4377-static/authority-and-input-hashes.json",
+        "formalClassificationReceipt": "HOLD/UNRUN; ordinary source notes do not refresh frozen classification",
+        "acceptanceReceipt": "HOLD/UNRUN"
+    },
+    "themeDependency": {
+        "status": "BLOCKED / WIP: product theme CSS has not been built",
+        "expectedSource": "Actual UI981 includes reviewed Tabs/Input/Button source fixes",
+        "productDistExists": false,
+        "buildRun": false,
+        "consumerAcceptance": "UNVERIFIED / HOLD. Neither old published CSS nor source Sass is accepted as product CSS or consumer rendered evidence. CSS cascade, selected/hover/focus/disabled contrast, keyboard/touch/viewport/zoom and reduced-motion behavior require actual built product CSS and independent acceptance after HOLD is lifted.",
+        "aliasBoundary": "Original source resolver and complete compiler aliases identify real UI981. The existing build alias requires rebuilt theme assets; no build invocation, alias fallback, old CSS substitution or Sass-as-product substitution was made."
+    },
+    "staticComparison": {
+        "meaning": "Complete original static outputs and exits; byte comparison has no filtering, normalization, deduplication, rule suppression or ceiling. Original failures remain failures.",
+        "checks": [
+            {
+                "name": "strict",
+                "command": [
+                    "node",
+                    "tools/frontend/check-frontend-style.mjs",
+                    "--mode",
+                    "strict-full",
+                    "--file",
+                    "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue"
+                ],
+                "baseExit": 0,
+                "candidateExit": 0,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+                "candidateSha256": "ad804f48ff95445ecec8bf660c042f38ecb9ca56bcbf9f878c1463277ae87577",
+                "bytesEach": 68,
+                "linesEach": 1,
+                "diagnosticsEach": null
+            },
+            {
+                "name": "types",
+                "command": [
+                    "node",
+                    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+                    "--application"
+                ],
+                "baseExit": 2,
+                "candidateExit": 2,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f",
+                "candidateSha256": "9e3b56f561eb055ba087a76d78bc7a9861b2295e72db74fd8428ff9f6dd4be2f",
+                "bytesEach": 4992,
+                "linesEach": 30,
+                "diagnosticsEach": 29
+            },
+            {
+                "name": "node-types",
+                "command": [
+                    "node",
+                    "src/frontend/node_modules/typescript/bin/tsc",
+                    "--noEmit",
+                    "-p",
+                    "src/frontend/tsconfig.node.json"
+                ],
+                "baseExit": 2,
+                "candidateExit": 2,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e",
+                "candidateSha256": "5d6a08e8f7e2d68009ca5ffb562cafd87699735a781860d4e3629a548904cf6e",
+                "bytesEach": 236,
+                "linesEach": 1,
+                "diagnosticsEach": 1
+            },
+            {
+                "name": "full-style",
+                "command": [
+                    "node",
+                    "tools/frontend/check-frontend-style.mjs",
+                    "--mode",
+                    "full"
+                ],
+                "baseExit": 1,
+                "candidateExit": 1,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+                "candidateSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+                "bytesEach": 11861610,
+                "linesEach": 83667,
+                "diagnosticsEach": null
+            },
+            {
+                "name": "boundary",
+                "command": [
+                    "node",
+                    "tests/frontend/checks/static/check-fsusui-boundary.mjs"
+                ],
+                "baseExit": 1,
+                "candidateExit": 1,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+                "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+                "bytesEach": 2805,
+                "linesEach": 21,
+                "diagnosticsEach": null
+            },
+            {
+                "name": "binary",
+                "command": [
+                    "node",
+                    "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+                ],
+                "baseExit": 1,
+                "candidateExit": 1,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+                "candidateSha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32",
+                "bytesEach": 866,
+                "linesEach": 7,
+                "diagnosticsEach": null
+            },
+            {
+                "name": "intent",
+                "command": [
+                    "node",
+                    "tools/governance/check-code-intent.mjs"
+                ],
+                "baseExit": 1,
+                "candidateExit": 1,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+                "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+                "bytesEach": 353,
+                "linesEach": 3,
+                "diagnosticsEach": null
+            },
+            {
+                "name": "lifecycle",
+                "command": [
+                    "node",
+                    "tools/docs/generate-document-lifecycle.mjs",
+                    "--check"
+                ],
+                "baseExit": 1,
+                "candidateExit": 1,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+                "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+                "bytesEach": 762,
+                "linesEach": 7,
+                "diagnosticsEach": null
+            },
+            {
+                "name": "authoritative",
+                "command": [
+                    "node",
+                    "tools/docs/check-authoritative-development-docs.mjs"
+                ],
+                "baseExit": 1,
+                "candidateExit": 1,
+                "wholeRawBytesEqual": true,
+                "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+                "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+                "bytesEach": 6771,
+                "linesEach": 41,
+                "diagnosticsEach": null
+            }
+        ],
+        "effectiveVueRootFilesEach": 771,
+        "effectiveVueConfigurationRawEqual": true,
+        "generatedConfigurationRawEqual": true,
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "erasableSyntaxOnly": true,
+        "publicAliases": {
+            "element-plus": [
+                "../../../FsusUI/vue/packages/element-plus/index.ts"
+            ],
+            "@ozwasyd/element-plus": [
+                "../../../FsusUI/vue/packages/element-plus/index.ts"
+            ]
+        },
+        "additionalCommands": [
+            "node src/frontend/node_modules/vue-tsc/bin/vue-tsc.js --showConfig -p src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+            "node src/frontend/node_modules/typescript/bin/tsc --showConfig -p src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json"
+        ],
+        "configSnapshotMeaning": "Original compiler/tooling output, retained with original cwd and relative path meaning. Snapshots are not executable configurations at delivery locations. TypeScript-only showConfig has 581 root files; the actual Vue compiler showConfig has 771. Neither project include scope nor references was reduced."
+    },
+    "deliveryMap": "artifacts/article-editor/intake4377-static/delivery-map.json",
+    "rawHistoricalAccessNote": "Four inherited 11,861,610-byte historical style-log paths remain sparse-excluded in the isolated local checkout after connector transport size failure. Their original remote base-tree entries are preserved verbatim; no checked source root or original static configuration is excluded. Fresh current base/candidate full logs are complete and delivered as ordered raw parts. Transport failure was not an authorization denial; no credentials or security settings changed.",
+    "checksScope": "Original static compiler/linter/source-boundary/governance/document check entry points only. No replacement harness, mock, product import/evaluation, test help/list/discovery or rejected runtime retry. Original toolchain installed with unchanged lock using npm ci --ignore-scripts --no-audit --no-fund; two original ignored declaration files copied unchanged, not generated.",
+    "HOLD_UNRUN": [
+        "runtime",
+        "tests",
+        "testcollection",
+        "test-list",
+        "list",
+        "discovery",
+        "productimport",
+        "product/helper/parser module import/evaluation/calls",
+        "moduleexecution",
+        "setup",
+        "mount",
+        "browser",
+        "native",
+        "worker",
+        "kernel",
+        "DB",
+        "network-security",
+        "privacy",
+        "receipt generation",
+        "race",
+        "backuprestore",
+        "IME",
+        "frozen authority/baseline/fixture/catalog/producer changes",
+        "qualification",
+        "product/demo/package builds",
+        "Ready",
+        "merge",
+        "close",
+        "package publication"
+    ],
+    "remainingWip": [
+        "Independent finite review of this receiving increment and exact delivered head",
+        "Build actual product theme CSS only when separately permitted, then actual consumer rendered/keyboard/theme acceptance after HOLD lifted",
+        "Retained full application 29 FAIL, node TS7016 FAIL, full style FAIL 83667 lines, boundaries/code-intent/documentation failures; no waiver",
+        "Existing 4336 aggregate FAIL and all inherited resource-loan/worker/recovery/disposed-restore-ACK and qualification gaps unchanged"
+    ],
+    "rollback": "Omit or revert only this intake production delta and own ordinary WIP/raw evidence to exact4385. No live state or data was changed.",
+    "deliveryRepairs": [
+        "Evidence-only whitespace failures retained as raw reversible bytes. Patch context and diagnostic whitespace/blank EOF use explicit base64 codec and raw digest, never edit or suppress original output.",
+        "Initial range failure from missing local ancestry retained. Exact original ancestors imported with Git SHA verification; original recovered range check passes without policy/baseline/credential/shallow/replacement changes.",
+        "All mapped raw files explicitly staged despite generic *.log ignore rules; final commit blob readback validates every delivery."
+    ]
+}

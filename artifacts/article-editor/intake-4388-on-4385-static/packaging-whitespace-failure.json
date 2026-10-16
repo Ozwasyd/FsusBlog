@@ -1,0 +1,13 @@
+{
+  "kind": "ordinary packaging check failure retained, not source checker success",
+  "argv": [
+    "git",
+    "diff",
+    "--check",
+    "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "HEAD"
+  ],
+  "exit": 2,
+  "rawOutputUtf8": "artifacts/article-editor/intake-4388-on-4385-static/production.patch:69: trailing whitespace.\n+ \n",
+  "reason": "Raw Git patch has a context-only blank line containing one space. Encode the optional raw patch reversibly; no source or checker diagnostic changed."
+}

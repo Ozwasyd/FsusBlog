@@ -1,0 +1,7 @@
+[document-lifecycle] docs/architecture/article-property-value-boundary.md has invalid owner unclassified
+[document-lifecycle] docs/architecture/article-property-value-boundary.md has invalid status unclassified
+[document-lifecycle] docs/architecture/article-property-value-boundary.md requires explicit document metadata
+[document-lifecycle] docs/architecture/authoring-workspace-snapshot-boundary.md has invalid owner unclassified
+[document-lifecycle] docs/architecture/authoring-workspace-snapshot-boundary.md has invalid status unclassified
+[document-lifecycle] docs/architecture/authoring-workspace-snapshot-boundary.md requires explicit document metadata
+[document-lifecycle] document inventory is stale; run node tools/docs/generate-document-lifecycle.mjs

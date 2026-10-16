@@ -1,0 +1,676 @@
+{
+    "kind": "ordinary-wip-static-evidence-delivery",
+    "qualification": false,
+    "files": [
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/application-effective-config.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/application-effective-config.command.json",
+            "bytes": 597,
+            "sha256": "3b3bde013b8b7314063594fb373129f21c84c66928de37a87cdf10549c9dc2dd",
+            "gitBlob": "600ca53e9472430b36c551f7c640fdec8fc9865f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/application-effective-config.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/application-effective-config.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "gitBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/application-effective-config.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/application-effective-config.log",
+            "bytes": 47678,
+            "sha256": "f064dc11beda78a31cfd0709dd8e407d77f157cc2a2250641cfea88d0b1e75e7",
+            "gitBlob": "93a55aa92691899e38d12dc576c9c53341f9c1e7",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/application-generated-config.snapshot.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/application-generated-config.snapshot.json",
+            "bytes": 2802,
+            "sha256": "42f5ed0fd77b32813318af4e25dfe46afb303380180771a3d4e250c6d52cbe39",
+            "gitBlob": "8c18c16b5e0ebd47a5f86d70ac42a3627321027f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/application.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/application.command.json",
+            "bytes": 527,
+            "sha256": "903db9308aaabb3d3e5eab682dee51e5575a55fb77ac027bfd844338279913f1",
+            "gitBlob": "e415aa93b999c6b0af6f7fe0f78b2a2e6c2d2036",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/application.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/application.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "gitBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/application.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/application.log",
+            "bytes": 5371,
+            "sha256": "83aee6484c1c3ba773b0bdb9a643b9d6db39b6500d63fe83a9cf5383e4fbd981",
+            "gitBlob": "49175c6f8f523da6135523227a75ef108a696c4a",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/authoritative-docs.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/authoritative-docs.command.json",
+            "bytes": 509,
+            "sha256": "59cbc3690fad1e9add5b892ebce7cc3f3d146c115723de3c44be04f94b0a7944",
+            "gitBlob": "203ef31112405c99e5def62585d26b78e3970430",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/authoritative-docs.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/authoritative-docs.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/authoritative-docs.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/authoritative-docs.log",
+            "bytes": 6771,
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "gitBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/boundary.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/boundary.command.json",
+            "bytes": 502,
+            "sha256": "4ccbd4d9eb6f7ddbb00939c01f06b412dad094b0c303ce88ea6a2436da1fa579",
+            "gitBlob": "becb7e78176212ccd57c4a0606efc4ebd11c9fcf",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/boundary.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/boundary.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/boundary.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/boundary.log",
+            "bytes": 2805,
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "gitBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/code-intent.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/code-intent.command.json",
+            "bytes": 489,
+            "sha256": "c9cbe87e55785b5bea4cbe4292da9f53a586ce0a082277c3734aa2d9eade4cdb",
+            "gitBlob": "10fe200f09702c5c5f03a7ef80bb8944a38df380",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/code-intent.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/code-intent.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/code-intent.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/code-intent.log",
+            "bytes": 353,
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "gitBlob": "193370d74f86868232a6d59cb2c41fb0545cb621",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/full-lint.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/full-lint.command.json",
+            "bytes": 485,
+            "sha256": "3dd3094b8c90310722312e5042effacf88e01b7e8a69aa84e4b54005f328d6a8",
+            "gitBlob": "c99a0f5b0b540bc0b1ab9b32e76f4aa2da53d218",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/full-lint.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/full-lint.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/full-lint.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/full-lint.log",
+            "bytes": 11861919,
+            "sha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+            "gitBlob": "f1953153ff7eae0a933c9478494adddd5fe1346b",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/lifecycle.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/lifecycle.command.json",
+            "bytes": 510,
+            "sha256": "23e1d8430c5e2020e88647707150792f32f27d26fd7c670ae1db4f266bf772e8",
+            "gitBlob": "5bd2895f0ab45361e902fdc5b2cccdf136d88124",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/lifecycle.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/lifecycle.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/lifecycle.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/lifecycle.log",
+            "bytes": 762,
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "gitBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/node.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/base/node.command.json",
+            "bytes": 528,
+            "sha256": "8d00cccfb8f88ceadcf199f78fc49bfc3cd3d8007bc566af5ae5f595964ccd1a",
+            "gitBlob": "7e43b3e202f561900cd1e895df03c5f91de63dc2",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/node.exit",
+            "sourcePath": "/tmp/intake4379-evidence/base/node.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "gitBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/base/node.log",
+            "sourcePath": "/tmp/intake4379-evidence/base/node.log",
+            "bytes": 223,
+            "sha256": "aec542b63aef746e7b2140f15dee5242b1207ef338d29627b28354249daec825",
+            "gitBlob": "9d3dbb36966e8a8d9a9276795bac4289e0f5cdd3",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/application-effective-config.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/application-effective-config.command.json",
+            "bytes": 597,
+            "sha256": "444ed4158c34c96de3567e461254d43223449868ab18447d67d8078e8190cb34",
+            "gitBlob": "233f1be18ad73a3e4f2026fd6fe1489fc4f7fe87",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/application-effective-config.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/application-effective-config.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "gitBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/application-effective-config.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/application-effective-config.log",
+            "bytes": 47678,
+            "sha256": "f064dc11beda78a31cfd0709dd8e407d77f157cc2a2250641cfea88d0b1e75e7",
+            "gitBlob": "93a55aa92691899e38d12dc576c9c53341f9c1e7",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/application-generated-config.snapshot.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/application-generated-config.snapshot.json",
+            "bytes": 2802,
+            "sha256": "42f5ed0fd77b32813318af4e25dfe46afb303380180771a3d4e250c6d52cbe39",
+            "gitBlob": "8c18c16b5e0ebd47a5f86d70ac42a3627321027f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/application.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/application.command.json",
+            "bytes": 527,
+            "sha256": "7c13cde931222c1089e3a0fd4329a35cc0166453851e251c9c7b43093e224638",
+            "gitBlob": "29f99a48e4a1ec9e37623b1ba4ad7bdcd094c7ad",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/application.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/application.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "gitBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/application.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/application.log",
+            "bytes": 5371,
+            "sha256": "83aee6484c1c3ba773b0bdb9a643b9d6db39b6500d63fe83a9cf5383e4fbd981",
+            "gitBlob": "49175c6f8f523da6135523227a75ef108a696c4a",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/authoritative-docs.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/authoritative-docs.command.json",
+            "bytes": 509,
+            "sha256": "8bdca8ab8cdcb920c7e8b1ab27e0351cc28ff2f80bd5c8a888055f168cabd38b",
+            "gitBlob": "ec63c4d948caa84c61b0d50e3eb5ac49b0c01508",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/authoritative-docs.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/authoritative-docs.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/authoritative-docs.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/authoritative-docs.log",
+            "bytes": 6771,
+            "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+            "gitBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/boundary.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/boundary.command.json",
+            "bytes": 502,
+            "sha256": "54e70ea52754ad446e7aaaae40a0c81e98d1d2a7d1caf6104da695f24962e826",
+            "gitBlob": "89f1333a24efbe01bb1f6fc421ec0c203657eb25",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/boundary.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/boundary.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/boundary.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/boundary.log",
+            "bytes": 2805,
+            "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+            "gitBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/code-intent.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/code-intent.command.json",
+            "bytes": 489,
+            "sha256": "e78d55921194069a3a80a996bc3a54320e1d3f766a644e7fba8f5f1b700b597d",
+            "gitBlob": "4408a3a30d158c6f18db3abe8daa6c54b2d61811",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/code-intent.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/code-intent.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/code-intent.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/code-intent.log",
+            "bytes": 353,
+            "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+            "gitBlob": "193370d74f86868232a6d59cb2c41fb0545cb621",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/full-lint.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/full-lint.command.json",
+            "bytes": 485,
+            "sha256": "dec08c0e921b0beb39feda3b7fa1520f2b79cd676b385d1b983267347af0a368",
+            "gitBlob": "2c286eba52bc658169206695105273fd78297ee1",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/full-lint.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/full-lint.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/full-lint.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/full-lint.log",
+            "bytes": 11861919,
+            "sha256": "1a372b6010e60347004476cc6c7ab3ec8c65688767afc9e2378ab5958cb8117d",
+            "gitBlob": "f1953153ff7eae0a933c9478494adddd5fe1346b",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/lifecycle.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/lifecycle.command.json",
+            "bytes": 510,
+            "sha256": "4b2ea5f0747248decace62e0b366dabaa309040b29ea54d746044686f0417506",
+            "gitBlob": "6848e65b853035e3a8232ab9350513f04f6d4796",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/lifecycle.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/lifecycle.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/lifecycle.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/lifecycle.log",
+            "bytes": 762,
+            "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+            "gitBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/node.command.json",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/node.command.json",
+            "bytes": 528,
+            "sha256": "b14d7a81df2eda17e3f77524786f566330e8587c45344d257042f8b0d66c43d8",
+            "gitBlob": "c3133de2633071aef40ea6d099f715e526a7d2ac",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/node.exit",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/node.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "gitBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/candidate/node.log",
+            "sourcePath": "/tmp/intake4379-evidence/candidate/node.log",
+            "bytes": 223,
+            "sha256": "aec542b63aef746e7b2140f15dee5242b1207ef338d29627b28354249daec825",
+            "gitBlob": "9d3dbb36966e8a8d9a9276795bac4289e0f5cdd3",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/comparison.json",
+            "sourcePath": "/tmp/intake4379-evidence/comparison.json",
+            "bytes": 4235,
+            "sha256": "6597d9fc186e0cd99de8d58b4ff10834113760678ff4cf092d473a301f0cf7a8",
+            "gitBlob": "04ceb3752ab3bdb86d747b021855af993f7b35cb",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/accepted-leaf.patch.txt.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/accepted-leaf.patch.txt.json",
+            "bytes": 3205,
+            "sha256": "30d5e261fb563e9bd8f4048b1c6cccc7b0b7306260959c81b63bdaf6038a171c",
+            "gitBlob": "d8aa0add741c2dea0100ea7f0453a81730bbf02c",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/apply-leaf.exit",
+            "sourcePath": "/tmp/intake4379-evidence/setup/apply-leaf.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "gitBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/apply-leaf.log",
+            "sourcePath": "/tmp/intake4379-evidence/setup/apply-leaf.log",
+            "bytes": 88,
+            "sha256": "ae6f2a295fbd755a2b6b595989a0037725400b7304dda16440635d3f41492778",
+            "gitBlob": "1d080f3e2ead866582984ce280f6e6c7cf493ae0",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/auto-imports.d.ts.snapshot.txt",
+            "sourcePath": "/tmp/intake4379-evidence/setup/auto-imports.d.ts.snapshot.txt",
+            "bytes": 193,
+            "sha256": "194ee3276321bf899a3206b1ff852cf99cc86412bfc90ac9abbd6ad7911e2dac",
+            "gitBlob": "9d2400790b5d553397882e0e846037db0d4c5134",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/candidate-SecuritySimulator.vue.snapshot.txt",
+            "sourcePath": "/tmp/intake4379-evidence/setup/candidate-SecuritySimulator.vue.snapshot.txt",
+            "bytes": 17642,
+            "sha256": "a0114c911f547b67eb6bb59c349b1aba615993f44167029e42d1624b370a85f1",
+            "gitBlob": "a4d37fdfa6572540b5fccf16428795cb1e69b512",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/components.d.ts.snapshot.txt",
+            "sourcePath": "/tmp/intake4379-evidence/setup/components.d.ts.snapshot.txt",
+            "bytes": 24410,
+            "sha256": "71eaeff83ada6d5e6505b4861215370ac10d0736244f6e3d252344e3b37a2f76",
+            "gitBlob": "7f46f448e40ddea7bedfcfdd732afa98ca2663aa",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/connector-read-attempts.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/connector-read-attempts.json",
+            "bytes": 1693,
+            "sha256": "e2babf42033de9d87cf6e46b7ec353ac7b0d0a45fa22267c23b84fc68e9fa987",
+            "gitBlob": "4292d30bd01f6bbad50e357f7d2c86bc62446de2",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-final.exit",
+            "sourcePath": "/tmp/intake4379-evidence/setup/delivery-whitespace-final.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "gitBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-final.log",
+            "sourcePath": "/tmp/intake4379-evidence/setup/delivery-whitespace-final.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.exit",
+            "sourcePath": "/tmp/intake4379-evidence/setup/delivery-whitespace-first-attempt.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "gitBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-first-attempt.log.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/delivery-whitespace-first-attempt.log.json",
+            "bytes": 1122,
+            "sha256": "65d4ac883aabf4edd471b2b457d6f2b590a111ac79eb0e4d7a32fcf89a1c4735",
+            "gitBlob": "fec775b750c6984787bef7b03f42cf28162eb6b8",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-second-attempt.exit",
+            "sourcePath": "/tmp/intake4379-evidence/setup/delivery-whitespace-second-attempt.exit",
+            "bytes": 2,
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+            "gitBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/delivery-whitespace-second-attempt.log.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/delivery-whitespace-second-attempt.log.json",
+            "bytes": 1193,
+            "sha256": "41738599f883ac6141519548034debc5c56bede9cdf214d1be5b595ff3774de5",
+            "gitBlob": "0c50687f52f95558dda3bebae1bc002eb722996d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/donor-base-SecuritySimulator.vue.snapshot.txt",
+            "sourcePath": "/tmp/intake4379-evidence/setup/donor-base-SecuritySimulator.vue.snapshot.txt",
+            "bytes": 17286,
+            "sha256": "0588baa3057f58196e4e996193ed4a2704a9161b3c06ffca820786b68d2d0182",
+            "gitBlob": "237ab7f2792e878185c66b2eac8f62253b160603",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/donor-compare.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/donor-compare.json",
+            "bytes": 18061,
+            "sha256": "0f584adc3a16c5b934665c5bf053d464a8ba2ec67b847a8f6a33237f6c661954",
+            "gitBlob": "d3e99c39fc9cbd1744ece9e919a4c3bda071845b",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/donor-head-SecuritySimulator.vue.snapshot.txt",
+            "sourcePath": "/tmp/intake4379-evidence/setup/donor-head-SecuritySimulator.vue.snapshot.txt",
+            "bytes": 17642,
+            "sha256": "a0114c911f547b67eb6bb59c349b1aba615993f44167029e42d1624b370a85f1",
+            "gitBlob": "a4d37fdfa6572540b5fccf16428795cb1e69b512",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/git-range-final.exit",
+            "sourcePath": "/tmp/intake4379-evidence/setup/git-range-final.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "gitBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/git-range-final.log",
+            "sourcePath": "/tmp/intake4379-evidence/setup/git-range-final.log",
+            "bytes": 81,
+            "sha256": "732d2fdb56ad44bbac7eceb4ba95a3a9befebec530d1ce61174a2fe3d43b1cfe",
+            "gitBlob": "273b7619b63dfc3b1cbc562e57efd992c8449cfe",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/git-range-first.exit",
+            "sourcePath": "/tmp/intake4379-evidence/setup/git-range-first.exit",
+            "bytes": 2,
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+            "gitBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/git-range-first.log",
+            "sourcePath": "/tmp/intake4379-evidence/setup/git-range-first.log",
+            "bytes": 1853,
+            "sha256": "3acee4ba06f887959acde8f7c456605cd3b6f92da4f3c6cd5a36ebd884aa7f52",
+            "gitBlob": "0e8666c3aea47186dba8dc84e188cf6681ba638b",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/inherited-commit-metadata.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/inherited-commit-metadata.json",
+            "bytes": 8957,
+            "sha256": "4360296d040a400f0c91769a270667422af29d97b0bc611d6698840e00d086da",
+            "gitBlob": "6dd44f8fb63b70a69d462a8d43215a6c8213aa51",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/input-identities.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/input-identities.json",
+            "bytes": 4252,
+            "sha256": "3f29d0aba4ae21d32f9b9f4ea45be7ea0e02746f71f2b5baad4cfd2b4ea44711",
+            "gitBlob": "01b5b16c751c726b9457bfdb07547af207935ad0",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/receiving-base-SecuritySimulator.vue.snapshot.txt",
+            "sourcePath": "/tmp/intake4379-evidence/setup/receiving-base-SecuritySimulator.vue.snapshot.txt",
+            "bytes": 17286,
+            "sha256": "0588baa3057f58196e4e996193ed4a2704a9161b3c06ffca820786b68d2d0182",
+            "gitBlob": "237ab7f2792e878185c66b2eac8f62253b160603",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/receiving-base-vs-donor-base.diff.txt",
+            "sourcePath": "/tmp/intake4379-evidence/setup/receiving-base-vs-donor-base.diff.txt",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/receiving-production.diff.txt.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/receiving-production.diff.txt.json",
+            "bytes": 3252,
+            "sha256": "f0ad14d74792cf5989433ca038fe81ec70400b3a6fcaf915931e4e0757b237e0",
+            "gitBlob": "6bbe4a463b5d145e31054054701ad4a5bc4b24cd",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/remote-inputs.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/remote-inputs.json",
+            "bytes": 263075,
+            "sha256": "b04f62d83054dd30f56126da014aebcb041ec727a3a8be325d5ebc91eeb8ddf2",
+            "gitBlob": "3ffa614e53b7154f378f8d0db8d703e685edf066",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/source-integrity.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/source-integrity.json",
+            "bytes": 815,
+            "sha256": "bc97d466e97135613a7dda2a2031792229829d5023c31bf73f9b604d3ae1bbff",
+            "gitBlob": "35b0318c4e360a9fb7cb7cc737da11289816013f",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/sparse-historical-log.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/sparse-historical-log.json",
+            "bytes": 837,
+            "sha256": "ecb6fe88db7556020651d679e8fe28f0a1a413a026ed15193baf59bf8408239a",
+            "gitBlob": "38c9cbe0e2be4d1d48bb2928a031b3ea78259a35",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/style-install.exit",
+            "sourcePath": "/tmp/intake4379-evidence/setup/style-install.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "gitBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/style-install.log",
+            "sourcePath": "/tmp/intake4379-evidence/setup/style-install.log",
+            "bytes": 234,
+            "sha256": "58798ab5e5f9054048aeb24afe60efc5e80202387339d241bfadf480d636b5e9",
+            "gitBlob": "974be6a0bee711a9aa4affae3d8886a4fe1eb4d1",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/tool-versions.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/tool-versions.json",
+            "bytes": 106,
+            "sha256": "84671c3c875178f542969c55da9710f5634f9a3c826605eeeda80e04e0a95bf8",
+            "gitBlob": "294a55fdc3d6a58f6050bec0f371bc519309a483",
+            "mode": "100644"
+        },
+        {
+            "path": "artifacts/frontend-controls/simulator-preset-intake-static/setup/ui-dependencies.json",
+            "sourcePath": "/tmp/intake4379-evidence/setup/ui-dependencies.json",
+            "bytes": 1767,
+            "sha256": "45607c80106fbf680b52ff0412268776acb0cce53cb2e51a7b12a6eadc12e570",
+            "gitBlob": "d1b2b4298d7d7170373ef0e52976ee15d7ed7a9d",
+            "mode": "100644"
+        }
+    ],
+    "notes": [
+        "Original complete raw command output, exit and command metadata are copied only after each command finished.",
+        "No historic log is regenerated, no frozen baseline/receipt/authority is changed, and failures are not converted to passes.",
+        "Configuration snapshots retain their original cwd and path meaning; they are evidence, not replacement checker configurations.",
+        "Two derived source-diff texts use exact JSON envelopes because valid Git context blank lines contain meaningful trailing spaces. The first delivery whitespace failure is preserved; original full compiler/linter logs remain unmodified raw regular files."
+    ]
+}

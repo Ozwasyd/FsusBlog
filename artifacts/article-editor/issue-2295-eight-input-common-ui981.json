@@ -1,0 +1,242 @@
+{
+    "kind": "ordinary eight-input source combination WIP; no formal classification, acceptance or qualification authority",
+    "state": "DRAFT / WIP; independent receiving SOURCE review required",
+    "base": {
+        "pr": 4385,
+        "sha": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "branch": "codex/issue-2295-history-preview-reveal-checkpoint-20261015"
+    },
+    "branch": "codex/issue-2295-eight-input-common-ui981-20261016",
+    "candidateBinding": "Containing draft commit; exact 741 postimage blobs/modes and eight production paths bound by source-manifest.json, input-union source tree 85f723c9919f1195e7fef7eaac2a5ada9b7c584f",
+    "inputs": [
+        {
+            "pr": 4409,
+            "head": "1c9b6ed9533c09c4a9b692dd998d6f21a0c06c09",
+            "paths": 66
+        },
+        {
+            "pr": 4411,
+            "head": "90b0f1bee407b0d08947b3ddb7d835bc20b83570",
+            "paths": 100
+        },
+        {
+            "pr": 4413,
+            "head": "9caae973dc9796e2ba7e82a4bb2ee76496365e27",
+            "paths": 77
+        },
+        {
+            "pr": 4414,
+            "head": "3da8ed3bbeda41e84309659373e4b52be4d506db",
+            "paths": 74
+        },
+        {
+            "pr": 4415,
+            "head": "10eafa66ee637053ce9c5e3c28c5a677037e19e8",
+            "paths": 81
+        },
+        {
+            "pr": 4417,
+            "head": "d806320823219172c506a8f49fbcde4bd5844a95",
+            "paths": 77
+        },
+        {
+            "pr": 4418,
+            "head": "4d4866394de57e4ca961aef0cb663934f14ddc36",
+            "paths": 86
+        },
+        {
+            "pr": 4419,
+            "head": "d37175a869b375aff06e9761afdcf82c2168bbe9",
+            "paths": 180
+        }
+    ],
+    "composition": {
+        "totalInputPaths": 741,
+        "productionPaths": [
+            "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+            "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
+            "src/frontend/src/components/ui/LocaleSelector.vue",
+            "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+            "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
+            "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
+            "src/frontend/src/views/admin/security/SecuritySimulator.vue",
+            "src/frontend/src/components/admin/SecurityDashboardWorkbench.vue"
+        ],
+        "productionNumstat": "4\t12\tsrc/frontend/src/components/admin/SecurityDashboardWorkbench.vue\n26\t24\tsrc/frontend/src/components/admin/article/ArticleRevisionPanel.vue\n21\t29\tsrc/frontend/src/components/admin/article/ArticleWriteEditor.vue\n122\t91\tsrc/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue\n42\t44\tsrc/frontend/src/components/article/ArticleCommentTreeNode.vue\n5\t25\tsrc/frontend/src/components/article/ArticleCommentsVirtualList.vue\n156\t79\tsrc/frontend/src/components/ui/LocaleSelector.vue\n20\t6\tsrc/frontend/src/views/admin/security/SecuritySimulator.vue\n",
+        "ordinaryOriginalEvidencePaths": 733,
+        "overlap": 0,
+        "donorHistoryReplayed": false,
+        "preimageBlobModeAndPostimage": "All 741 exact Git entries checked; all regular 100644, additions/modifications only; all local physical bytes match SHA256; no conflicts or adaptations.",
+        "baseEntriesOutsideUnionUnchanged": 7956
+    },
+    "excluded4420": {
+        "head": "4207252d2a15c0029f163b771a44cbfd01560c4d",
+        "productionPaths": 25,
+        "overlapWithSelectedProduction": 0,
+        "disposition": "Separate three-input union excluded; raw file-list scope and duplicate lookup retained."
+    },
+    "scope": "Only accepted source deltas for editor surface buttons, comment tree controls, locale Button/ref composition, outline launcher/render controls/public refs, revision rows, root comment expansion, security simulator presets and workbench refresh. No additional product logic, API/business security/permission/host/transport/cancellation/settlement ownership change.",
+    "actualUi": {
+        "repository": "Ozwasyd/FsusUI",
+        "root": "/workspace/FsusUI",
+        "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+        "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+        "trackedStatus": "clean detached",
+        "sourceAlias": "Both public package aliases resolve actual vue/packages/element-plus/index.ts through original producer. No UI tracked source changes.",
+        "context": "input-identity.json"
+    },
+    "productCss": {
+        "taskBuilt": false,
+        "status": "WIP / UNVERIFIED / consumer acceptance HOLD",
+        "existingIgnoredOutputs": "Two pre-existing Oct7 CSS files exist; hashes recorded only as environment facts. Neither is proven UI981 output. Source alias/static transform/old CSS/source Sass is not CSS or UX acceptance."
+    },
+    "currentStatic": {
+        "resolver": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "rawBytesEqual": true,
+            "baseLines": 1,
+            "candidateLines": 1
+        },
+        "application": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "rawBytesEqual": true,
+            "baseLines": 30,
+            "candidateLines": 30
+        },
+        "effective-config": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "rawBytesEqual": true,
+            "baseLines": 898,
+            "candidateLines": 898
+        },
+        "node-types": {
+            "baseExit": 2,
+            "candidateExit": 2,
+            "rawBytesEqual": true,
+            "baseLines": 1,
+            "candidateLines": 1
+        },
+        "full-style": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 2,
+            "candidateLines": 2
+        },
+        "strict-full-style": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 2,
+            "candidateLines": 2
+        },
+        "strict-owned": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 2,
+            "candidateLines": 2
+        },
+        "boundary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 21,
+            "candidateLines": 21
+        },
+        "binary": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 7,
+            "candidateLines": 7
+        },
+        "intent": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 3,
+            "candidateLines": 3
+        },
+        "lifecycle": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 7,
+            "candidateLines": 7
+        },
+        "authoritative": {
+            "baseExit": 1,
+            "candidateExit": 1,
+            "rawBytesEqual": true,
+            "baseLines": 41,
+            "candidateLines": 41
+        },
+        "source-whitespace": {
+            "baseExit": 0,
+            "candidateExit": 0,
+            "rawBytesEqual": true,
+            "baseLines": 0,
+            "candidateLines": 0
+        },
+        "aggregate-whitespace": {
+            "baseExit": 0,
+            "candidateExit": 2,
+            "rawBytesEqual": false,
+            "baseLines": 0,
+            "candidateLines": 112
+        }
+    },
+    "staticInterpretation": {
+        "application": "FAIL2 / 29 diagnostics (Blog4/UI25), complete raw bytes identical. Original full 771 root files, strict/noUnusedLocals/noUnusedParameters/erasableSyntaxOnly all true, same actual aliases and exact effective/generated config.",
+        "nodeTypes": "FAIL2 original TS7016, byte-identical.",
+        "lint": "Original full, strict-full and supplemental strict-owned all FAIL1 due absent configured ESLint/Stylelint. No install/link/setup or alternate tooling. Cannot claim lint diagnostic coverage or compare to historical 83667-line output.",
+        "boundary": "Original FsusUI FAIL1/20 and binary FAIL1/6, byte-identical.",
+        "intentDocs": "Intent FAIL1/2 errors across5747; lifecycle FAIL1/7 lines; authoritative docs FAIL1/41 lines; byte-identical.",
+        "compilerOnly": "Base and candidate all8 SFC parse/script AST/template/style transforms PASS0; generated product modules never evaluated; no product CSS emitted.",
+        "whitespace": "Production source PASS0; exact741path aggregate FAIL2 retained from raw patch/diagnostic spaces. No trimming/config/attribute waiver. Whole delivery may additionally name copied raw diagnostics; it stays FAIL."
+    },
+    "historicalEvidence": {
+        "preservation": "All733 original evidence additions copied byte-for-byte/mode-for-mode, together with every unaffected base entry. Original WIPs/exclusions describe their original scope and are not rewritten into current acceptance.",
+        "originalFailures": "All historical missing-tool/setup/install/metadata/ancestry/whitespace/fullapp/lint/boundary/docs results remain failures bound to original input/environment; no archived helper or setup/install script executed. Original4336 aggregateFAIL remains.",
+        "unavailableTempLogs": "Original donor session temp logs remain unavailable where recorded, including4388/R23-p2,4378,4392/r22,4384/r20,4379,4372/fsusblog-r07. No fabricated reconstruction or current-run substitution.",
+        "largeBodyIndependentReadGap": "Original4415 records four11,861,610-byte inherited style bodies with sparse/transport limitations;4419 records inherited sparse large-body materialization gaps. Those historical independent-read gaps remain UNVERIFIED, including any inherited base gap. Current fetch/local SHA/blob/byte integrity does not establish independent reading or resolve old retrieval limits.",
+        "ordinaryIntegrityOnly": "Source manifest SHA checks establish copied local byte identity only, not independent SOURCE review, UX or qualification."
+    },
+    "designContext": {
+        "applied": "Both repository design Skills/current authorities and public Button/consumer contracts; exact digests in input-identity.json.",
+        "owner": "FsusBlog product composition; FsusUI reusable control/state/focus/geometry.",
+        "surfaces": "task, reading, public-editorial/menu overlay as inherited by each input.",
+        "receipts": "No formal frozen classification/adjudication/acceptance/qualification/authority created or refreshed.",
+        "renderedEvidence": "None, HOLD; states/themes/locales/focus/touch/zoom/overflow/reduced-motion/cleanup remain unverified."
+    },
+    "holds": "All runtime/tests/help/collection/list/discovery/setup/product/helper/parser-module behavior execution/mount/browser/native/worker/kernel/DB/network-security/privacy/receipt/catalog/fixtures/race/backuprestore/IME/frozen/qualification HOLD/UNRUN. No product build/install/bootstrap/substitute behavioral harness/credential/security permission changes or rejected-action restart.",
+    "remainingWip": [
+        "Independent receiving review of this exact eight-input union",
+        "All current and inherited failed static checks, no waiver",
+        "Genuine UI981 built theme CSS and independent consumer/UX evidence after separate authorization",
+        "Historical absent raw logs and large-body independent-read gaps",
+        "All inherited real host/native loan/worker shutdown/recovery/disposed restoration ACK gaps; original issue acceptance incomplete"
+    ],
+    "delivery": "Authorized private Ozwasyd/FsusBlog draft only; [skip ci] task commits preserve execution HOLD. No Ready/merge/close/release/package or authority refresh. Missing/skipped remote checks are not passes.",
+    "rollback": "Omit/revert exact741input union and own ordinary evidence/WIP to named base. Original input branches untouched; no live state changed.",
+    "evidenceRoot": "artifacts/article-editor/eight-input-common-ui981-static",
+    "rawMap": "artifacts/article-editor/eight-input-common-ui981-static/delivery-map.json",
+    "publication": {
+        "pr": 4422,
+        "url": "https://github.com/Ozwasyd/FsusBlog/pull/4422",
+        "private": true,
+        "draft": true,
+        "initialVerifiedRemoteHead": "3ddfd5776fb05fe3ac3641475550b809ff20726d",
+        "initialTrueParent": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "messageTitleRangeProspectiveAndActualRestGateExit": 0,
+        "initialChangedFiles": 842,
+        "handoffFollowup": "This follow-up adds only ordinary metadata/publication proof and this WIP; all production and original input entries remain unchanged. Current final SHA is the containing PR head.",
+        "concurrent4421": "Separate graph/snapshot/storage conflict combination; excluded.",
+        "remoteChecks": "Initial status/check-runs preserved as observations; pending/skipped/absent are never pass.",
+        "uploads": "Initial ordinary git push and draft creation both exit0; no rejection or bypass."
+    }
+}

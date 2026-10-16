@@ -1,0 +1,13 @@
+{
+  "kind": "ordinary metadata snapshot packaging check failure retained",
+  "argv": [
+    "git",
+    "diff",
+    "--check",
+    "HEAD^",
+    "HEAD"
+  ],
+  "exit": 2,
+  "rawOutputUtf8": "artifacts/article-editor/intake-4388-on-4385-static/post-draft/corrected-draft-body.md.txt:131: new blank line at EOF.\n",
+  "fix": "Preserve exact PR body snapshot with reversible base64 encoding, including trailing blank line; no raw check output or source modified."
+}

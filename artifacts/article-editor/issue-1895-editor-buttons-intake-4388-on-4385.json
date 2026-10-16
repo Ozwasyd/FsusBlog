@@ -1,0 +1,156 @@
+{
+  "kind": "ordinary draft source intake WIP; no qualification/classification/acceptance authority",
+  "basePR": 4385,
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donorPR": 4388,
+  "donorHead": "205d8e9aea106a4331ed3bb0f85f528b5c1f6240",
+  "donorBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+  "productionCommit": "ad0bfaa1053f69d1a9ffaf38edb643f7596af045",
+  "productionParent": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "productionPaths": [
+    "src/frontend/src/components/admin/article/ArticleWriteEditor.vue"
+  ],
+  "productionBlob": "414013097a93543222043d59e3458bcf86880d65",
+  "scope": "Only exact #4388 own production delta (21 additions, 29 removals), no donor ancestry. Three ordinary public Button consumers, sole Button import, deletion of copied Button state/disabled kernel, product margin only. No other leaf, task branch or FsusUI tracked source modified.",
+  "conflictAdaptation": "Actual shared base preimage equals donor preimage a23a956c4f0f5b75234de52e9e0bcd52f8ce6acd. git apply --check succeeded without conflicts; exact reviewed postimage retained. No artificial conflict edits.",
+  "semanticPreservation": "Script byte-identical to actual base except sole public Button import. requestSurface sets existing sessionSurface, closes source compare and emits existing surface-request, including re-selection. toggleSourceCompare unchanged. All existing ARIA/data/disabled/click/native-type bindings preserved; no changed cancellation/settlement, authority, API, business security, permission or real host bindings. No whole segmented-control cutover.",
+  "uiInput": {
+    "PR": 981,
+    "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+    "root": "/workspace/FsusUI-intake-4388-ui981",
+    "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+    "state": "clean detached; status porcelain empty before and after static checks",
+    "environment": {
+      "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+      "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-intake-4388-ui981"
+    },
+    "contains": "Reviewed Tabs/Input/Button repairs in exact UI981 ancestry; no package-version inference. Existing dependency links reused, no install, theme/Wasm build or publication.",
+    "identity": "artifacts/article-editor/intake-4388-on-4385-static/input-identity.json"
+  },
+  "themeDependency": {
+    "status": "WIP BLOCKED / UNVERIFIED",
+    "productThemeCSSBuilt": false,
+    "expectedMissingOutputs": [
+      "vue/packages/theme-chalk/dist/index.css",
+      "vue/packages/theme-chalk/dist/el-fsus-theme.css"
+    ],
+    "consumerAcceptance": "Old installed/package CSS and source Sass cannot serve as consumer acceptance. Real local source alias/typecheck is not built theme CSS or rendered acceptance. Need separately authorized build and independent consumer inspection; none executed here."
+  },
+  "ordinaryDesignContext": "Existing task profile, prescribed public Button usage, local control surface. Preserve light/dark, disabled/pressed/re-selection/focus/keyboard/touch/zoom/overflow/reduced-motion and locale coverage as UNVERIFIED. Skill/contract source hashes are inspection context only. No frozen classification, receipts, authority or qualification refreshed.",
+  "dedup": "artifacts/article-editor/intake-4388-on-4385-static/dedup-search.json",
+  "static": {
+    "full-style": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseLines": 2,
+      "candidateLines": 2,
+      "baseSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+      "candidateSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    "strict-full-style": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseLines": 2,
+      "candidateLines": 2,
+      "baseSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+      "candidateSha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+    },
+    "application-types": {
+      "baseExit": 2,
+      "candidateExit": 2,
+      "rawByteIdentical": true,
+      "baseLines": 30,
+      "candidateLines": 30,
+      "baseSha256": "99b9abd98d45ce0c4967e34620139b0ba6e927c9212fb2694433d4e6ce611697",
+      "candidateSha256": "99b9abd98d45ce0c4967e34620139b0ba6e927c9212fb2694433d4e6ce611697",
+      "baseDiagnostics": 29,
+      "candidateDiagnostics": 29,
+      "newDiagnostics": 0
+    },
+    "boundary": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseLines": 21,
+      "candidateLines": 21,
+      "baseSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff",
+      "candidateSha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    "code-intent": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseLines": 3,
+      "candidateLines": 3,
+      "baseSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f",
+      "candidateSha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+    },
+    "lifecycle": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseLines": 7,
+      "candidateLines": 7,
+      "baseSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a",
+      "candidateSha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    "authoritative": {
+      "baseExit": 1,
+      "candidateExit": 1,
+      "rawByteIdentical": true,
+      "baseLines": 41,
+      "candidateLines": 41,
+      "baseSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403",
+      "candidateSha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    },
+    "configs": {
+      "byteIdentical": true,
+      "meaning": "Original producer output snapshots at original cwd; not executable configs in delivery directory. No includes/compiler/rules/baseline relaxation."
+    }
+  },
+  "rawEvidenceDelivery": "artifacts/article-editor/intake-4388-on-4385-static/delivery-map.json",
+  "retainedHistoricalEvidence": {
+    "base4358And4385": "All inherited tracked source, WIPs, logs/config snapshots and failures unchanged. Existing raw evidence has not been regenerated or rewritten. Blob inventory in inherited-evidence-preservation.json.",
+    "donor4388": "Original recorded failures retained in donor-4388-snapshot.json; historical /tmp/R23-p2 raw logs unavailable in this fresh environment, not reconstructed or substituted. New current original-entry logs kept separately.",
+    "originalFailures": "Donor full style missing tools FAIL1, donor application 29 FAIL2; inherited #4385 full style 83667-line FAIL1, boundary20 FAIL1, codeIntent2 FAIL1, lifecycle7/authoritative41 FAIL1 and #4336 aggregate FAIL all remain failures."
+  },
+  "holds": [
+    "runtime",
+    "tests",
+    "testcollection",
+    "list",
+    "discovery",
+    "productimport",
+    "moduleexecution",
+    "setup",
+    "mount",
+    "browser",
+    "native",
+    "worker",
+    "kernel",
+    "DB",
+    "network-security",
+    "privacy",
+    "receipt",
+    "race",
+    "backuprestore",
+    "IME",
+    "frozen",
+    "qualification"
+  ],
+  "executionLimits": "All existing listed HOLDs remain HOLD/UNRUN. No substitute harness, mocks as authority, denied-task restart, security/credential change, helper/product module evaluation, host binding, frozen baseline/fixture/catalog/receipt/authority refresh, browser/native/worker/kernel/DB execution. Original source-only checkers and static compiler only. The command recorder only invokes original complete entry points and preserves bytes; it is not an alternate acceptance harness.",
+  "remainingWIP": [
+    "Independent review of this exact intake/base/head and ordinary source diff.",
+    "All current failed static checks remain unresolved; lint cannot execute because its configured binaries are missing. No lowering/suppression/baseline change.",
+    "Product CSS dependency and all real consumer/runtime/UX/native/security/privacy/qualification acceptance remain open.",
+    "Existing actual host/coordinator/resource-loan/worker shutdown/recovery/disposed restore ACK gaps and original issue acceptance remain open."
+  ],
+  "deliveryRestrictions": "Draft only. No Ready, merge, close or package/publication. [skip ci] on task commits preserves explicit execution HOLD; skipped/pending/missing remote checks are not passes.",
+  "rollback": "Revert only this task production commit and its new ordinary WIP/static evidence to exact #4385; no live state changed.",
+  "locallyTestedProductionCommit": "ad0bfaa1053f69d1a9ffaf38edb643f7596af045",
+  "publishedProductionCommit": "17e52bdc2f7d2f5d6bef86dd5b51553e2a8f36a0",
+  "publishedProductionTree": "70dcfd9a1cbd3eca40d254ad401d07dff150357b",
+  "deliveryIdentity": "Authorized connector created the exact locally tested production tree, sole parent #4385. Original source-proof.json retains actual local test commit. Only commit metadata differs."
+}

@@ -1,0 +1,124 @@
+{
+    "schema": "fsusblog.frontend-style-policy.v1",
+    "baseline": "config/development/frontend-style-baseline.json",
+    "ruleRegistry": "config/development/frontend-style-rule-registry.json",
+    "eslintConfig": "eslint.config.mjs",
+    "stylelintConfig": "stylelint.config.mjs",
+    "configurationSources": [
+        ".editorconfig",
+        "eslint.config.mjs",
+        "stylelint.config.mjs",
+        "src/frontend/eslint.config.mjs",
+        "src/frontend/stylelint.config.mjs",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "src/frontend/scripts/fsusui-root.mjs",
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/frontend/style-toolchain/eslint.config.mjs",
+        "tools/frontend/style-toolchain/stylelint.config.mjs"
+    ],
+    "toolchain": {
+        "package": "tools/frontend/style-toolchain/package.json",
+        "lock": "tools/frontend/style-toolchain/package-lock.json",
+        "eslint": "tools/frontend/style-toolchain/node_modules/.bin/eslint",
+        "stylelint": "tools/frontend/style-toolchain/node_modules/.bin/stylelint"
+    },
+    "modes": {
+        "changedDefaultBase": "HEAD^",
+        "full": "baseline-aware",
+        "strictFull": "all-violations"
+    },
+    "eslintSourceSets": [
+        {
+            "root": "src/frontend/src",
+            "extensions": [
+                ".ts",
+                ".tsx",
+                ".vue",
+                ".js",
+                ".mjs"
+            ]
+        },
+        {
+            "root": "src/frontend/wasm/web",
+            "extensions": [
+                ".ts",
+                ".tsx",
+                ".js",
+                ".mjs"
+            ]
+        },
+        {
+            "root": "src/frontend/scripts",
+            "extensions": [
+                ".js",
+                ".mjs",
+                ".cjs"
+            ]
+        },
+        {
+            "root": "src/frontend/public",
+            "extensions": [
+                ".js",
+                ".mjs"
+            ]
+        },
+        {
+            "root": "tools",
+            "extensions": [
+                ".mjs"
+            ]
+        },
+        {
+            "root": "tests",
+            "extensions": [
+                ".mjs"
+            ]
+        }
+    ],
+    "stylelintSourceSets": [
+        {
+            "root": "src/frontend/src",
+            "extensions": [
+                ".vue",
+                ".css",
+                ".scss"
+            ]
+        }
+    ],
+    "excludedPaths": [
+        "artifacts/",
+        "src/frontend/coverage/",
+        "src/frontend/dist/",
+        "src/frontend/node_modules/",
+        "src/frontend/public/wasm/",
+        "src/frontend/src/generated/",
+        "src/frontend/wasm/build/",
+        "src/frontend/wasm/dist/",
+        "src/frontend/wasm/stage/",
+        "tools/frontend/style-toolchain/node_modules/",
+        "tests/**/Fixtures/",
+        "tests/**/fixtures/",
+        "src/frontend/public/generated/"
+    ],
+    "excludedSuffixes": [
+        ".min.js",
+        ".min.css"
+    ],
+    "authority": {
+        "formatter": "eslint-stylelint-ast",
+        "forbiddenAuthoritativePackages": [
+            "prettier"
+        ],
+        "indentSize": 4,
+        "braceStyle": "allman",
+        "semicolons": "always",
+        "cssPropertyOrder": "semantic-preserve"
+    },
+    "specializedGovernance": {
+        "package": "src/frontend/package.json",
+        "scriptPrefix": "check:",
+        "count": 214,
+        "idsSha256": "061461f5181da9956ad6fa486d3b1c49ea3eb00bfd1b7148295208cab069da89",
+        "definitionsSha256": "0f71504fafed77f5661cf16758056d9e523736436a238e2aa72f099b5cb7daba"
+    }
+}

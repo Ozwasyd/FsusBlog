@@ -1,0 +1,45 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { createRequire } = require('node:module');
+const requireTool = createRequire('/workspace/FsusBlog/src/frontend/package.json');
+const compiler = requireTool('@vue/compiler-sfc');
+const manifest = JSON.parse(fs.readFileSync('/tmp/fsusblog-eight981/source-manifest.json', 'utf8'));
+let failed = false;
+for (const relative of manifest.productionPaths)
+{
+    const filename = path.join('/workspace/FsusBlog', relative);
+    const source = fs.readFileSync(filename, 'utf8');
+    const { descriptor, errors } = compiler.parse(source, { filename });
+    const diagnostics = errors.map(String);
+    let script;
+    try
+    {
+        script = compiler.compileScript(descriptor, { id: 'source-only' });
+    }
+    catch (error)
+    {
+        diagnostics.push(String(error));
+    }
+    if (descriptor.template)
+    {
+        diagnostics.push(...compiler.compileTemplate({
+            source: descriptor.template.content,
+            filename,
+            id: 'source-only',
+            compilerOptions: { bindingMetadata: script?.bindings }
+        }).errors.map(String));
+    }
+    for (const style of descriptor.styles)
+    {
+        diagnostics.push(...compiler.compileStyle({
+            source: style.content,
+            filename,
+            id: 'data-v-source-only',
+            scoped: style.scoped
+        }).errors.map(String));
+    }
+    console.log(JSON.stringify({ path: relative, diagnostics, styles: descriptor.styles.length, scriptAstStatements: script?.scriptSetupAst?.length ?? null }));
+    failed ||= diagnostics.length > 0;
+}
+console.log('Compiler-only SFC/script AST/template/scoped-style transformation; generated product code is never loaded or evaluated. No product CSS output emitted.');
+process.exitCode = failed ? 1 : 0;

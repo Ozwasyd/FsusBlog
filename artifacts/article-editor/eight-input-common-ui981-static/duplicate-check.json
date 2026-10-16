@@ -1,0 +1,464 @@
+{
+    "kind": "read-only duplicate candidate lookup",
+    "checkedAt": "2026-10-16",
+    "repository": "Ozwasyd/FsusBlog",
+    "queries": [
+        {
+            "query": "eight",
+            "state": "all",
+            "limit": 30,
+            "result": [
+                {
+                    "number": 4049,
+                    "title": "fix(docs): preserve escaped generated facts in current outputs",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4049"
+                },
+                {
+                    "number": 3899,
+                    "title": "test(backend): repair original fixture compilation with preserved controls",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3899"
+                },
+                {
+                    "number": 4128,
+                    "title": "fix(governance): classify singular access enums precisely",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4128"
+                },
+                {
+                    "number": 4075,
+                    "title": "fix(test): integrate compiled owner discovery and canonical source admission",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4075"
+                },
+                {
+                    "number": 3877,
+                    "title": "fix(governance): bind OpenAPI admission and matrix fixture identities",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3877"
+                },
+                {
+                    "number": 4340,
+                    "title": "feat(contracts): prepare non-executing embed refresh plans",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4340"
+                },
+                {
+                    "number": 3906,
+                    "title": "fix(test): bind comment model temporal observations to current contracts",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3906"
+                },
+                {
+                    "number": 3861,
+                    "title": "fix(governance): bind current fact-section acceptance prerequisites",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3861"
+                },
+                {
+                    "number": 4078,
+                    "title": "fix(test): verify the actual typed AEDS route census",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4078"
+                },
+                {
+                    "number": 3868,
+                    "title": "fix(governance): verify retirement controls and refresh fact sections",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3868"
+                },
+                {
+                    "number": 3848,
+                    "title": "fix(backend): bind command approval fixture to canonical authority",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3848"
+                },
+                {
+                    "number": 3890,
+                    "title": "fix(test): integrate fixture declarations with canonical governance prerequisites",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3890"
+                },
+                {
+                    "number": 3825,
+                    "title": "fix(test): declare existing public-content fixture creation",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3825"
+                },
+                {
+                    "number": 4085,
+                    "title": "fix(test): correct finite registration parsing and metadata dispositions",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4085"
+                },
+                {
+                    "number": 4060,
+                    "title": "feat(memory): provide transient buffer and notification source contracts",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4060"
+                },
+                {
+                    "number": 3826,
+                    "title": "fix(test): bind scratch controls and verified prerequisites",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3826"
+                },
+                {
+                    "number": 4144,
+                    "title": "fix(governance): compose generated facts with current document structure",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4144"
+                },
+                {
+                    "number": 3819,
+                    "title": "fix(governance): bind exact document and API acceptance authorities",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3819"
+                },
+                {
+                    "number": 3851,
+                    "title": "fix(governance): integrate int32 consolidation and verification prerequisites",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3851"
+                },
+                {
+                    "number": 4007,
+                    "title": "feat(frontend): consume unified writing aid runtime owners",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4007"
+                },
+                {
+                    "number": 3859,
+                    "title": "fix(governance): preserve canonical ownership and current producer roster",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3859"
+                },
+                {
+                    "number": 3838,
+                    "title": "fix(governance): bind canonical scheduler assets and current producer authority",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3838"
+                },
+                {
+                    "number": 3811,
+                    "title": "test(docs): isolate migration archive ownership refusals",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3811"
+                },
+                {
+                    "number": 4239,
+                    "title": "feat(frontend): expose finite original image producer completion",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4239"
+                },
+                {
+                    "number": 4035,
+                    "title": "fix(governance): classify singular access enums precisely",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4035"
+                },
+                {
+                    "number": 3895,
+                    "title": "build(test): verify revocation compiled read paths",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3895"
+                },
+                {
+                    "number": 3845,
+                    "title": "feat(backend): establish memory inventory and portable admission contracts",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3845"
+                },
+                {
+                    "number": 4266,
+                    "title": "feat(backend): read bounded property batches in original native snapshot",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4266"
+                },
+                {
+                    "number": 4191,
+                    "title": "WIP: preserve authoring filter registration source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4191"
+                },
+                {
+                    "number": 3930,
+                    "title": "fix(governance): integrate canonical fixture style with the int32 chain",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3930"
+                }
+            ]
+        },
+        {
+            "query": "741",
+            "state": "all",
+            "limit": 30,
+            "result": []
+        },
+        {
+            "query": "4409 4419",
+            "state": "all",
+            "limit": 30,
+            "result": [
+                {
+                    "number": 4419,
+                    "title": "feat(admin): admit security refresh button source",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4419"
+                },
+                {
+                    "number": 4409,
+                    "title": "fix(frontend): intake editor surface buttons on shared base",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4409"
+                }
+            ]
+        },
+        {
+            "query": "1c9b6ed9533c09c4a9b692dd998d6f21a0c06c09",
+            "state": "all",
+            "limit": 30,
+            "result": [
+                {
+                    "number": 4409,
+                    "title": "fix(frontend): intake editor surface buttons on shared base",
+                    "url": "https://github.com/Ozwasyd/FsusBlog/pull/4409"
+                }
+            ]
+        }
+    ],
+    "openCandidates": [
+        {
+            "number": 4412,
+            "title": "feat(frontend): admit privacy presentation source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4412"
+        },
+        {
+            "number": 4420,
+            "title": "feat(frontend): compose reviewed editor and code copy sources",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4420"
+        },
+        {
+            "number": 4407,
+            "title": "feat(frontend): admit storage conflict presentation source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4407"
+        },
+        {
+            "number": 4419,
+            "title": "feat(admin): admit security refresh button source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4419"
+        },
+        {
+            "number": 4418,
+            "title": "feat(frontend): admit simulator preset controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4418"
+        },
+        {
+            "number": 4417,
+            "title": "feat(frontend): admit comment expansion control source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4417"
+        },
+        {
+            "number": 4416,
+            "title": "feat(frontend): compose writing aids compare and control sources",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4416"
+        },
+        {
+            "number": 4415,
+            "title": "feat(frontend): admit revision row controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4415"
+        },
+        {
+            "number": 4413,
+            "title": "feat(frontend): admit reviewed locale button source [skip ci]",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4413"
+        },
+        {
+            "number": 4414,
+            "title": "refactor(frontend): admit reviewed outline controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4414"
+        },
+        {
+            "number": 4408,
+            "title": "feat(frontend): admit reviewed snapshot ratio source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4408"
+        },
+        {
+            "number": 4409,
+            "title": "fix(frontend): intake editor surface buttons on shared base",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4409"
+        },
+        {
+            "number": 4411,
+            "title": "feat(frontend): admit comment tree controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4411"
+        },
+        {
+            "number": 4410,
+            "title": "fix(backend): intake bounded graph preflight source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4410"
+        },
+        {
+            "number": 4406,
+            "title": "fix(frontend): admit code copy controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4406"
+        },
+        {
+            "number": 4405,
+            "title": "feat(frontend): compose metadata vault export and capture sources",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4405"
+        },
+        {
+            "number": 4401,
+            "title": "feat(frontend): admit advanced filter controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4401"
+        },
+        {
+            "number": 4404,
+            "title": "feat(frontend): admit security dashboard controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4404"
+        },
+        {
+            "number": 4403,
+            "title": "feat(frontend): admit toc controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4403"
+        },
+        {
+            "number": 4402,
+            "title": "feat(frontend): admit relation graph controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4402"
+        },
+        {
+            "number": 4400,
+            "title": "feat(frontend): admit ops health controls source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4400"
+        },
+        {
+            "number": 4399,
+            "title": "feat(frontend): admit source compare custody source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4399"
+        },
+        {
+            "number": 4392,
+            "title": "refactor(frontend): delegate locale buttons to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4392"
+        },
+        {
+            "number": 4398,
+            "title": "feat(frontend): admit writing aid sources with real ui973 options",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4398"
+        },
+        {
+            "number": 4397,
+            "title": "feat(frontend): admit final quick capture presentation sources",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4397"
+        },
+        {
+            "number": 4396,
+            "title": "feat(frontend): admit final export presentation sources",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4396"
+        },
+        {
+            "number": 4395,
+            "title": "feat(frontend): receive reviewed storage conflict displays",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4395"
+        },
+        {
+            "number": 4394,
+            "title": "feat(frontend): admit vault plan presentation sources",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4394"
+        },
+        {
+            "number": 4393,
+            "title": "feat(frontend): admit metadata leaves with real ui969 controls",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4393"
+        },
+        {
+            "number": 4384,
+            "title": "refactor(frontend): delegate outline button primitives",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4384"
+        },
+        {
+            "number": 4388,
+            "title": "fix(frontend): delegate editor surface buttons to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4388"
+        },
+        {
+            "number": 4369,
+            "title": "refactor(admin): delegate dashboard retry actions to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4369"
+        },
+        {
+            "number": 4366,
+            "title": "fix(backend): bound article graph snapshots before validation",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4366"
+        },
+        {
+            "number": 4383,
+            "title": "refactor(frontend): delegate conversation row buttons",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4383"
+        },
+        {
+            "number": 4387,
+            "title": "refactor(frontend): delegate workspace tab actions to FsusUI buttons",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4387"
+        },
+        {
+            "number": 4381,
+            "title": "refactor(admin): delegate article inspector triggers to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4381"
+        },
+        {
+            "number": 4391,
+            "title": "fix(frontend): delegate code copy controls to FsusUI Button",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4391"
+        },
+        {
+            "number": 4377,
+            "title": "fix(frontend): delegate revision row controls to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4377"
+        },
+        {
+            "number": 4378,
+            "title": "refactor(frontend): delegate comment tree actions to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4378"
+        },
+        {
+            "number": 4390,
+            "title": "feat(frontend): receive reviewed snapshot ratio source",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4390"
+        },
+        {
+            "number": 4379,
+            "title": "refactor(frontend): delegate simulator preset buttons",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4379"
+        },
+        {
+            "number": 4389,
+            "title": "feat(frontend): add unmounted Vault privacy review leaf",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4389"
+        },
+        {
+            "number": 4371,
+            "title": "fix(frontend): delegate inspector shell actions to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4371"
+        },
+        {
+            "number": 4386,
+            "title": "fix(frontend): route capture controls through public adapters",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4386"
+        },
+        {
+            "number": 4385,
+            "title": "feat(frontend): compose history preview and reveal sources",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4385"
+        },
+        {
+            "number": 4367,
+            "title": "refactor(frontend): delegate article TOC actions to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4367"
+        },
+        {
+            "number": 4382,
+            "title": "fix(frontend): delegate moderation status selection to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4382"
+        },
+        {
+            "number": 4357,
+            "title": "fix(frontend): bind compare leases to original refresh work",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4357"
+        },
+        {
+            "number": 4380,
+            "title": "refactor(admin): delegate ops health actions to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4380"
+        },
+        {
+            "number": 4375,
+            "title": "refactor(frontend): delegate comment composer controls to FsusUI",
+            "url": "https://github.com/Ozwasyd/FsusBlog/pull/4375"
+        }
+    ],
+    "excluded4420": {
+        "url": "https://github.com/Ozwasyd/FsusBlog/pull/4420",
+        "number": 4420,
+        "state": "open",
+        "draft": true,
+        "title": "feat(frontend): compose reviewed editor and code copy sources",
+        "base": "codex/issue-2295-history-preview-reveal-checkpoint-20261015",
+        "base_sha": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "head": "codex/issue-2295-three-input-common-20261015",
+        "head_sha": "4207252d2a15c0029f163b771a44cbfd01560c4d",
+        "changed_files": 690
+    },
+    "conclusion": "No matching eight-input/741-path combination found; #4420 is separate three-input union. Search result limits retained; not a universal absence proof."
+}

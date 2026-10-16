@@ -40,12 +40,14 @@
                 class="revision-list"
                 aria-label="历史版本列表"
             >
-                <button
+                <FsusUiButton
                     v-for="revision in revisions"
                     :key="revision.id"
-                    type="button"
+                    native-type="button"
+                    :type="selectedRevision?.id === revision.id ? 'primary' : 'default'"
+                    plain
+                    inline-action
                     class="revision-row"
-                    :class="{ 'revision-row--active': selectedRevision?.id === revision.id }"
                     :disabled="loading || rollbacking"
                     :aria-current="selectedRevision?.id === revision.id ? 'true' : undefined"
                     @click="$emit('select-revision', revision)"
@@ -55,9 +57,9 @@
                         <span class="revision-row__meta">
                             {{ revision.diffSummary }} · <SemanticTime :value="revision.createdAt" />
                         </span>
+                        <span class="revision-row__actor">Admin #{{ revision.createdByAdminPrincipalId }}</span>
                     </span>
-                    <span class="revision-row__actor">Admin #{{ revision.createdByAdminPrincipalId }}</span>
-                </button>
+                </FsusUiButton>
             </div>
 
             <div
@@ -153,6 +155,7 @@ import { ref, watch } from 'vue';
 
 import type { ArticleRevisionDetailResponse, ArticleRevisionSummaryResponse } from '@/api/authoring';
 import SemanticTime from '@/components/ui/SemanticTime.vue';
+import { FsusUiButton } from '@/fsusui/button';
 import { Refresh, RefreshLeft } from '@/fsusui/icons';
 
 const props = defineProps<{
@@ -191,32 +194,24 @@ watch(() => props.selectedRevision?.id, () =>
     gap: 0.5rem;
 }
 
-.revision-row
+.revision-list .revision-row
  {
-    display: flex;
+    display: grid;
     width: 100%;
     min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    border: 1px solid var(--fsusblog-panel-border);
-    background: var(--fsusblog-page-bg-soft);
-    padding: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
     text-align: left;
-    transition: border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.revision-row:hover,
-.revision-row--active
- {
-    border-color: var(--fsus-state-focus-border, var(--fsusblog-color-primary));
-    background: var(--fsus-state-selected-bg, var(--fsusblog-page-bg));
 }
 
 .revision-row__main
  {
+    display: grid;
+    width: 100%;
     min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.75rem;
 }
 
 .revision-row__title,
@@ -224,13 +219,14 @@ watch(() => props.selectedRevision?.id, () =>
  {
     display: block;
     overflow: hidden;
+    grid-column: 1;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .revision-row__title
  {
-    color: var(--fsusblog-text-primary);
+    color: inherit;
     font-size: 14px;
     font-weight: 700;
 }
@@ -238,8 +234,14 @@ watch(() => props.selectedRevision?.id, () =>
 .revision-row__meta,
 .revision-row__actor
  {
-    color: var(--fsusblog-text-tertiary);
+    color: inherit;
     font-size: 12px;
+}
+
+.revision-row__actor
+ {
+    grid-row: 1 / span 2;
+    grid-column: 2;
 }
 
 .revision-fields

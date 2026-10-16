@@ -1,0 +1,17 @@
+{
+    "path": "/workspace/intake4377/FsusUI",
+    "head": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+    "tree": "c6364151c13b0f39ebfcbeb4c977a9519b0c1233",
+    "status": "",
+    "dirtyDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "publicPackage": {
+        "path": "/workspace/intake4377/FsusUI/vue/packages/element-plus/package.json",
+        "name": "element-plus",
+        "version": "1.5.1",
+        "sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c"
+    },
+    "themeProductDistExists": false,
+    "themeBuiltByTask": false,
+    "renderedAcceptance": "HOLD/UNRUN",
+    "dependencies": "All ten original installed dependency locations copied to isolated worktree with original relative symlinks; no dependency or source edits."
+}

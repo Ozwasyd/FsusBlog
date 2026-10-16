@@ -1,0 +1,18 @@
+{
+  "cwd": "/workspace/intake4378-base",
+  "argv": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "src/frontend/src/components/article/ArticleCommentTreeNode.vue"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/intake4378-ui981"
+  },
+  "startedUtc": "2026-10-15T10:46:20.956162+00:00",
+  "exit": 0,
+  "completedUtc": "2026-10-15T10:46:31.877046+00:00"
+}

@@ -1,0 +1,27 @@
+{
+    "kind": "ordinary source input comparison, not qualification",
+    "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "basePR": 4385,
+    "donor": "1750bfccbac4c9b58f3c24380918480b27d1712e",
+    "donorPR": 4384,
+    "donorTrueBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+    "productionPaths": [
+        "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue"
+    ],
+    "donorOwnChangedPaths": [
+        "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue"
+    ],
+    "donorPreimage": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+    "receivingPreimage": "c556346d4134c8ef3ac50411f4389d33b94eb6ed",
+    "donorFinal": "fe901aca6e363c689bd902cb13524cc14dc96774",
+    "candidateFinal": "fe901aca6e363c689bd902cb13524cc14dc96774",
+    "mode": "100644",
+    "actualConflictCount": 0,
+    "adaptation": "Both exact preimages are identical. Original complete single-path patch applies cleanly; no conflict rewrite or unrelated history required. Candidate postimage equals accepted donor final blob.",
+    "candidateSourcePath": "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+    "originalSourcePRChecks": {
+        "application": "exit 2 / 29 diagnostics",
+        "strictFull": "exit 1 / 83664 log lines / target 64 findings",
+        "originalLogs": "Source PR records .tmp/r20 paths and hashes; these ignored historical logs are not present in this fresh environment and are not reconstructed. Original source branch/PR remain unchanged. New complete original-entry logs below are fresh receiving-base/UI981 comparisons."
+    }
+}

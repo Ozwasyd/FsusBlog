@@ -1,0 +1,8 @@
+[change-contract] PR body requires checked checklist field: Formatter/linter run
+[change-contract] PR body requires checked checklist field: `.git-blame-ignore-revs` updated when applicable
+[change-contract] PR body requires checked checklist field: Public API docs updated
+[change-contract] PR body requires checked checklist field: Ownership/security/performance intent updated
+[change-contract] PR body requires checked checklist field: Historical handoff archived or source-of-truth updated
+[change-contract] PR body requires checked checklist field: TODO/FIXME references valid issues
+[change-contract] PR body requires checked checklist field: [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+[change-contract] Contract impact must be none unless Public contract change is checked

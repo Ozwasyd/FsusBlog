@@ -1,0 +1,9 @@
+{"path":"src/frontend/src/components/admin/article/ArticleWriteEditor.vue","diagnostics":[],"styles":1,"scriptAstStatements":49}
+{"path":"src/frontend/src/components/article/ArticleCommentTreeNode.vue","diagnostics":[],"styles":1,"scriptAstStatements":32}
+{"path":"src/frontend/src/components/ui/LocaleSelector.vue","diagnostics":[],"styles":1,"scriptAstStatements":41}
+{"path":"src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue","diagnostics":[],"styles":1,"scriptAstStatements":39}
+{"path":"src/frontend/src/components/admin/article/ArticleRevisionPanel.vue","diagnostics":[],"styles":1,"scriptAstStatements":9}
+{"path":"src/frontend/src/components/article/ArticleCommentsVirtualList.vue","diagnostics":[],"styles":1,"scriptAstStatements":15}
+{"path":"src/frontend/src/views/admin/security/SecuritySimulator.vue","diagnostics":[],"styles":1,"scriptAstStatements":36}
+{"path":"src/frontend/src/components/admin/SecurityDashboardWorkbench.vue","diagnostics":[],"styles":1,"scriptAstStatements":8}
+Compiler-only SFC/script AST/template/scoped-style transformation; generated product code is never loaded or evaluated. No product CSS output emitted.

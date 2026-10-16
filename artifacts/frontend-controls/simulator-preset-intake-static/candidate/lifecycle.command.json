@@ -1,0 +1,17 @@
+{
+    "name": "lifecycle",
+    "cwd": "/workspace/FsusBlog-intake4379",
+    "argv": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+    ],
+    "environmentOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-981-intake4379",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
+    },
+    "startedAt": "2026-10-15T11:05:24.475958+00:00",
+    "exitCode": 1,
+    "endedAt": "2026-10-15T11:05:24.636170+00:00"
+}

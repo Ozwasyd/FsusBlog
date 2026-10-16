@@ -1,0 +1,6 @@
+{
+    "encoding": "base64",
+    "decodedSha256": "adee3596f291d1d0ec65ba261b49ea7224026c35a44c779d55b6fe931a5ee8e9",
+    "content": "YXJ0aWZhY3RzL2FydGljbGUtZWRpdG9yL2ludGFrZTQzNzAtc3RhdGljL3Byb2R1Y3Rpb24ucGF0Y2g6Mjc6IHRyYWlsaW5nIHdoaXRlc3BhY2UuCisgCmFydGlmYWN0cy9hcnRpY2xlLWVkaXRvci9pbnRha2U0MzcwLXN0YXRpYy9wcm9kdWN0aW9uLnBhdGNoOjMyOiB0cmFpbGluZyB3aGl0ZXNwYWNlLgorIAo=",
+    "reason": "Exact own metadata-gate failure bytes contain trailing whitespace/extra EOF newline. Capsule preserves all original bytes; no checker output is altered and no rule is changed. Original unencoded log also remains in task-local current evidence."
+}

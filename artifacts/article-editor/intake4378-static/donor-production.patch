@@ -1,0 +1,164 @@
+diff --git a/src/frontend/src/components/article/ArticleCommentTreeNode.vue b/src/frontend/src/components/article/ArticleCommentTreeNode.vue
+index ee1dff0da..ffa6bbb86 100644
+--- a/src/frontend/src/components/article/ArticleCommentTreeNode.vue
++++ b/src/frontend/src/components/article/ArticleCommentTreeNode.vue
+@@ -49,48 +49,59 @@
+         />
+ 
+         <footer class="fsus-comment-tree-node__footer">
+-            <button
+-                type="button"
++            <FsusUiButton
++                native-type="button"
++                link
++                inline-action
+                 class="fsus-comment-tree-node__action"
+                 @click="emitReply"
+             >
+                 {{ isLoggedIn ? '回复' : '登录后回复' }}
+-            </button>
+-            <button
++            </FsusUiButton>
++            <FsusUiButton
+                 v-if="contentFoldable"
+-                type="button"
++                native-type="button"
++                link
++                inline-action
+                 class="fsus-comment-tree-node__action"
+                 @click="contentExpanded = !contentExpanded"
+             >
+                 {{ contentExpanded ? '收起正文' : '展开正文' }}
+-            </button>
+-            <button
++            </FsusUiButton>
++            <FsusUiButton
+                 v-if="node.childCount > 0"
+-                type="button"
++                native-type="button"
++                link
++                inline-action
+                 class="fsus-comment-tree-node__action"
+                 :aria-expanded="branchExpanded"
+                 :aria-controls="`comment-children-${node.id}`"
+                 @click="toggleBranch"
+             >
+                 {{ branchExpanded ? '收起回复' : `展开 ${node.childCount} 条直接回复` }}
+-            </button>
+-            <button
++            </FsusUiButton>
++            <FsusUiButton
+                 v-if="canEdit"
+-                type="button"
++                native-type="button"
++                link
++                inline-action
+                 class="fsus-comment-tree-node__action"
+                 @click="$emit('edit', { id: node.id, content: node.content })"
+             >
+                 编辑
+-            </button>
+-            <button
++            </FsusUiButton>
++            <FsusUiButton
+                 v-if="canDelete"
+-                type="button"
+-                class="fsus-comment-tree-node__action is-danger"
++                native-type="button"
++                type="danger"
++                link
++                inline-action
++                class="fsus-comment-tree-node__action"
+                 :aria-label="depth === 0 ? '删除评论' : '删除回复'"
+                 @click="$emit('delete', { id: node.id, rootId: node.rootId, parentId: node.parentId ?? null, content: node.content })"
+             >
+                 删除
+-            </button>
++            </FsusUiButton>
+         </footer>
+ 
+         <section
+@@ -114,15 +125,17 @@
+                 @edit="$emit('edit', $event)"
+                 @delete="$emit('delete', $event)"
+             />
+-            <button
++            <FsusUiButton
+                 v-if="node.hasMoreChildren"
+-                type="button"
++                native-type="button"
++                link
++                inline-action
+                 class="fsus-comment-tree-node__action fsus-comment-tree-node__load-more"
+                 :disabled="loadingReplies[node.id] === true"
+                 @click="$emit('loadMore', node.id)"
+             >
+                 {{ loadingReplies[node.id] === true ? '加载中…' : '加载本分支更多回复' }}
+-            </button>
++            </FsusUiButton>
+             <p
+                 v-if="hiddenChildCount > 0"
+                 class="fsus-comment-tree-node__limit-note"
+@@ -139,6 +152,7 @@ import { computed, ref, watch } from 'vue';
+ import type { CommentAuthorView } from '@/api/comment';
+ import CommentMarkdownRenderer from '@/components/article/CommentMarkdownRenderer.vue';
+ import type { CommentTreeViewNode } from '@/composables/useArticleCommentStream';
++import { FsusUiButton } from '@/fsusui/button';
+ import { getCommentManagementCapabilityVault } from '@/privacy/commentManagementCapabilityVault';
+ import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter';
+ import { TimeUtils } from '@/utils/time';
+@@ -377,30 +391,9 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
+     gap: 12px;
+ }
+ 
+-.fsus-comment-tree-node__action
+- {
+-    padding: 0;
+-    border: 0;
+-    background: transparent;
+-    color: var(--fsusblog-text-muted);
+-    font: inherit;
+-    cursor: pointer;
+-}
+-
+-.fsus-comment-tree-node__action:hover
+- {
+-    color: var(--fsusblog-color-primary);
+-}
+-
+-.fsus-comment-tree-node__action:focus-visible
+- {
+-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+-    outline: none;
+-}
+-
+-.fsus-comment-tree-node__action.is-danger:hover
++.fsus-comment-tree-node__footer > .fsus-comment-tree-node__action
+  {
+-    color: var(--el-color-danger);
++    margin: 0;
+ }
+ 
+ .fsus-comment-tree-node__children
+@@ -429,14 +422,19 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
+ 
+ @media (width <= 1023px)
+  {
+-    .fsus-comment-tree-node__time,
+-    .fsus-comment-tree-node__action
++    .fsus-comment-tree-node__time
+  {
+         display: inline-flex;
+         min-width: 44px;
+         min-height: 44px;
+         align-items: center;
+     }
++
++    .fsus-comment-tree-node .fsus-comment-tree-node__action
++ {
++        min-width: 44px;
++        min-height: 44px;
++    }
+ }
+ 
+ @media (width <= 640px)

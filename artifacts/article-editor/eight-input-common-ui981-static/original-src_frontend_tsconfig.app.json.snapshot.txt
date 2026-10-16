@@ -1,0 +1,42 @@
+{
+    "extends": "@vue/tsconfig/tsconfig.dom.json",
+    "compilerOptions": {
+        "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+        "target": "ES2022",
+        "types": ["vite/client"],
+        "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+        "composite": true,
+        "ignoreDeprecations": "6.0",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["./src/*"],
+            "@wasm/*": ["./wasm/web/*"]
+        },
+
+        /* Linting */
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "erasableSyntaxOnly": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedSideEffectImports": true
+    },
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.vue",
+        "src/vite-env.d.ts",
+        "wasm/security/**/*.ts",
+        "wasm/web/**/*.ts",
+        "auto-imports.d.ts",
+        "components.d.ts"
+    ],
+    "exclude": [
+        "dist",
+        "obj",
+        "node_modules",
+        "public/wasm",
+        "wasm/build",
+        "wasm/dist"
+    ]
+}

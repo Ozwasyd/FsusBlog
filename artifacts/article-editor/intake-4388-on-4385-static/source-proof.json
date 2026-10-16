@@ -1,0 +1,24 @@
+{
+  "kind": "ordinary source identity comparison; no product/module execution or qualification",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donor": "205d8e9aea106a4331ed3bb0f85f528b5c1f6240",
+  "donorBase": "d5773ef97f55176a1eab67e677790f3e13352a7b",
+  "productionCommit": "ad0bfaa1053f69d1a9ffaf38edb643f7596af045",
+  "productionParent": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "changedProductionPaths": [
+    "src/frontend/src/components/admin/article/ArticleWriteEditor.vue"
+  ],
+  "path": "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+  "basePreimageEqualsDonorPreimage": true,
+  "baseBlob": "a23a956c4f0f5b75234de52e9e0bcd52f8ce6acd",
+  "donorBlob": "414013097a93543222043d59e3458bcf86880d65",
+  "candidateBlob": "414013097a93543222043d59e3458bcf86880d65",
+  "candidateSha256": "198af89755f779d96db1152d058879a45cf558f193bf688da8aed13e336714c5",
+  "scriptApartFromSolePublicButtonImportByteIdentical": true,
+  "scriptBaseSha256": "9819adcf453ef74b10ba99bc24010a917f91ffb02f64ae92ebc17904eb930b5a",
+  "scriptCandidateSha256": "a8cf3d4c525cecb814153f239694f7d0c65f2366a31939591532c3044f952b43",
+  "conflicts": 0,
+  "conflictDisposition": "Exact base preimage equality and git apply --check; no fabricated conflict resolution. Exact reviewed postimage retained.",
+  "allOtherBasePathsUnchangedAtProductionCommit": true,
+  "productionPatchSha256": "766fdfafc1c917cc8a5da50909117a3b760f77ae829c1f028dabb27f8d7156fd"
+}

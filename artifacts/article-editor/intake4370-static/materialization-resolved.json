@@ -1,0 +1,14 @@
+{
+    "reason": "Connector transport closed for 11861610-byte existing raw log blob. No source or checker input excluded; historical base log tree entries unchanged. This is materialization only, not diagnostic filtering.",
+    "blob": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+    "paths": [
+        "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-base-full-style.txt",
+        "artifacts/article-editor/history-preview-reveal-static/current-checkpoint/history-preview-reveal-candidate-full-style.txt",
+        "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-base-full-style.txt",
+        "artifacts/article-editor/history-preview-reveal-static/original-4358/navigation-capture-candidate-full-style.txt"
+    ],
+    "resolution": "Fresh original full-lint raw output is byte-exact by Git blob SHA to the inherited object, so its bytes materialize the same existing object at all four historical paths. Fresh run identity remains separate; no historical timestamp/run result is regenerated or reinterpreted.",
+    "freshLog": "base-full-style.log",
+    "freshRawSha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a",
+    "remainingUnmaterializedPaths": []
+}

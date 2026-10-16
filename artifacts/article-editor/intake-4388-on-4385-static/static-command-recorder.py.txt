@@ -1,0 +1,26 @@
+import pathlib, subprocess, os, sys, json, datetime, hashlib
+root=pathlib.Path(sys.argv[1]); label=sys.argv[2]
+out=pathlib.Path('/workspace/intake-4388-evidence')
+env=os.environ.copy(); env['FSUSBLOG_USE_LOCAL_FSUSUI']='1'; env['FSUSBLOG_LOCAL_FSUSUI_ROOT']='/workspace/FsusUI-intake-4388-ui981'
+commands=[
+ ('full-style',['node','tools/frontend/check-frontend-style.mjs','--mode','full']),
+ ('strict-full-style',['node','tools/frontend/check-frontend-style.mjs','--mode','strict-full']),
+ ('application-types',['node','src/frontend/scripts/run-local-fsusui-typecheck.mjs','--application']),
+ ('boundary',['node','tests/frontend/checks/static/check-fsusui-boundary.mjs']),
+ ('code-intent',['node','tools/governance/check-code-intent.mjs']),
+ ('lifecycle',['node','tools/docs/generate-document-lifecycle.mjs','--check']),
+ ('authoritative',['node','tools/docs/check-authoritative-development-docs.mjs'])]
+records=[]
+for name,args in commands:
+ start=datetime.datetime.now(datetime.timezone.utc).isoformat()
+ logfile=out/f'{label}-{name}.txt'
+ with logfile.open('wb') as f:
+  result=subprocess.run(args,cwd=root,env=env,stdout=f,stderr=subprocess.STDOUT)
+ (out/f'{label}-{name}.exit').write_text(str(result.returncode)+'\n')
+ raw=logfile.read_bytes()
+ records.append(dict(name=name,argv=args,cwd=str(root),environment={'FSUSBLOG_USE_LOCAL_FSUSUI':'1','FSUSBLOG_LOCAL_FSUSUI_ROOT':env['FSUSBLOG_LOCAL_FSUSUI_ROOT']},started=start,finished=datetime.datetime.now(datetime.timezone.utc).isoformat(),exit=result.returncode,log=logfile.name,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest()))
+ print(label,name,'exit',result.returncode,'bytes',len(raw),flush=True)
+config=root/'src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json'
+if config.is_file():
+ (out/f'{label}-app-config.snapshot.json').write_bytes(config.read_bytes())
+(out/f'{label}-invocations.json').write_text(json.dumps(records,indent=2)+'\n')
