@@ -1,0 +1,112 @@
+{
+  "blogBase": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "donor": "b3883458aaceefc3ba6b6fd2a291a38ce55042b7",
+  "sourceCommit": "26c2ca5b1b8f8b8685d219038751d40773537ea3",
+  "ui981": "2e0e059f193407170d8e23bcc40d59f1af3291f6",
+  "preimage": "574110e9146680e248746470789d2bd77098b2d5",
+  "postimage": "f37f60daac919884db8c23ed1f70429dc1920bb6",
+  "static": {
+    "local-app": {
+      "results": {
+        "base": {
+          "exit": 2,
+          "errors": 29,
+          "composerErrors": 0
+        },
+        "candidate": {
+          "exit": 2,
+          "errors": 29,
+          "composerErrors": 0
+        }
+      },
+      "sameDiagnosticLocationsAndCodes": true,
+      "new": [],
+      "removed": []
+    },
+    "app": {
+      "results": {
+        "base": {
+          "exit": 2,
+          "errors": 297,
+          "composerErrors": 0
+        },
+        "candidate": {
+          "exit": 2,
+          "errors": 297,
+          "composerErrors": 0
+        }
+      },
+      "sameDiagnosticLocationsAndCodes": true,
+      "new": [],
+      "removed": []
+    },
+    "fsusui-published": {
+      "results": {
+        "base": {
+          "exit": 2,
+          "errors": 17,
+          "composerErrors": 0
+        },
+        "candidate": {
+          "exit": 2,
+          "errors": 17,
+          "composerErrors": 0
+        }
+      },
+      "sameDiagnosticLocationsAndCodes": true,
+      "new": [],
+      "removed": []
+    },
+    "node": {
+      "results": {
+        "base": {
+          "exit": 2,
+          "errors": 1,
+          "composerErrors": 0
+        },
+        "candidate": {
+          "exit": 2,
+          "errors": 1,
+          "composerErrors": 0
+        }
+      },
+      "sameDiagnosticLocationsAndCodes": true,
+      "new": [],
+      "removed": []
+    }
+  },
+  "fullLint": {
+    "results": {
+      "base": {
+        "exit": 1,
+        "findings": 83664
+      },
+      "candidate": {
+        "exit": 1,
+        "findings": 83664
+      }
+    },
+    "new": [],
+    "removed": [],
+    "sameHeaders": true,
+    "baseHeaders": [
+      "[frontend-style] baseline configuration digest is stale",
+      "[frontend-style] baseline source-state digest is stale",
+      "[frontend-style] baseline generatedFrom does not match the current source-state digest"
+    ],
+    "candidateHeaders": [
+      "[frontend-style] baseline configuration digest is stale",
+      "[frontend-style] baseline source-state digest is stale",
+      "[frontend-style] baseline generatedFrom does not match the current source-state digest"
+    ]
+  },
+  "localApplicationLogsIdentical": true,
+  "historical4375LintPerSide": 83664,
+  "lintCountDifferenceFromHistorical4375": 0,
+  "p2Disposition": {
+    "inputResize": "source/static resolved by actual UI981 public component and compiled owning stylesheet",
+    "tabsNaming": "source/AST resolved through public Tabs -> TabNav -> actual role=tablist; labels unchanged"
+  },
+  "overallSourceAcceptance": false,
+  "runtimeOrUXAcceptance": false
+}
