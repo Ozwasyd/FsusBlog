@@ -17,6 +17,16 @@
     },
     "runtimeDynamicImports": [
         {
+            "owner": "tools/governance/javascript-format-equivalence.mjs",
+            "sourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+            "expressionDigest": "sha256:1194f26d255953521c4695d2e2c8f846dbd455bb916275c81e8cdf5a4951d015",
+            "kind": "runtime-require-path",
+            "dependencies": [
+                "./javascript-format-parser/package.json",
+                "./javascript-format-parser/package-lock.json"
+            ]
+        },
+        {
             "owner": "tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
             "sourceDigest": "sha256:d4ca2e3f9465bbeb8c7db5ac62c788ef84bbfddf59f3c6a8108305d510a03b53",
             "expressionDigest": "sha256:00d965aef049fdfaf126cec88c128b4b934f3be0c9fefcda76bee157063c4d19",
