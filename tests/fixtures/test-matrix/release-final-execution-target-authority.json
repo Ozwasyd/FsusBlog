@@ -2480,13 +2480,13 @@
         },
         {
             "path": "tools/configuration/check-solution-source.mjs",
-            "contentDigest": "sha256:c01468d3e311fe8c9f0b9b2ee5224c35f5d004a07ca03886fb144f00f87c3303",
-            "indexDigest": "sha256:c01468d3e311fe8c9f0b9b2ee5224c35f5d004a07ca03886fb144f00f87c3303"
+            "contentDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd",
+            "indexDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd"
         },
         {
             "path": "tools/configuration/solution-source.test.mjs",
-            "contentDigest": "sha256:df3582bc29dcbba6d035e2a0c8f45a72a80e65bbd6fb4c1f5f63e63214e539db",
-            "indexDigest": "sha256:df3582bc29dcbba6d035e2a0c8f45a72a80e65bbd6fb4c1f5f63e63214e539db"
+            "contentDigest": "sha256:5c6a7532feacb1baa2443842decba6cdb2d23cf218a25cf0043672bf73f5dd7b",
+            "indexDigest": "sha256:5c6a7532feacb1baa2443842decba6cdb2d23cf218a25cf0043672bf73f5dd7b"
         },
         {
             "path": "tools/contracts/behavior-contract-catalog.mjs",
