@@ -5,7 +5,6 @@ import type {
     BinaryPageResponse,
     ConversationDetailResponse,
     ConversationListItemResponse,
-    ConversationMessagePreviewResponse,
     ConversationMessageResponse,
     ConversationStatusMutationResultResponse
 } from '@/contracts/binaryApi';
@@ -335,9 +334,9 @@ function resolveStableSourceEvent(key: string, explicit?: string): StableIdentit
     const bytes = new Uint8Array(8);
     globalThis.crypto?.getRandomValues?.(bytes);
     let value = 0n;
-    for (let index = 0; index < bytes.length; index += 1)
+    for (const byte of bytes)
     {
-        value = (value << 8n) | BigInt(bytes[index] ?? 0);
+        value = (value << 8n) | BigInt(byte ?? 0);
     };
     value &= 0x7fffffffffffffffn;
     if (value === 0n)
