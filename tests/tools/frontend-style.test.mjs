@@ -1754,6 +1754,168 @@ test('canonical local app program includes every original app, Wasm and SFC root
     assert.deepEqual(program.unsafeAssignment, [2]);
 });
 
+async function localFsusUiTypecheckProbe()
+{
+    const { prepareLocalFsusUiTypecheckProject } = await import(
+        new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
+    );
+    const { resolveLocalFsusUiRepositoryRoot } = await import(
+        new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url)
+    );
+    const { default: ts } = await import(pathToFileURL(
+        path.join(root, 'src/frontend/node_modules/typescript/lib/typescript.js')
+    ));
+    const localRoot = resolveLocalFsusUiRepositoryRoot({
+        repositoryRoot: root,
+        override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT
+    });
+    assert.ok(localRoot, 'the canonical source checks require a real local FsusUI checkout');
+    return { prepareLocalFsusUiTypecheckProject, localRoot, ts };
+}
+
+test('canonical local complete tests project inherits every original root and compiler option', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const originalPath = path.join(root, 'src/frontend/tsconfig.playwright.json');
+    const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    assert.match(project, /tsconfig\.fsusui-local\.tests\.generated\.json$/u);
+    const read = (file) => ts.parseJsonConfigFileContent(ts.readConfigFile(file, ts.sys.readFile).config,
+        ts.sys, path.dirname(file), {}, file);
+    const original = read(originalPath);
+    const generated = read(project);
+    assert.deepEqual(original.errors, []);
+    assert.deepEqual(generated.errors, []);
+    const configuration = JSON.parse(readFileSync(project, 'utf8'));
+    assert.equal(path.resolve(path.dirname(project), configuration.extends), originalPath);
+    assert.equal(configuration.include, undefined);
+    assert.equal(configuration.exclude, undefined);
+    assert.deepEqual(Object.keys(configuration.compilerOptions), ['paths']);
+    const inheritedOptions = (configuration) =>
+    {
+        const options = { ...configuration };
+        for (const key of ['paths', 'pathsBasePath', 'configFilePath'])
+        {
+            delete options[key];
+        }
+        return options;
+    };
+    assert.deepEqual(inheritedOptions(generated.options), inheritedOptions(original.options));
+    for (const [specifier, targets] of Object.entries(original.options.paths))
+    {
+        assert.deepEqual(generated.options.paths[specifier], targets);
+    }
+    const roots = new Set(generated.fileNames);
+    for (const file of original.fileNames)
+    {
+        assert.ok(roots.has(file), `canonical tests project omitted ${file}`);
+    }
+    for (const file of [
+        'tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/src/components/DeepImportViolation.ts',
+        'tests/frontend/unit/view-contracts/adminStatus.test.ts'
+    ])
+    {
+        assert.ok(roots.has(path.join(root, file)), `canonical tests project omitted ${file}`);
+    }
+    assert.throws(() => prepareLocalFsusUiTypecheckProject({
+        repositoryRoot: root, localRoot, fullApplication: true, fullTests: true
+    }), /application and tests projects are mutually exclusive/u);
+});
+
+test('canonical local ES deep imports resolve to genuine FsusUI source in app and complete tests projects', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    for (const mode of [{ fullApplication: true }, { fullTests: true }])
+    {
+        const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, ...mode });
+        const parsed = ts.parseJsonConfigFileContent(ts.readConfigFile(project, ts.sys.readFile).config,
+            ts.sys, path.dirname(project), {}, project);
+        for (const [importer, specifier, target] of [
+            ['tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/src/components/DeepImportViolation.ts',
+                '@ozwasyd/element-plus/es/components/button/src/button', 'components/button/src/button.ts'],
+            ['tests/frontend/unit/view-contracts/adminStatus.test.ts',
+                '@ozwasyd/element-plus/es/components/metric-primitives/src/shared', 'components/metric-primitives/src/shared.ts']
+        ])
+        {
+            const resolved = ts.resolveModuleName(specifier, path.join(root, importer),
+                parsed.options, ts.sys).resolvedModule;
+            assert.equal(resolved?.resolvedFileName, path.join(localRoot, 'vue/packages', target));
+            assert.equal(resolved.isExternalLibraryImport, false);
+        }
+    }
+});
+
+test('canonical local complete projects retain JSONC inherited files and path origins', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-local-ui-project-'));
+    try
+    {
+        const frontend = path.join(fixtureRoot, 'src/frontend');
+        const parentDirectory = path.join(frontend, 'configuration');
+        const alternateBase = path.join(parentDirectory, 'module-base');
+        mkdirSync(alternateBase, { recursive: true });
+        symlinkSync(path.join(root, 'src/frontend/node_modules'), path.join(frontend, 'node_modules'), 'dir');
+        const inheritedFile = path.join(root, 'tests/frontend/unit/view-contracts/adminStatus.test.ts');
+        const ownFile = path.join(root,
+            'tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/src/components/DeepImportViolation.ts');
+        const target = path.join(root, 'src/frontend/src/view-contracts/adminStatus.ts');
+        const read = (file) => ts.getParsedCommandLineOfConfigFile(file, {}, {
+            ...ts.sys,
+            onUnRecoverableConfigFileDiagnostic(diagnostic)
+            {
+                assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+            }
+        });
+        for (const baseUrl of [undefined, './module-base'])
+        {
+            const pathsBase = baseUrl ? alternateBase : parentDirectory;
+            const parent = {
+                files: [path.relative(parentDirectory, inheritedFile)],
+                compilerOptions: {
+                    module: 'ESNext', moduleResolution: 'bundler', strict: true, baseUrl,
+                    paths: { 'original/client': [path.relative(pathsBase, target)] }
+                }
+            };
+            writeFileSync(path.join(parentDirectory, 'base.json'),
+                `// The official TypeScript parser owns JSONC and extends semantics.\n${JSON.stringify(parent, null, 2)}\n`);
+            for (const ownFiles of [undefined, [path.relative(frontend, ownFile)]])
+            {
+                const child = { extends: './configuration/base.json', files: ownFiles };
+                for (const mode of [{ fullApplication: true }, { fullTests: true }])
+                {
+                    const originalPath = path.join(frontend, mode.fullTests ? 'tsconfig.playwright.json' : 'tsconfig.app.json');
+                    writeFileSync(originalPath, `${JSON.stringify(child, null, 2)}\n`);
+                    const original = read(originalPath);
+                    assert.deepEqual(original.errors, []);
+                    const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: fixtureRoot, localRoot, ...mode });
+                    const generated = read(project);
+                    assert.deepEqual(generated.errors, []);
+                    for (const file of original.fileNames)
+                    {
+                        assert.ok(generated.fileNames.includes(file), `canonical project omitted explicit file ${file}`);
+                    }
+                    assert.ok(generated.fileNames.includes(ownFiles ? ownFile : inheritedFile));
+                    if (ownFiles)
+                    {
+                        assert.equal(generated.fileNames.includes(inheritedFile), false,
+                            'an explicit child files list must replace the inherited files list');
+                    }
+                    const resolve = (specifier, options) => ts.resolveModuleName(specifier, ownFile,
+                        options, ts.sys).resolvedModule?.resolvedFileName;
+                    assert.equal(resolve('original/client', original.options), target);
+                    assert.equal(resolve('original/client', generated.options), target);
+                    assert.equal(resolve('@ozwasyd/element-plus/es/components/button/src/button', generated.options),
+                        path.join(localRoot, 'vue/packages/components/button/src/button.ts'));
+                }
+            }
+        }
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
 test('canonical local-off mode retains the original application project service', () =>
 {
     const program = actualAppProgramProbe('0');

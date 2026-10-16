@@ -115,3 +115,28 @@ export-contract fixtures as the application program. Invalid configured local
 roots fail closed. With `FSUSBLOG_USE_LOCAL_FSUSUI=0`, the original registry
 project service remains active. Local-source style checks recheck mutable
 external source types without the registry-mode ESLint content cache.
+
+## Complete Frontend Tests Typecheck
+
+Run `node src/frontend/scripts/run-local-fsusui-typecheck.mjs --tests` for the
+complete frontend test project with the same local source aliases. This mode
+uses TypeScript and extends the original `tsconfig.playwright.json`; it retains
+every original include, compiler option and Playwright path mapping. It does not
+substitute the application project or the focused export contracts. Its generated
+configuration is `src/frontend/.tmp/typecheck/tsconfig.fsusui-local.tests.generated.json`.
+The existing locked TypeScript parser resolves JSONC and inherited configuration;
+complete projects retain explicit files and resolve inherited aliases relative to
+their original path origin before adding the local declarations and aliases.
+
+Local source projects resolve `@ozwasyd/element-plus/es/*` through the checkout's
+`vue/packages/*`, including the original deep-import boundary fixture and the
+metric tone test. Resolving a fixture's type does not authorize that import under
+the FsusUI boundary rules; the fixture and its rejection checks remain unchanged.
+Published-package mode retains its installed-package resolution.
+
+Source-consumption qualification must inspect the actual complete compiler
+program, for example with TypeScript's `--listFiles` against the generated test
+configuration, and confirm that no installed `@ozwasyd/element-plus` files were
+loaded. A path mapping alone is insufficient: a missing source target can cause
+TypeScript to fall back to package resolution. Report actual local-source errors
+instead of restoring package declarations or reducing the project's coverage.
