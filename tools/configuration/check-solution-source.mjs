@@ -3,11 +3,12 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { devNull } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
-import { parseBlameIgnoreRevisions, validateRepositoryBlameIgnore } from '../governance/change-contract.mjs';
+const { parseBlameIgnoreRevisions, validateRepositoryBlameIgnore } = await import(new URL('../governance/change-contract.mjs', import.meta.url));
 
 const xmlParser = String.raw`
 import json, sys
@@ -92,13 +93,15 @@ function normalizedPath(file, extension)
     return file;
 }
 
-function git(root, argumentsList, input)
+function git(root, argumentsList, input, unrewritten = false)
 {
     return execFileSync('git', ['-C', root, ...argumentsList],
-        { input, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }, maxBuffer: 32 * 1024 * 1024 });
+        { input, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0',
+            ...(unrewritten ? { GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: devNull } : {}) },
+        maxBuffer: 32 * 1024 * 1024 });
 }
 
-function bindFile(root, file, maximumBytes = null)
+function bindFile(root, file, maximumBytes = null, unrewritten = false)
 {
     const absolute = path.join(root, file);
     const ancestors = [{ path: root, stat: fs.lstatSync(root, { bigint: true }) }];
@@ -153,10 +156,10 @@ function bindFile(root, file, maximumBytes = null)
             }
             bytes = Buffer.concat(chunks, total);
         }
-        const index = git(root, ['ls-files', '--stage', '-z', '--', `:(literal)${file}`]).toString('utf8');
+        const index = git(root, ['ls-files', '--stage', '-z', '--', `:(literal)${file}`], undefined, unrewritten).toString('utf8');
         const match = index.match(/^(100644|100755) ([a-f0-9]{40}) 0\t([^\0]+)\0$/u);
-        if (!match || match[3] !== file || !git(root, ['cat-file', 'blob', match[2]]).equals(bytes)
-            || git(root, ['rev-parse', `HEAD:${file}`]).toString('utf8').trim() !== match[2]
+        if (!match || match[3] !== file || !git(root, ['cat-file', 'blob', match[2]], undefined, unrewritten).equals(bytes)
+            || git(root, ['rev-parse', `HEAD:${file}`], undefined, unrewritten).toString('utf8').trim() !== match[2]
             || Boolean(before.mode & 0o111n) !== (match[1] === '100755'))
         {
             throw new Error(`solution source HEAD/index/physical bytes or mode disagree: ${file}`);
@@ -415,6 +418,33 @@ export function validatePythonSourceReceipt({ repositoryRoot, files, expectedHea
     return expected;
 }
 
+function assertBlameHistoryContext(root)
+{
+    if (['GIT_REPLACE_REF_BASE', 'GIT_GRAFT_FILE'].some(key => Object.hasOwn(process.env, key)))
+    {
+        throw new Error('blame-ignore refuses an ambient Git history-rewrite replacement or graft context');
+    }
+    if (git(root, ['for-each-ref', '--format=%(refname)', 'refs/replace/'], undefined, true).toString('utf8').trim())
+    {
+        throw new Error('blame-ignore refuses active Git replacement refs');
+    }
+    const gitDirectory = path.resolve(root, git(root, ['rev-parse', '--git-common-dir'], undefined, true).toString('utf8').trim());
+    const graft = path.join(gitDirectory, 'info/grafts');
+    try
+    {
+        fs.lstatSync(graft);
+    }
+    catch (error)
+    {
+        if (error.code === 'ENOENT')
+        {
+            return;
+        }
+        throw error;
+    }
+    throw new Error('blame-ignore refuses repository Git history-rewrite info/grafts');
+}
+
 /** Inspect only canonical blame metadata; the independent range/PR contract still applies. */
 export function inspectBlameIgnoreSource({ repositoryRoot, files })
 {
@@ -431,9 +461,10 @@ export function inspectBlameIgnoreSource({ repositoryRoot, files })
     {
         throw new Error('blame-ignore inspection requires only the canonical .git-blame-ignore-revs input');
     }
-    const head = git(root, ['rev-parse', 'HEAD']).toString('utf8').trim();
-    const indexDigest = sha256(git(root, ['ls-files', '--stage', '-z']));
-    const held = bindFile(root, files[0]);
+    assertBlameHistoryContext(root);
+    const head = git(root, ['rev-parse', 'HEAD'], undefined, true).toString('utf8').trim();
+    const indexDigest = sha256(git(root, ['ls-files', '--stage', '-z'], undefined, true));
+    const held = bindFile(root, files[0], null, true);
     try
     {
         const errors = validateRepositoryBlameIgnore(root);
@@ -441,12 +472,13 @@ export function inspectBlameIgnoreSource({ repositoryRoot, files })
         {
             throw new Error('blame-ignore history refused: ' + errors.join('\n'));
         }
-        if (head !== git(root, ['rev-parse', 'HEAD']).toString('utf8').trim()
-            || indexDigest !== sha256(git(root, ['ls-files', '--stage', '-z'])))
+        if (head !== git(root, ['rev-parse', 'HEAD'], undefined, true).toString('utf8').trim()
+            || indexDigest !== sha256(git(root, ['ls-files', '--stage', '-z'], undefined, true)))
         {
             throw new Error('blame-ignore source inspection HEAD or index changed');
         }
         verifyFile(held);
+        assertBlameHistoryContext(root);
         return { schema: 'fsusblog.blame-ignore-source-check.v1', head, indexDigest,
             validator: 'tools/governance/change-contract.mjs#validateRepositoryBlameIgnore',
             sources: [held.binding], revisions: parseBlameIgnoreRevisions(held.bytes.toString('utf8')),

@@ -7,9 +7,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { inspectPythonSource, inspectSolutionSource, validatePythonSourceReceipt, validateSolutionSourceReceipt } from './check-solution-source.mjs';
 import * as sourceChecker from './check-solution-source.mjs';
-import { validateCommitRange } from '../governance/change-contract.mjs';
+
+const { inspectPythonSource, inspectSolutionSource, validatePythonSourceReceipt, validateSolutionSourceReceipt } = sourceChecker;
+const { validateCommitRange } = await import(new URL('../governance/change-contract.mjs', import.meta.url));
 
 function fixture(source, action)
 {
@@ -814,13 +815,34 @@ test('canonical blame receipt cannot substitute HEAD source history or qualifica
             repositoryRoot: root, files: [blameFile], expectedHead, receipt });
         assert.deepEqual(validate(JSON.parse(JSON.stringify(actual))), actual);
         for (const mutate of [
-            value => { value.head = '0'.repeat(40); },
-            value => { value.indexDigest = '0'.repeat(64); },
-            value => { value.sources[0].sha256 = '0'.repeat(64); },
-            value => { value.revisions = []; },
-            value => { value.qualificationEligible = true; },
-            value => { value.validator = 'caller-approval'; },
-            value => { value.extraApproval = true; }
+            value =>
+            {
+                value.head = '0'.repeat(40);
+            },
+            value =>
+            {
+                value.indexDigest = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.sources[0].sha256 = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.revisions = [];
+            },
+            value =>
+            {
+                value.qualificationEligible = true;
+            },
+            value =>
+            {
+                value.validator = 'caller-approval';
+            },
+            value =>
+            {
+                value.extraApproval = true;
+            }
         ])
         {
             const changed = structuredClone(actual);
@@ -878,3 +900,122 @@ test('canonical blame source success does not replace mandatory later-registrati
         assert.match(validateCommitRange(root, base + '..HEAD').join('\n'), /missing blame-ignore entry/u);
     }, { register: false });
 });
+
+for (const context of ['blob', 'commit', 'custom-prefix', 'graft-environment', 'repository-grafts'])
+{
+    test(`canonical blame source refuses real Git history rewrite context: ${context}`, () =>
+    {
+        blameFixture(({ root, format, git, env }) =>
+        {
+            const previous = { GIT_REPLACE_REF_BASE: process.env.GIT_REPLACE_REF_BASE,
+                GIT_GRAFT_FILE: process.env.GIT_GRAFT_FILE };
+            try
+            {
+                if (context === 'graft-environment' || context === 'repository-grafts')
+                {
+                    const graft = context === 'graft-environment' ? path.join(root, 'alternate-grafts')
+                        : path.resolve(root, git('rev-parse', '--git-path', 'info/grafts').toString('utf8').trim());
+                    fs.writeFileSync(graft, git('rev-parse', 'HEAD').toString('utf8').trim() + ' ' + format + '\n');
+                    if (context === 'graft-environment')
+                    {
+                        process.env.GIT_GRAFT_FILE = graft;
+                    }
+                }
+                else if (context === 'commit')
+                {
+                    const head = git('rev-parse', 'HEAD').toString('utf8').trim();
+                    const tree = git('rev-parse', 'HEAD^{tree}').toString('utf8').trim();
+                    const replacement = execFileSync('git', ['-C', root, 'commit-tree', tree, '-p', format],
+                        { env, input: 'test(governance): replace actual commit metadata\n\nRefs: #4452\n' }).toString('utf8').trim();
+                    git('replace', head, replacement);
+                }
+                else
+                {
+                    const original = git('rev-parse', 'HEAD:' + blameFile).toString('utf8').trim();
+                    const bytes = fs.readFileSync(path.join(root, blameFile), 'utf8') + '# replacement-only uncommitted comment\n';
+                    const replacement = execFileSync('git', ['-C', root, 'hash-object', '-w', '--stdin'],
+                        { env, input: bytes }).toString('utf8').trim();
+                    const prefix = context === 'custom-prefix' ? 'refs/source-fixture-replacements/' : 'refs/replace/';
+                    git('update-ref', prefix + original, replacement);
+                    fs.writeFileSync(path.join(root, blameFile), bytes);
+                    if (context === 'custom-prefix')
+                    {
+                        process.env.GIT_REPLACE_REF_BASE = prefix;
+                    }
+                }
+                assert.throws(() => inspectBlame(root), /history.rewrite|replacement|graft/u);
+            }
+            finally
+            {
+                for (const [key, value] of Object.entries(previous))
+                {
+                    if (value === undefined)
+                    {
+                        delete process.env[key];
+                    }
+                    else
+                    {
+                        process.env[key] = value;
+                    }
+                }
+            }
+        });
+    });
+}
+
+for (const context of ['replacement-ref', 'graft-file', 'graft-environment'])
+{
+    test(`canonical blame source refuses Git history rewrite introduced during validation: ${context}`, () =>
+    {
+        blameFixture(({ root, format, git, env }) =>
+        {
+            const original = childProcess.execFileSync;
+            const previousGraft = process.env.GIT_GRAFT_FILE;
+            const head = git('rev-parse', 'HEAD').toString('utf8').trim();
+            const tree = git('rev-parse', 'HEAD^{tree}').toString('utf8').trim();
+            const replacement = execFileSync('git', ['-C', root, 'commit-tree', tree, '-p', format],
+                { env, input: 'test(governance): create actual controlled replacement\n\nRefs: #4452\n' }).toString('utf8').trim();
+            const graft = path.resolve(root, git('rev-parse', '--git-path', 'info/grafts').toString('utf8').trim());
+            let indexes = 0;
+            childProcess.execFileSync = (executable, args, options) =>
+            {
+                if (executable === 'git' && args[0] === '-C' && args[1] === root
+                    && args.length === 5 && args.slice(2).join(' ') === 'ls-files --stage -z' && ++indexes === 2)
+                {
+                    if (context === 'replacement-ref')
+                    {
+                        original('git', ['-C', root, 'replace', head, replacement], { env });
+                    }
+                    else if (context === 'graft-file')
+                    {
+                        fs.writeFileSync(graft, head + ' ' + format + '\n');
+                    }
+                    else
+                    {
+                        process.env.GIT_GRAFT_FILE = path.join(root, 'new-graft-context');
+                    }
+                }
+                return original(executable, args, options);
+            };
+            syncBuiltinESMExports();
+            try
+            {
+                assert.throws(() => inspectBlame(root), /history.rewrite|replacement|graft/u);
+                assert.equal(indexes, 2);
+            }
+            finally
+            {
+                childProcess.execFileSync = original;
+                syncBuiltinESMExports();
+                if (previousGraft === undefined)
+                {
+                    delete process.env.GIT_GRAFT_FILE;
+                }
+                else
+                {
+                    process.env.GIT_GRAFT_FILE = previousGraft;
+                }
+            }
+        });
+    });
+}
