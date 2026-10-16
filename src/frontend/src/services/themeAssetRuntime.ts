@@ -48,12 +48,15 @@ export interface ThemeAssetFailureReport {
 
 export class ThemeAssetRuntimeError extends Error
 {
+    public readonly code: string;
+
     constructor(
-        public readonly code: string,
+        code: string,
         message: string
     )
     {
         super(message);
+        this.code = code;
         this.name = 'ThemeAssetRuntimeError';
     }
 }

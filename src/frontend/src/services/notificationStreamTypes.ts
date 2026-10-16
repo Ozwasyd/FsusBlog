@@ -5,7 +5,6 @@ import type {
     InboxMessageAppendPayload,
     InboxReadUpdatedPayload
 } from '@/contracts/binaryApi';
-import type { PowParams } from '@/contracts/binaryTransport';
 import type { AppErrorCode } from '@/utils/appError';
 
 export type { PowParams } from '@/contracts/binaryTransport';

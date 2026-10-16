@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -87,6 +87,78 @@ test('the original Markdown adapter has an exact source-only declaration and fiv
     git('add', indexPath);
     rmSync(path.join(root, inputs[0]));
     assert.notEqual(inspect(index).errors.length, 0);
+});
+
+test('the existing blame validator parser load has one exact independently reviewed source declaration', t =>
+{
+    const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
+    const root = mkdtempSync(path.join(os.tmpdir(), 'blame-parser-source-declaration-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const indexPath = 'config/testing/release-final-execution-authority-index.json';
+    const owner = 'tools/governance/javascript-format-equivalence.mjs';
+    const index = JSON.parse(readFileSync(path.join(repositoryRoot, indexPath), 'utf8'));
+    const rows = index.runtimeDynamicImports.filter(row => row.owner === owner);
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0].dependencies, [
+        './javascript-format-parser/package.json',
+        './javascript-format-parser/package-lock.json'
+    ]);
+    const inputs = rows[0].dependencies.map(dependency => path.posix.normalize(path.posix.join(path.posix.dirname(owner), dependency)));
+    const put = (entry, bytes) =>
+    {
+        mkdirSync(path.dirname(path.join(root, entry)), { recursive: true });
+        writeFileSync(path.join(root, entry), bytes);
+    };
+    for (const entry of [owner, ...inputs])
+    {
+        put(entry, readFileSync(path.join(repositoryRoot, entry)));
+    }
+    const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
+    git('init', '--quiet');
+    git('config', 'user.name', 'Source declaration control');
+    git('config', 'user.email', 'source-control@example.invalid');
+    git('add', '.');
+    git('commit', '--quiet', '-m', 'test fixture');
+    const inspect = value =>
+    {
+        put(indexPath, JSON.stringify(value) + '\n');
+        git('add', indexPath);
+        const isolated = mkdtempSync(path.join(os.tmpdir(), 'blame-parser-declaration-case-'));
+        t.after(() => rmSync(isolated, { recursive: true, force: true }));
+        cpSync(root, isolated, { recursive: true });
+        return inspectReleaseFinalCommandTarget({ repositoryRoot: isolated, target: owner });
+    };
+    const positive = inspect(index);
+    assert.deepEqual(positive.errors, []);
+    assert.deepEqual(positive.dependencyClosure.map(record => record.path).sort(), [...inputs].sort());
+    const absent = structuredClone(index);
+    absent.runtimeDynamicImports = absent.runtimeDynamicImports.filter(row => row.owner !== owner);
+    assert.ok(inspect(absent).errors.some(error => error.includes('unresolved dynamic require')));
+    for (const field of ['owner', 'sourceDigest', 'expressionDigest', 'kind'])
+    {
+        const changed = structuredClone(index);
+        changed.runtimeDynamicImports.find(row => row.owner === owner)[field] = 'unreviewed';
+        assert.ok(inspect(changed).errors.some(error => error.includes('unresolved dynamic require')), field);
+    }
+    for (const entry of inputs)
+    {
+        rmSync(path.join(root, entry));
+        assert.notEqual(inspect(index).errors.length, 0, entry);
+        put(entry, readFileSync(path.join(repositoryRoot, entry)));
+        git('add', entry);
+    }
+    const alias = structuredClone(index);
+    alias.runtimeDynamicImports.find(row => row.owner === owner).dependencies.push('./javascript-format-parser/missing.json');
+    assert.notEqual(inspect(alias).errors.length, 0);
+    const linked = structuredClone(index);
+    const linkedPath = 'tools/governance/javascript-format-parser/manifest-alias.json';
+    symlinkSync('package.json', path.join(root, linkedPath));
+    git('add', linkedPath);
+    linked.runtimeDynamicImports.find(row => row.owner === owner).dependencies[0] = './javascript-format-parser/manifest-alias.json';
+    assert.notEqual(inspect(linked).errors.length, 0);
+    put(owner, readFileSync(path.join(repositoryRoot, owner), 'utf8') + '\n// unreviewed owner drift\n');
+    git('add', owner);
+    assert.ok(inspect(index).errors.some(error => error.includes('unresolved dynamic require')));
 });
 
 test('changed applicable source, index, owner and argv each refuse', () =>

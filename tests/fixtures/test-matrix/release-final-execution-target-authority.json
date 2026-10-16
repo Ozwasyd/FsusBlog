@@ -2,7 +2,7 @@
     "schema": "fsusblog.release-final-execution-target-authority.v2",
     "source": "tests/matrix.yml",
     "sourceIndex": "config/testing/release-final-execution-authority-index.json",
-    "sourceIndexDigest": "sha256:6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+    "sourceIndexDigest": "sha256:6c2cc52f641ecc3a3cc4c7b58401b81fe556cf9ca9234e28d25ddc59ec1fb76b",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
     "nodeParserIdentity": {
         "nodeVersion": "v24.16.0",
@@ -27,6 +27,11 @@
             "path": ".markdownlint-cli2.jsonc",
             "contentDigest": "sha256:3e1c46bc2ba6674623ab3bf35f7cadfb1b1e5703e3ff83d006da6dd1020e3140",
             "indexDigest": "sha256:3e1c46bc2ba6674623ab3bf35f7cadfb1b1e5703e3ff83d006da6dd1020e3140"
+        },
+        {
+            "path": "commitlint.config.mjs",
+            "contentDigest": "sha256:32ab46c67fda654e375327f973c6d73f60f44830230836fda6704e8d6f216070",
+            "indexDigest": "sha256:32ab46c67fda654e375327f973c6d73f60f44830230836fda6704e8d6f216070"
         },
         {
             "path": "config/development/authoritative-development-docs.json",
@@ -2145,13 +2150,13 @@
         },
         {
             "path": "tests/tools/pr-applicable-execution-authority.test.mjs",
-            "contentDigest": "sha256:e6a49e6f5e3d5b7d5c2c8cf663c613e2f0d1b42896120c66127f50066a2e9f67",
-            "indexDigest": "sha256:e6a49e6f5e3d5b7d5c2c8cf663c613e2f0d1b42896120c66127f50066a2e9f67"
+            "contentDigest": "sha256:18d015c5ee41a212e107e0944ef537465ee57bc6882e0b1af9ee877d114a859b",
+            "indexDigest": "sha256:18d015c5ee41a212e107e0944ef537465ee57bc6882e0b1af9ee877d114a859b"
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc",
-            "indexDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc"
+            "contentDigest": "sha256:dbd764cf0ed4af01cb9ffdc562ac5d52bcccbf4964bc587b20dece0f8b21d085",
+            "indexDigest": "sha256:dbd764cf0ed4af01cb9ffdc562ac5d52bcccbf4964bc587b20dece0f8b21d085"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -2475,13 +2480,13 @@
         },
         {
             "path": "tools/configuration/check-solution-source.mjs",
-            "contentDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1",
-            "indexDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1"
+            "contentDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd",
+            "indexDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd"
         },
         {
             "path": "tools/configuration/solution-source.test.mjs",
-            "contentDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a",
-            "indexDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a"
+            "contentDigest": "sha256:5c6a7532feacb1baa2443842decba6cdb2d23cf218a25cf0043672bf73f5dd7b",
+            "indexDigest": "sha256:5c6a7532feacb1baa2443842decba6cdb2d23cf218a25cf0043672bf73f5dd7b"
         },
         {
             "path": "tools/contracts/behavior-contract-catalog.mjs",
@@ -3354,6 +3359,11 @@
             "indexDigest": "sha256:019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df"
         },
         {
+            "path": "tools/governance/change-contract.mjs",
+            "contentDigest": "sha256:fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
+            "indexDigest": "sha256:fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463"
+        },
+        {
             "path": "tools/governance/check-article-bulk-authorities.mjs",
             "contentDigest": "sha256:7d6837e160a6b295100b5b42ae8307bcda74a08f4acbd807f9d5373863bf5dc2",
             "indexDigest": "sha256:7d6837e160a6b295100b5b42ae8307bcda74a08f4acbd807f9d5373863bf5dc2"
@@ -3562,6 +3572,36 @@
             "path": "tools/governance/dependency-update-surface-policy.mjs",
             "contentDigest": "sha256:b844a35cc54b3443ed818db9af747b23f88762933c83d2dfd02649ede13b8b49",
             "indexDigest": "sha256:b844a35cc54b3443ed818db9af747b23f88762933c83d2dfd02649ede13b8b49"
+        },
+        {
+            "path": "tools/governance/generated-output-digest-repair-repository.mjs",
+            "contentDigest": "sha256:40073b27573b088924b6c8a8ff14e6c9747da3db9748346de3d15f61a093a9f0",
+            "indexDigest": "sha256:40073b27573b088924b6c8a8ff14e6c9747da3db9748346de3d15f61a093a9f0"
+        },
+        {
+            "path": "tools/governance/generated-output-digest-repair-v2.mjs",
+            "contentDigest": "sha256:5208b1d34acf213fcceabe3b0d4f1e2dc6eac90368a23d6cf51b8fbe9c06efb7",
+            "indexDigest": "sha256:5208b1d34acf213fcceabe3b0d4f1e2dc6eac90368a23d6cf51b8fbe9c06efb7"
+        },
+        {
+            "path": "tools/governance/generated-output-history-repair-v3.mjs",
+            "contentDigest": "sha256:3242e0e6e3b8586f5acf9e869cd329919214edac2110c0f4052c61259ac46e7a",
+            "indexDigest": "sha256:3242e0e6e3b8586f5acf9e869cd329919214edac2110c0f4052c61259ac46e7a"
+        },
+        {
+            "path": "tools/governance/javascript-format-equivalence.mjs",
+            "contentDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+            "indexDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90"
+        },
+        {
+            "path": "tools/governance/javascript-format-parser/package-lock.json",
+            "contentDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9",
+            "indexDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+        },
+        {
+            "path": "tools/governance/javascript-format-parser/package.json",
+            "contentDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6",
+            "indexDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6"
         },
         {
             "path": "tools/governance/revision-compare-authority-rules.mjs",
@@ -4380,8 +4420,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f",
-            "indexDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f"
+            "contentDigest": "sha256:4717b396eec6ba68aac47d3013dc1c16f6400eb31c30478ce4793f8c027ab6c0",
+            "indexDigest": "sha256:4717b396eec6ba68aac47d3013dc1c16f6400eb31c30478ce4793f8c027ab6c0"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6930,11 +6970,12 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
-            "indexDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
+            "contentDigest": "sha256:85e6acb7ad9fa0373c1162993a7d9abc4fe740517755170b026c7981c627660f",
+            "indexDigest": "sha256:85e6acb7ad9fa0373c1162993a7d9abc4fe740517755170b026c7981c627660f",
             "dependencyClosure": [
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
+                "commitlint.config.mjs",
                 "config/development/authoritative-development-docs.json",
                 "config/development/frontend-style-policy.json",
                 "config/development/frontend-style-rule-registry.json",
@@ -7001,7 +7042,15 @@
                 "tools/frontend/style-toolchain/package-lock.json",
                 "tools/frontend/style-toolchain/package.json",
                 "tools/frontend/style-toolchain/stylelint.config.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
                 "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "tools/governance/generated-output-digest-repair-repository.mjs",
+                "tools/governance/generated-output-digest-repair-v2.mjs",
+                "tools/governance/generated-output-history-repair-v3.mjs",
+                "tools/governance/javascript-format-equivalence.mjs",
+                "tools/governance/javascript-format-parser/package-lock.json",
+                "tools/governance/javascript-format-parser/package.json",
                 "tools/package.json",
                 "tools/release/browser-release-clean-attempt-consumers.mjs",
                 "tools/release/clean-attempt-evidence-source.mjs",
