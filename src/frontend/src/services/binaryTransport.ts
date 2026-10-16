@@ -189,9 +189,9 @@ function resetWorker(error: unknown): void
 {
     clearWorkerIdleTimer();
     const pending = Array.from(pendingRequests.keys());
-    for (let i = 0; i < pending.length; i += 1)
+    for (const requestId of pending)
     {
-        const request = clearPendingRequest(pending[i], false);
+        const request = clearPendingRequest(requestId, false);
         request?.reject(error);
     }
 
@@ -430,7 +430,7 @@ function createAbortLikeError(message: string): Error
     return error;
 }
 
-function startWorkerDecode<T>(queued: QueuedDecodeRequest): void
+function startWorkerDecode(queued: QueuedDecodeRequest): void
 {
     const worker = getWorker();
     const { requestId, signal } = queued;
@@ -549,7 +549,7 @@ function decodeInWorker<T>(
 
         abortCleanup?.();
         queued.abortCleanup = null;
-        startWorkerDecode<T>(queued);
+        startWorkerDecode(queued);
     });
 }
 
@@ -660,7 +660,6 @@ async function loadBinaryAndDecodeSafe<T>(
                 };
             }
 
-            let binaryErrorMessage = '';
             if (error instanceof BinaryRequestError)
             {
                 const apiError = decodeApiErrorFrame(error.buffer);
@@ -674,7 +673,6 @@ async function loadBinaryAndDecodeSafe<T>(
                 const riskControlDecision = riskControlDecisionFromResponse(error.headers);
                 if (apiError)
                 {
-                    binaryErrorMessage = apiError.message;
                     return {
                         ok: false,
                         failure: {
@@ -695,7 +693,7 @@ async function loadBinaryAndDecodeSafe<T>(
             }
 
             const normalizedError = toAppError(error, 'binary_transport_failed');
-            const message = binaryErrorMessage || normalizedError.message || 'binary_transport_failed';
+            const message = normalizedError.message || 'binary_transport_failed';
             const appCode = isAppError(error) ? error.code : normalizedError.code;
             const kind: TransportFailureKind = normalizedError.details === 'binary_disabled'
                 ? 'binary_disabled'
